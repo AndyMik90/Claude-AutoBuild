@@ -75,7 +75,7 @@ import {
   EXECUTION_PHASE_BADGE_COLORS,
   EXECUTION_PHASE_COLORS
 } from '../../shared/constants';
-import { startTask, stopTask, submitReview, checkTaskRunning, recoverStuckTask, deleteTask } from '../stores/task-store';
+import { startTask, stopTask, submitReview, checkTaskRunning, recoverStuckTask, deleteTask, isIncompleteHumanReview, getTaskProgress } from '../stores/task-store';
 import type { Task, TaskCategory, ExecutionPhase, WorktreeStatus, WorktreeDiff, ReviewReason, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry } from '../../shared/types';
 import { TaskEditDialog } from './TaskEditDialog';
 
@@ -133,6 +133,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const needsReview = task.status === 'human_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
+  
+  // Check if task is in human_review but has no completed chunks (crashed/incomplete)
+  const isIncomplete = isIncompleteHumanReview(task);
+  const taskProgress = getTaskProgress(task);
 
   // Check if task is stuck (status says in_progress but no actual process)
   useEffect(() => {
@@ -379,6 +383,16 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   <AlertTriangle className="h-3 w-3" />
                   Stuck
                 </Badge>
+              ) : isIncomplete ? (
+                <>
+                  <Badge variant="warning" className="text-xs flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Incomplete
+                  </Badge>
+                  <Badge variant="outline" className="text-xs text-orange-400">
+                    {taskProgress.completed}/{taskProgress.total} chunks
+                  </Badge>
+                </>
               ) : (
                 <>
                   <Badge
@@ -486,6 +500,33 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                             Recover & Restart Task
                           </>
                         )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Incomplete Task Warning - task in human_review but no chunks completed */}
+              {isIncomplete && !isStuck && (
+                <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-sm text-foreground mb-1">
+                        Task Incomplete
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        This task has a spec and implementation plan but never completed any chunks ({taskProgress.completed}/{taskProgress.total}).
+                        The process likely crashed during spec creation. Click Resume to continue implementation.
+                      </p>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleStartStop}
+                        className="w-full"
+                      >
+                        <Play className="mr-2 h-4 w-4" />
+                        Resume Task
                       </Button>
                     </div>
                   </div>
@@ -1131,6 +1172,15 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 Recover Task
               </>
             )}
+          </Button>
+        ) : isIncomplete ? (
+          <Button
+            className="w-full"
+            variant="default"
+            onClick={handleStartStop}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            Resume Task
           </Button>
         ) : (task.status === 'backlog' || task.status === 'in_progress') && (
           <Button

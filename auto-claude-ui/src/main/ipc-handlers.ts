@@ -679,7 +679,7 @@ export function setupIpcHandlers(
 
         // Start spec creation process - pass the existing spec directory
         // so spec_runner uses it instead of creating a new one
-        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode);
+        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode, task.metadata);
       } else if (needsImplementation) {
         // Spec exists but no chunks - run run.py to create implementation plan and execute
         // Read the spec.md to get the task description
@@ -929,7 +929,7 @@ export function setupIpcHandlers(
             // No spec file - need to run spec_runner.py to create the spec
             const taskDescription = task.description || task.title;
             console.log('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
-            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode);
+            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode, task.metadata);
           } else if (needsImplementation) {
             // Spec exists but no chunks - run run.py to create implementation plan and execute
             console.log('[TASK_UPDATE_STATUS] Starting task execution (no chunks) for:', task.specId);

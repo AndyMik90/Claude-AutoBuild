@@ -475,3 +475,43 @@ export function isDraftEmpty(draft: TaskDraft | null): boolean {
     !draft.impact
   );
 }
+
+// ============================================
+// Task State Detection Helpers
+// ============================================
+
+/**
+ * Check if a task is in human_review but has no completed chunks.
+ * This indicates the task crashed/exited before implementation completed
+ * and should be resumed rather than reviewed.
+ */
+export function isIncompleteHumanReview(task: Task): boolean {
+  if (task.status !== 'human_review') return false;
+  
+  // If no chunks defined, task hasn't been planned yet (shouldn't be in human_review)
+  if (!task.chunks || task.chunks.length === 0) return true;
+  
+  // Check if any chunks are completed
+  const completedChunks = task.chunks.filter(c => c.status === 'completed').length;
+  
+  // If 0 completed chunks, this task crashed before implementation
+  return completedChunks === 0;
+}
+
+/**
+ * Get the count of completed chunks for a task
+ */
+export function getCompletedChunkCount(task: Task): number {
+  if (!task.chunks || task.chunks.length === 0) return 0;
+  return task.chunks.filter(c => c.status === 'completed').length;
+}
+
+/**
+ * Get task progress info
+ */
+export function getTaskProgress(task: Task): { completed: number; total: number; percentage: number } {
+  const total = task.chunks?.length || 0;
+  const completed = task.chunks?.filter(c => c.status === 'completed').length || 0;
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return { completed, total, percentage };
+}

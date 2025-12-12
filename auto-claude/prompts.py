@@ -178,6 +178,56 @@ Chunks with previous attempts:
         return ""
 
 
+def get_followup_planner_prompt(spec_dir: Path) -> str:
+    """
+    Load the follow-up planner agent prompt with spec path and key files injected.
+    The follow-up planner adds new chunks to an existing completed implementation plan.
+
+    Args:
+        spec_dir: Directory containing the completed spec and implementation_plan.json
+
+    Returns:
+        The follow-up planner prompt content with paths injected
+    """
+    prompt_file = PROMPTS_DIR / "followup_planner.md"
+
+    if not prompt_file.exists():
+        raise FileNotFoundError(
+            f"Follow-up planner prompt not found at {prompt_file}\n"
+            "Make sure the auto-claude/prompts/followup_planner.md file exists."
+        )
+
+    prompt = prompt_file.read_text()
+
+    # Inject spec directory information at the beginning
+    spec_context = f"""## SPEC LOCATION (FOLLOW-UP MODE)
+
+You are adding follow-up work to a **completed** spec.
+
+**Key files in this spec directory:**
+- Spec: `{spec_dir}/spec.md`
+- Follow-up request: `{spec_dir}/FOLLOWUP_REQUEST.md` (READ THIS FIRST!)
+- Implementation plan: `{spec_dir}/implementation_plan.json` (APPEND to this, don't replace)
+- Progress notes: `{spec_dir}/build-progress.txt`
+- Context: `{spec_dir}/context.json`
+- Memory: `{spec_dir}/memory/`
+
+**Important paths:**
+- Spec directory: `{spec_dir}`
+- Project root: Parent of auto-claude/ (where code should be implemented)
+
+**Your task:**
+1. Read `{spec_dir}/FOLLOWUP_REQUEST.md` to understand what to add
+2. Read `{spec_dir}/implementation_plan.json` to see existing phases/chunks
+3. ADD new phase(s) with pending chunks to the existing plan
+4. PRESERVE all existing chunks and their statuses
+
+---
+
+"""
+    return spec_context + prompt
+
+
 def is_first_run(spec_dir: Path) -> bool:
     """
     Check if this is the first run (no implementation plan exists yet).

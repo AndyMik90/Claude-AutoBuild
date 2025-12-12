@@ -17,7 +17,7 @@ Environment Variables:
 
     # OpenAI
     OPENAI_API_KEY: Required for OpenAI provider
-    OPENAI_MODEL: Model for LLM (default: gpt-4o)
+    OPENAI_MODEL: Model for LLM (default: gpt-5-mini)
     OPENAI_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-3-small)
 
     # Anthropic (LLM only - needs separate embedder)
@@ -110,7 +110,7 @@ class GraphitiConfig:
 
     # OpenAI settings
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    openai_model: str = "gpt-5-mini"
     openai_embedding_model: str = "text-embedding-3-small"
 
     # Anthropic settings (LLM only)
@@ -167,7 +167,7 @@ class GraphitiConfig:
 
         # OpenAI settings
         openai_api_key = os.environ.get("OPENAI_API_KEY", "")
-        openai_model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+        openai_model = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
         openai_embedding_model = os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
         # Anthropic settings

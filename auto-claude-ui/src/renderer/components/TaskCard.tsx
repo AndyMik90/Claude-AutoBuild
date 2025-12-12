@@ -18,7 +18,7 @@ import {
   EXECUTION_PHASE_LABELS,
   EXECUTION_PHASE_BADGE_COLORS
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview } from '../stores/task-store';
 import type { Task, TaskCategory, ExecutionPhase, ReviewReason } from '../../shared/types';
 
 // Category icon mapping
@@ -48,6 +48,9 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
+  
+  // Check if task is in human_review but has no completed chunks (crashed/incomplete)
+  const isIncomplete = isIncompleteHumanReview(task);
 
   // Check if task is stuck (status says in_progress but no actual process)
   useEffect(() => {
@@ -159,8 +162,18 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 Stuck
               </Badge>
             )}
+            {/* Incomplete indicator - task in human_review but no chunks completed */}
+            {isIncomplete && !isStuck && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-orange-500/10 text-orange-400 border-orange-500/30"
+              >
+                <AlertTriangle className="h-2.5 w-2.5" />
+                Incomplete
+              </Badge>
+            )}
             {/* Execution phase badge - shown when actively running */}
-            {hasActiveExecution && executionPhase && !isStuck && (
+            {hasActiveExecution && executionPhase && !isStuck && !isIncomplete && (
               <Badge
                 variant="outline"
                 className={cn(
@@ -173,13 +186,13 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
               </Badge>
             )}
             <Badge
-              variant={isStuck ? 'warning' : getStatusBadgeVariant(task.status)}
+              variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
               className="text-[10px] px-1.5 py-0.5"
             >
-              {isStuck ? 'Needs Recovery' : getStatusLabel(task.status)}
+              {isStuck ? 'Needs Recovery' : isIncomplete ? 'Needs Resume' : getStatusLabel(task.status)}
             </Badge>
             {/* Review reason badge - explains why task needs human review */}
-            {reviewReasonInfo && !isStuck && (
+            {reviewReasonInfo && !isStuck && !isIncomplete && (
               <Badge
                 variant={reviewReasonInfo.variant}
                 className="text-[10px] px-1.5 py-0.5"
@@ -326,6 +339,16 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                   Recover
                 </>
               )}
+            </Button>
+          ) : isIncomplete ? (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 px-2.5"
+              onClick={handleStartStop}
+            >
+              <Play className="mr-1.5 h-3 w-3" />
+              Resume
             </Button>
           ) : (task.status === 'backlog' || task.status === 'in_progress') && (
             <Button

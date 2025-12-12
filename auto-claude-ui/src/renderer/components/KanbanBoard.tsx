@@ -110,6 +110,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick }: Dro
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         'flex w-72 shrink-0 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getColumnBorderColor(),
@@ -139,8 +140,8 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick }: Dro
         )}
       </div>
 
-      {/* Droppable task list */}
-      <div ref={setNodeRef} className="flex-1 min-h-0">
+      {/* Task list */}
+      <div className="flex-1 min-h-0">
         <ScrollArea className="h-full px-3 pb-3 pt-2">
           <SortableContext
             items={taskIds}

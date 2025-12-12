@@ -149,6 +149,7 @@ export interface TaskDraft {
   complexity: TaskComplexity | '';
   impact: TaskImpact | '';
   images: ImageAttachment[];
+  requireReviewBeforeCoding?: boolean;
   savedAt: Date;
 }
 
@@ -200,6 +201,9 @@ export interface TaskMetadata {
 
   // Image attachments (screenshots, mockups, diagrams)
   attachedImages?: ImageAttachment[];
+
+  // Review settings
+  requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
 }
 
 export interface Task {

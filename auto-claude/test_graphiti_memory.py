@@ -27,7 +27,7 @@ Usage:
     # Azure OpenAI:
     export AZURE_OPENAI_API_KEY=...
     export AZURE_OPENAI_BASE_URL=https://...
-    export AZURE_OPENAI_LLM_DEPLOYMENT=gpt-4o
+    export AZURE_OPENAI_LLM_DEPLOYMENT=gpt-5
     export AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
 
     # Ollama (local):

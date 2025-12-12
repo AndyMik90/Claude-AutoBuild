@@ -462,6 +462,121 @@ class ImplementationPlan:
 
         return "\n".join(lines)
 
+    def add_followup_phase(
+        self,
+        name: str,
+        chunks: list[Chunk],
+        phase_type: PhaseType = PhaseType.IMPLEMENTATION,
+        parallel_safe: bool = False,
+    ) -> Phase:
+        """
+        Add a new follow-up phase to an existing (typically completed) plan.
+
+        This allows users to extend completed builds with additional work.
+        The new phase depends on all existing phases to ensure proper sequencing.
+
+        Args:
+            name: Name of the follow-up phase (e.g., "Follow-Up: Add validation")
+            chunks: List of Chunk objects to include in the phase
+            phase_type: Type of the phase (default: implementation)
+            parallel_safe: Whether chunks in this phase can run in parallel
+
+        Returns:
+            The newly created Phase object
+
+        Example:
+            >>> plan = ImplementationPlan.load(plan_path)
+            >>> new_chunks = [Chunk(id="followup-1", description="Add error handling")]
+            >>> plan.add_followup_phase("Follow-Up: Error Handling", new_chunks)
+            >>> plan.save(plan_path)
+        """
+        # Calculate the next phase number
+        if self.phases:
+            next_phase_num = max(p.phase for p in self.phases) + 1
+            # New phase depends on all existing phases
+            depends_on = [p.phase for p in self.phases]
+        else:
+            next_phase_num = 1
+            depends_on = []
+
+        # Create the new phase
+        new_phase = Phase(
+            phase=next_phase_num,
+            name=name,
+            type=phase_type,
+            chunks=chunks,
+            depends_on=depends_on,
+            parallel_safe=parallel_safe,
+        )
+
+        # Append to phases list
+        self.phases.append(new_phase)
+
+        # Update status to in_progress since we now have pending work
+        self.status = "in_progress"
+        self.planStatus = "in_progress"
+
+        # Clear QA signoff since the plan has changed
+        self.qa_signoff = None
+
+        return new_phase
+
+    def reset_for_followup(self) -> bool:
+        """
+        Reset plan status from completed/done back to in_progress for follow-up work.
+
+        This method is called when a user wants to add follow-up tasks to a
+        completed build. It transitions the plan status back to in_progress
+        so the build pipeline can continue processing new chunks.
+
+        The method:
+        - Sets status to "in_progress" (from "done", "ai_review", "human_review")
+        - Sets planStatus to "in_progress" (from "completed", "review")
+        - Clears QA signoff since new work invalidates previous approval
+        - Clears recovery notes from previous run
+
+        Returns:
+            bool: True if reset was successful, False if plan wasn't in a
+                  completed/reviewable state
+
+        Example:
+            >>> plan = ImplementationPlan.load(plan_path)
+            >>> if plan.reset_for_followup():
+            ...     plan.add_followup_phase("New Work", chunks)
+            ...     plan.save(plan_path)
+        """
+        # States that indicate the plan is "complete" or in review
+        completed_statuses = {"done", "ai_review", "human_review"}
+        completed_plan_statuses = {"completed", "review"}
+
+        # Check if plan is actually in a completed/reviewable state
+        is_completed = (
+            self.status in completed_statuses or
+            self.planStatus in completed_plan_statuses
+        )
+
+        # Also check if all chunks are actually completed
+        all_chunks = [c for p in self.phases for c in p.chunks]
+        all_chunks_done = all_chunks and all(
+            c.status == ChunkStatus.COMPLETED for c in all_chunks
+        )
+
+        if not (is_completed or all_chunks_done):
+            # Plan is not in a state that needs resetting
+            return False
+
+        # Transition back to in_progress
+        self.status = "in_progress"
+        self.planStatus = "in_progress"
+
+        # Clear QA signoff since we're adding new work
+        self.qa_signoff = None
+
+        # Clear any recovery notes from previous run
+        self.recoveryNote = None
+
+        return True
+
 
 def create_feature_plan(
     feature: str,

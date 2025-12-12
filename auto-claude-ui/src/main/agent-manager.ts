@@ -136,7 +136,8 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     taskDescription: string,
     specDir?: string,  // Optional spec directory (when task already has a directory created by UI)
-    devMode: boolean = false  // Dev mode: use dev/auto-claude/specs/ for framework development
+    devMode: boolean = false,  // Dev mode: use dev/auto-claude/specs/ for framework development
+    metadata?: { requireReviewBeforeCoding?: boolean }  // Task metadata to check for review requirement
   ): void {
     // Use source auto-claude path (the repo), not the project's auto-claude
     const autoBuildSource = this.getAutoBuildSourcePath();
@@ -164,9 +165,14 @@ export class AgentManager extends EventEmitter {
       args.push('--spec-dir', specDir);
     }
 
-    // Auto-approve: When user starts a task from the UI, that IS their approval
-    // No need for interactive review checkpoint - user explicitly clicked "Start"
-    args.push('--auto-approve');
+    // Check if user requires review before coding
+    // If requireReviewBeforeCoding is true, skip auto-approve to trigger review checkpoint
+    if (!metadata?.requireReviewBeforeCoding) {
+      // Auto-approve: When user starts a task from the UI without requiring review, that IS their approval
+      // No need for interactive review checkpoint - user explicitly clicked "Start"
+      args.push('--auto-approve');
+    }
+    // If requireReviewBeforeCoding is true, don't add --auto-approve, allowing the review checkpoint to appear
 
     // Pass --dev flag for framework development mode
     if (devMode) {

@@ -17,6 +17,7 @@ Enhanced with Graphiti memory for cross-session context retrieval.
 import asyncio
 import json
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -298,6 +299,48 @@ def find_phase_for_chunk(plan: dict, chunk_id: str) -> Optional[dict]:
     return None
 
 
+def sync_plan_to_source(spec_dir: Path, source_spec_dir: Optional[Path]) -> bool:
+    """
+    Sync implementation_plan.json from worktree back to source spec directory.
+    
+    When running in isolated mode (worktrees), the agent updates the implementation
+    plan inside the worktree. This function syncs those changes back to the main
+    project's spec directory so the frontend/UI can see the progress.
+    
+    Args:
+        spec_dir: Current spec directory (may be inside worktree)
+        source_spec_dir: Original spec directory in main project (outside worktree)
+        
+    Returns:
+        True if sync was performed, False if not needed or failed
+    """
+    # Skip if no source specified or same path (not in worktree mode)
+    if not source_spec_dir:
+        return False
+    
+    # Resolve paths and check if they're different
+    spec_dir_resolved = spec_dir.resolve()
+    source_spec_dir_resolved = source_spec_dir.resolve()
+    
+    if spec_dir_resolved == source_spec_dir_resolved:
+        return False  # Same directory, no sync needed
+    
+    # Sync the implementation plan
+    plan_file = spec_dir / "implementation_plan.json"
+    if not plan_file.exists():
+        return False
+    
+    source_plan_file = source_spec_dir / "implementation_plan.json"
+    
+    try:
+        shutil.copy2(plan_file, source_plan_file)
+        logger.debug(f"Synced implementation plan to source: {source_plan_file}")
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to sync implementation plan to source: {e}")
+        return False
+
+
 async def post_session_processing(
     spec_dir: Path,
     project_dir: Path,
@@ -308,6 +351,7 @@ async def post_session_processing(
     recovery_manager: RecoveryManager,
     linear_enabled: bool = False,
     status_manager: Optional[StatusManager] = None,
+    source_spec_dir: Optional[Path] = None,
 ) -> bool:
     """
     Process session results and update memory automatically.
@@ -324,12 +368,17 @@ async def post_session_processing(
         recovery_manager: Recovery manager instance
         linear_enabled: Whether Linear integration is enabled
         status_manager: Optional status manager for ccstatusline
+        source_spec_dir: Original spec directory (for syncing back from worktree)
 
     Returns:
         True if chunk was completed successfully
     """
     print()
     print(muted("--- Post-Session Processing ---"))
+    
+    # Sync implementation plan back to source (for worktree mode)
+    if sync_plan_to_source(spec_dir, source_spec_dir):
+        print_status("Implementation plan synced to main project", "success")
 
     # Check if implementation plan was updated
     plan = load_implementation_plan(spec_dir)
@@ -604,6 +653,7 @@ async def run_autonomous_agent(
     model: str,
     max_iterations: Optional[int] = None,
     verbose: bool = False,
+    source_spec_dir: Optional[Path] = None,
 ) -> None:
     """
     Run the autonomous agent loop with automatic memory management.
@@ -614,6 +664,7 @@ async def run_autonomous_agent(
         model: Claude model to use
         max_iterations: Maximum number of iterations (None for unlimited)
         verbose: Whether to show detailed output
+        source_spec_dir: Original spec directory in main project (for syncing from worktree)
     """
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
@@ -846,6 +897,7 @@ async def run_autonomous_agent(
                 recovery_manager=recovery_manager,
                 linear_enabled=linear_is_enabled,
                 status_manager=status_manager,
+                source_spec_dir=source_spec_dir,
             )
 
             # Check for stuck chunks
@@ -867,6 +919,10 @@ async def run_autonomous_agent(
                         attempt_count=attempt_count,
                     )
                     print_status("Linear notified of stuck chunk", "info")
+        elif is_planning_phase and source_spec_dir:
+            # After planning phase, sync the newly created implementation plan back to source
+            if sync_plan_to_source(spec_dir, source_spec_dir):
+                print_status("Implementation plan synced to main project", "success")
 
         # Handle session status
         if status == "complete":
@@ -962,3 +1018,141 @@ async def run_autonomous_agent(
         status_manager.update(state=BuildState.COMPLETE)
     else:
         status_manager.update(state=BuildState.PAUSED)
+
+
+async def run_followup_planner(
+    project_dir: Path,
+    spec_dir: Path,
+    model: str,
+    verbose: bool = False,
+) -> bool:
+    """
+    Run the follow-up planner to add new chunks to a completed spec.
+
+    This is a simplified version of run_autonomous_agent that:
+    1. Creates a client
+    2. Loads the followup planner prompt
+    3. Runs a single planning session
+    4. Returns after the plan is updated (doesn't enter coding loop)
+
+    The planner agent will:
+    - Read FOLLOWUP_REQUEST.md for the new task
+    - Read the existing implementation_plan.json
+    - Add new phase(s) with pending chunks
+    - Update the plan status back to in_progress
+
+    Args:
+        project_dir: Root directory for the project
+        spec_dir: Directory containing the completed spec
+        model: Claude model to use
+        verbose: Whether to show detailed output
+
+    Returns:
+        bool: True if planning completed successfully
+    """
+    from prompts import get_followup_planner_prompt
+    from implementation_plan import ImplementationPlan
+
+    # Initialize status manager for ccstatusline
+    status_manager = StatusManager(project_dir)
+    status_manager.set_active(spec_dir.name, BuildState.PLANNING)
+
+    # Initialize task logger for persistent logging
+    task_logger = get_task_logger(spec_dir)
+
+    # Show header
+    content = [
+        bold(f"{icon(Icons.GEAR)} FOLLOW-UP PLANNER SESSION"),
+        "",
+        f"Spec: {highlight(spec_dir.name)}",
+        muted("Adding follow-up work to completed spec."),
+        "",
+        muted("The agent will read your FOLLOWUP_REQUEST.md and add new chunks."),
+    ]
+    print()
+    print(box(content, width=70, style="heavy"))
+    print()
+
+    # Start planning phase in task logger
+    if task_logger:
+        task_logger.start_phase(LogPhase.PLANNING, "Starting follow-up planning...")
+        task_logger.set_session(1)
+
+    # Create client (fresh context)
+    client = create_client(project_dir, spec_dir, model)
+
+    # Generate follow-up planner prompt
+    prompt = get_followup_planner_prompt(spec_dir)
+
+    print_status("Running follow-up planner...", "progress")
+    print()
+
+    try:
+        # Run single planning session
+        async with client:
+            status, response = await run_agent_session(
+                client, prompt, spec_dir, verbose, phase=LogPhase.PLANNING
+            )
+
+        # End planning phase in task logger
+        if task_logger:
+            task_logger.end_phase(
+                LogPhase.PLANNING,
+                success=(status != "error"),
+                message="Follow-up planning session completed"
+            )
+
+        if status == "error":
+            print()
+            print_status("Follow-up planning failed", "error")
+            status_manager.update(state=BuildState.ERROR)
+            return False
+
+        # Verify the plan was updated (should have pending chunks now)
+        plan_file = spec_dir / "implementation_plan.json"
+        if plan_file.exists():
+            plan = ImplementationPlan.load(plan_file)
+
+            # Check if there are any pending chunks
+            all_chunks = [c for p in plan.phases for c in p.chunks]
+            pending_chunks = [c for c in all_chunks if c.status.value == "pending"]
+
+            if pending_chunks:
+                # Reset the plan status to in_progress (in case planner didn't)
+                plan.reset_for_followup()
+                plan.save(plan_file)
+
+                print()
+                content = [
+                    bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
+                    "",
+                    f"New pending chunks: {highlight(str(len(pending_chunks)))}",
+                    f"Total chunks: {len(all_chunks)}",
+                    "",
+                    muted("Next steps:"),
+                    f"  Run: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
+                ]
+                print(box(content, width=70, style="heavy"))
+                print()
+                status_manager.update(state=BuildState.PAUSED)
+                return True
+            else:
+                print()
+                print_status("Warning: No pending chunks found after planning", "warning")
+                print(muted("The planner may not have added new chunks."))
+                print(muted("Check implementation_plan.json manually."))
+                status_manager.update(state=BuildState.PAUSED)
+                return False
+        else:
+            print()
+            print_status("Error: implementation_plan.json not found after planning", "error")
+            status_manager.update(state=BuildState.ERROR)
+            return False
+
+    except Exception as e:
+        print()
+        print_status(f"Follow-up planning error: {e}", "error")
+        if task_logger:
+            task_logger.log_error(f"Follow-up planning error: {e}", LogPhase.PLANNING)
+        status_manager.update(state=BuildState.ERROR)
+        return False

@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { Checkbox } from './ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -66,6 +67,9 @@ export function TaskCreationWizard({
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>([]);
 
+  // Review setting
+  const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
+
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
@@ -85,6 +89,7 @@ export function TaskCreationWizard({
         setComplexity(draft.complexity);
         setImpact(draft.impact);
         setImages(draft.images);
+        setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setIsDraftRestored(true);
 
         // Expand sections if they have content
@@ -110,8 +115,9 @@ export function TaskCreationWizard({
     complexity,
     impact,
     images,
+    requireReviewBeforeCoding,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, images]);
+  }), [projectId, title, description, category, priority, complexity, impact, images, requireReviewBeforeCoding]);
 
   /**
    * Handle paste event for screenshot support
@@ -213,6 +219,7 @@ export function TaskCreationWizard({
       if (complexity) metadata.complexity = complexity;
       if (impact) metadata.impact = impact;
       if (images.length > 0) metadata.attachedImages = images;
+      if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
@@ -239,6 +246,7 @@ export function TaskCreationWizard({
     setComplexity('');
     setImpact('');
     setImages([]);
+    setRequireReviewBeforeCoding(false);
     setError(null);
     setShowAdvanced(false);
     setShowImages(false);
@@ -507,6 +515,28 @@ export function TaskCreationWizard({
               />
             </div>
           )}
+
+          {/* Review Requirement Toggle */}
+          <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
+            <Checkbox
+              id="require-review"
+              checked={requireReviewBeforeCoding}
+              onCheckedChange={(checked) => setRequireReviewBeforeCoding(checked === true)}
+              disabled={isCreating}
+              className="mt-0.5"
+            />
+            <div className="flex-1 space-y-1">
+              <Label
+                htmlFor="require-review"
+                className="text-sm font-medium text-foreground cursor-pointer"
+              >
+                Require human review before coding
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, you&apos;ll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.
+              </p>
+            </div>
+          </div>
 
           {/* Error */}
           {error && (

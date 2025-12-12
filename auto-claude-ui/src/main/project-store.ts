@@ -302,27 +302,8 @@ export class ProjectStore {
       }
     }
 
-    // Check QA report file for additional status info
-    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
-    if (existsSync(qaReportPath)) {
-      try {
-        const content = readFileSync(qaReportPath, 'utf-8');
-        if (content.includes('REJECTED') || content.includes('FAILED')) {
-          return { status: 'human_review', reviewReason: 'qa_rejected' };
-        }
-        if (content.includes('PASSED') || content.includes('APPROVED')) {
-          // QA passed - if all chunks done, move to human_review
-          if (allChunks.length > 0 && allChunks.every((c) => c.status === 'completed')) {
-            return { status: 'human_review', reviewReason: 'completed' };
-          }
-        }
-      } catch {
-        // Ignore read errors
-      }
-    }
-
-    // If we have an explicit status from the plan that's NOT inconsistent with chunks,
-    // prefer it (allows UI to set status like 'done' manually)
+    // FIRST: Check for explicit user-set status from plan (takes highest priority)
+    // This allows users to manually mark tasks as 'done' via drag-and-drop
     if (plan?.status) {
       const statusMap: Record<string, TaskStatus> = {
         'pending': 'backlog',
@@ -336,10 +317,14 @@ export class ProjectStore {
       };
       const storedStatus = statusMap[plan.status];
 
-      // Only trust stored status if it's not clearly wrong
+      // If user explicitly marked as 'done', always respect that
+      if (storedStatus === 'done') {
+        return { status: 'done' };
+      }
+
+      // For other stored statuses, validate against calculated status
       if (storedStatus) {
         const isStoredStatusValid =
-          storedStatus === 'done' || // User explicitly marked as done
           (storedStatus === calculatedStatus) || // Matches calculated
           (storedStatus === 'human_review' && calculatedStatus === 'ai_review'); // Human review is more advanced than ai_review
 
@@ -357,6 +342,25 @@ export class ProjectStore {
           }
           return { status: storedStatus, reviewReason: storedStatus === 'human_review' ? reviewReason : undefined };
         }
+      }
+    }
+
+    // SECOND: Check QA report file for additional status info
+    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
+    if (existsSync(qaReportPath)) {
+      try {
+        const content = readFileSync(qaReportPath, 'utf-8');
+        if (content.includes('REJECTED') || content.includes('FAILED')) {
+          return { status: 'human_review', reviewReason: 'qa_rejected' };
+        }
+        if (content.includes('PASSED') || content.includes('APPROVED')) {
+          // QA passed - if all chunks done, move to human_review
+          if (allChunks.length > 0 && allChunks.every((c) => c.status === 'completed')) {
+            return { status: 'human_review', reviewReason: 'completed' };
+          }
+        }
+      } catch {
+        // Ignore read errors
       }
     }
 

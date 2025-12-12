@@ -94,7 +94,20 @@ def _create_openai_llm_client(config: "GraphitiConfig") -> Any:
         model=config.openai_model,
     )
 
-    return OpenAIClient(config=llm_config)
+    # GPT-5 family and o1/o3 models support reasoning/verbosity params
+    model_lower = config.openai_model.lower()
+    supports_reasoning = (
+        model_lower.startswith("gpt-5") or
+        model_lower.startswith("o1") or
+        model_lower.startswith("o3")
+    )
+
+    if supports_reasoning:
+        # Use defaults for models that support reasoning params
+        return OpenAIClient(config=llm_config)
+    else:
+        # Disable reasoning/verbosity for older models that don't support them
+        return OpenAIClient(config=llm_config, reasoning=None, verbosity=None)
 
 
 def _create_anthropic_llm_client(config: "GraphitiConfig") -> Any:
