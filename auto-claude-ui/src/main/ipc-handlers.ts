@@ -1549,6 +1549,19 @@ export function setupIpcHandlers(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
     async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<import('../shared/types').WorktreeMergeResult>> => {
       try {
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
