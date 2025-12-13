@@ -559,39 +559,26 @@ chmod +x init.sh
 
 ---
 
-## PHASE 6: CREATE GIT BRANCH
+## PHASE 6: COMMIT IMPLEMENTATION PLAN
 
-**FIRST: Check if running in dev mode:**
+**IMPORTANT: Branch/worktree management is handled by the Python orchestrator.**
+Do NOT run `git checkout` or `git branch` commands - your workspace is already set up.
+
+**Commit the implementation plan (if changes are present):**
 ```bash
-# Check complexity_assessment.json for dev_mode flag
-cat complexity_assessment.json | grep -o '"dev_mode": true' && echo "DEV MODE ACTIVE"
-```
-
-**If dev_mode is TRUE:**
-- Spec files are in a gitignored location (dev/auto-claude/specs/)
-- Do NOT commit spec files - they're working documents
-- Still create the git branch for tracking code changes to auto-claude/
-
-```bash
-# Create feature branch for tracking code changes
-git checkout -b auto-claude/[feature-name]
-# Do NOT commit spec files in dev mode - they're in gitignored folder
-```
-
-**If dev_mode is FALSE (normal mode):**
-```bash
-# Create feature branch
-git checkout -b auto-claude/[feature-name]
-
-# Commit plan
+# Add plan files
 git add implementation_plan.json init.sh
-git commit -m "auto-claude: Initialize chunk-based implementation plan
+
+# Check if there's anything to commit
+git diff --cached --quiet || git commit -m "auto-claude: Initialize chunk-based implementation plan
 
 - Workflow type: [type]
 - Phases: [N]
 - Chunks: [N]
 - Ready for autonomous implementation"
 ```
+
+Note: If the commit fails (e.g., nothing to commit, or in a special workspace), that's okay - the plan is still saved.
 
 ---
 
@@ -601,7 +588,7 @@ git commit -m "auto-claude: Initialize chunk-based implementation plan
 === AUTO-BUILD PROGRESS ===
 
 Project: [Name from spec]
-Branch: auto-claude/[feature-name]
+Workspace: [managed by orchestrator]
 Started: [Date/Time]
 
 Workflow Type: [feature|refactor|investigation|migration|simple]
@@ -635,16 +622,12 @@ To continue building this spec, run:
 Example:
   source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 001 --parallel 2
 
-(If in dev mode, add --dev flag to the command)
-
 === END SESSION 1 ===
 ```
 
-**Commit (only if NOT in dev mode):**
-Check complexity_assessment.json for dev_mode flag first. If dev_mode is true, skip this commit.
+**Commit progress:**
 
 ```bash
-# Only if dev_mode is false:
 git add build-progress.txt
 git commit -m "auto-claude: Add progress tracking"
 ```

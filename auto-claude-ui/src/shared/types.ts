@@ -21,8 +21,6 @@ export interface ProjectSettings {
   linearSync: boolean;
   linearTeamId?: string;
   notifications: NotificationSettings;
-  /** Dev mode: use dev/auto-claude/specs/ for framework development */
-  devMode: boolean;
   /** Enable Graphiti MCP server for agent-accessible knowledge graph */
   graphitiMcpEnabled: boolean;
   /** Graphiti MCP server URL (default: http://localhost:8000/mcp/) */
@@ -1181,13 +1179,6 @@ export interface ElectronAPI {
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
-
-  // Dev mode operations (for developing auto-claude itself)
-  hasLocalSource: (projectId: string) => Promise<IPCResult<boolean>>;
-  isDevMode: (projectId: string) => Promise<IPCResult<boolean>>;
-  enableDevMode: (projectId: string) => Promise<IPCResult>;
-  disableDevMode: (projectId: string) => Promise<IPCResult>;
-  syncDevMode: (projectId: string) => Promise<IPCResult>;
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;

@@ -193,10 +193,20 @@ Dual-layer memory architecture:
 
 Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
 
-## Development Mode
+## Project Structure
 
-Use `--dev` flag to work in `dev/auto-claude/specs/` (gitignored) when developing the framework itself:
+Auto Claude can be used in two ways:
+
+**As a standalone CLI tool** (original project):
 ```bash
-python auto-claude/spec_runner.py --dev --task "Test feature"
-python auto-claude/run.py --dev --spec 001
+python auto-claude/run.py --spec 001
 ```
+
+**With the optional Electron frontend** (`auto-claude-ui/`):
+- Provides a GUI for task management and progress tracking
+- Wraps the CLI commands - the backend works independently
+
+**Directory layout:**
+- `auto-claude/` - Python backend/CLI (the framework code)
+- `auto-claude-ui/` - Optional Electron frontend
+- `.auto-claude/specs/` - Per-project data (specs, plans, QA reports) - gitignored

@@ -158,7 +158,6 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     taskDescription: string,
     specDir?: string,  // Optional spec directory (when task already has a directory created by UI)
-    devMode: boolean = false,  // Dev mode: use dev/auto-claude/specs/ for framework development
     metadata?: { requireReviewBeforeCoding?: boolean }  // Task metadata to check for review requirement
   ): void {
     // Use source auto-claude path (the repo), not the project's auto-claude
@@ -198,11 +197,6 @@ export class AgentManager extends EventEmitter {
     }
     // If requireReviewBeforeCoding is true, don't add --auto-approve, allowing the review checkpoint to appear
 
-    // Pass --dev flag for framework development mode
-    if (devMode) {
-      args.push('--dev');
-    }
-
     // Note: This is spec-creation but it chains to task-execution via run.py
     // So we treat the whole thing as task-execution for status purposes
     this.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
@@ -215,7 +209,7 @@ export class AgentManager extends EventEmitter {
     taskId: string,
     projectPath: string,
     specId: string,
-    options: { parallel?: boolean; workers?: number; devMode?: boolean } = {}
+    options: { parallel?: boolean; workers?: number } = {}
   ): void {
     console.log('[AgentManager] startTaskExecution called for:', taskId, specId);
     // Use source auto-claude path (the repo), not the project's auto-claude
@@ -255,11 +249,6 @@ export class AgentManager extends EventEmitter {
       args.push('--parallel', options.workers.toString());
     }
 
-    // Pass --dev flag for framework development mode
-    if (options.devMode) {
-      args.push('--dev');
-    }
-
     console.log('[AgentManager] Spawning process with args:', args);
     this.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
@@ -270,8 +259,7 @@ export class AgentManager extends EventEmitter {
   startQAProcess(
     taskId: string,
     projectPath: string,
-    specId: string,
-    devMode: boolean = false
+    specId: string
   ): void {
     // Use source auto-claude path (the repo), not the project's auto-claude
     const autoBuildSource = this.getAutoBuildSourcePath();
@@ -294,11 +282,6 @@ export class AgentManager extends EventEmitter {
     const combinedEnv = { ...autoBuildEnv, ...projectEnv };
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
-
-    // Pass --dev flag for framework development mode
-    if (devMode) {
-      args.push('--dev');
-    }
 
     this.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
   }

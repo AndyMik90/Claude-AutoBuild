@@ -18,8 +18,7 @@ import {
   Import,
   Radio,
   Github,
-  Globe,
-  Code2
+  Globe
 } from 'lucide-react';
 import { LinearTaskImportModal } from './LinearTaskImportModal';
 import {
@@ -1206,33 +1205,6 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                 </div>
               )}
 
-              {/* Dev Mode Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-info" />
-                    <Label className="font-normal text-foreground">Framework Dev Mode</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-6">
-                    Use <code className="px-1 bg-muted rounded">dev/auto-claude/specs/</code> for framework development
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.devMode ?? false}
-                  onCheckedChange={(checked) =>
-                    setSettings({ ...settings, devMode: checked })
-                  }
-                />
-              </div>
-              {settings.devMode && (
-                <div className="rounded-lg border border-info/30 bg-info/5 p-3 ml-6">
-                  <p className="text-xs text-info">
-                    Dev mode enabled. Tasks will be stored in the gitignored <code className="px-1 bg-info/10 rounded">dev/auto-claude/specs/</code> directory
-                    instead of the project's <code className="px-1 bg-info/10 rounded">.auto-claude/specs/</code> directory.
-                    Use this when developing the Auto Claude framework itself.
-                  </p>
-                </div>
-              )}
             </section>
 
             <Separator />

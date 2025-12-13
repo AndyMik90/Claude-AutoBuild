@@ -613,26 +613,6 @@ The system **automatically scans for secrets** before every commit. If secrets a
 
 ### Create the Commit
 
-**FIRST: Check if running in dev mode:**
-```bash
-cat complexity_assessment.json | grep -o '"dev_mode": true' && echo "DEV MODE ACTIVE"
-```
-
-**If dev_mode is TRUE:**
-- Only commit files in `auto-claude/` directory (the actual code changes)
-- Do NOT commit spec files - they're in a gitignored location
-
-```bash
-# Dev mode: only add code changes in auto-claude/
-git add auto-claude/
-git commit -m "auto-claude: Complete [chunk-id] - [chunk description]
-
-- Files modified: [list]
-- Verification: [type] - passed
-- Phase progress: [X]/[Y] chunks complete"
-```
-
-**If dev_mode is FALSE (normal mode):**
 ```bash
 git add .
 git commit -m "auto-claude: Complete [chunk-id] - [chunk description]
@@ -672,11 +652,9 @@ Next phase (if applicable): [phase-name]
 === END SESSION N ===
 ```
 
-**Commit progress (only if NOT in dev mode):**
-Check complexity_assessment.json for dev_mode flag. If dev_mode is true, skip committing build-progress.txt (it's in a gitignored folder).
+**Commit progress:**
 
 ```bash
-# Only if dev_mode is false:
 git add build-progress.txt
 git commit -m "auto-claude: Update progress"
 # Do NOT push - user will push after review

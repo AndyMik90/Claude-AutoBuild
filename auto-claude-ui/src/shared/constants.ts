@@ -113,7 +113,6 @@ export const DEFAULT_PROJECT_SETTINGS = {
     onReviewNeeded: true,
     sound: false
   },
-  devMode: false,
   // Graphiti MCP server for agent-accessible knowledge graph (enabled by default)
   graphitiMcpEnabled: true,
   graphitiMcpUrl: 'http://localhost:8000/mcp/'
@@ -313,14 +312,9 @@ export const AUTO_BUILD_PATHS = {
 
 /**
  * Get the specs directory path.
- *
- * Note: devMode parameter is kept for API compatibility but currently
- * all specs go to .auto-claude/specs/ (the installed instance).
- * The auto-claude/ folder is source code and should not contain specs.
+ * All specs go to .auto-claude/specs/ (the project's data directory).
  */
-export function getSpecsDir(autoBuildPath: string | undefined, _devMode: boolean): string {
-  // Always use .auto-claude/specs - this is the installed instance
-  // autoBuildPath should always be '.auto-claude' or undefined (not initialized)
+export function getSpecsDir(autoBuildPath: string | undefined): string {
   const basePath = autoBuildPath || '.auto-claude';
   return `${basePath}/specs`;
 }

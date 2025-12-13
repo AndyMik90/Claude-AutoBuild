@@ -59,11 +59,7 @@ import {
   checkVersion,
   hasCustomEnv,
   getAutoBuildPath,
-  hasLocalSource,
-  isDevMode,
-  enableDevMode,
-  disableDevMode,
-  syncDevMode
+  hasLocalSource
 } from './project-initializer';
 import {
   checkForUpdates as checkSourceUpdates,
@@ -324,99 +320,6 @@ export function setupIpcHandlers(
     }
   );
 
-  // Check if project is in dev mode
-  ipcMain.handle(
-    'project:is-dev-mode',
-    async (_, projectId: string): Promise<IPCResult<boolean>> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-        return { success: true, data: isDevMode(project.path) };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
-  // Enable dev mode for a project
-  ipcMain.handle(
-    'project:enable-dev-mode',
-    async (_, projectId: string): Promise<IPCResult> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        const result = enableDevMode(project.path);
-
-        if (result.success) {
-          // Update project's autoBuildPath
-          projectStore.updateAutoBuildPath(projectId, '.auto-claude');
-        }
-
-        return result;
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
-  // Disable dev mode for a project
-  ipcMain.handle(
-    'project:disable-dev-mode',
-    async (_, projectId: string): Promise<IPCResult> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        const sourcePath = getAutoBuildSourcePath();
-        if (!sourcePath) {
-          return { success: false, error: 'Auto-build source path not configured' };
-        }
-
-        const result = disableDevMode(project.path, sourcePath);
-        return result;
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
-  // Sync dev mode (refresh symlinks)
-  ipcMain.handle(
-    'project:sync-dev-mode',
-    async (_, projectId: string): Promise<IPCResult> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        const result = syncDevMode(project.path);
-        return result;
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
   // ============================================
   // Task Operations
   // ============================================
@@ -467,9 +370,8 @@ export function setupIpcHandlers(
       }
 
       // Generate a unique spec ID based on existing specs
-      // Use devMode-aware path for specs directory
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get specs directory path
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specsDir = path.join(project.path, specsBaseDir);
 
       // Find next available spec number
@@ -630,9 +532,8 @@ export function setupIpcHandlers(
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
       }
 
-      // Delete the spec directory - use devMode-aware path
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Delete the spec directory
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(project.path, specsBaseDir, task.specId);
 
       try {
@@ -813,13 +714,8 @@ export function setupIpcHandlers(
 
       console.log('[TASK_START] Found task:', task.specId, 'status:', task.status, 'chunks:', task.chunks.length);
 
-      // Check if dev mode is enabled for this project
-      const devMode = project.settings.devMode ?? false;
-      console.log('[TASK_START] Dev mode:', devMode);
-
       // Start file watcher for this task
-      // Use getSpecsDir helper to get correct path based on dev mode
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
         project.path,
         specsBaseDir,
@@ -845,7 +741,7 @@ export function setupIpcHandlers(
 
         // Start spec creation process - pass the existing spec directory
         // so spec_runner uses it instead of creating a new one
-        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode, task.metadata);
+        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
       } else if (needsImplementation) {
         // Spec exists but no chunks - run run.py to create implementation plan and execute
         // Read the spec.md to get the task description
@@ -865,8 +761,7 @@ export function setupIpcHandlers(
           task.specId,
           {
             parallel: false,  // Sequential for planning phase
-            workers: 1,
-            devMode
+            workers: 1
           }
         );
       } else {
@@ -893,8 +788,7 @@ export function setupIpcHandlers(
           task.specId,
           {
             parallel: useParallel,
-            workers,
-            devMode
+            workers
           }
         );
       }
@@ -949,8 +843,7 @@ export function setupIpcHandlers(
       }
 
       // Check if dev mode is enabled for this project
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
         project.path,
         specsBaseDir,
@@ -982,7 +875,7 @@ export function setupIpcHandlers(
         );
 
         // Restart QA process with dev mode
-        agentManager.startQAProcess(taskId, project.path, task.specId, devMode);
+        agentManager.startQAProcess(taskId, project.path, task.specId);
 
         const mainWindow = getMainWindow();
         if (mainWindow) {
@@ -1023,9 +916,8 @@ export function setupIpcHandlers(
         return { success: false, error: 'Task not found' };
       }
 
-      // Get the spec directory - use devMode-aware path
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get the spec directory
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
         project.path,
         specsBaseDir,
@@ -1095,7 +987,7 @@ export function setupIpcHandlers(
             // No spec file - need to run spec_runner.py to create the spec
             const taskDescription = task.description || task.title;
             console.log('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
-            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, devMode, task.metadata);
+            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
           } else if (needsImplementation) {
             // Spec exists but no chunks - run run.py to create implementation plan and execute
             console.log('[TASK_UPDATE_STATUS] Starting task execution (no chunks) for:', task.specId);
@@ -1105,8 +997,7 @@ export function setupIpcHandlers(
               task.specId,
               {
                 parallel: false,
-                workers: 1,
-                devMode
+                workers: 1
               }
             );
           } else {
@@ -1124,8 +1015,7 @@ export function setupIpcHandlers(
               task.specId,
               {
                 parallel: useParallel,
-                workers,
-                devMode
+                workers
               }
             );
           }
@@ -1315,8 +1205,7 @@ export function setupIpcHandlers(
             }
 
             // Start the task execution
-            const devMode = project.settings.devMode ?? false;
-            
+                        
             // Check if we should use parallel mode
             const hasMultipleChunks = task.chunks.length > 1;
             const pendingChunks = task.chunks.filter(c => c.status === 'pending').length;
@@ -1325,7 +1214,7 @@ export function setupIpcHandlers(
             const workers = useParallel ? project.settings.maxWorkers : 1;
 
             // Start file watcher for this task
-            const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+            const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
             fileWatcher.watch(taskId, specDirForWatcher);
             
@@ -1335,11 +1224,10 @@ export function setupIpcHandlers(
               task.specId,
               {
                 parallel: useParallel,
-                workers,
-                devMode
+                workers
               }
             );
-            
+
             autoRestarted = true;
             console.log(`[Recovery] Auto-restarted task ${taskId}`);
           } catch (restartError) {
@@ -1966,7 +1854,7 @@ export function setupIpcHandlers(
         }
 
         // Get specs dir relative to project path
-        const specsRelPath = getSpecsDir(project.autoBuildPath, project.settings.devMode);
+        const specsRelPath = getSpecsDir(project.autoBuildPath);
         const specDir = path.join(project.path, specsRelPath, specId);
 
         if (!existsSync(specDir)) {
@@ -2000,7 +1888,7 @@ export function setupIpcHandlers(
         }
 
         // Get specs dir relative to project path
-        const specsRelPath = getSpecsDir(project.autoBuildPath, project.settings.devMode);
+        const specsRelPath = getSpecsDir(project.autoBuildPath);
         const specDir = path.join(project.path, specsRelPath, specId);
 
         if (!existsSync(specDir)) {
@@ -2514,29 +2402,92 @@ ${(feature.user_stories || []).map((s: string) => `- ${s}`).join('\n') || 'N/A'}
 ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n') || 'N/A'}
 `;
 
-        // Generate task ID
-        const taskId = `task-${Date.now()}`;
+        // Generate proper spec directory (like task creation)
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specsDir = path.join(project.path, specsBaseDir);
 
-        // Start spec creation
-        agentManager.startSpecCreation(taskId, project.path, taskDescription);
+        // Ensure specs directory exists
+        if (!existsSync(specsDir)) {
+          mkdirSync(specsDir, { recursive: true });
+        }
+
+        // Find next available spec number
+        let specNumber = 1;
+        const existingDirs = existsSync(specsDir)
+          ? readdirSync(specsDir, { withFileTypes: true })
+              .filter(d => d.isDirectory())
+              .map(d => d.name)
+          : [];
+        const existingNumbers = existingDirs
+          .map(name => {
+            const match = name.match(/^(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => n > 0);
+        if (existingNumbers.length > 0) {
+          specNumber = Math.max(...existingNumbers) + 1;
+        }
+
+        // Create spec ID with zero-padded number and slugified title
+        const slugifiedTitle = feature.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+        // Create spec directory
+        const specDir = path.join(specsDir, specId);
+        mkdirSync(specDir, { recursive: true });
+
+        // Create initial implementation_plan.json
+        const now = new Date().toISOString();
+        const implementationPlan = {
+          feature: feature.title,
+          description: taskDescription,
+          created_at: now,
+          updated_at: now,
+          status: 'pending',
+          phases: []
+        };
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), JSON.stringify(implementationPlan, null, 2));
+
+        // Create requirements.json
+        const requirements = {
+          task_description: taskDescription,
+          workflow_type: 'feature'
+        };
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS), JSON.stringify(requirements, null, 2));
+
+        // Build metadata
+        const metadata: TaskMetadata = {
+          sourceType: 'roadmap',
+          featureId: feature.id,
+          category: 'feature'
+        };
+        writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2));
+
+        // Start spec creation with the existing spec directory
+        agentManager.startSpecCreation(specId, project.path, taskDescription, specDir, metadata);
 
         // Update feature with linked spec
         feature.status = 'planned';
-        feature.linked_spec_id = taskId;
+        feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
         writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2));
 
-        // Create placeholder task
+        // Create task object
         const task: Task = {
-          id: taskId,
-          specId: '',
+          id: specId,
+          specId: specId,
           projectId,
           title: feature.title,
           description: taskDescription,
           status: 'backlog',
           chunks: [],
           logs: [],
+          metadata,
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -2605,9 +2556,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
           reason: 'Graphiti not configured'
         };
 
-        // Check for graphiti state in specs (use devMode-aware path)
-        const devMode = project.settings.devMode ?? false;
-        const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+        // Check for graphiti state in specs
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specsDir = path.join(project.path, specsBaseDir);
         if (existsSync(specsDir)) {
           const specDirs = readdirSync(specsDir)
@@ -2950,9 +2900,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
       const results: ContextSearchResult[] = [];
       const queryLower = query.toLowerCase();
 
-      // Use devMode-aware path
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get specs directory path
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specsDir = path.join(project.path, specsBaseDir);
       if (existsSync(specsDir)) {
         const allSpecDirs = readdirSync(specsDir)
@@ -3002,9 +2951,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
 
       const memories: MemoryEpisode[] = [];
 
-      // Use devMode-aware path
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get specs directory path
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specsDir = path.join(project.path, specsBaseDir);
 
       if (existsSync(specsDir)) {
@@ -3880,6 +3828,13 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
         let failed = 0;
         const errors: string[] = [];
 
+        // Set up specs directory
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specsDir = path.join(project.path, specsBaseDir);
+        if (!existsSync(specsDir)) {
+          mkdirSync(specsDir, { recursive: true });
+        }
+
         // Create tasks for each imported issue
         for (const issue of data.issues.nodes) {
           try {
@@ -3897,11 +3852,64 @@ ${labels ? `**Labels:** ${labels}` : ''}
 ${issue.description || 'No description provided.'}
 `;
 
-            // Generate task ID
-            const taskId = `task-${Date.now()}-${imported}`;
+            // Find next available spec number
+            let specNumber = 1;
+            const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+              .filter(d => d.isDirectory())
+              .map(d => d.name);
+            const existingNumbers = existingDirs
+              .map(name => {
+                const match = name.match(/^(\d+)/);
+                return match ? parseInt(match[1], 10) : 0;
+              })
+              .filter(n => n > 0);
+            if (existingNumbers.length > 0) {
+              specNumber = Math.max(...existingNumbers) + 1;
+            }
 
-            // Start spec creation for this issue
-            agentManager.startSpecCreation(taskId, project.path, description);
+            // Create spec ID with zero-padded number and slugified title
+            const slugifiedTitle = issue.title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '')
+              .substring(0, 50);
+            const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+            // Create spec directory
+            const specDir = path.join(specsDir, specId);
+            mkdirSync(specDir, { recursive: true });
+
+            // Create initial implementation_plan.json
+            const now = new Date().toISOString();
+            const implementationPlan = {
+              feature: issue.title,
+              description: description,
+              created_at: now,
+              updated_at: now,
+              status: 'pending',
+              phases: []
+            };
+            writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), JSON.stringify(implementationPlan, null, 2));
+
+            // Create requirements.json
+            const requirements = {
+              task_description: description,
+              workflow_type: 'feature'
+            };
+            writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS), JSON.stringify(requirements, null, 2));
+
+            // Build metadata
+            const metadata: TaskMetadata = {
+              sourceType: 'linear',
+              linearIssueId: issue.id,
+              linearIdentifier: issue.identifier,
+              linearUrl: issue.url,
+              category: 'feature'
+            };
+            writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2));
+
+            // Start spec creation with the existing spec directory
+            agentManager.startSpecCreation(specId, project.path, description, specDir, metadata);
 
             imported++;
           } catch (err) {
@@ -4329,11 +4337,70 @@ Please analyze this issue and provide:
 4. Estimated complexity (simple/standard/complex)
 5. Acceptance criteria for resolving this issue`;
 
-        // Create a spec for this investigation
-        const taskId = `github-${issueNumber}-${Date.now()}`;
+        // Create proper spec directory
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specsDir = path.join(project.path, specsBaseDir);
+        if (!existsSync(specsDir)) {
+          mkdirSync(specsDir, { recursive: true });
+        }
 
-        // Start spec creation with the issue context
-        agentManager.startSpecCreation(taskId, project.path, taskDescription);
+        // Find next available spec number
+        let specNumber = 1;
+        const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+          .filter(d => d.isDirectory())
+          .map(d => d.name);
+        const existingNumbers = existingDirs
+          .map(name => {
+            const match = name.match(/^(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => n > 0);
+        if (existingNumbers.length > 0) {
+          specNumber = Math.max(...existingNumbers) + 1;
+        }
+
+        // Create spec ID with zero-padded number and slugified title
+        const slugifiedTitle = issue.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+        // Create spec directory
+        const specDir = path.join(specsDir, specId);
+        mkdirSync(specDir, { recursive: true });
+
+        // Create initial implementation_plan.json
+        const now = new Date().toISOString();
+        const implementationPlan = {
+          feature: issue.title,
+          description: taskDescription,
+          created_at: now,
+          updated_at: now,
+          status: 'pending',
+          phases: []
+        };
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), JSON.stringify(implementationPlan, null, 2));
+
+        // Create requirements.json
+        const requirements = {
+          task_description: taskDescription,
+          workflow_type: 'feature'
+        };
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS), JSON.stringify(requirements, null, 2));
+
+        // Build metadata
+        const metadata: TaskMetadata = {
+          sourceType: 'github',
+          githubIssueNumber: issue.number,
+          githubUrl: issue.html_url,
+          category: 'feature'
+        };
+        writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2));
+
+        // Start spec creation with the existing spec directory
+        agentManager.startSpecCreation(specId, project.path, taskDescription, specDir, metadata);
 
         // Send progress update: creating task
         mainWindow.webContents.send(
@@ -4361,7 +4428,7 @@ Please analyze this issue and provide:
               'New functionality is tested'
             ]
           },
-          taskId
+          taskId: specId
         };
 
         // Send completion
@@ -4410,6 +4477,13 @@ Please analyze this issue and provide:
       const errors: string[] = [];
       const tasks: Task[] = [];
 
+      // Set up specs directory
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specsDir = path.join(project.path, specsBaseDir);
+      if (!existsSync(specsDir)) {
+        mkdirSync(specsDir, { recursive: true });
+      }
+
       for (const issueNumber of issueNumbers) {
         try {
           const issue = await githubFetch(
@@ -4434,8 +4508,63 @@ ${labels ? `**Labels:** ${labels}` : ''}
 ${issue.body || 'No description provided.'}
 `;
 
-          const taskId = `github-${issueNumber}-${Date.now()}`;
-          agentManager.startSpecCreation(taskId, project.path, description);
+          // Find next available spec number
+          let specNumber = 1;
+          const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name);
+          const existingNumbers = existingDirs
+            .map(name => {
+              const match = name.match(/^(\d+)/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => n > 0);
+          if (existingNumbers.length > 0) {
+            specNumber = Math.max(...existingNumbers) + 1;
+          }
+
+          // Create spec ID with zero-padded number and slugified title
+          const slugifiedTitle = issue.title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .substring(0, 50);
+          const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+          // Create spec directory
+          const specDir = path.join(specsDir, specId);
+          mkdirSync(specDir, { recursive: true });
+
+          // Create initial implementation_plan.json
+          const now = new Date().toISOString();
+          const implementationPlan = {
+            feature: issue.title,
+            description: description,
+            created_at: now,
+            updated_at: now,
+            status: 'pending',
+            phases: []
+          };
+          writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), JSON.stringify(implementationPlan, null, 2));
+
+          // Create requirements.json
+          const requirements = {
+            task_description: description,
+            workflow_type: 'feature'
+          };
+          writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS), JSON.stringify(requirements, null, 2));
+
+          // Build metadata
+          const metadata: TaskMetadata = {
+            sourceType: 'github',
+            githubIssueNumber: issue.number,
+            githubUrl: issue.html_url,
+            category: 'feature'
+          };
+          writeFileSync(path.join(specDir, 'task_metadata.json'), JSON.stringify(metadata, null, 2));
+
+          // Start spec creation with the existing spec directory
+          agentManager.startSpecCreation(specId, project.path, description, specDir, metadata);
           imported++;
         } catch (err) {
           failed++;
@@ -5099,9 +5228,8 @@ ${issue.body || 'No description provided.'}
         }
 
         // Generate spec ID by finding next available number
-        // Use devMode-aware path for specs directory
-        const devMode = project.settings.devMode ?? false;
-        const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+        // Get specs directory path
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specsDir = path.join(project.path, specsBaseDir);
 
         // Ensure specs directory exists
@@ -5211,9 +5339,6 @@ ${idea.rationale}
 `;
         writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), specContent);
 
-        // Start spec creation to fill in the details (uses the spec directory name)
-        agentManager.startSpecCreation(specId, project.path, taskDescription);
-
         // Update idea with converted status
         idea.status = 'converted';
         idea.linked_task_id = specId;
@@ -5281,6 +5406,10 @@ ${idea.rationale}
         // Save metadata to a separate file for persistence
         const metadataPath = path.join(specDir, 'task_metadata.json');
         writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+        // Start spec creation to fill in the details - pass the existing spec directory
+        // so spec_runner uses it instead of creating a new pending folder
+        agentManager.startSpecCreation(specId, project.path, taskDescription, specDir, metadata);
 
         // Create task object to return
         const task: Task = {
@@ -5393,9 +5522,8 @@ ${idea.rationale}
       // otherwise fall back to reading from filesystem
       const tasks = rendererTasks || projectStore.getTasks(projectId);
 
-      // Use devMode-aware path for specs
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get specs directory path
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const doneTasks = changelogService.getCompletedTasks(project.path, tasks, specsBaseDir);
 
       return { success: true, data: doneTasks };
@@ -5412,9 +5540,8 @@ ${idea.rationale}
 
       const tasks = projectStore.getTasks(projectId);
 
-      // Use devMode-aware path for specs
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      // Get specs directory path
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specs = await changelogService.loadTaskSpecs(project.path, taskIds, tasks, specsBaseDir);
 
       return { success: true, data: specs };
@@ -5437,10 +5564,9 @@ ${idea.rationale}
         return;
       }
 
-      // Load specs for selected tasks (use devMode-aware path)
+      // Load specs for selected tasks
       const tasks = projectStore.getTasks(request.projectId);
-      const devMode = project.settings.devMode ?? false;
-      const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
 
       // Start generation
@@ -5496,8 +5622,7 @@ ${idea.rationale}
 
         // Load specs for selected tasks to analyze change types
         const tasks = projectStore.getTasks(projectId);
-        const devMode = project.settings.devMode ?? false;
-        const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specs = await changelogService.loadTaskSpecs(project.path, taskIds, tasks, specsBaseDir);
 
         // Analyze specs and suggest version
@@ -5625,9 +5750,8 @@ ${idea.rationale}
 
       try {
         // Generate a unique spec ID based on existing specs
-        // Use devMode-aware path for specs directory
-        const devMode = project.settings.devMode ?? false;
-        const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+        // Get specs directory path
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specsDir = path.join(project.path, specsBaseDir);
 
         // Find next available spec number

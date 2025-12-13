@@ -399,6 +399,9 @@ class SpecOrchestrator:
         # Get the appropriate specs directory (within the project)
         self.specs_dir = get_specs_dir(self.project_dir, dev_mode)
 
+        # Clean up orphaned pending folders before creating new spec
+        self._cleanup_orphaned_pending_folders()
+
         # Complexity assessment (populated during run)
         self.assessment: Optional[ComplexityAssessment] = None
 
@@ -414,14 +417,74 @@ class SpecOrchestrator:
         self.spec_dir.mkdir(parents=True, exist_ok=True)
         self.validator = SpecValidator(self.spec_dir)
 
+    def _cleanup_orphaned_pending_folders(self) -> None:
+        """Remove orphaned pending folders that have no substantial content.
+
+        A folder is considered orphaned if:
+        - Its name ends with '-pending'
+        - It has no requirements.json (meaning requirements phase never completed)
+        - It only contains task_logs.json or is empty
+        """
+        if not self.specs_dir.exists():
+            return
+
+        import shutil
+        from datetime import datetime, timedelta
+
+        orphaned = []
+        for folder in self.specs_dir.glob("[0-9][0-9][0-9]-pending"):
+            if not folder.is_dir():
+                continue
+
+            # Check if folder has substantial content
+            requirements_file = folder / "requirements.json"
+            spec_file = folder / "spec.md"
+            plan_file = folder / "implementation_plan.json"
+
+            # If any of these exist, the spec has made progress - don't delete
+            if requirements_file.exists() or spec_file.exists() or plan_file.exists():
+                continue
+
+            # Check folder age - only clean up folders older than 10 minutes
+            # to avoid deleting a folder that's currently being created
+            try:
+                folder_mtime = datetime.fromtimestamp(folder.stat().st_mtime)
+                if datetime.now() - folder_mtime < timedelta(minutes=10):
+                    continue
+            except OSError:
+                continue
+
+            orphaned.append(folder)
+
+        # Clean up orphaned folders
+        for folder in orphaned:
+            try:
+                shutil.rmtree(folder)
+                debug("spec_runner", f"Cleaned up orphaned pending folder: {folder.name}")
+            except OSError as e:
+                debug_warning("spec_runner", f"Failed to clean up {folder.name}: {e}")
+
     def _create_spec_dir(self) -> Path:
         """Create a new spec directory with incremented number and placeholder name."""
         existing = list(self.specs_dir.glob("[0-9][0-9][0-9]-*"))
-        next_num = len(existing) + 1
-        
+
+        if existing:
+            # Find the HIGHEST folder number, not count of folders
+            # This prevents collisions when folders are deleted or specs fail mid-way
+            numbers = []
+            for folder in existing:
+                try:
+                    num = int(folder.name[:3])
+                    numbers.append(num)
+                except ValueError:
+                    pass
+            next_num = max(numbers) + 1 if numbers else 1
+        else:
+            next_num = 1
+
         # Start with placeholder - will be renamed after requirements gathering
         name = "pending"
-        
+
         return self.specs_dir / f"{next_num:03d}-{name}"
 
     def _generate_spec_name(self, task_description: str) -> str:
@@ -1880,7 +1943,7 @@ Examples:
     parser.add_argument(
         "--dev",
         action="store_true",
-        help="Dev mode: specs saved to dev/auto-claude/specs/ (gitignored) for framework development",
+        help="[Deprecated] No longer has any effect - kept for compatibility",
     )
     parser.add_argument(
         "--no-build",

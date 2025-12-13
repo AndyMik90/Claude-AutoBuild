@@ -91,22 +91,6 @@ const electronAPI: ElectronAPI = {
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),
 
-  // Dev Mode Operations
-  hasLocalSource: (projectId: string): Promise<IPCResult<boolean>> =>
-    ipcRenderer.invoke('project:has-local-source', projectId),
-
-  isDevMode: (projectId: string): Promise<IPCResult<boolean>> =>
-    ipcRenderer.invoke('project:is-dev-mode', projectId),
-
-  enableDevMode: (projectId: string): Promise<IPCResult> =>
-    ipcRenderer.invoke('project:enable-dev-mode', projectId),
-
-  disableDevMode: (projectId: string): Promise<IPCResult> =>
-    ipcRenderer.invoke('project:disable-dev-mode', projectId),
-
-  syncDevMode: (projectId: string): Promise<IPCResult> =>
-    ipcRenderer.invoke('project:sync-dev-mode', projectId),
-
   // ============================================
   // Task Operations
   // ============================================

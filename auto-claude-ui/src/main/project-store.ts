@@ -156,9 +156,8 @@ export class ProjectStore {
     const project = this.getProject(projectId);
     if (!project) return [];
 
-    // Use devMode-aware path for specs directory
-    const devMode = project.settings.devMode ?? false;
-    const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+    // Get specs directory path
+    const specsBaseDir = getSpecsDir(project.autoBuildPath);
     const specsDir = path.join(project.path, specsBaseDir);
     if (!existsSync(specsDir)) return [];
 
@@ -377,8 +376,7 @@ export class ProjectStore {
     const project = this.getProject(projectId);
     if (!project) return false;
 
-    const devMode = project.settings.devMode ?? false;
-    const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+    const specsBaseDir = getSpecsDir(project.autoBuildPath);
     const specsDir = path.join(project.path, specsBaseDir);
 
     const archivedAt = new Date().toISOString();
@@ -417,8 +415,7 @@ export class ProjectStore {
     const project = this.getProject(projectId);
     if (!project) return false;
 
-    const devMode = project.settings.devMode ?? false;
-    const specsBaseDir = getSpecsDir(project.autoBuildPath, devMode);
+    const specsBaseDir = getSpecsDir(project.autoBuildPath);
     const specsDir = path.join(project.path, specsBaseDir);
 
     for (const taskId of taskIds) {

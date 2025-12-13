@@ -53,6 +53,7 @@ from linear_updater import (
     linear_task_stuck,
 )
 from graphiti_config import is_graphiti_enabled
+from memory import save_session_insights as save_file_based_memory
 from ui import (
     Icons,
     icon,
@@ -173,7 +174,7 @@ async def get_graphiti_context(
         return None
 
 
-async def save_session_to_graphiti(
+async def save_session_memory(
     spec_dir: Path,
     project_dir: Path,
     chunk_id: str,
@@ -181,9 +182,13 @@ async def save_session_to_graphiti(
     success: bool,
     chunks_completed: list[str],
     discoveries: Optional[dict] = None,
-) -> bool:
+) -> tuple[bool, str]:
     """
-    Save session insights to Graphiti knowledge graph.
+    Save session insights to memory.
+
+    Memory Strategy:
+    - PRIMARY: Graphiti (when enabled) - provides semantic search, cross-session context
+    - FALLBACK: File-based (when Graphiti is disabled) - zero dependencies, always works
 
     This is called after each session to persist learnings.
 
@@ -197,46 +202,70 @@ async def save_session_to_graphiti(
         discoveries: Optional dict with file discoveries, patterns, gotchas
 
     Returns:
-        True if saved successfully
+        Tuple of (success, storage_type) where storage_type is "graphiti" or "file"
     """
-    if not is_graphiti_enabled():
-        return False
+    # Build insights structure (same format for both storage systems)
+    insights = {
+        "chunks_completed": chunks_completed,
+        "discoveries": discoveries or {
+            "files_understood": {},
+            "patterns_found": [],
+            "gotchas_encountered": [],
+        },
+        "what_worked": [f"Implemented chunk: {chunk_id}"] if success else [],
+        "what_failed": [] if success else [f"Failed to complete chunk: {chunk_id}"],
+        "recommendations_for_next_session": [],
+    }
 
+    # PRIMARY: Try Graphiti if enabled
+    if is_graphiti_enabled():
+        try:
+            from graphiti_memory import GraphitiMemory
+
+            memory = GraphitiMemory(spec_dir, project_dir)
+
+            if memory.is_enabled:
+                result = await memory.save_session_insights(session_num, insights)
+                await memory.close()
+
+                if result:
+                    logger.info(f"Session {session_num} insights saved to Graphiti (primary)")
+                    return True, "graphiti"
+                else:
+                    logger.warning("Graphiti save returned False, falling back to file-based")
+            else:
+                logger.warning("Graphiti memory not enabled, falling back to file-based")
+
+        except ImportError:
+            logger.debug("Graphiti packages not installed, falling back to file-based")
+        except Exception as e:
+            logger.warning(f"Graphiti save failed: {e}, falling back to file-based")
+
+    # FALLBACK: File-based memory (when Graphiti is disabled or fails)
     try:
-        from graphiti_memory import GraphitiMemory
-
-        memory = GraphitiMemory(spec_dir, project_dir)
-
-        if not memory.is_enabled:
-            return False
-
-        # Build insights structure matching memory.py format
-        insights = {
-            "chunks_completed": chunks_completed,
-            "discoveries": discoveries or {
-                "files_understood": {},
-                "patterns_found": [],
-                "gotchas_encountered": [],
-            },
-            "what_worked": [f"Implemented chunk: {chunk_id}"] if success else [],
-            "what_failed": [] if success else [f"Failed to complete chunk: {chunk_id}"],
-            "recommendations_for_next_session": [],
-        }
-
-        result = await memory.save_session_insights(session_num, insights)
-        await memory.close()
-
-        if result:
-            logger.info(f"Session {session_num} insights saved to Graphiti")
-
-        return result
-
-    except ImportError:
-        logger.debug("Graphiti packages not installed")
-        return False
+        save_file_based_memory(spec_dir, session_num, insights)
+        logger.info(f"Session {session_num} insights saved to file-based memory (fallback)")
+        return True, "file"
     except Exception as e:
-        logger.warning(f"Failed to save to Graphiti: {e}")
-        return False
+        logger.error(f"File-based memory save also failed: {e}")
+        return False, "none"
+
+
+# Keep the old function name as an alias for backwards compatibility
+async def save_session_to_graphiti(
+    spec_dir: Path,
+    project_dir: Path,
+    chunk_id: str,
+    session_num: int,
+    success: bool,
+    chunks_completed: list[str],
+    discoveries: Optional[dict] = None,
+) -> bool:
+    """Backwards compatibility wrapper for save_session_memory."""
+    result, _ = await save_session_memory(
+        spec_dir, project_dir, chunk_id, session_num, success, chunks_completed, discoveries
+    )
+    return result
 
 
 def get_latest_commit(project_dir: Path) -> Optional[str]:
@@ -439,24 +468,26 @@ async def post_session_processing(
             )
             print_status("Linear progress recorded", "success")
 
-        # Save to Graphiti if enabled (async, fire-and-forget)
-        if is_graphiti_enabled():
-            try:
-                # Run async save in a non-blocking way
-                asyncio.create_task(
-                    save_session_to_graphiti(
-                        spec_dir=spec_dir,
-                        project_dir=project_dir,
-                        chunk_id=chunk_id,
-                        session_num=session_num,
-                        success=True,
-                        chunks_completed=[chunk_id],
-                    )
-                )
-                print_status("Graphiti session save queued", "success")
-            except RuntimeError:
-                # Not in async context, skip
-                logger.debug("Skipping Graphiti save - not in async context")
+        # Save session memory (Graphiti=primary, file-based=fallback)
+        try:
+            save_success, storage_type = await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                chunk_id=chunk_id,
+                session_num=session_num,
+                success=True,
+                chunks_completed=[chunk_id],
+            )
+            if save_success:
+                if storage_type == "graphiti":
+                    print_status("Session saved to Graphiti memory", "success")
+                else:
+                    print_status("Session saved to file-based memory (fallback)", "info")
+            else:
+                print_status("Failed to save session memory", "warning")
+        except Exception as e:
+            logger.warning(f"Error saving session memory: {e}")
+            print_status("Memory save failed", "warning")
 
         return True
 
@@ -487,6 +518,19 @@ async def post_session_processing(
                 error_summary="Session ended without completion",
             )
 
+        # Save failed session memory (to track what didn't work)
+        try:
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                chunk_id=chunk_id,
+                session_num=session_num,
+                success=False,
+                chunks_completed=[],
+            )
+        except Exception as e:
+            logger.debug(f"Failed to save incomplete session memory: {e}")
+
         return False
 
     else:
@@ -510,6 +554,19 @@ async def post_session_processing(
                 attempt=attempt_count,
                 error_summary=f"Chunk status: {chunk_status}",
             )
+
+        # Save failed session memory (to track what didn't work)
+        try:
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                chunk_id=chunk_id,
+                session_num=session_num,
+                success=False,
+                chunks_completed=[],
+            )
+        except Exception as e:
+            logger.debug(f"Failed to save failed session memory: {e}")
 
         return False
 

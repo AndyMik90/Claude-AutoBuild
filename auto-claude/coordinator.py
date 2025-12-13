@@ -303,11 +303,13 @@ class SwarmCoordinator:
         # Remove worker assignment
         del self.workers[worker_id]
 
-    async def run_planner_session(self) -> bool:
+    async def run_planner_session(self, working_dir: Optional[Path] = None) -> bool:
         """
         Run the planner session to create implementation_plan.json.
 
-        This runs in the main project directory (not a worktree).
+        Args:
+            working_dir: Directory to run the planner in. If None, uses project_dir.
+                        When in parallel mode, this should be the worktree path.
         """
         content = [
             bold(f"{icon(Icons.GEAR)} PLANNER SESSION"),
@@ -317,6 +319,9 @@ class SwarmCoordinator:
         print()
         print(box(content, width=70, style="heavy"))
         print()
+
+        # Use provided working directory or fall back to project directory
+        planner_dir = working_dir or self.project_dir
 
         # Initialize task logger and start planning phase
         task_logger = get_task_logger(self.spec_dir)
@@ -331,11 +336,11 @@ class SwarmCoordinator:
         from client import create_client
         from prompt_generator import generate_planner_prompt
 
-        # Create client for planner (uses main project directory)
-        client = create_client(self.project_dir, self.spec_dir, self.model)
+        # Create client for planner (uses worktree if provided, else main project)
+        client = create_client(planner_dir, self.spec_dir, self.model)
 
         # Generate planner prompt
-        prompt = generate_planner_prompt(self.spec_dir)
+        prompt = generate_planner_prompt(self.spec_dir, planner_dir)
 
         # Run the planner session
         async with client:
@@ -596,14 +601,6 @@ class SwarmCoordinator:
 
         Returns the path to the spec's worktree where all work is collected.
         """
-        # Check if implementation plan exists, run planner if not
-        plan_file = self.spec_dir / "implementation_plan.json"
-        if not plan_file.exists():
-            planner_success = await self.run_planner_session()
-            if not planner_success:
-                print_status("Failed to create implementation plan. Exiting.", "error")
-                return None
-
         content = [
             bold(f"{icon(Icons.LIGHTNING)} PARALLEL EXECUTION MODE"),
             "",
@@ -613,6 +610,31 @@ class SwarmCoordinator:
         print()
         print(box(content, width=70, style="heavy"))
         print()
+
+        # Get the base branch FIRST (before any worktree operations)
+        base_branch = self._get_base_branch()
+        print_key_value("Base branch", base_branch)
+
+        # Initialize worktree manager BEFORE running planner
+        # This ensures the planner runs in the worktree, not the main project
+        self.worktree_manager = WorktreeManager(self.project_dir, base_branch)
+        self.worktree_manager.setup()
+
+        # Create or get the per-spec worktree FIRST
+        spec_name = self._get_spec_name()
+        spec_info = self.worktree_manager.get_or_create_worktree(spec_name)
+        print_key_value("Spec worktree", str(spec_info.path))
+        print_key_value("Spec branch", spec_info.branch)
+        print()
+
+        # Check if implementation plan exists, run planner if not
+        # IMPORTANT: Run planner in the worktree to avoid changing user's branch
+        plan_file = self.spec_dir / "implementation_plan.json"
+        if not plan_file.exists():
+            planner_success = await self.run_planner_session(working_dir=spec_info.path)
+            if not planner_success:
+                print_status("Failed to create implementation plan. Exiting.", "error")
+                return None
 
         # Initialize task logger and start coding phase
         task_logger = get_task_logger(self.spec_dir)
@@ -625,21 +647,6 @@ class SwarmCoordinator:
 
         # Load the implementation plan
         self.load_implementation_plan()
-
-        # Get the base branch
-        base_branch = self._get_base_branch()
-        print_key_value("Base branch", base_branch)
-
-        # Initialize worktree manager
-        self.worktree_manager = WorktreeManager(self.project_dir, base_branch)
-        self.worktree_manager.setup()
-
-        # Create or get the per-spec worktree
-        spec_name = self._get_spec_name()
-        spec_info = self.worktree_manager.get_or_create_worktree(spec_name)
-        print_key_value("Spec worktree", str(spec_info.path))
-        print_key_value("Spec branch", spec_info.branch)
-        print()
 
         # Update status with initial chunk counts
         progress = self.plan.get_progress()

@@ -601,11 +601,11 @@ Environment Variables:
         help="Show human review/approval status for a spec",
     )
 
-    # Dev mode
+    # Dev mode (deprecated)
     parser.add_argument(
         "--dev",
         action="store_true",
-        help="Dev mode: use specs from dev/auto-claude/specs/ (gitignored) for framework development",
+        help="[Deprecated] No longer has any effect - kept for compatibility",
     )
 
     # Non-interactive mode (for UI/automation)

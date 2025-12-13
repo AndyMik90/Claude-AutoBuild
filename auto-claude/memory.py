@@ -7,20 +7,25 @@ Persists learnings between autonomous coding sessions to avoid rediscovering
 codebase patterns, gotchas, and insights.
 
 Architecture Decision:
-    This module provides file-based memory as the PRIMARY storage mechanism.
-    File-based storage is intentionally retained as the authoritative source
-    because it provides:
-    - Zero external dependencies (no database required)
-    - Human-readable files for debugging and inspection
-    - Guaranteed availability (no network/service failures)
-    - Simple backup and version control integration
+    Memory System Hierarchy:
+    
+    PRIMARY: Graphiti (when GRAPHITI_ENABLED=true)
+        - Graph-based knowledge storage with FalkorDB
+        - Semantic search across sessions
+        - Cross-project context retrieval
+        - Rich relationship modeling
+    
+    FALLBACK: File-based (when Graphiti is disabled)
+        - Zero external dependencies (no database required)
+        - Human-readable files for debugging and inspection
+        - Guaranteed availability (no network/service failures)
+        - Simple backup and version control integration
 
-    Graphiti integration (when GRAPHITI_ENABLED=true) is an OPTIONAL
-    enhancement layer that stores data ALONGSIDE file-based storage,
-    not as a replacement. This dual-write architecture ensures:
-    - File-based always works (primary/fallback)
-    - Graphiti adds semantic search when available (enhancement)
-    - System degrades gracefully if Graphiti is unavailable
+    The agent.py orchestrator uses save_session_memory() which:
+    1. Tries Graphiti first if enabled
+    2. Falls back to file-based if Graphiti is disabled or fails
+    
+    This ensures memory is ALWAYS saved, regardless of configuration.
 
 Each spec has its own memory directory:
     auto-claude/specs/001-feature/memory/
