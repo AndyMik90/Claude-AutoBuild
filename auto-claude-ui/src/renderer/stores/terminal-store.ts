@@ -14,6 +14,7 @@ export interface Terminal {
   claudeSessionId?: string;  // Claude Code session ID for resume
   outputBuffer: string; // Store terminal output for replay on remount
   isRestored?: boolean;  // Whether this terminal was restored from a saved session
+  associatedTaskId?: string;  // ID of task associated with this terminal (for context loading)
 }
 
 interface TerminalLayout {
@@ -40,6 +41,7 @@ interface TerminalState {
   setTerminalStatus: (id: string, status: TerminalStatus) => void;
   setClaudeMode: (id: string, isClaudeMode: boolean) => void;
   setClaudeSessionId: (id: string, sessionId: string) => void;
+  setAssociatedTask: (id: string, taskId: string | undefined) => void;
   appendOutput: (id: string, data: string) => void;
   clearOutputBuffer: (id: string) => void;
   clearAllTerminals: () => void;
@@ -159,6 +161,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       terminals: state.terminals.map((t) =>
         t.id === id ? { ...t, claudeSessionId: sessionId } : t
+      ),
+    }));
+  },
+
+  setAssociatedTask: (id: string, taskId: string | undefined) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, associatedTaskId: taskId } : t
       ),
     }));
   },

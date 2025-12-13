@@ -9,6 +9,7 @@ import { Terminal } from './Terminal';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
+import { useTaskStore } from '../stores/task-store';
 
 interface TerminalGridProps {
   projectPath?: string;
@@ -22,6 +23,9 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
   const setActiveTerminal = useTerminalStore((state) => state.setActiveTerminal);
   const canAddTerminal = useTerminalStore((state) => state.canAddTerminal);
   const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
+
+  // Get tasks from task store for task selection dropdown in terminals
+  const tasks = useTaskStore((state) => state.tasks);
 
   // Handle keyboard shortcut for new terminal
   useEffect(() => {
@@ -167,6 +171,7 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
                             isActive={terminal.id === activeTerminalId}
                             onClose={() => handleCloseTerminal(terminal.id)}
                             onActivate={() => setActiveTerminal(terminal.id)}
+                            tasks={tasks}
                           />
                         </div>
                       </Panel>

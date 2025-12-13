@@ -3,10 +3,24 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import { X, Sparkles, TerminalSquare } from 'lucide-react';
+import { X, Sparkles, TerminalSquare, ListTodo } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { useTerminalStore, type TerminalStatus } from '../stores/terminal-store';
+import type { Task } from '../../shared/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip';
 
 interface TerminalProps {
   id: string;
@@ -15,6 +29,7 @@ interface TerminalProps {
   isActive: boolean;
   onClose: () => void;
   onActivate: () => void;
+  tasks?: Task[];  // Tasks for task selection dropdown
 }
 
 const STATUS_COLORS: Record<TerminalStatus, string> = {
@@ -24,7 +39,7 @@ const STATUS_COLORS: Record<TerminalStatus, string> = {
   exited: 'bg-destructive',
 };
 
-export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }: TerminalProps) {
+export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate, tasks = [] }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -37,6 +52,15 @@ export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }
   const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
   const setClaudeSessionId = useTerminalStore((state) => state.setClaudeSessionId);
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
+  const setAssociatedTask = useTerminalStore((state) => state.setAssociatedTask);
+
+  // Filter tasks to only show backlog (Planning) status tasks for dropdown
+  const backlogTasks = tasks.filter((t) => t.status === 'backlog');
+
+  // Find the currently associated task for tooltip
+  const associatedTask = terminal?.associatedTaskId
+    ? tasks.find((t) => t.id === terminal.associatedTaskId)
+    : undefined;
   const appendOutput = useTerminalStore((state) => state.appendOutput);
   const clearOutputBuffer = useTerminalStore((state) => state.clearOutputBuffer);
 
@@ -96,12 +120,17 @@ export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }
     fitAddonRef.current = fitAddon;
 
     // Replay buffered output if this is a remount (output exists in store)
+    // Skip replay for restored Claude sessions - they'll clear and resume fresh
     // Then clear the buffer to prevent duplicate content on subsequent remounts
     const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === id);
-    if (terminalState?.outputBuffer) {
+    if (terminalState?.outputBuffer && !(terminalState.isRestored && terminalState.isClaudeMode)) {
       xterm.write(terminalState.outputBuffer);
       // Clear buffer after replay - new output will accumulate fresh
       // This prevents duplicates when combined with full-screen redraws from TUI apps
+      useTerminalStore.getState().clearOutputBuffer(id);
+    } else if (terminalState?.isRestored && terminalState.isClaudeMode) {
+      // For restored Claude sessions, just clear the buffer without replay
+      // The session will clear screen and start fresh
       useTerminalStore.getState().clearOutputBuffer(id);
     }
 
@@ -313,6 +342,27 @@ export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }
     }
   }, [onActivate]);
 
+  // Handle task selection from dropdown
+  const handleTaskSelect = useCallback((taskId: string) => {
+    const selectedTask = tasks.find((t) => t.id === taskId);
+    if (!selectedTask) return;
+
+    // Update terminal with task association and title
+    setAssociatedTask(id, taskId);
+    updateTerminal(id, { title: selectedTask.title });
+
+    // Format and send context message to Claude
+    const contextMessage = `I'm working on: ${selectedTask.title}
+
+Description:
+${selectedTask.description}
+
+Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title} - Context is loaded.`;
+
+    // Send the context message to the terminal
+    window.electronAPI.sendTerminalInput(id, contextMessage + '\r');
+  }, [id, tasks, setAssociatedTask, updateTerminal]);
+
   return (
     <div
       className={cn(
@@ -327,15 +377,53 @@ export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }
           <div className={cn('h-2 w-2 rounded-full', STATUS_COLORS[terminal?.status || 'idle'])} />
           <div className="flex items-center gap-1.5">
             <TerminalSquare className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-foreground truncate max-w-32">
-              {terminal?.title || 'Terminal'}
-            </span>
+            {/* Terminal title with optional tooltip showing task description */}
+            {associatedTask ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs font-medium text-foreground truncate max-w-32 cursor-help">
+                      {terminal?.title || 'Terminal'}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="text-sm">{associatedTask.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="text-xs font-medium text-foreground truncate max-w-32">
+                {terminal?.title || 'Terminal'}
+              </span>
+            )}
           </div>
           {terminal?.isClaudeMode && (
             <span className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
               <Sparkles className="h-2.5 w-2.5" />
               Claude
             </span>
+          )}
+          {/* Task selection dropdown - only show when Claude is active and there are backlog tasks */}
+          {terminal?.isClaudeMode && backlogTasks.length > 0 && (
+            <Select
+              value={terminal?.associatedTaskId || ''}
+              onValueChange={handleTaskSelect}
+            >
+              <SelectTrigger
+                className="h-6 w-auto min-w-[120px] max-w-[160px] text-[10px] px-2 py-0 border-border/50 bg-card/50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ListTodo className="h-3 w-3 mr-1 text-muted-foreground" />
+                <SelectValue placeholder="Select task..." />
+              </SelectTrigger>
+              <SelectContent>
+                {backlogTasks.map((task) => (
+                  <SelectItem key={task.id} value={task.id} className="text-xs">
+                    <span className="truncate max-w-[200px]">{task.title}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
         <div className="flex items-center gap-1">
