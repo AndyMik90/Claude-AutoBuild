@@ -119,7 +119,7 @@ class IdeationConfig:
     include_roadmap_context: bool = True
     include_kanban_context: bool = True
     max_ideas_per_type: int = 5
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-opus-4-5-20251101"
     refresh: bool = False
     append: bool = False  # If True, preserve existing ideas when merging
 
@@ -135,7 +135,7 @@ class IdeationOrchestrator:
         include_roadmap_context: bool = True,
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-5-20251101",
         refresh: bool = False,
         append: bool = False,
     ):
@@ -1065,8 +1065,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-sonnet-4-20250514",
-        help="Model to use (default: claude-sonnet-4-20250514)",
+        default="claude-opus-4-5-20251101",
+        help="Model to use (default: claude-opus-4-5-20251101)",
     )
     parser.add_argument(
         "--refresh",

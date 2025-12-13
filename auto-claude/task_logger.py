@@ -203,7 +203,11 @@ class TaskLogger:
 
     def start_phase(self, phase: LogPhase, message: Optional[str] = None):
         """
-        Start a new phase.
+        Start a new phase, auto-closing any stale active phases.
+
+        This handles restart/recovery scenarios where a previous run was interrupted
+        before properly closing a phase. When starting a new phase, any other phases
+        that are still marked as "active" will be auto-closed.
 
         Args:
             phase: The phase to start
@@ -211,6 +215,22 @@ class TaskLogger:
         """
         self.current_phase = phase
         phase_key = phase.value
+
+        # Auto-close any other active phases (handles restart/recovery scenarios)
+        for other_phase_key, phase_data in self._data["phases"].items():
+            if other_phase_key != phase_key and phase_data.get("status") == "active":
+                # Auto-close stale phase from previous interrupted run
+                phase_data["status"] = "completed"
+                phase_data["completed_at"] = self._timestamp()
+                # Add a log entry noting the auto-close
+                auto_close_entry = LogEntry(
+                    timestamp=self._timestamp(),
+                    type=LogEntryType.PHASE_END.value,
+                    content=f"{other_phase_key} phase auto-closed on resume",
+                    phase=other_phase_key,
+                    session=self.current_session
+                )
+                self._data["phases"][other_phase_key]["entries"].append(auto_close_entry.to_dict())
 
         # Update phase status
         if phase_key in self._data["phases"]:

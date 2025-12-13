@@ -272,6 +272,11 @@ export const IPC_CHANNELS = {
   INSIGHTS_SEND_MESSAGE: 'insights:sendMessage',
   INSIGHTS_CLEAR_SESSION: 'insights:clearSession',
   INSIGHTS_CREATE_TASK: 'insights:createTask',
+  INSIGHTS_LIST_SESSIONS: 'insights:listSessions',
+  INSIGHTS_NEW_SESSION: 'insights:newSession',
+  INSIGHTS_SWITCH_SESSION: 'insights:switchSession',
+  INSIGHTS_DELETE_SESSION: 'insights:deleteSession',
+  INSIGHTS_RENAME_SESSION: 'insights:renameSession',
 
   // Insights events (main -> renderer)
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',

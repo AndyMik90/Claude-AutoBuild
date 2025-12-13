@@ -215,7 +215,7 @@ Based on the workflow type and services involved, create the implementation plan
     {
       "id": "phase-1-backend",
       "name": "Backend API",
-      "type": "backend",
+      "type": "implementation",
       "description": "Build the REST API endpoints for [feature]",
       "depends_on": [],
       "parallel_safe": true,
@@ -255,7 +255,7 @@ Based on the workflow type and services involved, create the implementation plan
     {
       "id": "phase-2-worker",
       "name": "Background Worker",
-      "type": "worker",
+      "type": "implementation",
       "description": "Build Celery tasks for data aggregation",
       "depends_on": ["phase-1-backend"],
       "parallel_safe": false,
@@ -279,7 +279,7 @@ Based on the workflow type and services involved, create the implementation plan
     {
       "id": "phase-3-frontend",
       "name": "Frontend Dashboard",
-      "type": "frontend",
+      "type": "implementation",
       "description": "Build the real-time dashboard UI",
       "depends_on": ["phase-1-backend"],
       "parallel_safe": true,
@@ -331,6 +331,20 @@ Based on the workflow type and services involved, create the implementation plan
   ]
 }
 ```
+
+### Valid Phase Types
+
+Use ONLY these values for the `type` field in phases:
+
+| Type | When to Use |
+|------|-------------|
+| `setup` | Project scaffolding, environment setup |
+| `implementation` | Writing code (most phases should use this) |
+| `investigation` | Debugging, analyzing, reproducing issues |
+| `integration` | Wiring services together, end-to-end verification |
+| `cleanup` | Removing old code, polish, deprecation |
+
+**IMPORTANT:** Do NOT use `backend`, `frontend`, `worker`, or any other types. Use the `service` field in chunks to indicate which service the code belongs to.
 
 ### Chunk Guidelines
 

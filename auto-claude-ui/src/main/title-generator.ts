@@ -1,0 +1,239 @@
+import path from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { spawn } from 'child_process';
+import { app } from 'electron';
+
+/**
+ * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
+ */
+const DEBUG = process.env.AUTO_CLAUDE_DEBUG === 'true' || process.env.AUTO_CLAUDE_DEBUG === '1';
+
+function debug(...args: unknown[]): void {
+  if (DEBUG) {
+    console.log('[TitleGenerator]', ...args);
+  }
+}
+
+/**
+ * Service for generating task titles from descriptions using Claude AI
+ */
+export class TitleGenerator {
+  private pythonPath: string = 'python3';
+  private autoBuildSourcePath: string = '';
+
+  constructor() {
+    debug('TitleGenerator initialized');
+  }
+
+  /**
+   * Configure paths for Python and auto-claude source
+   */
+  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
+    if (pythonPath) {
+      this.pythonPath = pythonPath;
+    }
+    if (autoBuildSourcePath) {
+      this.autoBuildSourcePath = autoBuildSourcePath;
+    }
+  }
+
+  /**
+   * Get the auto-claude source path (detects automatically if not configured)
+   */
+  private getAutoBuildSourcePath(): string | null {
+    if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
+      return this.autoBuildSourcePath;
+    }
+
+    const possiblePaths = [
+      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
+      path.resolve(app.getAppPath(), '..', 'auto-claude'),
+      path.resolve(process.cwd(), 'auto-claude')
+    ];
+
+    for (const p of possiblePaths) {
+      if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Load environment variables from auto-claude .env file
+   */
+  private loadAutoBuildEnv(): Record<string, string> {
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    if (!autoBuildSource) return {};
+
+    const envPath = path.join(autoBuildSource, '.env');
+    if (!existsSync(envPath)) return {};
+
+    try {
+      const envContent = readFileSync(envPath, 'utf-8');
+      const envVars: Record<string, string> = {};
+
+      for (const line of envContent.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.substring(0, eqIndex).trim();
+          let value = trimmed.substring(eqIndex + 1).trim();
+
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+
+          envVars[key] = value;
+        }
+      }
+
+      return envVars;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Generate a task title from a description using Claude AI
+   * @param description - The task description to generate a title from
+   * @returns Promise resolving to the generated title or null on failure
+   */
+  async generateTitle(description: string): Promise<string | null> {
+    const autoBuildSource = this.getAutoBuildSourcePath();
+
+    if (!autoBuildSource) {
+      debug('Auto-claude source path not found');
+      return null;
+    }
+
+    const prompt = this.createTitlePrompt(description);
+    const script = this.createGenerationScript(prompt);
+
+    debug('Generating title for description:', description.substring(0, 100) + '...');
+
+    const autoBuildEnv = this.loadAutoBuildEnv();
+    debug('Environment loaded', {
+      hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
+    });
+
+    return new Promise((resolve) => {
+      const childProcess = spawn(this.pythonPath, ['-c', script], {
+        cwd: autoBuildSource,
+        env: {
+          ...process.env,
+          ...autoBuildEnv,
+          PYTHONUNBUFFERED: '1'
+        }
+      });
+
+      let output = '';
+      let errorOutput = '';
+      const timeout = setTimeout(() => {
+        debug('Title generation timed out');
+        childProcess.kill();
+        resolve(null);
+      }, 30000); // 30 second timeout
+
+      childProcess.stdout?.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      childProcess.stderr?.on('data', (data: Buffer) => {
+        errorOutput += data.toString();
+      });
+
+      childProcess.on('exit', (code: number | null) => {
+        clearTimeout(timeout);
+
+        if (code === 0 && output.trim()) {
+          const title = this.cleanTitle(output.trim());
+          debug('Generated title:', title);
+          resolve(title);
+        } else {
+          debug('Title generation failed', { code, errorOutput });
+          resolve(null);
+        }
+      });
+
+      childProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        debug('Process error:', err.message);
+        resolve(null);
+      });
+    });
+  }
+
+  /**
+   * Create the prompt for title generation
+   */
+  private createTitlePrompt(description: string): string {
+    return `Generate a short, concise task title (3-7 words) for the following task description. The title should be action-oriented and describe what will be done. Output ONLY the title, nothing else.
+
+Description:
+${description}
+
+Title:`;
+  }
+
+  /**
+   * Create the Python script to call Claude CLI
+   */
+  private createGenerationScript(prompt: string): string {
+    // Escape the prompt for Python string
+    const escapedPrompt = prompt
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n');
+
+    return `
+import subprocess
+import sys
+
+prompt = """${escapedPrompt}"""
+
+# Use Claude Code CLI to generate
+# --max-turns 1: Single response (no back-and-forth needed)
+# --model haiku: Faster model for simple text generation
+result = subprocess.run(
+    ['claude', '-p', prompt, '--output-format', 'text', '--max-turns', '1', '--model', 'haiku'],
+    capture_output=True,
+    text=True,
+    timeout=30
+)
+
+if result.returncode == 0:
+    print(result.stdout.strip())
+else:
+    print(result.stderr, file=sys.stderr)
+    sys.exit(1)
+`;
+  }
+
+  /**
+   * Clean up the generated title
+   */
+  private cleanTitle(title: string): string {
+    // Remove quotes if present
+    let cleaned = title.replace(/^["']|["']$/g, '');
+
+    // Remove any "Title:" or similar prefixes
+    cleaned = cleaned.replace(/^(title|task|feature)[:\s]*/i, '');
+
+    // Capitalize first letter
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
+    // Truncate if too long (max 100 chars)
+    if (cleaned.length > 100) {
+      cleaned = cleaned.substring(0, 97) + '...';
+    }
+
+    return cleaned.trim();
+  }
+}
+
+// Export singleton instance
+export const titleGenerator = new TitleGenerator();

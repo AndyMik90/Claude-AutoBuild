@@ -1,17 +1,20 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { app } from 'electron';
 import type {
   InsightsSession,
+  InsightsSessionSummary,
   InsightsChatMessage,
   InsightsChatStatus,
-  InsightsStreamChunk
+  InsightsStreamChunk,
+  InsightsToolUsage
 } from '../shared/types';
 
-const INSIGHTS_DIR = 'auto-claude/insights';
-const SESSION_FILE = 'session.json';
+const INSIGHTS_DIR = '.auto-claude/insights';
+const SESSIONS_DIR = 'sessions';
+const CURRENT_SESSION_FILE = 'current_session.json';
 
 /**
  * Service for AI-powered codebase insights chat
@@ -106,25 +109,119 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
-   * Get session file path for a project
+   * Get sessions directory path for a project
    */
-  private getSessionPath(projectPath: string): string {
-    return path.join(this.getInsightsDir(projectPath), SESSION_FILE);
+  private getSessionsDir(projectPath: string): string {
+    return path.join(this.getInsightsDir(projectPath), SESSIONS_DIR);
   }
 
   /**
-   * Load session from disk
+   * Get session file path for a specific session
    */
-  loadSession(projectId: string, projectPath: string): InsightsSession | null {
-    // Check in-memory cache first
-    if (this.sessions.has(projectId)) {
-      return this.sessions.get(projectId)!;
-    }
+  private getSessionPath(projectPath: string, sessionId: string): string {
+    return path.join(this.getSessionsDir(projectPath), `${sessionId}.json`);
+  }
 
-    const sessionPath = this.getSessionPath(projectPath);
-    if (!existsSync(sessionPath)) {
+  /**
+   * Get current session pointer file path
+   */
+  private getCurrentSessionPath(projectPath: string): string {
+    return path.join(this.getInsightsDir(projectPath), CURRENT_SESSION_FILE);
+  }
+
+  /**
+   * Generate a title from the first user message
+   */
+  private generateTitle(message: string): string {
+    // Truncate to first 50 characters and clean up
+    const title = message.trim().replace(/\n/g, ' ').slice(0, 50);
+    return title.length < message.trim().length ? `${title}...` : title;
+  }
+
+  /**
+   * Migrate old session format to new multi-session format
+   */
+  private migrateOldSession(projectPath: string): void {
+    const oldSessionPath = path.join(this.getInsightsDir(projectPath), 'session.json');
+    if (!existsSync(oldSessionPath)) return;
+
+    try {
+      const content = readFileSync(oldSessionPath, 'utf-8');
+      const oldSession = JSON.parse(content) as InsightsSession;
+
+      // Only migrate if it has messages
+      if (oldSession.messages && oldSession.messages.length > 0) {
+        // Ensure sessions directory exists
+        const sessionsDir = this.getSessionsDir(projectPath);
+        if (!existsSync(sessionsDir)) {
+          mkdirSync(sessionsDir, { recursive: true });
+        }
+
+        // Generate title from first user message
+        const firstUserMessage = oldSession.messages.find(m => m.role === 'user');
+        const title = firstUserMessage
+          ? this.generateTitle(firstUserMessage.content)
+          : 'Imported Conversation';
+
+        // Create new session with title
+        const newSession: InsightsSession = {
+          ...oldSession,
+          title
+        };
+
+        // Save as new session file
+        const sessionPath = this.getSessionPath(projectPath, oldSession.id);
+        writeFileSync(sessionPath, JSON.stringify(newSession, null, 2));
+
+        // Set as current session
+        this.saveCurrentSessionId(projectPath, oldSession.id);
+      }
+
+      // Remove old session file
+      unlinkSync(oldSessionPath);
+    } catch {
+      // Ignore migration errors
+    }
+  }
+
+  /**
+   * Get current session ID for a project
+   */
+  private getCurrentSessionId(projectPath: string): string | null {
+    // Migrate old format if needed
+    this.migrateOldSession(projectPath);
+
+    const currentPath = this.getCurrentSessionPath(projectPath);
+    if (!existsSync(currentPath)) return null;
+
+    try {
+      const content = readFileSync(currentPath, 'utf-8');
+      const data = JSON.parse(content);
+      return data.currentSessionId || null;
+    } catch {
       return null;
     }
+  }
+
+  /**
+   * Save current session ID pointer
+   */
+  private saveCurrentSessionId(projectPath: string, sessionId: string): void {
+    const insightsDir = this.getInsightsDir(projectPath);
+    if (!existsSync(insightsDir)) {
+      mkdirSync(insightsDir, { recursive: true });
+    }
+
+    const currentPath = this.getCurrentSessionPath(projectPath);
+    writeFileSync(currentPath, JSON.stringify({ currentSessionId: sessionId }, null, 2));
+  }
+
+  /**
+   * Load a specific session from disk
+   */
+  private loadSessionById(projectPath: string, sessionId: string): InsightsSession | null {
+    const sessionPath = this.getSessionPath(projectPath, sessionId);
+    if (!existsSync(sessionPath)) return null;
 
     try {
       const content = readFileSync(sessionPath, 'utf-8');
@@ -134,9 +231,13 @@ export class InsightsService extends EventEmitter {
       session.updatedAt = new Date(session.updatedAt);
       session.messages = session.messages.map(m => ({
         ...m,
-        timestamp: new Date(m.timestamp)
+        timestamp: new Date(m.timestamp),
+        // Convert toolsUsed timestamps if present
+        toolsUsed: m.toolsUsed?.map(t => ({
+          ...t,
+          timestamp: new Date(t.timestamp)
+        }))
       }));
-      this.sessions.set(projectId, session);
       return session;
     } catch {
       return null;
@@ -144,39 +245,185 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
+   * Load current session from disk
+   */
+  loadSession(projectId: string, projectPath: string): InsightsSession | null {
+    // Check in-memory cache first
+    if (this.sessions.has(projectId)) {
+      return this.sessions.get(projectId)!;
+    }
+
+    const currentSessionId = this.getCurrentSessionId(projectPath);
+    if (!currentSessionId) return null;
+
+    const session = this.loadSessionById(projectPath, currentSessionId);
+    if (session) {
+      this.sessions.set(projectId, session);
+    }
+    return session;
+  }
+
+  /**
+   * List all sessions for a project
+   */
+  listSessions(projectPath: string): InsightsSessionSummary[] {
+    // Migrate old format if needed
+    this.migrateOldSession(projectPath);
+
+    const sessionsDir = this.getSessionsDir(projectPath);
+    if (!existsSync(sessionsDir)) return [];
+
+    try {
+      const files = readdirSync(sessionsDir).filter(f => f.endsWith('.json'));
+      const sessions: InsightsSessionSummary[] = [];
+
+      for (const file of files) {
+        try {
+          const content = readFileSync(path.join(sessionsDir, file), 'utf-8');
+          const session = JSON.parse(content) as InsightsSession;
+
+          // Generate title if not present
+          let title = session.title;
+          if (!title && session.messages.length > 0) {
+            const firstUserMessage = session.messages.find(m => m.role === 'user');
+            title = firstUserMessage
+              ? this.generateTitle(firstUserMessage.content)
+              : 'Untitled Conversation';
+          }
+
+          sessions.push({
+            id: session.id,
+            projectId: session.projectId,
+            title: title || 'New Conversation',
+            messageCount: session.messages.length,
+            createdAt: new Date(session.createdAt),
+            updatedAt: new Date(session.updatedAt)
+          });
+        } catch {
+          // Skip invalid session files
+        }
+      }
+
+      // Sort by updatedAt descending (most recent first)
+      return sessions.sort((a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Create a new session
+   */
+  createNewSession(projectId: string, projectPath: string): InsightsSession {
+    const sessionId = `session-${Date.now()}`;
+    const session: InsightsSession = {
+      id: sessionId,
+      projectId,
+      title: 'New Conversation',
+      messages: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Ensure sessions directory exists
+    const sessionsDir = this.getSessionsDir(projectPath);
+    if (!existsSync(sessionsDir)) {
+      mkdirSync(sessionsDir, { recursive: true });
+    }
+
+    // Save new session
+    this.saveSession(projectPath, session);
+    this.saveCurrentSessionId(projectPath, sessionId);
+    this.sessions.set(projectId, session);
+
+    return session;
+  }
+
+  /**
+   * Switch to a different session
+   */
+  switchSession(projectId: string, projectPath: string, sessionId: string): InsightsSession | null {
+    const session = this.loadSessionById(projectPath, sessionId);
+    if (session) {
+      this.saveCurrentSessionId(projectPath, sessionId);
+      this.sessions.set(projectId, session);
+    }
+    return session;
+  }
+
+  /**
+   * Delete a session
+   */
+  deleteSession(projectId: string, projectPath: string, sessionId: string): boolean {
+    const sessionPath = this.getSessionPath(projectPath, sessionId);
+    if (!existsSync(sessionPath)) return false;
+
+    try {
+      unlinkSync(sessionPath);
+
+      // If this was the current session, clear the cache
+      const currentSession = this.sessions.get(projectId);
+      if (currentSession?.id === sessionId) {
+        this.sessions.delete(projectId);
+
+        // Find another session to switch to, or create new
+        const remaining = this.listSessions(projectPath);
+        if (remaining.length > 0) {
+          this.switchSession(projectId, projectPath, remaining[0].id);
+        } else {
+          // Clear current session pointer
+          const currentPath = this.getCurrentSessionPath(projectPath);
+          if (existsSync(currentPath)) {
+            unlinkSync(currentPath);
+          }
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Rename a session
+   */
+  renameSession(projectPath: string, sessionId: string, newTitle: string): boolean {
+    const session = this.loadSessionById(projectPath, sessionId);
+    if (!session) return false;
+
+    session.title = newTitle;
+    session.updatedAt = new Date();
+    this.saveSession(projectPath, session);
+    return true;
+  }
+
+  /**
    * Save session to disk
    */
   private saveSession(projectPath: string, session: InsightsSession): void {
-    const insightsDir = this.getInsightsDir(projectPath);
-    if (!existsSync(insightsDir)) {
-      mkdirSync(insightsDir, { recursive: true });
+    const sessionsDir = this.getSessionsDir(projectPath);
+    if (!existsSync(sessionsDir)) {
+      mkdirSync(sessionsDir, { recursive: true });
     }
 
-    const sessionPath = this.getSessionPath(projectPath);
+    const sessionPath = this.getSessionPath(projectPath, session.id);
     writeFileSync(sessionPath, JSON.stringify(session, null, 2));
     this.sessions.set(session.projectId, session);
   }
 
   /**
-   * Clear session
+   * Clear current session (delete messages but keep the session)
    */
   clearSession(projectId: string, projectPath: string): void {
-    this.sessions.delete(projectId);
-    const sessionPath = this.getSessionPath(projectPath);
-    if (existsSync(sessionPath)) {
-      try {
-        // Just reset the session file, not the directory
-        writeFileSync(sessionPath, JSON.stringify({
-          id: `session-${Date.now()}`,
-          projectId,
-          messages: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }, null, 2));
-      } catch {
-        // Ignore errors
-      }
-    }
+    const currentSession = this.sessions.get(projectId);
+    if (!currentSession) return;
+
+    // Create a fresh session with new ID
+    const newSession = this.createNewSession(projectId, projectPath);
+    this.sessions.set(projectId, newSession);
   }
 
   /**
@@ -199,13 +446,12 @@ export class InsightsService extends EventEmitter {
     // Load or create session
     let session = this.loadSession(projectId, projectPath);
     if (!session) {
-      session = {
-        id: `session-${Date.now()}`,
-        projectId,
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      session = this.createNewSession(projectId, projectPath);
+    }
+
+    // Auto-generate title from first user message if still default
+    if (session.messages.length === 0 && session.title === 'New Conversation') {
+      session.title = this.generateTitle(message);
     }
 
     // Add user message
@@ -262,6 +508,7 @@ export class InsightsService extends EventEmitter {
 
     let fullResponse = '';
     let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
+    const toolsUsed: InsightsToolUsage[] = [];
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
@@ -290,6 +537,12 @@ export class InsightsService extends EventEmitter {
           try {
             const toolJson = line.substring('__TOOL_START__:'.length);
             const toolData = JSON.parse(toolJson);
+            // Accumulate tool usage for persistence
+            toolsUsed.push({
+              name: toolData.name,
+              input: toolData.input,
+              timestamp: new Date()
+            });
             this.emit('stream-chunk', projectId, {
               type: 'tool_start',
               tool: {
@@ -339,7 +592,8 @@ export class InsightsService extends EventEmitter {
           role: 'assistant',
           content: fullResponse.trim(),
           timestamp: new Date(),
-          suggestedTask
+          suggestedTask,
+          toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
         };
 
         session!.messages.push(assistantMessage);

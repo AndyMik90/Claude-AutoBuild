@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   InsightsSession,
+  InsightsSessionSummary,
   InsightsChatMessage,
   InsightsChatStatus,
   InsightsStreamChunk,
@@ -17,14 +18,17 @@ interface ToolUsage {
 interface InsightsState {
   // Data
   session: InsightsSession | null;
+  sessions: InsightsSessionSummary[]; // List of all sessions
   status: InsightsChatStatus;
   pendingMessage: string;
   streamingContent: string; // Accumulates streaming response
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
+  isLoadingSessions: boolean;
 
   // Actions
   setSession: (session: InsightsSession | null) => void;
+  setSessions: (sessions: InsightsSessionSummary[]) => void;
   setStatus: (status: InsightsChatStatus) => void;
   setPendingMessage: (message: string) => void;
   addMessage: (message: InsightsChatMessage) => void;
@@ -36,6 +40,7 @@ interface InsightsState {
   clearToolsUsed: () => void;
   finalizeStreamingMessage: (suggestedTask?: InsightsChatMessage['suggestedTask']) => void;
   clearSession: () => void;
+  setLoadingSessions: (loading: boolean) => void;
 }
 
 const initialStatus: InsightsChatStatus = {
@@ -46,16 +51,22 @@ const initialStatus: InsightsChatStatus = {
 export const useInsightsStore = create<InsightsState>((set, get) => ({
   // Initial state
   session: null,
+  sessions: [],
   status: initialStatus,
   pendingMessage: '',
   streamingContent: '',
   currentTool: null,
   toolsUsed: [],
+  isLoadingSessions: false,
 
   // Actions
   setSession: (session) => set({ session }),
 
+  setSessions: (sessions) => set({ sessions }),
+
   setStatus: (status) => set({ status }),
+
+  setLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
 
   setPendingMessage: (message) => set({ pendingMessage: message }),
 
@@ -183,6 +194,22 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
 
 // Helper functions
 
+export async function loadInsightsSessions(projectId: string): Promise<void> {
+  const store = useInsightsStore.getState();
+  store.setLoadingSessions(true);
+
+  try {
+    const result = await window.electronAPI.listInsightsSessions(projectId);
+    if (result.success && result.data) {
+      store.setSessions(result.data);
+    } else {
+      store.setSessions([]);
+    }
+  } finally {
+    store.setLoadingSessions(false);
+  }
+}
+
 export async function loadInsightsSession(projectId: string): Promise<void> {
   const result = await window.electronAPI.getInsightsSession(projectId);
   if (result.success && result.data) {
@@ -190,6 +217,8 @@ export async function loadInsightsSession(projectId: string): Promise<void> {
   } else {
     useInsightsStore.getState().setSession(null);
   }
+  // Also load the sessions list
+  await loadInsightsSessions(projectId);
 }
 
 export function sendMessage(projectId: string, message: string): void {
@@ -221,7 +250,50 @@ export async function clearSession(projectId: string): Promise<void> {
   const result = await window.electronAPI.clearInsightsSession(projectId);
   if (result.success) {
     useInsightsStore.getState().clearSession();
+    // Reload sessions list and current session
+    await loadInsightsSession(projectId);
   }
+}
+
+export async function newSession(projectId: string): Promise<void> {
+  const result = await window.electronAPI.newInsightsSession(projectId);
+  if (result.success && result.data) {
+    useInsightsStore.getState().setSession(result.data);
+    // Reload sessions list
+    await loadInsightsSessions(projectId);
+  }
+}
+
+export async function switchSession(projectId: string, sessionId: string): Promise<void> {
+  const result = await window.electronAPI.switchInsightsSession(projectId, sessionId);
+  if (result.success && result.data) {
+    useInsightsStore.getState().setSession(result.data);
+    // Reset streaming state when switching sessions
+    useInsightsStore.getState().clearStreamingContent();
+    useInsightsStore.getState().clearToolsUsed();
+    useInsightsStore.getState().setCurrentTool(null);
+    useInsightsStore.getState().setStatus({ phase: 'idle', message: '' });
+  }
+}
+
+export async function deleteSession(projectId: string, sessionId: string): Promise<boolean> {
+  const result = await window.electronAPI.deleteInsightsSession(projectId, sessionId);
+  if (result.success) {
+    // Reload sessions list and current session
+    await loadInsightsSession(projectId);
+    return true;
+  }
+  return false;
+}
+
+export async function renameSession(projectId: string, sessionId: string, newTitle: string): Promise<boolean> {
+  const result = await window.electronAPI.renameInsightsSession(projectId, sessionId, newTitle);
+  if (result.success) {
+    // Reload sessions list to reflect the change
+    await loadInsightsSessions(projectId);
+    return true;
+  }
+  return false;
 }
 
 export async function createTaskFromSuggestion(

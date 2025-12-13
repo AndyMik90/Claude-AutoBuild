@@ -27,7 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 
 # Linear status constants (matching Valma AI team setup)
@@ -122,8 +122,8 @@ def _create_linear_client() -> ClaudeSDKClient:
         raise ValueError("LINEAR_API_KEY not set")
 
     return ClaudeSDKClient(
-        options=ClaudeCodeOptions(
-            model="claude-sonnet-4-20250514",  # Fast model for simple tasks
+        options=ClaudeAgentOptions(
+            model="claude-haiku-4-20250514",  # Fast & cheap model for simple API calls
             system_prompt="You are a Linear API assistant. Execute the requested Linear operation precisely.",
             allowed_tools=LINEAR_TOOLS,
             mcp_servers={

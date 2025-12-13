@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   Send,
-  Trash2,
   Loader2,
   Plus,
   Sparkles,
@@ -12,33 +11,29 @@ import {
   AlertCircle,
   Search,
   FileText,
-  FolderSearch
+  FolderSearch,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from './ui/alert-dialog';
 import { cn } from '../lib/utils';
 import {
   useInsightsStore,
   loadInsightsSession,
   sendMessage,
-  clearSession,
+  newSession,
+  switchSession,
+  deleteSession,
+  renameSession,
   createTaskFromSuggestion,
   setupInsightsListeners
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
+import { ChatHistorySidebar } from './ChatHistorySidebar';
 import type { InsightsChatMessage } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -53,16 +48,16 @@ interface InsightsProps {
 
 export function Insights({ projectId }: InsightsProps) {
   const session = useInsightsStore((state) => state.session);
+  const sessions = useInsightsStore((state) => state.sessions);
   const status = useInsightsStore((state) => state.status);
   const streamingContent = useInsightsStore((state) => state.streamingContent);
   const currentTool = useInsightsStore((state) => state.currentTool);
-  const pendingMessage = useInsightsStore((state) => state.pendingMessage);
-  const setPendingMessage = useInsightsStore((state) => state.setPendingMessage);
+  const isLoadingSessions = useInsightsStore((state) => state.isLoadingSessions);
 
   const [inputValue, setInputValue] = useState('');
-  const [showClearDialog, setShowClearDialog] = useState(false);
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -84,6 +79,11 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
+  // Reset taskCreated when switching sessions
+  useEffect(() => {
+    setTaskCreated(new Set());
+  }, [session?.id]);
+
   const handleSend = () => {
     const message = inputValue.trim();
     if (!message || status.phase === 'thinking' || status.phase === 'streaming') return;
@@ -99,10 +99,24 @@ export function Insights({ projectId }: InsightsProps) {
     }
   };
 
-  const handleClear = async () => {
-    await clearSession(projectId);
-    setShowClearDialog(false);
+  const handleNewSession = async () => {
+    await newSession(projectId);
     setTaskCreated(new Set());
+    textareaRef.current?.focus();
+  };
+
+  const handleSelectSession = async (sessionId: string) => {
+    if (sessionId !== session?.id) {
+      await switchSession(projectId, sessionId);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string): Promise<boolean> => {
+    return await deleteSession(projectId, sessionId);
+  };
+
+  const handleRenameSession = async (sessionId: string, newTitle: string): Promise<boolean> => {
+    return await renameSession(projectId, sessionId, newTitle);
   };
 
   const handleCreateTask = async (message: InsightsChatMessage) => {
@@ -131,30 +145,57 @@ export function Insights({ projectId }: InsightsProps) {
   const messages = session?.messages || [];
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
+    <div className="flex h-full">
+      {/* Chat History Sidebar */}
+      {showSidebar && (
+        <ChatHistorySidebar
+          sessions={sessions}
+          currentSessionId={session?.id || null}
+          isLoading={isLoadingSessions}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex flex-1 flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowSidebar(!showSidebar)}
+              title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+            >
+              {showSidebar ? (
+                <PanelLeftClose className="h-4 w-4" />
+              ) : (
+                <PanelLeft className="h-4 w-4" />
+              )}
+            </Button>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Insights</h2>
+              <p className="text-sm text-muted-foreground">
+                Ask questions about your codebase
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-foreground">Insights</h2>
-            <p className="text-sm text-muted-foreground">
-              Ask questions about your codebase
-            </p>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNewSession}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Chat
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowClearDialog(true)}
-          disabled={messages.length === 0}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Clear Chat
-        </Button>
-      </div>
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-6 py-4">
@@ -281,23 +322,7 @@ export function Insights({ projectId }: InsightsProps) {
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
-
-      {/* Clear confirmation dialog */}
-      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear conversation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete all messages in this conversation.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClear}>Clear</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </div>
     </div>
   );
 }

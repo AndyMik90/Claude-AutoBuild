@@ -524,7 +524,7 @@ export class AgentManager extends EventEmitter {
           try {
             const ideationFilePath = path.join(
               storedProjectPath,
-              'auto-claude',
+              '.auto-claude',
               'ideation',
               'ideation.json'
             );
@@ -715,9 +715,23 @@ export class AgentManager extends EventEmitter {
       return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
     }
 
-    // Completion detection
-    if (lowerLog.includes('build complete') || lowerLog.includes('all chunks completed') || lowerLog.includes('qa passed')) {
+    // Completion detection - be conservative, require explicit success markers
+    // The AI agent prints "=== BUILD COMPLETE ===" when truly done (from coder.md)
+    // Only trust this pattern, not generic "all chunks completed" which could be false positive
+    if (lowerLog.includes('=== build complete ===') || lowerLog.includes('qa passed')) {
       return { phase: 'complete', message: 'Build completed successfully' };
+    }
+
+    // "All chunks completed" is informational - don't change phase based on this alone
+    // The coordinator may print this even when chunks are blocked, so we stay in coding phase
+    // and let the actual implementation_plan.json status drive the UI
+    if (lowerLog.includes('all chunks completed')) {
+      return { phase: 'coding', message: 'Chunks marked complete' };
+    }
+
+    // Incomplete build detection - when coordinator exits with pending chunks
+    if (lowerLog.includes('build incomplete') || lowerLog.includes('chunks still pending')) {
+      return { phase: 'coding', message: 'Build paused - chunks still pending' };
     }
 
     // Error/failure detection

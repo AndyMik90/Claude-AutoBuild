@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, symlinkSync, lstatSync, unlinkSync, rmSync } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
@@ -38,6 +38,26 @@ const PRESERVE_ON_UPDATE = [
 ];
 
 /**
+ * Directories that contain data (not code) - these are NEVER symlinked
+ * They are always real directories to store project-specific data
+ */
+const DATA_DIRECTORIES = [
+  'specs',
+  'ideation',
+  'insights',
+  'roadmap'
+];
+
+/**
+ * Files that should always be real (not symlinked) in dev mode
+ */
+const DEV_MODE_REAL_FILES = [
+  '.env',
+  '.env.example',
+  '.version.json'
+];
+
+/**
  * Version metadata stored in .auto-claude/.version.json
  */
 export interface VersionMetadata {
@@ -46,6 +66,10 @@ export interface VersionMetadata {
   sourcePath: string;
   initializedAt: string;
   updatedAt: string;
+  /** If true, this installation uses symlinks to source code (for development) */
+  devMode?: boolean;
+  /** Path to the local source code when in dev mode */
+  devSourcePath?: string;
 }
 
 /**
@@ -93,6 +117,72 @@ function shouldPreserve(name: string): boolean {
 }
 
 /**
+ * Check if an entry is a data directory (should never be symlinked)
+ */
+function isDataDirectory(name: string): boolean {
+  return DATA_DIRECTORIES.includes(name);
+}
+
+/**
+ * Check if a file should be real (not symlinked) in dev mode
+ */
+function shouldBeRealFile(name: string): boolean {
+  return DEV_MODE_REAL_FILES.includes(name);
+}
+
+/**
+ * Check if the project has a local auto-claude source directory
+ * This indicates it's the auto-claude development project itself
+ */
+export function hasLocalSource(projectPath: string): boolean {
+  const localSourcePath = path.join(projectPath, 'auto-claude');
+  const versionFile = path.join(localSourcePath, 'VERSION');
+  return existsSync(localSourcePath) && existsSync(versionFile);
+}
+
+/**
+ * Get the local source path for a project (if it exists)
+ */
+export function getLocalSourcePath(projectPath: string): string | null {
+  const localSourcePath = path.join(projectPath, 'auto-claude');
+  if (hasLocalSource(projectPath)) {
+    return localSourcePath;
+  }
+  return null;
+}
+
+/**
+ * Check if a path is a symbolic link
+ */
+function isSymlink(filePath: string): boolean {
+  try {
+    return lstatSync(filePath).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Safely remove a file or symlink
+ */
+function safeRemove(filePath: string): void {
+  try {
+    if (isSymlink(filePath)) {
+      unlinkSync(filePath);
+    } else if (existsSync(filePath)) {
+      const stat = statSync(filePath);
+      if (stat.isDirectory()) {
+        // Don't remove directories - they might have data
+        return;
+      }
+      unlinkSync(filePath);
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
  * Recursively copy directory with exclusions
  */
 function copyDirectoryRecursive(
@@ -125,6 +215,83 @@ function copyDirectoryRecursive(
       copyDirectoryRecursive(srcPath, destPath, isUpdate);
     } else {
       copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+/**
+ * Recursively create symlinks from dest to src for code files.
+ * Data directories are created as real directories, not symlinked.
+ * This enables dev mode where code changes in source are immediately reflected.
+ */
+function symlinkDirectoryRecursive(
+  src: string,
+  dest: string,
+  isUpdate: boolean = false
+): void {
+  // Create destination directory if it doesn't exist
+  if (!existsSync(dest)) {
+    mkdirSync(dest, { recursive: true });
+  }
+
+  const entries = readdirSync(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    // Skip excluded files/directories
+    if (shouldExclude(entry.name)) {
+      continue;
+    }
+
+    // Data directories should be real directories, not symlinked
+    if (entry.isDirectory() && isDataDirectory(entry.name)) {
+      if (!existsSync(destPath)) {
+        mkdirSync(destPath, { recursive: true });
+        writeFileSync(path.join(destPath, '.gitkeep'), '');
+      }
+      continue;
+    }
+
+    // During updates, skip preserved files/directories if they exist
+    if (isUpdate && shouldPreserve(entry.name) && existsSync(destPath)) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      // For directories (like prompts/), symlink the entire directory
+      // Remove existing file/symlink if it exists
+      safeRemove(destPath);
+      
+      if (!existsSync(destPath)) {
+        try {
+          symlinkSync(srcPath, destPath, 'dir');
+          debug('Created directory symlink', { from: destPath, to: srcPath });
+        } catch (err) {
+          debug('Failed to create directory symlink, copying instead', { error: String(err) });
+          copyDirectoryRecursive(srcPath, destPath, isUpdate);
+        }
+      }
+    } else {
+      // For files, check if they should be real or symlinked
+      if (shouldBeRealFile(entry.name)) {
+        // Copy real files (like .env.example)
+        if (!existsSync(destPath) || isUpdate) {
+          copyFileSync(srcPath, destPath);
+        }
+      } else {
+        // Create symlink for code files
+        safeRemove(destPath);
+        
+        try {
+          symlinkSync(srcPath, destPath, 'file');
+          debug('Created file symlink', { from: destPath, to: srcPath });
+        } catch (err) {
+          debug('Failed to create file symlink, copying instead', { error: String(err) });
+          copyFileSync(srcPath, destPath);
+        }
+      }
     }
   }
 }
@@ -524,4 +691,234 @@ export function getAutoBuildPath(projectPath: string): string | null {
   // The project needs to be initialized to create .auto-claude/
   debug('No .auto-claude folder found - project not initialized');
   return null;
+}
+
+/**
+ * Check if a project's .auto-claude is in dev mode (symlinked to source)
+ */
+export function isDevMode(projectPath: string): boolean {
+  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  const metadataPath = path.join(dotAutoBuildPath, '.version.json');
+  
+  if (!existsSync(metadataPath)) {
+    return false;
+  }
+  
+  try {
+    const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')) as VersionMetadata;
+    return metadata.devMode === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enable dev mode for a project by converting .auto-claude to use symlinks
+ * from the local auto-claude/ source directory.
+ * 
+ * This is useful when developing auto-claude itself - changes to the source
+ * code are immediately reflected in .auto-claude without manual updates.
+ * 
+ * @param projectPath - Path to the project
+ * @returns Result of the operation
+ */
+export function enableDevMode(projectPath: string): InitializationResult {
+  debug('enableDevMode called', { projectPath });
+  
+  // Check if project has local source
+  const localSourcePath = getLocalSourcePath(projectPath);
+  if (!localSourcePath) {
+    debug('No local source found');
+    return {
+      success: false,
+      error: 'No auto-claude/ source directory found. Dev mode requires the project to have an auto-claude/ folder (the source code).'
+    };
+  }
+  
+  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  
+  // Create .auto-claude if it doesn't exist
+  if (!existsSync(dotAutoBuildPath)) {
+    mkdirSync(dotAutoBuildPath, { recursive: true });
+  }
+  
+  try {
+    // Use symlink-based copy
+    symlinkDirectoryRecursive(localSourcePath, dotAutoBuildPath, true);
+    
+    // Ensure data directories exist as real directories
+    for (const dataDir of DATA_DIRECTORIES) {
+      const dataDirPath = path.join(dotAutoBuildPath, dataDir);
+      if (!existsSync(dataDirPath)) {
+        mkdirSync(dataDirPath, { recursive: true });
+        writeFileSync(path.join(dataDirPath, '.gitkeep'), '');
+      }
+    }
+    
+    // Ensure insights directory exists
+    const insightsDir = path.join(dotAutoBuildPath, 'insights');
+    if (!existsSync(insightsDir)) {
+      mkdirSync(insightsDir, { recursive: true });
+    }
+    
+    // Copy .env.example to .env if .env doesn't exist
+    const envExamplePath = path.join(localSourcePath, '.env.example');
+    const envPath = path.join(dotAutoBuildPath, '.env');
+    if (existsSync(envExamplePath) && !existsSync(envPath)) {
+      copyFileSync(envExamplePath, envPath);
+    }
+    
+    // Write version metadata with dev mode flag
+    const version = readSourceVersion(localSourcePath);
+    const sourceHash = calculateDirectoryHash(localSourcePath);
+    const existingMetadata = readVersionMetadata(dotAutoBuildPath);
+    const now = new Date().toISOString();
+    
+    writeVersionMetadata(dotAutoBuildPath, {
+      version,
+      sourceHash,
+      sourcePath: localSourcePath,
+      initializedAt: existingMetadata?.initializedAt || now,
+      updatedAt: now,
+      devMode: true,
+      devSourcePath: localSourcePath
+    });
+    
+    debug('Dev mode enabled successfully', { version });
+    return {
+      success: true,
+      version,
+      wasUpdate: true
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error enabling dev mode';
+    debug('Failed to enable dev mode', { error: errorMessage });
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Disable dev mode by converting symlinks back to real files.
+ * This copies the source files to .auto-claude instead of symlinking.
+ * 
+ * @param projectPath - Path to the project
+ * @param sourcePath - Path to the auto-claude source to copy from
+ * @returns Result of the operation
+ */
+export function disableDevMode(
+  projectPath: string,
+  sourcePath: string
+): InitializationResult {
+  debug('disableDevMode called', { projectPath, sourcePath });
+  
+  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  
+  if (!existsSync(dotAutoBuildPath)) {
+    return {
+      success: false,
+      error: 'No .auto-claude folder found'
+    };
+  }
+  
+  if (!existsSync(sourcePath)) {
+    return {
+      success: false,
+      error: `Source not found at: ${sourcePath}`
+    };
+  }
+  
+  try {
+    // Remove symlinks and copy real files
+    const entries = readdirSync(dotAutoBuildPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const entryPath = path.join(dotAutoBuildPath, entry.name);
+      
+      // Skip data directories - they're already real
+      if (isDataDirectory(entry.name)) {
+        continue;
+      }
+      
+      // Skip version file
+      if (entry.name === '.version.json') {
+        continue;
+      }
+      
+      // Remove symlink and copy from source
+      if (isSymlink(entryPath)) {
+        unlinkSync(entryPath);
+        
+        const srcPath = path.join(sourcePath, entry.name);
+        if (existsSync(srcPath)) {
+          const srcStat = statSync(srcPath);
+          if (srcStat.isDirectory()) {
+            copyDirectoryRecursive(srcPath, entryPath, false);
+          } else {
+            copyFileSync(srcPath, entryPath);
+          }
+        }
+      }
+    }
+    
+    // Update version metadata without dev mode flag
+    const version = readSourceVersion(sourcePath);
+    const sourceHash = calculateDirectoryHash(sourcePath);
+    const existingMetadata = readVersionMetadata(dotAutoBuildPath);
+    const now = new Date().toISOString();
+    
+    writeVersionMetadata(dotAutoBuildPath, {
+      version,
+      sourceHash,
+      sourcePath,
+      initializedAt: existingMetadata?.initializedAt || now,
+      updatedAt: now,
+      devMode: false
+    });
+    
+    debug('Dev mode disabled successfully', { version });
+    return {
+      success: true,
+      version,
+      wasUpdate: true
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error disabling dev mode';
+    debug('Failed to disable dev mode', { error: errorMessage });
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Sync .auto-claude with the local source (refresh symlinks).
+ * Useful when new files are added to the source.
+ * 
+ * @param projectPath - Path to the project  
+ * @returns Result of the operation
+ */
+export function syncDevMode(projectPath: string): InitializationResult {
+  debug('syncDevMode called', { projectPath });
+  
+  if (!isDevMode(projectPath)) {
+    return {
+      success: false,
+      error: 'Project is not in dev mode. Enable dev mode first.'
+    };
+  }
+  
+  const localSourcePath = getLocalSourcePath(projectPath);
+  if (!localSourcePath) {
+    return {
+      success: false,
+      error: 'No auto-claude/ source directory found.'
+    };
+  }
+  
+  // Re-enable dev mode which will refresh all symlinks
+  return enableDevMode(projectPath);
 }

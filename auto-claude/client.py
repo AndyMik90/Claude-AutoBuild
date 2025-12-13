@@ -9,11 +9,16 @@ import json
 import os
 from pathlib import Path
 
-from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
-from claude_code_sdk.types import HookMatcher
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk.types import HookMatcher
 
 from security import bash_security_hook
 from linear_updater import is_linear_enabled
+from auto_claude_tools import (
+    create_auto_claude_mcp_server,
+    get_allowed_tools as get_agent_allowed_tools,
+    is_tools_available,
+)
 
 
 # Puppeteer MCP tools for browser automation
@@ -65,7 +70,12 @@ BUILTIN_TOOLS = [
 ]
 
 
-def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKClient:
+def create_client(
+    project_dir: Path,
+    spec_dir: Path,
+    model: str,
+    agent_type: str = "coder",
+) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
 
@@ -73,6 +83,8 @@ def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKCli
         project_dir: Root directory for the project (working directory)
         spec_dir: Directory containing the spec (for settings file)
         model: Claude model to use
+        agent_type: Type of agent - 'planner', 'coder', 'qa_reviewer', or 'qa_fixer'
+                   This determines which custom auto-claude tools are available.
 
     Returns:
         Configured ClaudeSDKClient
@@ -82,6 +94,7 @@ def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKCli
     2. Permissions - File operations restricted to project_dir only
     3. Security hooks - Bash commands validated against an allowlist
        (see security.py for ALLOWED_COMMANDS)
+    4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
     oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
     if not oauth_token:
@@ -94,8 +107,19 @@ def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKCli
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
 
+    # Check if custom auto-claude tools are available
+    auto_claude_tools_enabled = is_tools_available()
+
     # Build the list of allowed tools
-    allowed_tools_list = [*BUILTIN_TOOLS, *PUPPETEER_TOOLS, *CONTEXT7_TOOLS]
+    # Start with agent-specific tools (includes base tools + auto-claude tools)
+    if auto_claude_tools_enabled:
+        allowed_tools_list = get_agent_allowed_tools(agent_type)
+    else:
+        allowed_tools_list = [*BUILTIN_TOOLS]
+
+    # Add external MCP tools
+    allowed_tools_list.extend(PUPPETEER_TOOLS)
+    allowed_tools_list.extend(CONTEXT7_TOOLS)
     if linear_enabled:
         allowed_tools_list.extend(LINEAR_TOOLS)
 
@@ -139,6 +163,8 @@ def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKCli
     mcp_servers_list = ["puppeteer (browser automation)", "context7 (documentation)"]
     if linear_enabled:
         mcp_servers_list.append("linear (project management)")
+    if auto_claude_tools_enabled:
+        mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
     print()
 
@@ -156,8 +182,15 @@ def create_client(project_dir: Path, spec_dir: Path, model: str) -> ClaudeSDKCli
             "headers": {"Authorization": f"Bearer {linear_api_key}"}
         }
 
+    # Add custom auto-claude MCP server if available
+    auto_claude_mcp_server = None
+    if auto_claude_tools_enabled:
+        auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
+        if auto_claude_mcp_server:
+            mcp_servers["auto-claude"] = auto_claude_mcp_server
+
     return ClaudeSDKClient(
-        options=ClaudeCodeOptions(
+        options=ClaudeAgentOptions(
             model=model,
             system_prompt=(
                 f"You are an expert full-stack developer building production-quality software. "

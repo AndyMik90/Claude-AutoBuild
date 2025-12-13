@@ -1102,7 +1102,18 @@ export interface InsightsChatMessage {
 export interface InsightsSession {
   id: string;
   projectId: string;
+  title?: string; // Auto-generated from first message or user-set
   messages: InsightsChatMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Summary of a session for the history list (without full messages)
+export interface InsightsSessionSummary {
+  id: string;
+  projectId: string;
+  title: string;
+  messageCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1162,6 +1173,13 @@ export interface ElectronAPI {
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+
+  // Dev mode operations (for developing auto-claude itself)
+  hasLocalSource: (projectId: string) => Promise<IPCResult<boolean>>;
+  isDevMode: (projectId: string) => Promise<IPCResult<boolean>>;
+  enableDevMode: (projectId: string) => Promise<IPCResult>;
+  disableDevMode: (projectId: string) => Promise<IPCResult>;
+  syncDevMode: (projectId: string) => Promise<IPCResult>;
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
@@ -1347,6 +1365,11 @@ export interface ElectronAPI {
     description: string,
     metadata?: TaskMetadata
   ) => Promise<IPCResult<Task>>;
+  listInsightsSessions: (projectId: string) => Promise<IPCResult<InsightsSessionSummary[]>>;
+  newInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession>>;
+  switchInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult<InsightsSession | null>>;
+  deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
+  renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
 
   // Insights event listeners
   onInsightsStreamChunk: (

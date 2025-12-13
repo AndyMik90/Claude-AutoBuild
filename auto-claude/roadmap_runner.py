@@ -71,7 +71,7 @@ class RoadmapConfig:
     """Configuration for roadmap generation."""
     project_dir: Path
     output_dir: Path
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-opus-4-5-20251101"
     refresh: bool = False  # Force regeneration even if roadmap exists
 
 
@@ -82,7 +82,7 @@ class RoadmapOrchestrator:
         self,
         project_dir: Path,
         output_dir: Optional[Path] = None,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-5-20251101",
         refresh: bool = False,
     ):
         self.project_dir = Path(project_dir)
@@ -473,8 +473,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-sonnet-4-20250514",
-        help="Model to use (default: claude-sonnet-4-20250514)",
+        default="claude-opus-4-5-20251101",
+        help="Model to use (default: claude-opus-4-5-20251101)",
     )
     parser.add_argument(
         "--refresh",

@@ -661,9 +661,15 @@ class SwarmCoordinator:
                 # Get available chunks
                 available_chunks = self.get_available_chunks()
 
-                # Check if we're done
+                # Check if we're done - verify actual completion, not just lack of available work
                 if not available_chunks and not worker_tasks:
-                    print_status("All chunks completed!", "success")
+                    progress = self.plan.get_progress()
+                    if progress['is_complete']:
+                        print_status("All chunks completed!", "success")
+                    else:
+                        # Chunks are pending but blocked by dependencies or in weird state
+                        remaining = progress['total_chunks'] - progress['completed_chunks']
+                        print_status(f"Exited with {remaining} chunks still pending (may be blocked by dependencies)", "warning")
                     break
 
                 # Assign chunks to available workers
@@ -717,23 +723,45 @@ class SwarmCoordinator:
 
         # Print final summary
         progress = self.plan.get_progress()
-        content = [
-            success(f"{icon(Icons.SUCCESS)} BUILD COMPLETE!"),
-            "",
-            f"Completed: {progress['completed_chunks']}/{progress['total_chunks']} chunks",
-        ]
+        is_truly_complete = progress['is_complete']
+
+        if is_truly_complete:
+            content = [
+                success(f"{icon(Icons.SUCCESS)} BUILD COMPLETE!"),
+                "",
+                f"Completed: {progress['completed_chunks']}/{progress['total_chunks']} chunks",
+            ]
+        else:
+            remaining = progress['total_chunks'] - progress['completed_chunks']
+            content = [
+                warning(f"{icon(Icons.WARNING)} BUILD INCOMPLETE"),
+                "",
+                f"Completed: {progress['completed_chunks']}/{progress['total_chunks']} chunks",
+                f"Remaining: {remaining} chunks still pending",
+            ]
+
         if progress['failed_chunks'] > 0:
             content.append(warning(f"{icon(Icons.WARNING)} Failed chunks: {progress['failed_chunks']}"))
         print()
         print(box(content, width=70, style="heavy"))
 
-        # End coding phase in task logger
+        # End coding phase in task logger - only claim success if truly complete
         if task_logger:
-            success_msg = "All chunks completed successfully" if progress['failed_chunks'] == 0 else f"Completed with {progress['failed_chunks']} failed chunks"
-            task_logger.end_phase(LogPhase.CODING, success=progress['failed_chunks'] == 0, message=success_msg)
+            if is_truly_complete:
+                success_msg = "All chunks completed successfully"
+                task_logger.end_phase(LogPhase.CODING, success=True, message=success_msg)
+            else:
+                remaining = progress['total_chunks'] - progress['completed_chunks']
+                fail_msg = f"Exited with {remaining} chunks incomplete"
+                if progress['failed_chunks'] > 0:
+                    fail_msg += f" ({progress['failed_chunks']} failed)"
+                task_logger.end_phase(LogPhase.CODING, success=False, message=fail_msg)
 
-        # Update status to complete
-        self.status_manager.update(state=BuildState.COMPLETE)
+        # Update status based on actual completion
+        if is_truly_complete:
+            self.status_manager.update(state=BuildState.COMPLETE)
+        else:
+            self.status_manager.update(state=BuildState.PAUSED)
 
         # Show spec worktree info
         spec_path = self.worktree_manager.get_worktree_path(spec_name)

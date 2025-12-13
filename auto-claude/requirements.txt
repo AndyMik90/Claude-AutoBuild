@@ -1,7 +1,6 @@
 # Auto-Build Framework Dependencies
-claude-code-sdk>=0.0.25
+claude-agent-sdk>=0.1.16
 python-dotenv>=1.0.0
 
-# Optional: Graphiti Memory Integration
-# Install with: pip install graphiti-core[falkordb]
-# graphiti-core[falkordb]>=0.5.0
+# Memory Integration (highly recommended) but can be disabled by commenting out the line below
+graphiti-core[falkordb]>=0.5.0

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from claude_code_sdk import ClaudeSDKClient
+from claude_agent_sdk import ClaudeSDKClient
 
 from client import create_client
 from progress import count_chunks, is_build_complete

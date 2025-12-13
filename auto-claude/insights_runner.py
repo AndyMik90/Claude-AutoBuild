@@ -17,11 +17,11 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
-    from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
-    ClaudeCodeOptions = None
+    ClaudeAgentOptions = None
     ClaudeSDKClient = None
 
 from debug import (
@@ -140,15 +140,15 @@ Current question: {message}"""
     try:
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(
-            options=ClaudeCodeOptions(
-                model="claude-sonnet-4-20250514",
+            options=ClaudeAgentOptions(
+                model="claude-opus-4-5-20251101",  # Opus 4.5 for quality analysis
                 system_prompt=system_prompt,
                 allowed_tools=[
                     "Read",
                     "Glob",
                     "Grep",
                 ],
-                max_turns=10,  # Limit turns for insights chat
+                max_turns=30,  # Allow sufficient turns for codebase exploration
                 cwd=str(project_path),
             )
         )
@@ -164,13 +164,17 @@ Current question: {message}"""
 
             async for msg in client.receive_response():
                 msg_type = type(msg).__name__
+                debug_detailed("insights_runner", f"Received message", msg_type=msg_type)
 
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
                         block_type = type(block).__name__
+                        debug_detailed("insights_runner", f"Processing block", block_type=block_type)
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             text = block.text
-                            print(text, end="", flush=True)
+                            debug_detailed("insights_runner", f"Text block", text_length=len(text))
+                            # Print text with newline to ensure proper line separation for parsing
+                            print(text, flush=True)
                             response_text += text
                         elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                             # Emit tool start marker for UI feedback
@@ -204,6 +208,8 @@ Current question: {message}"""
             # Ensure we have a newline at the end
             if response_text and not response_text.endswith('\n'):
                 print()
+
+            debug("insights_runner", "Response complete", response_length=len(response_text))
 
     except Exception as e:
         print(f"Error using Claude SDK: {e}", file=sys.stderr)

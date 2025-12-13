@@ -58,7 +58,12 @@ import {
   updateProject,
   checkVersion,
   hasCustomEnv,
-  getAutoBuildPath
+  getAutoBuildPath,
+  hasLocalSource,
+  isDevMode,
+  enableDevMode,
+  disableDevMode,
+  syncDevMode
 } from './project-initializer';
 import {
   checkForUpdates as checkSourceUpdates,
@@ -69,7 +74,8 @@ import {
 import { changelogService } from './changelog-service';
 import { insightsService } from './insights-service';
 import { taskLogService } from './task-log-service';
-import type { AutoBuildSourceUpdateProgress, InsightsSession, InsightsChatStatus, InsightsStreamChunk, TaskLogs, TaskLogStreamChunk } from '../shared/types';
+import { titleGenerator } from './title-generator';
+import type { AutoBuildSourceUpdateProgress, InsightsSession, InsightsSessionSummary, InsightsChatStatus, InsightsStreamChunk, TaskLogs, TaskLogStreamChunk } from '../shared/types';
 
 /**
  * Setup all IPC handlers
@@ -299,6 +305,118 @@ export function setupIpcHandlers(
     }
   );
 
+  // Check if project has local auto-claude source (is dev project)
+  ipcMain.handle(
+    'project:has-local-source',
+    async (_, projectId: string): Promise<IPCResult<boolean>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+        return { success: true, data: hasLocalSource(project.path) };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Check if project is in dev mode
+  ipcMain.handle(
+    'project:is-dev-mode',
+    async (_, projectId: string): Promise<IPCResult<boolean>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+        return { success: true, data: isDevMode(project.path) };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Enable dev mode for a project
+  ipcMain.handle(
+    'project:enable-dev-mode',
+    async (_, projectId: string): Promise<IPCResult> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const result = enableDevMode(project.path);
+
+        if (result.success) {
+          // Update project's autoBuildPath
+          projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+        }
+
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Disable dev mode for a project
+  ipcMain.handle(
+    'project:disable-dev-mode',
+    async (_, projectId: string): Promise<IPCResult> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const sourcePath = getAutoBuildSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto-build source path not configured' };
+        }
+
+        const result = disableDevMode(project.path, sourcePath);
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Sync dev mode (refresh symlinks)
+  ipcMain.handle(
+    'project:sync-dev-mode',
+    async (_, projectId: string): Promise<IPCResult> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const result = syncDevMode(project.path);
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
   // ============================================
   // Task Operations
   // ============================================
@@ -323,6 +441,29 @@ export function setupIpcHandlers(
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
+      }
+
+      // Auto-generate title if empty using Claude AI
+      let finalTitle = title;
+      if (!title || !title.trim()) {
+        console.log('[TASK_CREATE] Title is empty, generating with Claude AI...');
+        try {
+          const generatedTitle = await titleGenerator.generateTitle(description);
+          if (generatedTitle) {
+            finalTitle = generatedTitle;
+            console.log('[TASK_CREATE] Generated title:', finalTitle);
+          } else {
+            // Fallback: create title from first line of description
+            finalTitle = description.split('\n')[0].substring(0, 60);
+            if (finalTitle.length === 60) finalTitle += '...';
+            console.log('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+          }
+        } catch (err) {
+          console.error('[TASK_CREATE] Title generation error:', err);
+          // Fallback: create title from first line of description
+          finalTitle = description.split('\n')[0].substring(0, 60);
+          if (finalTitle.length === 60) finalTitle += '...';
+        }
       }
 
       // Generate a unique spec ID based on existing specs
@@ -352,7 +493,7 @@ export function setupIpcHandlers(
       }
 
       // Create spec ID with zero-padded number and slugified title
-      const slugifiedTitle = title
+      const slugifiedTitle = finalTitle
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '')
@@ -406,7 +547,7 @@ export function setupIpcHandlers(
       // Create initial implementation_plan.json (task is created but not started)
       const now = new Date().toISOString();
       const implementationPlan = {
-        feature: title,
+        feature: finalTitle,
         description: description,
         created_at: now,
         updated_at: now,
@@ -446,7 +587,7 @@ export function setupIpcHandlers(
         id: specId,
         specId: specId,
         projectId,
-        title,
+        title: finalTitle,
         description,
         status: 'backlog',
         chunks: [],
@@ -536,11 +677,36 @@ export function setupIpcHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        const autoBuildDir = project.autoBuildPath || 'auto-claude';
+        const autoBuildDir = project.autoBuildPath || '.auto-claude';
         const specDir = path.join(project.path, autoBuildDir, 'specs', task.specId);
 
         if (!existsSync(specDir)) {
           return { success: false, error: 'Spec directory not found' };
+        }
+
+        // Auto-generate title if empty
+        let finalTitle = updates.title;
+        if (updates.title !== undefined && !updates.title.trim()) {
+          // Get description to use for title generation
+          const descriptionToUse = updates.description ?? task.description;
+          console.log('[TASK_UPDATE] Title is empty, generating with Claude AI...');
+          try {
+            const generatedTitle = await titleGenerator.generateTitle(descriptionToUse);
+            if (generatedTitle) {
+              finalTitle = generatedTitle;
+              console.log('[TASK_UPDATE] Generated title:', finalTitle);
+            } else {
+              // Fallback: create title from first line of description
+              finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
+              if (finalTitle.length === 60) finalTitle += '...';
+              console.log('[TASK_UPDATE] AI generation failed, using fallback:', finalTitle);
+            }
+          } catch (err) {
+            console.error('[TASK_UPDATE] Title generation error:', err);
+            // Fallback: create title from first line of description
+            finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
+            if (finalTitle.length === 60) finalTitle += '...';
+          }
         }
 
         // Update implementation_plan.json
@@ -550,8 +716,8 @@ export function setupIpcHandlers(
             const planContent = readFileSync(planPath, 'utf-8');
             const plan = JSON.parse(planContent);
 
-            if (updates.title !== undefined) {
-              plan.feature = updates.title;
+            if (finalTitle !== undefined) {
+              plan.feature = finalTitle;
             }
             if (updates.description !== undefined) {
               plan.description = updates.description;
@@ -571,10 +737,10 @@ export function setupIpcHandlers(
             let specContent = readFileSync(specPath, 'utf-8');
 
             // Update title (first # heading)
-            if (updates.title !== undefined) {
+            if (finalTitle !== undefined) {
               specContent = specContent.replace(
                 /^#\s+.*$/m,
-                `# ${updates.title}`
+                `# ${finalTitle}`
               );
             }
 
@@ -596,7 +762,7 @@ export function setupIpcHandlers(
         // Build the updated task object
         const updatedTask: Task = {
           ...task,
-          title: updates.title ?? task.title,
+          title: finalTitle ?? task.title,
           description: updates.description ?? task.description,
           updatedAt: new Date()
         };
@@ -1039,7 +1205,7 @@ export function setupIpcHandlers(
       }
 
       // Get the spec directory
-      const autoBuildDir = project.autoBuildPath || 'auto-claude';
+      const autoBuildDir = project.autoBuildPath || '.auto-claude';
       const specDir = path.join(
         project.path,
         autoBuildDir,
@@ -5389,6 +5555,82 @@ ${idea.rationale}
           error: error instanceof Error ? error.message : 'Failed to create task'
         };
       }
+    }
+  );
+
+  // List all sessions for a project
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_LIST_SESSIONS,
+    async (_, projectId: string): Promise<IPCResult<InsightsSessionSummary[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const sessions = insightsService.listSessions(project.path);
+      return { success: true, data: sessions };
+    }
+  );
+
+  // Create a new session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_NEW_SESSION,
+    async (_, projectId: string): Promise<IPCResult<InsightsSession>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const session = insightsService.createNewSession(projectId, project.path);
+      return { success: true, data: session };
+    }
+  );
+
+  // Switch to a different session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_SWITCH_SESSION,
+    async (_, projectId: string, sessionId: string): Promise<IPCResult<InsightsSession | null>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const session = insightsService.switchSession(projectId, project.path, sessionId);
+      return { success: true, data: session };
+    }
+  );
+
+  // Delete a session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_DELETE_SESSION,
+    async (_, projectId: string, sessionId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const success = insightsService.deleteSession(projectId, project.path, sessionId);
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to delete session' };
+    }
+  );
+
+  // Rename a session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_RENAME_SESSION,
+    async (_, projectId: string, sessionId: string, newTitle: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const success = insightsService.renameSession(project.path, sessionId, newTitle);
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to rename session' };
     }
   );
 

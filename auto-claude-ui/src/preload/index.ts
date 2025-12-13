@@ -53,6 +53,7 @@ import type {
   ChangelogGenerationProgress,
   ExistingChangelog,
   InsightsSession,
+  InsightsSessionSummary,
   InsightsChatStatus,
   InsightsStreamChunk,
   TaskMetadata,
@@ -89,6 +90,22 @@ const electronAPI: ElectronAPI = {
 
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),
+
+  // Dev Mode Operations
+  hasLocalSource: (projectId: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke('project:has-local-source', projectId),
+
+  isDevMode: (projectId: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke('project:is-dev-mode', projectId),
+
+  enableDevMode: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke('project:enable-dev-mode', projectId),
+
+  disableDevMode: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke('project:disable-dev-mode', projectId),
+
+  syncDevMode: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke('project:sync-dev-mode', projectId),
 
   // ============================================
   // Task Operations
@@ -847,6 +864,21 @@ const electronAPI: ElectronAPI = {
     metadata?: TaskMetadata
   ): Promise<IPCResult<Task>> =>
     ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_CREATE_TASK, projectId, title, description, metadata),
+
+  listInsightsSessions: (projectId: string): Promise<IPCResult<InsightsSessionSummary[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_LIST_SESSIONS, projectId),
+
+  newInsightsSession: (projectId: string): Promise<IPCResult<InsightsSession>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_NEW_SESSION, projectId),
+
+  switchInsightsSession: (projectId: string, sessionId: string): Promise<IPCResult<InsightsSession | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_SWITCH_SESSION, projectId, sessionId),
+
+  deleteInsightsSession: (projectId: string, sessionId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_DELETE_SESSION, projectId, sessionId),
+
+  renameInsightsSession: (projectId: string, sessionId: string, newTitle: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_RENAME_SESSION, projectId, sessionId, newTitle),
 
   // ============================================
   // Insights Event Listeners
