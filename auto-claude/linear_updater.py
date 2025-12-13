@@ -123,7 +123,7 @@ def _create_linear_client() -> ClaudeSDKClient:
 
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
-            model="claude-haiku-4-20250514",  # Fast & cheap model for simple API calls
+            model="claude-haiku-4-5",  # Fast & cheap model for simple API calls
             system_prompt="You are a Linear API assistant. Execute the requested Linear operation precisely.",
             allowed_tools=LINEAR_TOOLS,
             mcp_servers={

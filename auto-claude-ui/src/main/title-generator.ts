@@ -133,10 +133,10 @@ export class TitleGenerator {
       let output = '';
       let errorOutput = '';
       const timeout = setTimeout(() => {
-        debug('Title generation timed out');
+        console.log('[TitleGenerator] Title generation timed out after 60s');
         childProcess.kill();
         resolve(null);
-      }, 30000); // 30 second timeout
+      }, 60000); // 60 second timeout for SDK initialization + API call
 
       childProcess.stdout?.on('data', (data: Buffer) => {
         output += data.toString();
@@ -154,14 +154,19 @@ export class TitleGenerator {
           debug('Generated title:', title);
           resolve(title);
         } else {
-          debug('Title generation failed', { code, errorOutput });
+          // Always log failures to help diagnose issues
+          console.log('[TitleGenerator] Title generation failed', {
+            code,
+            errorOutput: errorOutput.substring(0, 500),
+            output: output.substring(0, 200)
+          });
           resolve(null);
         }
       });
 
       childProcess.on('error', (err) => {
         clearTimeout(timeout);
-        debug('Process error:', err.message);
+        console.log('[TitleGenerator] Process error:', err.message);
         resolve(null);
       });
     });
@@ -180,36 +185,67 @@ Title:`;
   }
 
   /**
-   * Create the Python script to call Claude CLI
+   * Create the Python script to generate title using Claude Agent SDK
    */
   private createGenerationScript(prompt: string): string {
-    // Escape the prompt for Python string
-    const escapedPrompt = prompt
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n');
+    // Escape the prompt for Python string - use JSON.stringify for safe escaping
+    const escapedPrompt = JSON.stringify(prompt);
 
     return `
-import subprocess
+import asyncio
 import sys
 
-prompt = """${escapedPrompt}"""
+async def generate_title():
+    try:
+        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-# Use Claude Code CLI to generate
-# --max-turns 1: Single response (no back-and-forth needed)
-# --model haiku: Faster model for simple text generation
-result = subprocess.run(
-    ['claude', '-p', prompt, '--output-format', 'text', '--max-turns', '1', '--model', 'haiku'],
-    capture_output=True,
-    text=True,
-    timeout=30
-)
+        prompt = ${escapedPrompt}
 
-if result.returncode == 0:
-    print(result.stdout.strip())
-else:
-    print(result.stderr, file=sys.stderr)
-    sys.exit(1)
+        # Create a minimal client for simple text generation (no tools needed)
+        client = ClaudeSDKClient(
+            options=ClaudeAgentOptions(
+                model="claude-haiku-4-5",
+                system_prompt="You generate short, concise task titles (3-7 words). Output ONLY the title, nothing else. No quotes, no explanation, no preamble.",
+                max_turns=1,
+            )
+        )
+
+        async with client:
+            # Send the query
+            await client.query(prompt)
+
+            # Collect response text from AssistantMessage
+            response_text = ""
+            async for msg in client.receive_response():
+                msg_type = type(msg).__name__
+                if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                    for block in msg.content:
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
+                            response_text += block.text
+
+            if response_text:
+                # Clean up the result
+                title = response_text.strip()
+                # Remove any quotes
+                title = title.strip('"').strip("'")
+                # Take first line only
+                title = title.split('\\n')[0].strip()
+                if title:
+                    print(title)
+                    sys.exit(0)
+
+        # If we get here, no valid response
+        sys.exit(1)
+
+    except ImportError as e:
+        print(f"Import error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+asyncio.run(generate_title())
 `;
   }
 

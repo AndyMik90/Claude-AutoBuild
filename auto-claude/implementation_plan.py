@@ -231,10 +231,11 @@ class Phase:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Phase":
+    def from_dict(cls, data: dict, fallback_phase: int = 1) -> "Phase":
+        """Create Phase from dict. Uses fallback_phase if 'phase' field is missing."""
         return cls(
-            phase=data["phase"],
-            name=data["name"],
+            phase=data.get("phase", fallback_phase),
+            name=data.get("name", f"Phase {fallback_phase}"),
             type=PhaseType(data.get("type", "implementation")),
             chunks=[Chunk.from_dict(c) for c in data.get("chunks", [])],
             depends_on=data.get("depends_on", []),
@@ -314,7 +315,7 @@ class ImplementationPlan:
             feature=data["feature"],
             workflow_type=workflow_type,
             services_involved=data.get("services_involved", []),
-            phases=[Phase.from_dict(p) for p in data.get("phases", [])],
+            phases=[Phase.from_dict(p, idx + 1) for idx, p in enumerate(data.get("phases", []))],
             final_acceptance=data.get("final_acceptance", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
