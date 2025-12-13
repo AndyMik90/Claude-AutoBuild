@@ -69,6 +69,7 @@ import { changelogService } from './changelog-service';
 import { insightsService } from './insights-service';
 import { taskLogService } from './task-log-service';
 import { titleGenerator } from './title-generator';
+import { PythonEnvManager, PythonEnvStatus } from './python-env-manager';
 import type { AutoBuildSourceUpdateProgress, InsightsSession, InsightsSessionSummary, InsightsChatStatus, InsightsStreamChunk, TaskLogs, TaskLogStreamChunk } from '../shared/types';
 
 /**
@@ -77,7 +78,8 @@ import type { AutoBuildSourceUpdateProgress, InsightsSession, InsightsSessionSum
 export function setupIpcHandlers(
   agentManager: AgentManager,
   terminalManager: TerminalManager,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
+  pythonEnvManager: PythonEnvManager
 ): void {
   // ============================================
   // Project Operations
@@ -187,6 +189,88 @@ export function setupIpcHandlers(
     // Auto-detect from app location
     return detectAutoBuildSourcePath();
   };
+
+  /**
+   * Configure all Python-dependent services with the managed Python path
+   */
+  const configureServicesWithPython = (pythonPath: string, autoBuildPath: string): void => {
+    console.log('[IPC] Configuring services with Python:', pythonPath);
+    agentManager.configure(pythonPath, autoBuildPath);
+    changelogService.configure(pythonPath, autoBuildPath);
+    insightsService.configure(pythonPath, autoBuildPath);
+    titleGenerator.configure(pythonPath, autoBuildPath);
+  };
+
+  /**
+   * Initialize the Python environment and configure services
+   */
+  const initializePythonEnvironment = async (): Promise<PythonEnvStatus> => {
+    const autoBuildSource = getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      console.log('[IPC] Auto-build source not found, skipping Python env init');
+      return {
+        ready: false,
+        pythonPath: null,
+        venvExists: false,
+        depsInstalled: false,
+        error: 'Auto-build source not found'
+      };
+    }
+
+    console.log('[IPC] Initializing Python environment...');
+    const status = await pythonEnvManager.initialize(autoBuildSource);
+
+    if (status.ready && status.pythonPath) {
+      configureServicesWithPython(status.pythonPath, autoBuildSource);
+    }
+
+    return status;
+  };
+
+  // Set up Python environment status events
+  pythonEnvManager.on('status', (message: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('python-env:status', message);
+    }
+  });
+
+  pythonEnvManager.on('error', (error: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('python-env:error', error);
+    }
+  });
+
+  pythonEnvManager.on('ready', (pythonPath: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('python-env:ready', pythonPath);
+    }
+  });
+
+  // Initialize Python environment on startup (non-blocking)
+  initializePythonEnvironment().then((status) => {
+    console.log('[IPC] Python environment initialized:', status);
+  });
+
+  // IPC handler to get Python environment status
+  ipcMain.handle(
+    'python-env:get-status',
+    async (): Promise<IPCResult<PythonEnvStatus>> => {
+      const status = await pythonEnvManager.getStatus();
+      return { success: true, data: status };
+    }
+  );
+
+  // IPC handler to reinitialize Python environment
+  ipcMain.handle(
+    'python-env:reinitialize',
+    async (): Promise<IPCResult<PythonEnvStatus>> => {
+      const status = await initializePythonEnvironment();
+      return { success: status.ready, data: status, error: status.error };
+    }
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_INITIALIZE,
@@ -5670,10 +5754,25 @@ ${idea.rationale}
         return;
       }
 
-      // Configure insights service with paths
-      const autoBuildSource = getAutoBuildSourcePath();
-      if (autoBuildSource) {
-        insightsService.configure(undefined, autoBuildSource);
+      // Ensure Python environment is ready before sending message
+      if (!pythonEnvManager.isEnvReady()) {
+        const autoBuildSource = getAutoBuildSourcePath();
+        if (autoBuildSource) {
+          const status = await pythonEnvManager.initialize(autoBuildSource);
+          if (status.ready && status.pythonPath) {
+            configureServicesWithPython(status.pythonPath, autoBuildSource);
+          } else {
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(
+                IPC_CHANNELS.INSIGHTS_ERROR,
+                projectId,
+                status.error || 'Python environment not ready'
+              );
+            }
+            return;
+          }
+        }
       }
 
       insightsService.sendMessage(projectId, project.path, message);

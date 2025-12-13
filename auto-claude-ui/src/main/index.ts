@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-handlers';
 import { AgentManager } from './agent-manager';
 import { TerminalManager } from './terminal-manager';
+import { pythonEnvManager } from './python-env-manager';
 
 // Get icon path based on platform
 function getIconPath(): string {
@@ -118,8 +119,8 @@ app.whenReady().then(() => {
   // Initialize terminal manager
   terminalManager = new TerminalManager(() => mainWindow);
 
-  // Setup IPC handlers
-  setupIpcHandlers(agentManager, terminalManager, () => mainWindow);
+  // Setup IPC handlers (pass pythonEnvManager for Python path management)
+  setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
 
   // Create window
   createWindow();

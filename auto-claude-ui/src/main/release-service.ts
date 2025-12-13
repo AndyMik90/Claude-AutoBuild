@@ -1,0 +1,603 @@
+import { EventEmitter } from 'events';
+import path from 'path';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { execSync, spawn } from 'child_process';
+import type {
+  ReleaseableVersion,
+  ReleasePreflightStatus,
+  UnmergedWorktreeInfo,
+  CreateReleaseRequest,
+  CreateReleaseResult,
+  ReleaseProgress,
+  Task,
+  TaskStatus
+} from '../shared/types';
+import { DEFAULT_CHANGELOG_PATH, AUTO_BUILD_PATHS } from '../shared/constants';
+
+/**
+ * Service for creating GitHub releases with worktree-aware pre-flight checks.
+ * 
+ * Key feature: Worktree checks are SCOPED to tasks in the release version.
+ * If a worktree exists for a task NOT in this release, it won't block the release.
+ */
+export class ReleaseService extends EventEmitter {
+  constructor() {
+    super();
+  }
+
+  /**
+   * Parse CHANGELOG.md to extract releaseable versions.
+   * Matches Keep-a-Changelog format: ## [x.y.z] - YYYY-MM-DD
+   */
+  parseChangelogVersions(projectPath: string): ReleaseableVersion[] {
+    const changelogPath = path.join(projectPath, DEFAULT_CHANGELOG_PATH);
+    
+    if (!existsSync(changelogPath)) {
+      return [];
+    }
+
+    const content = readFileSync(changelogPath, 'utf-8');
+    const versions: ReleaseableVersion[] = [];
+
+    // Match version headers: ## [1.2.3] - 2025-12-13
+    const versionRegex = /^## \[(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)\](?: - (\d{4}-\d{2}-\d{2}))?/gm;
+    const matches = [...content.matchAll(versionRegex)];
+
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const version = match[1];
+      const date = match[2] || '';
+      const startIndex = match.index! + match[0].length;
+      
+      // Content is until next version header or end of file
+      const endIndex = i < matches.length - 1 ? matches[i + 1].index! : content.length;
+      const versionContent = content.slice(startIndex, endIndex).trim();
+
+      versions.push({
+        version,
+        tagName: `v${version}`,
+        date,
+        content: versionContent,
+        taskSpecIds: [], // Will be populated by correlating with tasks
+        isReleased: false, // Will be checked against GitHub
+        releaseUrl: undefined
+      });
+    }
+
+    return versions;
+  }
+
+  /**
+   * Get tasks that were released in a specific version.
+   * This allows us to scope worktree checks to only those tasks.
+   */
+  getTasksForVersion(
+    projectPath: string,
+    version: string,
+    tasks: Task[]
+  ): { taskIds: string[]; specIds: string[] } {
+    const taskIds: string[] = [];
+    const specIds: string[] = [];
+
+    for (const task of tasks) {
+      if (task.releasedInVersion === version) {
+        taskIds.push(task.id);
+        specIds.push(task.specId);
+      }
+    }
+
+    return { taskIds, specIds };
+  }
+
+  /**
+   * Get releaseable versions with task information populated.
+   */
+  async getReleaseableVersions(
+    projectPath: string,
+    tasks: Task[]
+  ): Promise<ReleaseableVersion[]> {
+    const versions = this.parseChangelogVersions(projectPath);
+    
+    // Populate task spec IDs for each version
+    for (const version of versions) {
+      const { specIds } = this.getTasksForVersion(projectPath, version.version, tasks);
+      version.taskSpecIds = specIds;
+      
+      // Check if already released on GitHub
+      try {
+        const tagExists = this.checkTagExists(projectPath, version.tagName);
+        version.isReleased = tagExists;
+        
+        if (tagExists) {
+          // Try to get release URL
+          version.releaseUrl = this.getGitHubReleaseUrl(projectPath, version.tagName);
+        }
+      } catch {
+        // If we can't check, assume not released
+        version.isReleased = false;
+      }
+    }
+
+    return versions;
+  }
+
+  /**
+   * Check if a git tag exists (locally or remote).
+   */
+  private checkTagExists(projectPath: string, tagName: string): boolean {
+    try {
+      // Check local tags
+      execSync(`git tag -l "${tagName}"`, { cwd: projectPath, encoding: 'utf-8' });
+      const localTags = execSync(`git tag -l "${tagName}"`, { 
+        cwd: projectPath, 
+        encoding: 'utf-8' 
+      }).trim();
+      
+      if (localTags) return true;
+
+      // Check remote tags
+      try {
+        execSync(`git ls-remote --tags origin refs/tags/${tagName}`, {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        const remoteTags = execSync(`git ls-remote --tags origin refs/tags/${tagName}`, {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim();
+        
+        return !!remoteTags;
+      } catch {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get GitHub release URL for a tag (if release exists).
+   */
+  private getGitHubReleaseUrl(projectPath: string, tagName: string): string | undefined {
+    try {
+      const result = execSync(`gh release view ${tagName} --json url -q .url 2>/dev/null`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+      
+      return result || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Run pre-flight checks for a specific version.
+   * 
+   * IMPORTANT: Worktree checks are scoped to tasks in this version only.
+   * Worktrees for other tasks (future releases) won't block this release.
+   */
+  async runPreflightChecks(
+    projectPath: string,
+    version: string,
+    tasks: Task[]
+  ): Promise<ReleasePreflightStatus> {
+    const tagName = `v${version}`;
+    const { specIds } = this.getTasksForVersion(projectPath, version, tasks);
+    
+    const status: ReleasePreflightStatus = {
+      canRelease: false,
+      checks: {
+        gitClean: { passed: false, message: '' },
+        commitsPushed: { passed: false, message: '' },
+        tagAvailable: { passed: false, message: '' },
+        githubConnected: { passed: false, message: '' },
+        worktreesMerged: { passed: false, message: '', unmergedWorktrees: [] }
+      },
+      blockers: []
+    };
+
+    // Check 1: Git working directory is clean
+    try {
+      const gitStatus = execSync('git status --porcelain', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+
+      if (!gitStatus) {
+        status.checks.gitClean = {
+          passed: true,
+          message: 'Working directory is clean'
+        };
+      } else {
+        const uncommittedFiles = gitStatus.split('\n').map(line => line.trim());
+        status.checks.gitClean = {
+          passed: false,
+          message: `${uncommittedFiles.length} uncommitted change(s)`,
+          uncommittedFiles
+        };
+        status.blockers.push(`Uncommitted changes: ${uncommittedFiles.length} file(s)`);
+      }
+    } catch (error) {
+      status.checks.gitClean = {
+        passed: false,
+        message: 'Failed to check git status'
+      };
+      status.blockers.push('Failed to check git status');
+    }
+
+    // Check 2: All commits are pushed
+    try {
+      const unpushed = execSync('git log @{u}..HEAD --oneline 2>/dev/null || echo ""', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+
+      if (!unpushed) {
+        status.checks.commitsPushed = {
+          passed: true,
+          message: 'All commits pushed to remote'
+        };
+      } else {
+        const unpushedCount = unpushed.split('\n').filter(Boolean).length;
+        status.checks.commitsPushed = {
+          passed: false,
+          message: `${unpushedCount} unpushed commit(s)`,
+          unpushedCount
+        };
+        status.blockers.push(`${unpushedCount} unpushed commit(s) - push before releasing`);
+      }
+    } catch {
+      // No upstream branch - check if we have any commits at all
+      status.checks.commitsPushed = {
+        passed: false,
+        message: 'No upstream branch configured'
+      };
+      status.blockers.push('No upstream branch - push to origin first');
+    }
+
+    // Check 3: Tag doesn't already exist
+    const tagExists = this.checkTagExists(projectPath, tagName);
+    if (!tagExists) {
+      status.checks.tagAvailable = {
+        passed: true,
+        message: `Tag ${tagName} is available`
+      };
+    } else {
+      status.checks.tagAvailable = {
+        passed: false,
+        message: `Tag ${tagName} already exists`
+      };
+      status.blockers.push(`Tag ${tagName} already exists - use a different version`);
+    }
+
+    // Check 4: GitHub CLI is available and authenticated
+    try {
+      execSync('gh auth status', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      status.checks.githubConnected = {
+        passed: true,
+        message: 'GitHub CLI authenticated'
+      };
+    } catch {
+      status.checks.githubConnected = {
+        passed: false,
+        message: 'GitHub CLI not authenticated'
+      };
+      status.blockers.push('GitHub CLI not authenticated - run `gh auth login`');
+    }
+
+    // Check 5: Worktrees for tasks IN THIS VERSION are merged
+    // This is the key check that prevents releasing without code!
+    const unmergedWorktrees = await this.checkWorktreesForVersion(
+      projectPath,
+      specIds,
+      tasks
+    );
+
+    if (unmergedWorktrees.length === 0) {
+      status.checks.worktreesMerged = {
+        passed: true,
+        message: specIds.length > 0 
+          ? `All ${specIds.length} feature(s) in this release are merged`
+          : 'No features to check (version may have been manually added)',
+        unmergedWorktrees: []
+      };
+    } else {
+      status.checks.worktreesMerged = {
+        passed: false,
+        message: `${unmergedWorktrees.length} feature(s) have unmerged worktrees`,
+        unmergedWorktrees
+      };
+      
+      for (const wt of unmergedWorktrees) {
+        status.blockers.push(
+          `Feature "${wt.taskTitle}" (${wt.specId}) has unmerged changes in worktree`
+        );
+      }
+    }
+
+    // Determine if release can proceed
+    status.canRelease = Object.values(status.checks).every(check => check.passed);
+
+    return status;
+  }
+
+  /**
+   * Check worktrees ONLY for tasks that are part of this release version.
+   * 
+   * This is the key function that scopes worktree checks to the release:
+   * - If a task is in the release AND has an unmerged worktree → BLOCK
+   * - If a task is NOT in the release but has a worktree → IGNORE (it's for a future release)
+   */
+  private async checkWorktreesForVersion(
+    projectPath: string,
+    releaseSpecIds: string[],
+    tasks: Task[]
+  ): Promise<UnmergedWorktreeInfo[]> {
+    const unmerged: UnmergedWorktreeInfo[] = [];
+
+    // Get worktrees directory
+    const worktreesDir = path.join(projectPath, '.worktrees', 'auto-claude');
+    
+    if (!existsSync(worktreesDir)) {
+      // No worktrees exist at all - all clear
+      return [];
+    }
+
+    // List all spec worktrees
+    let worktreeFolders: string[];
+    try {
+      worktreeFolders = readdirSync(worktreesDir, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory())
+        .map(dirent => dirent.name);
+    } catch {
+      return [];
+    }
+
+    // Check each spec ID that's in this release
+    for (const specId of releaseSpecIds) {
+      // Find the worktree folder for this spec
+      // Spec IDs are like "001-feature-name", worktree folders match
+      const worktreeFolder = worktreeFolders.find(folder => 
+        folder === specId || folder.startsWith(`${specId}-`)
+      );
+
+      if (!worktreeFolder) {
+        // No worktree for this spec - it's already merged/cleaned up
+        continue;
+      }
+
+      const worktreePath = path.join(worktreesDir, worktreeFolder);
+      
+      // Get the task info for better error messages
+      const task = tasks.find(t => t.specId === specId);
+      const taskTitle = task?.title || specId;
+      const taskStatus = task?.status || 'done';
+
+      // Check if this worktree's branch is merged to current branch
+      const isMerged = await this.isWorktreeMerged(projectPath, worktreePath);
+
+      if (!isMerged) {
+        // Get branch name
+        let branch = 'unknown';
+        try {
+          branch = execSync('git rev-parse --abbrev-ref HEAD', {
+            cwd: worktreePath,
+            encoding: 'utf-8'
+          }).trim();
+        } catch {
+          // Use default
+        }
+
+        unmerged.push({
+          specId,
+          taskTitle,
+          worktreePath,
+          branch,
+          taskStatus: taskStatus as TaskStatus
+        });
+      }
+    }
+
+    return unmerged;
+  }
+
+  /**
+   * Check if a worktree's commits are merged to the main branch.
+   */
+  private async isWorktreeMerged(
+    projectPath: string,
+    worktreePath: string
+  ): Promise<boolean> {
+    try {
+      // Get the current branch in the worktree
+      const worktreeBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: worktreePath,
+        encoding: 'utf-8'
+      }).trim();
+
+      // Get the main branch
+      const mainBranch = execSync(
+        'git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main',
+        { cwd: projectPath, encoding: 'utf-8' }
+      ).trim().replace('origin/', '');
+
+      // Check if worktree branch is fully merged into main
+      // This returns empty if all commits are merged
+      const unmergedCommits = execSync(
+        `git log ${mainBranch}..${worktreeBranch} --oneline 2>/dev/null || echo "error"`,
+        { cwd: projectPath, encoding: 'utf-8' }
+      ).trim();
+
+      // If empty or error checking, assume merged for safety
+      if (unmergedCommits === 'error') {
+        // Try alternative: check if worktree has any uncommitted changes
+        const hasChanges = execSync('git status --porcelain', {
+          cwd: worktreePath,
+          encoding: 'utf-8'
+        }).trim();
+        
+        return !hasChanges;
+      }
+
+      return !unmergedCommits;
+    } catch {
+      // If we can't determine, assume NOT merged (safer)
+      return false;
+    }
+  }
+
+  /**
+   * Create a GitHub release.
+   */
+  async createRelease(
+    projectPath: string,
+    request: CreateReleaseRequest
+  ): Promise<CreateReleaseResult> {
+    const tagName = `v${request.version}`;
+    const title = request.title || tagName;
+
+    try {
+      // Stage 1: Create local tag
+      this.emitProgress(request.projectId, {
+        stage: 'tagging',
+        progress: 25,
+        message: `Creating tag ${tagName}...`
+      });
+
+      execSync(`git tag -a "${tagName}" -m "Release ${tagName}"`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      // Stage 2: Push tag to remote
+      this.emitProgress(request.projectId, {
+        stage: 'pushing',
+        progress: 50,
+        message: `Pushing tag ${tagName} to origin...`
+      });
+
+      execSync(`git push origin "${tagName}"`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      // Stage 3: Create GitHub release
+      this.emitProgress(request.projectId, {
+        stage: 'creating_release',
+        progress: 75,
+        message: 'Creating GitHub release...'
+      });
+
+      // Build gh release command
+      const args = [
+        'release', 'create', tagName,
+        '--title', title,
+        '--notes', request.body
+      ];
+
+      if (request.draft) {
+        args.push('--draft');
+      }
+      if (request.prerelease) {
+        args.push('--prerelease');
+      }
+
+      // Use spawn for better handling of the notes content
+      const result = await new Promise<string>((resolve, reject) => {
+        const child = spawn('gh', args, {
+          cwd: projectPath,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout?.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+
+        child.stderr?.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        child.on('exit', (code) => {
+          if (code === 0) {
+            resolve(stdout.trim());
+          } else {
+            reject(new Error(stderr || `gh exited with code ${code}`));
+          }
+        });
+
+        child.on('error', reject);
+      });
+
+      // Get the release URL
+      let releaseUrl = result;
+      if (!releaseUrl.startsWith('http')) {
+        // Try to fetch the URL
+        try {
+          releaseUrl = execSync(`gh release view ${tagName} --json url -q .url`, {
+            cwd: projectPath,
+            encoding: 'utf-8'
+          }).trim();
+        } catch {
+          releaseUrl = '';
+        }
+      }
+
+      // Stage 4: Complete
+      this.emitProgress(request.projectId, {
+        stage: 'complete',
+        progress: 100,
+        message: `Release ${tagName} created successfully`
+      });
+
+      return {
+        success: true,
+        releaseUrl: releaseUrl || undefined,
+        tagName
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Try to clean up the tag if it was created but release failed
+      try {
+        execSync(`git tag -d "${tagName}" 2>/dev/null || true`, {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        });
+      } catch {
+        // Ignore cleanup errors
+      }
+
+      this.emitProgress(request.projectId, {
+        stage: 'error',
+        progress: 0,
+        message: `Release failed: ${errorMessage}`,
+        error: errorMessage
+      });
+
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+
+  /**
+   * Emit progress update.
+   */
+  private emitProgress(projectId: string, progress: ReleaseProgress): void {
+    this.emit('release-progress', projectId, progress);
+  }
+}
+
+// Export singleton instance
+export const releaseService = new ReleaseService();
