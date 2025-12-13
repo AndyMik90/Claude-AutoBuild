@@ -32,7 +32,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
-import { useTerminalStore } from './stores/terminal-store';
+import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { useIpcListeners } from './hooks/useIpc';
 import type { Task, Project } from '../shared/types';
 
@@ -75,13 +75,25 @@ export function App() {
     } else {
       useTaskStore.getState().clearTasks();
     }
-    // Clear terminals when project changes
-    const terminals = useTerminalStore.getState().terminals;
-    terminals.forEach((t) => {
+
+    // Handle terminals on project change
+    const currentTerminals = useTerminalStore.getState().terminals;
+
+    // Close existing terminals (they belong to the previous project)
+    currentTerminals.forEach((t) => {
       window.electronAPI.destroyTerminal(t.id);
     });
     useTerminalStore.getState().clearAllTerminals();
-  }, [selectedProjectId]);
+
+    // Try to restore saved sessions for the new project
+    if (selectedProject?.path) {
+      restoreTerminalSessions(selectedProject.path).then(() => {
+        console.log('[App] Session restoration complete for project:', selectedProject.name);
+      }).catch((err) => {
+        console.error('[App] Failed to restore sessions:', err);
+      });
+    }
+  }, [selectedProjectId, selectedProject?.path, selectedProject?.name]);
 
   // Apply theme on load
   useEffect(() => {
@@ -230,9 +242,10 @@ export function App() {
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
                   />
                 )}
-                {activeView === 'terminals' && (
+                {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}
+                <div className={activeView === 'terminals' ? 'h-full' : 'hidden'}>
                   <TerminalGrid projectPath={selectedProject?.path} />
-                )}
+                </div>
                 {activeView === 'roadmap' && selectedProjectId && (
                   <Roadmap projectId={selectedProjectId} />
                 )}

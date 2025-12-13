@@ -119,7 +119,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [showDiffDialog, setShowDiffDialog] = useState(false);
-  const [stageOnly, setStageOnly] = useState(false); // When true, merge stages changes but doesn't commit
+  const [stageOnly, setStageOnly] = useState(task.status === 'human_review'); // Default to true when build is ready for review
   // Phase logs state
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);

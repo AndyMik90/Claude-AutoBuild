@@ -172,10 +172,17 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
 
+  // Terminal session management
+  TERMINAL_GET_SESSIONS: 'terminal:getSessions',
+  TERMINAL_RESTORE_SESSION: 'terminal:restoreSession',
+  TERMINAL_CLEAR_SESSIONS: 'terminal:clearSessions',
+  TERMINAL_RESUME_CLAUDE: 'terminal:resumeClaude',
+
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_TITLE_CHANGE: 'terminal:titleChange',
+  TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
 
   // Settings
   SETTINGS_GET: 'settings:get',

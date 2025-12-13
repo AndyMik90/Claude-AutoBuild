@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
+import type { TerminalSession } from '../../shared/types';
 
 export type TerminalStatus = 'idle' | 'running' | 'claude-active' | 'exited';
 
@@ -10,7 +11,9 @@ export interface Terminal {
   cwd: string;
   createdAt: Date;
   isClaudeMode: boolean;
+  claudeSessionId?: string;  // Claude Code session ID for resume
   outputBuffer: string; // Store terminal output for replay on remount
+  isRestored?: boolean;  // Whether this terminal was restored from a saved session
 }
 
 interface TerminalLayout {
@@ -26,16 +29,21 @@ interface TerminalState {
   layouts: TerminalLayout[];
   activeTerminalId: string | null;
   maxTerminals: number;
+  hasRestoredSessions: boolean;  // Track if we've restored sessions for this project
 
   // Actions
   addTerminal: (cwd?: string) => Terminal | null;
+  addRestoredTerminal: (session: TerminalSession) => Terminal;
   removeTerminal: (id: string) => void;
   updateTerminal: (id: string, updates: Partial<Terminal>) => void;
   setActiveTerminal: (id: string | null) => void;
   setTerminalStatus: (id: string, status: TerminalStatus) => void;
   setClaudeMode: (id: string, isClaudeMode: boolean) => void;
+  setClaudeSessionId: (id: string, sessionId: string) => void;
   appendOutput: (id: string, data: string) => void;
+  clearOutputBuffer: (id: string) => void;
   clearAllTerminals: () => void;
+  setHasRestoredSessions: (value: boolean) => void;
 
   // Selectors
   getTerminal: (id: string) => Terminal | undefined;
@@ -48,6 +56,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   layouts: [],
   activeTerminalId: null,
   maxTerminals: 12,
+  hasRestoredSessions: false,
 
   addTerminal: (cwd?: string) => {
     const state = get();
@@ -71,6 +80,35 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
 
     return newTerminal;
+  },
+
+  addRestoredTerminal: (session: TerminalSession) => {
+    const state = get();
+
+    // Check if terminal already exists
+    const existingTerminal = state.terminals.find(t => t.id === session.id);
+    if (existingTerminal) {
+      return existingTerminal;
+    }
+
+    const restoredTerminal: Terminal = {
+      id: session.id,
+      title: session.title,
+      status: 'idle',  // Will be updated to 'running' when PTY is created
+      cwd: session.cwd,
+      createdAt: new Date(session.createdAt),
+      isClaudeMode: session.isClaudeMode,
+      claudeSessionId: session.claudeSessionId,
+      outputBuffer: session.outputBuffer,
+      isRestored: true,
+    };
+
+    set((state) => ({
+      terminals: [...state.terminals, restoredTerminal],
+      activeTerminalId: state.activeTerminalId || restoredTerminal.id,
+    }));
+
+    return restoredTerminal;
   },
 
   removeTerminal: (id: string) => {
@@ -117,6 +155,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  setClaudeSessionId: (id: string, sessionId: string) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, claudeSessionId: sessionId } : t
+      ),
+    }));
+  },
+
   appendOutput: (id: string, data: string) => {
     set((state) => ({
       terminals: state.terminals.map((t) =>
@@ -131,8 +177,20 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  clearOutputBuffer: (id: string) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, outputBuffer: '' } : t
+      ),
+    }));
+  },
+
   clearAllTerminals: () => {
-    set({ terminals: [], activeTerminalId: null });
+    set({ terminals: [], activeTerminalId: null, hasRestoredSessions: false });
+  },
+
+  setHasRestoredSessions: (value: boolean) => {
+    set({ hasRestoredSessions: value });
   },
 
   getTerminal: (id: string) => {
@@ -149,3 +207,35 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return state.terminals.length < state.maxTerminals;
   },
 }));
+
+/**
+ * Restore terminal sessions for a project from persisted storage
+ */
+export async function restoreTerminalSessions(projectPath: string): Promise<void> {
+  const store = useTerminalStore.getState();
+
+  // Don't restore if we already have terminals (user might have opened some manually)
+  if (store.terminals.length > 0) {
+    console.log('[TerminalStore] Terminals already exist, skipping session restore');
+    return;
+  }
+
+  try {
+    const result = await window.electronAPI.getTerminalSessions(projectPath);
+    if (!result.success || !result.data || result.data.length === 0) {
+      console.log('[TerminalStore] No saved sessions to restore');
+      return;
+    }
+
+    console.log('[TerminalStore] Found', result.data.length, 'saved sessions to restore');
+
+    // Add terminals to the store (they'll be created in the TerminalGrid component)
+    for (const session of result.data) {
+      store.addRestoredTerminal(session);
+    }
+
+    store.setHasRestoredSessions(true);
+  } catch (error) {
+    console.error('[TerminalStore] Error restoring sessions:', error);
+  }
+}

@@ -94,6 +94,7 @@ from task_logger import (
     LogEntryType,
     get_task_logger,
     clear_task_logger,
+    update_task_logger_path,
 )
 
 
@@ -555,11 +556,14 @@ class SpecOrchestrator:
             # Rename the directory
             import shutil
             shutil.move(str(self.spec_dir), str(new_spec_dir))
-            
+
             # Update our references
             self.spec_dir = new_spec_dir
             self.validator = SpecValidator(self.spec_dir)
-            
+
+            # Update the global task logger to use the new path
+            update_task_logger_path(new_spec_dir)
+
             print_status(f"Spec folder: {highlight(new_dir_name)}", "success")
             return True
             
@@ -694,6 +698,9 @@ class SpecOrchestrator:
     async def phase_complexity_assessment_with_requirements(self) -> PhaseResult:
         """Assess complexity after requirements are gathered (with full context)."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         assessment_file = self.spec_dir / "complexity_assessment.json"
         requirements_file = self.spec_dir / "requirements.json"
 
@@ -724,32 +731,41 @@ class SpecOrchestrator:
                 reasoning=f"Manual override: {self.complexity_override}",
             )
             print_status(f"Complexity override: {complexity.value.upper()}", "success")
+            task_logger.log(f"Complexity override: {complexity.value.upper()}", LogEntryType.SUCCESS, LogPhase.PLANNING)
         elif self.use_ai_assessment:
             # Run AI assessment with full requirements context
             print_status("Running AI complexity assessment...", "progress")
+            task_logger.log("Analyzing task complexity with AI...", LogEntryType.INFO, LogPhase.PLANNING)
             self.assessment = await self._run_ai_complexity_assessment(requirements_context)
-            
+
             if self.assessment:
                 print_status(f"AI assessed complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
                 print_key_value("Confidence", f"{self.assessment.confidence:.0%}")
                 print_key_value("Reasoning", self.assessment.reasoning)
-                
+                task_logger.log(f"Complexity: {self.assessment.complexity.value.upper()} ({self.assessment.confidence:.0%} confidence)", LogEntryType.SUCCESS, LogPhase.PLANNING)
+
                 # Show flags if set
                 if self.assessment.needs_research:
                     print(f"  {muted('→ Research phase enabled')}")
+                    task_logger.log("Research phase will be included", LogEntryType.INFO, LogPhase.PLANNING)
                 if self.assessment.needs_self_critique:
                     print(f"  {muted('→ Self-critique phase enabled')}")
+                    task_logger.log("Self-critique phase will be included", LogEntryType.INFO, LogPhase.PLANNING)
             else:
                 # Fall back to heuristic assessment
                 print_status("AI assessment failed, falling back to heuristics...", "warning")
+                task_logger.log("AI assessment failed, using heuristic fallback", LogEntryType.INFO, LogPhase.PLANNING)
                 self.assessment = self._heuristic_assessment()
                 print_status(f"Assessed complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
+                task_logger.log(f"Complexity: {self.assessment.complexity.value.upper()}", LogEntryType.SUCCESS, LogPhase.PLANNING)
         else:
             # Use heuristic assessment
+            task_logger.log("Assessing task complexity...", LogEntryType.INFO, LogPhase.PLANNING)
             self.assessment = self._heuristic_assessment()
             print_status(f"Assessed complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
             print_key_value("Confidence", f"{self.assessment.confidence:.0%}")
             print_key_value("Reasoning", self.assessment.reasoning)
+            task_logger.log(f"Complexity: {self.assessment.complexity.value.upper()} ({self.assessment.confidence:.0%} confidence)", LogEntryType.SUCCESS, LogPhase.PLANNING)
 
         # Show what phases will run
         phases = self.assessment.phases_to_run()
@@ -857,6 +873,9 @@ class SpecOrchestrator:
     async def phase_discovery(self) -> PhaseResult:
         """Analyze project structure."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         errors = []
         retries = 0
 
@@ -872,24 +891,36 @@ class SpecOrchestrator:
                 import shutil
                 shutil.copy(auto_build_index, spec_index)
                 print_status("Copied existing project_index.json", "success")
+                task_logger.log("Using existing project index", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("discovery", True, [str(spec_index)], [], 0)
 
             if spec_index.exists():
                 print_status("project_index.json already exists", "success")
+                task_logger.log("Project index already exists", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("discovery", True, [str(spec_index)], [], 0)
 
             # Run analyzer
             print_status("Running project analyzer...", "progress")
+            task_logger.log("Scanning project structure and dependencies...", LogEntryType.INFO, LogPhase.PLANNING)
             success, output = self._run_script(
                 "analyzer.py",
                 ["--output", str(spec_index)]
             )
 
             if success and spec_index.exists():
+                # Log what was discovered
+                try:
+                    with open(spec_index) as f:
+                        index_data = json.load(f)
+                    file_count = len(index_data.get("files", []))
+                    task_logger.log(f"Discovered {file_count} files in project", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                except Exception:
+                    task_logger.log("Created project index", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 print_status("Created project_index.json", "success")
                 return PhaseResult("discovery", True, [str(spec_index)], [], retries)
 
             errors.append(f"Attempt {attempt + 1}: {output}")
+            task_logger.log(f"Discovery attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
             print_status(f"Attempt {attempt + 1} failed: {output[:200]}", "error")
 
         return PhaseResult("discovery", False, [], errors, retries)
@@ -900,16 +931,21 @@ class SpecOrchestrator:
         This phase runs early in the pipeline to gather hints from past sessions
         and similar tasks that can inform requirements and spec creation.
         """
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         hints_file = self.spec_dir / "graph_hints.json"
 
         # Check if hints already exist
         if hints_file.exists():
             print_status("graph_hints.json already exists", "success")
+            task_logger.log("Historical context already available", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("historical_context", True, [str(hints_file)], [], 0)
 
         # Check if Graphiti is enabled
         if not is_graphiti_enabled():
             print_status("Graphiti not enabled, skipping historical context", "info")
+            task_logger.log("Knowledge graph not configured, skipping", LogEntryType.INFO, LogPhase.PLANNING)
             # Create empty hints file
             with open(hints_file, "w") as f:
                 json.dump({
@@ -935,6 +971,7 @@ class SpecOrchestrator:
 
         if not task_query:
             print_status("No task description for graph query, skipping", "warning")
+            task_logger.log("No task description for graph query", LogEntryType.INFO, LogPhase.PLANNING)
             with open(hints_file, "w") as f:
                 json.dump({
                     "enabled": True,
@@ -945,6 +982,7 @@ class SpecOrchestrator:
             return PhaseResult("historical_context", True, [str(hints_file)], [], 0)
 
         print_status("Querying Graphiti knowledge graph...", "progress")
+        task_logger.log("Searching knowledge graph for relevant context...", LogEntryType.INFO, LogPhase.PLANNING)
 
         try:
             hints = await get_graph_hints(
@@ -965,6 +1003,7 @@ class SpecOrchestrator:
 
             if hints:
                 print_status(f"Retrieved {len(hints)} graph hints", "success")
+                task_logger.log(f"Found {len(hints)} relevant insights from past sessions", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 # Show a preview of what was found
                 hint_types = {}
                 for h in hints:
@@ -974,11 +1013,13 @@ class SpecOrchestrator:
                     print(f"  {muted(f'• {ht}:')} {count}")
             else:
                 print_status("No relevant graph hints found", "info")
+                task_logger.log("No relevant historical context found", LogEntryType.INFO, LogPhase.PLANNING)
 
             return PhaseResult("historical_context", True, [str(hints_file)], [], 0)
 
         except Exception as e:
             print_status(f"Graph query failed: {e}", "warning")
+            task_logger.log(f"Knowledge graph query failed: {e}", LogEntryType.ERROR, LogPhase.PLANNING)
             # Create error hints file but don't fail the phase
             with open(hints_file, "w") as f:
                 json.dump({
@@ -1119,15 +1160,20 @@ class SpecOrchestrator:
     async def phase_requirements(self, interactive: bool = True) -> PhaseResult:
         """Gather requirements from user or task description."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         requirements_file = self.spec_dir / "requirements.json"
 
         # Check if requirements already exist
         if requirements_file.exists():
             print_status("requirements.json already exists", "success")
+            task_logger.log("Requirements already defined", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("requirements", True, [str(requirements_file)], [], 0)
 
         # If we have a task description and not interactive, create requirements directly
         if self.task_description and not interactive:
+            task_logger.log("Creating requirements from task description...", LogEntryType.INFO, LogPhase.PLANNING)
             requirements = {
                 "task_description": self.task_description,
                 "workflow_type": "feature",  # Default, agent will refine
@@ -1137,11 +1183,15 @@ class SpecOrchestrator:
             with open(requirements_file, "w") as f:
                 json.dump(requirements, f, indent=2)
             print_status("Created requirements.json from task description", "success")
+            # Log a summary of the task
+            task_preview = self.task_description[:100] + "..." if len(self.task_description) > 100 else self.task_description
+            task_logger.log(f"Task: {task_preview}", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("requirements", True, [str(requirements_file)], [], 0)
 
         # Interactive mode - gather requirements via CLI prompts
         if interactive:
             try:
+                task_logger.log("Gathering requirements interactively...", LogEntryType.INFO, LogPhase.PLANNING)
                 requirements = self._interactive_requirements_gathering()
 
                 # Update task description for subsequent phases
@@ -1150,16 +1200,19 @@ class SpecOrchestrator:
                 # Re-run complexity assessment with the actual task
                 print()
                 print_status("Re-assessing complexity with actual task...", "progress")
+                task_logger.log("Re-assessing task complexity...", LogEntryType.INFO, LogPhase.PLANNING)
                 analyzer = ComplexityAnalyzer()
                 self.assessment = analyzer.analyze(self.task_description, requirements)
                 print_status(f"Updated complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
                 print_key_value("Confidence", f"{self.assessment.confidence:.0%}")
                 print_key_value("Reasoning", self.assessment.reasoning)
+                task_logger.log(f"Complexity: {self.assessment.complexity.value.upper()} ({self.assessment.confidence:.0%} confidence)", LogEntryType.SUCCESS, LogPhase.PLANNING)
 
                 with open(requirements_file, "w") as f:
                     json.dump(requirements, f, indent=2)
                 print()
                 print_status("Created requirements.json", "success")
+                task_logger.log("Requirements captured", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("requirements", True, [str(requirements_file)], [], 0)
             except (KeyboardInterrupt, EOFError):
                 print()
@@ -1181,16 +1234,21 @@ class SpecOrchestrator:
     async def phase_quick_spec(self) -> PhaseResult:
         """Quick spec for simple tasks - combines context and spec in one step."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         spec_file = self.spec_dir / "spec.md"
         plan_file = self.spec_dir / "implementation_plan.json"
 
         if spec_file.exists() and plan_file.exists():
             print_status("Quick spec already exists", "success")
+            task_logger.log("Quick spec already exists", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("quick_spec", True, [str(spec_file), str(plan_file)], [], 0)
 
         errors = []
         for attempt in range(MAX_RETRIES):
             print_status(f"Running quick spec agent (attempt {attempt + 1})...", "progress")
+            task_logger.log("Creating quick spec for simple task...", LogEntryType.INFO, LogPhase.PLANNING)
 
             context = f"""
 **Task**: {self.task_description}
@@ -1215,9 +1273,11 @@ Create:
                     self._create_minimal_plan()
 
                 print_status("Quick spec created", "success")
+                task_logger.log("Quick spec and plan created successfully", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("quick_spec", True, [str(spec_file), str(plan_file)], [], attempt)
 
             errors.append(f"Attempt {attempt + 1}: Quick spec agent failed")
+            task_logger.log(f"Quick spec attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
 
         return PhaseResult("quick_spec", False, [], errors, MAX_RETRIES)
 
@@ -1265,17 +1325,22 @@ Create:
     async def phase_research(self) -> PhaseResult:
         """Research external integrations and validate assumptions."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         research_file = self.spec_dir / "research.json"
         requirements_file = self.spec_dir / "requirements.json"
 
         # Check if research already exists
         if research_file.exists():
             print_status("research.json already exists", "success")
+            task_logger.log("Integration research already complete", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("research", True, [str(research_file)], [], 0)
 
         # Load requirements to understand what integrations need research
         if not requirements_file.exists():
             print_status("No requirements.json - skipping research phase", "warning")
+            task_logger.log("Skipping research (no requirements)", LogEntryType.INFO, LogPhase.PLANNING)
             # Create empty research file
             with open(research_file, "w") as f:
                 json.dump({
@@ -1291,6 +1356,7 @@ Create:
         for attempt in range(MAX_RETRIES):
             print_status(f"Running research agent (attempt {attempt + 1})...", "progress")
             print(f"  {muted('Validating external integrations against documentation...')}")
+            task_logger.log("Researching external integrations and APIs...", LogEntryType.INFO, LogPhase.PLANNING)
 
             context = f"""
 **Requirements File**: {requirements_file}
@@ -1312,11 +1378,13 @@ Output your findings to research.json.
 
             if success and research_file.exists():
                 print_status("Created research.json", "success")
+                task_logger.log("Integration research complete", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("research", True, [str(research_file)], [], attempt)
 
             # If agent didn't create file, create minimal one
             if success and not research_file.exists():
                 print_status("Agent completed but no research.json created, creating minimal...", "warning")
+                task_logger.log("Research complete (no findings)", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 with open(research_file, "w") as f:
                     json.dump({
                         "integrations_researched": [],
@@ -1327,6 +1395,7 @@ Output your findings to research.json.
                 return PhaseResult("research", True, [str(research_file)], [], attempt)
 
             errors.append(f"Attempt {attempt + 1}: Research agent failed")
+            task_logger.log(f"Research attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
 
         # Create minimal research file on failure
         with open(research_file, "w") as f:
@@ -1337,16 +1406,21 @@ Output your findings to research.json.
                 "created_at": datetime.now().isoformat(),
             }, f, indent=2)
         print_status("Created minimal research.json (agent failed)", "warning")
+        task_logger.log("Research phase failed, continuing with minimal data", LogEntryType.INFO, LogPhase.PLANNING)
         return PhaseResult("research", True, [str(research_file)], errors, MAX_RETRIES)
 
     async def phase_context(self) -> PhaseResult:
         """Discover relevant files for the task."""
+
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
 
         context_file = self.spec_dir / "context.json"
         requirements_file = self.spec_dir / "requirements.json"
 
         if context_file.exists():
             print_status("context.json already exists", "success")
+            task_logger.log("File context already discovered", LogEntryType.SUCCESS, LogPhase.PLANNING)
             return PhaseResult("context", True, [str(context_file)], [], 0)
 
         # Load requirements for task description
@@ -1362,6 +1436,7 @@ Output your findings to research.json.
         errors = []
         for attempt in range(MAX_RETRIES):
             print_status(f"Running context discovery (attempt {attempt + 1})...", "progress")
+            task_logger.log("Discovering relevant files for this task...", LogEntryType.INFO, LogPhase.PLANNING)
 
             args = [
                 "--task", task or "unknown task",
@@ -1392,13 +1467,23 @@ Output your findings to research.json.
                             print_status("Added missing task_description to context.json", "success")
                 except (json.JSONDecodeError, IOError) as e:
                     errors.append(f"Attempt {attempt + 1}: Invalid context.json - {e}")
+                    task_logger.log(f"Context discovery attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
                     context_file.unlink(missing_ok=True)
                     continue
+
+                # Log what was discovered
+                try:
+                    files_to_modify = len(ctx.get("files_to_modify", []))
+                    files_to_reference = len(ctx.get("files_to_reference", []))
+                    task_logger.log(f"Found {files_to_modify} files to modify, {files_to_reference} files to reference", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                except Exception:
+                    task_logger.log("Context discovery complete", LogEntryType.SUCCESS, LogPhase.PLANNING)
 
                 print_status("Created context.json", "success")
                 return PhaseResult("context", True, [str(context_file)], [], attempt)
 
             errors.append(f"Attempt {attempt + 1}: {output}")
+            task_logger.log(f"Context discovery attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
             print_status(f"Attempt {attempt + 1} failed", "error")
 
         # Create minimal context if script fails
@@ -1412,10 +1497,14 @@ Output your findings to research.json.
         with open(context_file, "w") as f:
             json.dump(minimal_context, f, indent=2)
         print_status("Created minimal context.json (script failed)", "success")
+        task_logger.log("Created minimal context (discovery script failed)", LogEntryType.INFO, LogPhase.PLANNING)
         return PhaseResult("context", True, [str(context_file)], errors, MAX_RETRIES)
 
     async def phase_spec_writing(self) -> PhaseResult:
         """Write the spec.md document."""
+
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
 
         spec_file = self.spec_dir / "spec.md"
 
@@ -1424,12 +1513,15 @@ Output your findings to research.json.
             result = self.validator.validate_spec_document()
             if result.valid:
                 print_status("spec.md already exists and is valid", "success")
+                task_logger.log("Spec document already exists", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("spec_writing", True, [str(spec_file)], [], 0)
             print_status("spec.md exists but has issues, regenerating...", "warning")
+            task_logger.log("Regenerating spec document (validation issues)", LogEntryType.INFO, LogPhase.PLANNING)
 
         errors = []
         for attempt in range(MAX_RETRIES):
             print_status(f"Running spec writer (attempt {attempt + 1})...", "progress")
+            task_logger.log("Writing spec document with AI agent...", LogEntryType.INFO, LogPhase.PLANNING)
 
             success, output = await self._run_agent("spec_writer.md")
 
@@ -1438,12 +1530,15 @@ Output your findings to research.json.
                 result = self.validator.validate_spec_document()
                 if result.valid:
                     print_status("Created valid spec.md", "success")
+                    task_logger.log("Spec document created successfully", LogEntryType.SUCCESS, LogPhase.PLANNING)
                     return PhaseResult("spec_writing", True, [str(spec_file)], [], attempt)
                 else:
                     errors.append(f"Attempt {attempt + 1}: Spec invalid - {result.errors}")
+                    task_logger.log(f"Spec validation failed: {result.errors[:100]}", LogEntryType.ERROR, LogPhase.PLANNING)
                     print_status(f"Spec created but invalid: {result.errors}", "error")
             else:
                 errors.append(f"Attempt {attempt + 1}: Agent did not create spec.md")
+                task_logger.log(f"Spec writer attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
 
         return PhaseResult("spec_writing", False, [], errors, MAX_RETRIES)
 
@@ -1536,6 +1631,9 @@ Output critique_report.json with:
     async def phase_planning(self) -> PhaseResult:
         """Create the implementation plan."""
 
+        # Get task logger for detailed logging
+        task_logger = get_task_logger(self.spec_dir)
+
         plan_file = self.spec_dir / "implementation_plan.json"
 
         if plan_file.exists():
@@ -1543,13 +1641,16 @@ Output critique_report.json with:
             result = self.validator.validate_implementation_plan()
             if result.valid:
                 print_status("implementation_plan.json already exists and is valid", "success")
+                task_logger.log("Implementation plan already exists", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("planning", True, [str(plan_file)], [], 0)
             print_status("Plan exists but invalid, regenerating...", "warning")
+            task_logger.log("Regenerating implementation plan (validation issues)", LogEntryType.INFO, LogPhase.PLANNING)
 
         errors = []
 
         # Try Python script first (deterministic)
         print_status("Trying planner.py (deterministic)...", "progress")
+        task_logger.log("Creating implementation plan...", LogEntryType.INFO, LogPhase.PLANNING)
         success, output = self._run_script(
             "planner.py",
             ["--spec-dir", str(self.spec_dir)]
@@ -1560,6 +1661,14 @@ Output critique_report.json with:
             result = self.validator.validate_implementation_plan()
             if result.valid:
                 print_status("Created valid implementation_plan.json via script", "success")
+                # Log chunk count
+                try:
+                    with open(plan_file) as f:
+                        plan_data = json.load(f)
+                    total_chunks = sum(len(p.get("chunks", [])) for p in plan_data.get("phases", []))
+                    task_logger.log(f"Implementation plan created with {total_chunks} chunks", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                except Exception:
+                    task_logger.log("Implementation plan created", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("planning", True, [str(plan_file)], [], 0)
             else:
                 print_status("Script output invalid, trying auto-fix...", "warning")
@@ -1567,12 +1676,15 @@ Output critique_report.json with:
                     result = self.validator.validate_implementation_plan()
                     if result.valid:
                         print_status("Auto-fixed implementation_plan.json", "success")
+                        task_logger.log("Implementation plan created (auto-fixed)", LogEntryType.SUCCESS, LogPhase.PLANNING)
                         return PhaseResult("planning", True, [str(plan_file)], [], 0)
 
                 errors.append(f"Script output invalid: {result.errors}")
+                task_logger.log("Script-based planning failed, trying AI agent", LogEntryType.INFO, LogPhase.PLANNING)
 
         # Fall back to agent
         print_status("Falling back to planner agent...", "progress")
+        task_logger.log("Creating implementation plan with AI agent...", LogEntryType.INFO, LogPhase.PLANNING)
         for attempt in range(MAX_RETRIES):
             print_status(f"Running planner agent (attempt {attempt + 1})...", "progress")
 
@@ -1583,6 +1695,14 @@ Output critique_report.json with:
                 result = self.validator.validate_implementation_plan()
                 if result.valid:
                     print_status("Created valid implementation_plan.json via agent", "success")
+                    # Log chunk count
+                    try:
+                        with open(plan_file) as f:
+                            plan_data = json.load(f)
+                        total_chunks = sum(len(p.get("chunks", [])) for p in plan_data.get("phases", []))
+                        task_logger.log(f"Implementation plan created with {total_chunks} chunks", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                    except Exception:
+                        task_logger.log("Implementation plan created", LogEntryType.SUCCESS, LogPhase.PLANNING)
                     return PhaseResult("planning", True, [str(plan_file)], [], attempt)
                 else:
                     # Try auto-fix
@@ -1590,12 +1710,15 @@ Output critique_report.json with:
                         result = self.validator.validate_implementation_plan()
                         if result.valid:
                             print_status("Auto-fixed implementation_plan.json", "success")
+                            task_logger.log("Implementation plan created (auto-fixed)", LogEntryType.SUCCESS, LogPhase.PLANNING)
                             return PhaseResult("planning", True, [str(plan_file)], [], attempt)
 
                     errors.append(f"Agent attempt {attempt + 1}: {result.errors}")
+                    task_logger.log(f"Planning attempt {attempt + 1} produced invalid plan", LogEntryType.ERROR, LogPhase.PLANNING)
                     print_status("Plan created but invalid", "error")
             else:
                 errors.append(f"Agent attempt {attempt + 1}: Did not create plan file")
+                task_logger.log(f"Planning attempt {attempt + 1} failed", LogEntryType.ERROR, LogPhase.PLANNING)
 
         return PhaseResult("planning", False, [], errors, MAX_RETRIES)
 

@@ -172,9 +172,15 @@ export type TaskCategory =
 
 export interface TaskMetadata {
   // Origin tracking
-  sourceType?: 'ideation' | 'manual' | 'imported' | 'insights';
+  sourceType?: 'ideation' | 'manual' | 'imported' | 'insights' | 'roadmap' | 'linear' | 'github';
   ideationType?: string;  // e.g., 'high_value_features', 'security_hardening'
   ideaId?: string;  // Reference to original idea if converted
+  featureId?: string;  // Reference to roadmap feature if from roadmap
+  linearIssueId?: string;  // Reference to Linear issue if from Linear
+  linearIdentifier?: string;  // Linear issue identifier (e.g., 'ABC-123')
+  linearUrl?: string;  // Linear issue URL
+  githubIssueNumber?: number;  // Reference to GitHub issue number if from GitHub
+  githubUrl?: string;  // GitHub issue URL
 
   // Classification
   category?: TaskCategory;
@@ -225,6 +231,7 @@ export interface Task {
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
   executionProgress?: ExecutionProgress;  // Real-time execution progress
+  releasedInVersion?: string;  // Version in which this task was released
   createdAt: Date;
   updatedAt: Date;
 }
@@ -395,12 +402,35 @@ export interface TerminalCreateOptions {
   cwd?: string;
   cols?: number;
   rows?: number;
+  projectPath?: string;
 }
 
 export interface TerminalResizeOptions {
   id: string;
   cols: number;
   rows: number;
+}
+
+/**
+ * Persisted terminal session data for restoring sessions on app restart
+ */
+export interface TerminalSession {
+  id: string;
+  title: string;
+  cwd: string;
+  projectPath: string;
+  isClaudeMode: boolean;
+  claudeSessionId?: string;  // Claude Code session ID for --resume
+  outputBuffer: string;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export interface TerminalRestoreResult {
+  success: boolean;
+  terminalId: string;
+  outputBuffer?: string;  // For replay in UI
+  error?: string;
 }
 
 // ============================================
@@ -1002,6 +1032,71 @@ export interface GitHubInvestigationStatus {
 }
 
 // ============================================
+// Release Types
+// ============================================
+
+export interface ReleaseableVersion {
+  version: string;
+  tagName: string;
+  date: string;
+  content: string;
+  taskSpecIds: string[];
+  isReleased: boolean;
+  releaseUrl?: string;
+}
+
+export interface ReleasePreflightCheck {
+  passed: boolean;
+  message: string;
+  uncommittedFiles?: string[];
+  unpushedCount?: number;
+  unmergedWorktrees?: UnmergedWorktreeInfo[];
+}
+
+export interface ReleasePreflightStatus {
+  canRelease: boolean;
+  checks: {
+    gitClean: ReleasePreflightCheck;
+    commitsPushed: ReleasePreflightCheck;
+    tagAvailable: ReleasePreflightCheck;
+    githubConnected: ReleasePreflightCheck;
+    worktreesMerged: ReleasePreflightCheck;
+  };
+  blockers: string[];
+}
+
+export interface UnmergedWorktreeInfo {
+  specId: string;
+  taskTitle: string;
+  worktreePath: string;
+  branch: string;
+  taskStatus: TaskStatus;
+}
+
+export interface CreateReleaseRequest {
+  projectId: string;
+  version: string;
+  title?: string;
+  body: string;
+  draft?: boolean;
+  prerelease?: boolean;
+}
+
+export interface CreateReleaseResult {
+  success: boolean;
+  releaseUrl?: string;
+  tagName?: string;
+  error?: string;
+}
+
+export interface ReleaseProgress {
+  stage: 'checking' | 'tagging' | 'pushing' | 'creating_release' | 'complete' | 'error';
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+// ============================================
 // Changelog Types
 // ============================================
 
@@ -1212,10 +1307,17 @@ export interface ElectronAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
 
+  // Terminal session management (persistence/restore)
+  getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
+  restoreTerminalSession: (session: TerminalSession, cols?: number, rows?: number) => Promise<IPCResult<TerminalRestoreResult>>;
+  clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
+  resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
+  onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
 
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
@@ -1294,6 +1396,22 @@ export interface ElectronAPI {
     callback: (projectId: string, result: GitHubInvestigationResult) => void
   ) => () => void;
   onGitHubInvestigationError: (
+    callback: (projectId: string, error: string) => void
+  ) => () => void;
+
+  // Release operations
+  getReleaseableVersions: (projectId: string) => Promise<IPCResult<ReleaseableVersion[]>>;
+  runReleasePreflightCheck: (projectId: string, version: string) => Promise<IPCResult<ReleasePreflightStatus>>;
+  createRelease: (request: CreateReleaseRequest) => void;
+
+  // Release event listeners
+  onReleaseProgress: (
+    callback: (projectId: string, progress: ReleaseProgress) => void
+  ) => () => void;
+  onReleaseComplete: (
+    callback: (projectId: string, result: CreateReleaseResult) => void
+  ) => () => void;
+  onReleaseError: (
     callback: (projectId: string, error: string) => void
   ) => () => void;
 

@@ -10,6 +10,7 @@ interface AgentProcess {
   process: ChildProcess;
   startedAt: Date;
   projectPath?: string; // For ideation processes to load session on completion
+  spawnId: number; // Unique ID to identify this specific spawn
 }
 
 export interface ExecutionProgressData {
@@ -34,6 +35,8 @@ export interface AgentManagerEvents {
  */
 export class AgentManager extends EventEmitter {
   private processes: Map<string, AgentProcess> = new Map();
+  private killedSpawnIds: Set<number> = new Set(); // Track spawn IDs whose processes were killed
+  private spawnCounter: number = 0; // Unique ID for each spawn
   private pythonPath: string = 'python3';
   private autoBuildSourcePath: string = ''; // Source auto-claude repo location
 
@@ -393,6 +396,9 @@ export class AgentManager extends EventEmitter {
     // Kill existing process for this project if any
     this.killTask(projectId);
 
+    // Generate unique spawn ID for this process instance
+    const spawnId = ++this.spawnCounter;
+
     // Run from auto-claude source directory so imports work correctly
     const autoBuildSource = this.getAutoBuildSourcePath();
     const cwd = autoBuildSource || process.cwd();
@@ -415,7 +421,8 @@ export class AgentManager extends EventEmitter {
       taskId: projectId,
       process: childProcess,
       startedAt: new Date(),
-      projectPath // Store project path for loading session on completion
+      projectPath, // Store project path for loading session on completion
+      spawnId
     });
 
     // Track progress through output
@@ -577,6 +584,9 @@ export class AgentManager extends EventEmitter {
     // Kill existing process for this project if any
     this.killTask(projectId);
 
+    // Generate unique spawn ID for this process instance
+    const spawnId = ++this.spawnCounter;
+
     // Run from auto-claude source directory so imports work correctly
     const autoBuildSource = this.getAutoBuildSourcePath();
     const cwd = autoBuildSource || process.cwd();
@@ -598,7 +608,8 @@ export class AgentManager extends EventEmitter {
     this.processes.set(projectId, {
       taskId: projectId,
       process: childProcess,
-      startedAt: new Date()
+      startedAt: new Date(),
+      spawnId
     });
 
     // Track progress through output
@@ -791,9 +802,13 @@ export class AgentManager extends EventEmitter {
     // Kill existing process for this task if any
     this.killTask(taskId);
 
+    // Generate unique spawn ID for this process instance
+    const spawnId = ++this.spawnCounter;
+
     console.log('[spawnProcess] Spawning with pythonPath:', this.pythonPath);
     console.log('[spawnProcess] cwd:', cwd);
     console.log('[spawnProcess] processType:', processType);
+    console.log('[spawnProcess] spawnId:', spawnId);
 
     const childProcess = spawn(this.pythonPath, args, {
       cwd,
@@ -809,7 +824,8 @@ export class AgentManager extends EventEmitter {
     this.processes.set(taskId, {
       taskId,
       process: childProcess,
-      startedAt: new Date()
+      startedAt: new Date(),
+      spawnId
     });
 
     // Track execution progress
@@ -880,8 +896,16 @@ export class AgentManager extends EventEmitter {
 
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
-      console.log('[spawnProcess] Process exited with code:', code);
+      console.log('[spawnProcess] Process exited with code:', code, 'spawnId:', spawnId);
       this.processes.delete(taskId);
+
+      // Check if this specific spawn was killed (vs exited naturally)
+      // If killed, don't emit exit event to prevent race condition with new process
+      if (this.killedSpawnIds.has(spawnId)) {
+        console.log('[spawnProcess] Process was killed, skipping exit event for spawnId:', spawnId);
+        this.killedSpawnIds.delete(spawnId);
+        return;
+      }
 
       // Emit final progress
       const finalPhase = code === 0 ? 'complete' : 'failed';
@@ -918,6 +942,9 @@ export class AgentManager extends EventEmitter {
     const agentProcess = this.processes.get(taskId);
     if (agentProcess) {
       try {
+        // Mark this specific spawn as killed so its exit handler knows to ignore
+        this.killedSpawnIds.add(agentProcess.spawnId);
+
         // Send SIGTERM first for graceful shutdown
         agentProcess.process.kill('SIGTERM');
 

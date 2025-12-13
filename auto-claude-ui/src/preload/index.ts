@@ -317,6 +317,23 @@ const electronAPI: ElectronAPI = {
   invokeClaudeInTerminal: (id: string, cwd?: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE, id, cwd),
 
+  // Terminal Session Management (persistence/restore)
+  getTerminalSessions: (projectPath: string): Promise<IPCResult<import('../shared/types').TerminalSession[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_GET_SESSIONS, projectPath),
+
+  restoreTerminalSession: (
+    session: import('../shared/types').TerminalSession,
+    cols?: number,
+    rows?: number
+  ): Promise<IPCResult<import('../shared/types').TerminalRestoreResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_RESTORE_SESSION, session, cols, rows),
+
+  clearTerminalSessions: (projectPath: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CLEAR_SESSIONS, projectPath),
+
+  resumeClaudeInTerminal: (id: string, sessionId?: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESUME_CLAUDE, id, sessionId),
+
   // ============================================
   // Terminal Event Listeners
   // ============================================
@@ -366,6 +383,22 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, handler);
+    };
+  },
+
+  onTerminalClaudeSession: (
+    callback: (id: string, sessionId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      sessionId: string
+    ): void => {
+      callback(id, sessionId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, handler);
     };
   },
 

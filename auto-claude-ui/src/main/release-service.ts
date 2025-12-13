@@ -5,6 +5,7 @@ import { execSync, spawn } from 'child_process';
 import type {
   ReleaseableVersion,
   ReleasePreflightStatus,
+  ReleasePreflightCheck,
   UnmergedWorktreeInfo,
   CreateReleaseRequest,
   CreateReleaseResult,
@@ -12,7 +13,7 @@ import type {
   Task,
   TaskStatus
 } from '../shared/types';
-import { DEFAULT_CHANGELOG_PATH, AUTO_BUILD_PATHS } from '../shared/constants';
+import { DEFAULT_CHANGELOG_PATH } from '../shared/constants';
 
 /**
  * Service for creating GitHub releases with worktree-aware pre-flight checks.
@@ -219,7 +220,7 @@ export class ReleaseService extends EventEmitter {
         };
         status.blockers.push(`Uncommitted changes: ${uncommittedFiles.length} file(s)`);
       }
-    } catch (error) {
+    } catch {
       status.checks.gitClean = {
         passed: false,
         message: 'Failed to check git status'
@@ -322,7 +323,7 @@ export class ReleaseService extends EventEmitter {
     }
 
     // Determine if release can proceed
-    status.canRelease = Object.values(status.checks).every(check => check.passed);
+    status.canRelease = Object.values(status.checks).every((check: ReleasePreflightCheck) => check.passed);
 
     return status;
   }

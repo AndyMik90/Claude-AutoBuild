@@ -11,6 +11,7 @@ import { useTerminalStore, type TerminalStatus } from '../stores/terminal-store'
 interface TerminalProps {
   id: string;
   cwd?: string;
+  projectPath?: string;  // For session persistence
   isActive: boolean;
   onClose: () => void;
   onActivate: () => void;
@@ -23,7 +24,7 @@ const STATUS_COLORS: Record<TerminalStatus, string> = {
   exited: 'bg-destructive',
 };
 
-export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalProps) {
+export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -34,8 +35,10 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
   const terminal = useTerminalStore((state) => state.terminals.find((t) => t.id === id));
   const setTerminalStatus = useTerminalStore((state) => state.setTerminalStatus);
   const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
+  const setClaudeSessionId = useTerminalStore((state) => state.setClaudeSessionId);
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
   const appendOutput = useTerminalStore((state) => state.appendOutput);
+  const clearOutputBuffer = useTerminalStore((state) => state.clearOutputBuffer);
 
   // Initialize xterm.js UI (separate from PTY creation)
   useEffect(() => {
@@ -93,9 +96,13 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
     fitAddonRef.current = fitAddon;
 
     // Replay buffered output if this is a remount (output exists in store)
+    // Then clear the buffer to prevent duplicate content on subsequent remounts
     const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === id);
     if (terminalState?.outputBuffer) {
       xterm.write(terminalState.outputBuffer);
+      // Clear buffer after replay - new output will accumulate fresh
+      // This prevents duplicates when combined with full-screen redraws from TUI apps
+      useTerminalStore.getState().clearOutputBuffer(id);
     }
 
     // Handle terminal input - send to main process
@@ -117,12 +124,14 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
   }, [id]);
 
   // Create PTY process in main - with protection against double creation
+  // Handles both new terminals and restored sessions
   useEffect(() => {
     if (!xtermRef.current || isCreatingRef.current || isCreatedRef.current) return;
 
     // Check if terminal is already running (persisted across navigation)
     const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === id);
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
+    const isRestored = terminalState?.isRestored;
 
     isCreatingRef.current = true;
 
@@ -130,30 +139,64 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
     const cols = xterm.cols;
     const rows = xterm.rows;
 
-    window.electronAPI.createTerminal({
-      id,
-      cwd,
-      cols,
-      rows,
-    }).then((result) => {
-      if (result.success) {
-        isCreatedRef.current = true;
-        // Only set to running if it wasn't already running (avoid overwriting claude-active)
-        if (!alreadyRunning) {
-          setTerminalStatus(id, 'running');
+    if (isRestored && terminalState) {
+      // Restored session - use restore API to potentially resume Claude
+      window.electronAPI.restoreTerminalSession(
+        {
+          id: terminalState.id,
+          title: terminalState.title,
+          cwd: terminalState.cwd,
+          projectPath: projectPath || '',
+          isClaudeMode: terminalState.isClaudeMode,
+          claudeSessionId: terminalState.claudeSessionId,
+          outputBuffer: '', // Don't send buffer back, we already have it
+          createdAt: terminalState.createdAt.toISOString(),
+          lastActiveAt: new Date().toISOString()
+        },
+        cols,
+        rows
+      ).then((result) => {
+        if (result.success && result.data?.success) {
+          isCreatedRef.current = true;
+          setTerminalStatus(id, terminalState.isClaudeMode ? 'claude-active' : 'running');
+          // Clear the isRestored flag now that it's actually restored
+          updateTerminal(id, { isRestored: false });
+        } else {
+          xterm.writeln(`\r\n\x1b[31mError restoring session: ${result.data?.error || result.error}\x1b[0m`);
         }
-      } else {
-        xterm.writeln(`\r\n\x1b[31mError: ${result.error}\x1b[0m`);
-      }
-      isCreatingRef.current = false;
-    }).catch((err) => {
-      xterm.writeln(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
-      isCreatingRef.current = false;
-    });
+        isCreatingRef.current = false;
+      }).catch((err) => {
+        xterm.writeln(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
+        isCreatingRef.current = false;
+      });
+    } else {
+      // New terminal - use create API
+      window.electronAPI.createTerminal({
+        id,
+        cwd,
+        cols,
+        rows,
+        projectPath,
+      }).then((result) => {
+        if (result.success) {
+          isCreatedRef.current = true;
+          // Only set to running if it wasn't already running (avoid overwriting claude-active)
+          if (!alreadyRunning) {
+            setTerminalStatus(id, 'running');
+          }
+        } else {
+          xterm.writeln(`\r\n\x1b[31mError: ${result.error}\x1b[0m`);
+        }
+        isCreatingRef.current = false;
+      }).catch((err) => {
+        xterm.writeln(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
+        isCreatingRef.current = false;
+      });
+    }
 
     // Note: cleanup is handled in the dedicated cleanup effect below
     // to avoid race conditions with StrictMode
-  }, [id, cwd, setTerminalStatus]);
+  }, [id, cwd, projectPath, setTerminalStatus, updateTerminal]);
 
   // Handle terminal output from main process
   useEffect(() => {
@@ -196,6 +239,18 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
 
     return cleanup;
   }, [id, updateTerminal]);
+
+  // Handle Claude session ID capture
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTerminalClaudeSession((terminalId, sessionId) => {
+      if (terminalId === id) {
+        setClaudeSessionId(id, sessionId);
+        console.log('[Terminal] Captured Claude session ID:', sessionId);
+      }
+    });
+
+    return cleanup;
+  }, [id, setClaudeSessionId]);
 
   // Handle resize on container resize
   useEffect(() => {
@@ -240,6 +295,7 @@ export function Terminal({ id, cwd, isActive, onClose, onActivate }: TerminalPro
           }
           // Reset creation refs so we can reconnect on remount
           isCreatingRef.current = false;
+          isCreatedRef.current = false;
         }
       }, 100);
     };

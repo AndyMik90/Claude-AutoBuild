@@ -100,7 +100,7 @@ app.whenReady().then(() => {
     try {
       const icon = nativeImage.createFromPath(iconPath);
       if (!icon.isEmpty()) {
-        app.dock.setIcon(icon);
+        app.dock?.setIcon(icon);
       }
     } catch (e) {
       console.warn('Could not set dock icon:', e);

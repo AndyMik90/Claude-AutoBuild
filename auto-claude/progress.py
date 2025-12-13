@@ -234,7 +234,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
             pass
     else:
         print()
-        print_status("implementation_plan.json not yet created", "pending")
+        print_status("No implementation chunks yet - planner needs to run", "pending")
 
 
 def print_build_complete_banner(spec_dir: Path) -> None:

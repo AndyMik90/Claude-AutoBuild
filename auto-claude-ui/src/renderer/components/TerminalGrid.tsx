@@ -162,7 +162,8 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
                         <div className="h-full p-1">
                           <Terminal
                             id={terminal.id}
-                            cwd={projectPath}
+                            cwd={terminal.cwd || projectPath}
+                            projectPath={projectPath}
                             isActive={terminal.id === activeTerminalId}
                             onClose={() => handleCloseTerminal(terminal.id)}
                             onActivate={() => setActiveTerminal(terminal.id)}

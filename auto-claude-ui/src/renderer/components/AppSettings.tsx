@@ -166,8 +166,8 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <Settings className="h-5 w-5" />
             Application Settings
@@ -177,7 +177,7 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6 max-h-[60vh]">
+        <ScrollArea className="flex-1 -mx-6 px-6 min-h-0">
           <div className="py-4 space-y-6">
             {/* Appearance */}
             <section className="space-y-4">
@@ -584,7 +584,7 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
           </div>
         </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

@@ -48,7 +48,7 @@ if env_file.exists():
 elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
-from agent import run_autonomous_agent, run_followup_planner
+from agent import run_autonomous_agent, run_followup_planner, sync_plan_to_source
 from coordinator import SwarmCoordinator
 from progress import count_chunks, print_paused_banner, is_build_complete
 from linear_updater import is_linear_enabled, LinearTaskState
@@ -1177,6 +1177,11 @@ def main() -> None:
                     print(f"See: {spec_dir / 'qa_report.md'}")
                     print(f"Or:  {spec_dir / 'QA_FIX_REQUEST.md'}")
                     print(f"\nResume QA: python auto-claude/run.py --spec {spec_dir.name} --qa\n")
+
+                # Sync implementation plan to main project after QA
+                # This ensures the main project has the latest status (human_review)
+                if sync_plan_to_source(spec_dir, source_spec_dir):
+                    debug_info("run.py", "Implementation plan synced to main project after QA")
             except KeyboardInterrupt:
                 print("\n\nQA validation paused.")
                 print(f"Resume: python auto-claude/run.py --spec {spec_dir.name} --qa")

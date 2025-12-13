@@ -493,6 +493,16 @@ Next chunk to work on:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "ready_for_qa_revalidation": status == "fixes_applied",
             }
+
+            # Update plan status to match QA result
+            # This ensures the UI shows the correct column after QA
+            if status == "approved":
+                plan["status"] = "human_review"
+                plan["planStatus"] = "review"
+            elif status == "rejected":
+                plan["status"] = "human_review"
+                plan["planStatus"] = "review"
+
             plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 
             with open(plan_file, "w") as f:

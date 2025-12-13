@@ -5,6 +5,7 @@ Prompt Loading Utilities
 Functions for loading agent prompts from markdown files.
 """
 
+import json
 from pathlib import Path
 
 
@@ -230,13 +231,34 @@ You are adding follow-up work to a **completed** spec.
 
 def is_first_run(spec_dir: Path) -> bool:
     """
-    Check if this is the first run (no implementation plan exists yet).
+    Check if this is the first run (no valid implementation plan with chunks exists yet).
+
+    The spec runner may create a skeleton implementation_plan.json with empty phases.
+    This function checks for actual phases with chunks, not just file existence.
 
     Args:
         spec_dir: Directory containing spec files
 
     Returns:
-        True if implementation_plan.json doesn't exist
+        True if implementation_plan.json doesn't exist or has no chunks
     """
     plan_file = spec_dir / "implementation_plan.json"
-    return not plan_file.exists()
+
+    if not plan_file.exists():
+        return True
+
+    try:
+        with open(plan_file, "r") as f:
+            plan = json.load(f)
+
+        # Check if there are any phases with chunks
+        phases = plan.get("phases", [])
+        if not phases:
+            return True
+
+        # Check if any phase has chunks
+        total_chunks = sum(len(phase.get("chunks", [])) for phase in phases)
+        return total_chunks == 0
+    except (json.JSONDecodeError, IOError):
+        # If we can't read the file, treat as first run
+        return True

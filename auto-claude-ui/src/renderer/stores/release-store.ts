@@ -100,7 +100,7 @@ export async function loadReleaseableVersions(projectId: string): Promise<void> 
       
       // Auto-select first unreleased version if none selected
       if (!store.selectedVersion) {
-        const firstUnreleased = result.data.find(v => !v.isReleased);
+        const firstUnreleased = result.data.find((v: ReleaseableVersion) => !v.isReleased);
         if (firstUnreleased) {
           store.setSelectedVersion(firstUnreleased.version);
         }

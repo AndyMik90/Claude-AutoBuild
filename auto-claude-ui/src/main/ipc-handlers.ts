@@ -1580,7 +1580,8 @@ export function setupIpcHandlers(
         }
 
         return new Promise((resolve) => {
-          const mergeProcess = spawn('python3', args, {
+          const pythonPath = pythonEnvManager.getPythonPath() || 'python3';
+          const mergeProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
             env: {
               ...process.env,
@@ -2118,6 +2119,67 @@ export function setupIpcHandlers(
     }
   );
 
+  // Terminal session management (persistence/restore)
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_GET_SESSIONS,
+    async (_, projectPath: string): Promise<IPCResult<import('../shared/types').TerminalSession[]>> => {
+      try {
+        const sessions = terminalManager.getSavedSessions(projectPath);
+        return { success: true, data: sessions };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get terminal sessions'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_RESTORE_SESSION,
+    async (_, session: import('../shared/types').TerminalSession, cols?: number, rows?: number): Promise<IPCResult<import('../shared/types').TerminalRestoreResult>> => {
+      try {
+        const result = await terminalManager.restore(session, cols, rows);
+        return {
+          success: result.success,
+          data: {
+            success: result.success,
+            terminalId: session.id,
+            outputBuffer: result.outputBuffer,
+            error: result.error
+          }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to restore terminal session'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_CLEAR_SESSIONS,
+    async (_, projectPath: string): Promise<IPCResult> => {
+      try {
+        terminalManager.clearSavedSessions(projectPath);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear terminal sessions'
+        };
+      }
+    }
+  );
+
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
+    (_, id: string, sessionId?: string) => {
+      terminalManager.resumeClaude(id, sessionId);
+    }
+  );
+
   // ============================================
   // Agent Manager Events → Renderer
   // ============================================
@@ -2162,6 +2224,53 @@ export function setupIpcHandlers(
       } else {
         // Unknown process type
         newStatus = 'human_review';
+      }
+
+      // Persist status to disk so it survives hot reload
+      // This is a backup in case the Python backend didn't sync properly
+      try {
+        const projects = projectStore.getProjects();
+        let task: Task | undefined;
+        let project: Project | undefined;
+
+        for (const p of projects) {
+          const tasks = projectStore.getTasks(p.id);
+          task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+          if (task) {
+            project = p;
+            break;
+          }
+        }
+
+        if (task && project) {
+          const specsBaseDir = getSpecsDir(project.autoBuildPath);
+          const specDir = path.join(project.path, specsBaseDir, task.specId);
+          const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+          if (existsSync(planPath)) {
+            const planContent = readFileSync(planPath, 'utf-8');
+            const plan = JSON.parse(planContent);
+
+            // Only update if not already set to a "further along" status
+            // (e.g., don't override 'done' with 'human_review')
+            const currentStatus = plan.status;
+            const shouldUpdate = !currentStatus ||
+              currentStatus === 'in_progress' ||
+              currentStatus === 'ai_review' ||
+              currentStatus === 'backlog' ||
+              currentStatus === 'pending';
+
+            if (shouldUpdate) {
+              plan.status = newStatus;
+              plan.planStatus = 'review';
+              plan.updated_at = new Date().toISOString();
+              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              console.log(`[Task ${taskId}] Persisted status '${newStatus}' to implementation_plan.json`);
+            }
+          }
+        }
+      } catch (persistError) {
+        console.error(`[Task ${taskId}] Failed to persist status:`, persistError);
       }
 
       mainWindow.webContents.send(

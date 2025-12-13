@@ -518,6 +518,32 @@ def clear_task_logger():
     _current_logger = None
 
 
+def update_task_logger_path(new_spec_dir: Path):
+    """
+    Update the global task logger's spec directory after a rename.
+
+    This should be called after renaming a spec directory to ensure
+    the logger continues writing to the correct location.
+
+    Args:
+        new_spec_dir: The new path to the spec directory
+    """
+    global _current_logger
+
+    if _current_logger is None:
+        return
+
+    # Update the logger's internal paths
+    _current_logger.spec_dir = Path(new_spec_dir)
+    _current_logger.log_file = _current_logger.spec_dir / TaskLogger.LOG_FILE
+
+    # Update spec_id in the data
+    _current_logger._data["spec_id"] = new_spec_dir.name
+
+    # Save to the new location
+    _current_logger._save()
+
+
 class StreamingLogCapture:
     """
     Context manager to capture streaming output and log it.
