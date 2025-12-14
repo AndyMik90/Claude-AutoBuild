@@ -19,7 +19,14 @@ import {
   Bot,
   FolderOpen,
   Bell,
-  Package
+  Package,
+  Users,
+  Plus,
+  Trash2,
+  Star,
+  Check,
+  Pencil,
+  X
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -45,11 +52,13 @@ import {
 import { Separator } from './ui/separator';
 import { cn } from '../lib/utils';
 import { useSettingsStore, saveSettings, loadSettings } from '../stores/settings-store';
+import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../stores/claude-profile-store';
 import { AVAILABLE_MODELS } from '../../shared/constants';
 import type {
   AppSettings as AppSettingsType,
   AutoBuildSourceUpdateCheck,
-  AutoBuildSourceUpdateProgress
+  AutoBuildSourceUpdateProgress,
+  ClaudeProfile
 } from '../../shared/types';
 import { Progress } from './ui/progress';
 
@@ -58,7 +67,7 @@ interface AppSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsSection = 'appearance' | 'agent' | 'paths' | 'api-keys' | 'framework' | 'notifications';
+type SettingsSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
 
 interface NavItem {
   id: SettingsSection;
@@ -69,10 +78,10 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Theme and visual preferences' },
-  { id: 'agent', label: 'Agent Settings', icon: Bot, description: 'Default model and parallelism' },
+  { id: 'agent', label: 'Agent Settings', icon: Bot, description: 'Default model and framework' },
   { id: 'paths', label: 'Paths', icon: FolderOpen, description: 'Python and framework paths' },
-  { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Global API credentials' },
-  { id: 'framework', label: 'Framework', icon: Package, description: 'Auto Claude updates' },
+  { id: 'integrations', label: 'Integrations', icon: Key, description: 'API keys & Claude accounts' },
+  { id: 'updates', label: 'Updates', icon: Package, description: 'Auto Claude updates' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert preferences' }
 ];
 
@@ -93,6 +102,16 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
   // Password visibility toggles for global API keys
   const [showGlobalClaudeToken, setShowGlobalClaudeToken] = useState(false);
   const [showGlobalOpenAIKey, setShowGlobalOpenAIKey] = useState(false);
+
+  // Claude Accounts state
+  const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [isAddingProfile, setIsAddingProfile] = useState(false);
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingProfileName, setEditingProfileName] = useState('');
 
   // Load settings on mount
   useEffect(() => {
@@ -130,6 +149,152 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
       console.error('Failed to check for source updates:', err);
     } finally {
       setIsCheckingSourceUpdate(false);
+    }
+  };
+
+  // Load Claude profiles when integrations section is shown
+  useEffect(() => {
+    if (activeSection === 'integrations' && open) {
+      loadClaudeProfiles();
+    }
+  }, [activeSection, open]);
+
+  // Listen for OAuth authentication completion (token is auto-saved in backend)
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onTerminalOAuthToken(async (info) => {
+      console.log('[AppSettings] OAuth authentication event:', {
+        terminalId: info.terminalId,
+        profileId: info.profileId,
+        email: info.email,
+        success: info.success
+      });
+
+      if (info.success && info.profileId) {
+        // Reload profiles to show updated state
+        await loadClaudeProfiles();
+        // Show simple success notification (no token exposed)
+        alert(`✅ Profile authenticated successfully!\n\n${info.email ? `Account: ${info.email}` : 'Authentication complete.'}\n\nYou can now use this profile.`);
+      } else if (!info.success) {
+        console.log('[AppSettings] Authentication detected but not saved:', info.message);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const loadClaudeProfiles = async () => {
+    setIsLoadingProfiles(true);
+    try {
+      const result = await window.electronAPI.getClaudeProfiles();
+      if (result.success && result.data) {
+        setClaudeProfiles(result.data.profiles);
+        setActiveProfileId(result.data.activeProfileId);
+        // Also update the global store so rate limit modals see the changes
+        await loadGlobalClaudeProfiles();
+      }
+    } catch (err) {
+      console.error('Failed to load Claude profiles:', err);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  const handleAddProfile = async () => {
+    if (!newProfileName.trim()) return;
+
+    setIsAddingProfile(true);
+    try {
+      const profileName = newProfileName.trim();
+      const profileSlug = profileName.toLowerCase().replace(/\s+/g, '-');
+      
+      const result = await window.electronAPI.saveClaudeProfile({
+        id: `profile-${Date.now()}`,
+        name: profileName,
+        // Use a placeholder - the backend will resolve the actual path
+        configDir: `~/.claude-profiles/${profileSlug}`,
+        isDefault: false,
+        createdAt: new Date()
+      });
+
+      if (result.success && result.data) {
+        // Initialize the profile (creates terminal and runs claude setup-token)
+        const initResult = await window.electronAPI.initializeClaudeProfile(result.data.id);
+        
+        if (initResult.success) {
+          // Reload profiles
+          await loadClaudeProfiles();
+          setNewProfileName('');
+
+          // Alert the user - browser will open for OAuth
+          alert(
+            `Authenticating "${profileName}"...\n\n` +
+            `A browser window will open for you to log in with your Claude account.\n\n` +
+            `The authentication will be saved automatically once complete.`
+          );
+        } else {
+          // Still reload profiles in case it partially worked
+          await loadClaudeProfiles();
+          alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to add profile:', err);
+      alert('Failed to add profile. Please try again.');
+    } finally {
+      setIsAddingProfile(false);
+    }
+  };
+
+  const handleDeleteProfile = async (profileId: string) => {
+    setDeletingProfileId(profileId);
+    try {
+      const result = await window.electronAPI.deleteClaudeProfile(profileId);
+      if (result.success) {
+        await loadClaudeProfiles();
+      }
+    } catch (err) {
+      console.error('Failed to delete profile:', err);
+    } finally {
+      setDeletingProfileId(null);
+    }
+  };
+
+  const startEditingProfile = (profile: ClaudeProfile) => {
+    setEditingProfileId(profile.id);
+    setEditingProfileName(profile.name);
+  };
+
+  const cancelEditingProfile = () => {
+    setEditingProfileId(null);
+    setEditingProfileName('');
+  };
+
+  const handleRenameProfile = async () => {
+    if (!editingProfileId || !editingProfileName.trim()) return;
+    
+    try {
+      const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
+      if (result.success) {
+        await loadClaudeProfiles();
+      }
+    } catch (err) {
+      console.error('Failed to rename profile:', err);
+    } finally {
+      setEditingProfileId(null);
+      setEditingProfileName('');
+    }
+  };
+
+  const handleSetActiveProfile = async (profileId: string) => {
+    try {
+      const result = await window.electronAPI.setActiveClaudeProfile(profileId);
+      if (result.success) {
+        setActiveProfileId(profileId);
+        // Also update the global store so other components see the change
+        await loadGlobalClaudeProfiles();
+      }
+    } catch (err) {
+      console.error('Failed to set active profile:', err);
     }
   };
 
@@ -255,22 +420,19 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
                 </Select>
               </div>
               <div className="space-y-3">
-                <Label htmlFor="defaultParallelism" className="text-sm font-medium text-foreground">Default Parallelism</Label>
-                <p className="text-sm text-muted-foreground">Number of concurrent agent workers (1-8)</p>
-                <Input
-                  id="defaultParallelism"
-                  type="number"
-                  min={1}
-                  max={8}
-                  className="w-full max-w-md"
-                  value={settings.defaultParallelism}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      defaultParallelism: parseInt(e.target.value) || 1
-                    })
-                  }
-                />
+                <Label htmlFor="agentFramework" className="text-sm font-medium text-foreground">Agent Framework</Label>
+                <p className="text-sm text-muted-foreground">The coding framework used for autonomous tasks</p>
+                <Select
+                  value={settings.agentFramework}
+                  onValueChange={(value) => setSettings({ ...settings, agentFramework: value })}
+                >
+                  <SelectTrigger id="agentFramework" className="w-full max-w-md">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto-claude">Auto Claude</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -311,91 +473,301 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
           </div>
         );
 
-      case 'api-keys':
+      case 'integrations':
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">Global API Keys</h3>
-              <p className="text-sm text-muted-foreground">Set API keys to use across all projects</p>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Integrations</h3>
+              <p className="text-sm text-muted-foreground">Manage Claude accounts and API keys</p>
             </div>
             <Separator />
-            <div className="rounded-lg bg-info/10 border border-info/30 p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                  Keys set here will be used as defaults. Individual projects can override these in their settings.
-                </p>
+
+            {/* Claude Accounts Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold text-foreground">Claude Accounts</h4>
               </div>
-            </div>
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <Label htmlFor="globalClaudeToken" className="text-sm font-medium text-foreground">
-                  Claude OAuth Token
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Get your token by running <code className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code>
+              
+              <div className="rounded-lg bg-muted/30 border border-border p-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.
                 </p>
-                <div className="relative max-w-lg">
+
+                {/* Accounts list */}
+                {isLoadingProfiles ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : claudeProfiles.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
+                    <p className="text-sm text-muted-foreground">No accounts configured yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {claudeProfiles.map((profile) => (
+                      <div
+                        key={profile.id}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border transition-colors",
+                          profile.id === activeProfileId
+                            ? "border-primary bg-primary/5"
+                            : "border-border bg-background hover:bg-muted/50"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
+                            profile.id === activeProfileId
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            {(editingProfileId === profile.id ? editingProfileName : profile.name).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            {editingProfileId === profile.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={editingProfileName}
+                                  onChange={(e) => setEditingProfileName(e.target.value)}
+                                  className="h-7 text-sm w-40"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleRenameProfile();
+                                    if (e.key === 'Escape') cancelEditingProfile();
+                                  }}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={handleRenameProfile}
+                                  className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={cancelEditingProfile}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium text-foreground">{profile.name}</span>
+                                  {profile.isDefault && (
+                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Default</span>
+                                  )}
+                                  {profile.id === activeProfileId && (
+                                    <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Star className="h-3 w-3" />
+                                      Active
+                                    </span>
+                                  )}
+                                  {profile.oauthToken ? (
+                                    <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Check className="h-3 w-3" />
+                                      Authenticated
+                                    </span>
+                                  ) : !profile.isDefault && (
+                                    <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
+                                      Needs Auth
+                                    </span>
+                                  )}
+                                </div>
+                                {profile.email && (
+                                  <span className="text-xs text-muted-foreground">{profile.email}</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {editingProfileId !== profile.id && (
+                          <div className="flex items-center gap-1">
+                            {profile.id !== activeProfileId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSetActiveProfile(profile.id)}
+                                className="gap-1 h-7 text-xs"
+                              >
+                                <Check className="h-3 w-3" />
+                                Set Active
+                              </Button>
+                            )}
+                            {!profile.isDefault && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditingProfile(profile)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                title="Rename profile"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {!profile.isDefault && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteProfile(profile.id)}
+                                disabled={deletingProfileId === profile.id}
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete profile"
+                              >
+                                {deletingProfileId === profile.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new account */}
+                <div className="flex items-center gap-2">
                   <Input
-                    id="globalClaudeToken"
-                    type={showGlobalClaudeToken ? 'text' : 'password'}
-                    placeholder="Enter your Claude OAuth token..."
-                    value={settings.globalClaudeOAuthToken || ''}
-                    onChange={(e) =>
-                      setSettings({ ...settings, globalClaudeOAuthToken: e.target.value || undefined })
-                    }
-                    className="pr-10 font-mono text-sm"
+                    placeholder="Account name (e.g., Work, Personal)"
+                    value={newProfileName}
+                    onChange={(e) => setNewProfileName(e.target.value)}
+                    className="flex-1 h-8 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newProfileName.trim()) {
+                        handleAddProfile();
+                      }
+                    }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowGlobalClaudeToken(!showGlobalClaudeToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  <Button
+                    onClick={handleAddProfile}
+                    disabled={!newProfileName.trim() || isAddingProfile}
+                    size="sm"
+                    className="gap-1 shrink-0"
                   >
-                    {showGlobalClaudeToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                    {isAddingProfile ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Plus className="h-3 w-3" />
+                    )}
+                    Add
+                  </Button>
                 </div>
               </div>
-              <div className="space-y-3">
-                <Label htmlFor="globalOpenAIKey" className="text-sm font-medium text-foreground">
-                  OpenAI API Key
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Required for Graphiti memory backend (embeddings)
-                </p>
-                <div className="relative max-w-lg">
-                  <Input
-                    id="globalOpenAIKey"
-                    type={showGlobalOpenAIKey ? 'text' : 'password'}
-                    placeholder="sk-..."
-                    value={settings.globalOpenAIApiKey || ''}
-                    onChange={(e) =>
-                      setSettings({ ...settings, globalOpenAIApiKey: e.target.value || undefined })
-                    }
-                    className="pr-10 font-mono text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowGlobalOpenAIKey(!showGlobalOpenAIKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showGlobalOpenAIKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+            </div>
+
+            {/* API Keys Section */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold text-foreground">API Keys</h4>
+              </div>
+              
+              <div className="rounded-lg bg-info/10 border border-info/30 p-3">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-info shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">
+                    Keys set here are used as defaults. Individual projects can override these in their settings.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="globalClaudeToken" className="text-sm font-medium text-foreground">
+                    Claude OAuth Token
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Get your token by running <code className="px-1 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code>
+                  </p>
+                  <div className="relative max-w-lg">
+                    <Input
+                      id="globalClaudeToken"
+                      type={showGlobalClaudeToken ? 'text' : 'password'}
+                      placeholder="Enter your Claude OAuth token..."
+                      value={settings.globalClaudeOAuthToken || ''}
+                      onChange={(e) =>
+                        setSettings({ ...settings, globalClaudeOAuthToken: e.target.value || undefined })
+                      }
+                      className="pr-10 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGlobalClaudeToken(!showGlobalClaudeToken)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showGlobalClaudeToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="globalOpenAIKey" className="text-sm font-medium text-foreground">
+                    OpenAI API Key
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Required for Graphiti memory backend (embeddings)
+                  </p>
+                  <div className="relative max-w-lg">
+                    <Input
+                      id="globalOpenAIKey"
+                      type={showGlobalOpenAIKey ? 'text' : 'password'}
+                      placeholder="sk-..."
+                      value={settings.globalOpenAIApiKey || ''}
+                      onChange={(e) =>
+                        setSettings({ ...settings, globalOpenAIApiKey: e.target.value || undefined })
+                      }
+                      className="pr-10 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGlobalOpenAIKey(!showGlobalOpenAIKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showGlobalOpenAIKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         );
 
-      case 'framework':
+      case 'updates':
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">Auto Claude Framework</h3>
-              <p className="text-sm text-muted-foreground">Manage framework updates and settings</p>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Updates</h3>
+              <p className="text-sm text-muted-foreground">Manage Auto Claude framework updates</p>
             </div>
             <Separator />
             <div className="space-y-6">
+              {/* App Version Display */}
+              <div className="rounded-lg border border-border bg-muted/50 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">App Version</p>
+                    <p className="text-base font-medium text-foreground">
+                      {version || 'Loading...'}
+                    </p>
+                  </div>
+                  <CheckCircle2 className="h-6 w-6 text-success" />
+                </div>
+              </div>
+
+              {/* Framework Version Display */}
               <div className="rounded-lg border border-border bg-muted/50 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Framework Version</p>
+                  </div>
+                </div>
                 {isCheckingSourceUpdate ? (
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -406,7 +778,7 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-base font-medium text-foreground">
-                          Version {sourceUpdateCheck.currentVersion}
+                          {sourceUpdateCheck.currentVersion}
                         </p>
                         {sourceUpdateCheck.latestVersion && sourceUpdateCheck.updateAvailable && (
                           <p className="text-sm text-info mt-1">
@@ -427,7 +799,7 @@ export function AppSettingsDialog({ open, onOpenChange }: AppSettingsDialogProps
 
                     {!sourceUpdateCheck.updateAvailable && !sourceUpdateCheck.error && (
                       <p className="text-sm text-muted-foreground">
-                        You're running the latest version of the Auto Claude framework.
+                        You&apos;re running the latest version of the Auto Claude framework.
                       </p>
                     )}
 

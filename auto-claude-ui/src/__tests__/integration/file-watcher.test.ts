@@ -36,8 +36,8 @@ function createTestPlan(overrides: Record<string, unknown> = {}): object {
         phase: 1,
         name: 'Test Phase',
         type: 'implementation',
-        chunks: [
-          { id: 'chunk-1', description: 'Chunk 1', status: 'pending' }
+        subtasks: [
+          { id: 'subtask-1', description: 'Subtask 1', status: 'pending' }
         ]
       }
     ],
@@ -153,8 +153,8 @@ describe('File Watcher Integration', () => {
             phase: 1,
             name: 'Test Phase',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'Chunk 1', status: 'completed' }
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'completed' }
             ]
           }
         ]
@@ -167,7 +167,7 @@ describe('File Watcher Integration', () => {
       expect(progressHandler).toHaveBeenCalledWith('task-1', expect.objectContaining({
         phases: expect.arrayContaining([
           expect.objectContaining({
-            chunks: expect.arrayContaining([
+            subtasks: expect.arrayContaining([
               expect.objectContaining({ status: 'completed' })
             ])
           })

@@ -86,6 +86,7 @@ from task_logger import (
     get_task_logger,
     clear_task_logger,
 )
+from insight_extractor import extract_session_insights
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -340,7 +341,16 @@ async def save_session_memory(
                 if is_debug_enabled():
                     debug("memory", "Saving to Graphiti...")
 
-                result = await memory.save_session_insights(session_num, insights)
+                # Use structured insights if we have rich extracted data
+                if discoveries and discoveries.get("file_insights"):
+                    # Rich insights from insight_extractor
+                    if is_debug_enabled():
+                        debug("memory", "Using save_structured_insights (rich data available)")
+                    result = await memory.save_structured_insights(discoveries)
+                else:
+                    # Fallback to basic session insights
+                    result = await memory.save_session_insights(session_num, insights)
+
                 await memory.close()
 
                 if result:
@@ -615,6 +625,29 @@ async def post_session_processing(
             )
             print_status("Linear progress recorded", "success")
 
+        # Extract rich insights from session (LLM-powered analysis)
+        try:
+            extracted_insights = await extract_session_insights(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                session_num=session_num,
+                commit_before=commit_before,
+                commit_after=commit_after,
+                success=True,
+                recovery_manager=recovery_manager,
+            )
+            insight_count = len(extracted_insights.get("file_insights", []))
+            pattern_count = len(extracted_insights.get("patterns_discovered", []))
+            if insight_count > 0 or pattern_count > 0:
+                print_status(
+                    f"Extracted {insight_count} file insights, {pattern_count} patterns",
+                    "success",
+                )
+        except Exception as e:
+            logger.warning(f"Insight extraction failed: {e}")
+            extracted_insights = None
+
         # Save session memory (Graphiti=primary, file-based=fallback)
         try:
             save_success, storage_type = await save_session_memory(
@@ -624,6 +657,7 @@ async def post_session_processing(
                 session_num=session_num,
                 success=True,
                 subtasks_completed=[subtask_id],
+                discoveries=extracted_insights,
             )
             if save_success:
                 if storage_type == "graphiti":
@@ -665,6 +699,22 @@ async def post_session_processing(
                 error_summary="Session ended without completion",
             )
 
+        # Extract insights even from failed sessions (valuable for future attempts)
+        try:
+            extracted_insights = await extract_session_insights(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                session_num=session_num,
+                commit_before=commit_before,
+                commit_after=commit_after,
+                success=False,
+                recovery_manager=recovery_manager,
+            )
+        except Exception as e:
+            logger.debug(f"Insight extraction failed for incomplete session: {e}")
+            extracted_insights = None
+
         # Save failed session memory (to track what didn't work)
         try:
             await save_session_memory(
@@ -674,6 +724,7 @@ async def post_session_processing(
                 session_num=session_num,
                 success=False,
                 subtasks_completed=[],
+                discoveries=extracted_insights,
             )
         except Exception as e:
             logger.debug(f"Failed to save incomplete session memory: {e}")
@@ -702,6 +753,22 @@ async def post_session_processing(
                 error_summary=f"Subtask status: {subtask_status}",
             )
 
+        # Extract insights even from completely failed sessions
+        try:
+            extracted_insights = await extract_session_insights(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                session_num=session_num,
+                commit_before=commit_before,
+                commit_after=commit_after,
+                success=False,
+                recovery_manager=recovery_manager,
+            )
+        except Exception as e:
+            logger.debug(f"Insight extraction failed for failed session: {e}")
+            extracted_insights = None
+
         # Save failed session memory (to track what didn't work)
         try:
             await save_session_memory(
@@ -711,6 +778,7 @@ async def post_session_processing(
                 session_num=session_num,
                 success=False,
                 subtasks_completed=[],
+                discoveries=extracted_insights,
             )
         except Exception as e:
             logger.debug(f"Failed to save failed session memory: {e}")

@@ -80,10 +80,34 @@ export class PythonEnvManager extends EventEmitter {
    * Find system Python3
    */
   private findSystemPython(): string | null {
-    const candidates =
-      process.platform === 'win32'
-        ? ['python', 'python3', 'py -3']
-        : ['python3', 'python'];
+    const isWindows = process.platform === 'win32';
+
+    // Windows candidates - py launcher is handled specially
+    // Unix candidates - try python3 first, then python
+    const candidates = isWindows
+      ? ['python', 'python3']
+      : ['python3', 'python'];
+
+    // On Windows, try the py launcher first (most reliable)
+    if (isWindows) {
+      try {
+        // py -3 runs Python 3, verify it works
+        const version = execSync('py -3 --version', {
+          stdio: 'pipe',
+          timeout: 5000
+        }).toString();
+        if (version.includes('Python 3')) {
+          // Get the actual executable path
+          const pythonPath = execSync('py -3 -c "import sys; print(sys.executable)"', {
+            stdio: 'pipe',
+            timeout: 5000
+          }).toString().trim();
+          return pythonPath;
+        }
+      } catch {
+        // py launcher not available, continue with other candidates
+      }
+    }
 
     for (const cmd of candidates) {
       try {
@@ -93,10 +117,11 @@ export class PythonEnvManager extends EventEmitter {
         }).toString();
         if (version.includes('Python 3')) {
           // Get the actual path
-          const pathCmd =
-            process.platform === 'win32'
-              ? `${cmd} -c "import sys; print(sys.executable)"`
-              : `which ${cmd.split(' ')[0]}`;
+          // On Windows, use Python itself to get the path
+          // On Unix, use 'which'
+          const pathCmd = isWindows
+            ? `${cmd} -c "import sys; print(sys.executable)"`
+            : `which ${cmd}`;
           const pythonPath = execSync(pathCmd, { stdio: 'pipe', timeout: 5000 })
             .toString()
             .trim();

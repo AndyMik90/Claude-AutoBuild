@@ -1,9 +1,12 @@
 import { EventEmitter } from 'events';
 import path from 'path';
+import os from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { app } from 'electron';
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../shared/constants';
+import { execSync } from 'child_process';
+import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, getActiveProfileId } from './rate-limit-detector';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -14,7 +17,12 @@ import type {
   ChangelogGenerationProgress,
   ExistingChangelog,
   Task,
-  ImplementationPlan
+  ImplementationPlan,
+  GitBranchInfo,
+  GitTagInfo,
+  GitCommit,
+  GitHistoryOptions,
+  BranchDiffOptions
 } from '../shared/types';
 
 /**
@@ -39,14 +47,29 @@ export class ChangelogService extends EventEmitter {
    * Electron apps don't inherit shell PATH, so we need to find it explicitly
    */
   private detectClaudePath(): void {
-    const possiblePaths = [
-      '/usr/local/bin/claude',
-      '/opt/homebrew/bin/claude',
-      path.join(process.env.HOME || '', '.local/bin/claude'),
-      path.join(process.env.HOME || '', 'bin/claude'),
-      // Also check if claude is in system PATH
-      'claude'
-    ];
+    const homeDir = os.homedir();
+
+    // Platform-specific possible paths
+    const possiblePaths = process.platform === 'win32'
+      ? [
+          // Windows paths
+          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+          path.join(homeDir, '.local', 'bin', 'claude.exe'),
+          'C:\\Program Files\\Claude\\claude.exe',
+          'C:\\Program Files (x86)\\Claude\\claude.exe',
+          // Also check if claude is in system PATH
+          'claude'
+        ]
+      : [
+          // Unix paths (macOS/Linux)
+          '/usr/local/bin/claude',
+          '/opt/homebrew/bin/claude',
+          path.join(homeDir, '.local/bin/claude'),
+          path.join(homeDir, 'bin/claude'),
+          // Also check if claude is in system PATH
+          'claude'
+        ];
 
     for (const claudePath of possiblePaths) {
       if (claudePath === 'claude' || existsSync(claudePath)) {
@@ -143,7 +166,8 @@ export class ChangelogService extends EventEmitter {
       const envContent = readFileSync(envPath, 'utf-8');
       const envVars: Record<string, string> = {};
 
-      for (const line of envContent.split('\n')) {
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
 
@@ -259,19 +283,288 @@ export class ChangelogService extends EventEmitter {
     return results;
   }
 
+  // ============================================
+  // Git Data Retrieval Methods
+  // ============================================
+
+  /**
+   * Get list of branches for changelog git mode
+   */
+  getBranches(projectPath: string): GitBranchInfo[] {
+    try {
+      // Get current branch
+      let currentBranch = '';
+      try {
+        currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim();
+      } catch {
+        // Ignore - might be in detached HEAD
+      }
+
+      // Get all branches (local and remote)
+      const output = execSync('git branch -a --format="%(refname:short)|%(HEAD)"', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      const branches: GitBranchInfo[] = [];
+      const seenNames = new Set<string>();
+
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of output.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const [name, head] = trimmed.split('|');
+        if (!name) continue;
+
+        // Skip HEAD references
+        if (name === 'HEAD' || name.includes('HEAD')) continue;
+
+        // Parse remote branches (origin/xxx) and mark as remote
+        const isRemote = name.startsWith('origin/') || name.includes('/');
+        const displayName = isRemote ? name.replace(/^origin\//, '') : name;
+
+        // Skip duplicates (prefer local over remote)
+        if (seenNames.has(displayName) && isRemote) continue;
+        seenNames.add(displayName);
+
+        branches.push({
+          name: displayName,
+          isRemote,
+          isCurrent: head === '*' || displayName === currentBranch
+        });
+      }
+
+      // Sort: current first, then local branches, then remote
+      return branches.sort((a, b) => {
+        if (a.isCurrent && !b.isCurrent) return -1;
+        if (!a.isCurrent && b.isCurrent) return 1;
+        if (!a.isRemote && b.isRemote) return -1;
+        if (a.isRemote && !b.isRemote) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    } catch (error) {
+      this.debug('Error getting branches:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get list of tags for changelog git mode
+   */
+  getTags(projectPath: string): GitTagInfo[] {
+    try {
+      // Get tags sorted by creation date (newest first)
+      const output = execSync(
+        'git tag -l --sort=-creatordate --format="%(refname:short)|%(creatordate:iso-strict)|%(objectname:short)"',
+        {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }
+      );
+
+      const tags: GitTagInfo[] = [];
+
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of output.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const parts = trimmed.split('|');
+        const name = parts[0];
+        const date = parts[1] || undefined;
+        const commit = parts[2] || undefined;
+
+        if (name) {
+          tags.push({ name, date, commit });
+        }
+      }
+
+      return tags;
+    } catch (error) {
+      this.debug('Error getting tags:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get current branch name
+   */
+  getCurrentBranch(projectPath: string): string {
+    try {
+      return execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+    } catch {
+      return 'main';
+    }
+  }
+
+  /**
+   * Get the default/main branch name
+   */
+  getDefaultBranch(projectPath: string): string {
+    try {
+      // Try to get from origin/HEAD
+      const result = execSync('git rev-parse --abbrev-ref origin/HEAD', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+      return result.replace('origin/', '');
+    } catch {
+      // Fallback: check if main or master exists
+      try {
+        execSync('git rev-parse --verify main', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        });
+        return 'main';
+      } catch {
+        try {
+          execSync('git rev-parse --verify master', {
+            cwd: projectPath,
+            encoding: 'utf-8'
+          });
+          return 'master';
+        } catch {
+          return 'main';
+        }
+      }
+    }
+  }
+
+  /**
+   * Get commits for git-history mode
+   */
+  getCommits(projectPath: string, options: GitHistoryOptions): GitCommit[] {
+    try {
+      // Build the git log command based on options
+      const format = '%h|%H|%s|%an|%ae|%aI';
+      let command = `git log --pretty=format:"${format}"`;
+
+      // Add merge commit handling
+      if (!options.includeMergeCommits) {
+        command += ' --no-merges';
+      }
+
+      // Add range/filters based on type
+      switch (options.type) {
+        case 'recent':
+          command += ` -n ${options.count || 25}`;
+          break;
+        case 'since-date':
+          if (options.sinceDate) {
+            command += ` --since="${options.sinceDate}"`;
+          }
+          break;
+        case 'tag-range':
+          if (options.fromTag) {
+            const toRef = options.toTag || 'HEAD';
+            command += ` ${options.fromTag}..${toRef}`;
+          }
+          break;
+        case 'since-version':
+          // Get all commits since the specified version/tag up to HEAD
+          if (options.fromTag) {
+            command += ` ${options.fromTag}..HEAD`;
+          }
+          break;
+      }
+
+      this.debug('Getting commits with command:', command);
+
+      const output = execSync(command, {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large histories
+      });
+
+      return this.parseGitLogOutput(output);
+    } catch (error) {
+      this.debug('Error getting commits:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get commits between two branches (for branch-diff mode)
+   */
+  getBranchDiffCommits(projectPath: string, options: BranchDiffOptions): GitCommit[] {
+    try {
+      const format = '%h|%H|%s|%an|%ae|%aI';
+      // Get commits in compareBranch that are not in baseBranch
+      const command = `git log --pretty=format:"${format}" --no-merges ${options.baseBranch}..${options.compareBranch}`;
+
+      this.debug('Getting branch diff commits with command:', command);
+
+      const output = execSync(command, {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024
+      });
+
+      return this.parseGitLogOutput(output);
+    } catch (error) {
+      this.debug('Error getting branch diff commits:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Parse git log output into GitCommit objects
+   */
+  private parseGitLogOutput(output: string): GitCommit[] {
+    const commits: GitCommit[] = [];
+
+    // Handle both Unix (\n) and Windows (\r\n) line endings
+    for (const line of output.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const parts = trimmed.split('|');
+      if (parts.length < 6) continue;
+
+      const [hash, fullHash, subject, author, authorEmail, date] = parts;
+
+      commits.push({
+        hash,
+        fullHash,
+        subject,
+        body: undefined, // We don't fetch body for performance
+        author,
+        authorEmail,
+        date
+      });
+    }
+
+    return commits;
+  }
+
+  // ============================================
+  // Changelog Generation
+  // ============================================
+
   /**
    * Generate changelog using Claude AI
+   * Supports multiple source modes: tasks (specs), git-history, or branch-diff
    */
   generateChangelog(
     projectId: string,
     projectPath: string,
     request: ChangelogGenerationRequest,
-    specs: TaskSpecContent[]
+    specs?: TaskSpecContent[]
   ): void {
+    const sourceMode = request.sourceMode || 'tasks';
+
     this.debug('generateChangelog called', {
       projectId,
       projectPath,
-      taskCount: request.taskIds.length,
+      sourceMode,
+      taskCount: request.taskIds?.length || 0,
       version: request.version,
       format: request.format,
       audience: request.audience
@@ -280,15 +573,60 @@ export class ChangelogService extends EventEmitter {
     // Kill existing process if any
     this.cancelGeneration(projectId);
 
-    // Emit initial progress
-    this.emitProgress(projectId, {
-      stage: 'loading_specs',
-      progress: 10,
-      message: 'Preparing changelog generation...'
-    });
+    let prompt: string;
+    let itemCount: number;
 
-    // Build the prompt for Claude
-    const prompt = this.buildChangelogPrompt(request, specs);
+    // Handle different source modes
+    if (sourceMode === 'git-history' && request.gitHistory) {
+      // Git history mode
+      this.emitProgress(projectId, {
+        stage: 'loading_commits',
+        progress: 10,
+        message: 'Loading commits from git history...'
+      });
+
+      const commits = this.getCommits(projectPath, request.gitHistory);
+      if (commits.length === 0) {
+        this.emitError(projectId, 'No commits found for the specified range');
+        return;
+      }
+
+      prompt = this.buildGitPrompt(request, commits);
+      itemCount = commits.length;
+
+    } else if (sourceMode === 'branch-diff' && request.branchDiff) {
+      // Branch diff mode
+      this.emitProgress(projectId, {
+        stage: 'loading_commits',
+        progress: 10,
+        message: `Loading commits between ${request.branchDiff.baseBranch} and ${request.branchDiff.compareBranch}...`
+      });
+
+      const commits = this.getBranchDiffCommits(projectPath, request.branchDiff);
+      if (commits.length === 0) {
+        this.emitError(projectId, 'No commits found between the specified branches');
+        return;
+      }
+
+      prompt = this.buildGitPrompt(request, commits);
+      itemCount = commits.length;
+
+    } else {
+      // Tasks mode (original behavior)
+      if (!specs || specs.length === 0) {
+        this.emitError(projectId, 'No specs provided for changelog generation');
+        return;
+      }
+
+      this.emitProgress(projectId, {
+        stage: 'loading_specs',
+        progress: 10,
+        message: 'Preparing changelog generation...'
+      });
+
+      prompt = this.buildChangelogPrompt(request, specs);
+      itemCount = specs.length;
+    }
     this.debug('Prompt built', {
       promptLength: prompt.length,
       promptPreview: prompt.substring(0, 500) + '...'
@@ -332,28 +670,51 @@ export class ChangelogService extends EventEmitter {
 
     // Build environment with explicit critical variables
     // Electron apps may not inherit shell environment correctly
-    const homeDir = process.env.HOME || app.getPath('home');
-    const spawnEnv = {
-      ...process.env,
+    const homeDir = os.homedir();
+    const isWindows = process.platform === 'win32';
+
+    // Build PATH with platform-appropriate separator and locations
+    const pathAdditions = isWindows
+      ? [
+          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude'),
+          path.join(homeDir, 'AppData', 'Roaming', 'npm'),
+          path.join(homeDir, '.local', 'bin'),
+          'C:\\Program Files\\Claude',
+          'C:\\Program Files (x86)\\Claude'
+        ]
+      : [
+          '/usr/local/bin',
+          '/opt/homebrew/bin',
+          path.join(homeDir, '.local/bin'),
+          path.join(homeDir, 'bin')
+        ];
+
+    // Get active Claude profile environment (OAuth token preferred, falls back to CLAUDE_CONFIG_DIR)
+    const profileEnv = getProfileEnv();
+    this.debug('Active profile environment', {
+      hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+      hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
+      authMethod: profileEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'oauth-token' : (profileEnv.CLAUDE_CONFIG_DIR ? 'config-dir' : 'default')
+    });
+
+    const spawnEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
       ...autoBuildEnv,
+      ...profileEnv, // Include active Claude profile config
       // Ensure critical env vars are set for claude CLI
-      HOME: homeDir,
+      // Use USERPROFILE on Windows, HOME on Unix
+      ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
       USER: process.env.USER || process.env.USERNAME || 'user',
       // Add common binary locations to PATH for claude CLI
-      PATH: [
-        process.env.PATH || '',
-        '/usr/local/bin',
-        '/opt/homebrew/bin',
-        path.join(homeDir, '.local/bin'),
-        path.join(homeDir, 'bin')
-      ].filter(Boolean).join(':'),
+      PATH: [process.env.PATH || '', ...pathAdditions].filter(Boolean).join(path.delimiter),
       PYTHONUNBUFFERED: '1'
     };
 
     this.debug('Spawn environment', {
       HOME: spawnEnv.HOME,
       USER: spawnEnv.USER,
-      pathDirs: spawnEnv.PATH?.split(':').length
+      pathDirs: spawnEnv.PATH?.split(':').length,
+      authMethod: spawnEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'oauth-token' : (spawnEnv.CLAUDE_CONFIG_DIR ? `config-dir:${spawnEnv.CLAUDE_CONFIG_DIR}` : 'default')
     });
 
     const childProcess = spawn(this.pythonPath, ['-c', script], {
@@ -417,14 +778,31 @@ export class ChangelogService extends EventEmitter {
           success: true,
           changelog,
           version: request.version,
-          tasksIncluded: request.taskIds.length
+          tasksIncluded: itemCount
         };
 
         this.debug('Generation complete, emitting result');
         this.emit('generation-complete', projectId, result);
       } else {
+        // Combine all output for error analysis
+        const combinedOutput = `${output}\n${errorOutput}`;
         const error = errorOutput || `Generation failed with exit code ${code}`;
-        this.debug('Generation failed', { error: error.substring(0, 500) });
+
+        // Check for rate limit
+        const rateLimitDetection = detectRateLimit(combinedOutput);
+        if (rateLimitDetection.isRateLimited) {
+          this.debug('Rate limit detected in changelog generation', {
+            resetTime: rateLimitDetection.resetTime,
+            limitType: rateLimitDetection.limitType,
+            suggestedProfile: rateLimitDetection.suggestedProfile?.name
+          });
+
+          // Emit rate limit event
+          const rateLimitInfo = createSDKRateLimitInfo('changelog', rateLimitDetection, { projectId });
+          this.emit('rate-limit', projectId, rateLimitInfo);
+        }
+
+        this.debug('Generation failed', { error: error.substring(0, 500), isRateLimited: rateLimitDetection.isRateLimited });
         this.emitError(projectId, error);
       }
     });
@@ -441,7 +819,8 @@ export class ChangelogService extends EventEmitter {
    */
   private extractSpecOverview(spec: string): string {
     // Split into lines and find the Overview section
-    const lines = spec.split('\n');
+    // Handle both Unix (\n) and Windows (\r\n) line endings
+    const lines = spec.split(/\r?\n/);
     let inOverview = false;
     let overview: string[] = [];
 
@@ -552,38 +931,152 @@ CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory
   }
 
   /**
+   * Build the prompt for git-based changelog generation
+   * Categorizes commits by type (conventional commits) or keywords
+   */
+  private buildGitPrompt(
+    request: ChangelogGenerationRequest,
+    commits: GitCommit[]
+  ): string {
+    const audienceInstructions = {
+      'technical': `You are a technical documentation specialist creating a changelog for developers. Use precise technical language.`,
+      'user-facing': `You are a product manager writing release notes for end users. Use clear, non-technical language focusing on user benefits.`,
+      'marketing': `You are a marketing specialist writing release notes. Focus on outcomes and user impact with compelling language.`
+    };
+
+    const formatInstructions = {
+      'keep-a-changelog': `## [${request.version}] - ${request.date}
+
+### Added
+- [New features]
+
+### Changed
+- [Modifications]
+
+### Fixed
+- [Bug fixes]`,
+      'simple-list': `# Release v${request.version} (${request.date})
+
+**New Features:**
+- [List features]
+
+**Improvements:**
+- [List improvements]
+
+**Bug Fixes:**
+- [List fixes]`,
+      'github-release': `## What's New in v${request.version}
+
+### New Features
+- **Feature Name**: Description
+
+### Improvements
+- Description
+
+### Bug Fixes
+- Fixed [issue]`
+    };
+
+    // Format commits for the prompt
+    // Group by conventional commit type if detected
+    const commitLines = commits.map(commit => {
+      const hash = commit.hash;
+      const subject = commit.subject;
+      // Detect conventional commit format: type(scope): message
+      const conventionalMatch = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.+)$/);
+      if (conventionalMatch) {
+        const [, type, scope, message] = conventionalMatch;
+        return `- ${hash}: [${type}${scope ? `/${scope}` : ''}] ${message}`;
+      }
+      return `- ${hash}: ${subject}`;
+    }).join('\n');
+
+    // Add context about branch/range if available
+    let sourceContext = '';
+    if (request.branchDiff) {
+      sourceContext = `These commits are from branch "${request.branchDiff.compareBranch}" that are not in "${request.branchDiff.baseBranch}".`;
+    } else if (request.gitHistory) {
+      switch (request.gitHistory.type) {
+        case 'recent':
+          sourceContext = `These are the ${commits.length} most recent commits.`;
+          break;
+        case 'since-date':
+          sourceContext = `These are commits since ${request.gitHistory.sinceDate}.`;
+          break;
+        case 'tag-range':
+          sourceContext = `These are commits between tag "${request.gitHistory.fromTag}" and "${request.gitHistory.toTag || 'HEAD'}".`;
+          break;
+      }
+    }
+
+    return `${audienceInstructions[request.audience]}
+
+${sourceContext}
+
+Generate a changelog from these git commits. Group related changes together and categorize them appropriately.
+
+Conventional commit types to recognize:
+- feat/feature: New features → Added section
+- fix/bugfix: Bug fixes → Fixed section
+- docs: Documentation → Changed or separate Documentation section
+- style: Styling/formatting → Changed section
+- refactor: Code refactoring → Changed section
+- perf: Performance → Changed or Performance section
+- test: Tests → (usually omit unless significant)
+- chore: Maintenance → (usually omit unless significant)
+
+Format:
+${formatInstructions[request.format]}
+
+Git commits (${commits.length} total):
+${commitLines}
+
+${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
+
+CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually.`;
+  }
+
+  /**
    * Create Python script for Claude generation
    */
   private createGenerationScript(prompt: string, _request: ChangelogGenerationRequest): string {
-    // Escape the prompt for Python string
-    const escapedPrompt = prompt
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n');
+    // Convert prompt to base64 to avoid any string escaping issues in Python
+    const base64Prompt = Buffer.from(prompt, 'utf-8').toString('base64');
 
     // Escape the claude path for Python string
-    const escapedClaudePath = this.claudePath.replace(/\\/g, '\\\\');
+    const escapedClaudePath = this.claudePath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     return `
 import subprocess
 import sys
+import base64
 
-prompt = """${escapedPrompt}"""
+try:
+    # Decode the base64 prompt to avoid string escaping issues
+    prompt = base64.b64decode('${base64Prompt}').decode('utf-8')
 
-# Use Claude Code CLI to generate
-# stdin=DEVNULL prevents hanging when claude checks for interactive input
-result = subprocess.run(
-    ['${escapedClaudePath}', '-p', prompt, '--output-format', 'text', '--model', 'haiku'],
-    capture_output=True,
-    text=True,
-    stdin=subprocess.DEVNULL,
-    timeout=300
-)
+    # Use Claude Code CLI to generate
+    # stdin=DEVNULL prevents hanging when claude checks for interactive input
+    result = subprocess.run(
+        ['${escapedClaudePath}', '-p', prompt, '--output-format', 'text', '--model', 'haiku'],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=300
+    )
 
-if result.returncode == 0:
-    print(result.stdout)
-else:
-    print(result.stderr, file=sys.stderr)
+    if result.returncode == 0:
+        print(result.stdout)
+    else:
+        # Print more detailed error info
+        print(f"Claude CLI error (code {result.returncode}):", file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        if result.stdout:
+            print(f"stdout: {result.stdout}", file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print(f"Python error: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(1)
 `;
   }

@@ -306,7 +306,7 @@ describe('IPC Handlers', () => {
           phase: 1,
           name: 'Test Phase',
           type: 'implementation',
-          chunks: [{ id: 'chunk-1', description: 'Test chunk', status: 'pending' }]
+          subtasks: [{ id: 'subtask-1', description: 'Test subtask', status: 'pending' }]
         }],
         final_acceptance: [],
         created_at: new Date().toISOString(),

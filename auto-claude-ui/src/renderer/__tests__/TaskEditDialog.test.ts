@@ -15,7 +15,7 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
     title: 'Test Task Title',
     description: 'Test task description',
     status: 'backlog' as TaskStatus,
-    chunks: [],
+    subtasks: [],
     logs: [],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -274,7 +274,7 @@ describe('TaskEditDialog Logic', () => {
         id: 'task-1',
         title: 'Original Title',
         status: 'in_progress',
-        chunks: [{ id: 'chunk-1', description: 'Test chunk', status: 'pending' }]
+        subtasks: [{ id: 'subtask-1', title: 'Test subtask', description: 'Test subtask', status: 'pending', files: [] }]
       });
       useTaskStore.setState({ tasks: [task] });
 
@@ -282,7 +282,7 @@ describe('TaskEditDialog Logic', () => {
 
       const updatedTask = useTaskStore.getState().tasks.find((t) => t.id === 'task-1');
       expect(updatedTask?.status).toBe('in_progress');
-      expect(updatedTask?.chunks).toHaveLength(1);
+      expect(updatedTask?.subtasks).toHaveLength(1);
     });
   });
 
@@ -291,7 +291,7 @@ describe('TaskEditDialog Logic', () => {
       const taskWithImages = createTestTask({
         metadata: {
           attachedImages: [
-            { id: 'img-1', filename: 'test.png', mimeType: 'image/png', base64: 'abc123' }
+            { id: 'img-1', filename: 'test.png', mimeType: 'image/png', size: 1024, data: 'abc123' }
           ]
         }
       });

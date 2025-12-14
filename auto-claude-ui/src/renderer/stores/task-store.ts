@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, ImplementationPlan, Chunk, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
+import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
 
 interface TaskState {
   tasks: Task[];
@@ -59,24 +59,24 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // Extract chunks from plan
-        const chunks: Chunk[] = plan.phases.flatMap((phase) =>
-          phase.chunks.map((chunk) => ({
-            id: chunk.id,
-            title: chunk.description,
-            description: chunk.description,
-            status: chunk.status,
+        // Extract subtasks from plan
+        const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
+          phase.subtasks.map((subtask) => ({
+            id: subtask.id,
+            title: subtask.description,
+            description: subtask.description,
+            status: subtask.status,
             files: [],
-            verification: chunk.verification as Chunk['verification']
+            verification: subtask.verification as Subtask['verification']
           }))
         );
 
-        // Determine status and reviewReason based on chunks
+        // Determine status and reviewReason based on subtasks
         // This logic must match the backend (project-store.ts) exactly
-        const allCompleted = chunks.length > 0 && chunks.every((c) => c.status === 'completed');
-        const anyInProgress = chunks.some((c) => c.status === 'in_progress');
-        const anyFailed = chunks.some((c) => c.status === 'failed');
-        const anyCompleted = chunks.some((c) => c.status === 'completed');
+        const allCompleted = subtasks.length > 0 && subtasks.every((s) => s.status === 'completed');
+        const anyInProgress = subtasks.some((s) => s.status === 'in_progress');
+        const anyFailed = subtasks.some((s) => s.status === 'failed');
+        const anyCompleted = subtasks.some((s) => s.status === 'completed');
 
         let status: TaskStatus = t.status;
         let reviewReason: ReviewReason | undefined = t.reviewReason;
@@ -90,7 +90,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             reviewReason = undefined;
           }
         } else if (anyFailed) {
-          // Some chunks failed - needs human attention
+          // Some subtasks failed - needs human attention
           status = 'human_review';
           reviewReason = 'errors';
         } else if (anyInProgress || anyCompleted) {
@@ -102,7 +102,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         return {
           ...t,
           title: plan.feature || t.title,
-          chunks,
+          subtasks,
           status,
           reviewReason,
           updatedAt: new Date()
@@ -481,37 +481,37 @@ export function isDraftEmpty(draft: TaskDraft | null): boolean {
 // ============================================
 
 /**
- * Check if a task is in human_review but has no completed chunks.
+ * Check if a task is in human_review but has no completed subtasks.
  * This indicates the task crashed/exited before implementation completed
  * and should be resumed rather than reviewed.
  */
 export function isIncompleteHumanReview(task: Task): boolean {
   if (task.status !== 'human_review') return false;
-  
-  // If no chunks defined, task hasn't been planned yet (shouldn't be in human_review)
-  if (!task.chunks || task.chunks.length === 0) return true;
-  
-  // Check if any chunks are completed
-  const completedChunks = task.chunks.filter(c => c.status === 'completed').length;
-  
-  // If 0 completed chunks, this task crashed before implementation
-  return completedChunks === 0;
+
+  // If no subtasks defined, task hasn't been planned yet (shouldn't be in human_review)
+  if (!task.subtasks || task.subtasks.length === 0) return true;
+
+  // Check if any subtasks are completed
+  const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
+
+  // If 0 completed subtasks, this task crashed before implementation
+  return completedSubtasks === 0;
 }
 
 /**
- * Get the count of completed chunks for a task
+ * Get the count of completed subtasks for a task
  */
-export function getCompletedChunkCount(task: Task): number {
-  if (!task.chunks || task.chunks.length === 0) return 0;
-  return task.chunks.filter(c => c.status === 'completed').length;
+export function getCompletedSubtaskCount(task: Task): number {
+  if (!task.subtasks || task.subtasks.length === 0) return 0;
+  return task.subtasks.filter(s => s.status === 'completed').length;
 }
 
 /**
  * Get task progress info
  */
 export function getTaskProgress(task: Task): { completed: number; total: number; percentage: number } {
-  const total = task.chunks?.length || 0;
-  const completed = task.chunks?.filter(c => c.status === 'completed').length || 0;
+  const total = task.subtasks?.length || 0;
+  const completed = task.subtasks?.filter(s => s.status === 'completed').length || 0;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { completed, total, percentage };
 }

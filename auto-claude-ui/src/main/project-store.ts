@@ -220,13 +220,13 @@ export class ProjectStore {
         // Determine task status and review reason from plan
         const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
 
-        // Extract chunks from plan
-        const chunks = plan?.phases.flatMap((phase) =>
-          phase.chunks.map((chunk) => ({
-            id: chunk.id,
-            title: chunk.description,
-            description: chunk.description,
-            status: chunk.status,
+        // Extract subtasks from plan
+        const subtasks = plan?.phases.flatMap((phase) =>
+          phase.subtasks.map((subtask) => ({
+            id: subtask.id,
+            title: subtask.description,
+            description: subtask.description,
+            status: subtask.status,
             files: []
           }))
         ) || [];
@@ -239,7 +239,7 @@ export class ProjectStore {
           description,
           status,
           reviewReason,
-          chunks,
+          subtasks,
           logs: [],
           metadata,
           createdAt: new Date(plan?.created_at || Date.now()),
@@ -256,12 +256,12 @@ export class ProjectStore {
   /**
    * Determine task status and review reason based on plan and files.
    *
-   * This method calculates the correct status from chunk progress and QA state,
+   * This method calculates the correct status from subtask progress and QA state,
    * providing backwards compatibility for existing tasks with incorrect status.
    *
    * Review reasons:
-   * - 'completed': All chunks done, QA passed - ready for merge
-   * - 'errors': Chunks failed during execution - needs attention
+   * - 'completed': All subtasks done, QA passed - ready for merge
+   * - 'errors': Subtasks failed during execution - needs attention
    * - 'qa_rejected': QA found issues that need fixing
    */
   private determineTaskStatusAndReason(
@@ -269,18 +269,18 @@ export class ProjectStore {
     specPath: string,
     metadata?: TaskMetadata
   ): { status: TaskStatus; reviewReason?: ReviewReason } {
-    const allChunks = plan?.phases?.flatMap((p) => p.chunks) || [];
+    const allSubtasks = plan?.phases?.flatMap((p) => p.subtasks) || [];
 
     let calculatedStatus: TaskStatus = 'backlog';
     let reviewReason: ReviewReason | undefined;
 
-    if (allChunks.length > 0) {
-      const completed = allChunks.filter((c) => c.status === 'completed').length;
-      const inProgress = allChunks.filter((c) => c.status === 'in_progress').length;
-      const failed = allChunks.filter((c) => c.status === 'failed').length;
+    if (allSubtasks.length > 0) {
+      const completed = allSubtasks.filter((s) => s.status === 'completed').length;
+      const inProgress = allSubtasks.filter((s) => s.status === 'in_progress').length;
+      const failed = allSubtasks.filter((s) => s.status === 'failed').length;
 
-      if (completed === allChunks.length) {
-        // All chunks completed - check QA status
+      if (completed === allSubtasks.length) {
+        // All subtasks completed - check QA status
         const qaSignoff = (plan as unknown as Record<string, unknown>)?.qa_signoff as { status?: string } | undefined;
         if (qaSignoff?.status === 'approved') {
           calculatedStatus = 'human_review';
@@ -293,7 +293,7 @@ export class ProjectStore {
           }
         }
       } else if (failed > 0) {
-        // Some chunks failed - needs human attention
+        // Some subtasks failed - needs human attention
         calculatedStatus = 'human_review';
         reviewReason = 'errors';
       } else if (inProgress > 0 || completed > 0) {
@@ -325,8 +325,8 @@ export class ProjectStore {
 
       // For other stored statuses, validate against calculated status
       if (storedStatus) {
-        // Planning/coding status from the backend should be respected even if chunks aren't in progress yet
-        // This happens when a task is in planning phase (creating spec) but no chunks have been started
+        // Planning/coding status from the backend should be respected even if subtasks aren't in progress yet
+        // This happens when a task is in planning phase (creating spec) but no subtasks have been started
         const isActiveProcessStatus = plan.status === 'planning' || plan.status === 'coding';
 
         const isStoredStatusValid =
@@ -337,10 +337,10 @@ export class ProjectStore {
         if (isStoredStatusValid) {
           // Preserve reviewReason for human_review status
           if (storedStatus === 'human_review' && !reviewReason) {
-            // Infer reason from chunk states
-            const hasFailedChunks = allChunks.some((c) => c.status === 'failed');
-            const allCompleted = allChunks.length > 0 && allChunks.every((c) => c.status === 'completed');
-            if (hasFailedChunks) {
+            // Infer reason from subtask states
+            const hasFailedSubtasks = allSubtasks.some((s) => s.status === 'failed');
+            const allCompleted = allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed');
+            if (hasFailedSubtasks) {
               reviewReason = 'errors';
             } else if (allCompleted) {
               reviewReason = 'completed';
@@ -360,8 +360,8 @@ export class ProjectStore {
           return { status: 'human_review', reviewReason: 'qa_rejected' };
         }
         if (content.includes('PASSED') || content.includes('APPROVED')) {
-          // QA passed - if all chunks done, move to human_review
-          if (allChunks.length > 0 && allChunks.every((c) => c.status === 'completed')) {
+          // QA passed - if all subtasks done, move to human_review
+          if (allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed')) {
             return { status: 'human_review', reviewReason: 'completed' };
           }
         }

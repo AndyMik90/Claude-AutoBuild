@@ -399,6 +399,132 @@ Use ONLY these values for the `type` field in phases:
 
 ---
 
+## PHASE 3.5: DEFINE VERIFICATION STRATEGY
+
+After creating the phases and subtasks, define the verification strategy based on the task's complexity assessment.
+
+### Read Complexity Assessment
+
+If `complexity_assessment.json` exists in the spec directory, read it:
+
+```bash
+cat complexity_assessment.json
+```
+
+Look for the `validation_recommendations` section:
+- `risk_level`: trivial, low, medium, high, critical
+- `skip_validation`: Whether validation can be skipped entirely
+- `test_types_required`: What types of tests to create/run
+- `security_scan_required`: Whether security scanning is needed
+- `staging_deployment_required`: Whether staging deployment is needed
+
+### Verification Strategy by Risk Level
+
+| Risk Level | Test Requirements | Security | Staging |
+|------------|-------------------|----------|---------|
+| **trivial** | Skip validation (docs/typos only) | No | No |
+| **low** | Unit tests only | No | No |
+| **medium** | Unit + Integration tests | No | No |
+| **high** | Unit + Integration + E2E | Yes | Maybe |
+| **critical** | Full test suite + Manual review | Yes | Yes |
+
+### Add verification_strategy to implementation_plan.json
+
+Include this section in your implementation plan:
+
+```json
+{
+  "verification_strategy": {
+    "risk_level": "[from complexity_assessment or default: medium]",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": ["unit", "integration"],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All existing tests pass",
+      "New code has test coverage",
+      "No security vulnerabilities detected"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "pytest tests/",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Tests",
+        "command": "pytest tests/integration/",
+        "expected_outcome": "All integration tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk change requires unit and integration test coverage"
+  }
+}
+```
+
+### Project-Specific Verification Commands
+
+Adapt verification steps based on project type (from `project_index.json`):
+
+| Project Type | Unit Test Command | Integration Command | E2E Command |
+|--------------|-------------------|---------------------|-------------|
+| **Python (pytest)** | `pytest tests/` | `pytest tests/integration/` | `pytest tests/e2e/` |
+| **Node.js (Jest)** | `npm test` | `npm run test:integration` | `npm run test:e2e` |
+| **React/Vue/Next** | `npm test` | `npm run test:integration` | `npx playwright test` |
+| **Rust** | `cargo test` | `cargo test --features integration` | N/A |
+| **Go** | `go test ./...` | `go test -tags=integration ./...` | N/A |
+| **Ruby** | `bundle exec rspec` | `bundle exec rspec spec/integration/` | N/A |
+
+### Security Scanning (High+ Risk)
+
+For high or critical risk, add security steps:
+
+```json
+{
+  "verification_steps": [
+    {
+      "name": "Secrets Scan",
+      "command": "python auto-claude/scan_secrets.py --all-files --json",
+      "expected_outcome": "No secrets detected",
+      "type": "security",
+      "required": true,
+      "blocking": true
+    },
+    {
+      "name": "SAST Scan (Python)",
+      "command": "bandit -r src/ -f json",
+      "expected_outcome": "No high severity issues",
+      "type": "security",
+      "required": true,
+      "blocking": true
+    }
+  ]
+}
+```
+
+### Trivial Risk - Skip Validation
+
+If complexity_assessment indicates `skip_validation: true` (documentation-only changes):
+
+```json
+{
+  "verification_strategy": {
+    "risk_level": "trivial",
+    "skip_validation": true,
+    "reasoning": "Documentation-only change - no functional code modified"
+  }
+}
+```
+
+---
+
 ## PHASE 4: ANALYZE PARALLELISM OPPORTUNITIES
 
 After creating the phases, analyze which can run in parallel:
@@ -418,7 +544,7 @@ Two phases can run in parallel if:
 
 ### Add to Summary
 
-Include parallelism analysis and QA configuration in the `summary` section:
+Include parallelism analysis, verification strategy, and QA configuration in the `summary` section:
 
 ```json
 {
@@ -438,6 +564,30 @@ Include parallelism analysis and QA configuration in the `summary` section:
       "speedup_estimate": "1.5x faster than sequential"
     },
     "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 001 --parallel 2"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": ["unit", "integration"],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All existing tests pass",
+      "New code has test coverage",
+      "No security vulnerabilities detected"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "pytest tests/",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk requires unit and integration tests"
   },
   "qa_acceptance": {
     "unit_tests": {

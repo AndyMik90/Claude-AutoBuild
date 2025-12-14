@@ -1,10 +1,10 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import type { ExecutionPhase, TaskLogs, Chunk } from '../../shared/types';
+import type { ExecutionPhase, TaskLogs, Subtask } from '../../shared/types';
 
 interface PhaseProgressIndicatorProps {
   phase?: ExecutionPhase;
-  chunks: Chunk[];
+  subtasks: Subtask[];
   phaseLogs?: TaskLogs | null;
   isStuck?: boolean;
   isRunning?: boolean;
@@ -25,21 +25,21 @@ const PHASE_CONFIG: Record<ExecutionPhase, { label: string; color: string; bgCol
 /**
  * Smart progress indicator that adapts based on execution phase:
  * - Planning/Validation: Shows animated activity bar with entry count
- * - Coding: Shows chunk-based percentage progress
+ * - Coding: Shows subtask-based percentage progress
  * - Stuck: Shows warning state with interrupted animation
  */
 export function PhaseProgressIndicator({
   phase = 'idle',
-  chunks,
+  subtasks,
   phaseLogs,
   isStuck = false,
   isRunning = false,
   className,
 }: PhaseProgressIndicatorProps) {
-  // Calculate chunk-based progress (for coding phase)
-  const completedChunks = chunks.filter((c) => c.status === 'completed').length;
-  const totalChunks = chunks.length;
-  const chunkProgress = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0;
+  // Calculate subtask-based progress (for coding phase)
+  const completedSubtasks = subtasks.filter((c) => c.status === 'completed').length;
+  const totalSubtasks = subtasks.length;
+  const subtaskProgress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
 
   // Get log entry counts for activity indication
   const planningEntries = phaseLogs?.phases?.planning?.entries?.length || 0;
@@ -55,7 +55,7 @@ export function PhaseProgressIndicator({
 
   // Determine if we should show indeterminate (activity) vs determinate (%) progress
   const isIndeterminatePhase = phase === 'planning' || phase === 'qa_review' || phase === 'qa_fixing';
-  const showChunkProgress = phase === 'coding' || (totalChunks > 0 && !isIndeterminatePhase);
+  const showSubtaskProgress = phase === 'coding' || (totalSubtasks > 0 && !isIndeterminatePhase);
 
   const config = PHASE_CONFIG[phase] || PHASE_CONFIG.idle;
   const activeEntries = getActivePhaseEntries();
@@ -66,7 +66,7 @@ export function PhaseProgressIndicator({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {isStuck ? 'Interrupted' : showChunkProgress ? 'Progress' : config.label}
+            {isStuck ? 'Interrupted' : showSubtaskProgress ? 'Progress' : config.label}
           </span>
           {/* Activity indicator dot for non-coding phases */}
           {isRunning && !isStuck && isIndeterminatePhase && (
@@ -85,8 +85,8 @@ export function PhaseProgressIndicator({
           )}
         </div>
         <span className="text-xs font-medium text-foreground">
-          {showChunkProgress ? (
-            `${chunkProgress}%`
+          {showSubtaskProgress ? (
+            `${subtaskProgress}%`
           ) : activeEntries > 0 ? (
             <span className="text-muted-foreground">
               {activeEntries} {activeEntries === 1 ? 'entry' : 'entries'}
@@ -114,13 +114,13 @@ export function PhaseProgressIndicator({
               animate={{ opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
-          ) : showChunkProgress ? (
+          ) : showSubtaskProgress ? (
             // Determinate progress for coding phase
             <motion.div
               key="determinate"
               className={cn('h-full rounded-full', config.color)}
               initial={{ width: 0 }}
-              animate={{ width: `${chunkProgress}%` }}
+              animate={{ width: `${subtaskProgress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             />
           ) : isRunning && isIndeterminatePhase ? (
@@ -137,37 +137,37 @@ export function PhaseProgressIndicator({
                 ease: 'easeInOut',
               }}
             />
-          ) : totalChunks > 0 ? (
-            // Static progress based on chunks (when not running)
+          ) : totalSubtasks > 0 ? (
+            // Static progress based on subtasks (when not running)
             <motion.div
               key="static"
               className={cn('h-full rounded-full', config.color)}
               initial={{ width: 0 }}
-              animate={{ width: `${chunkProgress}%` }}
+              animate={{ width: `${subtaskProgress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             />
           ) : null}
         </AnimatePresence>
       </div>
 
-      {/* Chunk indicators (only show when chunks exist) */}
-      {totalChunks > 0 && (
+      {/* Subtask indicators (only show when subtasks exist) */}
+      {totalSubtasks > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {chunks.slice(0, 10).map((chunk, index) => (
+          {subtasks.slice(0, 10).map((subtask, index) => (
             <motion.div
-              key={chunk.id}
+              key={subtask.id}
               className={cn(
                 'h-2 w-2 rounded-full',
-                chunk.status === 'completed' && 'bg-success',
-                chunk.status === 'in_progress' && 'bg-info',
-                chunk.status === 'failed' && 'bg-destructive',
-                chunk.status === 'pending' && 'bg-muted-foreground/30'
+                subtask.status === 'completed' && 'bg-success',
+                subtask.status === 'in_progress' && 'bg-info',
+                subtask.status === 'failed' && 'bg-destructive',
+                subtask.status === 'pending' && 'bg-muted-foreground/30'
               )}
               initial={{ scale: 0, opacity: 0 }}
               animate={{
                 scale: 1,
                 opacity: 1,
-                ...(chunk.status === 'in_progress' && {
+                ...(subtask.status === 'in_progress' && {
                   boxShadow: [
                     '0 0 0 0 rgba(var(--info), 0.4)',
                     '0 0 0 4px rgba(var(--info), 0)',
@@ -177,16 +177,16 @@ export function PhaseProgressIndicator({
               transition={{
                 scale: { delay: index * 0.03, duration: 0.2 },
                 opacity: { delay: index * 0.03, duration: 0.2 },
-                boxShadow: chunk.status === 'in_progress'
+                boxShadow: subtask.status === 'in_progress'
                   ? { duration: 1, repeat: Infinity, ease: 'easeOut' }
                   : undefined,
               }}
-              title={`${chunk.title || chunk.id}: ${chunk.status}`}
+              title={`${subtask.title || subtask.id}: ${subtask.status}`}
             />
           ))}
-          {totalChunks > 10 && (
+          {totalSubtasks > 10 && (
             <span className="text-[10px] text-muted-foreground font-medium ml-0.5">
-              +{totalChunks - 10}
+              +{totalSubtasks - 10}
             </span>
           )}
         </div>

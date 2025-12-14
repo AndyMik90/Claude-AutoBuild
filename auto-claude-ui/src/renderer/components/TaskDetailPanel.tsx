@@ -128,13 +128,13 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
-  const progress = calculateProgress(task.chunks);
+  const progress = calculateProgress(task.subtasks);
   const isRunning = task.status === 'in_progress';
   const needsReview = task.status === 'human_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
-  
-  // Check if task is in human_review but has no completed chunks (crashed/incomplete)
+
+  // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
   const taskProgress = getTaskProgress(task);
 
@@ -343,7 +343,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     setIsDiscarding(false);
   };
 
-  const getChunkStatusIcon = (status: string) => {
+  const getSubtaskStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
         return <CheckCircle2 className="h-4 w-4 text-[var(--success)]" />;
@@ -390,7 +390,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     Incomplete
                   </Badge>
                   <Badge variant="outline" className="text-xs text-orange-400">
-                    {taskProgress.completed}/{taskProgress.total} chunks
+                    {taskProgress.completed}/{taskProgress.total} subtasks
                   </Badge>
                 </>
               ) : (
@@ -452,10 +452,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             Overview
           </TabsTrigger>
           <TabsTrigger
-            value="chunks"
+            value="subtasks"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
           >
-            Chunks ({task.chunks.length})
+            Subtasks ({task.subtasks.length})
           </TabsTrigger>
           <TabsTrigger
             value="logs"
@@ -506,7 +506,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 </div>
               )}
 
-              {/* Incomplete Task Warning - task in human_review but no chunks completed */}
+              {/* Incomplete Task Warning - task in human_review but no subtasks completed */}
               {isIncomplete && !isStuck && (
                 <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
                   <div className="flex items-start gap-3">
@@ -516,7 +516,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                         Task Incomplete
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3">
-                        This task has a spec and implementation plan but never completed any chunks ({taskProgress.completed}/{taskProgress.total}).
+                        This task has a spec and implementation plan but never completed any subtasks ({taskProgress.completed}/{taskProgress.total}).
                         The process likely crashed during spec creation. Click Resume to continue implementation.
                       </p>
                       <Button
@@ -554,9 +554,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                         {task.executionProgress.message}
                       </p>
                     )}
-                    {task.executionProgress?.currentChunk && (
+                    {task.executionProgress?.currentSubtask && (
                       <p className="text-xs mt-0.5 opacity-70">
-                        Chunk: {task.executionProgress.currentChunk}
+                        Subtask: {task.executionProgress.currentSubtask}
                       </p>
                     )}
                   </div>
@@ -573,9 +573,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   <span className="text-xs text-muted-foreground">
                     {hasActiveExecution && task.executionProgress?.message
                       ? task.executionProgress.message
-                      : task.chunks.length > 0
-                        ? `${task.chunks.filter(c => c.status === 'completed').length}/${task.chunks.length} chunks completed`
-                        : 'No chunks yet'}
+                      : task.subtasks.length > 0
+                        ? `${task.subtasks.filter(c => c.status === 'completed').length}/${task.subtasks.length} subtasks completed`
+                        : 'No subtasks yet'}
                   </span>
                   <span className={cn(
                     'text-sm font-semibold tabular-nums',
@@ -1013,44 +1013,44 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           </ScrollArea>
         </TabsContent>
 
-        {/* Chunks Tab */}
-        <TabsContent value="chunks" className="flex-1 min-h-0 overflow-hidden mt-0">
+        {/* Subtasks Tab */}
+        <TabsContent value="subtasks" className="flex-1 min-h-0 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-3">
-              {task.chunks.length === 0 ? (
+              {task.subtasks.length === 0 ? (
                 <div className="text-center py-12">
                   <ListChecks className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                  <p className="text-sm font-medium text-muted-foreground mb-1">No chunks defined</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">No subtasks defined</p>
                   <p className="text-xs text-muted-foreground/70">
-                    Implementation chunks will appear here after planning
+                    Implementation subtasks will appear here after planning
                   </p>
                 </div>
               ) : (
                 <>
                   {/* Progress summary */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b border-border/50">
-                    <span>{task.chunks.filter(c => c.status === 'completed').length} of {task.chunks.length} completed</span>
+                    <span>{task.subtasks.filter(c => c.status === 'completed').length} of {task.subtasks.length} completed</span>
                     <span className="tabular-nums">{progress}%</span>
                   </div>
-                  {task.chunks.map((chunk, index) => (
+                  {task.subtasks.map((subtask, index) => (
                     <div
-                      key={chunk.id}
+                      key={subtask.id}
                       className={cn(
                         'rounded-xl border border-border bg-secondary/30 p-3 transition-all duration-200 hover:bg-secondary/50',
-                        chunk.status === 'in_progress' && 'border-[var(--info)]/50 bg-[var(--info-light)] ring-1 ring-info/20',
-                        chunk.status === 'completed' && 'border-[var(--success)]/50 bg-[var(--success-light)]',
-                        chunk.status === 'failed' && 'border-[var(--error)]/50 bg-[var(--error-light)]'
+                        subtask.status === 'in_progress' && 'border-[var(--info)]/50 bg-[var(--info-light)] ring-1 ring-info/20',
+                        subtask.status === 'completed' && 'border-[var(--success)]/50 bg-[var(--success-light)]',
+                        subtask.status === 'failed' && 'border-[var(--error)]/50 bg-[var(--error-light)]'
                       )}
                     >
                       <div className="flex items-start gap-2">
-                        {getChunkStatusIcon(chunk.status)}
+                        {getSubtaskStatusIcon(subtask.status)}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className={cn(
                               'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
-                              chunk.status === 'completed' ? 'bg-success/20 text-success' :
-                              chunk.status === 'in_progress' ? 'bg-info/20 text-info' :
-                              chunk.status === 'failed' ? 'bg-destructive/20 text-destructive' :
+                              subtask.status === 'completed' ? 'bg-success/20 text-success' :
+                              subtask.status === 'in_progress' ? 'bg-info/20 text-info' :
+                              subtask.status === 'failed' ? 'bg-destructive/20 text-destructive' :
                               'bg-muted text-muted-foreground'
                             )}>
                               #{index + 1}
@@ -1058,29 +1058,29 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="text-sm font-medium text-foreground truncate cursor-default">
-                                  {chunk.id}
+                                  {subtask.id}
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-xs">
-                                <p className="font-mono text-xs">{chunk.id}</p>
+                                <p className="font-mono text-xs">{subtask.id}</p>
                               </TooltipContent>
                             </Tooltip>
                           </div>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <p className="mt-1 text-xs text-muted-foreground line-clamp-2 cursor-default">
-                                {chunk.description}
+                                {subtask.description}
                               </p>
                             </TooltipTrigger>
-                            {chunk.description && chunk.description.length > 80 && (
+                            {subtask.description && subtask.description.length > 80 && (
                               <TooltipContent side="bottom" className="max-w-sm">
-                                <p className="text-xs">{chunk.description}</p>
+                                <p className="text-xs">{subtask.description}</p>
                               </TooltipContent>
                             )}
                           </Tooltip>
-                          {chunk.files && chunk.files.length > 0 && (
+                          {subtask.files && subtask.files.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {chunk.files.map((file) => (
+                              {subtask.files.map((file) => (
                                 <Tooltip key={file}>
                                   <TooltipTrigger asChild>
                                     <Badge

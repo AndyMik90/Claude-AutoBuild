@@ -291,9 +291,9 @@ describe('ProjectStore', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'First chunk', status: 'completed' },
-              { id: 'chunk-2', description: 'Second chunk', status: 'pending' }
+            subtasks: [
+              { id: 'subtask-1', description: 'First subtask', status: 'completed' },
+              { id: 'subtask-2', description: 'Second subtask', status: 'pending' }
             ]
           }
         ],
@@ -320,11 +320,11 @@ describe('ProjectStore', () => {
       expect(tasks).toHaveLength(1);
       expect(tasks[0].title).toBe('Test Feature');
       expect(tasks[0].specId).toBe('001-test-feature');
-      expect(tasks[0].chunks).toHaveLength(2);
+      expect(tasks[0].subtasks).toHaveLength(2);
       expect(tasks[0].status).toBe('in_progress'); // Some completed, some pending
     });
 
-    it('should determine status as backlog when no chunks completed', async () => {
+    it('should determine status as backlog when no subtasks completed', async () => {
       const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '002-pending');
       mkdirSync(specsDir, { recursive: true });
 
@@ -337,9 +337,9 @@ describe('ProjectStore', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'Chunk 1', status: 'pending' },
-              { id: 'chunk-2', description: 'Chunk 2', status: 'pending' }
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'pending' },
+              { id: 'subtask-2', description: 'Subtask 2', status: 'pending' }
             ]
           }
         ],
@@ -363,7 +363,7 @@ describe('ProjectStore', () => {
       expect(tasks[0].status).toBe('backlog');
     });
 
-    it('should determine status as ai_review when all chunks completed', async () => {
+    it('should determine status as ai_review when all subtasks completed', async () => {
       const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '003-complete');
       mkdirSync(specsDir, { recursive: true });
 
@@ -376,9 +376,9 @@ describe('ProjectStore', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'Chunk 1', status: 'completed' },
-              { id: 'chunk-2', description: 'Chunk 2', status: 'completed' }
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'completed' },
+              { id: 'subtask-2', description: 'Subtask 2', status: 'completed' }
             ]
           }
         ],
@@ -415,8 +415,8 @@ describe('ProjectStore', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'Chunk 1', status: 'completed' }
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'completed' }
             ]
           }
         ],
@@ -458,8 +458,8 @@ describe('ProjectStore', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'chunk-1', description: 'Chunk 1', status: 'completed' }
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'completed' }
             ]
           }
         ],

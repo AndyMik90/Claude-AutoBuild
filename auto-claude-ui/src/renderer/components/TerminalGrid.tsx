@@ -271,7 +271,7 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full flex-col relative">
+      <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex h-10 items-center justify-between border-b border-border bg-card/30 px-3">
           <div className="flex items-center gap-2">
@@ -358,45 +358,51 @@ export function TerminalGrid({ projectPath }: TerminalGridProps) {
           </div>
         </div>
 
-        {/* Terminal grid using resizable panels */}
-        <div className="flex-1 overflow-hidden p-2">
-          <PanelGroup direction="vertical" className="h-full">
-            {terminalRows.map((row, rowIndex) => (
-              <div key={rowIndex} className="contents">
-                <Panel id={`row-${rowIndex}`} order={rowIndex} defaultSize={100 / terminalRows.length} minSize={15}>
-                  <PanelGroup direction="horizontal" className="h-full">
-                    {row.map((terminal, colIndex) => (
-                      <div key={terminal.id} className="contents">
-                        <Panel id={terminal.id} order={colIndex} defaultSize={100 / row.length} minSize={20}>
-                          <div className="h-full p-1">
-                            <Terminal
-                              id={terminal.id}
-                              cwd={terminal.cwd || projectPath}
-                              projectPath={projectPath}
-                              isActive={terminal.id === activeTerminalId}
-                              onClose={() => handleCloseTerminal(terminal.id)}
-                              onActivate={() => setActiveTerminal(terminal.id)}
-                              tasks={tasks}
-                            />
-                          </div>
-                        </Panel>
-                        {colIndex < row.length - 1 && (
-                          <PanelResizeHandle className="w-1 hover:bg-primary/30 transition-colors" />
-                        )}
-                      </div>
-                    ))}
-                  </PanelGroup>
-                </Panel>
-                {rowIndex < terminalRows.length - 1 && (
-                  <PanelResizeHandle className="h-1 hover:bg-primary/30 transition-colors" />
-                )}
-              </div>
-            ))}
-          </PanelGroup>
-        </div>
+        {/* Main content area with terminal grid and file explorer sidebar */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Terminal grid using resizable panels */}
+          <div className={cn(
+            "flex-1 overflow-hidden p-2 transition-all duration-300 ease-out",
+            fileExplorerOpen && "pr-0"
+          )}>
+            <PanelGroup direction="vertical" className="h-full">
+              {terminalRows.map((row, rowIndex) => (
+                <div key={rowIndex} className="contents">
+                  <Panel id={`row-${rowIndex}`} order={rowIndex} defaultSize={100 / terminalRows.length} minSize={15}>
+                    <PanelGroup direction="horizontal" className="h-full">
+                      {row.map((terminal, colIndex) => (
+                        <div key={terminal.id} className="contents">
+                          <Panel id={terminal.id} order={colIndex} defaultSize={100 / row.length} minSize={20}>
+                            <div className="h-full p-1">
+                              <Terminal
+                                id={terminal.id}
+                                cwd={terminal.cwd || projectPath}
+                                projectPath={projectPath}
+                                isActive={terminal.id === activeTerminalId}
+                                onClose={() => handleCloseTerminal(terminal.id)}
+                                onActivate={() => setActiveTerminal(terminal.id)}
+                                tasks={tasks}
+                              />
+                            </div>
+                          </Panel>
+                          {colIndex < row.length - 1 && (
+                            <PanelResizeHandle className="w-1 hover:bg-primary/30 transition-colors" />
+                          )}
+                        </div>
+                      ))}
+                    </PanelGroup>
+                  </Panel>
+                  {rowIndex < terminalRows.length - 1 && (
+                    <PanelResizeHandle className="h-1 hover:bg-primary/30 transition-colors" />
+                  )}
+                </div>
+              ))}
+            </PanelGroup>
+          </div>
 
-        {/* File explorer panel (slides from right) */}
-        {projectPath && <FileExplorerPanel projectPath={projectPath} />}
+          {/* File explorer panel (slides from right, pushes content) */}
+          {projectPath && <FileExplorerPanel projectPath={projectPath} />}
+        </div>
 
         {/* Drag overlay - shows what's being dragged */}
         <DragOverlay>

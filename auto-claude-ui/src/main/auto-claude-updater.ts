@@ -25,8 +25,8 @@ const execAsync = promisify(exec);
  * GitHub repository configuration
  */
 const GITHUB_CONFIG = {
-  owner: 'anthropics', // Update to actual repo owner
-  repo: 'auto-claude',  // Update to actual repo name
+  owner: 'AndyMik90',
+  repo: 'Auto-Claude',
   branch: 'main',
   autoBuildPath: 'auto-claude' // Path within repo
 };
@@ -447,12 +447,46 @@ export async function downloadAndApplyUpdate(
 }
 
 /**
- * Extract a .tar.gz file using system tar command
+ * Extract a .tar.gz file
+ * Uses system tar command on Unix or PowerShell on Windows
  */
 async function extractTarball(tarballPath: string, destPath: string): Promise<void> {
-  // Use system tar command which is available on macOS, Linux, and modern Windows
   try {
-    await execAsync(`tar -xzf "${tarballPath}" -C "${destPath}"`);
+    if (process.platform === 'win32') {
+      // On Windows, try multiple approaches:
+      // 1. Modern Windows 10/11 has built-in tar
+      // 2. Fall back to PowerShell's Expand-Archive for .zip (but .tar.gz needs tar)
+      // 3. Use PowerShell to extract via .NET
+      try {
+        // First try native tar (available on Windows 10 1803+)
+        await execAsync(`tar -xzf "${tarballPath}" -C "${destPath}"`);
+      } catch {
+        // Fall back to PowerShell with .NET for gzip decompression
+        // This is more complex but works on older Windows versions
+        const psScript = `
+          $tarball = "${tarballPath.replace(/\\/g, '\\\\')}"
+          $dest = "${destPath.replace(/\\/g, '\\\\')}"
+          $tempTar = Join-Path $env:TEMP "auto-claude-update.tar"
+
+          # Decompress gzip
+          $gzipStream = [System.IO.File]::OpenRead($tarball)
+          $decompressedStream = New-Object System.IO.Compression.GZipStream($gzipStream, [System.IO.Compression.CompressionMode]::Decompress)
+          $tarStream = [System.IO.File]::Create($tempTar)
+          $decompressedStream.CopyTo($tarStream)
+          $tarStream.Close()
+          $decompressedStream.Close()
+          $gzipStream.Close()
+
+          # Extract tar using tar command (should work even if gzip didn't)
+          tar -xf $tempTar -C $dest
+          Remove-Item $tempTar -Force
+        `;
+        await execAsync(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`);
+      }
+    } else {
+      // Unix systems - use native tar
+      await execAsync(`tar -xzf "${tarballPath}" -C "${destPath}"`);
+    }
   } catch (error) {
     throw new Error(`Failed to extract tarball: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

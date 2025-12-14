@@ -468,8 +468,8 @@ body {
   color: var(--muted-foreground);
 }
 
-/* Chunk indicator dot with tooltip support */
-.chunk-dot {
+/* Subtask indicator dot with tooltip support */
+.subtask-dot {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
@@ -477,7 +477,7 @@ body {
   cursor: help;
 }
 
-.chunk-dot:hover {
+.subtask-dot:hover {
   transform: scale(1.5);
 }
 
@@ -592,20 +592,20 @@ body {
   }
 }
 
-/* Chunk status dot styling */
-.chunk-dot {
+/* Subtask status dot styling */
+.subtask-dot {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.chunk-dot:hover {
+.subtask-dot:hover {
   transform: scale(1.5);
 }
 
-.chunk-dot-active {
-  animation: chunk-dot-pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.subtask-dot-active {
+  animation: subtask-dot-pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes chunk-dot-pulse {
+@keyframes subtask-dot-pulse {
   0%, 100% {
     opacity: 1;
     transform: scale(1);

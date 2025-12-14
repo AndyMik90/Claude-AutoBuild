@@ -204,11 +204,32 @@ export class TerminalSessionStore {
   }
 
   /**
-   * Get today's sessions for a project (default behavior)
+   * Get most recent sessions for a project.
+   * First checks today, then looks at the most recent date with sessions.
+   * This ensures sessions survive app restarts even after midnight.
    */
   getSessions(projectPath: string): TerminalSession[] {
+    // First check today
     const todaySessions = this.getTodaysSessions();
-    return todaySessions[projectPath] || [];
+    if (todaySessions[projectPath]?.length > 0) {
+      return todaySessions[projectPath];
+    }
+
+    // If no sessions today, find the most recent date with sessions for this project
+    const dates = Object.keys(this.data.sessionsByDate)
+      .filter(date => {
+        const sessions = this.data.sessionsByDate[date][projectPath];
+        return sessions && sessions.length > 0;
+      })
+      .sort((a, b) => b.localeCompare(a));  // Most recent first
+
+    if (dates.length > 0) {
+      const mostRecentDate = dates[0];
+      console.log(`[TerminalSessionStore] No sessions today, using sessions from ${mostRecentDate}`);
+      return this.data.sessionsByDate[mostRecentDate][projectPath] || [];
+    }
+
+    return [];
   }
 
   /**

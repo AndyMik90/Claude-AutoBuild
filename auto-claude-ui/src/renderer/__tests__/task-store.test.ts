@@ -15,7 +15,7 @@ function createTestTask(overrides: Partial<Task> = {}): Task {
     title: 'Test Task',
     description: 'Test description',
     status: 'backlog' as TaskStatus,
-    chunks: [],
+    subtasks: [],
     logs: [],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -34,9 +34,9 @@ function createTestPlan(overrides: Partial<ImplementationPlan> = {}): Implementa
         phase: 1,
         name: 'Test Phase',
         type: 'implementation',
-        chunks: [
-          { id: 'chunk-1', description: 'First chunk', status: 'pending' },
-          { id: 'chunk-2', description: 'Second chunk', status: 'pending' }
+        subtasks: [
+          { id: 'subtask-1', description: 'First subtask', status: 'pending' },
+          { id: 'subtask-2', description: 'Second subtask', status: 'pending' }
         ]
       }
     ],
@@ -195,9 +195,9 @@ describe('Task Store', () => {
   });
 
   describe('updateTaskFromPlan', () => {
-    it('should extract chunks from plan', () => {
+    it('should extract subtasks from plan', () => {
       useTaskStore.setState({
-        tasks: [createTestTask({ id: 'task-1', chunks: [] })]
+        tasks: [createTestTask({ id: 'task-1', subtasks: [] })]
       });
 
       const plan = createTestPlan({
@@ -206,9 +206,9 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'c1', description: 'Chunk 1', status: 'completed' },
-              { id: 'c2', description: 'Chunk 2', status: 'pending' }
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'pending' }
             ]
           }
         ]
@@ -216,12 +216,12 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].chunks).toHaveLength(2);
-      expect(useTaskStore.getState().tasks[0].chunks[0].id).toBe('c1');
-      expect(useTaskStore.getState().tasks[0].chunks[0].status).toBe('completed');
+      expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(2);
+      expect(useTaskStore.getState().tasks[0].subtasks[0].id).toBe('c1');
+      expect(useTaskStore.getState().tasks[0].subtasks[0].status).toBe('completed');
     });
 
-    it('should extract chunks from multiple phases', () => {
+    it('should extract subtasks from multiple phases', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1' })]
       });
@@ -232,23 +232,23 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [{ id: 'c1', description: 'Chunk 1', status: 'completed' }]
+            subtasks: [{ id: 'c1', description: 'Subtask 1', status: 'completed' }]
           },
           {
             phase: 2,
             name: 'Phase 2',
             type: 'cleanup',
-            chunks: [{ id: 'c2', description: 'Chunk 2', status: 'pending' }]
+            subtasks: [{ id: 'c2', description: 'Subtask 2', status: 'pending' }]
           }
         ]
       });
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].chunks).toHaveLength(2);
+      expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(2);
     });
 
-    it('should update status to ai_review when all chunks completed', () => {
+    it('should update status to ai_review when all subtasks completed', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1', status: 'in_progress' })]
       });
@@ -259,9 +259,9 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'c1', description: 'Chunk 1', status: 'completed' },
-              { id: 'c2', description: 'Chunk 2', status: 'completed' }
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'completed' }
             ]
           }
         ]
@@ -272,7 +272,7 @@ describe('Task Store', () => {
       expect(useTaskStore.getState().tasks[0].status).toBe('ai_review');
     });
 
-    it('should update status to human_review when any chunk failed', () => {
+    it('should update status to human_review when any subtask failed', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1', status: 'in_progress' })]
       });
@@ -283,9 +283,9 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'c1', description: 'Chunk 1', status: 'completed' },
-              { id: 'c2', description: 'Chunk 2', status: 'failed' }
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'failed' }
             ]
           }
         ]
@@ -296,7 +296,7 @@ describe('Task Store', () => {
       expect(useTaskStore.getState().tasks[0].status).toBe('human_review');
     });
 
-    it('should update status to in_progress when some chunks in progress', () => {
+    it('should update status to in_progress when some subtasks in progress', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1', status: 'backlog' })]
       });
@@ -307,9 +307,9 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            chunks: [
-              { id: 'c1', description: 'Chunk 1', status: 'completed' },
-              { id: 'c2', description: 'Chunk 2', status: 'in_progress' }
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'in_progress' }
             ]
           }
         ]

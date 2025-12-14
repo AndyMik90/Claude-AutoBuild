@@ -9,14 +9,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Calculate progress percentage from chunks
- * @param chunks Array of chunks with status
+ * Calculate progress percentage from subtasks
+ * @param subtasks Array of subtasks with status
  * @returns Progress percentage (0-100)
  */
-export function calculateProgress(chunks: { status: string }[]): number {
-  if (chunks.length === 0) return 0;
-  const completed = chunks.filter((c) => c.status === 'completed').length;
-  return Math.round((completed / chunks.length) * 100);
+export function calculateProgress(subtasks: { status: string }[]): number {
+  if (subtasks.length === 0) return 0;
+  const completed = subtasks.filter((s) => s.status === 'completed').length;
+  return Math.round((completed / subtasks.length) * 100);
 }
 
 /**

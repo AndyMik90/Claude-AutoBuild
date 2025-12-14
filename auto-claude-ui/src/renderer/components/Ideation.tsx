@@ -33,7 +33,9 @@ import {
   Code2,
   Loader2,
   XCircle,
-  Plus
+  Plus,
+  Square,
+  Trash2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -61,13 +63,14 @@ import {
   loadIdeation,
   generateIdeation,
   refreshIdeation,
+  stopIdeation,
   appendIdeation,
+  dismissAllIdeasForProject,
   getIdeasByType,
   getActiveIdeas,
   getIdeationSummary,
-  isLowHangingFruitIdea,
+  isCodeImprovementIdea,
   isUIUXIdea,
-  isHighValueIdea,
   setupIdeationListeners,
   IdeationTypeState
 } from '../stores/ideation-store';
@@ -92,9 +95,8 @@ import type {
   IdeationType,
   IdeationGenerationStatus,
   IdeationSession,
-  LowHangingFruitIdea,
+  CodeImprovementIdea,
   UIUXImprovementIdea,
-  HighValueFeatureIdea,
   DocumentationGapIdea,
   SecurityHardeningIdea,
   PerformanceOptimizationIdea,
@@ -107,12 +109,10 @@ interface IdeationProps {
 
 const TypeIcon = ({ type }: { type: IdeationType }) => {
   switch (type) {
-    case 'low_hanging_fruit':
+    case 'code_improvements':
       return <Zap className="h-4 w-4" />;
     case 'ui_ux_improvements':
       return <Palette className="h-4 w-4" />;
-    case 'high_value_features':
-      return <Target className="h-4 w-4" />;
     case 'documentation_gaps':
       return <BookOpen className="h-4 w-4" />;
     case 'security_hardening':
@@ -127,10 +127,10 @@ const TypeIcon = ({ type }: { type: IdeationType }) => {
 };
 
 // All ideation types for iteration
+// Note: high_value_features removed - strategic features belong to Roadmap
 const ALL_IDEATION_TYPES: IdeationType[] = [
-  'low_hanging_fruit',
+  'code_improvements',
   'ui_ux_improvements',
-  'high_value_features',
   'documentation_gaps',
   'security_hardening',
   'performance_optimizations',
@@ -199,6 +199,7 @@ interface GenerationProgressScreenProps {
   selectedIdea: Idea | null;
   onConvert: (idea: Idea) => void;
   onDismiss: (idea: Idea) => void;
+  onStop: () => void;
 }
 
 function GenerationProgressScreen({
@@ -210,7 +211,8 @@ function GenerationProgressScreen({
   onSelectIdea,
   selectedIdea,
   onConvert,
-  onDismiss
+  onDismiss,
+  onStop
 }: GenerationProgressScreenProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [showLogs, setShowLogs] = useState(false);
@@ -247,14 +249,29 @@ function GenerationProgressScreen({
             </div>
             <p className="text-sm text-muted-foreground">{generationStatus.message}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowLogs(!showLogs)}
-          >
-            <FileCode className="h-4 w-4 mr-1" />
-            {showLogs ? 'Hide' : 'Show'} Logs
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogs(!showLogs)}
+            >
+              <FileCode className="h-4 w-4 mr-1" />
+              {showLogs ? 'Hide' : 'Show'} Logs
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={onStop}
+                >
+                  <Square className="h-4 w-4 mr-1" />
+                  Stop
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Stop generation</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
         <Progress value={generationStatus.progress} className="mt-3" />
 
@@ -440,6 +457,14 @@ export function Ideation({ projectId }: IdeationProps) {
     refreshIdeation(projectId);
   };
 
+  const handleStop = async () => {
+    await stopIdeation(projectId);
+  };
+
+  const handleDismissAll = async () => {
+    await dismissAllIdeasForProject(projectId);
+  };
+
   // Handle when env config is complete - execute pending action
   const handleEnvConfigured = () => {
     checkToken(); // Re-check the token
@@ -528,6 +553,7 @@ export function Ideation({ projectId }: IdeationProps) {
         selectedIdea={selectedIdea}
         onConvert={handleConvertToTask}
         onDismiss={handleDismiss}
+        onStop={handleStop}
       />
     );
   }
@@ -661,6 +687,22 @@ export function Ideation({ projectId }: IdeationProps) {
                 <TooltipContent>Add more ideation types</TooltipContent>
               </Tooltip>
             )}
+            {/* Dismiss All Button - only show if there are active ideas */}
+            {activeIdeas.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={handleDismissAll}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Dismiss all ideas</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" onClick={handleRefresh}>
@@ -692,17 +734,13 @@ export function Ideation({ projectId }: IdeationProps) {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="flex-shrink-0 mx-4 mt-4 flex-wrap h-auto gap-1">
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="low_hanging_fruit">
+            <TabsTrigger value="code_improvements">
               <Zap className="h-3 w-3 mr-1" />
-              Quick Wins
+              Code
             </TabsTrigger>
             <TabsTrigger value="ui_ux_improvements">
               <Palette className="h-3 w-3 mr-1" />
               UI/UX
-            </TabsTrigger>
-            <TabsTrigger value="high_value_features">
-              <Target className="h-3 w-3 mr-1" />
-              High Value
             </TabsTrigger>
             <TabsTrigger value="documentation_gaps">
               <BookOpen className="h-3 w-3 mr-1" />
@@ -950,14 +988,9 @@ function IdeaCard({ idea, onClick, onConvert, onDismiss }: IdeaCardProps) {
                 {idea.status}
               </Badge>
             )}
-            {isLowHangingFruitIdea(idea) && (
-              <Badge variant="outline" className={IDEATION_EFFORT_COLORS[(idea as LowHangingFruitIdea).estimatedEffort]}>
-                {(idea as LowHangingFruitIdea).estimatedEffort}
-              </Badge>
-            )}
-            {isHighValueIdea(idea) && (
-              <Badge variant="outline" className={IDEATION_IMPACT_COLORS[(idea as HighValueFeatureIdea).estimatedImpact]}>
-                {(idea as HighValueFeatureIdea).estimatedImpact} impact
+            {isCodeImprovementIdea(idea) && (
+              <Badge variant="outline" className={IDEATION_EFFORT_COLORS[(idea as CodeImprovementIdea).estimatedEffort]}>
+                {(idea as CodeImprovementIdea).estimatedEffort}
               </Badge>
             )}
             {isUIUXIdea(idea) && (
@@ -1087,16 +1120,12 @@ function IdeaDetailPanel({ idea, onClose, onConvert, onDismiss }: IdeaDetailPane
         </div>
 
         {/* Type-specific content */}
-        {isLowHangingFruitIdea(idea) && (
-          <LowHangingFruitDetails idea={idea as LowHangingFruitIdea} />
+        {isCodeImprovementIdea(idea) && (
+          <CodeImprovementDetails idea={idea as CodeImprovementIdea} />
         )}
 
         {isUIUXIdea(idea) && (
           <UIUXDetails idea={idea as UIUXImprovementIdea} />
-        )}
-
-        {isHighValueIdea(idea) && (
-          <HighValueDetails idea={idea as HighValueFeatureIdea} />
         )}
 
         {isDocumentationGapIdea(idea) && (
@@ -1138,7 +1167,7 @@ function IdeaDetailPanel({ idea, onClose, onConvert, onDismiss }: IdeaDetailPane
 }
 
 // Type-specific detail components
-function LowHangingFruitDetails({ idea }: { idea: LowHangingFruitIdea }) {
+function CodeImprovementDetails({ idea }: { idea: CodeImprovementIdea }) {
   return (
     <>
       {/* Metrics */}
@@ -1169,6 +1198,17 @@ function LowHangingFruitDetails({ idea }: { idea: LowHangingFruitIdea }) {
               </Badge>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Implementation Approach */}
+      {idea.implementationApproach && (
+        <div>
+          <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <Code2 className="h-4 w-4" />
+            Implementation Approach
+          </h3>
+          <p className="text-sm text-muted-foreground">{idea.implementationApproach}</p>
         </div>
       )}
 
@@ -1264,89 +1304,7 @@ function UIUXDetails({ idea }: { idea: UIUXImprovementIdea }) {
   );
 }
 
-function HighValueDetails({ idea }: { idea: HighValueFeatureIdea }) {
-  return (
-    <>
-      {/* Metrics */}
-      <div className="grid grid-cols-2 gap-2">
-        <Card className="p-3 text-center">
-          <div className={`text-lg font-semibold ${IDEATION_IMPACT_COLORS[idea.estimatedImpact]}`}>
-            {idea.estimatedImpact}
-          </div>
-          <div className="text-xs text-muted-foreground">Impact</div>
-        </Card>
-        <Card className="p-3 text-center">
-          <div className="text-lg font-semibold">{idea.complexity}</div>
-          <div className="text-xs text-muted-foreground">Complexity</div>
-        </Card>
-      </div>
-
-      {/* Target Audience */}
-      <div>
-        <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          Target Audience
-        </h3>
-        <p className="text-sm text-muted-foreground">{idea.targetAudience}</p>
-      </div>
-
-      {/* Problem Solved */}
-      <div>
-        <h3 className="text-sm font-medium mb-2">Problem Solved</h3>
-        <p className="text-sm text-muted-foreground">{idea.problemSolved}</p>
-      </div>
-
-      {/* Value Proposition */}
-      <div>
-        <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-          <Target className="h-4 w-4" />
-          Value Proposition
-        </h3>
-        <p className="text-sm text-muted-foreground">{idea.valueProposition}</p>
-      </div>
-
-      {/* Competitive Advantage */}
-      {idea.competitiveAdvantage && (
-        <div>
-          <h3 className="text-sm font-medium mb-2">Competitive Advantage</h3>
-          <p className="text-sm text-muted-foreground">{idea.competitiveAdvantage}</p>
-        </div>
-      )}
-
-      {/* Acceptance Criteria */}
-      {idea.acceptanceCriteria && idea.acceptanceCriteria.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Acceptance Criteria
-          </h3>
-          <ul className="space-y-1">
-            {idea.acceptanceCriteria.map((criterion, i) => (
-              <li key={i} className="text-sm flex items-start gap-2">
-                <Circle className="h-3 w-3 mt-1.5 flex-shrink-0" />
-                <span>{criterion}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Dependencies */}
-      {idea.dependencies && idea.dependencies.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium mb-2">Dependencies</h3>
-          <div className="flex flex-wrap gap-1">
-            {idea.dependencies.map((dep, i) => (
-              <Badge key={i} variant="outline" className="text-xs">
-                {dep}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
+// Note: HighValueDetails removed - strategic features belong to Roadmap
 
 function DocumentationGapDetails({ idea }: { idea: DocumentationGapIdea }) {
   return (

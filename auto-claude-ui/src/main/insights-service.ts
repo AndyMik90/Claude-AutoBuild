@@ -3,6 +3,7 @@ import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { app } from 'electron';
+import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
 import type {
   InsightsSession,
   InsightsSessionSummary,
@@ -77,7 +78,8 @@ export class InsightsService extends EventEmitter {
       const envContent = readFileSync(envPath, 'utf-8');
       const envVars: Record<string, string> = {};
 
-      for (const line of envContent.split('\n')) {
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
 
@@ -489,6 +491,9 @@ export class InsightsService extends EventEmitter {
       return;
     }
 
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const profileEnv = getProfileEnv();
+
     // Spawn Python process
     const proc = spawn(this.pythonPath, [
       runnerPath,
@@ -500,6 +505,7 @@ export class InsightsService extends EventEmitter {
       env: {
         ...process.env,
         ...envVars,
+        ...profileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1'
       }
     });
@@ -509,9 +515,13 @@ export class InsightsService extends EventEmitter {
     let fullResponse = '';
     let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
     const toolsUsed: InsightsToolUsage[] = [];
+    // Collect output for rate limit detection
+    let allInsightsOutput = '';
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString();
+      // Collect output for rate limit detection (keep last 10KB)
+      allInsightsOutput = (allInsightsOutput + text).slice(-10000);
 
       // Check for special markers
       const lines = text.split('\n');
@@ -579,11 +589,31 @@ export class InsightsService extends EventEmitter {
 
     proc.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
+      // Collect stderr for rate limit detection too
+      allInsightsOutput = (allInsightsOutput + text).slice(-10000);
       console.error('[Insights]', text);
     });
 
     proc.on('close', (code) => {
       this.activeSessions.delete(projectId);
+
+      // Check for rate limit if process failed
+      if (code !== 0) {
+        const rateLimitDetection = detectRateLimit(allInsightsOutput);
+        if (rateLimitDetection.isRateLimited) {
+          console.log('[Insights] Rate limit detected:', {
+            projectId,
+            resetTime: rateLimitDetection.resetTime,
+            limitType: rateLimitDetection.limitType,
+            suggestedProfile: rateLimitDetection.suggestedProfile?.name
+          });
+
+          const rateLimitInfo = createSDKRateLimitInfo('other', rateLimitDetection, {
+            projectId
+          });
+          this.emit('sdk-rate-limit', rateLimitInfo);
+        }
+      }
 
       if (code === 0) {
         // Add assistant message to session

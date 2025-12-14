@@ -96,6 +96,7 @@ from task_logger import (
     clear_task_logger,
     update_task_logger_path,
 )
+from init import init_auto_claude_dir
 
 
 # Configuration
@@ -110,6 +111,8 @@ def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
     The auto-claude/ folder (if it exists) is SOURCE CODE being developed,
     not an installation. This allows Auto Claude to be used to develop itself.
 
+    This function also ensures .auto-claude is added to .gitignore on first use.
+
     Args:
         project_dir: The project root directory
         dev_mode: Deprecated, kept for API compatibility. Has no effect.
@@ -117,8 +120,10 @@ def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
     Returns:
         Path to the specs directory within .auto-claude/
     """
-    # Always use .auto-claude/specs - this is the installed instance
-    # The auto-claude/ folder is source code, not an installation
+    # Initialize .auto-claude directory and ensure it's in .gitignore
+    init_auto_claude_dir(project_dir)
+    
+    # Return the specs directory path
     return project_dir / ".auto-claude" / "specs"
 
 

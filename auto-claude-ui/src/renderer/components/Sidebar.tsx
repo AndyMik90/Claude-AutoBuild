@@ -54,6 +54,7 @@ import {
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import { AddProjectModal } from './AddProjectModal';
+import { RateLimitIndicator } from './RateLimitIndicator';
 import type { Project, AutoBuildVersionInfo } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees';
@@ -378,6 +379,9 @@ export function Sidebar({
 
         <Separator />
 
+        {/* Rate Limit Indicator - shows when Claude is rate limited */}
+        <RateLimitIndicator />
+
         {/* Bottom section with Settings, Help, and New Task */}
         <div className="p-4 space-y-3">
           {/* Settings and Help row */}
@@ -401,7 +405,7 @@ export function Sidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => window.open('https://github.com/anthropics/claude-code/issues', '_blank')}
+                  onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
                 >
                   <HelpCircle className="h-4 w-4" />
                 </Button>

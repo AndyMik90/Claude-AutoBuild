@@ -240,10 +240,153 @@ cat > complexity_assessment.json << 'EOF'
     "needs_self_critique": [true|false],
     "needs_infrastructure_setup": [true|false]
   },
-  
+
+  "validation_recommendations": {
+    "risk_level": "[trivial|low|medium|high|critical]",
+    "skip_validation": [true|false],
+    "minimal_mode": [true|false],
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scan_required": [true|false],
+    "staging_deployment_required": [true|false],
+    "reasoning": "[1-2 sentences explaining validation depth choice]"
+  },
+
   "created_at": "[ISO timestamp]"
 }
 EOF
+```
+
+---
+
+## PHASE 3.5: VALIDATION RECOMMENDATIONS
+
+Based on your complexity and risk analysis, recommend the appropriate validation depth for the QA phase. This guides how thoroughly the implementation should be tested.
+
+### Understanding Validation Levels
+
+| Risk Level | When to Use | Validation Depth |
+|------------|-------------|------------------|
+| **TRIVIAL** | Docs-only, comments, whitespace | Skip validation entirely |
+| **LOW** | Single service, < 5 files, no DB/API changes | Unit tests only (if exist) |
+| **MEDIUM** | Multiple files, 1-2 services, API changes | Unit + Integration tests |
+| **HIGH** | Database changes, auth/security, cross-service | Unit + Integration + E2E + Security scan |
+| **CRITICAL** | Payments, data deletion, security-critical | All above + Manual review + Staging |
+
+### Skip Validation Criteria (TRIVIAL)
+
+Set `skip_validation: true` ONLY when ALL of these are true:
+- Changes are documentation-only (*.md, *.rst, comments, docstrings)
+- OR changes are purely cosmetic (whitespace, formatting, linting fixes)
+- OR changes are version bumps with no functional code changes
+- No functional code is modified
+- Confidence is >= 0.9
+
+### Minimal Mode Criteria (LOW)
+
+Set `minimal_mode: true` when:
+- Single service affected
+- Less than 5 files modified
+- No database changes
+- No API signature changes
+- No security-sensitive areas touched
+
+### Security Scan Required
+
+Set `security_scan_required: true` when ANY of these apply:
+- Authentication/authorization code is touched
+- User data handling is modified
+- Payment/financial code is involved
+- API keys, secrets, or credentials are handled
+- New dependencies with network access are added
+- File upload/download functionality is modified
+- SQL queries or database operations are added
+
+### Staging Deployment Required
+
+Set `staging_deployment_required: true` when:
+- Database migrations are involved
+- Breaking API changes are introduced
+- Risk level is CRITICAL
+- External service integrations are added
+
+### Test Types Based on Risk
+
+| Risk Level | test_types_required |
+|------------|---------------------|
+| TRIVIAL | `[]` (skip) |
+| LOW | `["unit"]` |
+| MEDIUM | `["unit", "integration"]` |
+| HIGH | `["unit", "integration", "e2e"]` |
+| CRITICAL | `["unit", "integration", "e2e", "security"]` |
+
+### Output Format
+
+Add this `validation_recommendations` section to your `complexity_assessment.json` output:
+
+```json
+"validation_recommendations": {
+  "risk_level": "[trivial|low|medium|high|critical]",
+  "skip_validation": [true|false],
+  "minimal_mode": [true|false],
+  "test_types_required": ["unit", "integration", "e2e"],
+  "security_scan_required": [true|false],
+  "staging_deployment_required": [true|false],
+  "reasoning": "[1-2 sentences explaining why this validation depth was chosen]"
+}
+```
+
+### Examples
+
+**Example: Documentation-only change (TRIVIAL)**
+```json
+"validation_recommendations": {
+  "risk_level": "trivial",
+  "skip_validation": true,
+  "minimal_mode": true,
+  "test_types_required": [],
+  "security_scan_required": false,
+  "staging_deployment_required": false,
+  "reasoning": "Documentation-only change to README.md with no functional code modifications."
+}
+```
+
+**Example: New API endpoint (MEDIUM)**
+```json
+"validation_recommendations": {
+  "risk_level": "medium",
+  "skip_validation": false,
+  "minimal_mode": false,
+  "test_types_required": ["unit", "integration"],
+  "security_scan_required": false,
+  "staging_deployment_required": false,
+  "reasoning": "New API endpoint requires unit tests for logic and integration tests for HTTP layer. No auth or sensitive data involved."
+}
+```
+
+**Example: Auth system change (HIGH)**
+```json
+"validation_recommendations": {
+  "risk_level": "high",
+  "skip_validation": false,
+  "minimal_mode": false,
+  "test_types_required": ["unit", "integration", "e2e"],
+  "security_scan_required": true,
+  "staging_deployment_required": false,
+  "reasoning": "Authentication changes require comprehensive testing including E2E to verify login flows. Security scan needed for auth-related code."
+}
+```
+
+**Example: Payment integration (CRITICAL)**
+```json
+"validation_recommendations": {
+  "risk_level": "critical",
+  "skip_validation": false,
+  "minimal_mode": false,
+  "test_types_required": ["unit", "integration", "e2e", "security"],
+  "security_scan_required": true,
+  "staging_deployment_required": true,
+  "reasoning": "Payment processing requires maximum validation depth. Security scan for PCI compliance concerns. Staging deployment to verify Stripe webhooks work correctly."
+}
 ```
 
 ---
@@ -310,6 +453,15 @@ START
   "flags": {
     "needs_research": false,
     "needs_self_critique": false
+  },
+  "validation_recommendations": {
+    "risk_level": "low",
+    "skip_validation": false,
+    "minimal_mode": true,
+    "test_types_required": ["unit"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Simple CSS change with no security implications. Minimal validation with existing unit tests if present."
   }
 }
 ```
@@ -341,6 +493,15 @@ START
   "flags": {
     "needs_research": false,
     "needs_self_critique": false
+  },
+  "validation_recommendations": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "New API endpoint requires unit tests for business logic and integration tests for HTTP handling. No auth changes involved."
   }
 }
 ```
@@ -372,6 +533,15 @@ START
   "flags": {
     "needs_research": true,
     "needs_self_critique": false
+  },
+  "validation_recommendations": {
+    "risk_level": "critical",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration", "e2e", "security"],
+    "security_scan_required": true,
+    "staging_deployment_required": true,
+    "reasoning": "Payment integration is security-critical. Requires full test coverage, security scanning for PCI compliance, and staging deployment to verify webhooks."
   }
 }
 ```
@@ -403,6 +573,15 @@ START
   "flags": {
     "needs_research": false,
     "needs_self_critique": false
+  },
+  "validation_recommendations": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scan_required": true,
+    "staging_deployment_required": false,
+    "reasoning": "Authentication changes are security-sensitive. Requires comprehensive testing including E2E for login flows and security scan for auth-related vulnerabilities."
   }
 }
 ```
@@ -454,6 +633,15 @@ START
     "needs_research": true,
     "needs_self_critique": true,
     "needs_infrastructure_setup": true
+  },
+  "validation_recommendations": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scan_required": true,
+    "staging_deployment_required": true,
+    "reasoning": "Database integration with new dependencies requires full test coverage. Security scan for API key handling. Staging deployment to verify Docker container orchestration."
   }
 }
 ```

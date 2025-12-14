@@ -1,0 +1,165 @@
+{
+  "project_root": "/Users/andremikalsen/Documents/Coding/autonomous-coding/auto-claude",
+  "project_type": "single",
+  "services": {
+    "main": {
+      "name": "main",
+      "path": "/Users/andremikalsen/Documents/Coding/autonomous-coding/auto-claude",
+      "language": "Python",
+      "framework": null,
+      "type": "unknown",
+      "package_manager": "pip",
+      "dependencies": [
+        "claude-agent-sdk",
+        "python-dotenv",
+        "graphiti-core"
+      ],
+      "environment": {
+        "variables": {
+          "CLAUDE_CODE_OAUTH_TOKEN": {
+            "value": "<REDACTED>",
+            "source": ".env",
+            "type": "string",
+            "sensitive": true,
+            "required": true
+          },
+          "CLAUDE_CODE_OAUTH_TOKEN_2": {
+            "value": "<REDACTED>",
+            "source": ".env",
+            "type": "string",
+            "sensitive": true,
+            "required": false
+          },
+          "ENABLE_FANCY_UI": {
+            "value": "true",
+            "source": ".env",
+            "type": "boolean",
+            "sensitive": false,
+            "required": false
+          },
+          "GRAPHITI_ENABLED": {
+            "value": "true",
+            "source": ".env",
+            "type": "boolean",
+            "sensitive": false,
+            "required": false
+          },
+          "OPENAI_API_KEY": {
+            "value": "<REDACTED>",
+            "source": ".env",
+            "type": "string",
+            "sensitive": true,
+            "required": false
+          },
+          "OPENAI_MODEL": {
+            "value": "gpt-5-mini",
+            "source": ".env",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          },
+          "GRAPHITI_FALKORDB_HOST": {
+            "value": "localhost",
+            "source": ".env",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          },
+          "GRAPHITI_FALKORDB_PORT": {
+            "value": "6380",
+            "source": ".env",
+            "type": "number",
+            "sensitive": false,
+            "required": false
+          },
+          "GRAPHITI_DATABASE": {
+            "value": "auto_build_memory",
+            "source": ".env",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          },
+          "DEBUG": {
+            "value": "true",
+            "source": ".env",
+            "type": "boolean",
+            "sensitive": false,
+            "required": false
+          },
+          "DEBUG_LEVEL": {
+            "value": "3",
+            "source": ".env",
+            "type": "number",
+            "sensitive": false,
+            "required": false
+          },
+          "FALKORDB_ARGS": {
+            "value": null,
+            "source": "../docker-compose.yml",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          }
+        },
+        "required_count": 1,
+        "optional_count": 0,
+        "detected_count": 12
+      },
+      "api": {
+        "routes": [
+          {
+            "path": "/path",
+            "methods": [
+              "GET"
+            ],
+            "file": "analyzer.py",
+            "framework": "FastAPI",
+            "requires_auth": false
+          },
+          {
+            "path": "/path",
+            "methods": [
+              "POST"
+            ],
+            "file": "analyzer.py",
+            "framework": "FastAPI",
+            "requires_auth": false
+          },
+          {
+            "path": "/add_episode",
+            "methods": [
+              "POST"
+            ],
+            "file": ".venv/lib/python3.14/site-packages/graphiti_core/graphiti.py",
+            "framework": "FastAPI",
+            "requires_auth": false
+          },
+          {
+            "path": "/path",
+            "methods": [
+              "GET",
+              "POST"
+            ],
+            "file": "analyzer.py",
+            "framework": "Flask",
+            "requires_auth": true
+          }
+        ],
+        "total_routes": 4,
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "protected_routes": [
+          "/path"
+        ]
+      },
+      "monitoring": {
+        "metrics_endpoint": "/metrics",
+        "metrics_type": "prometheus"
+      }
+    }
+  },
+  "infrastructure": {},
+  "conventions": {}
+}

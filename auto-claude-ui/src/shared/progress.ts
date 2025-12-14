@@ -2,48 +2,48 @@
  * Shared progress calculation utilities
  * Used by both main and renderer processes
  */
-import type { Chunk, ChunkStatus } from './types';
+import type { Subtask, SubtaskStatus } from './types';
 
 /**
- * Calculate progress percentage from chunks
- * @param chunks Array of chunks with status
+ * Calculate progress percentage from subtasks
+ * @param subtasks Array of subtasks with status
  * @returns Progress percentage (0-100)
  */
-export function calculateProgress(chunks: { status: string }[]): number {
-  if (chunks.length === 0) return 0;
-  const completed = chunks.filter((c) => c.status === 'completed').length;
-  return Math.round((completed / chunks.length) * 100);
+export function calculateProgress(subtasks: { status: string }[]): number {
+  if (subtasks.length === 0) return 0;
+  const completed = subtasks.filter((c) => c.status === 'completed').length;
+  return Math.round((completed / subtasks.length) * 100);
 }
 
 /**
- * Count chunks by status
- * @param chunks Array of chunks
+ * Count subtasks by status
+ * @param subtasks Array of subtasks
  * @returns Object with counts per status
  */
-export function countChunksByStatus(chunks: Chunk[]): Record<ChunkStatus, number> {
+export function countSubtasksByStatus(subtasks: Subtask[]): Record<SubtaskStatus, number> {
   return {
-    pending: chunks.filter((c) => c.status === 'pending').length,
-    in_progress: chunks.filter((c) => c.status === 'in_progress').length,
-    completed: chunks.filter((c) => c.status === 'completed').length,
-    failed: chunks.filter((c) => c.status === 'failed').length
+    pending: subtasks.filter((c) => c.status === 'pending').length,
+    in_progress: subtasks.filter((c) => c.status === 'in_progress').length,
+    completed: subtasks.filter((c) => c.status === 'completed').length,
+    failed: subtasks.filter((c) => c.status === 'failed').length
   };
 }
 
 /**
- * Determine overall status from chunk statuses
- * @param chunks Array of chunks
+ * Determine overall status from subtask statuses
+ * @param subtasks Array of subtasks
  * @returns Overall status string
  */
 export function determineOverallStatus(
-  chunks: { status: string }[]
+  subtasks: { status: string }[]
 ): 'not_started' | 'in_progress' | 'completed' | 'failed' {
-  if (chunks.length === 0) return 'not_started';
+  if (subtasks.length === 0) return 'not_started';
 
-  const hasCompleted = chunks.some((c) => c.status === 'completed');
-  const hasFailed = chunks.some((c) => c.status === 'failed');
-  const hasInProgress = chunks.some((c) => c.status === 'in_progress');
-  const allCompleted = chunks.every((c) => c.status === 'completed');
-  const allPending = chunks.every((c) => c.status === 'pending');
+  const hasCompleted = subtasks.some((c) => c.status === 'completed');
+  const hasFailed = subtasks.some((c) => c.status === 'failed');
+  const hasInProgress = subtasks.some((c) => c.status === 'in_progress');
+  const allCompleted = subtasks.every((c) => c.status === 'completed');
+  const allPending = subtasks.every((c) => c.status === 'pending');
 
   if (allCompleted) return 'completed';
   if (hasFailed) return 'failed';
@@ -55,13 +55,13 @@ export function determineOverallStatus(
 
 /**
  * Format progress as display string
- * @param completed Number of completed chunks
- * @param total Total number of chunks
- * @returns Formatted string like "3/5 chunks"
+ * @param completed Number of completed subtasks
+ * @param total Total number of subtasks
+ * @returns Formatted string like "3/5 subtasks"
  */
 export function formatProgressString(completed: number, total: number): string {
-  if (total === 0) return 'No chunks';
-  return `${completed}/${total} chunks`;
+  if (total === 0) return 'No subtasks';
+  return `${completed}/${total} subtasks`;
 }
 
 /**

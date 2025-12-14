@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   FileText,
   RefreshCw,
@@ -15,7 +15,13 @@ import {
   Archive,
   Github,
   ExternalLink,
-  PartyPopper
+  PartyPopper,
+  GitBranch,
+  GitCommit,
+  History,
+  Tag,
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -33,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
   Tooltip,
   TooltipContent,
@@ -49,21 +56,30 @@ import { loadTasks } from '../stores/task-store';
 import {
   useChangelogStore,
   loadChangelogData,
+  loadGitData,
+  loadCommitsPreview,
   generateChangelog,
   saveChangelog,
-  copyChangelogToClipboard
+  copyChangelogToClipboard,
+  canGenerate as canGenerateSelector
 } from '../stores/changelog-store';
 import {
   CHANGELOG_FORMAT_LABELS,
   CHANGELOG_FORMAT_DESCRIPTIONS,
   CHANGELOG_AUDIENCE_LABELS,
   CHANGELOG_AUDIENCE_DESCRIPTIONS,
-  CHANGELOG_STAGE_LABELS
+  CHANGELOG_STAGE_LABELS,
+  CHANGELOG_SOURCE_MODE_LABELS,
+  CHANGELOG_SOURCE_MODE_DESCRIPTIONS
 } from '../../shared/constants';
 import type {
   ChangelogFormat,
   ChangelogAudience,
-  ChangelogTask
+  ChangelogTask,
+  ChangelogSourceMode,
+  GitBranchInfo,
+  GitTagInfo,
+  GitCommit as GitCommitType
 } from '../../shared/types';
 import { cn } from '../lib/utils';
 
@@ -72,9 +88,37 @@ type WizardStep = 1 | 2 | 3;
 export function Changelog() {
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
 
+  // Data state
   const doneTasks = useChangelogStore((state) => state.doneTasks);
   const selectedTaskIds = useChangelogStore((state) => state.selectedTaskIds);
   const existingChangelog = useChangelogStore((state) => state.existingChangelog);
+
+  // Source mode state
+  const sourceMode = useChangelogStore((state) => state.sourceMode);
+
+  // Git data state
+  const branches = useChangelogStore((state) => state.branches);
+  const tags = useChangelogStore((state) => state.tags);
+  const currentBranch = useChangelogStore((state) => state.currentBranch);
+  const defaultBranch = useChangelogStore((state) => state.defaultBranch);
+  const previewCommits = useChangelogStore((state) => state.previewCommits);
+  const isLoadingGitData = useChangelogStore((state) => state.isLoadingGitData);
+  const isLoadingCommits = useChangelogStore((state) => state.isLoadingCommits);
+
+  // Git history options state
+  const gitHistoryType = useChangelogStore((state) => state.gitHistoryType);
+  const gitHistoryCount = useChangelogStore((state) => state.gitHistoryCount);
+  const gitHistorySinceDate = useChangelogStore((state) => state.gitHistorySinceDate);
+  const gitHistoryFromTag = useChangelogStore((state) => state.gitHistoryFromTag);
+  const gitHistoryToTag = useChangelogStore((state) => state.gitHistoryToTag);
+  const gitHistorySinceVersion = useChangelogStore((state) => state.gitHistorySinceVersion);
+  const includeMergeCommits = useChangelogStore((state) => state.includeMergeCommits);
+
+  // Branch diff options state
+  const baseBranch = useChangelogStore((state) => state.baseBranch);
+  const compareBranch = useChangelogStore((state) => state.compareBranch);
+
+  // Generation config state
   const version = useChangelogStore((state) => state.version);
   const date = useChangelogStore((state) => state.date);
   const format = useChangelogStore((state) => state.format);
@@ -85,9 +129,28 @@ export function Changelog() {
   const isGenerating = useChangelogStore((state) => state.isGenerating);
   const error = useChangelogStore((state) => state.error);
 
+  // Task actions
   const toggleTaskSelection = useChangelogStore((state) => state.toggleTaskSelection);
   const selectAllTasks = useChangelogStore((state) => state.selectAllTasks);
   const deselectAllTasks = useChangelogStore((state) => state.deselectAllTasks);
+
+  // Source mode actions
+  const setSourceMode = useChangelogStore((state) => state.setSourceMode);
+
+  // Git history options actions
+  const setGitHistoryType = useChangelogStore((state) => state.setGitHistoryType);
+  const setGitHistoryCount = useChangelogStore((state) => state.setGitHistoryCount);
+  const setGitHistorySinceDate = useChangelogStore((state) => state.setGitHistorySinceDate);
+  const setGitHistoryFromTag = useChangelogStore((state) => state.setGitHistoryFromTag);
+  const setGitHistoryToTag = useChangelogStore((state) => state.setGitHistoryToTag);
+  const setGitHistorySinceVersion = useChangelogStore((state) => state.setGitHistorySinceVersion);
+  const setIncludeMergeCommits = useChangelogStore((state) => state.setIncludeMergeCommits);
+
+  // Branch diff options actions
+  const setBaseBranch = useChangelogStore((state) => state.setBaseBranch);
+  const setCompareBranch = useChangelogStore((state) => state.setCompareBranch);
+
+  // Generation config actions
   const setVersion = useChangelogStore((state) => state.setVersion);
   const setDate = useChangelogStore((state) => state.setDate);
   const setFormat = useChangelogStore((state) => state.setFormat);
@@ -109,8 +172,28 @@ export function Changelog() {
   useEffect(() => {
     if (selectedProjectId) {
       loadChangelogData(selectedProjectId);
+      loadGitData(selectedProjectId);
     }
   }, [selectedProjectId]);
+
+  // Load commits preview when source mode or options change
+  const handleLoadCommitsPreview = useCallback(() => {
+    if (selectedProjectId && (sourceMode === 'git-history' || sourceMode === 'branch-diff')) {
+      loadCommitsPreview(selectedProjectId);
+    }
+  }, [
+    selectedProjectId,
+    sourceMode,
+    gitHistoryType,
+    gitHistoryCount,
+    gitHistorySinceDate,
+    gitHistoryFromTag,
+    gitHistoryToTag,
+    gitHistorySinceVersion,
+    includeMergeCommits,
+    baseBranch,
+    compareBranch
+  ]);
 
   // Set up event listeners for generation
   useEffect(() => {
@@ -214,9 +297,22 @@ export function Changelog() {
     setStep(1);
   };
 
-  const canGenerate = selectedTaskIds.length > 0 && !isGenerating;
+  const canGenerate = canGenerateSelector();
   const canSave = generatedChangelog.length > 0 && !isGenerating;
-  const canContinue = selectedTaskIds.length > 0;
+
+  // Determine if we can continue based on source mode
+  const canContinue = (() => {
+    switch (sourceMode) {
+      case 'tasks':
+        return selectedTaskIds.length > 0;
+      case 'git-history':
+        return previewCommits.length > 0;
+      case 'branch-diff':
+        return baseBranch !== '' && compareBranch !== '' && baseBranch !== compareBranch && previewCommits.length > 0;
+      default:
+        return false;
+    }
+  })();
 
   if (!selectedProjectId) {
     return (
@@ -271,20 +367,56 @@ export function Changelog() {
 
         {/* Content */}
         {step === 1 && (
-          <Step1TaskSelection
+          <Step1SourceSelection
+            // Source mode props
+            sourceMode={sourceMode}
+            onSourceModeChange={setSourceMode}
+            // Task selection props
             doneTasks={doneTasks}
             selectedTaskIds={selectedTaskIds}
             onToggle={toggleTaskSelection}
             onSelectAll={selectAllTasks}
             onDeselectAll={deselectAllTasks}
+            // Git data props
+            branches={branches}
+            tags={tags}
+            currentBranch={currentBranch}
+            defaultBranch={defaultBranch}
+            previewCommits={previewCommits}
+            isLoadingGitData={isLoadingGitData}
+            isLoadingCommits={isLoadingCommits}
+            // Git history options props
+            gitHistoryType={gitHistoryType}
+            gitHistoryCount={gitHistoryCount}
+            gitHistorySinceDate={gitHistorySinceDate}
+            gitHistoryFromTag={gitHistoryFromTag}
+            gitHistoryToTag={gitHistoryToTag}
+            gitHistorySinceVersion={gitHistorySinceVersion}
+            includeMergeCommits={includeMergeCommits}
+            onGitHistoryTypeChange={setGitHistoryType}
+            onGitHistoryCountChange={setGitHistoryCount}
+            onGitHistorySinceDateChange={setGitHistorySinceDate}
+            onGitHistoryFromTagChange={setGitHistoryFromTag}
+            onGitHistoryToTagChange={setGitHistoryToTag}
+            onGitHistorySinceVersionChange={setGitHistorySinceVersion}
+            onIncludeMergeCommitsChange={setIncludeMergeCommits}
+            // Branch diff options props
+            baseBranch={baseBranch}
+            compareBranch={compareBranch}
+            onBaseBranchChange={setBaseBranch}
+            onCompareBranchChange={setCompareBranch}
+            // Actions
+            onLoadCommitsPreview={handleLoadCommitsPreview}
             onContinue={handleContinue}
             canContinue={canContinue}
           />
         )}
         {step === 2 && (
           <Step2ConfigureGenerate
+            sourceMode={sourceMode}
             selectedTaskIds={selectedTaskIds}
             doneTasks={doneTasks}
+            previewCommits={previewCommits}
             existingChangelog={existingChangelog}
             version={version}
             versionReason={versionReason}
@@ -372,91 +504,598 @@ function StepIndicator({ step, currentStep, label }: StepIndicatorProps) {
   );
 }
 
-interface Step1Props {
+interface Step1SourceSelectionProps {
+  // Source mode
+  sourceMode: ChangelogSourceMode;
+  onSourceModeChange: (mode: ChangelogSourceMode) => void;
+  // Task selection
   doneTasks: ChangelogTask[];
   selectedTaskIds: string[];
   onToggle: (taskId: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  // Git data
+  branches: GitBranchInfo[];
+  tags: GitTagInfo[];
+  currentBranch: string;
+  defaultBranch: string;
+  previewCommits: GitCommitType[];
+  isLoadingGitData: boolean;
+  isLoadingCommits: boolean;
+  // Git history options
+  gitHistoryType: 'recent' | 'since-date' | 'tag-range' | 'since-version';
+  gitHistoryCount: number;
+  gitHistorySinceDate: string;
+  gitHistoryFromTag: string;
+  gitHistoryToTag: string;
+  gitHistorySinceVersion: string;
+  includeMergeCommits: boolean;
+  onGitHistoryTypeChange: (type: 'recent' | 'since-date' | 'tag-range' | 'since-version') => void;
+  onGitHistoryCountChange: (count: number) => void;
+  onGitHistorySinceDateChange: (date: string) => void;
+  onGitHistoryFromTagChange: (tag: string) => void;
+  onGitHistoryToTagChange: (tag: string) => void;
+  onGitHistorySinceVersionChange: (version: string) => void;
+  onIncludeMergeCommitsChange: (include: boolean) => void;
+  // Branch diff options
+  baseBranch: string;
+  compareBranch: string;
+  onBaseBranchChange: (branch: string) => void;
+  onCompareBranchChange: (branch: string) => void;
+  // Actions
+  onLoadCommitsPreview: () => void;
   onContinue: () => void;
   canContinue: boolean;
 }
 
-function Step1TaskSelection({
+function Step1SourceSelection({
+  sourceMode,
+  onSourceModeChange,
   doneTasks,
   selectedTaskIds,
   onToggle,
   onSelectAll,
   onDeselectAll,
+  branches,
+  tags,
+  currentBranch,
+  defaultBranch,
+  previewCommits,
+  isLoadingGitData,
+  isLoadingCommits,
+  gitHistoryType,
+  gitHistoryCount,
+  gitHistorySinceDate,
+  gitHistoryFromTag,
+  gitHistoryToTag,
+  gitHistorySinceVersion,
+  includeMergeCommits,
+  onGitHistoryTypeChange,
+  onGitHistoryCountChange,
+  onGitHistorySinceDateChange,
+  onGitHistoryFromTagChange,
+  onGitHistoryToTagChange,
+  onGitHistorySinceVersionChange,
+  onIncludeMergeCommitsChange,
+  baseBranch,
+  compareBranch,
+  onBaseBranchChange,
+  onCompareBranchChange,
+  onLoadCommitsPreview,
   onContinue,
   canContinue
-}: Step1Props) {
+}: Step1SourceSelectionProps) {
+  const localBranches = branches.filter((b) => !b.isRemote);
+
+  // Get summary text for footer badge
+  const getSummaryCount = () => {
+    switch (sourceMode) {
+      case 'tasks':
+        return selectedTaskIds.length;
+      case 'git-history':
+      case 'branch-diff':
+        return previewCommits.length;
+      default:
+        return 0;
+    }
+  };
+
+  const getSummaryLabel = () => {
+    switch (sourceMode) {
+      case 'tasks':
+        return 'task';
+      case 'git-history':
+      case 'branch-diff':
+        return 'commit';
+      default:
+        return 'item';
+    }
+  };
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Task selection header */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-muted/30">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">
-            {selectedTaskIds.length} of {doneTasks.length} tasks selected
-          </span>
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSelectAll}
-              className="h-7 px-2 text-xs"
+    <div className="flex flex-1 overflow-hidden">
+      {/* Left Panel - Source Mode Selection */}
+      <div className="w-80 flex-shrink-0 border-r border-border overflow-y-auto">
+        <div className="p-6 space-y-6">
+          {/* Source Mode Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Changelog Source</Label>
+            <RadioGroup
+              value={sourceMode}
+              onValueChange={(value) => onSourceModeChange(value as ChangelogSourceMode)}
+              className="space-y-2"
             >
-              Select All
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDeselectAll}
-              className="h-7 px-2 text-xs"
-            >
-              Clear
-            </Button>
+              <label
+                className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-all',
+                  sourceMode === 'tasks'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                <RadioGroupItem value="tasks" className="mt-1" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="font-medium text-sm">
+                      {CHANGELOG_SOURCE_MODE_LABELS['tasks']}
+                    </span>
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {doneTasks.length}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {CHANGELOG_SOURCE_MODE_DESCRIPTIONS['tasks']}
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-all',
+                  sourceMode === 'git-history'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                <RadioGroupItem value="git-history" className="mt-1" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    <span className="font-medium text-sm">
+                      {CHANGELOG_SOURCE_MODE_LABELS['git-history']}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {CHANGELOG_SOURCE_MODE_DESCRIPTIONS['git-history']}
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-all',
+                  sourceMode === 'branch-diff'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                <RadioGroupItem value="branch-diff" className="mt-1" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="h-4 w-4" />
+                    <span className="font-medium text-sm">
+                      {CHANGELOG_SOURCE_MODE_LABELS['branch-diff']}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {CHANGELOG_SOURCE_MODE_DESCRIPTIONS['branch-diff']}
+                  </p>
+                </div>
+              </label>
+            </RadioGroup>
           </div>
+
+          {/* Git History Options */}
+          {sourceMode === 'git-history' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Git History Options</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* History Type */}
+                <div className="space-y-2">
+                  <Label className="text-xs">History Type</Label>
+                  <Select
+                    value={gitHistoryType}
+                    onValueChange={(v) => onGitHistoryTypeChange(v as 'recent' | 'since-date' | 'tag-range' | 'since-version')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="since-version">
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-3 w-3" />
+                          Since Version
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="recent">
+                        <div className="flex items-center gap-2">
+                          <History className="h-3 w-3" />
+                          Recent Commits
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="since-date">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3" />
+                          Since Date
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="tag-range">
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-3 w-3" />
+                          Tag Range
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Type-specific options */}
+                {gitHistoryType === 'recent' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Number of Commits</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={gitHistoryCount}
+                      onChange={(e) => onGitHistoryCountChange(parseInt(e.target.value) || 25)}
+                    />
+                  </div>
+                )}
+
+                {gitHistoryType === 'since-date' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Since Date</Label>
+                    <Input
+                      type="date"
+                      value={gitHistorySinceDate}
+                      onChange={(e) => onGitHistorySinceDateChange(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {gitHistoryType === 'tag-range' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs">From Tag</Label>
+                      <Select value={gitHistoryFromTag} onValueChange={onGitHistoryFromTagChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tag..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tags.map((tag) => (
+                            <SelectItem key={tag.name} value={tag.name}>
+                              {tag.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">To Tag (optional)</Label>
+                      <Select value={gitHistoryToTag || 'HEAD'} onValueChange={(v) => onGitHistoryToTagChange(v === 'HEAD' ? '' : v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="HEAD (latest)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="HEAD">HEAD (latest)</SelectItem>
+                          {tags.map((tag) => (
+                            <SelectItem key={tag.name} value={tag.name}>
+                              {tag.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {gitHistoryType === 'since-version' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Last Version</Label>
+                    <Select value={gitHistorySinceVersion} onValueChange={onGitHistorySinceVersionChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select version..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tags.map((tag) => (
+                          <SelectItem key={tag.name} value={tag.name}>
+                            {tag.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      All commits since this version will be included
+                    </p>
+                  </div>
+                )}
+
+                {/* Include merge commits */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="merge-commits"
+                    checked={includeMergeCommits}
+                    onCheckedChange={(checked) => onIncludeMergeCommitsChange(checked as boolean)}
+                  />
+                  <Label htmlFor="merge-commits" className="text-xs cursor-pointer">
+                    Include merge commits
+                  </Label>
+                </div>
+
+                {/* Load Preview Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={onLoadCommitsPreview}
+                  disabled={isLoadingCommits || isLoadingGitData}
+                >
+                  {isLoadingCommits ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Load Commits
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Branch Diff Options */}
+          {sourceMode === 'branch-diff' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Branch Comparison</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Base Branch</Label>
+                  <Select value={baseBranch} onValueChange={onBaseBranchChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select base branch..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {localBranches.map((branch) => (
+                        <SelectItem key={branch.name} value={branch.name}>
+                          <div className="flex items-center gap-2">
+                            {branch.name}
+                            {branch.name === defaultBranch && (
+                              <Badge variant="outline" className="text-xs">default</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The branch you're merging into
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Compare Branch</Label>
+                  <Select value={compareBranch} onValueChange={onCompareBranchChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select compare branch..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {localBranches.map((branch) => (
+                        <SelectItem key={branch.name} value={branch.name}>
+                          <div className="flex items-center gap-2">
+                            {branch.name}
+                            {branch.isCurrent && (
+                              <Badge variant="secondary" className="text-xs">current</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The branch with your changes
+                  </p>
+                </div>
+
+                {baseBranch && compareBranch && baseBranch === compareBranch && (
+                  <div className="flex items-center gap-2 text-destructive text-xs">
+                    <AlertCircle className="h-3 w-3" />
+                    Branches must be different
+                  </div>
+                )}
+
+                {/* Load Preview Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={onLoadCommitsPreview}
+                  disabled={isLoadingCommits || isLoadingGitData || !baseBranch || !compareBranch || baseBranch === compareBranch}
+                >
+                  {isLoadingCommits ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Load Commits
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* Task grid */}
-      <ScrollArea className="flex-1 p-6">
-        {doneTasks.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground/30" />
-              <h3 className="mt-4 text-lg font-medium">No Completed Tasks</h3>
-              <p className="mt-2 text-sm text-muted-foreground max-w-md">
-                Complete tasks in the Kanban board and mark them as "Done" to include them in your changelog.
-              </p>
+      {/* Right Panel - Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Tasks Mode - Task Selection */}
+        {sourceMode === 'tasks' && (
+          <>
+            {/* Task selection header */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-muted/30">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">
+                  {selectedTaskIds.length} of {doneTasks.length} tasks selected
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onSelectAll}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDeselectAll}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {doneTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                isSelected={selectedTaskIds.includes(task.id)}
-                onToggle={() => onToggle(task.id)}
-              />
-            ))}
-          </div>
-        )}
-      </ScrollArea>
 
-      {/* Footer with Continue button */}
-      <div className="flex items-center justify-end border-t border-border px-6 py-4 bg-background">
-        <Button onClick={onContinue} disabled={!canContinue} size="lg">
-          Continue
-          <ArrowRight className="ml-2 h-4 w-4" />
-          {canContinue && (
-            <Badge variant="secondary" className="ml-2">
-              {selectedTaskIds.length}
-            </Badge>
+            {/* Task grid */}
+            <ScrollArea className="flex-1 p-6">
+              {doneTasks.length === 0 ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center py-12">
+                    <FileText className="mx-auto h-12 w-12 text-muted-foreground/30" />
+                    <h3 className="mt-4 text-lg font-medium">No Completed Tasks</h3>
+                    <p className="mt-2 text-sm text-muted-foreground max-w-md">
+                      Complete tasks in the Kanban board and mark them as "Done" to include them in your changelog.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {doneTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      isSelected={selectedTaskIds.includes(task.id)}
+                      onToggle={() => onToggle(task.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </>
+        )}
+
+        {/* Git History / Branch Diff Mode - Commit Preview */}
+        {(sourceMode === 'git-history' || sourceMode === 'branch-diff') && (
+          <>
+            {/* Commit preview header */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-muted/30">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">
+                  {previewCommits.length} commit{previewCommits.length !== 1 ? 's' : ''} found
+                </span>
+                {isLoadingCommits && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            {/* Commit list */}
+            <ScrollArea className="flex-1 p-6">
+              {isLoadingCommits ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center py-12">
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="mt-4 text-sm text-muted-foreground">Loading commits...</p>
+                  </div>
+                </div>
+              ) : previewCommits.length === 0 ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center py-12">
+                    <GitCommit className="mx-auto h-12 w-12 text-muted-foreground/30" />
+                    <h3 className="mt-4 text-lg font-medium">No Commits Found</h3>
+                    <p className="mt-2 text-sm text-muted-foreground max-w-md">
+                      {sourceMode === 'git-history'
+                        ? 'Configure the history options and click "Load Commits" to preview.'
+                        : 'Select both branches and click "Load Commits" to see the changes.'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {previewCommits.map((commit) => (
+                    <CommitCard key={commit.fullHash} commit={commit} />
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </>
+        )}
+
+        {/* Footer with Continue button */}
+        <div className="flex items-center justify-end border-t border-border px-6 py-4 bg-background">
+          <Button onClick={onContinue} disabled={!canContinue} size="lg">
+            Continue
+            <ArrowRight className="ml-2 h-4 w-4" />
+            {canContinue && (
+              <Badge variant="secondary" className="ml-2">
+                {getSummaryCount()} {getSummaryLabel()}{getSummaryCount() !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CommitCardProps {
+  commit: GitCommitType;
+}
+
+function CommitCard({ commit }: CommitCardProps) {
+  const commitDate = new Date(commit.date).toLocaleDateString();
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-border p-3 bg-background">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+        <GitCommit className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium leading-tight line-clamp-2">{commit.subject}</p>
+          <code className="text-xs text-muted-foreground font-mono shrink-0">{commit.hash}</code>
+        </div>
+        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+          <span>{commit.author}</span>
+          <span>{commitDate}</span>
+          {commit.filesChanged !== undefined && (
+            <span>
+              {commit.filesChanged} file{commit.filesChanged !== 1 ? 's' : ''}
+            </span>
           )}
-        </Button>
+        </div>
       </div>
     </div>
   );
@@ -510,8 +1149,10 @@ function TaskCard({ task, isSelected, onToggle }: TaskCardProps) {
 }
 
 interface Step2Props {
+  sourceMode: ChangelogSourceMode;
   selectedTaskIds: string[];
   doneTasks: ChangelogTask[];
+  previewCommits: GitCommitType[];
   existingChangelog: { lastVersion?: string } | null;
   version: string;
   versionReason: string | null;
@@ -542,8 +1183,10 @@ interface Step2Props {
 }
 
 function Step2ConfigureGenerate({
+  sourceMode,
   selectedTaskIds,
   doneTasks,
+  previewCommits,
   existingChangelog,
   version,
   versionReason,
@@ -574,6 +1217,31 @@ function Step2ConfigureGenerate({
 }: Step2Props) {
   const selectedTasks = doneTasks.filter((t) => selectedTaskIds.includes(t.id));
 
+  // Get summary info based on source mode
+  const getSummaryInfo = () => {
+    switch (sourceMode) {
+      case 'tasks':
+        return {
+          count: selectedTaskIds.length,
+          label: 'task',
+          details: selectedTasks.slice(0, 3).map((t) => t.title).join(', ') +
+            (selectedTasks.length > 3 ? ` +${selectedTasks.length - 3} more` : '')
+        };
+      case 'git-history':
+      case 'branch-diff':
+        return {
+          count: previewCommits.length,
+          label: 'commit',
+          details: previewCommits.slice(0, 3).map((c) => c.subject.substring(0, 40)).join(', ') +
+            (previewCommits.length > 3 ? ` +${previewCommits.length - 3} more` : '')
+        };
+      default:
+        return { count: 0, label: 'item', details: '' };
+    }
+  };
+
+  const summaryInfo = getSummaryInfo();
+
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left Panel - Configuration */}
@@ -586,12 +1254,16 @@ function Step2ConfigureGenerate({
               Back to Selection
             </Button>
             <div className="rounded-lg bg-muted/50 p-3">
-              <div className="text-sm font-medium">
-                Including {selectedTaskIds.length} task{selectedTaskIds.length !== 1 ? 's' : ''}
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {sourceMode === 'tasks' ? (
+                  <FileText className="h-4 w-4" />
+                ) : (
+                  <GitCommit className="h-4 w-4" />
+                )}
+                Including {summaryInfo.count} {summaryInfo.label}{summaryInfo.count !== 1 ? 's' : ''}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {selectedTasks.slice(0, 3).map((t) => t.title).join(', ')}
-                {selectedTasks.length > 3 && ` +${selectedTasks.length - 3} more`}
+              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {summaryInfo.details}
               </div>
             </div>
           </div>

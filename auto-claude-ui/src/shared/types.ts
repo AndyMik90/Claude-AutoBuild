@@ -40,7 +40,7 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review
 // Reason why a task is in human_review status
 export type ReviewReason = 'completed' | 'errors' | 'qa_rejected';
 
-export type ChunkStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
 // Execution phases for visual progress tracking
 export type ExecutionPhase = 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
@@ -49,16 +49,16 @@ export interface ExecutionProgress {
   phase: ExecutionPhase;
   phaseProgress: number;  // 0-100 within current phase
   overallProgress: number;  // 0-100 overall
-  currentChunk?: string;  // Current chunk being processed
+  currentSubtask?: string;  // Current subtask being processed
   message?: string;  // Current status message
   startedAt?: Date;
 }
 
-export interface Chunk {
+export interface Subtask {
   id: string;
   title: string;
   description: string;
-  status: ChunkStatus;
+  status: SubtaskStatus;
   files: string[];
   verification?: {
     type: 'command' | 'browser';
@@ -93,7 +93,7 @@ export interface TaskLogEntry {
   phase: TaskLogPhase;
   tool_name?: string;
   tool_input?: string;
-  chunk_id?: string;
+  subtask_id?: string;
   session?: number;
   // Fields for expandable detail view
   detail?: string;  // Full content that can be expanded (e.g., file contents, command output)
@@ -131,7 +131,7 @@ export interface TaskLogStreamChunk {
     input?: string;
     success?: boolean;
   };
-  chunk_id?: string;
+  subtask_id?: string;
 }
 
 // Image attachment types for task creation
@@ -177,7 +177,7 @@ export type TaskCategory =
 export interface TaskMetadata {
   // Origin tracking
   sourceType?: 'ideation' | 'manual' | 'imported' | 'insights' | 'roadmap' | 'linear' | 'github';
-  ideationType?: string;  // e.g., 'high_value_features', 'security_hardening'
+  ideationType?: string;  // e.g., 'code_improvements', 'security_hardening'
   ideaId?: string;  // Reference to original idea if converted
   featureId?: string;  // Reference to roadmap feature if from roadmap
   linearIssueId?: string;  // Reference to Linear issue if from Linear
@@ -230,7 +230,7 @@ export interface Task {
   description: string;
   status: TaskStatus;
   reviewReason?: ReviewReason;  // Why task needs human review (only set when status is 'human_review')
-  chunks: Chunk[];
+  subtasks: Subtask[];
   qaReport?: QAReport;
   logs: string[];
   metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
@@ -261,14 +261,14 @@ export interface Phase {
   phase: number;
   name: string;
   type: string;
-  chunks: PlanChunk[];
+  subtasks: PlanSubtask[];
   depends_on?: number[];
 }
 
-export interface PlanChunk {
+export interface PlanSubtask {
   id: string;
   description: string;
-  status: ChunkStatus;
+  status: SubtaskStatus;
   verification?: {
     type: string;
     run?: string;
@@ -372,14 +372,14 @@ export interface TaskRecoveryOptions {
 export interface TaskProgressUpdate {
   taskId: string;
   plan: ImplementationPlan;
-  currentChunk?: string;
+  currentSubtask?: string;
 }
 
 // App Settings
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   defaultModel: string;
-  defaultParallelism: number;
+  agentFramework: string;
   pythonPath?: string;
   autoBuildPath?: string;
   autoUpdateAutoBuild: boolean;
@@ -473,6 +473,158 @@ export interface RateLimitInfo {
   terminalId: string;
   resetTime: string;  // e.g., "Dec 17 at 6am (Europe/Oslo)"
   detectedAt: Date;
+  /** ID of the profile that hit the limit */
+  profileId?: string;
+  /** ID of a suggested alternative profile to switch to */
+  suggestedProfileId?: string;
+  /** Name of the suggested alternative profile */
+  suggestedProfileName?: string;
+  /** Whether auto-switch on rate limit is enabled */
+  autoSwitchEnabled?: boolean;
+}
+
+/**
+ * Rate limit information for SDK/CLI calls (non-terminal)
+ * Used for changelog, task execution, roadmap, ideation, etc.
+ */
+export interface SDKRateLimitInfo {
+  /** Source of the rate limit (which feature hit it) */
+  source: 'changelog' | 'task' | 'roadmap' | 'ideation' | 'title-generator' | 'other';
+  /** Project ID if applicable */
+  projectId?: string;
+  /** Task ID if applicable */
+  taskId?: string;
+  /** The reset time string (e.g., "Dec 17 at 6am (Europe/Oslo)") */
+  resetTime?: string;
+  /** Type of limit: 'session' (5-hour) or 'weekly' (7-day) */
+  limitType?: 'session' | 'weekly';
+  /** Profile that hit the limit */
+  profileId: string;
+  /** Profile name for display */
+  profileName?: string;
+  /** Suggested alternative profile */
+  suggestedProfile?: {
+    id: string;
+    name: string;
+  };
+  /** When detected */
+  detectedAt: Date;
+  /** Original error message */
+  originalError?: string;
+}
+
+/**
+ * Request to retry a rate-limited operation with a different profile
+ */
+export interface RetryWithProfileRequest {
+  /** Source of the original operation */
+  source: SDKRateLimitInfo['source'];
+  /** Project ID */
+  projectId: string;
+  /** Task ID if applicable */
+  taskId?: string;
+  /** Profile ID to retry with */
+  profileId: string;
+}
+
+// ============================================
+// Claude Profile Types (Multi-Account Support)
+// ============================================
+
+/**
+ * Usage data parsed from Claude Code's /usage command
+ */
+export interface ClaudeUsageData {
+  /** Session usage percentage (0-100) */
+  sessionUsagePercent: number;
+  /** When the session limit resets (ISO string or description like "11:59pm") */
+  sessionResetTime: string;
+  /** Weekly usage percentage across all models (0-100) */
+  weeklyUsagePercent: number;
+  /** When the weekly limit resets (ISO string or description) */
+  weeklyResetTime: string;
+  /** Weekly Opus usage percentage (0-100), if applicable */
+  opusUsagePercent?: number;
+  /** When this usage data was last updated */
+  lastUpdated: Date;
+}
+
+/**
+ * Rate limit event recorded for a profile
+ */
+export interface ClaudeRateLimitEvent {
+  /** Type of limit hit: 'session' or 'weekly' */
+  type: 'session' | 'weekly';
+  /** When the limit was hit */
+  hitAt: Date;
+  /** When it's expected to reset */
+  resetAt: Date;
+  /** The reset time string from Claude (e.g., "Dec 17 at 6am") */
+  resetTimeString: string;
+}
+
+/**
+ * A Claude Code subscription profile for multi-account support.
+ * Profiles store OAuth tokens for instant switching without browser re-auth.
+ */
+export interface ClaudeProfile {
+  id: string;
+  name: string;
+  /** 
+   * OAuth token (sk-ant-oat01-...) for this profile.
+   * When set, CLAUDE_CODE_OAUTH_TOKEN env var is used instead of config dir.
+   * Token is valid for 1 year from creation.
+   */
+  oauthToken?: string;
+  /** Email address associated with this profile (for display) */
+  email?: string;
+  /** When the OAuth token was created (for expiry tracking - 1 year validity) */
+  tokenCreatedAt?: Date;
+  /** 
+   * Path to the Claude config directory (e.g., ~/.claude or ~/.claude-profiles/work)
+   * @deprecated Use oauthToken instead for reliable multi-profile switching
+   */
+  configDir?: string;
+  /** Whether this is the default profile (uses ~/.claude) */
+  isDefault: boolean;
+  /** Optional description/notes for this profile */
+  description?: string;
+  /** When the profile was created */
+  createdAt: Date;
+  /** Last time this profile was used */
+  lastUsedAt?: Date;
+  /** Current usage data from /usage command */
+  usage?: ClaudeUsageData;
+  /** Recent rate limit events for this profile */
+  rateLimitEvents?: ClaudeRateLimitEvent[];
+}
+
+/**
+ * Settings for Claude profile management
+ */
+export interface ClaudeProfileSettings {
+  /** All configured Claude profiles */
+  profiles: ClaudeProfile[];
+  /** ID of the currently active profile */
+  activeProfileId: string;
+  /** Auto-switch settings */
+  autoSwitch?: ClaudeAutoSwitchSettings;
+}
+
+/**
+ * Settings for automatic profile switching
+ */
+export interface ClaudeAutoSwitchSettings {
+  /** Whether auto-switch is enabled */
+  enabled: boolean;
+  /** Session usage threshold (0-100) to trigger proactive switch consideration */
+  sessionThreshold: number;
+  /** Weekly usage threshold (0-100) to trigger proactive switch consideration */
+  weeklyThreshold: number;
+  /** Whether to automatically switch on rate limit (vs. prompting user) */
+  autoSwitchOnRateLimit: boolean;
+  /** Interval (ms) to check usage via /usage command (0 = disabled) */
+  usageCheckInterval: number;
 }
 
 // ============================================
@@ -716,10 +868,11 @@ export interface ProjectContextData {
 // Ideation Types
 // ============================================
 
+// Note: high_value_features removed - strategic features belong to Roadmap
+// low_hanging_fruit renamed to code_improvements to cover all code-revealed opportunities
 export type IdeationType =
-  | 'low_hanging_fruit'
+  | 'code_improvements'
   | 'ui_ux_improvements'
-  | 'high_value_features'
   | 'documentation_gaps'
   | 'security_hardening'
   | 'performance_optimizations'
@@ -744,12 +897,13 @@ export interface IdeaBase {
   createdAt: Date;
 }
 
-export interface LowHangingFruitIdea extends IdeaBase {
-  type: 'low_hanging_fruit';
+export interface CodeImprovementIdea extends IdeaBase {
+  type: 'code_improvements';
   buildsUpon: string[];  // Features/patterns it extends
-  estimatedEffort: 'trivial' | 'small' | 'medium';
+  estimatedEffort: 'trivial' | 'small' | 'medium' | 'large' | 'complex';  // Full effort spectrum
   affectedFiles: string[];
   existingPatterns: string[];  // Patterns to follow
+  implementationApproach?: string;  // How to implement using existing code
 }
 
 export interface UIUXImprovementIdea extends IdeaBase {
@@ -762,17 +916,7 @@ export interface UIUXImprovementIdea extends IdeaBase {
   userBenefit: string;
 }
 
-export interface HighValueFeatureIdea extends IdeaBase {
-  type: 'high_value_features';
-  targetAudience: string;
-  problemSolved: string;
-  valueProposition: string;
-  competitiveAdvantage?: string;
-  estimatedImpact: 'medium' | 'high' | 'critical';
-  complexity: 'medium' | 'high' | 'complex';
-  dependencies: string[];
-  acceptanceCriteria: string[];
-}
+// Note: HighValueFeatureIdea removed - strategic features belong to Roadmap
 
 export interface DocumentationGapIdea extends IdeaBase {
   type: 'documentation_gaps';
@@ -830,9 +974,8 @@ export interface CodeQualityIdea extends IdeaBase {
 }
 
 export type Idea =
-  | LowHangingFruitIdea
+  | CodeImprovementIdea
   | UIUXImprovementIdea
-  | HighValueFeatureIdea
   | DocumentationGapIdea
   | SecurityHardeningIdea
   | PerformanceOptimizationIdea
@@ -1164,9 +1307,67 @@ export interface TaskSpecContent {
   error?: string; // Error message if loading failed
 }
 
+// Source mode for changelog generation
+export type ChangelogSourceMode = 'tasks' | 'git-history' | 'branch-diff';
+
+// Git history options for changelog generation
+export interface GitHistoryOptions {
+  type: 'recent' | 'since-date' | 'tag-range' | 'since-version';
+  count?: number;           // For 'recent' - number of commits
+  sinceDate?: string;       // For 'since-date' - ISO date
+  fromTag?: string;         // For 'tag-range' and 'since-version' (the version/tag to start from)
+  toTag?: string;           // For 'tag-range' (optional, defaults to HEAD)
+  includeMergeCommits?: boolean;
+}
+
+// Branch diff options for changelog generation
+export interface BranchDiffOptions {
+  baseBranch: string;       // e.g., 'main'
+  compareBranch: string;    // e.g., 'feature/auth'
+}
+
+// Git commit representation
+export interface GitCommit {
+  hash: string;             // Short hash (7 chars)
+  fullHash: string;         // Full hash
+  subject: string;          // First line of commit message
+  body?: string;            // Rest of commit message
+  author: string;
+  authorEmail: string;
+  date: string;             // ISO date
+  filesChanged?: number;
+  insertions?: number;
+  deletions?: number;
+}
+
+// Git branch information for UI dropdowns
+export interface GitBranchInfo {
+  name: string;
+  isRemote: boolean;
+  isCurrent: boolean;
+}
+
+// Git tag information for UI dropdowns
+export interface GitTagInfo {
+  name: string;
+  date?: string;
+  commit?: string;
+}
+
 export interface ChangelogGenerationRequest {
   projectId: string;
-  taskIds: string[];
+  sourceMode: ChangelogSourceMode;
+
+  // For tasks mode (original behavior)
+  taskIds?: string[];
+
+  // For git-history mode
+  gitHistory?: GitHistoryOptions;
+
+  // For branch-diff mode
+  branchDiff?: BranchDiffOptions;
+
+  // Common options
   version: string;
   date: string; // ISO format
   format: ChangelogFormat;
@@ -1195,7 +1396,7 @@ export interface ChangelogSaveResult {
 }
 
 export interface ChangelogGenerationProgress {
-  stage: 'loading_specs' | 'generating' | 'formatting' | 'complete' | 'error';
+  stage: 'loading_specs' | 'loading_commits' | 'generating' | 'formatting' | 'complete' | 'error';
   progress: number; // 0-100
   message: string;
   error?: string;
@@ -1374,6 +1575,40 @@ export interface ElectronAPI {
   onTerminalTitleChange: (callback: (id: string, title: string) => void) => () => void;
   onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
   onTerminalRateLimit: (callback: (info: RateLimitInfo) => void) => () => void;
+  /** Listen for OAuth authentication completion (token is auto-saved to profile, never exposed to frontend) */
+  onTerminalOAuthToken: (callback: (info: { 
+    terminalId: string; 
+    profileId?: string; 
+    email?: string; 
+    success: boolean; 
+    message?: string;
+    detectedAt: string 
+  }) => void) => () => void;
+
+  // Claude profile management (multi-account support)
+  getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;
+  saveClaudeProfile: (profile: ClaudeProfile) => Promise<IPCResult<ClaudeProfile>>;
+  deleteClaudeProfile: (profileId: string) => Promise<IPCResult>;
+  renameClaudeProfile: (profileId: string, newName: string) => Promise<IPCResult>;
+  setActiveClaudeProfile: (profileId: string) => Promise<IPCResult>;
+  /** Switch terminal to use a different Claude profile (restarts Claude with new config) */
+  switchClaudeProfile: (terminalId: string, profileId: string) => Promise<IPCResult>;
+  /** Initialize authentication for a Claude profile */
+  initializeClaudeProfile: (profileId: string) => Promise<IPCResult>;
+  /** Set OAuth token for a profile (used when capturing from terminal) */
+  setClaudeProfileToken: (profileId: string, token: string, email?: string) => Promise<IPCResult>;
+  /** Get auto-switch settings */
+  getAutoSwitchSettings: () => Promise<IPCResult<ClaudeAutoSwitchSettings>>;
+  /** Update auto-switch settings */
+  updateAutoSwitchSettings: (settings: Partial<ClaudeAutoSwitchSettings>) => Promise<IPCResult>;
+  /** Request usage fetch from a terminal (sends /usage command) */
+  fetchClaudeUsage: (terminalId: string) => Promise<IPCResult>;
+  /** Get the best available profile (for manual switching) */
+  getBestAvailableProfile: (excludeProfileId?: string) => Promise<IPCResult<ClaudeProfile | null>>;
+  /** Listen for SDK/CLI rate limit events (non-terminal) */
+  onSDKRateLimit: (callback: (info: SDKRateLimitInfo) => void) => () => void;
+  /** Retry a rate-limited operation with a different profile */
+  retryWithProfile: (request: RetryWithProfileRequest) => Promise<IPCResult>;
 
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
@@ -1477,9 +1712,11 @@ export interface ElectronAPI {
   getIdeation: (projectId: string) => Promise<IPCResult<IdeationSession | null>>;
   generateIdeation: (projectId: string, config: IdeationConfig) => void;
   refreshIdeation: (projectId: string, config: IdeationConfig) => void;
+  stopIdeation: (projectId: string) => Promise<IPCResult>;
   updateIdeaStatus: (projectId: string, ideaId: string, status: IdeationStatus) => Promise<IPCResult>;
   convertIdeaToTask: (projectId: string, ideaId: string) => Promise<IPCResult<Task>>;
   dismissIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
+  dismissAllIdeas: (projectId: string) => Promise<IPCResult>;
 
   // Ideation event listeners
   onIdeationProgress: (
@@ -1493,6 +1730,9 @@ export interface ElectronAPI {
   ) => () => void;
   onIdeationError: (
     callback: (projectId: string, error: string) => void
+  ) => () => void;
+  onIdeationStopped: (
+    callback: (projectId: string) => void
   ) => () => void;
   onIdeationTypeComplete: (
     callback: (projectId: string, ideationType: string, ideas: Idea[]) => void
@@ -1526,6 +1766,15 @@ export interface ElectronAPI {
     projectId: string,
     taskIds: string[]
   ) => Promise<IPCResult<{ version: string; reason: string }>>;
+
+  // Changelog git operations (for git-based changelog generation)
+  getChangelogBranches: (projectId: string) => Promise<IPCResult<GitBranchInfo[]>>;
+  getChangelogTags: (projectId: string) => Promise<IPCResult<GitTagInfo[]>>;
+  getChangelogCommitsPreview: (
+    projectId: string,
+    options: GitHistoryOptions | BranchDiffOptions,
+    mode: 'git-history' | 'branch-diff'
+  ) => Promise<IPCResult<GitCommit[]>>;
 
   // Changelog event listeners
   onChangelogGenerationProgress: (

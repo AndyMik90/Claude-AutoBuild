@@ -31,6 +31,7 @@ import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
+import { SDKRateLimitModal } from './components/SDKRateLimitModal';
 import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
@@ -377,8 +378,11 @@ export function App() {
           </DialogContent>
         </Dialog>
 
-        {/* Rate Limit Modal - shows when Claude Code hits usage limits */}
+        {/* Rate Limit Modal - shows when Claude Code hits usage limits (terminal) */}
         <RateLimitModal />
+
+        {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
+        <SDKRateLimitModal />
       </div>
     </TooltipProvider>
   );

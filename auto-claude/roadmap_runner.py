@@ -49,6 +49,7 @@ from ui import (
     print_section,
 )
 from graphiti_providers import get_graph_hints, is_graphiti_enabled
+from init import init_auto_claude_dir
 
 
 # Configuration
@@ -94,6 +95,8 @@ class RoadmapOrchestrator:
         if output_dir:
             self.output_dir = Path(output_dir)
         else:
+            # Initialize .auto-claude directory and ensure it's in .gitignore
+            init_auto_claude_dir(self.project_dir)
             self.output_dir = self.project_dir / ".auto-claude" / "roadmap"
 
         self.output_dir.mkdir(parents=True, exist_ok=True)

@@ -147,17 +147,19 @@ export function Terminal({ id, cwd, projectPath, isActive, onClose, onActivate, 
     fitAddonRef.current = fitAddon;
 
     // Replay buffered output if this is a remount (output exists in store)
-    // Skip replay for restored Claude sessions - they'll clear and resume fresh
+    // Skip replay for ALL Claude sessions - Claude's TUI uses escape sequences for
+    // cursor positioning that don't work correctly when replayed. This prevents
+    // visual artifacts like phantom input lines with blinking cursors.
     // Then clear the buffer to prevent duplicate content on subsequent remounts
     const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === id);
-    if (terminalState?.outputBuffer && !(terminalState.isRestored && terminalState.isClaudeMode)) {
+    if (terminalState?.outputBuffer && !terminalState.isClaudeMode) {
       xterm.write(terminalState.outputBuffer);
       // Clear buffer after replay - new output will accumulate fresh
       // This prevents duplicates when combined with full-screen redraws from TUI apps
       useTerminalStore.getState().clearOutputBuffer(id);
-    } else if (terminalState?.isRestored && terminalState.isClaudeMode) {
-      // For restored Claude sessions, just clear the buffer without replay
-      // The session will clear screen and start fresh
+    } else if (terminalState?.isClaudeMode) {
+      // For all Claude sessions, clear the buffer without replay
+      // Claude's TUI will redraw itself correctly
       useTerminalStore.getState().clearOutputBuffer(id);
     }
 

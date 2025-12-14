@@ -559,6 +559,201 @@ class GraphitiMemory:
             self._record_error(f"Save task outcome failed: {e}")
             return False
 
+    async def save_structured_insights(self, insights: dict) -> bool:
+        """
+        Save extracted insights from a session as multiple focused episodes.
+
+        This method saves the rich insights extracted by the insight_extractor
+        as separate, semantically searchable episodes in Graphiti. Each type of
+        insight becomes its own episode for better retrieval.
+
+        Args:
+            insights: Dictionary from insight_extractor with keys:
+                - file_insights: list[dict] - per-file knowledge
+                - patterns_discovered: list[dict] - reusable patterns
+                - gotchas_discovered: list[dict] - pitfalls to avoid
+                - approach_outcome: dict - what worked/failed
+                - recommendations: list[str] - advice for future
+                - subtask_id: str - which subtask was worked on
+                - success: bool - whether session succeeded
+                - changed_files: list[str] - files modified
+
+        Returns:
+            True if saved successfully (or partially)
+        """
+        if not await self._ensure_initialized():
+            return False
+
+        if not insights:
+            return True
+
+        saved_count = 0
+        total_count = 0
+
+        try:
+            from graphiti_core.nodes import EpisodeType
+
+            # 1. Save file insights as individual episodes
+            for file_insight in insights.get("file_insights", []):
+                total_count += 1
+                try:
+                    episode_content = {
+                        "type": EPISODE_TYPE_CODEBASE_DISCOVERY,
+                        "spec_id": self.spec_context_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "file_path": file_insight.get("path", "unknown"),
+                        "purpose": file_insight.get("purpose", ""),
+                        "changes_made": file_insight.get("changes_made", ""),
+                        "patterns_used": file_insight.get("patterns_used", []),
+                        "gotchas": file_insight.get("gotchas", []),
+                    }
+
+                    await self._graphiti.add_episode(
+                        name=f"file_insight_{file_insight.get('path', 'unknown').replace('/', '_')}",
+                        episode_body=json.dumps(episode_content),
+                        source=EpisodeType.text,
+                        source_description=f"File insight: {file_insight.get('path', 'unknown')}",
+                        reference_time=datetime.now(timezone.utc),
+                        group_id=self.group_id,
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save file insight: {e}")
+
+            # 2. Save patterns as individual episodes
+            for pattern in insights.get("patterns_discovered", []):
+                total_count += 1
+                try:
+                    pattern_text = pattern.get("pattern", "") if isinstance(pattern, dict) else str(pattern)
+                    applies_to = pattern.get("applies_to", "") if isinstance(pattern, dict) else ""
+                    example = pattern.get("example", "") if isinstance(pattern, dict) else ""
+
+                    episode_content = {
+                        "type": EPISODE_TYPE_PATTERN,
+                        "spec_id": self.spec_context_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "pattern": pattern_text,
+                        "applies_to": applies_to,
+                        "example": example,
+                    }
+
+                    await self._graphiti.add_episode(
+                        name=f"pattern_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S%f')}",
+                        episode_body=json.dumps(episode_content),
+                        source=EpisodeType.text,
+                        source_description=f"Pattern: {pattern_text[:50]}...",
+                        reference_time=datetime.now(timezone.utc),
+                        group_id=self.group_id,
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save pattern: {e}")
+
+            # 3. Save gotchas as individual episodes
+            for gotcha in insights.get("gotchas_discovered", []):
+                total_count += 1
+                try:
+                    gotcha_text = gotcha.get("gotcha", "") if isinstance(gotcha, dict) else str(gotcha)
+                    trigger = gotcha.get("trigger", "") if isinstance(gotcha, dict) else ""
+                    solution = gotcha.get("solution", "") if isinstance(gotcha, dict) else ""
+
+                    episode_content = {
+                        "type": EPISODE_TYPE_GOTCHA,
+                        "spec_id": self.spec_context_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "gotcha": gotcha_text,
+                        "trigger": trigger,
+                        "solution": solution,
+                    }
+
+                    await self._graphiti.add_episode(
+                        name=f"gotcha_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S%f')}",
+                        episode_body=json.dumps(episode_content),
+                        source=EpisodeType.text,
+                        source_description=f"Gotcha: {gotcha_text[:50]}...",
+                        reference_time=datetime.now(timezone.utc),
+                        group_id=self.group_id,
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save gotcha: {e}")
+
+            # 4. Save approach outcome as task outcome episode
+            outcome = insights.get("approach_outcome", {})
+            if outcome:
+                total_count += 1
+                try:
+                    subtask_id = insights.get("subtask_id", "unknown")
+                    success = outcome.get("success", insights.get("success", False))
+
+                    episode_content = {
+                        "type": EPISODE_TYPE_TASK_OUTCOME,
+                        "spec_id": self.spec_context_id,
+                        "task_id": subtask_id,
+                        "success": success,
+                        "outcome": outcome.get("approach_used", ""),
+                        "why_worked": outcome.get("why_it_worked"),
+                        "why_failed": outcome.get("why_it_failed"),
+                        "alternatives_tried": outcome.get("alternatives_tried", []),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "changed_files": insights.get("changed_files", []),
+                    }
+
+                    await self._graphiti.add_episode(
+                        name=f"task_outcome_{subtask_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+                        episode_body=json.dumps(episode_content),
+                        source=EpisodeType.text,
+                        source_description=f"Task outcome: {subtask_id} {'succeeded' if success else 'failed'}",
+                        reference_time=datetime.now(timezone.utc),
+                        group_id=self.group_id,
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save task outcome: {e}")
+
+            # 5. Save recommendations as session insight
+            recommendations = insights.get("recommendations", [])
+            if recommendations:
+                total_count += 1
+                try:
+                    episode_content = {
+                        "type": EPISODE_TYPE_SESSION_INSIGHT,
+                        "spec_id": self.spec_context_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "subtask_id": insights.get("subtask_id", "unknown"),
+                        "session_number": insights.get("session_num", 0),
+                        "recommendations": recommendations,
+                        "success": insights.get("success", False),
+                    }
+
+                    await self._graphiti.add_episode(
+                        name=f"recommendations_{insights.get('subtask_id', 'unknown')}",
+                        episode_body=json.dumps(episode_content),
+                        source=EpisodeType.text,
+                        source_description=f"Recommendations for {insights.get('subtask_id', 'unknown')}",
+                        reference_time=datetime.now(timezone.utc),
+                        group_id=self.group_id,
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save recommendations: {e}")
+
+            # Update state with count
+            if self.state:
+                self.state.episode_count += saved_count
+                self.state.save(self.spec_dir)
+
+            logger.info(
+                f"Saved {saved_count}/{total_count} structured insights to Graphiti "
+                f"(group: {self.group_id})"
+            )
+            return saved_count > 0
+
+        except Exception as e:
+            logger.warning(f"Failed to save structured insights: {e}")
+            self._record_error(f"Save structured insights failed: {e}")
+            return False
+
     async def get_relevant_context(
         self,
         query: str,

@@ -29,8 +29,8 @@ export const TASK_STATUS_COLORS: Record<string, string> = {
   done: 'bg-success/10 text-success'
 };
 
-// Chunk status colors
-export const CHUNK_STATUS_COLORS: Record<string, string> = {
+// Subtask status colors
+export const SUBTASK_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-muted',
   in_progress: 'bg-info',
   completed: 'bg-success',
@@ -85,7 +85,7 @@ export const EXECUTION_PHASE_WEIGHTS: Record<string, { start: number; end: numbe
 export const DEFAULT_APP_SETTINGS = {
   theme: 'system' as const,
   defaultModel: 'opus',
-  defaultParallelism: 1,
+  agentFramework: 'auto-claude',
   pythonPath: undefined as string | undefined,
   autoBuildPath: undefined as string | undefined,
   autoUpdateAutoBuild: true,
@@ -187,6 +187,26 @@ export const IPC_CHANNELS = {
   TERMINAL_TITLE_CHANGE: 'terminal:titleChange',
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
+  TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+
+  // Claude profile management (multi-account support)
+  CLAUDE_PROFILES_GET: 'claude:profilesGet',
+  CLAUDE_PROFILE_SAVE: 'claude:profileSave',
+  CLAUDE_PROFILE_DELETE: 'claude:profileDelete',
+  CLAUDE_PROFILE_RENAME: 'claude:profileRename',
+  CLAUDE_PROFILE_SET_ACTIVE: 'claude:profileSetActive',
+  CLAUDE_PROFILE_SWITCH: 'claude:profileSwitch',
+  CLAUDE_PROFILE_INITIALIZE: 'claude:profileInitialize',
+  CLAUDE_PROFILE_SET_TOKEN: 'claude:profileSetToken',  // Set OAuth token for a profile
+  CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS: 'claude:autoSwitchSettings',
+  CLAUDE_PROFILE_UPDATE_AUTO_SWITCH: 'claude:updateAutoSwitch',
+  CLAUDE_PROFILE_FETCH_USAGE: 'claude:fetchUsage',
+  CLAUDE_PROFILE_GET_BEST_PROFILE: 'claude:getBestProfile',
+
+  // SDK/CLI rate limit event (for non-terminal Claude invocations)
+  CLAUDE_SDK_RATE_LIMIT: 'claude:sdkRateLimit',
+  // Retry a rate-limited operation with a different profile
+  CLAUDE_RETRY_WITH_PROFILE: 'claude:retryWithProfile',
 
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -229,15 +249,18 @@ export const IPC_CHANNELS = {
   IDEATION_GET: 'ideation:get',
   IDEATION_GENERATE: 'ideation:generate',
   IDEATION_REFRESH: 'ideation:refresh',
+  IDEATION_STOP: 'ideation:stop',
   IDEATION_UPDATE_IDEA: 'ideation:updateIdea',
   IDEATION_CONVERT_TO_TASK: 'ideation:convertToTask',
   IDEATION_DISMISS: 'ideation:dismiss',
+  IDEATION_DISMISS_ALL: 'ideation:dismissAll',
 
   // Ideation events (main -> renderer)
   IDEATION_PROGRESS: 'ideation:progress',
   IDEATION_LOG: 'ideation:log',
   IDEATION_COMPLETE: 'ideation:complete',
   IDEATION_ERROR: 'ideation:error',
+  IDEATION_STOPPED: 'ideation:stopped',
   IDEATION_TYPE_COMPLETE: 'ideation:typeComplete',
   IDEATION_TYPE_FAILED: 'ideation:typeFailed',
 
@@ -280,6 +303,11 @@ export const IPC_CHANNELS = {
   CHANGELOG_SAVE: 'changelog:save',
   CHANGELOG_READ_EXISTING: 'changelog:readExisting',
   CHANGELOG_SUGGEST_VERSION: 'changelog:suggestVersion',
+
+  // Changelog git operations (for git-based changelog generation)
+  CHANGELOG_GET_BRANCHES: 'changelog:getBranches',
+  CHANGELOG_GET_TAGS: 'changelog:getTags',
+  CHANGELOG_GET_COMMITS_PREVIEW: 'changelog:getCommitsPreview',
 
   // Changelog events (main -> renderer)
   CHANGELOG_GENERATION_PROGRESS: 'changelog:generationProgress',
@@ -383,10 +411,11 @@ export const MEMORY_BACKENDS = [
 // ============================================
 
 // Ideation type labels and descriptions
+// Note: high_value_features removed - strategic features belong to Roadmap
+// low_hanging_fruit renamed to code_improvements to cover all code-revealed opportunities
 export const IDEATION_TYPE_LABELS: Record<string, string> = {
-  low_hanging_fruit: 'Low-Hanging Fruit',
+  code_improvements: 'Code Improvements',
   ui_ux_improvements: 'UI/UX Improvements',
-  high_value_features: 'High-Value Features',
   documentation_gaps: 'Documentation',
   security_hardening: 'Security',
   performance_optimizations: 'Performance',
@@ -394,9 +423,8 @@ export const IDEATION_TYPE_LABELS: Record<string, string> = {
 };
 
 export const IDEATION_TYPE_DESCRIPTIONS: Record<string, string> = {
-  low_hanging_fruit: 'Quick wins that build upon existing code patterns and features',
+  code_improvements: 'Code-revealed opportunities from patterns, architecture, and infrastructure analysis',
   ui_ux_improvements: 'Visual and interaction improvements identified through app analysis',
-  high_value_features: 'Strategic features that provide significant value to target users',
   documentation_gaps: 'Missing or outdated documentation that needs attention',
   security_hardening: 'Security vulnerabilities and hardening opportunities',
   performance_optimizations: 'Performance bottlenecks and optimization opportunities',
@@ -405,9 +433,8 @@ export const IDEATION_TYPE_DESCRIPTIONS: Record<string, string> = {
 
 // Ideation type colors
 export const IDEATION_TYPE_COLORS: Record<string, string> = {
-  low_hanging_fruit: 'bg-success/10 text-success border-success/30',
+  code_improvements: 'bg-success/10 text-success border-success/30',
   ui_ux_improvements: 'bg-info/10 text-info border-info/30',
-  high_value_features: 'bg-primary/10 text-primary border-primary/30',
   documentation_gaps: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
   security_hardening: 'bg-destructive/10 text-destructive border-destructive/30',
   performance_optimizations: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
@@ -416,9 +443,8 @@ export const IDEATION_TYPE_COLORS: Record<string, string> = {
 
 // Ideation type icons (Lucide icon names)
 export const IDEATION_TYPE_ICONS: Record<string, string> = {
-  low_hanging_fruit: 'Zap',
+  code_improvements: 'Zap',
   ui_ux_improvements: 'Palette',
-  high_value_features: 'Target',
   documentation_gaps: 'BookOpen',
   security_hardening: 'Shield',
   performance_optimizations: 'Gauge',
@@ -433,12 +459,13 @@ export const IDEATION_STATUS_COLORS: Record<string, string> = {
   dismissed: 'bg-destructive/10 text-destructive line-through'
 };
 
-// Ideation effort colors
+// Ideation effort colors (full spectrum for code_improvements)
 export const IDEATION_EFFORT_COLORS: Record<string, string> = {
   trivial: 'bg-success/10 text-success',
   small: 'bg-info/10 text-info',
   medium: 'bg-warning/10 text-warning',
-  large: 'bg-destructive/10 text-destructive'
+  large: 'bg-orange-500/10 text-orange-400',
+  complex: 'bg-destructive/10 text-destructive'
 };
 
 // Ideation impact colors
@@ -523,8 +550,9 @@ export const CODE_QUALITY_SEVERITY_COLORS: Record<string, string> = {
 };
 
 // Default ideation config
+// Note: high_value_features removed, low_hanging_fruit renamed to code_improvements
 export const DEFAULT_IDEATION_CONFIG = {
-  enabledTypes: ['low_hanging_fruit', 'ui_ux_improvements', 'high_value_features'] as const,
+  enabledTypes: ['code_improvements', 'ui_ux_improvements', 'security_hardening'] as const,
   includeRoadmapContext: true,
   includeKanbanContext: true,
   maxIdeasPerType: 5
@@ -666,10 +694,37 @@ export const CHANGELOG_AUDIENCE_DESCRIPTIONS: Record<string, string> = {
 // Changelog generation stage labels
 export const CHANGELOG_STAGE_LABELS: Record<string, string> = {
   'loading_specs': 'Loading spec files...',
+  'loading_commits': 'Loading commits...',
   'generating': 'Generating changelog...',
   'formatting': 'Formatting output...',
   'complete': 'Complete',
   'error': 'Error'
+};
+
+// Changelog source mode labels and descriptions
+export const CHANGELOG_SOURCE_MODE_LABELS: Record<string, string> = {
+  'tasks': 'Completed Tasks',
+  'git-history': 'Git History',
+  'branch-diff': 'Branch Comparison'
+};
+
+export const CHANGELOG_SOURCE_MODE_DESCRIPTIONS: Record<string, string> = {
+  'tasks': 'Generate from completed spec tasks',
+  'git-history': 'Generate from recent commits or tag range',
+  'branch-diff': 'Generate from commits between two branches'
+};
+
+// Git history type labels
+export const GIT_HISTORY_TYPE_LABELS: Record<string, string> = {
+  'recent': 'Recent Commits',
+  'since-date': 'Since Date',
+  'tag-range': 'Between Tags'
+};
+
+export const GIT_HISTORY_TYPE_DESCRIPTIONS: Record<string, string> = {
+  'recent': 'Last N commits from HEAD',
+  'since-date': 'All commits since a specific date',
+  'tag-range': 'Commits between two tags'
 };
 
 // Default changelog file path

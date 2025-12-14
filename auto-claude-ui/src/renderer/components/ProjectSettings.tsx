@@ -1143,7 +1143,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                 <div className="space-y-0.5">
                   <Label className="font-normal text-foreground">Parallel Execution</Label>
                   <p className="text-xs text-muted-foreground">
-                    Run multiple chunks simultaneously
+                    Run multiple subtasks simultaneously
                   </p>
                 </div>
                 <Switch

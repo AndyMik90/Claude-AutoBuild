@@ -4,6 +4,7 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { projectStore } from './project-store';
+import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
 
 interface AgentProcess {
   taskId: string;
@@ -17,7 +18,7 @@ export interface ExecutionProgressData {
   phase: 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
   phaseProgress: number;
   overallProgress: number;
-  currentChunk?: string;
+  currentSubtask?: string;
   message?: string;
 }
 
@@ -125,7 +126,8 @@ export class AgentManager extends EventEmitter {
       const envContent = readFileSync(envPath, 'utf-8');
       const envVars: Record<string, string> = {};
 
-      for (const line of envContent.split('\n')) {
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
         const trimmed = line.trim();
         // Skip comments and empty lines
         if (!trimmed || trimmed.startsWith('#')) {
@@ -408,11 +410,15 @@ export class AgentManager extends EventEmitter {
     const projectEnv = this.getProjectEnvVars(projectPath);
     const combinedEnv = { ...autoBuildEnv, ...projectEnv };
 
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const profileEnv = getProfileEnv();
+
     const childProcess = spawn(this.pythonPath, args, {
       cwd,
       env: {
         ...process.env,
         ...combinedEnv, // Include auto-claude .env variables and project-specific env vars
+        ...profileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1'
       }
     });
@@ -428,6 +434,8 @@ export class AgentManager extends EventEmitter {
     // Track progress through output
     let progressPhase = 'analyzing';
     let progressPercent = 10;
+    // Collect output for rate limit detection
+    let allOutput = '';
 
     // Helper to emit logs - split multi-line output into individual log lines
     const emitLogs = (log: string) => {
@@ -454,6 +462,8 @@ export class AgentManager extends EventEmitter {
     // Handle stdout
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString();
+      // Collect output for rate limit detection (keep last 10KB)
+      allOutput = (allOutput + log).slice(-10000);
 
       // Emit all log lines for the activity log
       emitLogs(log);
@@ -514,6 +524,8 @@ export class AgentManager extends EventEmitter {
     // Handle stderr - also emit as logs
     childProcess.stderr?.on('data', (data: Buffer) => {
       const log = data.toString();
+      // Collect stderr for rate limit detection too
+      allOutput = (allOutput + log).slice(-10000);
       console.error('[Ideation STDERR]', log);
       emitLogs(log);
       this.emit('ideation-progress', projectId, {
@@ -531,6 +543,24 @@ export class AgentManager extends EventEmitter {
       const processInfo = this.processes.get(projectId);
       const storedProjectPath = processInfo?.projectPath;
       this.processes.delete(projectId);
+
+      // Check for rate limit if process failed
+      if (code !== 0) {
+        const rateLimitDetection = detectRateLimit(allOutput);
+        if (rateLimitDetection.isRateLimited) {
+          console.log('[Ideation] Rate limit detected:', {
+            projectId,
+            resetTime: rateLimitDetection.resetTime,
+            limitType: rateLimitDetection.limitType,
+            suggestedProfile: rateLimitDetection.suggestedProfile?.name
+          });
+
+          const rateLimitInfo = createSDKRateLimitInfo('ideation', rateLimitDetection, {
+            projectId
+          });
+          this.emit('sdk-rate-limit', rateLimitInfo);
+        }
+      }
 
       if (code === 0) {
         this.emit('ideation-progress', projectId, {
@@ -596,11 +626,15 @@ export class AgentManager extends EventEmitter {
     const projectEnv = this.getProjectEnvVars(projectPath);
     const combinedEnv = { ...autoBuildEnv, ...projectEnv };
 
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const ideationProfileEnv = getProfileEnv();
+
     const childProcess = spawn(this.pythonPath, args, {
       cwd,
       env: {
         ...process.env,
         ...combinedEnv, // Include auto-claude .env variables and project-specific env vars
+        ...ideationProfileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1'
       }
     });
@@ -615,10 +649,14 @@ export class AgentManager extends EventEmitter {
     // Track progress through output
     let progressPhase = 'analyzing';
     let progressPercent = 10;
+    // Collect output for rate limit detection
+    let allRoadmapOutput = '';
 
     // Handle stdout
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString();
+      // Collect output for rate limit detection (keep last 10KB)
+      allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
 
       // Parse progress from output
       if (log.includes('PROJECT ANALYSIS')) {
@@ -646,6 +684,8 @@ export class AgentManager extends EventEmitter {
     // Handle stderr
     childProcess.stderr?.on('data', (data: Buffer) => {
       const log = data.toString();
+      // Collect stderr for rate limit detection too
+      allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
       this.emit('roadmap-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
@@ -656,6 +696,24 @@ export class AgentManager extends EventEmitter {
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
       this.processes.delete(projectId);
+
+      // Check for rate limit if process failed
+      if (code !== 0) {
+        const rateLimitDetection = detectRateLimit(allRoadmapOutput);
+        if (rateLimitDetection.isRateLimited) {
+          console.log('[Roadmap] Rate limit detected:', {
+            projectId,
+            resetTime: rateLimitDetection.resetTime,
+            limitType: rateLimitDetection.limitType,
+            suggestedProfile: rateLimitDetection.suggestedProfile?.name
+          });
+
+          const rateLimitInfo = createSDKRateLimitInfo('roadmap', rateLimitDetection, {
+            projectId
+          });
+          this.emit('sdk-rate-limit', rateLimitInfo);
+        }
+      }
 
       if (code === 0) {
         this.emit('roadmap-progress', projectId, {
@@ -682,7 +740,7 @@ export class AgentManager extends EventEmitter {
     log: string,
     currentPhase: ExecutionProgressData['phase'],
     isSpecRunner: boolean
-  ): { phase: ExecutionProgressData['phase']; message?: string; currentChunk?: string } | null {
+  ): { phase: ExecutionProgressData['phase']; message?: string; currentSubtask?: string } | null {
     const lowerLog = log.toLowerCase();
 
     // Spec runner phase detection (all part of "planning")
@@ -715,19 +773,19 @@ export class AgentManager extends EventEmitter {
       return { phase: 'coding', message: 'Implementing code changes...' };
     }
 
-    // Chunk progress detection
-    const chunkMatch = log.match(/chunk[:\s]+(\d+(?:\/\d+)?|\w+[-_]\w+)/i);
-    if (chunkMatch && currentPhase === 'coding') {
-      return { phase: 'coding', currentChunk: chunkMatch[1], message: `Working on chunk ${chunkMatch[1]}...` };
+    // Subtask progress detection
+    const subtaskMatch = log.match(/subtask[:\s]+(\d+(?:\/\d+)?|\w+[-_]\w+)/i);
+    if (subtaskMatch && currentPhase === 'coding') {
+      return { phase: 'coding', currentSubtask: subtaskMatch[1], message: `Working on subtask ${subtaskMatch[1]}...` };
     }
 
-    // Chunk completion detection
-    if (lowerLog.includes('chunk completed') || lowerLog.includes('chunk done')) {
-      const completedChunk = log.match(/chunk[:\s]+"?([^"]+)"?\s+completed/i);
+    // Subtask completion detection
+    if (lowerLog.includes('subtask completed') || lowerLog.includes('subtask done')) {
+      const completedSubtask = log.match(/subtask[:\s]+"?([^"]+)"?\s+completed/i);
       return {
         phase: 'coding',
-        currentChunk: completedChunk?.[1],
-        message: `Chunk ${completedChunk?.[1] || ''} completed`
+        currentSubtask: completedSubtask?.[1],
+        message: `Subtask ${completedSubtask?.[1] || ''} completed`
       };
     }
 
@@ -743,21 +801,21 @@ export class AgentManager extends EventEmitter {
 
     // Completion detection - be conservative, require explicit success markers
     // The AI agent prints "=== BUILD COMPLETE ===" when truly done (from coder.md)
-    // Only trust this pattern, not generic "all chunks completed" which could be false positive
+    // Only trust this pattern, not generic "all subtasks completed" which could be false positive
     if (lowerLog.includes('=== build complete ===') || lowerLog.includes('qa passed')) {
       return { phase: 'complete', message: 'Build completed successfully' };
     }
 
-    // "All chunks completed" is informational - don't change phase based on this alone
-    // The coordinator may print this even when chunks are blocked, so we stay in coding phase
+    // "All subtasks completed" is informational - don't change phase based on this alone
+    // The coordinator may print this even when subtasks are blocked, so we stay in coding phase
     // and let the actual implementation_plan.json status drive the UI
-    if (lowerLog.includes('all chunks completed')) {
-      return { phase: 'coding', message: 'Chunks marked complete' };
+    if (lowerLog.includes('all subtasks completed')) {
+      return { phase: 'coding', message: 'Subtasks marked complete' };
     }
 
-    // Incomplete build detection - when coordinator exits with pending chunks
-    if (lowerLog.includes('build incomplete') || lowerLog.includes('chunks still pending')) {
-      return { phase: 'coding', message: 'Build paused - chunks still pending' };
+    // Incomplete build detection - when coordinator exits with pending subtasks
+    if (lowerLog.includes('build incomplete') || lowerLog.includes('subtasks still pending')) {
+      return { phase: 'coding', message: 'Build paused - subtasks still pending' };
     }
 
     // Error/failure detection
@@ -810,11 +868,15 @@ export class AgentManager extends EventEmitter {
     console.log('[spawnProcess] processType:', processType);
     console.log('[spawnProcess] spawnId:', spawnId);
 
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const spawnProfileEnv = getProfileEnv();
+
     const childProcess = spawn(this.pythonPath, args, {
       cwd,
       env: {
         ...process.env,
         ...extraEnv,
+        ...spawnProfileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1' // Ensure real-time output
       }
     });
@@ -831,8 +893,10 @@ export class AgentManager extends EventEmitter {
     // Track execution progress
     let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
     let phaseProgress = 0;
-    let currentChunk: string | undefined;
+    let currentSubtask: string | undefined;
     let lastMessage: string | undefined;
+    // Collect all output for rate limit detection
+    let allOutput = '';
 
     // Emit initial progress
     this.emit('execution-progress', taskId, {
@@ -843,6 +907,8 @@ export class AgentManager extends EventEmitter {
     });
 
     const processLog = (log: string) => {
+      // Collect output for rate limit detection (keep last 10KB)
+      allOutput = (allOutput + log).slice(-10000);
       // Parse for phase transitions
       const phaseUpdate = this.parseExecutionPhase(log, currentPhase, isSpecRunner);
 
@@ -850,8 +916,8 @@ export class AgentManager extends EventEmitter {
         const phaseChanged = phaseUpdate.phase !== currentPhase;
         currentPhase = phaseUpdate.phase;
 
-        if (phaseUpdate.currentChunk) {
-          currentChunk = phaseUpdate.currentChunk;
+        if (phaseUpdate.currentSubtask) {
+          currentSubtask = phaseUpdate.currentSubtask;
         }
         if (phaseUpdate.message) {
           lastMessage = phaseUpdate.message;
@@ -870,7 +936,7 @@ export class AgentManager extends EventEmitter {
           phase: currentPhase,
           phaseProgress,
           overallProgress,
-          currentChunk,
+          currentSubtask,
           message: lastMessage
         });
       }
@@ -905,6 +971,28 @@ export class AgentManager extends EventEmitter {
         console.log('[spawnProcess] Process was killed, skipping exit event for spawnId:', spawnId);
         this.killedSpawnIds.delete(spawnId);
         return;
+      }
+
+      // Check for rate limit if process failed
+      if (code !== 0) {
+        const rateLimitDetection = detectRateLimit(allOutput);
+        if (rateLimitDetection.isRateLimited) {
+          console.log('[spawnProcess] Rate limit detected in task output:', {
+            taskId,
+            resetTime: rateLimitDetection.resetTime,
+            limitType: rateLimitDetection.limitType,
+            suggestedProfile: rateLimitDetection.suggestedProfile?.name
+          });
+
+          // Determine source type based on processType
+          const source = processType === 'spec-creation' ? 'task' : 'task';
+
+          // Emit rate limit event
+          const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
+            taskId
+          });
+          this.emit('sdk-rate-limit', rateLimitInfo);
+        }
       }
 
       // Emit final progress
@@ -962,6 +1050,26 @@ export class AgentManager extends EventEmitter {
       }
     }
     return false;
+  }
+
+  /**
+   * Stop ideation generation for a project
+   */
+  stopIdeation(projectId: string): boolean {
+    const wasRunning = this.isRunning(projectId);
+    if (wasRunning) {
+      this.killTask(projectId);
+      this.emit('ideation-stopped', projectId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check if ideation is running for a project
+   */
+  isIdeationRunning(projectId: string): boolean {
+    return this.isRunning(projectId);
   }
 
   /**

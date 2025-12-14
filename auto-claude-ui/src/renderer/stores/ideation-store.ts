@@ -28,6 +28,7 @@ interface IdeationState {
   setConfig: (config: Partial<IdeationConfig>) => void;
   updateIdeaStatus: (ideaId: string, status: IdeationStatus) => void;
   dismissIdea: (ideaId: string) => void;
+  dismissAllIdeas: () => void;
   clearSession: () => void;
   addLog: (log: string) => void;
   clearLogs: () => void;
@@ -51,10 +52,10 @@ const initialConfig: IdeationConfig = {
 };
 
 // Initialize all type states to 'pending' initially (will be set when generation starts)
+// Note: high_value_features removed, low_hanging_fruit renamed to code_improvements
 const initialTypeStates: Record<IdeationType, IdeationTypeState> = {
-  low_hanging_fruit: 'pending',
+  code_improvements: 'pending',
   ui_ux_improvements: 'pending',
-  high_value_features: 'pending',
   documentation_gaps: 'pending',
   security_hardening: 'pending',
   performance_optimizations: 'pending',
@@ -102,6 +103,25 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
       const updatedIdeas = state.session.ideas.map((idea) =>
         idea.id === ideaId ? { ...idea, status: 'dismissed' as IdeationStatus } : idea
+      );
+
+      return {
+        session: {
+          ...state.session,
+          ideas: updatedIdeas,
+          updatedAt: new Date()
+        }
+      };
+    }),
+
+  dismissAllIdeas: () =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const updatedIdeas = state.session.ideas.map((idea) =>
+        idea.status !== 'dismissed' && idea.status !== 'converted'
+          ? { ...idea, status: 'dismissed' as IdeationStatus }
+          : idea
       );
 
       return {
@@ -218,9 +238,27 @@ export function generateIdeation(projectId: string): void {
   window.electronAPI.generateIdeation(projectId, config);
 }
 
-export function refreshIdeation(projectId: string): void {
+export async function stopIdeation(projectId: string): Promise<boolean> {
+  const store = useIdeationStore.getState();
+  const result = await window.electronAPI.stopIdeation(projectId);
+  if (result.success) {
+    store.addLog('Ideation generation stopped');
+    store.setGenerationStatus({
+      phase: 'idle',
+      progress: 0,
+      message: 'Generation stopped'
+    });
+  }
+  return result.success;
+}
+
+export async function refreshIdeation(projectId: string): Promise<void> {
   const store = useIdeationStore.getState();
   const config = store.config;
+
+  // Stop any existing generation first
+  await window.electronAPI.stopIdeation(projectId);
+
   store.clearLogs();
   store.clearSession(); // Clear existing session for fresh generation
   store.initializeTypeStates(config.enabledTypes);
@@ -231,6 +269,16 @@ export function refreshIdeation(projectId: string): void {
     message: `Refreshing ${config.enabledTypes.length} ideation types in parallel...`
   });
   window.electronAPI.refreshIdeation(projectId, config);
+}
+
+export async function dismissAllIdeasForProject(projectId: string): Promise<boolean> {
+  const store = useIdeationStore.getState();
+  const result = await window.electronAPI.dismissAllIdeas(projectId);
+  if (result.success) {
+    store.dismissAllIdeas();
+    store.addLog('All ideas dismissed');
+  }
+  return result.success;
 }
 
 /**
@@ -317,16 +365,14 @@ export function getIdeationSummary(session: IdeationSession | null): IdeationSum
 }
 
 // Type guards for idea types
-export function isLowHangingFruitIdea(idea: Idea): idea is Idea & { type: 'low_hanging_fruit' } {
-  return idea.type === 'low_hanging_fruit';
+// Note: isLowHangingFruitIdea renamed to isCodeImprovementIdea
+// isHighValueIdea removed - strategic features belong to Roadmap
+export function isCodeImprovementIdea(idea: Idea): idea is Idea & { type: 'code_improvements' } {
+  return idea.type === 'code_improvements';
 }
 
 export function isUIUXIdea(idea: Idea): idea is Idea & { type: 'ui_ux_improvements' } {
   return idea.type === 'ui_ux_improvements';
-}
-
-export function isHighValueIdea(idea: Idea): idea is Idea & { type: 'high_value_features' } {
-  return idea.type === 'high_value_features';
 }
 
 // IPC listener setup - call this once when the app initializes
@@ -399,6 +445,16 @@ export function setupIdeationListeners(): () => void {
     store().addLog(`Error: ${error}`);
   });
 
+  // Listen for stopped event
+  const unsubStopped = window.electronAPI.onIdeationStopped((_projectId) => {
+    store().setGenerationStatus({
+      phase: 'idle',
+      progress: 0,
+      message: 'Generation stopped'
+    });
+    store().addLog('Ideation generation stopped');
+  });
+
   // Return cleanup function
   return () => {
     unsubProgress();
@@ -407,5 +463,6 @@ export function setupIdeationListeners(): () => void {
     unsubTypeFailed();
     unsubComplete();
     unsubError();
+    unsubStopped();
   };
 }

@@ -60,6 +60,7 @@ from debug import (
     debug_section,
 )
 from graphiti_providers import get_graph_hints, is_graphiti_enabled
+from init import init_auto_claude_dir
 
 
 # Configuration
@@ -67,10 +68,11 @@ MAX_RETRIES = 3
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 # Ideation types
+# Note: high_value_features removed - strategic features belong to Roadmap
+# low_hanging_fruit renamed to code_improvements to cover all code-revealed opportunities
 IDEATION_TYPES = [
-    "low_hanging_fruit",
+    "code_improvements",
     "ui_ux_improvements",
-    "high_value_features",
     "documentation_gaps",
     "security_hardening",
     "performance_optimizations",
@@ -78,9 +80,8 @@ IDEATION_TYPES = [
 ]
 
 IDEATION_TYPE_LABELS = {
-    "low_hanging_fruit": "Low-Hanging Fruit",
+    "code_improvements": "Code Improvements",
     "ui_ux_improvements": "UI/UX Improvements",
-    "high_value_features": "High-Value Features",
     "documentation_gaps": "Documentation Gaps",
     "security_hardening": "Security Hardening",
     "performance_optimizations": "Performance Optimizations",
@@ -88,9 +89,8 @@ IDEATION_TYPE_LABELS = {
 }
 
 IDEATION_TYPE_PROMPTS = {
-    "low_hanging_fruit": "ideation_low_hanging_fruit.md",
+    "code_improvements": "ideation_code_improvements.md",
     "ui_ux_improvements": "ideation_ui_ux.md",
-    "high_value_features": "ideation_high_value.md",
     "documentation_gaps": "ideation_documentation.md",
     "security_hardening": "ideation_security.md",
     "performance_optimizations": "ideation_performance.md",
@@ -153,6 +153,8 @@ class IdeationOrchestrator:
         if output_dir:
             self.output_dir = Path(output_dir)
         else:
+            # Initialize .auto-claude directory and ensure it's in .gitignore
+            init_auto_claude_dir(self.project_dir)
             self.output_dir = self.project_dir / ".auto-claude" / "ideation"
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -246,9 +248,8 @@ class IdeationOrchestrator:
 
         # Create a query based on ideation type
         query_map = {
-            "low_hanging_fruit": "quick wins and simple improvements that worked well",
+            "code_improvements": "code patterns, quick wins, and improvement opportunities that worked well",
             "ui_ux_improvements": "UI and UX improvements and user interface patterns",
-            "high_value_features": "high impact features and strategic improvements",
             "documentation_gaps": "documentation improvements and common user confusion points",
             "security_hardening": "security vulnerabilities and hardening measures",
             "performance_optimizations": "performance bottlenecks and optimization techniques",

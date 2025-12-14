@@ -255,7 +255,7 @@ export class TaskLogService extends EventEmitter {
           // Emit change event with the merged logs
           this.emit('logs-changed', specId, logs);
 
-          // Calculate and emit streaming chunks for new entries
+          // Calculate and emit streaming updates for new entries
           this.emitNewEntries(specId, previousLogs, logs);
         }
       }
@@ -288,7 +288,7 @@ export class TaskLogService extends EventEmitter {
   }
 
   /**
-   * Emit streaming chunks for new log entries
+   * Emit streaming updates for new log entries
    */
   private emitNewEntries(specId: string, previousLogs: TaskLogs | undefined, currentLogs: TaskLogs): void {
     const phases: TaskLogPhase[] = ['planning', 'coding', 'validation'];
@@ -325,22 +325,22 @@ export class TaskLogService extends EventEmitter {
         for (let i = prevEntryCount; i < currEntryCount; i++) {
           const entry = currPhase.entries[i];
 
-          const chunk: TaskLogStreamChunk = {
+          const streamUpdate: TaskLogStreamChunk = {
             type: entry.type as TaskLogStreamChunk['type'],
             content: entry.content,
             phase: entry.phase,
             timestamp: entry.timestamp,
-            chunk_id: entry.chunk_id
+            subtask_id: entry.subtask_id
           };
 
           if (entry.tool_name) {
-            chunk.tool = {
+            streamUpdate.tool = {
               name: entry.tool_name,
               input: entry.tool_input
             };
           }
 
-          this.emit('stream-chunk', specId, chunk);
+          this.emit('stream-chunk', specId, streamUpdate);
         }
       }
     }

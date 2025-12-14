@@ -2,6 +2,8 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { app } from 'electron';
+import { EventEmitter } from 'events';
+import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
 
 /**
  * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
@@ -17,11 +19,12 @@ function debug(...args: unknown[]): void {
 /**
  * Service for generating task titles from descriptions using Claude AI
  */
-export class TitleGenerator {
+export class TitleGenerator extends EventEmitter {
   private pythonPath: string = 'python3';
   private autoBuildSourcePath: string = '';
 
   constructor() {
+    super();
     debug('TitleGenerator initialized');
   }
 
@@ -73,7 +76,8 @@ export class TitleGenerator {
       const envContent = readFileSync(envPath, 'utf-8');
       const envVars: Record<string, string> = {};
 
-      for (const line of envContent.split('\n')) {
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
 
@@ -120,12 +124,16 @@ export class TitleGenerator {
       hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
     });
 
+    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
+    const profileEnv = getProfileEnv();
+
     return new Promise((resolve) => {
       const childProcess = spawn(this.pythonPath, ['-c', script], {
         cwd: autoBuildSource,
         env: {
           ...process.env,
           ...autoBuildEnv,
+          ...profileEnv, // Include active Claude profile config
           PYTHONUNBUFFERED: '1'
         }
       });
@@ -154,11 +162,26 @@ export class TitleGenerator {
           debug('Generated title:', title);
           resolve(title);
         } else {
+          // Check for rate limit
+          const combinedOutput = `${output}\n${errorOutput}`;
+          const rateLimitDetection = detectRateLimit(combinedOutput);
+          if (rateLimitDetection.isRateLimited) {
+            console.log('[TitleGenerator] Rate limit detected:', {
+              resetTime: rateLimitDetection.resetTime,
+              limitType: rateLimitDetection.limitType,
+              suggestedProfile: rateLimitDetection.suggestedProfile?.name
+            });
+
+            const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
+            this.emit('sdk-rate-limit', rateLimitInfo);
+          }
+
           // Always log failures to help diagnose issues
           console.log('[TitleGenerator] Title generation failed', {
             code,
             errorOutput: errorOutput.substring(0, 500),
-            output: output.substring(0, 200)
+            output: output.substring(0, 200),
+            isRateLimited: rateLimitDetection.isRateLimited
           });
           resolve(null);
         }

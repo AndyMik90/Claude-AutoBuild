@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
-import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo } from '../../shared/types';
+import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
 
 /**
  * Hook to set up IPC event listeners for task updates
@@ -79,12 +79,26 @@ export function useIpcListeners(): void {
       }
     );
 
-    // Rate limit listener
+    // Terminal rate limit listener
     const showRateLimitModal = useRateLimitStore.getState().showRateLimitModal;
     const cleanupRateLimit = window.electronAPI.onTerminalRateLimit(
       (info: RateLimitInfo) => {
         // Convert detectedAt string to Date if needed
         showRateLimitModal({
+          ...info,
+          detectedAt: typeof info.detectedAt === 'string'
+            ? new Date(info.detectedAt)
+            : info.detectedAt
+        });
+      }
+    );
+
+    // SDK rate limit listener (for changelog, tasks, roadmap, ideation)
+    const showSDKRateLimitModal = useRateLimitStore.getState().showSDKRateLimitModal;
+    const cleanupSDKRateLimit = window.electronAPI.onSDKRateLimit(
+      (info: SDKRateLimitInfo) => {
+        // Convert detectedAt string to Date if needed
+        showSDKRateLimitModal({
           ...info,
           detectedAt: typeof info.detectedAt === 'string'
             ? new Date(info.detectedAt)
@@ -104,6 +118,7 @@ export function useIpcListeners(): void {
       cleanupRoadmapComplete();
       cleanupRoadmapError();
       cleanupRateLimit();
+      cleanupSDKRateLimit();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, setError]);
 }

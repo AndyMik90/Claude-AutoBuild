@@ -47,12 +47,15 @@ import type {
   IdeationGenerationStatus,
   IdeationStatus,
   SourceEnvConfig,
-  SourceEnvCheckResult
+  SourceEnvCheckResult,
+  ClaudeProfile,
+  ClaudeProfileSettings
 } from '../shared/types';
 import { projectStore } from './project-store';
 import { fileWatcher } from './file-watcher';
 import { AgentManager } from './agent-manager';
 import { TerminalManager } from './terminal-manager';
+import { getClaudeProfileManager } from './claude-profile-manager';
 import {
   initializeProject,
   isInitialized,
@@ -539,7 +542,7 @@ export function setupIpcHandlers(
         title: finalTitle,
         description,
         status: 'backlog',
-        chunks: [],
+        subtasks: [],
         logs: [],
         metadata: taskMetadata,
         createdAt: new Date(),
@@ -759,7 +762,7 @@ export function setupIpcHandlers(
         return;
       }
 
-      console.log('[TASK_START] Found task:', task.specId, 'status:', task.status, 'chunks:', task.chunks.length);
+      console.log('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
 
       // Start file watcher for this task
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -775,9 +778,9 @@ export function setupIpcHandlers(
       const hasSpec = existsSync(specFilePath);
 
       // Check if this task needs spec creation first (no spec file = not yet created)
-      // OR if it has a spec but no implementation plan chunks (spec created, needs planning/building)
+      // OR if it has a spec but no implementation plan subtasks (spec created, needs planning/building)
       const needsSpecCreation = !hasSpec;
-      const needsImplementation = hasSpec && task.chunks.length === 0;
+      const needsImplementation = hasSpec && task.subtasks.length === 0;
 
       console.log('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
@@ -790,7 +793,7 @@ export function setupIpcHandlers(
         // so spec_runner uses it instead of creating a new one
         agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
       } else if (needsImplementation) {
-        // Spec exists but no chunks - run run.py to create implementation plan and execute
+        // Spec exists but no subtasks - run run.py to create implementation plan and execute
         // Read the spec.md to get the task description
         let taskDescription = task.description || task.title;
         try {
@@ -799,9 +802,9 @@ export function setupIpcHandlers(
           // Use default description
         }
 
-        console.log('[TASK_START] Starting task execution (no chunks) for:', task.specId);
+        console.log('[TASK_START] Starting task execution (no subtasks) for:', task.specId);
         // Start task execution which will create the implementation plan
-        // Note: No parallel mode for planning phase - parallel only makes sense with multiple chunks
+        // Note: No parallel mode for planning phase - parallel only makes sense with multiple subtasks
         agentManager.startTaskExecution(
           taskId,
           project.path,
@@ -812,18 +815,18 @@ export function setupIpcHandlers(
           }
         );
       } else {
-        // Task has chunks, start normal execution
-        // Only enable parallel if there are multiple chunks AND user has parallel enabled
-        const hasMultipleChunks = task.chunks.length > 1;
-        const pendingChunks = task.chunks.filter(c => c.status === 'pending' || c.status === 'in_progress').length;
+        // Task has subtasks, start normal execution
+        // Only enable parallel if there are multiple subtasks AND user has parallel enabled
+        const hasMultipleSubtasks = task.subtasks.length > 1;
+        const pendingSubtasks = task.subtasks.filter(s => s.status === 'pending' || s.status === 'in_progress').length;
         const parallelEnabled = options?.parallel ?? project.settings.parallelEnabled;
-        const useParallel = parallelEnabled && hasMultipleChunks && pendingChunks > 1;
+        const useParallel = parallelEnabled && hasMultipleSubtasks && pendingSubtasks > 1;
         const workers = useParallel ? (options?.workers ?? project.settings.maxWorkers) : 1;
 
-        console.log('[TASK_START] Starting task execution (has chunks) for:', task.specId);
+        console.log('[TASK_START] Starting task execution (has subtasks) for:', task.specId);
         console.log('[TASK_START] Parallel decision:', {
-          hasMultipleChunks,
-          pendingChunks,
+          hasMultipleSubtasks,
+          pendingSubtasks,
           parallelEnabled,
           useParallel,
           workers
@@ -1026,7 +1029,7 @@ export function setupIpcHandlers(
           const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
           const hasSpec = existsSync(specFilePath);
           const needsSpecCreation = !hasSpec;
-          const needsImplementation = hasSpec && task.chunks.length === 0;
+          const needsImplementation = hasSpec && task.subtasks.length === 0;
 
           console.log('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
@@ -1036,8 +1039,8 @@ export function setupIpcHandlers(
             console.log('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
             agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
           } else if (needsImplementation) {
-            // Spec exists but no chunks - run run.py to create implementation plan and execute
-            console.log('[TASK_UPDATE_STATUS] Starting task execution (no chunks) for:', task.specId);
+            // Spec exists but no subtasks - run run.py to create implementation plan and execute
+            console.log('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -1048,14 +1051,14 @@ export function setupIpcHandlers(
               }
             );
           } else {
-            // Task has chunks, start normal execution
-            const hasMultipleChunks = task.chunks.length > 1;
-            const pendingChunks = task.chunks.filter(c => c.status === 'pending' || c.status === 'in_progress').length;
+            // Task has subtasks, start normal execution
+            const hasMultipleSubtasks = task.subtasks.length > 1;
+            const pendingSubtasks = task.subtasks.filter(s => s.status === 'pending' || s.status === 'in_progress').length;
             const parallelEnabled = project.settings.parallelEnabled;
-            const useParallel = parallelEnabled && hasMultipleChunks && pendingChunks > 1;
+            const useParallel = parallelEnabled && hasMultipleSubtasks && pendingSubtasks > 1;
             const workers = useParallel ? project.settings.maxWorkers : 1;
 
-            console.log('[TASK_UPDATE_STATUS] Starting task execution (has chunks) for:', task.specId);
+            console.log('[TASK_UPDATE_STATUS] Starting task execution (has subtasks) for:', task.specId);
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -1154,39 +1157,39 @@ export function setupIpcHandlers(
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
 
       try {
-        // Read the plan to analyze chunk progress
+        // Read the plan to analyze subtask progress
         let plan: Record<string, unknown> | null = null;
         if (existsSync(planPath)) {
           const planContent = readFileSync(planPath, 'utf-8');
           plan = JSON.parse(planContent);
         }
 
-        // Determine the target status intelligently based on chunk progress
-        // If targetStatus is explicitly provided, use it; otherwise calculate from chunks
+        // Determine the target status intelligently based on subtask progress
+        // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
         let newStatus: TaskStatus = targetStatus || 'backlog';
 
         if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
-          // Analyze chunk statuses to determine appropriate recovery status
-          const allChunks: Array<{ status: string }> = [];
-          for (const phase of plan.phases as Array<{ chunks?: Array<{ status: string }> }>) {
-            if (phase.chunks && Array.isArray(phase.chunks)) {
-              allChunks.push(...phase.chunks);
+          // Analyze subtask statuses to determine appropriate recovery status
+          const allSubtasks: Array<{ status: string }> = [];
+          for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string }> }>) {
+            if (phase.subtasks && Array.isArray(phase.subtasks)) {
+              allSubtasks.push(...phase.subtasks);
             }
           }
 
-          if (allChunks.length > 0) {
-            const completedCount = allChunks.filter(c => c.status === 'completed').length;
-            const allCompleted = completedCount === allChunks.length;
+          if (allSubtasks.length > 0) {
+            const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
+            const allCompleted = completedCount === allSubtasks.length;
 
             if (allCompleted) {
-              // All chunks completed - should go to review (ai_review or human_review based on source)
+              // All subtasks completed - should go to review (ai_review or human_review based on source)
               // For recovery, human_review is safer as it requires manual verification
               newStatus = 'human_review';
             } else if (completedCount > 0) {
-              // Some chunks completed, some still pending - task is in progress
+              // Some subtasks completed, some still pending - task is in progress
               newStatus = 'in_progress';
             }
-            // else: no chunks completed, stay with 'backlog'
+            // else: no subtasks completed, stay with 'backlog'
           }
         }
 
@@ -1203,28 +1206,28 @@ export function setupIpcHandlers(
           // Add recovery note
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
-          // Reset in_progress and failed chunk statuses to 'pending' so they can be retried
-          // Keep completed chunks as-is so run.py can resume from where it left off
+          // Reset in_progress and failed subtask statuses to 'pending' so they can be retried
+          // Keep completed subtasks as-is so run.py can resume from where it left off
           if (plan.phases && Array.isArray(plan.phases)) {
-            for (const phase of plan.phases as Array<{ chunks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
-              if (phase.chunks && Array.isArray(phase.chunks)) {
-                for (const chunk of phase.chunks) {
-                  // Reset in_progress chunks to pending (they were interrupted)
-                  // Keep completed chunks as-is so run.py can resume
-                  if (chunk.status === 'in_progress') {
-                    chunk.status = 'pending';
+            for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
+              if (phase.subtasks && Array.isArray(phase.subtasks)) {
+                for (const subtask of phase.subtasks) {
+                  // Reset in_progress subtasks to pending (they were interrupted)
+                  // Keep completed subtasks as-is so run.py can resume
+                  if (subtask.status === 'in_progress') {
+                    subtask.status = 'pending';
                     // Clear execution data to maintain consistency
-                    delete chunk.actual_output;
-                    delete chunk.started_at;
-                    delete chunk.completed_at;
+                    delete subtask.actual_output;
+                    delete subtask.started_at;
+                    delete subtask.completed_at;
                   }
-                  // Also reset failed chunks so they can be retried
-                  if (chunk.status === 'failed') {
-                    chunk.status = 'pending';
+                  // Also reset failed subtasks so they can be retried
+                  if (subtask.status === 'failed') {
+                    subtask.status = 'pending';
                     // Clear execution data to maintain consistency
-                    delete chunk.actual_output;
-                    delete chunk.started_at;
-                    delete chunk.completed_at;
+                    delete subtask.actual_output;
+                    delete subtask.started_at;
+                    delete subtask.completed_at;
                   }
                 }
               }
@@ -1252,12 +1255,12 @@ export function setupIpcHandlers(
             }
 
             // Start the task execution
-                        
+
             // Check if we should use parallel mode
-            const hasMultipleChunks = task.chunks.length > 1;
-            const pendingChunks = task.chunks.filter(c => c.status === 'pending').length;
+            const hasMultipleSubtasks = task.subtasks.length > 1;
+            const pendingSubtasks = task.subtasks.filter(s => s.status === 'pending').length;
             const parallelEnabled = project.settings.parallelEnabled;
-            const useParallel = parallelEnabled && hasMultipleChunks && pendingChunks > 1;
+            const useParallel = parallelEnabled && hasMultipleSubtasks && pendingSubtasks > 1;
             const workers = useParallel ? project.settings.maxWorkers : 1;
 
             // Start file watcher for this task
@@ -2224,6 +2227,341 @@ export function setupIpcHandlers(
     }
   );
 
+  // Claude profile management (multi-account support)
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILES_GET,
+    async (): Promise<IPCResult<ClaudeProfileSettings>> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const settings = profileManager.getSettings();
+        return { success: true, data: settings };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get Claude profiles'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_SAVE,
+    async (_, profile: ClaudeProfile): Promise<IPCResult<ClaudeProfile>> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+
+        // If this is a new profile without an ID, generate one
+        if (!profile.id) {
+          profile.id = profileManager.generateProfileId(profile.name);
+        }
+
+        // Ensure config directory exists for non-default profiles
+        if (!profile.isDefault && profile.configDir) {
+          const { mkdirSync, existsSync } = await import('fs');
+          if (!existsSync(profile.configDir)) {
+            mkdirSync(profile.configDir, { recursive: true });
+          }
+        }
+
+        const savedProfile = profileManager.saveProfile(profile);
+        return { success: true, data: savedProfile };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save Claude profile'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_DELETE,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const success = profileManager.deleteProfile(profileId);
+        if (!success) {
+          return { success: false, error: 'Cannot delete default or last profile' };
+        }
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete Claude profile'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_RENAME,
+    async (_, profileId: string, newName: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const success = profileManager.renameProfile(profileId, newName);
+        if (!success) {
+          return { success: false, error: 'Profile not found or invalid name' };
+        }
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to rename Claude profile'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_SET_ACTIVE,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const success = profileManager.setActiveProfile(profileId);
+        if (!success) {
+          return { success: false, error: 'Profile not found' };
+        }
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set active Claude profile'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_SWITCH,
+    async (_, terminalId: string, profileId: string): Promise<IPCResult> => {
+      try {
+        const result = await terminalManager.switchClaudeProfile(terminalId, profileId);
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to switch Claude profile'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const profile = profileManager.getProfile(profileId);
+        if (!profile) {
+          return { success: false, error: 'Profile not found' };
+        }
+
+        // Ensure the config directory exists for non-default profiles
+        if (!profile.isDefault && profile.configDir) {
+          const { mkdirSync, existsSync } = await import('fs');
+          if (!existsSync(profile.configDir)) {
+            mkdirSync(profile.configDir, { recursive: true });
+            console.log('[IPC] Created config directory:', profile.configDir);
+          }
+        }
+
+        // Create a terminal and run claude setup-token there
+        // This is needed because claude setup-token requires TTY/raw mode
+        const terminalId = `claude-login-${profileId}-${Date.now()}`;
+        const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
+
+        console.log('[IPC] Initializing Claude profile:', {
+          profileId,
+          profileName: profile.name,
+          configDir: profile.configDir,
+          isDefault: profile.isDefault
+        });
+
+        // Create a new terminal for the login process
+        await terminalManager.create({ id: terminalId, cwd: homeDir });
+
+        // Wait a moment for the terminal to initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Build the login command with the profile's config dir
+        // Use export to ensure the variable persists, then run setup-token
+        let loginCommand: string;
+        if (!profile.isDefault && profile.configDir) {
+          // Use export and run in subshell to ensure CLAUDE_CONFIG_DIR is properly set
+          loginCommand = `export CLAUDE_CONFIG_DIR="${profile.configDir}" && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+        } else {
+          loginCommand = 'claude setup-token';
+        }
+
+        console.log('[IPC] Sending login command to terminal:', loginCommand);
+
+        // Write the login command to the terminal
+        terminalManager.write(terminalId, `${loginCommand}\r`);
+
+        // Notify the renderer that a login terminal was created
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send('claude-profile-login-terminal', {
+            terminalId,
+            profileId,
+            profileName: profile.name
+          });
+        }
+
+        return { 
+          success: true, 
+          data: { 
+            terminalId,
+            message: `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
+          } 
+        };
+      } catch (error) {
+        console.error('[IPC] Failed to initialize Claude profile:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to initialize Claude profile'
+        };
+      }
+    }
+  );
+
+  // Set OAuth token for a profile (used when capturing from terminal or manual input)
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_SET_TOKEN,
+    async (_, profileId: string, token: string, email?: string): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const success = profileManager.setProfileToken(profileId, token, email);
+        if (!success) {
+          return { success: false, error: 'Profile not found' };
+        }
+        return { success: true };
+      } catch (error) {
+        console.error('[IPC] Failed to set OAuth token:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set OAuth token'
+        };
+      }
+    }
+  );
+
+  // Get auto-switch settings
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS,
+    async (): Promise<IPCResult<import('../shared/types').ClaudeAutoSwitchSettings>> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const settings = profileManager.getAutoSwitchSettings();
+        return { success: true, data: settings };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get auto-switch settings'
+        };
+      }
+    }
+  );
+
+  // Update auto-switch settings
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_UPDATE_AUTO_SWITCH,
+    async (_, settings: Partial<import('../shared/types').ClaudeAutoSwitchSettings>): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        profileManager.updateAutoSwitchSettings(settings);
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update auto-switch settings'
+        };
+      }
+    }
+  );
+
+  // Fetch usage by sending /usage command to terminal
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_FETCH_USAGE,
+    async (_, terminalId: string): Promise<IPCResult> => {
+      try {
+        // Send /usage command to the terminal
+        terminalManager.write(terminalId, '/usage\r');
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch usage'
+        };
+      }
+    }
+  );
+
+  // Get best available profile
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_GET_BEST_PROFILE,
+    async (_, excludeProfileId?: string): Promise<IPCResult<ClaudeProfile | null>> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const bestProfile = profileManager.getBestAvailableProfile(excludeProfileId);
+        return { success: true, data: bestProfile };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get best profile'
+        };
+      }
+    }
+  );
+
+  // Retry rate-limited operation with a different profile
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_RETRY_WITH_PROFILE,
+    async (_, request: import('../shared/types').RetryWithProfileRequest): Promise<IPCResult> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+
+        // Set the new active profile
+        profileManager.setActiveProfile(request.profileId);
+
+        // Get the project
+        const project = projectStore.getProject(request.projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        // Retry based on the source
+        switch (request.source) {
+          case 'changelog':
+            // The changelog UI will handle retrying by re-submitting the form
+            // We just need to confirm the profile switch was successful
+            return { success: true };
+
+          case 'task':
+            // For tasks, we would need to restart the task
+            // This is complex and would need task state restoration
+            return { success: true, data: { message: 'Please restart the task manually' } };
+
+          case 'roadmap':
+            // For roadmap, the UI can trigger a refresh
+            return { success: true };
+
+          case 'ideation':
+            // For ideation, the UI can trigger a refresh
+            return { success: true };
+
+          default:
+            return { success: true };
+        }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to retry with profile'
+        };
+      }
+    }
+  );
+
   // Terminal session management (persistence/restore)
   ipcMain.handle(
     IPC_CHANNELS.TERMINAL_GET_SESSIONS,
@@ -2353,6 +2691,22 @@ export function setupIpcHandlers(
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error);
+    }
+  });
+
+  // Handle SDK rate limit events from agent manager
+  agentManager.on('sdk-rate-limit', (rateLimitInfo: import('../shared/types').SDKRateLimitInfo) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+    }
+  });
+
+  // Handle SDK rate limit events from title generator
+  titleGenerator.on('sdk-rate-limit', (rateLimitInfo: import('../shared/types').SDKRateLimitInfo) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
   });
 
@@ -2799,7 +3153,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
           title: feature.title,
           description: taskDescription,
           status: 'backlog',
-          chunks: [],
+          subtasks: [],
           logs: [],
           metadata,
           createdAt: new Date(),
@@ -2912,8 +3266,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
             if (existsSync(projectEnvPath)) {
               try {
                 const envContent = readFileSync(projectEnvPath, 'utf-8');
-                // Parse .env file inline
-                for (const line of envContent.split('\n')) {
+                // Parse .env file inline - handle both Unix and Windows line endings
+                for (const line of envContent.split(/\r?\n/)) {
                   const trimmed = line.trim();
                   if (!trimmed || trimmed.startsWith('#')) continue;
                   const eqIndex = trimmed.indexOf('=');
@@ -3148,8 +3502,8 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
         if (existsSync(projectEnvPath)) {
           try {
             const envContent = readFileSync(projectEnvPath, 'utf-8');
-            // Parse .env file inline
-            for (const line of envContent.split('\n')) {
+            // Parse .env file inline - handle both Unix and Windows line endings
+            for (const line of envContent.split(/\r?\n/)) {
               const trimmed = line.trim();
               if (!trimmed || trimmed.startsWith('#')) continue;
               const eqIndex = trimmed.indexOf('=');
@@ -4949,8 +5303,10 @@ ${issue.body || 'No description provided.'}
 
       try {
         // Check if gh CLI is available
+        // Use 'where' on Windows, 'which' on Unix
         try {
-          execSync('which gh', { encoding: 'utf-8' });
+          const checkCmd = process.platform === 'win32' ? 'where gh' : 'which gh';
+          execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
         } catch {
           return {
             success: false,
@@ -5291,6 +5647,94 @@ ${issue.body || 'No description provided.'}
   // Ideation Operations
   // ============================================
 
+  /**
+   * Transform an idea from snake_case (Python backend) to camelCase (TypeScript frontend)
+   */
+  const transformIdeaFromSnakeCase = (idea: Record<string, unknown>) => {
+    const base = {
+      id: idea.id as string,
+      type: idea.type as string,
+      title: idea.title as string,
+      description: idea.description as string,
+      rationale: idea.rationale as string,
+      status: idea.status as string || 'draft',
+      createdAt: idea.created_at ? new Date(idea.created_at as string) : new Date()
+    };
+
+    if (idea.type === 'code_improvements') {
+      return {
+        ...base,
+        buildsUpon: idea.builds_upon || idea.buildsUpon || [],
+        estimatedEffort: idea.estimated_effort || idea.estimatedEffort || 'small',
+        affectedFiles: idea.affected_files || idea.affectedFiles || [],
+        existingPatterns: idea.existing_patterns || idea.existingPatterns || [],
+        implementationApproach: idea.implementation_approach || idea.implementationApproach || ''
+      };
+    } else if (idea.type === 'ui_ux_improvements') {
+      return {
+        ...base,
+        category: idea.category || 'usability',
+        affectedComponents: idea.affected_components || idea.affectedComponents || [],
+        screenshots: idea.screenshots || [],
+        currentState: idea.current_state || idea.currentState || '',
+        proposedChange: idea.proposed_change || idea.proposedChange || '',
+        userBenefit: idea.user_benefit || idea.userBenefit || ''
+      };
+    } else if (idea.type === 'documentation_gaps') {
+      return {
+        ...base,
+        category: idea.category || 'readme',
+        targetAudience: idea.target_audience || idea.targetAudience || 'developers',
+        affectedAreas: idea.affected_areas || idea.affectedAreas || [],
+        currentDocumentation: idea.current_documentation || idea.currentDocumentation || '',
+        proposedContent: idea.proposed_content || idea.proposedContent || '',
+        priority: idea.priority || 'medium',
+        estimatedEffort: idea.estimated_effort || idea.estimatedEffort || 'small'
+      };
+    } else if (idea.type === 'security_hardening') {
+      return {
+        ...base,
+        category: idea.category || 'configuration',
+        severity: idea.severity || 'medium',
+        affectedFiles: idea.affected_files || idea.affectedFiles || [],
+        vulnerability: idea.vulnerability || '',
+        currentRisk: idea.current_risk || idea.currentRisk || '',
+        remediation: idea.remediation || '',
+        references: idea.references || [],
+        compliance: idea.compliance || []
+      };
+    } else if (idea.type === 'performance_optimizations') {
+      return {
+        ...base,
+        category: idea.category || 'runtime',
+        impact: idea.impact || 'medium',
+        affectedAreas: idea.affected_areas || idea.affectedAreas || [],
+        currentMetric: idea.current_metric || idea.currentMetric || '',
+        expectedImprovement: idea.expected_improvement || idea.expectedImprovement || '',
+        implementation: idea.implementation || '',
+        tradeoffs: idea.tradeoffs || '',
+        estimatedEffort: idea.estimated_effort || idea.estimatedEffort || 'medium'
+      };
+    } else if (idea.type === 'code_quality') {
+      return {
+        ...base,
+        category: idea.category || 'code_smells',
+        severity: idea.severity || 'minor',
+        affectedFiles: idea.affected_files || idea.affectedFiles || [],
+        currentState: idea.current_state || idea.currentState || '',
+        proposedChange: idea.proposed_change || idea.proposedChange || '',
+        codeExample: idea.code_example || idea.codeExample || '',
+        bestPractice: idea.best_practice || idea.bestPractice || '',
+        metrics: idea.metrics || {},
+        estimatedEffort: idea.estimated_effort || idea.estimatedEffort || 'medium',
+        breakingChange: idea.breaking_change ?? idea.breakingChange ?? false,
+        prerequisites: idea.prerequisites || []
+      };
+    }
+
+    return base;
+  };
+
   ipcMain.handle(
     IPC_CHANNELS.IDEATION_GET,
     async (_, projectId: string): Promise<IPCResult<IdeationSession | null>> => {
@@ -5323,52 +5767,9 @@ ${issue.body || 'No description provided.'}
             includeKanbanContext: rawIdeation.config?.include_kanban_context ?? rawIdeation.config?.includeKanbanContext ?? true,
             maxIdeasPerType: rawIdeation.config?.max_ideas_per_type || rawIdeation.config?.maxIdeasPerType || 5
           },
-          ideas: (rawIdeation.ideas || []).map((idea: Record<string, unknown>) => {
-            const base = {
-              id: idea.id as string,
-              type: idea.type as string,
-              title: idea.title as string,
-              description: idea.description as string,
-              rationale: idea.rationale as string,
-              status: idea.status as string || 'draft',
-              createdAt: idea.created_at ? new Date(idea.created_at as string) : new Date()
-            };
-
-            // Type-specific fields
-            if (idea.type === 'low_hanging_fruit') {
-              return {
-                ...base,
-                buildsUpon: idea.builds_upon || idea.buildsUpon || [],
-                estimatedEffort: idea.estimated_effort || idea.estimatedEffort || 'small',
-                affectedFiles: idea.affected_files || idea.affectedFiles || [],
-                existingPatterns: idea.existing_patterns || idea.existingPatterns || []
-              };
-            } else if (idea.type === 'ui_ux_improvements') {
-              return {
-                ...base,
-                category: idea.category || 'usability',
-                affectedComponents: idea.affected_components || idea.affectedComponents || [],
-                screenshots: idea.screenshots || [],
-                currentState: idea.current_state || idea.currentState || '',
-                proposedChange: idea.proposed_change || idea.proposedChange || '',
-                userBenefit: idea.user_benefit || idea.userBenefit || ''
-              };
-            } else if (idea.type === 'high_value_features') {
-              return {
-                ...base,
-                targetAudience: idea.target_audience || idea.targetAudience || '',
-                problemSolved: idea.problem_solved || idea.problemSolved || '',
-                valueProposition: idea.value_proposition || idea.valueProposition || '',
-                competitiveAdvantage: idea.competitive_advantage || idea.competitiveAdvantage,
-                estimatedImpact: idea.estimated_impact || idea.estimatedImpact || 'medium',
-                complexity: idea.complexity || 'medium',
-                dependencies: idea.dependencies || [],
-                acceptanceCriteria: idea.acceptance_criteria || idea.acceptanceCriteria || []
-              };
-            }
-
-            return base;
-          }),
+          ideas: (rawIdeation.ideas || []).map((idea: Record<string, unknown>) =>
+            transformIdeaFromSnakeCase(idea)
+          ),
           projectContext: {
             existingFeatures: rawIdeation.project_context?.existing_features || rawIdeation.projectContext?.existingFeatures || [],
             techStack: rawIdeation.project_context?.tech_stack || rawIdeation.projectContext?.techStack || [],
@@ -5450,6 +5851,66 @@ ${issue.body || 'No description provided.'}
           message: 'Refreshing ideation...'
         } as IdeationGenerationStatus
       );
+    }
+  );
+
+  // Stop ideation generation
+  ipcMain.handle(
+    IPC_CHANNELS.IDEATION_STOP,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const mainWindow = getMainWindow();
+      const wasStopped = agentManager.stopIdeation(projectId);
+
+      if (wasStopped && mainWindow) {
+        mainWindow.webContents.send(IPC_CHANNELS.IDEATION_STOPPED, projectId);
+      }
+
+      return { success: wasStopped };
+    }
+  );
+
+  // Dismiss all ideas
+  ipcMain.handle(
+    IPC_CHANNELS.IDEATION_DISMISS_ALL,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const ideationPath = path.join(
+        project.path,
+        AUTO_BUILD_PATHS.IDEATION_DIR,
+        AUTO_BUILD_PATHS.IDEATION_FILE
+      );
+
+      if (!existsSync(ideationPath)) {
+        return { success: false, error: 'Ideation not found' };
+      }
+
+      try {
+        const content = readFileSync(ideationPath, 'utf-8');
+        const ideation = JSON.parse(content);
+
+        // Dismiss all ideas that are not already dismissed or converted
+        let dismissedCount = 0;
+        ideation.ideas?.forEach((idea: { status: string }) => {
+          if (idea.status !== 'dismissed' && idea.status !== 'converted') {
+            idea.status = 'dismissed';
+            dismissedCount++;
+          }
+        });
+        ideation.updated_at = new Date().toISOString();
+
+        writeFileSync(ideationPath, JSON.stringify(ideation, null, 2));
+
+        return { success: true, data: { dismissedCount } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to dismiss all ideas'
+        };
+      }
     }
   );
 
@@ -5616,9 +6077,14 @@ ${issue.body || 'No description provided.'}
         taskDescription += `${idea.description}\n\n`;
         taskDescription += `## Rationale\n${idea.rationale}\n\n`;
 
-        if (idea.type === 'low_hanging_fruit') {
+        // Note: high_value_features removed - strategic features belong to Roadmap
+        // low_hanging_fruit renamed to code_improvements
+        if (idea.type === 'code_improvements') {
           if (idea.builds_upon?.length) {
             taskDescription += `## Builds Upon\n${idea.builds_upon.map((b: string) => `- ${b}`).join('\n')}\n\n`;
+          }
+          if (idea.implementation_approach) {
+            taskDescription += `## Implementation Approach\n${idea.implementation_approach}\n\n`;
           }
           if (idea.affected_files?.length) {
             taskDescription += `## Affected Files\n${idea.affected_files.map((f: string) => `- ${f}`).join('\n')}\n\n`;
@@ -5633,19 +6099,6 @@ ${issue.body || 'No description provided.'}
           taskDescription += `## User Benefit\n${idea.user_benefit}\n\n`;
           if (idea.affected_components?.length) {
             taskDescription += `## Affected Components\n${idea.affected_components.map((c: string) => `- ${c}`).join('\n')}\n\n`;
-          }
-        } else if (idea.type === 'high_value_features') {
-          taskDescription += `## Target Audience\n${idea.target_audience}\n\n`;
-          taskDescription += `## Problem Solved\n${idea.problem_solved}\n\n`;
-          taskDescription += `## Value Proposition\n${idea.value_proposition}\n\n`;
-          if (idea.competitive_advantage) {
-            taskDescription += `## Competitive Advantage\n${idea.competitive_advantage}\n\n`;
-          }
-          if (idea.acceptance_criteria?.length) {
-            taskDescription += `## Acceptance Criteria\n${idea.acceptance_criteria.map((c: string) => `- ${c}`).join('\n')}\n\n`;
-          }
-          if (idea.dependencies?.length) {
-            taskDescription += `## Dependencies\n${idea.dependencies.map((d: string) => `- ${d}`).join('\n')}\n\n`;
           }
         }
 
@@ -5699,10 +6152,10 @@ ${idea.rationale}
         };
 
         // Map idea type to task category
+        // Note: high_value_features removed, low_hanging_fruit renamed to code_improvements
         const ideaTypeToCategory: Record<string, TaskCategory> = {
-          'low_hanging_fruit': 'feature',
+          'code_improvements': 'feature',
           'ui_ux_improvements': 'ui_ux',
-          'high_value_features': 'feature',
           'documentation_gaps': 'documentation',
           'security_hardening': 'security',
           'performance_optimizations': 'performance',
@@ -5711,21 +6164,16 @@ ${idea.rationale}
         metadata.category = ideaTypeToCategory[idea.type] || 'feature';
 
         // Extract type-specific metadata
-        if (idea.type === 'low_hanging_fruit') {
+        // Note: high_value_features removed - strategic features belong to Roadmap
+        // low_hanging_fruit renamed to code_improvements
+        if (idea.type === 'code_improvements') {
           metadata.estimatedEffort = idea.estimated_effort;
-          metadata.complexity = idea.estimated_effort; // trivial/small/medium
+          metadata.complexity = idea.estimated_effort; // trivial/small/medium/large/complex
           metadata.affectedFiles = idea.affected_files;
         } else if (idea.type === 'ui_ux_improvements') {
           metadata.uiuxCategory = idea.category;
           metadata.affectedFiles = idea.affected_components;
           metadata.problemSolved = idea.current_state;
-        } else if (idea.type === 'high_value_features') {
-          metadata.impact = idea.estimated_impact as TaskImpact;
-          metadata.complexity = idea.complexity as TaskComplexity;
-          metadata.targetAudience = idea.target_audience;
-          metadata.problemSolved = idea.problem_solved;
-          metadata.dependencies = idea.dependencies;
-          metadata.acceptanceCriteria = idea.acceptance_criteria;
         } else if (idea.type === 'documentation_gaps') {
           metadata.estimatedEffort = idea.estimated_effort;
           metadata.priority = idea.priority;
@@ -5764,7 +6212,7 @@ ${idea.rationale}
           title: idea.title,
           description: taskDescription,
           status: 'backlog',
-          chunks: [],
+          subtasks: [],
           logs: [],
           metadata,
           createdAt: new Date(),
@@ -5813,6 +6261,13 @@ ${idea.rationale}
     }
   });
 
+  agentManager.on('ideation-stopped', (projectId: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.IDEATION_STOPPED, projectId);
+    }
+  });
+
   // Handle streaming ideation type completion - load ideas for this type immediately
   agentManager.on('ideation-type-complete', (projectId: string, ideationType: string, ideasCount: number) => {
     const mainWindow = getMainWindow();
@@ -5829,7 +6284,9 @@ ${idea.rationale}
           try {
             const content = readFileSync(typeFile, 'utf-8');
             const data = JSON.parse(content);
-            const ideas = data[ideationType] || [];
+            const rawIdeas = data[ideationType] || [];
+            // Transform ideas from snake_case to camelCase
+            const ideas = rawIdeas.map((idea: Record<string, unknown>) => transformIdeaFromSnakeCase(idea));
             mainWindow.webContents.send(
               IPC_CHANNELS.IDEATION_TYPE_COMPLETE,
               projectId,
@@ -5909,10 +6366,13 @@ ${idea.rationale}
         return;
       }
 
-      // Load specs for selected tasks
-      const tasks = projectStore.getTasks(request.projectId);
-      const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
+      // Load specs for selected tasks (only in tasks mode)
+      let specs: import('../shared/types').TaskSpecContent[] = [];
+      if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
+        const tasks = projectStore.getTasks(request.projectId);
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
+      }
 
       // Start generation
       changelogService.generateChangelog(request.projectId, project.path, request, specs);
@@ -5999,6 +6459,88 @@ ${idea.rationale}
   );
 
   // ============================================
+  // Changelog Git Operations
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.CHANGELOG_GET_BRANCHES,
+    async (_, projectId: string): Promise<IPCResult<import('../shared/types').GitBranchInfo[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const branches = changelogService.getBranches(project.path);
+        return { success: true, data: branches };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get branches'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CHANGELOG_GET_TAGS,
+    async (_, projectId: string): Promise<IPCResult<import('../shared/types').GitTagInfo[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        const tags = changelogService.getTags(project.path);
+        return { success: true, data: tags };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get tags'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CHANGELOG_GET_COMMITS_PREVIEW,
+    async (
+      _,
+      projectId: string,
+      options: import('../shared/types').GitHistoryOptions | import('../shared/types').BranchDiffOptions,
+      mode: 'git-history' | 'branch-diff'
+    ): Promise<IPCResult<import('../shared/types').GitCommit[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        let commits: import('../shared/types').GitCommit[];
+
+        if (mode === 'git-history') {
+          commits = changelogService.getCommits(
+            project.path,
+            options as import('../shared/types').GitHistoryOptions
+          );
+        } else {
+          commits = changelogService.getBranchDiffCommits(
+            project.path,
+            options as import('../shared/types').BranchDiffOptions
+          );
+        }
+
+        return { success: true, data: commits };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get commits preview'
+        };
+      }
+    }
+  );
+
+  // ============================================
   // Changelog Agent Events → Renderer
   // ============================================
 
@@ -6020,6 +6562,13 @@ ${idea.rationale}
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, projectId, error);
+    }
+  });
+
+  changelogService.on('rate-limit', (projectId: string, rateLimitInfo: import('../shared/types').SDKRateLimitInfo) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
   });
 
@@ -6177,7 +6726,7 @@ ${idea.rationale}
           title,
           description,
           status: 'backlog',
-          chunks: [],
+          subtasks: [],
           logs: [],
           metadata: taskMetadata,
           createdAt: new Date(),
@@ -6342,6 +6891,14 @@ ${idea.rationale}
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
+    }
+  });
+
+  // Handle SDK rate limit events from insights service
+  insightsService.on('sdk-rate-limit', (rateLimitInfo: import('../shared/types').SDKRateLimitInfo) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
   });
 }

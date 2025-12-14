@@ -47,7 +47,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
   
-  // Check if task is in human_review but has no completed chunks (crashed/incomplete)
+  // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
 
   // Check if task is stuck (status says in_progress but no actual process)
@@ -163,7 +163,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 Stuck
               </Badge>
             )}
-            {/* Incomplete indicator - task in human_review but no chunks completed */}
+            {/* Incomplete indicator - task in human_review but no subtasks completed */}
             {isIncomplete && !isStuck && (
               <Badge
                 variant="outline"
@@ -279,11 +279,11 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         )}
 
         {/* Progress section - Phase-aware with animations */}
-        {(task.chunks.length > 0 || hasActiveExecution || isRunning || isStuck) && (
+        {(task.subtasks.length > 0 || hasActiveExecution || isRunning || isStuck) && (
           <div className="mt-4">
             <PhaseProgressIndicator
               phase={executionPhase}
-              chunks={task.chunks}
+              subtasks={task.subtasks}
               isStuck={isStuck}
               isRunning={isRunning}
             />

@@ -52,6 +52,11 @@ import type {
   ChangelogSaveResult,
   ChangelogGenerationProgress,
   ExistingChangelog,
+  GitBranchInfo,
+  GitTagInfo,
+  GitCommit,
+  GitHistoryOptions,
+  BranchDiffOptions,
   InsightsSession,
   InsightsSessionSummary,
   InsightsChatStatus,
@@ -59,7 +64,9 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  RateLimitInfo
+  RateLimitInfo,
+  ClaudeProfile,
+  ClaudeProfileSettings
 } from '../shared/types';
 
 // Expose a secure API to the renderer process
@@ -435,6 +442,79 @@ const electronAPI: ElectronAPI = {
     };
   },
 
+  onTerminalOAuthToken: (
+    callback: (info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }
+    ): void => {
+      callback(info);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, handler);
+    };
+  },
+
+  // ============================================
+  // Claude Profile Management (Multi-Account Support)
+  // ============================================
+
+  getClaudeProfiles: (): Promise<IPCResult<ClaudeProfileSettings>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILES_GET),
+
+  saveClaudeProfile: (profile: ClaudeProfile): Promise<IPCResult<ClaudeProfile>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SAVE, profile),
+
+  deleteClaudeProfile: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_DELETE, profileId),
+
+  renameClaudeProfile: (profileId: string, newName: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_RENAME, profileId, newName),
+
+  setActiveClaudeProfile: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SET_ACTIVE, profileId),
+
+  switchClaudeProfile: (terminalId: string, profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SWITCH, terminalId, profileId),
+
+  initializeClaudeProfile: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_INITIALIZE, profileId),
+
+  setClaudeProfileToken: (profileId: string, token: string, email?: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SET_TOKEN, profileId, token, email),
+
+  getAutoSwitchSettings: (): Promise<IPCResult<import('../shared/types').ClaudeAutoSwitchSettings>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS),
+
+  updateAutoSwitchSettings: (settings: Partial<import('../shared/types').ClaudeAutoSwitchSettings>): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_UPDATE_AUTO_SWITCH, settings),
+
+  fetchClaudeUsage: (terminalId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_FETCH_USAGE, terminalId),
+
+  getBestAvailableProfile: (excludeProfileId?: string): Promise<IPCResult<import('../shared/types').ClaudeProfile | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_GET_BEST_PROFILE, excludeProfileId),
+
+  onSDKRateLimit: (
+    callback: (info: import('../shared/types').SDKRateLimitInfo) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: import('../shared/types').SDKRateLimitInfo
+    ): void => {
+      callback(info);
+    };
+    ipcRenderer.on(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, handler);
+    };
+  },
+
+  retryWithProfile: (request: import('../shared/types').RetryWithProfileRequest): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_RETRY_WITH_PROFILE, request),
+
   // ============================================
   // App Settings
   // ============================================
@@ -696,6 +776,9 @@ const electronAPI: ElectronAPI = {
   refreshIdeation: (projectId: string, config: IdeationConfig): void =>
     ipcRenderer.send(IPC_CHANNELS.IDEATION_REFRESH, projectId, config),
 
+  stopIdeation: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.IDEATION_STOP, projectId),
+
   updateIdeaStatus: (projectId: string, ideaId: string, status: IdeationStatus): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.IDEATION_UPDATE_IDEA, projectId, ideaId, status),
 
@@ -704,6 +787,9 @@ const electronAPI: ElectronAPI = {
 
   dismissIdea: (projectId: string, ideaId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.IDEATION_DISMISS, projectId, ideaId),
+
+  dismissAllIdeas: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.IDEATION_DISMISS_ALL, projectId),
 
   // ============================================
   // Ideation Event Listeners
@@ -770,6 +856,21 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.IDEATION_ERROR, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.IDEATION_ERROR, handler);
+    };
+  },
+
+  onIdeationStopped: (
+    callback: (projectId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string
+    ): void => {
+      callback(projectId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.IDEATION_STOPPED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.IDEATION_STOPPED, handler);
     };
   },
 
@@ -871,6 +972,20 @@ const electronAPI: ElectronAPI = {
     taskIds: string[]
   ): Promise<IPCResult<{ version: string; reason: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_SUGGEST_VERSION, projectId, taskIds),
+
+  // Changelog git operations (for git-based changelog generation)
+  getChangelogBranches: (projectId: string): Promise<IPCResult<GitBranchInfo[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_GET_BRANCHES, projectId),
+
+  getChangelogTags: (projectId: string): Promise<IPCResult<GitTagInfo[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_GET_TAGS, projectId),
+
+  getChangelogCommitsPreview: (
+    projectId: string,
+    options: GitHistoryOptions | BranchDiffOptions,
+    mode: 'git-history' | 'branch-diff'
+  ): Promise<IPCResult<GitCommit[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_GET_COMMITS_PREVIEW, projectId, options, mode),
 
   // ============================================
   // Changelog Event Listeners

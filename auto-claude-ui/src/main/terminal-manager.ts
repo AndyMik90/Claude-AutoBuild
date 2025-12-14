@@ -5,19 +5,18 @@ import type { TerminalCreateOptions } from '../shared/types';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { getTerminalSessionStore, type TerminalSession } from './terminal-session-store';
+import { getClaudeProfileManager } from './claude-profile-manager';
 
 /**
  * Get the Claude project slug from a project path.
- * Claude uses a hash-based slug for project directories.
+ * Claude uses the full path with forward slashes replaced by dashes.
+ * Example: /Users/john/project → -Users-john-project
+ * Example: C:\Users\john\project → C--Users-john-project
  */
 function getClaudeProjectSlug(projectPath: string): string {
-  // Claude uses the absolute path to create a slug
-  // Format: {basename}-{hash of full path}
-  const basename = path.basename(projectPath);
-  const hash = crypto.createHash('sha256').update(projectPath).digest('hex').slice(0, 8);
-  return `${basename}-${hash}`;
+  // Claude replaces all path separators with dashes (both / and \)
+  return projectPath.replace(/[/\\]/g, '-');
 }
 
 /**
@@ -99,6 +98,7 @@ interface TerminalProcess {
   projectPath?: string;
   cwd: string;  // Working directory for the terminal
   claudeSessionId?: string;
+  claudeProfileId?: string;  // Which Claude profile is being used (for multi-account support)
   outputBuffer: string;  // Track output for session persistence
   title: string;
 }
@@ -120,12 +120,20 @@ const CLAUDE_SESSION_PATTERNS = [
 // Matches: "Limit reached · resets Dec 17 at 6am (Europe/Oslo)"
 const RATE_LIMIT_PATTERN = /Limit reached\s*[·•]\s*resets\s+(.+?)$/m;
 
+// Regex pattern to capture OAuth token from `claude setup-token` output
+// Token format: sk-ant-oat01-... (varies in length, typically 100+ chars)
+const OAUTH_TOKEN_PATTERN = /(sk-ant-oat01-[A-Za-z0-9_-]+)/;
+
+// Pattern to detect email in Claude output (e.g., from /whoami or login success)
+const EMAIL_PATTERN = /(?:Authenticated as|Logged in as|email[:\s]+)([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+
 export class TerminalManager {
   private terminals: Map<string, TerminalProcess> = new Map();
   private getWindow: () => BrowserWindow | null;
   private saveTimer: NodeJS.Timeout | null = null;
-  // Track rate limit notifications per terminal to avoid spamming (reset after 60 seconds)
-  private rateLimitNotifiedAt: Map<string, number> = new Map();
+  // Track the last notified rate limit reset time per terminal
+  // This prevents duplicate notifications when terminal repaints (e.g., on resize/view switch)
+  private lastNotifiedRateLimitReset: Map<string, string> = new Map();
 
   constructor(getWindow: () => BrowserWindow | null) {
     this.getWindow = getWindow;
@@ -199,7 +207,15 @@ export class TerminalManager {
 
       console.log('[TerminalManager] Spawning shell:', shell, shellArgs);
 
-      // Spawn the pty process
+      // Get active Claude profile's environment (OAuth token if available)
+      const profileManager = getClaudeProfileManager();
+      const profileEnv = profileManager.getActiveProfileEnv();
+      
+      if (profileEnv.CLAUDE_CODE_OAUTH_TOKEN) {
+        console.log('[TerminalManager] Injecting OAuth token from active profile into terminal');
+      }
+
+      // Spawn the pty process with profile environment
       const ptyProcess = pty.spawn(shell, shellArgs, {
         name: 'xterm-256color',
         cols,
@@ -207,6 +223,7 @@ export class TerminalManager {
         cwd: cwd || os.homedir(),
         env: {
           ...process.env,
+          ...profileEnv,  // Include active profile's OAuth token
           TERM: 'xterm-256color',
           COLORTERM: 'truecolor',
         },
@@ -258,22 +275,107 @@ export class TerminalManager {
           const rateLimitMatch = data.match(RATE_LIMIT_PATTERN);
           if (rateLimitMatch) {
             const resetTime = rateLimitMatch[1].trim();
-            const now = Date.now();
-            const lastNotified = this.rateLimitNotifiedAt.get(id) || 0;
+            const lastNotifiedReset = this.lastNotifiedRateLimitReset.get(id);
 
-            // Only notify once per 60 seconds to avoid spamming
-            if (now - lastNotified > 60000) {
-              this.rateLimitNotifiedAt.set(id, now);
+            // Only notify if this is a different reset time than we last notified about
+            // This prevents duplicate notifications when terminal repaints (resize, view switch)
+            if (resetTime !== lastNotifiedReset) {
+              this.lastNotifiedRateLimitReset.set(id, resetTime);
               console.log('[TerminalManager] Rate limit detected, reset:', resetTime);
 
+              // Record rate limit event in profile manager
+              const profileManager = getClaudeProfileManager();
+              const currentProfileId = terminal.claudeProfileId || 'default';
+              try {
+                const rateLimitEvent = profileManager.recordRateLimitEvent(currentProfileId, resetTime);
+                console.log('[TerminalManager] Recorded rate limit event:', rateLimitEvent.type);
+              } catch (err) {
+                console.error('[TerminalManager] Failed to record rate limit event:', err);
+              }
+
+              // Check for auto-switch
+              const autoSwitchSettings = profileManager.getAutoSwitchSettings();
+              const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
+
+              // Notify renderer with extended info
               const win = this.getWindow();
               if (win) {
                 win.webContents.send(IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
                   terminalId: id,
                   resetTime,
+                  detectedAt: new Date().toISOString(),
+                  profileId: currentProfileId,
+                  suggestedProfileId: bestProfile?.id,
+                  suggestedProfileName: bestProfile?.name,
+                  autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
+                });
+              }
+
+              // Auto-switch if enabled and a better profile is available
+              if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestProfile) {
+                console.log('[TerminalManager] Auto-switching to profile:', bestProfile.name);
+                this.switchClaudeProfile(id, bestProfile.id).then(result => {
+                  if (result.success) {
+                    console.log('[TerminalManager] Auto-switch successful');
+                  } else {
+                    console.error('[TerminalManager] Auto-switch failed:', result.error);
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        // Check for OAuth token in terminal output (from `claude setup-token`)
+        // Automatically save to the profile - user never sees the token
+        const tokenMatch = data.match(OAUTH_TOKEN_PATTERN);
+        if (tokenMatch) {
+          const token = tokenMatch[1];
+          console.log('[TerminalManager] OAuth token detected, length:', token.length);
+
+          // Also try to capture email if present in recent output
+          const emailMatch = terminal.outputBuffer.match(EMAIL_PATTERN);
+          const email = emailMatch ? emailMatch[1] : undefined;
+
+          // Extract profile ID from terminal ID (format: claude-login-{profileId}-{timestamp})
+          const profileIdMatch = id.match(/claude-login-(profile-\d+)-/);
+          
+          if (profileIdMatch) {
+            const profileId = profileIdMatch[1];
+            
+            // Auto-save the token to the profile (encrypted)
+            const profileManager = getClaudeProfileManager();
+            const success = profileManager.setProfileToken(profileId, token, email);
+            
+            if (success) {
+              console.log('[TerminalManager] OAuth token auto-saved to profile:', profileId);
+              
+              // Notify frontend that authentication completed (without exposing token)
+              const win = this.getWindow();
+              if (win) {
+                win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+                  terminalId: id,
+                  profileId,
+                  email,
+                  success: true,
                   detectedAt: new Date().toISOString()
                 });
               }
+            } else {
+              console.error('[TerminalManager] Failed to save OAuth token to profile:', profileId);
+            }
+          } else {
+            console.log('[TerminalManager] OAuth token detected but not in a profile login terminal');
+            // Still notify frontend for manual handling
+            const win = this.getWindow();
+            if (win) {
+              win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+                terminalId: id,
+                email,
+                success: false,
+                message: 'Token detected but no profile associated with this terminal',
+                detectedAt: new Date().toISOString()
+              });
             }
           }
         }
@@ -297,6 +399,9 @@ export class TerminalManager {
           const store = getTerminalSessionStore();
           store.removeSession(terminal.projectPath, id);
         }
+
+        // Clean up rate limit tracking
+        this.lastNotifiedRateLimitReset.delete(id);
 
         this.terminals.delete(id);
       });
@@ -368,16 +473,19 @@ export class TerminalManager {
       const startTime = Date.now();
       let resumeCommand: string;
 
+      // Use platform-appropriate clear command
+      const clearCmd = process.platform === 'win32' ? 'cls' : 'clear';
+
       if (session.claudeSessionId) {
         // Resume specific session with explicit directory
         // Clear screen first to avoid mixing old output replay with new session
-        resumeCommand = `clear && cd "${projectDir}" && claude --resume "${session.claudeSessionId}"`;
+        resumeCommand = `${clearCmd} && cd "${projectDir}" && claude --resume "${session.claudeSessionId}"`;
         console.log('[TerminalManager] Resuming Claude with session ID:', session.claudeSessionId, 'in', projectDir);
       } else {
         // No specific session ID - use --resume to show session picker
         // This lets user choose which session to resume for this terminal
         // (Using --continue would resume the same session in all terminals)
-        resumeCommand = `clear && cd "${projectDir}" && claude --resume`;
+        resumeCommand = `${clearCmd} && cd "${projectDir}" && claude --resume`;
         console.log('[TerminalManager] Opening Claude session picker in', projectDir);
       }
 
@@ -417,6 +525,9 @@ export class TerminalManager {
         store.removeSession(terminal.projectPath, id);
       }
 
+      // Clean up rate limit tracking
+      this.lastNotifiedRateLimitReset.delete(id);
+
       terminal.pty.kill();
       this.terminals.delete(id);
       return { success: true };
@@ -449,9 +560,11 @@ export class TerminalManager {
   }
 
   /**
-   * Invoke Claude in a terminal
+   * Invoke Claude in a terminal with optional profile override.
+   * Note: For new terminals, the OAuth token is injected at spawn time (invisible to user).
+   * For profile switches, we use a temp file to avoid exposing the token.
    */
-  invokeClaude(id: string, cwd?: string): void {
+  invokeClaude(id: string, cwd?: string, profileId?: string): void {
     const terminal = this.terminals.get(id);
     if (terminal) {
       terminal.isClaudeMode = true;
@@ -461,14 +574,61 @@ export class TerminalManager {
       const startTime = Date.now();
       const projectPath = cwd || terminal.projectPath || terminal.cwd;
 
-      // Clear the terminal and invoke claude
+      // Get the Claude profile to use
+      const profileManager = getClaudeProfileManager();
+      const activeProfile = profileId
+        ? profileManager.getProfile(profileId)
+        : profileManager.getActiveProfile();
+
+      const previousProfileId = terminal.claudeProfileId;
+      terminal.claudeProfileId = activeProfile?.id;
+
+      // Build the command - only inject token if switching profiles mid-session
+      // New terminals already have the token injected at spawn time (invisible)
       const cwdCommand = cwd ? `cd "${cwd}" && ` : '';
+      
+      // Only inject token if explicitly switching profiles (profileId provided and different)
+      const needsEnvOverride = profileId && profileId !== previousProfileId;
+      
+      if (needsEnvOverride && activeProfile && !activeProfile.isDefault) {
+        const token = profileManager.getProfileToken(activeProfile.id);
+        
+        if (token) {
+          // Use a temp file to inject the token without exposing it in terminal output
+          const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}`);
+          fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN="${token}"\n`, { mode: 0o600 });
+          
+          // Source the temp file, delete it, then run claude - token never visible
+          terminal.pty.write(`${cwdCommand}source "${tempFile}" && rm -f "${tempFile}" && claude\r`);
+          console.log('[TerminalManager] Switching to Claude profile:', activeProfile.name, '(via secure temp file)');
+          return;
+        } else if (activeProfile.configDir) {
+          // Fallback to config dir for legacy profiles without tokens
+          terminal.pty.write(`${cwdCommand}CLAUDE_CONFIG_DIR="${activeProfile.configDir}" claude\r`);
+          console.log('[TerminalManager] Using Claude profile:', activeProfile.name, 'config:', activeProfile.configDir);
+          return;
+        }
+      }
+      
+      if (activeProfile && !activeProfile.isDefault) {
+        console.log('[TerminalManager] Using Claude profile:', activeProfile.name, '(from terminal environment)');
+      }
+
+      // Normal case: token already in terminal environment from spawn time
       terminal.pty.write(`${cwdCommand}claude\r`);
 
-      // Notify the renderer about title change
+      // Mark the profile as used
+      if (activeProfile) {
+        profileManager.markProfileUsed(activeProfile.id);
+      }
+
+      // Notify the renderer about title change (include profile name if not default)
       const win = this.getWindow();
       if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, id, 'Claude');
+        const title = activeProfile && !activeProfile.isDefault
+          ? `Claude (${activeProfile.name})`
+          : 'Claude';
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, id, title);
       }
 
       // Update persistent store
@@ -489,6 +649,50 @@ export class TerminalManager {
         this.captureClaudeSessionId(id, projectPath, startTime);
       }
     }
+  }
+
+  /**
+   * Switch a terminal to use a different Claude profile.
+   * This will exit the current Claude session and restart with the new profile.
+   */
+  async switchClaudeProfile(id: string, profileId: string): Promise<{ success: boolean; error?: string }> {
+    const terminal = this.terminals.get(id);
+    if (!terminal) {
+      return { success: false, error: 'Terminal not found' };
+    }
+
+    const profileManager = getClaudeProfileManager();
+    const profile = profileManager.getProfile(profileId);
+    if (!profile) {
+      return { success: false, error: 'Profile not found' };
+    }
+
+    console.log('[TerminalManager] Switching to Claude profile:', profile.name);
+
+    // If Claude is currently running, exit it first
+    if (terminal.isClaudeMode) {
+      // Send Ctrl+C to interrupt current Claude session
+      terminal.pty.write('\x03');
+      // Wait for Claude to exit
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Send /exit command in case it didn't fully exit
+      terminal.pty.write('/exit\r');
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Clear rate limit tracking for this terminal (new profile = new limit)
+    this.lastNotifiedRateLimitReset.delete(id);
+
+    // Get the project path for re-invoking
+    const projectPath = terminal.projectPath || terminal.cwd;
+
+    // Re-invoke Claude with the new profile
+    this.invokeClaude(id, projectPath, profileId);
+
+    // Update the active profile globally
+    profileManager.setActiveProfile(profileId);
+
+    return { success: true };
   }
 
   /**
