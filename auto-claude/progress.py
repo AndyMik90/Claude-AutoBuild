@@ -3,7 +3,7 @@ Progress Tracking Utilities
 ===========================
 
 Functions for tracking and displaying progress of the autonomous coding agent.
-Uses chunk-based implementation plans (implementation_plan.json).
+Uses subtask-based implementation plans (implementation_plan.json).
 
 Enhanced with colored output, icons, and better visual formatting.
 """
@@ -35,9 +35,9 @@ from ui import (
 )
 
 
-def count_chunks(spec_dir: Path) -> tuple[int, int]:
+def count_subtasks(spec_dir: Path) -> tuple[int, int]:
     """
-    Count completed and total chunks in implementation_plan.json.
+    Count completed and total subtasks in implementation_plan.json.
 
     Args:
         spec_dir: Directory containing implementation_plan.json
@@ -58,9 +58,9 @@ def count_chunks(spec_dir: Path) -> tuple[int, int]:
         completed = 0
 
         for phase in plan.get("phases", []):
-            for chunk in phase.get("chunks", []):
+            for subtask in phase.get("subtasks", []):
                 total += 1
-                if chunk.get("status") == "completed":
+                if subtask.get("status") == "completed":
                     completed += 1
 
         return completed, total
@@ -68,9 +68,9 @@ def count_chunks(spec_dir: Path) -> tuple[int, int]:
         return 0, 0
 
 
-def count_chunks_detailed(spec_dir: Path) -> dict:
+def count_subtasks_detailed(spec_dir: Path) -> dict:
     """
-    Count chunks by status.
+    Count subtasks by status.
 
     Returns:
         Dict with completed, in_progress, pending, failed counts
@@ -93,9 +93,9 @@ def count_chunks_detailed(spec_dir: Path) -> dict:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
-            for chunk in phase.get("chunks", []):
+            for subtask in phase.get("subtasks", []):
                 result["total"] += 1
-                status = chunk.get("status", "pending")
+                status = subtask.get("status", "pending")
                 if status in result:
                     result[status] += 1
                 else:
@@ -108,15 +108,15 @@ def count_chunks_detailed(spec_dir: Path) -> dict:
 
 def is_build_complete(spec_dir: Path) -> bool:
     """
-    Check if all chunks are completed.
+    Check if all subtasks are completed.
 
     Args:
         spec_dir: Directory containing implementation_plan.json
 
     Returns:
-        True if all chunks complete, False otherwise
+        True if all subtasks complete, False otherwise
     """
-    completed, total = count_chunks(spec_dir)
+    completed, total = count_subtasks(spec_dir)
     return total > 0 and completed == total
 
 
@@ -128,9 +128,9 @@ def get_progress_percentage(spec_dir: Path) -> float:
         spec_dir: Directory containing implementation_plan.json
 
     Returns:
-        Percentage of chunks completed (0-100)
+        Percentage of subtasks completed (0-100)
     """
-    completed, total = count_chunks(spec_dir)
+    completed, total = count_subtasks(spec_dir)
     if total == 0:
         return 0.0
     return (completed / total) * 100
@@ -139,8 +139,8 @@ def get_progress_percentage(spec_dir: Path) -> float:
 def print_session_header(
     session_num: int,
     is_planner: bool,
-    chunk_id: str = None,
-    chunk_desc: str = None,
+    subtask_id: str = None,
+    subtask_desc: str = None,
     phase_name: str = None,
     attempt: int = 1,
 ) -> None:
@@ -152,14 +152,14 @@ def print_session_header(
         bold(f"{icon(session_icon)} SESSION {session_num}: {session_type}"),
     ]
 
-    if chunk_id:
+    if subtask_id:
         content.append("")
-        chunk_line = f"{icon(Icons.CHUNK)} Chunk: {highlight(chunk_id)}"
-        if chunk_desc:
+        subtask_line = f"{icon(Icons.SUBTASK)} Subtask: {highlight(subtask_id)}"
+        if subtask_desc:
             # Truncate long descriptions
-            desc = chunk_desc[:50] + "..." if len(chunk_desc) > 50 else chunk_desc
-            chunk_line += f" - {desc}"
-        content.append(chunk_line)
+            desc = subtask_desc[:50] + "..." if len(subtask_desc) > 50 else subtask_desc
+            subtask_line += f" - {desc}"
+        content.append(subtask_line)
 
     if phase_name:
         content.append(f"{icon(Icons.PHASE)} Phase: {phase_name}")
@@ -174,7 +174,7 @@ def print_session_header(
 
 def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
     """Print a summary of current progress with enhanced formatting."""
-    completed, total = count_chunks(spec_dir)
+    completed, total = count_subtasks(spec_dir)
 
     if total > 0:
         print()
@@ -183,10 +183,10 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
 
         # Status message
         if completed == total:
-            print_status("BUILD COMPLETE - All chunks completed!", "success")
+            print_status("BUILD COMPLETE - All subtasks completed!", "success")
         else:
             remaining = total - completed
-            print_status(f"{remaining} chunks remaining", "info")
+            print_status(f"{remaining} subtasks remaining", "info")
 
         # Phase summary
         try:
@@ -195,14 +195,14 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
 
             print("\nPhases:")
             for phase in plan.get("phases", []):
-                phase_chunks = phase.get("chunks", [])
-                phase_completed = sum(1 for c in phase_chunks if c.get("status") == "completed")
-                phase_total = len(phase_chunks)
+                phase_subtasks = phase.get("subtasks", [])
+                phase_completed = sum(1 for s in phase_subtasks if s.get("status") == "completed")
+                phase_total = len(phase_subtasks)
                 phase_name = phase.get("name", phase.get("id", "Unknown"))
 
                 if phase_completed == phase_total:
                     status = "complete"
-                elif phase_completed > 0 or any(c.get("status") == "in_progress" for c in phase_chunks):
+                elif phase_completed > 0 or any(s.get("status") == "in_progress" for s in phase_subtasks):
                     status = "in_progress"
                 else:
                     # Check if blocked by dependencies
@@ -211,21 +211,21 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                     for dep_id in deps:
                         for p in plan.get("phases", []):
                             if p.get("id") == dep_id or p.get("phase") == dep_id:
-                                p_chunks = p.get("chunks", [])
-                                if not all(c.get("status") == "completed" for c in p_chunks):
+                                p_subtasks = p.get("subtasks", [])
+                                if not all(s.get("status") == "completed" for s in p_subtasks):
                                     all_deps_complete = False
                                 break
                     status = "pending" if all_deps_complete else "blocked"
 
                 print_phase_status(phase_name, phase_completed, phase_total, status)
 
-            # Show next chunk if requested
+            # Show next subtask if requested
             if show_next and completed < total:
-                next_chunk = get_next_chunk(spec_dir)
-                if next_chunk:
+                next_subtask = get_next_subtask(spec_dir)
+                if next_subtask:
                     print()
-                    next_id = next_chunk.get("id", "unknown")
-                    next_desc = next_chunk.get("description", "")
+                    next_id = next_subtask.get("id", "unknown")
+                    next_desc = next_subtask.get("description", "")
                     if len(next_desc) > 60:
                         next_desc = next_desc[:57] + "..."
                     print(f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}")
@@ -234,7 +234,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
             pass
     else:
         print()
-        print_status("No implementation chunks yet - planner needs to run", "pending")
+        print_status("No implementation subtasks yet - planner needs to run", "pending")
 
 
 def print_build_complete_banner(spec_dir: Path) -> None:
@@ -242,7 +242,7 @@ def print_build_complete_banner(spec_dir: Path) -> None:
     content = [
         success(f"{icon(Icons.SUCCESS)} BUILD COMPLETE!"),
         "",
-        "All chunks have been implemented successfully.",
+        "All subtasks have been implemented successfully.",
         "",
         muted("Next steps:"),
         f"  1. Review the {highlight('auto-claude/*')} branch",
@@ -261,12 +261,12 @@ def print_paused_banner(
     has_worktree: bool = False,
 ) -> None:
     """Print a paused banner with resume instructions."""
-    completed, total = count_chunks(spec_dir)
+    completed, total = count_subtasks(spec_dir)
 
     content = [
         warning(f"{icon(Icons.PAUSE)} BUILD PAUSED"),
         "",
-        f"Progress saved: {completed}/{total} chunks complete",
+        f"Progress saved: {completed}/{total} subtasks complete",
     ]
 
     if has_worktree:
@@ -293,11 +293,11 @@ def get_plan_summary(spec_dir: Path) -> dict:
         return {
             "workflow_type": None,
             "total_phases": 0,
-            "total_chunks": 0,
-            "completed_chunks": 0,
-            "pending_chunks": 0,
-            "in_progress_chunks": 0,
-            "failed_chunks": 0,
+            "total_subtasks": 0,
+            "completed_subtasks": 0,
+            "pending_subtasks": 0,
+            "in_progress_subtasks": 0,
+            "failed_subtasks": 0,
             "phases": [],
         }
 
@@ -308,11 +308,11 @@ def get_plan_summary(spec_dir: Path) -> dict:
         summary = {
             "workflow_type": plan.get("workflow_type"),
             "total_phases": len(plan.get("phases", [])),
-            "total_chunks": 0,
-            "completed_chunks": 0,
-            "pending_chunks": 0,
-            "in_progress_chunks": 0,
-            "failed_chunks": 0,
+            "total_subtasks": 0,
+            "completed_subtasks": 0,
+            "pending_subtasks": 0,
+            "in_progress_subtasks": 0,
+            "failed_subtasks": 0,
             "phases": [],
         }
 
@@ -322,31 +322,31 @@ def get_plan_summary(spec_dir: Path) -> dict:
                 "phase": phase.get("phase"),
                 "name": phase.get("name"),
                 "depends_on": phase.get("depends_on", []),
-                "chunks": [],
+                "subtasks": [],
                 "completed": 0,
                 "total": 0,
             }
 
-            for chunk in phase.get("chunks", []):
-                status = chunk.get("status", "pending")
-                summary["total_chunks"] += 1
+            for subtask in phase.get("subtasks", []):
+                status = subtask.get("status", "pending")
+                summary["total_subtasks"] += 1
                 phase_info["total"] += 1
 
                 if status == "completed":
-                    summary["completed_chunks"] += 1
+                    summary["completed_subtasks"] += 1
                     phase_info["completed"] += 1
                 elif status == "in_progress":
-                    summary["in_progress_chunks"] += 1
+                    summary["in_progress_subtasks"] += 1
                 elif status == "failed":
-                    summary["failed_chunks"] += 1
+                    summary["failed_subtasks"] += 1
                 else:
-                    summary["pending_chunks"] += 1
+                    summary["pending_subtasks"] += 1
 
-                phase_info["chunks"].append({
-                    "id": chunk.get("id"),
-                    "description": chunk.get("description"),
+                phase_info["subtasks"].append({
+                    "id": subtask.get("id"),
+                    "description": subtask.get("description"),
                     "status": status,
-                    "service": chunk.get("service"),
+                    "service": subtask.get("service"),
                 })
 
             summary["phases"].append(phase_info)
@@ -357,11 +357,11 @@ def get_plan_summary(spec_dir: Path) -> dict:
         return {
             "workflow_type": None,
             "total_phases": 0,
-            "total_chunks": 0,
-            "completed_chunks": 0,
-            "pending_chunks": 0,
-            "in_progress_chunks": 0,
-            "failed_chunks": 0,
+            "total_subtasks": 0,
+            "completed_subtasks": 0,
+            "pending_subtasks": 0,
+            "in_progress_subtasks": 0,
+            "failed_subtasks": 0,
             "phases": [],
         }
 
@@ -378,16 +378,16 @@ def get_current_phase(spec_dir: Path) -> Optional[dict]:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
-            chunks = phase.get("chunks", [])
-            # Phase is current if it has incomplete chunks and dependencies are met
-            has_incomplete = any(c.get("status") != "completed" for c in chunks)
+            subtasks = phase.get("subtasks", [])
+            # Phase is current if it has incomplete subtasks and dependencies are met
+            has_incomplete = any(s.get("status") != "completed" for s in subtasks)
             if has_incomplete:
                 return {
                     "id": phase.get("id"),
                     "phase": phase.get("phase"),
                     "name": phase.get("name"),
-                    "completed": sum(1 for c in chunks if c.get("status") == "completed"),
-                    "total": len(chunks),
+                    "completed": sum(1 for s in subtasks if s.get("status") == "completed"),
+                    "total": len(subtasks),
                 }
 
         return None
@@ -396,15 +396,15 @@ def get_current_phase(spec_dir: Path) -> Optional[dict]:
         return None
 
 
-def get_next_chunk(spec_dir: Path) -> dict | None:
+def get_next_subtask(spec_dir: Path) -> dict | None:
     """
-    Find the next chunk to work on, respecting phase dependencies.
+    Find the next subtask to work on, respecting phase dependencies.
 
     Args:
         spec_dir: Directory containing implementation_plan.json
 
     Returns:
-        The next chunk dict to work on, or None if all complete
+        The next subtask dict to work on, or None if all complete
     """
     plan_file = spec_dir / "implementation_plan.json"
 
@@ -421,12 +421,12 @@ def get_next_chunk(spec_dir: Path) -> dict | None:
         phase_complete = {}
         for phase in phases:
             phase_id = phase.get("id") or phase.get("phase")
-            chunks = phase.get("chunks", [])
+            subtasks = phase.get("subtasks", [])
             phase_complete[phase_id] = all(
-                c.get("status") == "completed" for c in chunks
+                s.get("status") == "completed" for s in subtasks
             )
 
-        # Find next available chunk
+        # Find next available subtask
         for phase in phases:
             phase_id = phase.get("id") or phase.get("phase")
             depends_on = phase.get("depends_on", [])
@@ -436,14 +436,14 @@ def get_next_chunk(spec_dir: Path) -> dict | None:
             if not deps_satisfied:
                 continue
 
-            # Find first pending chunk in this phase
-            for chunk in phase.get("chunks", []):
-                if chunk.get("status") == "pending":
+            # Find first pending subtask in this phase
+            for subtask in phase.get("subtasks", []):
+                if subtask.get("status") == "pending":
                     return {
                         "phase_id": phase_id,
                         "phase_name": phase.get("name"),
                         "phase_num": phase.get("phase"),
-                        **chunk,
+                        **subtask,
                     }
 
         return None

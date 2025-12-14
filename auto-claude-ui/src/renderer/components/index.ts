@@ -13,3 +13,4 @@ export * from './GitHubIssues';
 export * from './Changelog';
 export * from './WelcomeScreen';
 export * from './EnvConfigModal';
+export * from './AddProjectModal';

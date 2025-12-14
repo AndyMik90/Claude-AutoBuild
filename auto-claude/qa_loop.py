@@ -19,7 +19,7 @@ from typing import Optional
 from claude_agent_sdk import ClaudeSDKClient
 
 from client import create_client
-from progress import count_chunks, is_build_complete
+from progress import count_subtasks, is_build_complete
 from linear_updater import (
     is_linear_enabled,
     LinearTaskState,
@@ -125,7 +125,7 @@ def should_run_qa(spec_dir: Path) -> bool:
     Determine if QA validation should run.
 
     QA should run when:
-    - All chunks are completed
+    - All subtasks are completed
     - QA has not yet approved
     """
     if not is_build_complete(spec_dir):
@@ -469,8 +469,8 @@ async def run_qa_validation_loop(
     # Verify build is complete
     if not is_build_complete(spec_dir):
         print("\n❌ Build is not complete. Cannot run QA validation.")
-        completed, total = count_chunks(spec_dir)
-        print(f"   Progress: {completed}/{total} chunks completed")
+        completed, total = count_subtasks(spec_dir)
+        print(f"   Progress: {completed}/{total} subtasks completed")
         return False
 
     # Check if already approved

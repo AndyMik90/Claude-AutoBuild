@@ -366,7 +366,7 @@ class WorktreeManager:
             return worktrees
 
         for item in self.worktrees_dir.iterdir():
-            if item.is_dir() and not item.name.startswith("worker-"):
+            if item.is_dir():
                 info = self.get_worktree_info(item.name)
                 if info:
                     worktrees.append(info)
@@ -444,106 +444,6 @@ class WorktreeManager:
             if item.is_dir() and item not in registered_paths:
                 print(f"Removing stale worktree directory: {item.name}")
                 shutil.rmtree(item, ignore_errors=True)
-
-        self._run_git(["worktree", "prune"])
-
-    # ==================== Parallel Worker Support ====================
-
-    def create_worker_worktree(self, spec_name: str, worker_id: str, chunk_id: str) -> tuple[Path, str]:
-        """
-        Create a temporary worker worktree that branches from a spec's worktree.
-
-        Args:
-            spec_name: The spec this worker is working on
-            worker_id: Unique worker identifier
-            chunk_id: The chunk being worked on
-
-        Returns:
-            Tuple of (worktree_path, branch_name)
-        """
-        spec_info = self.get_worktree_info(spec_name)
-        if not spec_info:
-            raise WorktreeError(f"Spec worktree does not exist: {spec_name}")
-
-        worker_name = f"worker-{worker_id}"
-        branch_name = f"worker-{worker_id}/{chunk_id}"
-        worktree_path = self.worktrees_dir / worker_name
-
-        # Clean up any existing worker worktree
-        if worktree_path.exists():
-            self._run_git(["worktree", "remove", "--force", str(worktree_path)])
-        self._run_git(["branch", "-D", branch_name])
-
-        # Create worker worktree branching FROM the spec's branch
-        result = self._run_git([
-            "worktree", "add", "-b", branch_name,
-            str(worktree_path), spec_info.branch
-        ])
-
-        if result.returncode != 0:
-            raise WorktreeError(f"Failed to create worker worktree: {result.stderr}")
-
-        print(f"Created worker worktree: {worker_name} (from {spec_info.branch})")
-        return worktree_path, branch_name
-
-    def merge_worker_to_spec(self, spec_name: str, worker_branch: str) -> bool:
-        """
-        Merge a worker's branch back into the spec's worktree.
-
-        Args:
-            spec_name: The spec to merge into
-            worker_branch: The worker branch to merge
-
-        Returns:
-            True if merge succeeded
-        """
-        spec_path = self.get_worktree_path(spec_name)
-        if not spec_path.exists():
-            print(f"Spec worktree does not exist: {spec_name}")
-            return False
-
-        print(f"Merging {worker_branch} into {spec_name}...")
-
-        result = self._run_git(
-            ["merge", "--no-ff", worker_branch, "-m", f"auto-claude: Merge {worker_branch}"],
-            cwd=spec_path
-        )
-
-        if result.returncode != 0:
-            print(f"Merge conflict! Aborting...")
-            self._run_git(["merge", "--abort"], cwd=spec_path)
-            return False
-
-        print(f"Successfully merged {worker_branch}")
-        return True
-
-    def cleanup_worker_worktree(self, worker_id: str, branch_name: str) -> None:
-        """Clean up a worker's temporary worktree and branch."""
-        worker_name = f"worker-{worker_id}"
-        worktree_path = self.worktrees_dir / worker_name
-
-        if worktree_path.exists():
-            self._run_git(["worktree", "remove", "--force", str(worktree_path)])
-
-        self._run_git(["branch", "-D", branch_name])
-        self._run_git(["worktree", "prune"])
-
-    def cleanup_all_workers(self) -> None:
-        """Remove all worker worktrees (preserves spec worktrees)."""
-        if not self.worktrees_dir.exists():
-            return
-
-        for item in self.worktrees_dir.iterdir():
-            if item.is_dir() and item.name.startswith("worker-"):
-                self._run_git(["worktree", "remove", "--force", str(item)])
-
-        # Clean up worker branches
-        result = self._run_git(["branch", "--list", "worker-*/*"])
-        if result.returncode == 0:
-            for line in result.stdout.strip().split("\n"):
-                branch = line.strip().lstrip("* ")
-                if branch:
-                    self._run_git(["branch", "-D", branch])
 
         self._run_git(["worktree", "prune"])
 
@@ -636,22 +536,6 @@ class WorktreeManager:
         if worktrees:
             return self.commit_in_worktree(worktrees[0].spec_name, message)
         return False
-
-    def merge_branch_to_staging(self, branch_name: str) -> bool:
-        """
-        Backward compatibility: Merge a branch into first found worktree.
-        Prefer using merge_worker_to_spec(spec_name, branch_name) instead.
-        """
-        worktrees = self.list_all_worktrees()
-        if worktrees:
-            return self.merge_worker_to_spec(worktrees[0].spec_name, branch_name)
-        return False
-
-    def cleanup_workers_only(self) -> None:
-        """
-        Backward compatibility: Alias for cleanup_all_workers.
-        """
-        self.cleanup_all_workers()
 
     def has_uncommitted_changes(self, in_staging: bool = False) -> bool:
         """Check if there are uncommitted changes."""

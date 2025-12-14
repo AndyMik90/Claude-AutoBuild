@@ -91,8 +91,8 @@ python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --c
 - COMPLEX (8 phases): Full pipeline with Research and Self-Critique phases
 
 **Implementation (run.py → agent.py)** - Multi-session build:
-1. Planner Agent creates chunk-based implementation plan
-2. Coder Agent implements chunks one-by-one
+1. Planner Agent creates subtask-based implementation plan
+2. Coder Agent implements subtasks (sequential or parallel via Task tool)
 3. QA Reviewer validates acceptance criteria
 4. QA Fixer resolves issues in a loop
 
@@ -100,8 +100,8 @@ python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --c
 
 - **client.py** - Claude SDK client with security hooks and tool permissions
 - **security.py** + **project_analyzer.py** - Dynamic command allowlisting based on detected project stack
-- **worktree.py** - Git worktree isolation for safe parallel builds
-- **coordinator.py** - Parallel execution coordinator
+- **worktree.py** - Git worktree isolation for safe feature development
+- **task_tool.py** - Parallel subtask execution using Claude Code's Task tool
 - **memory.py** - File-based session memory (primary, always-available storage)
 - **graphiti_memory.py** - Optional graph-based cross-session memory with semantic search
 - **graphiti_providers.py** - Multi-provider factory for Graphiti (OpenAI, Anthropic, Azure, Ollama)
@@ -112,9 +112,9 @@ python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --c
 
 | Prompt | Purpose |
 |--------|---------|
-| planner.md | Creates implementation plan with chunks |
-| coder.md | Implements individual chunks |
-| coder_recovery.md | Recovers from stuck/failed chunks |
+| planner.md | Creates implementation plan with subtasks |
+| coder.md | Implements individual subtasks |
+| coder_recovery.md | Recovers from stuck/failed subtasks |
 | qa_reviewer.md | Validates acceptance criteria |
 | qa_fixer.md | Fixes QA-reported issues |
 | spec_gatherer.md | Collects user requirements |
@@ -129,7 +129,7 @@ Each spec in `auto-claude/specs/XXX-name/` contains:
 - `spec.md` - Feature specification
 - `requirements.json` - Structured user requirements
 - `context.json` - Discovered codebase context
-- `implementation_plan.json` - Chunk-based plan with status tracking
+- `implementation_plan.json` - Subtask-based plan with status tracking
 - `qa_report.md` - QA validation results
 - `QA_FIX_REQUEST.md` - Issues to fix (when rejected)
 
@@ -137,32 +137,22 @@ Each spec in `auto-claude/specs/XXX-name/` contains:
 
 Auto Claude uses git worktrees for isolated builds. All branches stay LOCAL until user explicitly pushes:
 
-**Single Worker Mode:**
 ```
 main (user's branch)
-└── auto-claude/{spec-name}  ← staging branch (isolated worktree)
-```
-
-**Parallel Worker Mode:**
-```
-main (user's branch)
-└── auto-claude/{spec-name}  ← staging branch (accumulates all work)
-    ├── worker-1/{chunk-id}  ← temporary (merges to staging, then deleted)
-    ├── worker-2/{chunk-id}  ← temporary (merges to staging, then deleted)
-    └── worker-3/{chunk-id}  ← temporary (merges to staging, then deleted)
+└── auto-claude/{spec-name}  ← spec branch (isolated worktree)
 ```
 
 **Key principles:**
-- ONE unified staging branch per spec (`auto-claude/{spec-name}`)
-- Worker branches are temporary and LOCAL only
+- ONE branch per spec (`auto-claude/{spec-name}`)
+- Parallel execution uses Claude Code's Task tool (not separate branches)
 - NO automatic pushes to GitHub - user controls when to push
-- User reviews in staging worktree (`.worktrees/auto-claude/`)
-- Final merge: staging → main (after user approval)
+- User reviews in spec worktree (`.worktrees/{spec-name}/`)
+- Final merge: spec branch → main (after user approval)
 
 **Workflow:**
-1. Build runs in isolated worktree on staging branch
-2. Parallel workers create temp branches, merge to staging, then delete
-3. User tests feature in `.worktrees/auto-claude/`
+1. Build runs in isolated worktree on spec branch
+2. Parallel subtasks execute via Task tool (same branch)
+3. User tests feature in `.worktrees/{spec-name}/`
 4. User runs `--merge` to add to their project
 5. User pushes to remote when ready
 

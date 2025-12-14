@@ -113,7 +113,7 @@ class Icons:
     LIGHTNING = ("⚡", "!")
 
     # Progress
-    CHUNK = ("▣", "#")
+    SUBTASK = ("▣", "#")
     PHASE = ("◆", "*")
     WORKER = ("⚡", "W")
     SESSION = ("▸", ">")
@@ -623,10 +623,10 @@ class BuildStatus:
     active: bool = False
     spec: str = ""
     state: BuildState = BuildState.IDLE
-    chunks_completed: int = 0
-    chunks_total: int = 0
-    chunks_in_progress: int = 0
-    chunks_failed: int = 0
+    subtasks_completed: int = 0
+    subtasks_total: int = 0
+    subtasks_in_progress: int = 0
+    subtasks_failed: int = 0
     phase_current: str = ""
     phase_id: int = 0
     phase_total: int = 0
@@ -642,11 +642,11 @@ class BuildStatus:
             "active": self.active,
             "spec": self.spec,
             "state": self.state.value,
-            "chunks": {
-                "completed": self.chunks_completed,
-                "total": self.chunks_total,
-                "in_progress": self.chunks_in_progress,
-                "failed": self.chunks_failed,
+            "subtasks": {
+                "completed": self.subtasks_completed,
+                "total": self.subtasks_total,
+                "in_progress": self.subtasks_in_progress,
+                "failed": self.subtasks_failed,
             },
             "phase": {
                 "current": self.phase_current,
@@ -667,7 +667,7 @@ class BuildStatus:
     @classmethod
     def from_dict(cls, data: dict) -> "BuildStatus":
         """Create from dictionary."""
-        chunks = data.get("chunks", {})
+        subtasks = data.get("subtasks", {})
         phase = data.get("phase", {})
         workers = data.get("workers", {})
         session = data.get("session", {})
@@ -676,10 +676,10 @@ class BuildStatus:
             active=data.get("active", False),
             spec=data.get("spec", ""),
             state=BuildState(data.get("state", "idle")),
-            chunks_completed=chunks.get("completed", 0),
-            chunks_total=chunks.get("total", 0),
-            chunks_in_progress=chunks.get("in_progress", 0),
-            chunks_failed=chunks.get("failed", 0),
+            subtasks_completed=subtasks.get("completed", 0),
+            subtasks_total=subtasks.get("total", 0),
+            subtasks_in_progress=subtasks.get("in_progress", 0),
+            subtasks_failed=subtasks.get("failed", 0),
             phase_current=phase.get("current", ""),
             phase_id=phase.get("id", 0),
             phase_total=phase.get("total", 0),
@@ -745,22 +745,22 @@ class StatusManager:
         self._status.state = BuildState.IDLE
         self.write()
 
-    def update_chunks(
+    def update_subtasks(
         self,
         completed: int = None,
         total: int = None,
         in_progress: int = None,
         failed: int = None,
     ) -> None:
-        """Update chunk progress."""
+        """Update subtask progress."""
         if completed is not None:
-            self._status.chunks_completed = completed
+            self._status.subtasks_completed = completed
         if total is not None:
-            self._status.chunks_total = total
+            self._status.subtasks_total = total
         if in_progress is not None:
-            self._status.chunks_in_progress = in_progress
+            self._status.subtasks_in_progress = in_progress
         if failed is not None:
-            self._status.chunks_failed = failed
+            self._status.subtasks_failed = failed
         self.write()
 
     def update_phase(self, current: str, phase_id: int = 0, total: int = 0) -> None:

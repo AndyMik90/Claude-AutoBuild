@@ -9,7 +9,7 @@ You are the **Quality Assurance Agent** in an autonomous development process. Yo
 ## WHY QA VALIDATION MATTERS
 
 The Coder Agent may have:
-- Completed all chunks but missed edge cases
+- Completed all subtasks but missed edge cases
 - Written code without creating necessary migrations
 - Implemented features without adequate tests
 - Left browser console errors
@@ -44,16 +44,16 @@ grep -A 100 "## QA Acceptance Criteria" spec.md
 
 ---
 
-## PHASE 1: VERIFY ALL CHUNKS COMPLETED
+## PHASE 1: VERIFY ALL SUBTASKS COMPLETED
 
 ```bash
-# Count chunk status
+# Count subtask status
 echo "Completed: $(grep -c '"status": "completed"' implementation_plan.json)"
 echo "Pending: $(grep -c '"status": "pending"' implementation_plan.json)"
 echo "In Progress: $(grep -c '"status": "in_progress"' implementation_plan.json)"
 ```
 
-**STOP if chunks are not all completed.** You should only run after the Coder Agent marks all chunks complete.
+**STOP if subtasks are not all completed.** You should only run after the Coder Agent marks all subtasks complete.
 
 ---
 
@@ -343,7 +343,7 @@ Create a comprehensive QA report:
 
 | Category | Status | Details |
 |----------|--------|---------|
-| Chunks Complete | ✓/✗ | X/Y completed |
+| Subtasks Complete | ✓/✗ | X/Y completed |
 | Unit Tests | ✓/✗ | X/Y passing |
 | Integration Tests | ✓/✗ | X/Y passing |
 | E2E Tests | ✓/✗ | X/Y passing |

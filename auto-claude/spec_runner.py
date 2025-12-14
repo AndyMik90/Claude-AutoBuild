@@ -1267,7 +1267,7 @@ No research or extensive analysis needed.
 
 Create:
 1. A concise spec.md with just the essential sections
-2. A simple implementation_plan.json with 1-2 chunks
+2. A simple implementation_plan.json with 1-2 subtasks
 """
             success, output = await self._run_agent(
                 "spec_quick.md",
@@ -1301,9 +1301,9 @@ Create:
                     "name": "Implementation",
                     "description": self.task_description or "Simple implementation",
                     "depends_on": [],
-                    "chunks": [
+                    "subtasks": [
                         {
-                            "id": "chunk-1-1",
+                            "id": "subtask-1-1",
                             "description": self.task_description or "Implement the change",
                             "service": "main",
                             "status": "pending",
@@ -1668,12 +1668,12 @@ Output critique_report.json with:
             result = self.validator.validate_implementation_plan()
             if result.valid:
                 print_status("Created valid implementation_plan.json via script", "success")
-                # Log chunk count
+                # Log subtask count
                 try:
                     with open(plan_file) as f:
                         plan_data = json.load(f)
-                    total_chunks = sum(len(p.get("chunks", [])) for p in plan_data.get("phases", []))
-                    task_logger.log(f"Implementation plan created with {total_chunks} chunks", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                    total_subtasks = sum(len(p.get("subtasks", [])) for p in plan_data.get("phases", []))
+                    task_logger.log(f"Implementation plan created with {total_subtasks} subtasks", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 except Exception:
                     task_logger.log("Implementation plan created", LogEntryType.SUCCESS, LogPhase.PLANNING)
                 return PhaseResult("planning", True, [str(plan_file)], [], 0)
@@ -1702,12 +1702,12 @@ Output critique_report.json with:
                 result = self.validator.validate_implementation_plan()
                 if result.valid:
                     print_status("Created valid implementation_plan.json via agent", "success")
-                    # Log chunk count
+                    # Log subtask count
                     try:
                         with open(plan_file) as f:
                             plan_data = json.load(f)
-                        total_chunks = sum(len(p.get("chunks", [])) for p in plan_data.get("phases", []))
-                        task_logger.log(f"Implementation plan created with {total_chunks} chunks", LogEntryType.SUCCESS, LogPhase.PLANNING)
+                        total_subtasks = sum(len(p.get("subtasks", [])) for p in plan_data.get("phases", []))
+                        task_logger.log(f"Implementation plan created with {total_subtasks} subtasks", LogEntryType.SUCCESS, LogPhase.PLANNING)
                     except Exception:
                         task_logger.log("Implementation plan created", LogEntryType.SUCCESS, LogPhase.PLANNING)
                     return PhaseResult("planning", True, [str(plan_file)], [], attempt)
@@ -1847,7 +1847,7 @@ Read the failed files, understand the errors, and fix them.
             "quick_spec": ("QUICK SPEC", Icons.LIGHTNING),
             "spec_writing": ("SPEC DOCUMENT CREATION", Icons.FILE),
             "self_critique": ("SPEC SELF-CRITIQUE", Icons.GEAR),
-            "planning": ("IMPLEMENTATION PLANNING", Icons.CHUNK),
+            "planning": ("IMPLEMENTATION PLANNING", Icons.SUBTASK),
             "validation": ("FINAL VALIDATION", Icons.SUCCESS),
         }
 

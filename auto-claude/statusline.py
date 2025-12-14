@@ -86,10 +86,10 @@ def format_compact(status: BuildStatus) -> str:
         BuildState.ERROR: (icon(Icons.ERROR), "ERR"),
     }
 
-    # Chunks progress
-    if status.chunks_total > 0:
-        chunk_icon = icon(Icons.CHUNK)
-        parts.append(f"{chunk_icon} {status.chunks_completed}/{status.chunks_total}")
+    # Subtasks progress
+    if status.subtasks_total > 0:
+        subtask_icon = icon(Icons.SUBTASK)
+        parts.append(f"{subtask_icon} {status.subtasks_completed}/{status.subtasks_total}")
 
     # Current phase
     if status.phase_current:
@@ -103,8 +103,8 @@ def format_compact(status: BuildStatus) -> str:
         parts.append(f"{worker_icon}{status.workers_active}")
 
     # Percentage
-    if status.chunks_total > 0:
-        pct = int(100 * status.chunks_completed / status.chunks_total)
+    if status.subtasks_total > 0:
+        pct = int(100 * status.subtasks_completed / status.subtasks_total)
         parts.append(f"{pct}%")
 
     # State prefix for special states
@@ -129,14 +129,14 @@ def format_full(status: BuildStatus) -> str:
     lines.append(f"Spec: {status.spec}")
     lines.append(f"State: {status.state.value}")
 
-    if status.chunks_total > 0:
-        pct = int(100 * status.chunks_completed / status.chunks_total)
-        lines.append(f"Progress: {status.chunks_completed}/{status.chunks_total} chunks ({pct}%)")
+    if status.subtasks_total > 0:
+        pct = int(100 * status.subtasks_completed / status.subtasks_total)
+        lines.append(f"Progress: {status.subtasks_completed}/{status.subtasks_total} subtasks ({pct}%)")
 
-        if status.chunks_in_progress > 0:
-            lines.append(f"In Progress: {status.chunks_in_progress}")
-        if status.chunks_failed > 0:
-            lines.append(f"Failed: {status.chunks_failed}")
+        if status.subtasks_in_progress > 0:
+            lines.append(f"In Progress: {status.subtasks_in_progress}")
+        if status.subtasks_failed > 0:
+            lines.append(f"Failed: {status.subtasks_failed}")
 
     if status.phase_current:
         lines.append(f"Phase: {status.phase_current} ({status.phase_id}/{status.phase_total})")

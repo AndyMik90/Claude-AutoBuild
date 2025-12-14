@@ -4,7 +4,7 @@ Auto Claude Framework
 =====================
 
 A multi-session autonomous coding framework for building features and applications.
-Uses chunk-based implementation plans with phase dependencies.
+Uses subtask-based implementation plans with phase dependencies.
 
 Key Features:
 - Safe workspace isolation (builds in separate workspace by default)
@@ -49,8 +49,7 @@ elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
 from agent import run_autonomous_agent, run_followup_planner, sync_plan_to_source
-from coordinator import SwarmCoordinator
-from progress import count_chunks, print_paused_banner, is_build_complete
+from progress import count_subtasks, print_paused_banner, is_build_complete
 from linear_updater import is_linear_enabled, LinearTaskState
 from linear_integration import LinearManager
 from graphiti_config import is_graphiti_enabled, get_graphiti_status
@@ -226,7 +225,7 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> str | None:
                 "Enter/paste your follow-up task description below.",
                 "",
                 muted("Describe what additional work you want to add."),
-                muted("The planner will create new chunks based on this."),
+                muted("The planner will create new subtasks based on this."),
                 "",
                 muted("Press Enter on an empty line when done."),
             ]
@@ -271,7 +270,7 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> str | None:
             "",
             f"Saved to: {highlight(str(request_file.name))}",
             "",
-            muted("The planner will create new chunks based on this task."),
+            muted("The planner will create new subtasks based on this task."),
         ]
         print()
         print(box(content, width=70, style="heavy"))
@@ -344,7 +343,7 @@ def list_specs(project_dir: Path, dev_mode: bool = False) -> list[dict]:
         # Check progress via implementation_plan.json
         plan_file = spec_folder / "implementation_plan.json"
         if plan_file.exists():
-            completed, total = count_chunks(spec_folder)
+            completed, total = count_subtasks(spec_folder)
             if total > 0:
                 if completed == total:
                     status = "complete"
@@ -435,7 +434,7 @@ def print_specs_list(project_dir: Path, dev_mode: bool = False) -> None:
         symbol = status_symbols.get(base_status, "[??]")
 
         print(f"  {symbol} {spec['folder']}")
-        status_line = f"       Status: {spec['status']} | Chunks: {spec['progress']}"
+        status_line = f"       Status: {spec['status']} | Subtasks: {spec['progress']}"
         print(status_line)
         print()
 
@@ -670,7 +669,7 @@ def validate_environment(spec_dir: Path) -> bool:
         if linear_manager.is_initialized:
             summary = linear_manager.get_progress_summary()
             print(f"  Project: {summary.get('project_name', 'Unknown')}")
-            print(f"  Issues: {summary.get('mapped_chunks', 0)}/{summary.get('total_chunks', 0)} mapped")
+            print(f"  Issues: {summary.get('mapped_subtasks', 0)}/{summary.get('total_subtasks', 0)} mapped")
         else:
             print("  Status: Will be initialized during planner session")
     else:
@@ -697,7 +696,7 @@ def print_banner() -> None:
         bold(f"{icon(Icons.LIGHTNING)} AUTO-BUILD FRAMEWORK"),
         "",
         "Autonomous Multi-Session Coding Agent",
-        muted("Chunk-Based Implementation with Phase Dependencies"),
+        muted("Subtask-Based Implementation with Phase Dependencies"),
     ]
     print()
     print(box(content, width=70, style="heavy"))
@@ -842,9 +841,9 @@ def main() -> None:
             if is_qa_approved(spec_dir):
                 print("\n✅ Build already approved by QA.")
             else:
-                completed, total = count_chunks(spec_dir)
-                print(f"\n❌ Build not complete ({completed}/{total} chunks).")
-                print("Complete all chunks before running QA validation.")
+                completed, total = count_subtasks(spec_dir)
+                print(f"\n❌ Build not complete ({completed}/{total} subtasks).")
+                print("Complete all subtasks before running QA validation.")
             return
 
         try:
@@ -892,15 +891,15 @@ def main() -> None:
 
         # Check if build is complete
         if not is_build_complete(spec_dir):
-            completed, total = count_chunks(spec_dir)
+            completed, total = count_subtasks(spec_dir)
             pending = total - completed
             print()
-            print(error(f"{icon(Icons.ERROR)} Build not complete ({completed}/{total} chunks)."))
+            print(error(f"{icon(Icons.ERROR)} Build not complete ({completed}/{total} subtasks)."))
             print()
             content = [
-                f"There are still {pending} pending chunk(s) to complete.",
+                f"There are still {pending} pending subtask(s) to complete.",
                 "",
-                "Follow-up tasks can only be added after all current chunks",
+                "Follow-up tasks can only be added after all current subtasks",
                 "are finished. Complete the current build first:",
                 "",
                 highlight(f"  python auto-claude/run.py --spec {spec_dir.name}"),
@@ -942,7 +941,7 @@ def main() -> None:
 
         # Successfully collected follow-up task
         # The collect_followup_task() function already saved to FOLLOWUP_REQUEST.md
-        # Now run the follow-up planner to add new chunks
+        # Now run the follow-up planner to add new subtasks
         print()
 
         if not validate_environment(spec_dir):
@@ -963,7 +962,7 @@ def main() -> None:
                 content = [
                     bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
                     "",
-                    "New chunks have been added to your implementation plan.",
+                    "New subtasks have been added to your implementation plan.",
                     "",
                     highlight("To continue building:"),
                     f"  python auto-claude/run.py --spec {spec_dir.name}",
@@ -1009,7 +1008,7 @@ def main() -> None:
     if args.max_iterations:
         print(f"Max iterations: {args.max_iterations}")
     else:
-        print("Max iterations: Unlimited (runs until all chunks complete)")
+        print("Max iterations: Unlimited (runs until all subtasks complete)")
 
     print()
 
@@ -1108,49 +1107,33 @@ def main() -> None:
           spec_dir=str(spec_dir))
 
     try:
-        if args.parallel > 1:
-            # Parallel mode with multiple workers (uses per-spec worktree)
-            debug("run.py", "Initializing parallel coordinator", workers=args.parallel)
-            coordinator = SwarmCoordinator(
-                spec_dir=spec_dir,
-                project_dir=project_dir,
-                max_workers=args.parallel,
-                model=args.model,
-                verbose=args.verbose,
-            )
-            debug("run.py", "Starting parallel execution")
-            asyncio.run(coordinator.run_parallel())
-            debug_success("run.py", "Parallel execution completed")
+        # Both sequential and parallel modes now use run_autonomous_agent
+        # with max_parallel_subtasks parameter
+        execution_mode = "parallel" if args.parallel > 1 else "sequential"
+        debug("run.py", f"Starting {execution_mode} execution",
+              max_parallel_subtasks=args.parallel)
 
-            # After parallel completion, show per-spec worktree info
-            spec_manager = WorktreeManager(project_dir)
-            spec_info = spec_manager.get_worktree_info(spec_dir.name)
-            if spec_info:
-                choice = finalize_workspace(project_dir, spec_dir.name, spec_manager, auto_continue=args.auto_continue)
-                handle_workspace_choice(choice, project_dir, spec_dir.name, spec_manager)
-        else:
-            # Sequential mode
-            debug("run.py", "Starting sequential execution")
-            asyncio.run(
-                run_autonomous_agent(
-                    project_dir=working_dir,  # Use worktree if isolated
-                    spec_dir=spec_dir,
-                    model=args.model,
-                    max_iterations=args.max_iterations,
-                    verbose=args.verbose,
-                    source_spec_dir=source_spec_dir,  # For syncing progress back to main project
-                )
+        asyncio.run(
+            run_autonomous_agent(
+                project_dir=working_dir,  # Use worktree if isolated
+                spec_dir=spec_dir,
+                model=args.model,
+                max_iterations=args.max_iterations,
+                verbose=args.verbose,
+                source_spec_dir=source_spec_dir,  # For syncing progress back to main project
+                max_parallel_subtasks=args.parallel,  # Pass parallel count
             )
-            debug_success("run.py", "Sequential execution completed")
+        )
+        debug_success("run.py", f"{execution_mode.capitalize()} execution completed")
 
         # Run QA validation BEFORE finalization (while worktree still exists)
         # QA must sign off before the build is considered complete
         qa_approved = True  # Default to approved if QA is skipped
         if not args.skip_qa and should_run_qa(spec_dir):
             print("\n" + "=" * 70)
-            print("  CHUNKS COMPLETE - STARTING QA VALIDATION")
+            print("  SUBTASKS COMPLETE - STARTING QA VALIDATION")
             print("=" * 70)
-            print("\nAll chunks completed. Now running QA validation loop...")
+            print("\nAll subtasks completed. Now running QA validation loop...")
             print("This ensures production-quality output before sign-off.\n")
 
             try:

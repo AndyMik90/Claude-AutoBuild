@@ -16,7 +16,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 def get_planner_prompt(spec_dir: Path) -> str:
     """
     Load the planner agent prompt with spec path injected.
-    The planner creates chunk-based implementation plans.
+    The planner creates subtask-based implementation plans.
 
     Args:
         spec_dir: Directory containing the spec.md file
@@ -40,7 +40,7 @@ def get_planner_prompt(spec_dir: Path) -> str:
 Your spec file is located at: `{spec_dir}/spec.md`
 
 Store all build artifacts in this spec directory:
-- `{spec_dir}/implementation_plan.json` - Chunk-based implementation plan
+- `{spec_dir}/implementation_plan.json` - Subtask-based implementation plan
 - `{spec_dir}/build-progress.txt` - Progress notes
 - `{spec_dir}/init.sh` - Environment setup script
 
@@ -86,7 +86,7 @@ The project root is the parent of auto-claude/. All code goes in the project roo
 
 """
 
-    # Check for recovery context (stuck chunks, retry hints)
+    # Check for recovery context (stuck subtasks, retry hints)
     recovery_context = _get_recovery_context(spec_dir)
     if recovery_context:
         spec_context += recovery_context
@@ -113,7 +113,7 @@ After addressing this input, you may delete or clear the HUMAN_INPUT.md file.
 
 def _get_recovery_context(spec_dir: Path) -> str:
     """
-    Get recovery context if there are failed attempts or stuck chunks.
+    Get recovery context if there are failed attempts or stuck subtasks.
 
     Args:
         spec_dir: Spec directory containing memory/
@@ -132,43 +132,43 @@ def _get_recovery_context(spec_dir: Path) -> str:
         with open(attempt_history_file) as f:
             history = json.load(f)
 
-        # Check for stuck chunks
-        stuck_chunks = history.get("stuck_chunks", [])
-        if stuck_chunks:
-            context = """## ⚠️ RECOVERY ALERT - STUCK CHUNKS DETECTED
+        # Check for stuck subtasks
+        stuck_subtasks = history.get("stuck_subtasks", [])
+        if stuck_subtasks:
+            context = """## ⚠️ RECOVERY ALERT - STUCK SUBTASKS DETECTED
 
-Some chunks have been attempted multiple times without success. These chunks need:
+Some subtasks have been attempted multiple times without success. These subtasks need:
 - A COMPLETELY DIFFERENT approach
 - Possibly simpler implementation
 - Or escalation to human if infeasible
 
-Stuck chunks:
+Stuck subtasks:
 """
-            for stuck in stuck_chunks:
-                context += f"- {stuck['chunk_id']}: {stuck['reason']} ({stuck['attempt_count']} attempts)\n"
+            for stuck in stuck_subtasks:
+                context += f"- {stuck['subtask_id']}: {stuck['reason']} ({stuck['attempt_count']} attempts)\n"
 
-            context += "\nBefore working on any chunk, check memory/attempt_history.json for previous attempts!\n\n---\n\n"
+            context += "\nBefore working on any subtask, check memory/attempt_history.json for previous attempts!\n\n---\n\n"
             return context
 
-        # Check for chunks with multiple attempts
-        chunks_with_retries = []
-        for chunk_id, chunk_data in history.get("chunks", {}).items():
-            attempts = chunk_data.get("attempts", [])
-            if len(attempts) > 1 and chunk_data.get("status") != "completed":
-                chunks_with_retries.append((chunk_id, len(attempts)))
+        # Check for subtasks with multiple attempts
+        subtasks_with_retries = []
+        for subtask_id, subtask_data in history.get("subtasks", {}).items():
+            attempts = subtask_data.get("attempts", [])
+            if len(attempts) > 1 and subtask_data.get("status") != "completed":
+                subtasks_with_retries.append((subtask_id, len(attempts)))
 
-        if chunks_with_retries:
+        if subtasks_with_retries:
             context = """## ⚠️ RECOVERY CONTEXT - RETRY AWARENESS
 
-Some chunks have been attempted before. When working on these:
-1. READ memory/attempt_history.json for the specific chunk
+Some subtasks have been attempted before. When working on these:
+1. READ memory/attempt_history.json for the specific subtask
 2. See what approaches were tried
 3. Use a DIFFERENT approach
 
-Chunks with previous attempts:
+Subtasks with previous attempts:
 """
-            for chunk_id, attempt_count in chunks_with_retries:
-                context += f"- {chunk_id}: {attempt_count} attempts\n"
+            for subtask_id, attempt_count in subtasks_with_retries:
+                context += f"- {subtask_id}: {attempt_count} attempts\n"
 
             context += "\n---\n\n"
             return context
@@ -182,7 +182,7 @@ Chunks with previous attempts:
 def get_followup_planner_prompt(spec_dir: Path) -> str:
     """
     Load the follow-up planner agent prompt with spec path and key files injected.
-    The follow-up planner adds new chunks to an existing completed implementation plan.
+    The follow-up planner adds new subtasks to an existing completed implementation plan.
 
     Args:
         spec_dir: Directory containing the completed spec and implementation_plan.json
@@ -219,9 +219,9 @@ You are adding follow-up work to a **completed** spec.
 
 **Your task:**
 1. Read `{spec_dir}/FOLLOWUP_REQUEST.md` to understand what to add
-2. Read `{spec_dir}/implementation_plan.json` to see existing phases/chunks
-3. ADD new phase(s) with pending chunks to the existing plan
-4. PRESERVE all existing chunks and their statuses
+2. Read `{spec_dir}/implementation_plan.json` to see existing phases/subtasks
+3. ADD new phase(s) with pending subtasks to the existing plan
+4. PRESERVE all existing subtasks and their statuses
 
 ---
 
@@ -231,16 +231,16 @@ You are adding follow-up work to a **completed** spec.
 
 def is_first_run(spec_dir: Path) -> bool:
     """
-    Check if this is the first run (no valid implementation plan with chunks exists yet).
+    Check if this is the first run (no valid implementation plan with subtasks exists yet).
 
     The spec runner may create a skeleton implementation_plan.json with empty phases.
-    This function checks for actual phases with chunks, not just file existence.
+    This function checks for actual phases with subtasks, not just file existence.
 
     Args:
         spec_dir: Directory containing spec files
 
     Returns:
-        True if implementation_plan.json doesn't exist or has no chunks
+        True if implementation_plan.json doesn't exist or has no subtasks
     """
     plan_file = spec_dir / "implementation_plan.json"
 
@@ -251,14 +251,14 @@ def is_first_run(spec_dir: Path) -> bool:
         with open(plan_file, "r") as f:
             plan = json.load(f)
 
-        # Check if there are any phases with chunks
+        # Check if there are any phases with subtasks
         phases = plan.get("phases", [])
         if not phases:
             return True
 
-        # Check if any phase has chunks
-        total_chunks = sum(len(phase.get("chunks", [])) for phase in phases)
-        return total_chunks == 0
+        # Check if any phase has subtasks
+        total_subtasks = sum(len(phase.get("subtasks", [])) for phase in phases)
+        return total_subtasks == 0
     except (json.JSONDecodeError, IOError):
         # If we can't read the file, treat as first run
         return True

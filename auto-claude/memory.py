@@ -40,7 +40,7 @@ Usage:
     # Save session insights
     from memory import save_session_insights
     insights = {
-        "chunks_completed": ["chunk-1"],
+        "subtasks_completed": ["subtask-1"],
         "discoveries": {...},
         "what_worked": ["approach"],
         "what_failed": ["mistake"],
@@ -243,7 +243,7 @@ def save_session_insights(spec_dir: Path, session_num: int, insights: dict) -> N
         spec_dir: Path to spec directory
         session_num: Session number (1-indexed)
         insights: Dictionary containing session learnings with keys:
-            - chunks_completed: list[str] - Chunk IDs completed
+            - subtasks_completed: list[str] - Subtask IDs completed
             - discoveries: dict - New file purposes, patterns, gotchas found
                 - files_understood: dict[str, str] - {path: purpose}
                 - patterns_found: list[str] - Pattern descriptions
@@ -254,7 +254,7 @@ def save_session_insights(spec_dir: Path, session_num: int, insights: dict) -> N
 
     Example:
         insights = {
-            "chunks_completed": ["chunk-1", "chunk-2"],
+            "subtasks_completed": ["subtask-1", "subtask-2"],
             "discoveries": {
                 "files_understood": {
                     "src/api/auth.py": "JWT authentication handler"
@@ -274,7 +274,7 @@ def save_session_insights(spec_dir: Path, session_num: int, insights: dict) -> N
     session_data = {
         "session_number": session_num,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "chunks_completed": insights.get("chunks_completed", []),
+        "subtasks_completed": insights.get("subtasks_completed", []),
         "discoveries": insights.get("discoveries", {
             "files_understood": {},
             "patterns_found": [],
@@ -653,8 +653,8 @@ if __name__ == "__main__":
             print("\nRecent sessions:")
             for insight in summary['recent_insights']:
                 session_num = insight.get('session_number')
-                chunks = len(insight.get('chunks_completed', []))
-                print(f"  Session {session_num}: {chunks} chunks completed")
+                subtasks = len(insight.get('subtasks_completed', []))
+                print(f"  Session {session_num}: {subtasks} subtasks completed")
 
     elif args.action == "list-insights":
         insights = load_all_insights(args.spec_dir)

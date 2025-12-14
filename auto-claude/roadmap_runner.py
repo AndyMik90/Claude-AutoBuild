@@ -413,7 +413,7 @@ Output the complete roadmap to roadmap.json.
             return False
 
         # Phase 3: Feature Generation
-        print_section("PHASE 3: FEATURE GENERATION", Icons.CHUNK)
+        print_section("PHASE 3: FEATURE GENERATION", Icons.SUBTASK)
         result = await self.phase_features()
         results.append(result)
         if not result.success:

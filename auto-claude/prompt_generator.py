@@ -2,8 +2,8 @@
 Prompt Generator
 ================
 
-Generates minimal, focused prompts for each chunk.
-Instead of a 900-line mega-prompt, each chunk gets a tailored ~100-line prompt
+Generates minimal, focused prompts for each subtask.
+Instead of a 900-line mega-prompt, each subtask gets a tailored ~100-line prompt
 with only the context it needs.
 
 This approach:
@@ -74,35 +74,35 @@ relative to this location. Do NOT use absolute paths.
 """
 
 
-def generate_chunk_prompt(
+def generate_subtask_prompt(
     spec_dir: Path,
     project_dir: Path,
-    chunk: dict,
+    subtask: dict,
     phase: dict,
     attempt_count: int = 0,
     recovery_hints: Optional[list[str]] = None,
 ) -> str:
     """
-    Generate a minimal, focused prompt for implementing a single chunk.
+    Generate a minimal, focused prompt for implementing a single subtask.
 
     Args:
         spec_dir: Directory containing spec files
         project_dir: Root project directory (working directory)
-        chunk: The chunk to implement
-        phase: The phase containing this chunk
+        subtask: The subtask to implement
+        phase: The phase containing this subtask
         attempt_count: Number of previous attempts (for retry context)
         recovery_hints: Hints from previous failed attempts
 
     Returns:
         A focused prompt string (~100 lines instead of 900)
     """
-    chunk_id = chunk.get("id", "unknown")
-    description = chunk.get("description", "No description")
-    service = chunk.get("service", "all")
-    files_to_modify = chunk.get("files_to_modify", [])
-    files_to_create = chunk.get("files_to_create", [])
-    patterns_from = chunk.get("patterns_from", [])
-    verification = chunk.get("verification", {})
+    subtask_id = subtask.get("id", "unknown")
+    description = subtask.get("description", "No description")
+    service = subtask.get("service", "all")
+    files_to_modify = subtask.get("files_to_modify", [])
+    files_to_create = subtask.get("files_to_create", [])
+    patterns_from = subtask.get("patterns_from", [])
+    verification = subtask.get("verification", {})
 
     # Get relative spec path
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
@@ -114,9 +114,9 @@ def generate_chunk_prompt(
     sections.append(generate_environment_context(project_dir, spec_dir))
 
     # Header
-    sections.append(f"""# Chunk Implementation Task
+    sections.append(f"""# Subtask Implementation Task
 
-**Chunk ID:** `{chunk_id}`
+**Subtask ID:** `{subtask_id}`
 **Phase:** {phase.get('name', phase.get('id', 'Unknown'))}
 **Service:** {service}
 
@@ -130,7 +130,7 @@ def generate_chunk_prompt(
         sections.append(f"""
 ## ⚠️ RETRY ATTEMPT ({attempt_count + 1})
 
-This chunk has been attempted {attempt_count} time(s) before without success.
+This subtask has been attempted {attempt_count} time(s) before without success.
 You MUST use a DIFFERENT approach than previous attempts.
 """)
         if recovery_hints:
@@ -206,14 +206,14 @@ Verify:""")
 
 1. **Read the pattern files** to understand code style and conventions
 2. **Read the files to modify** (if any) to understand current implementation
-3. **Implement the chunk** following the patterns exactly
+3. **Implement the subtask** following the patterns exactly
 4. **Run verification** and fix any issues
 5. **Commit your changes:**
    ```bash
    git add .
-   git commit -m "auto-claude: {chunk_id} - {short_description}"
+   git commit -m "auto-claude: {subtask_id} - {short_description}"
    ```
-6. **Update the plan** - set this chunk's status to "completed" in implementation_plan.json
+6. **Update the plan** - set this subtask's status to "completed" in implementation_plan.json
 
 ## Quality Checklist
 
@@ -226,10 +226,10 @@ Before marking complete, verify:
 
 ## Important
 
-- Focus ONLY on this chunk - don't modify unrelated code
+- Focus ONLY on this subtask - don't modify unrelated code
 - If verification fails, FIX IT before committing
 - If you encounter a blocker, document it in build-progress.txt
-""".format(chunk_id=chunk_id, short_description=description[:50]))
+""".format(subtask_id=subtask_id, short_description=description[:50]))
 
     # Note: Linear updates are now handled by Python orchestrator via linear_updater.py
     # Agents no longer need to call Linear MCP tools directly
@@ -256,7 +256,7 @@ def generate_planner_prompt(spec_dir: Path, project_dir: Optional[Path] = None) 
     if planner_file.exists():
         prompt = planner_file.read_text()
     else:
-        prompt = "Read spec.md and create implementation_plan.json with phases and chunks."
+        prompt = "Read spec.md and create implementation_plan.json with phases and subtasks."
 
     # Use project_dir for relative paths, or infer from spec_dir
     if project_dir is None:
@@ -275,7 +275,7 @@ def generate_planner_prompt(spec_dir: Path, project_dir: Optional[Path] = None) 
 Your spec file is located at: `{relative_spec}/spec.md`
 
 Store all build artifacts in this spec directory:
-- `{relative_spec}/implementation_plan.json` - Chunk-based implementation plan
+- `{relative_spec}/implementation_plan.json` - Subtask-based implementation plan
 - `{relative_spec}/build-progress.txt` - Progress notes
 - `{relative_spec}/init.sh` - Environment setup script
 
@@ -291,19 +291,19 @@ not in the spec directory.
     return header + prompt
 
 
-def load_chunk_context(
+def load_subtask_context(
     spec_dir: Path,
     project_dir: Path,
-    chunk: dict,
+    subtask: dict,
     max_file_lines: int = 200,
 ) -> dict:
     """
-    Load minimal context needed for a chunk.
+    Load minimal context needed for a subtask.
 
     Args:
         spec_dir: Spec directory
         project_dir: Project root
-        chunk: The chunk being implemented
+        subtask: The subtask being implemented
         max_file_lines: Maximum lines to include per file
 
     Returns:
@@ -316,7 +316,7 @@ def load_chunk_context(
     }
 
     # Load pattern files (truncated)
-    for pattern_path in chunk.get("patterns_from", []):
+    for pattern_path in subtask.get("patterns_from", []):
         full_path = project_dir / pattern_path
         if full_path.exists():
             try:
@@ -331,7 +331,7 @@ def load_chunk_context(
                 context["patterns"][pattern_path] = "(Could not read file)"
 
     # Load files to modify (truncated)
-    for file_path in chunk.get("files_to_modify", []):
+    for file_path in subtask.get("files_to_modify", []):
         full_path = project_dir / file_path
         if full_path.exists():
             try:
@@ -353,7 +353,7 @@ def format_context_for_prompt(context: dict) -> str:
     Format loaded context into a prompt section.
 
     Args:
-        context: Dict from load_chunk_context
+        context: Dict from load_subtask_context
 
     Returns:
         Formatted string to append to prompt

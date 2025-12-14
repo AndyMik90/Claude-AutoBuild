@@ -18,7 +18,7 @@ from typing import Optional
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
 STATUS_DONE = "Done"
-STATUS_BLOCKED = "Blocked"  # For stuck chunks
+STATUS_BLOCKED = "Blocked"  # For stuck subtasks
 STATUS_CANCELED = "Canceled"
 
 # Linear Priority Constants (1=Urgent, 4=Low, 0=No priority)
@@ -28,8 +28,8 @@ PRIORITY_MEDIUM = 3      # Secondary features
 PRIORITY_LOW = 4         # Polish, nice-to-haves
 PRIORITY_NONE = 0        # No priority set
 
-# Chunk status to Linear status mapping
-CHUNK_TO_LINEAR_STATUS = {
+# Subtask status to Linear status mapping
+SUBTASK_TO_LINEAR_STATUS = {
     "pending": STATUS_TODO,
     "in_progress": STATUS_IN_PROGRESS,
     "completed": STATUS_DONE,
@@ -42,7 +42,7 @@ CHUNK_TO_LINEAR_STATUS = {
 LABELS = {
     "phase": "phase",           # Phase label prefix (e.g., "phase-1")
     "service": "service",       # Service label prefix (e.g., "service-backend")
-    "stuck": "stuck",           # Mark stuck chunks
+    "stuck": "stuck",           # Mark stuck subtasks
     "auto_build": "auto-claude", # All auto-claude issues
     "needs_review": "needs-review",
 }
@@ -91,7 +91,7 @@ class LinearProjectState:
     meta_issue_id: Optional[str] = None
     total_issues: int = 0
     created_at: Optional[str] = None
-    issue_mapping: dict = None  # chunk_id -> issue_id mapping
+    issue_mapping: dict = None  # subtask_id -> issue_id mapping
 
     def __post_init__(self):
         if self.issue_mapping is None:
@@ -142,17 +142,17 @@ class LinearProjectState:
             return None
 
 
-def get_linear_status(chunk_status: str) -> str:
+def get_linear_status(subtask_status: str) -> str:
     """
-    Map chunk status to Linear status.
+    Map subtask status to Linear status.
 
     Args:
-        chunk_status: Status from implementation_plan.json
+        subtask_status: Status from implementation_plan.json
 
     Returns:
         Corresponding Linear status string
     """
-    return CHUNK_TO_LINEAR_STATUS.get(chunk_status, STATUS_TODO)
+    return SUBTASK_TO_LINEAR_STATUS.get(subtask_status, STATUS_TODO)
 
 
 def get_priority_for_phase(phase_num: int, total_phases: int) -> int:
@@ -187,12 +187,12 @@ def get_priority_for_phase(phase_num: int, total_phases: int) -> int:
         return PRIORITY_LOW
 
 
-def format_chunk_description(chunk: dict, phase: dict = None) -> str:
+def format_subtask_description(subtask: dict, phase: dict = None) -> str:
     """
-    Format a chunk as a Linear issue description.
+    Format a subtask as a Linear issue description.
 
     Args:
-        chunk: Chunk dict from implementation_plan.json
+        subtask: Subtask dict from implementation_plan.json
         phase: Optional phase dict for context
 
     Returns:
@@ -201,13 +201,13 @@ def format_chunk_description(chunk: dict, phase: dict = None) -> str:
     lines = []
 
     # Description
-    if chunk.get("description"):
-        lines.append(f"## Description\n{chunk['description']}\n")
+    if subtask.get("description"):
+        lines.append(f"## Description\n{subtask['description']}\n")
 
     # Service
-    if chunk.get("service"):
-        lines.append(f"**Service:** {chunk['service']}")
-    elif chunk.get("all_services"):
+    if subtask.get("service"):
+        lines.append(f"**Service:** {subtask['service']}")
+    elif subtask.get("all_services"):
         lines.append("**Scope:** All services (integration)")
 
     # Phase info
@@ -215,26 +215,26 @@ def format_chunk_description(chunk: dict, phase: dict = None) -> str:
         lines.append(f"**Phase:** {phase.get('name', phase.get('id', 'Unknown'))}")
 
     # Files to modify
-    if chunk.get("files_to_modify"):
+    if subtask.get("files_to_modify"):
         lines.append("\n## Files to Modify")
-        for f in chunk["files_to_modify"]:
+        for f in subtask["files_to_modify"]:
             lines.append(f"- `{f}`")
 
     # Files to create
-    if chunk.get("files_to_create"):
+    if subtask.get("files_to_create"):
         lines.append("\n## Files to Create")
-        for f in chunk["files_to_create"]:
+        for f in subtask["files_to_create"]:
             lines.append(f"- `{f}`")
 
     # Patterns to follow
-    if chunk.get("patterns_from"):
+    if subtask.get("patterns_from"):
         lines.append("\n## Reference Patterns")
-        for f in chunk["patterns_from"]:
+        for f in subtask["patterns_from"]:
             lines.append(f"- `{f}`")
 
     # Verification
-    if chunk.get("verification"):
-        v = chunk["verification"]
+    if subtask.get("verification"):
+        v = subtask["verification"]
         lines.append("\n## Verification")
         lines.append(f"**Type:** {v.get('type', 'none')}")
         if v.get("run"):
@@ -253,7 +253,7 @@ def format_chunk_description(chunk: dict, phase: dict = None) -> str:
 
 def format_session_comment(
     session_num: int,
-    chunk_id: str,
+    subtask_id: str,
     success: bool,
     approach: str = "",
     error: str = "",
@@ -264,7 +264,7 @@ def format_session_comment(
 
     Args:
         session_num: Session number
-        chunk_id: Chunk being worked on
+        subtask_id: Subtask being worked on
         success: Whether the session succeeded
         approach: What was attempted
         error: Error message if failed
@@ -276,7 +276,7 @@ def format_session_comment(
     status_emoji = "✅" if success else "❌"
     lines = [
         f"## Session #{session_num} {status_emoji}",
-        f"**Chunk:** `{chunk_id}`",
+        f"**Subtask:** `{subtask_id}`",
         f"**Status:** {'Completed' if success else 'In Progress'}",
         f"**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
     ]
@@ -293,17 +293,17 @@ def format_session_comment(
     return "\n".join(lines)
 
 
-def format_stuck_chunk_comment(
-    chunk_id: str,
+def format_stuck_subtask_comment(
+    subtask_id: str,
     attempt_count: int,
     attempts: list[dict],
     reason: str = "",
 ) -> str:
     """
-    Format a detailed comment for stuck chunks.
+    Format a detailed comment for stuck subtasks.
 
     Args:
-        chunk_id: Stuck chunk ID
+        subtask_id: Stuck subtask ID
         attempt_count: Number of attempts
         attempts: List of attempt records
         reason: Why it's stuck
@@ -312,8 +312,8 @@ def format_stuck_chunk_comment(
         Markdown-formatted comment for escalation
     """
     lines = [
-        "## ⚠️ Chunk Marked as STUCK",
-        f"**Chunk:** `{chunk_id}`",
+        "## ⚠️ Subtask Marked as STUCK",
+        f"**Subtask:** `{subtask_id}`",
         f"**Attempts:** {attempt_count}",
         f"**Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
     ]

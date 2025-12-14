@@ -7,7 +7,7 @@ Instead of relying on agents to remember Linear updates in long prompts,
 the Python orchestrator triggers small, focused agents at key transitions.
 
 Design Principles:
-- ONE task per spec (not one issue per chunk)
+- ONE task per spec (not one issue per subtask)
 - Python orchestrator controls when updates happen
 - Small prompts that can't lose context
 - Graceful degradation if Linear unavailable
@@ -349,40 +349,40 @@ async def linear_task_started(spec_dir: Path) -> bool:
     return success
 
 
-async def linear_chunk_completed(
+async def linear_subtask_completed(
     spec_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     completed_count: int,
     total_count: int,
 ) -> bool:
     """
-    Record chunk completion as a comment.
+    Record subtask completion as a comment.
     Called after each successful coder session.
     """
-    comment = f"Completed {chunk_id} ({completed_count}/{total_count} chunks done)"
+    comment = f"Completed {subtask_id} ({completed_count}/{total_count} subtasks done)"
     return await add_linear_comment(spec_dir, comment)
 
 
-async def linear_chunk_failed(
+async def linear_subtask_failed(
     spec_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     attempt: int,
     error_summary: str,
 ) -> bool:
     """
-    Record chunk failure as a comment.
+    Record subtask failure as a comment.
     Called after failed coder session.
     """
-    comment = f"Chunk {chunk_id} failed (attempt {attempt}): {error_summary[:200]}"
+    comment = f"Subtask {subtask_id} failed (attempt {attempt}): {error_summary[:200]}"
     return await add_linear_comment(spec_dir, comment)
 
 
 async def linear_build_complete(spec_dir: Path) -> bool:
     """
     Record build completion, moving to QA.
-    Called when all chunks are completed.
+    Called when all subtasks are completed.
     """
-    comment = "All chunks completed - moving to QA validation"
+    comment = "All subtasks completed - moving to QA validation"
     return await add_linear_comment(spec_dir, comment)
 
 
@@ -430,12 +430,12 @@ async def linear_qa_max_iterations(spec_dir: Path, iterations: int) -> bool:
 
 async def linear_task_stuck(
     spec_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     attempt_count: int,
 ) -> bool:
     """
-    Record that a chunk is stuck.
-    Called when chunk exceeds retry limit.
+    Record that a subtask is stuck.
+    Called when subtask exceeds retry limit.
     """
-    comment = f"Chunk {chunk_id} is STUCK after {attempt_count} attempts - needs human review"
+    comment = f"Subtask {subtask_id} is STUCK after {attempt_count} attempts - needs human review"
     return await add_linear_comment(spec_dir, comment)

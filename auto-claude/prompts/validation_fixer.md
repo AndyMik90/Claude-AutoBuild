@@ -53,11 +53,11 @@ You are the **Validation Fixer Agent** in the Auto-Build spec creation pipeline.
 **Phase required fields:**
 - `phase` (number) - Phase number
 - `name` (string) - Phase name
-- `chunks` (array) - List of work chunks
+- `subtasks` (array) - List of work subtasks
 
-**Chunk required fields:**
-- `id` (string) - Unique chunk identifier
-- `description` (string) - What this chunk does
+**Subtask required fields:**
+- `id` (string) - Unique subtask identifier
+- `description` (string) - What this subtask does
 - `status` (string) - pending|in_progress|completed|blocked|failed
 
 ### spec.md Required Sections

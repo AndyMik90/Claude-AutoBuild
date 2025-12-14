@@ -309,7 +309,7 @@ class GraphitiMemory:
         Args:
             session_num: Session number (1-indexed)
             insights: Dictionary containing session learnings with keys:
-                - chunks_completed: list[str]
+                - subtasks_completed: list[str]
                 - discoveries: dict
                 - what_worked: list[str]
                 - what_failed: list[str]
@@ -513,7 +513,7 @@ class GraphitiMemory:
         Save a task outcome for learning from past successes/failures.
 
         Args:
-            task_id: Unique identifier for the task (e.g., chunk ID)
+            task_id: Unique identifier for the task (e.g., subtask ID)
             success: Whether the task succeeded
             outcome: Description of what happened
             metadata: Optional additional context
@@ -641,7 +641,7 @@ class GraphitiMemory:
         try:
             # Search for session insights
             results = await self._graphiti.search(
-                query="session insight completed chunks recommendations",
+                query="session insight completed subtasks recommendations",
                 group_ids=[self.group_id],
                 num_results=limit * 2,  # Get more to filter
             )

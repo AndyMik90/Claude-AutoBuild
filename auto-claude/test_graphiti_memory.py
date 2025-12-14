@@ -325,7 +325,7 @@ async def test_graphiti_memory_class():
         # Test save_session_insights
         print("\n  Testing save_session_insights...")
         insights = {
-            "chunks_completed": ["chunk-test-1", "chunk-test-2"],
+            "subtasks_completed": ["subtask-test-1", "subtask-test-2"],
             "discoveries": {
                 "files_understood": {"test.py": "Test file purpose"},
                 "patterns_found": ["Pattern: Using async/await"],

@@ -49,7 +49,7 @@ class LogEntry:
     phase: str
     tool_name: Optional[str] = None
     tool_input: Optional[str] = None
-    chunk_id: Optional[str] = None
+    subtask_id: Optional[str] = None
     session: Optional[int] = None
     # New fields for expandable detail view
     detail: Optional[str] = None  # Full content that can be expanded (e.g., file contents, command output)
@@ -116,7 +116,7 @@ class TaskLogger:
         self.emit_markers = emit_markers
         self.current_phase: Optional[LogPhase] = None
         self.current_session: Optional[int] = None
-        self.current_chunk: Optional[str] = None
+        self.current_subtask: Optional[str] = None
         self._data: dict = self._load_or_create()
 
     def _load_or_create(self) -> dict:
@@ -201,9 +201,9 @@ class TaskLogger:
         """Set the current session number."""
         self.current_session = session
 
-    def set_chunk(self, chunk_id: Optional[str]):
-        """Set the current chunk being processed."""
-        self.current_chunk = chunk_id
+    def set_subtask(self, subtask_id: Optional[str]):
+        """Set the current subtask being processed."""
+        self.current_subtask = subtask_id
 
     def start_phase(self, phase: LogPhase, message: Optional[str] = None):
         """
@@ -319,7 +319,7 @@ class TaskLogger:
             type=entry_type.value,
             content=content,
             phase=phase_key,
-            chunk_id=self.current_chunk,
+            subtask_id=self.current_subtask,
             session=self.current_session
         )
         self._add_entry(entry)
@@ -329,7 +329,7 @@ class TaskLogger:
             "content": content,
             "phase": phase_key,
             "type": entry_type.value,
-            "chunk_id": self.current_chunk,
+            "subtask_id": self.current_subtask,
             "timestamp": self._timestamp()
         })
 
@@ -378,7 +378,7 @@ class TaskLogger:
             type=entry_type.value,
             content=content,
             phase=phase_key,
-            chunk_id=self.current_chunk,
+            subtask_id=self.current_subtask,
             session=self.current_session,
             detail=detail,
             subphase=subphase,
@@ -391,7 +391,7 @@ class TaskLogger:
             "content": content,
             "phase": phase_key,
             "type": entry_type.value,
-            "chunk_id": self.current_chunk,
+            "subtask_id": self.current_subtask,
             "timestamp": self._timestamp(),
             "has_detail": True,
             "subphase": subphase
@@ -416,7 +416,7 @@ class TaskLogger:
             type=LogEntryType.INFO.value,
             content=f"Starting {subphase}",
             phase=phase_key,
-            chunk_id=self.current_chunk,
+            subtask_id=self.current_subtask,
             session=self.current_session,
             subphase=subphase
         )
@@ -456,7 +456,7 @@ class TaskLogger:
             phase=phase_key,
             tool_name=tool_name,
             tool_input=display_input,
-            chunk_id=self.current_chunk,
+            subtask_id=self.current_subtask,
             session=self.current_session
         )
         self._add_entry(entry)
@@ -514,7 +514,7 @@ class TaskLogger:
             content=content,
             phase=phase_key,
             tool_name=tool_name,
-            chunk_id=self.current_chunk,
+            subtask_id=self.current_subtask,
             session=self.current_session,
             detail=stored_detail,
             collapsed=True

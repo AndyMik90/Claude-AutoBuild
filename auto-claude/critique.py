@@ -3,7 +3,7 @@
 Self-Critique System
 ====================
 
-Implements a self-critique loop that agents must run before marking chunks complete.
+Implements a self-critique loop that agents must run before marking subtasks complete.
 This helps catch quality issues early, before verification stage.
 
 The critique system ensures:
@@ -11,7 +11,7 @@ The critique system ensures:
 - All required files were modified/created
 - Error handling is present
 - No debugging artifacts left behind
-- Implementation matches chunk requirements
+- Implementation matches subtask requirements
 """
 
 from dataclasses import dataclass, field
@@ -48,7 +48,7 @@ class CritiqueResult:
 
 
 def generate_critique_prompt(
-    chunk: dict,
+    subtask: dict,
     files_modified: list[str],
     patterns_from: list[str]
 ) -> str:
@@ -56,25 +56,25 @@ def generate_critique_prompt(
     Generate a critique prompt for the agent to self-evaluate.
 
     Args:
-        chunk: The chunk being implemented
+        subtask: The subtask being implemented
         files_modified: List of files actually modified
         patterns_from: List of pattern files to compare against
 
     Returns:
         Formatted prompt for self-critique
     """
-    chunk_id = chunk.get("id", "unknown")
-    chunk_desc = chunk.get("description", "No description")
-    service = chunk.get("service", "all services")
-    files_to_modify = chunk.get("files_to_modify", [])
-    files_to_create = chunk.get("files_to_create", [])
+    subtask_id = subtask.get("id", "unknown")
+    subtask_desc = subtask.get("description", "No description")
+    service = subtask.get("service", "all services")
+    files_to_modify = subtask.get("files_to_modify", [])
+    files_to_create = subtask.get("files_to_create", [])
 
-    prompt = f"""## MANDATORY Self-Critique: {chunk_id}
+    prompt = f"""## MANDATORY Self-Critique: {subtask_id}
 
-**Chunk Description:** {chunk_desc}
+**Subtask Description:** {subtask_desc}
 **Service:** {service}
 
-Before marking this chunk as complete, you MUST perform a thorough self-critique.
+Before marking this subtask as complete, you MUST perform a thorough self-critique.
 This is NOT optional - it's a required quality gate.
 
 ### STEP 1: Code Quality Checklist
@@ -119,9 +119,9 @@ Expected: {', '.join(files_to_create) if files_to_create else 'None'}
 - [ ] Files follow naming conventions
 
 **Requirements:**
-- [ ] Chunk description requirements fully met
+- [ ] Subtask description requirements fully met
 - [ ] All acceptance criteria from spec considered
-- [ ] No scope creep - stayed within chunk boundaries
+- [ ] No scope creep - stayed within subtask boundaries
 
 ### STEP 3: Potential Issues Analysis
 
@@ -157,7 +157,7 @@ If you identified issues in your critique, list what you fixed:
 2. Check each box honestly - don't skip items
 3. If you find issues, FIX THEM before continuing
 4. Re-run this critique after fixes
-5. Only mark the chunk complete when verdict is YES with High confidence
+5. Only mark the subtask complete when verdict is YES with High confidence
 6. Document your critique results in your response
 
 Remember: The next session has no context. Quality issues you miss now will be harder to fix later.
@@ -243,13 +243,13 @@ def parse_critique_response(response: str) -> CritiqueResult:
 
 def should_proceed(result: CritiqueResult) -> bool:
     """
-    Determine if the chunk should be marked complete based on critique.
+    Determine if the subtask should be marked complete based on critique.
 
     Args:
         result: The critique result
 
     Returns:
-        True if chunk can be marked complete, False otherwise
+        True if subtask can be marked complete, False otherwise
     """
     # Must pass the critique
     if not result.passes:
@@ -296,17 +296,17 @@ def format_critique_summary(result: CritiqueResult) -> str:
         lines.append("")
 
     if should_proceed(result):
-        lines.append("**Decision:** Chunk is ready to be marked complete.")
+        lines.append("**Decision:** Subtask is ready to be marked complete.")
     else:
-        lines.append("**Decision:** Chunk needs more work before completion.")
+        lines.append("**Decision:** Subtask needs more work before completion.")
 
     return "\n".join(lines)
 
 
 # Example usage for testing
 if __name__ == "__main__":
-    # Demo chunk
-    chunk = {
+    # Demo subtask
+    subtask = {
         "id": "auth-middleware",
         "description": "Add JWT authentication middleware",
         "service": "backend",
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     files_modified = ["app/middleware/auth.py"]
 
     # Generate prompt
-    prompt = generate_critique_prompt(chunk, files_modified, chunk["patterns_from"])
+    prompt = generate_critique_prompt(subtask, files_modified, subtask["patterns_from"])
     print(prompt)
     print("\n" + "="*80 + "\n")
 

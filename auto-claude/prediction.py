@@ -8,7 +8,7 @@ Uses historical data from memory system and pattern analysis to predict likely i
 
 The key insight: Most bugs are predictable based on:
 1. Type of work (API, frontend, database, etc.)
-2. Past failures in similar chunks
+2. Past failures in similar subtasks
 3. Known gotchas in this codebase
 4. Missing integration points
 
@@ -16,7 +16,7 @@ Usage:
     from prediction import BugPredictor
 
     predictor = BugPredictor(spec_dir)
-    checklist = predictor.generate_checklist(chunk)
+    checklist = predictor.generate_checklist(subtask)
     markdown = predictor.format_checklist_markdown(checklist)
 """
 
@@ -46,9 +46,9 @@ class PredictedIssue:
 
 @dataclass
 class PreImplementationChecklist:
-    """Complete checklist for a chunk before implementation."""
-    chunk_id: str
-    chunk_description: str
+    """Complete checklist for a subtask before implementation."""
+    subtask_id: str
+    subtask_description: str
     predicted_issues: list[PredictedIssue] = field(default_factory=list)
     patterns_to_follow: list[str] = field(default_factory=list)
     files_to_reference: list[str] = field(default_factory=list)
@@ -298,7 +298,7 @@ class BugPredictor:
         return patterns
 
     def load_attempt_history(self) -> list[dict]:
-        """Load historical chunk attempts."""
+        """Load historical subtask attempts."""
         if not self.history_file.exists():
             return []
 
@@ -309,17 +309,17 @@ class BugPredictor:
         except (json.JSONDecodeError, IOError):
             return []
 
-    def _detect_work_type(self, chunk: dict) -> list[str]:
+    def _detect_work_type(self, subtask: dict) -> list[str]:
         """
-        Detect what type of work this chunk involves.
+        Detect what type of work this subtask involves.
 
         Returns a list of work types (e.g., ["api_endpoint", "database_model"])
         """
         work_types = []
 
-        description = chunk.get("description", "").lower()
-        files = chunk.get("files_to_modify", []) + chunk.get("files_to_create", [])
-        service = chunk.get("service", "").lower()
+        description = subtask.get("description", "").lower()
+        files = subtask.get("files_to_modify", []) + subtask.get("files_to_create", [])
+        service = subtask.get("service", "").lower()
 
         # API endpoint detection
         if any(kw in description for kw in ["endpoint", "api", "route", "request", "response"]):
@@ -359,12 +359,12 @@ class BugPredictor:
 
         return work_types
 
-    def analyze_chunk_risks(self, chunk: dict) -> list[PredictedIssue]:
+    def analyze_subtask_risks(self, subtask: dict) -> list[PredictedIssue]:
         """
-        Predict likely issues for a chunk based on work type and history.
+        Predict likely issues for a subtask based on work type and history.
 
         Args:
-            chunk: Chunk dictionary with keys like description, files_to_modify, etc.
+            subtask: Subtask dictionary with keys like description, files_to_modify, etc.
 
         Returns:
             List of predicted issues
@@ -372,7 +372,7 @@ class BugPredictor:
         issues = []
 
         # Get work types
-        work_types = self._detect_work_type(chunk)
+        work_types = self._detect_work_type(subtask)
 
         # Add common issues for detected work types
         for work_type in work_types:
@@ -380,13 +380,13 @@ class BugPredictor:
                 issues.extend(self.COMMON_ISSUES[work_type])
 
         # Add issues from similar past failures
-        similar_failures = self.get_similar_past_failures(chunk)
+        similar_failures = self.get_similar_past_failures(subtask)
         for failure in similar_failures:
             failure_reason = failure.get("failure_reason", "")
             if failure_reason:
                 issues.append(PredictedIssue(
                     "pattern",
-                    f"Similar chunk failed: {failure_reason}",
+                    f"Similar subtask failed: {failure_reason}",
                     "high",
                     f"Review the failed attempt in memory/attempt_history.json"
                 ))
@@ -406,12 +406,12 @@ class BugPredictor:
         # Return top 7 most relevant
         return unique_issues[:7]
 
-    def get_similar_past_failures(self, chunk: dict) -> list[dict]:
+    def get_similar_past_failures(self, subtask: dict) -> list[dict]:
         """
-        Find chunks similar to this one that failed before.
+        Find subtasks similar to this one that failed before.
 
         Args:
-            chunk: Current chunk to analyze
+            subtask: Current subtask to analyze
 
         Returns:
             List of similar failed attempts from history
@@ -420,8 +420,8 @@ class BugPredictor:
         if not history:
             return []
 
-        chunk_desc = chunk.get("description", "").lower()
-        chunk_files = set(chunk.get("files_to_modify", []) + chunk.get("files_to_create", []))
+        subtask_desc = subtask.get("description", "").lower()
+        subtask_files = set(subtask.get("files_to_modify", []) + subtask.get("files_to_create", []))
 
         similar = []
         for attempt in history:
@@ -430,28 +430,28 @@ class BugPredictor:
                 continue
 
             # Check similarity
-            attempt_desc = attempt.get("chunk_description", "").lower()
+            attempt_desc = attempt.get("subtask_description", "").lower()
             attempt_files = set(attempt.get("files_modified", []))
 
             # Calculate similarity score
             score = 0
 
             # Description keyword overlap
-            chunk_keywords = set(re.findall(r'\w+', chunk_desc))
+            subtask_keywords = set(re.findall(r'\w+', subtask_desc))
             attempt_keywords = set(re.findall(r'\w+', attempt_desc))
-            common_keywords = chunk_keywords & attempt_keywords
+            common_keywords = subtask_keywords & attempt_keywords
             if common_keywords:
                 score += len(common_keywords)
 
             # File overlap
-            common_files = chunk_files & attempt_files
+            common_files = subtask_files & attempt_files
             if common_files:
                 score += len(common_files) * 3  # Files are stronger signal
 
             if score > 2:  # Threshold for similarity
                 similar.append({
-                    "chunk_id": attempt.get("chunk_id"),
-                    "description": attempt.get("chunk_description"),
+                    "subtask_id": attempt.get("subtask_id"),
+                    "description": attempt.get("subtask_description"),
                     "failure_reason": attempt.get("error_message", "Unknown error"),
                     "similarity_score": score,
                 })
@@ -460,28 +460,28 @@ class BugPredictor:
         similar.sort(key=lambda x: x["similarity_score"], reverse=True)
         return similar[:3]  # Top 3 similar failures
 
-    def generate_checklist(self, chunk: dict) -> PreImplementationChecklist:
+    def generate_checklist(self, subtask: dict) -> PreImplementationChecklist:
         """
-        Generate a complete pre-implementation checklist for a chunk.
+        Generate a complete pre-implementation checklist for a subtask.
 
         Args:
-            chunk: Chunk dictionary from implementation_plan.json
+            subtask: Subtask dictionary from implementation_plan.json
 
         Returns:
             PreImplementationChecklist ready for formatting
         """
         checklist = PreImplementationChecklist(
-            chunk_id=chunk.get("id", "unknown"),
-            chunk_description=chunk.get("description", ""),
+            subtask_id=subtask.get("id", "unknown"),
+            subtask_description=subtask.get("description", ""),
         )
 
         # Predict issues
-        checklist.predicted_issues = self.analyze_chunk_risks(chunk)
+        checklist.predicted_issues = self.analyze_subtask_risks(subtask)
 
         # Load patterns to follow
         known_patterns = self.load_known_patterns()
-        # Filter to most relevant patterns based on chunk
-        work_types = self._detect_work_type(chunk)
+        # Filter to most relevant patterns based on subtask
+        work_types = self._detect_work_type(subtask)
         relevant_patterns = []
         for pattern in known_patterns:
             pattern_lower = pattern.lower()
@@ -489,13 +489,13 @@ class BugPredictor:
             if any(wt.replace("_", " ") in pattern_lower for wt in work_types):
                 relevant_patterns.append(pattern)
             # Or if it mentions any file being modified
-            elif any(f.split('/')[-1] in pattern_lower for f in chunk.get("files_to_modify", [])):
+            elif any(f.split('/')[-1] in pattern_lower for f in subtask.get("files_to_modify", [])):
                 relevant_patterns.append(pattern)
 
         checklist.patterns_to_follow = relevant_patterns[:5]  # Top 5
 
-        # Files to reference (from chunk's patterns_from)
-        checklist.files_to_reference = chunk.get("patterns_from", [])
+        # Files to reference (from subtask's patterns_from)
+        checklist.files_to_reference = subtask.get("patterns_from", [])
 
         # Common mistakes (gotchas from memory)
         gotchas = self.load_known_gotchas()
@@ -503,8 +503,8 @@ class BugPredictor:
         relevant_gotchas = []
         for gotcha in gotchas:
             gotcha_lower = gotcha.lower()
-            # Check relevance to current chunk
-            if any(kw in gotcha_lower for kw in chunk.get("description", "").lower().split()):
+            # Check relevance to current subtask
+            if any(kw in gotcha_lower for kw in subtask.get("description", "").lower().split()):
                 relevant_gotchas.append(gotcha)
             elif any(wt.replace("_", " ") in gotcha_lower for wt in work_types):
                 relevant_gotchas.append(gotcha)
@@ -512,7 +512,7 @@ class BugPredictor:
         checklist.common_mistakes = relevant_gotchas[:5]  # Top 5
 
         # Verification reminders
-        verification = chunk.get("verification", {})
+        verification = subtask.get("verification", {})
         if verification:
             ver_type = verification.get("type")
             if ver_type == "api":
@@ -542,7 +542,7 @@ class BugPredictor:
         """
         lines = []
 
-        lines.append(f"## Pre-Implementation Checklist: {checklist.chunk_description}")
+        lines.append(f"## Pre-Implementation Checklist: {checklist.subtask_description}")
         lines.append("")
 
         # Predicted issues
@@ -608,19 +608,19 @@ class BugPredictor:
         return "\n".join(lines)
 
 
-def generate_chunk_checklist(spec_dir: Path, chunk: dict) -> str:
+def generate_subtask_checklist(spec_dir: Path, subtask: dict) -> str:
     """
-    Convenience function to generate and format a checklist for a chunk.
+    Convenience function to generate and format a checklist for a subtask.
 
     Args:
         spec_dir: Path to spec directory
-        chunk: Chunk dictionary
+        subtask: Subtask dictionary
 
     Returns:
         Markdown-formatted checklist
     """
     predictor = BugPredictor(spec_dir)
-    checklist = predictor.generate_checklist(chunk)
+    checklist = predictor.generate_checklist(subtask)
     return predictor.format_checklist_markdown(checklist)
 
 
@@ -636,8 +636,8 @@ if __name__ == "__main__":
     spec_dir = Path(sys.argv[1])
 
     if "--demo" in sys.argv:
-        # Demo with sample chunk
-        demo_chunk = {
+        # Demo with sample subtask
+        demo_subtask = {
             "id": "avatar-endpoint",
             "description": "POST /api/users/avatar endpoint for uploading user avatars",
             "service": "backend",
@@ -652,7 +652,7 @@ if __name__ == "__main__":
             }
         }
 
-        checklist_md = generate_chunk_checklist(spec_dir, demo_chunk)
+        checklist_md = generate_subtask_checklist(spec_dir, demo_subtask)
         print(checklist_md)
     else:
         # Load from implementation plan
@@ -664,20 +664,20 @@ if __name__ == "__main__":
         with open(plan_file) as f:
             plan = json.load(f)
 
-        # Find first pending chunk
-        chunk = None
+        # Find first pending subtask
+        subtask = None
         for phase in plan.get("phases", []):
-            for c in phase.get("chunks", []):
+            for c in phase.get("subtasks", []):
                 if c.get("status") == "pending":
-                    chunk = c
+                    subtask = c
                     break
-            if chunk:
+            if subtask:
                 break
 
-        if not chunk:
-            print("No pending chunks found")
+        if not subtask:
+            print("No pending subtasks found")
             sys.exit(0)
 
         # Generate checklist
-        checklist_md = generate_chunk_checklist(spec_dir, chunk)
+        checklist_md = generate_subtask_checklist(spec_dir, subtask)
         print(checklist_md)

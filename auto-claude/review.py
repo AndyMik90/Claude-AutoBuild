@@ -464,7 +464,7 @@ def display_plan_summary(spec_dir: Path) -> None:
 
     Shows:
     - Phase count and names
-    - Chunk count per phase
+    - Subtask count per phase
     - Total work estimate
     - Services involved
 
@@ -493,16 +493,16 @@ def display_plan_summary(spec_dir: Path) -> None:
 
     # Overall stats
     phases = plan.get("phases", [])
-    total_chunks = sum(len(p.get("chunks", [])) for p in phases)
-    completed_chunks = sum(
+    total_subtasks = sum(len(p.get("subtasks", [])) for p in phases)
+    completed_subtasks = sum(
         1 for p in phases
-        for c in p.get("chunks", [])
+        for c in p.get("subtasks", [])
         if c.get("status") == "completed"
     )
     services = plan.get("services_involved", [])
 
     summary_lines.append(f"{muted('Phases:')} {len(phases)}")
-    summary_lines.append(f"{muted('Chunks:')} {completed_chunks}/{total_chunks} completed")
+    summary_lines.append(f"{muted('Subtasks:')} {completed_subtasks}/{total_subtasks} completed")
     if services:
         summary_lines.append(f"{muted('Services:')} {', '.join(services)}")
 
@@ -514,12 +514,12 @@ def display_plan_summary(spec_dir: Path) -> None:
         for phase in phases:
             phase_num = phase.get("phase", "?")
             phase_name = phase.get("name", "Unknown")
-            chunks = phase.get("chunks", [])
-            chunk_count = len(chunks)
-            completed = sum(1 for c in chunks if c.get("status") == "completed")
+            subtasks = phase.get("subtasks", [])
+            subtask_count = len(subtasks)
+            completed = sum(1 for c in subtasks if c.get("status") == "completed")
 
             # Determine phase status icon
-            if completed == chunk_count and chunk_count > 0:
+            if completed == subtask_count and subtask_count > 0:
                 status_icon = icon(Icons.SUCCESS)
                 phase_display = success(f"Phase {phase_num}: {phase_name}")
             elif completed > 0:
@@ -529,29 +529,29 @@ def display_plan_summary(spec_dir: Path) -> None:
                 status_icon = icon(Icons.PENDING)
                 phase_display = f"Phase {phase_num}: {phase_name}"
 
-            summary_lines.append(f"  {status_icon} {phase_display} ({completed}/{chunk_count} chunks)")
+            summary_lines.append(f"  {status_icon} {phase_display} ({completed}/{subtask_count} subtasks)")
 
-            # Show chunk details for non-completed phases
-            if completed < chunk_count:
-                for chunk in chunks[:3]:  # Show max 3 chunks
-                    chunk_id = chunk.get("id", "")
-                    chunk_desc = chunk.get("description", "")
-                    chunk_status = chunk.get("status", "pending")
+            # Show subtask details for non-completed phases
+            if completed < subtask_count:
+                for subtask in subtasks[:3]:  # Show max 3 subtasks
+                    subtask_id = subtask.get("id", "")
+                    subtask_desc = subtask.get("description", "")
+                    subtask_status = subtask.get("status", "pending")
 
-                    if chunk_status == "completed":
+                    if subtask_status == "completed":
                         status_str = success(icon(Icons.SUCCESS))
-                    elif chunk_status == "in_progress":
+                    elif subtask_status == "in_progress":
                         status_str = info(icon(Icons.IN_PROGRESS))
                     else:
                         status_str = muted(icon(Icons.PENDING))
 
                     # Truncate description
-                    desc_short = chunk_desc[:50] + "..." if len(chunk_desc) > 50 else chunk_desc
-                    summary_lines.append(f"      {status_str} {muted(chunk_id)}: {desc_short}")
+                    desc_short = subtask_desc[:50] + "..." if len(subtask_desc) > 50 else subtask_desc
+                    summary_lines.append(f"      {status_str} {muted(subtask_id)}: {desc_short}")
 
-                if len(chunks) > 3:
-                    remaining = len(chunks) - 3
-                    summary_lines.append(f"      {muted(f'... {remaining} more chunks')}")
+                if len(subtasks) > 3:
+                    remaining = len(subtasks) - 3
+                    summary_lines.append(f"      {muted(f'... {remaining} more subtasks')}")
 
     # Parallelism info
     summary_section = plan.get("summary", {})

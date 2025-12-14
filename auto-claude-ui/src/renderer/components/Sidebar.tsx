@@ -46,13 +46,13 @@ import {
 import { cn } from '../lib/utils';
 import {
   useProjectStore,
-  addProject,
   removeProject,
   initializeProject,
   checkProjectVersion,
   updateProjectAutoBuild
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
+import { AddProjectModal } from './AddProjectModal';
 import type { Project, AutoBuildVersionInfo } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees';
@@ -97,7 +97,7 @@ export function Sidebar({
   const selectProject = useProjectStore((state) => state.selectProject);
   const settings = useSettingsStore((state) => state.settings);
 
-  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
@@ -155,20 +155,14 @@ export function Sidebar({
     checkUpdates();
   }, [selectedProjectId, settings.autoUpdateAutoBuild]);
 
-  const handleAddProject = async () => {
-    setIsAddingProject(true);
-    try {
-      const path = await window.electronAPI.selectDirectory();
-      if (path) {
-        const project = await addProject(path);
-        if (project && !project.autoBuildPath) {
-          // Project doesn't have auto-claude, show init dialog
-          setPendingProject(project);
-          setShowInitDialog(true);
-        }
-      }
-    } finally {
-      setIsAddingProject(false);
+  const handleAddProject = () => {
+    setShowAddProjectModal(true);
+  };
+
+  const handleProjectAdded = (project: Project, needsInit: boolean) => {
+    if (needsInit) {
+      setPendingProject(project);
+      setShowInitDialog(true);
     }
   };
 
@@ -487,6 +481,13 @@ export function Sidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Project Modal */}
+      <AddProjectModal
+        open={showAddProjectModal}
+        onOpenChange={setShowAddProjectModal}
+        onProjectAdded={handleProjectAdded}
+      />
     </TooltipProvider>
   );
 }

@@ -36,11 +36,11 @@ IMPLEMENTATION_PLAN_SCHEMA = {
     "phase_schema": {
         # Support both old format ("phase" number) and new format ("id" string)
         "required_fields_either": [["phase", "id"]],  # At least one of these
-        "required_fields": ["name", "chunks"],
+        "required_fields": ["name", "subtasks"],
         "optional_fields": ["type", "depends_on", "parallel_safe", "description", "phase", "id"],
         "phase_types": ["setup", "implementation", "investigation", "integration", "cleanup"],
     },
-    "chunk_schema": {
+    "subtask_schema": {
         "required_fields": ["id", "description", "status"],
         "optional_fields": [
             "service", "all_services", "files_to_modify", "files_to_create",
@@ -287,17 +287,17 @@ class SpecValidator:
         phases = plan.get("phases", [])
         if not phases:
             errors.append("No phases defined")
-            fixes.append("Add at least one phase with chunks")
+            fixes.append("Add at least one phase with subtasks")
         else:
             for i, phase in enumerate(phases):
                 phase_errors = self._validate_phase(phase, i)
                 errors.extend(phase_errors)
 
-        # Check for at least one chunk
-        total_chunks = sum(len(p.get("chunks", [])) for p in phases)
-        if total_chunks == 0:
-            errors.append("No chunks defined in any phase")
-            fixes.append("Add chunks to phases")
+        # Check for at least one subtask
+        total_subtasks = sum(len(p.get("subtasks", [])) for p in phases)
+        if total_subtasks == 0:
+            errors.append("No subtasks defined in any phase")
+            fixes.append("Add subtasks to phases")
 
         # Validate dependencies don't create cycles
         dep_errors = self._validate_dependencies(phases)
@@ -332,35 +332,35 @@ class SpecValidator:
         if "type" in phase and phase["type"] not in schema["phase_types"]:
             errors.append(f"Phase {index + 1}: invalid type '{phase['type']}'")
 
-        # Validate chunks
-        chunks = phase.get("chunks", [])
-        for j, chunk in enumerate(chunks):
-            chunk_errors = self._validate_chunk(chunk, index, j)
-            errors.extend(chunk_errors)
+        # Validate subtasks
+        subtasks = phase.get("subtasks", [])
+        for j, subtask in enumerate(subtasks):
+            subtask_errors = self._validate_subtask(subtask, index, j)
+            errors.extend(subtask_errors)
 
         return errors
 
-    def _validate_chunk(self, chunk: dict, phase_idx: int, chunk_idx: int) -> list[str]:
-        """Validate a single chunk."""
+    def _validate_subtask(self, subtask: dict, phase_idx: int, subtask_idx: int) -> list[str]:
+        """Validate a single subtask."""
         errors = []
-        schema = IMPLEMENTATION_PLAN_SCHEMA["chunk_schema"]
+        schema = IMPLEMENTATION_PLAN_SCHEMA["subtask_schema"]
 
         for field in schema["required_fields"]:
-            if field not in chunk:
-                errors.append(f"Phase {phase_idx + 1}, Chunk {chunk_idx + 1}: missing required field '{field}'")
+            if field not in subtask:
+                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: missing required field '{field}'")
 
-        if "status" in chunk and chunk["status"] not in schema["status_values"]:
-            errors.append(f"Phase {phase_idx + 1}, Chunk {chunk_idx + 1}: invalid status '{chunk['status']}'")
+        if "status" in subtask and subtask["status"] not in schema["status_values"]:
+            errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid status '{subtask['status']}'")
 
         # Validate verification if present
-        if "verification" in chunk:
-            ver = chunk["verification"]
+        if "verification" in subtask:
+            ver = subtask["verification"]
             ver_schema = IMPLEMENTATION_PLAN_SCHEMA["verification_schema"]
 
             if "type" not in ver:
-                errors.append(f"Phase {phase_idx + 1}, Chunk {chunk_idx + 1}: verification missing 'type'")
+                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: verification missing 'type'")
             elif ver["type"] not in ver_schema["verification_types"]:
-                errors.append(f"Phase {phase_idx + 1}, Chunk {chunk_idx + 1}: invalid verification type '{ver['type']}'")
+                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid verification type '{ver['type']}'")
 
         return errors
 
@@ -434,22 +434,22 @@ def auto_fix_plan(spec_dir: Path) -> bool:
             phase["name"] = f"Phase {i + 1}"
             fixed = True
 
-        if "chunks" not in phase:
-            phase["chunks"] = []
+        if "subtasks" not in phase:
+            phase["subtasks"] = []
             fixed = True
 
-        # Fix chunks
-        for j, chunk in enumerate(phase.get("chunks", [])):
-            if "id" not in chunk:
-                chunk["id"] = f"chunk-{i + 1}-{j + 1}"
+        # Fix subtasks
+        for j, subtask in enumerate(phase.get("subtasks", [])):
+            if "id" not in subtask:
+                subtask["id"] = f"subtask-{i + 1}-{j + 1}"
                 fixed = True
 
-            if "description" not in chunk:
-                chunk["description"] = "No description"
+            if "description" not in subtask:
+                subtask["description"] = "No description"
                 fixed = True
 
-            if "status" not in chunk:
-                chunk["status"] = "pending"
+            if "status" not in subtask:
+                subtask["status"] = "pending"
                 fixed = True
 
     if fixed:

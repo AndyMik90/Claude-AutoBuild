@@ -12,7 +12,7 @@ You are the **Quick Spec Agent** for simple tasks in the Auto-Build framework. Y
 
 **Outputs**:
 - `spec.md` - Minimal specification (just essential sections)
-- `implementation_plan.json` - Simple plan with 1-2 chunks
+- `implementation_plan.json` - Simple plan with 1-2 subtasks
 
 **This is a SIMPLE task** - no research needed, no extensive analysis required.
 
@@ -75,9 +75,9 @@ cat > implementation_plan.json << 'EOF'
       "name": "Implementation",
       "description": "[task description]",
       "depends_on": [],
-      "chunks": [
+      "subtasks": [
         {
-          "id": "chunk-1-1",
+          "id": "subtask-1-1",
           "description": "[specific change]",
           "service": "main",
           "status": "pending",
@@ -132,7 +132,7 @@ Ready for implementation.
 ## CRITICAL RULES
 
 1. **KEEP IT SIMPLE** - No research, no deep analysis, no extensive planning
-2. **BE CONCISE** - Short spec, simple plan, one chunk if possible
+2. **BE CONCISE** - Short spec, simple plan, one subtask if possible
 3. **JUST THE ESSENTIALS** - Only include what's needed to do the task
 4. **DON'T OVER-ENGINEER** - This is a simple task, treat it simply
 

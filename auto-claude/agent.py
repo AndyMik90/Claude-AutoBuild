@@ -3,7 +3,7 @@ Agent Session Logic
 ===================
 
 Core agent interaction functions for running autonomous coding sessions.
-Uses chunk-based implementation plans with minimal, focused prompts.
+Uses subtask-based implementation plans with minimal, focused prompts.
 
 Architecture:
 - Orchestrator (Python) handles all bookkeeping: memory, commits, progress
@@ -29,16 +29,16 @@ from progress import (
     print_session_header,
     print_progress_summary,
     print_build_complete_banner,
-    count_chunks,
-    count_chunks_detailed,
+    count_subtasks,
+    count_subtasks_detailed,
     is_build_complete,
-    get_next_chunk,
+    get_next_subtask,
     get_current_phase,
 )
 from prompt_generator import (
-    generate_chunk_prompt,
+    generate_subtask_prompt,
     generate_planner_prompt,
-    load_chunk_context,
+    load_subtask_context,
     format_context_for_prompt,
 )
 from prompts import is_first_run
@@ -47,8 +47,8 @@ from linear_updater import (
     is_linear_enabled,
     LinearTaskState,
     linear_task_started,
-    linear_chunk_completed,
-    linear_chunk_failed,
+    linear_subtask_completed,
+    linear_subtask_failed,
     linear_build_complete,
     linear_task_stuck,
 )
@@ -86,6 +86,7 @@ from task_logger import (
     get_task_logger,
     clear_task_logger,
 )
+from task_tool import TaskToolCoordinator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -142,26 +143,26 @@ def debug_memory_system_status() -> None:
 async def get_graphiti_context(
     spec_dir: Path,
     project_dir: Path,
-    chunk: dict,
+    subtask: dict,
 ) -> Optional[str]:
     """
-    Retrieve relevant context from Graphiti for the current chunk.
+    Retrieve relevant context from Graphiti for the current subtask.
 
-    This searches the knowledge graph for context relevant to the chunk's
+    This searches the knowledge graph for context relevant to the subtask's
     task description, returning past insights, patterns, and gotchas.
 
     Args:
         spec_dir: Spec directory
         project_dir: Project root directory
-        chunk: The current chunk being worked on
+        subtask: The current subtask being worked on
 
     Returns:
         Formatted context string or None if unavailable
     """
     if is_debug_enabled():
-        debug("memory", "Retrieving Graphiti context for chunk",
-              chunk_id=chunk.get("id", "unknown"),
-              chunk_desc=chunk.get("description", "")[:100])
+        debug("memory", "Retrieving Graphiti context for subtask",
+              subtask_id=subtask.get("id", "unknown"),
+              subtask_desc=subtask.get("description", "")[:100])
 
     if not is_graphiti_enabled():
         if is_debug_enabled():
@@ -179,10 +180,10 @@ async def get_graphiti_context(
                 debug_warning("memory", "GraphitiMemory.is_enabled=False")
             return None
 
-        # Build search query from chunk description
-        chunk_desc = chunk.get("description", "")
-        chunk_id = chunk.get("id", "")
-        query = f"{chunk_desc} {chunk_id}".strip()
+        # Build search query from subtask description
+        subtask_desc = subtask.get("description", "")
+        subtask_id = subtask.get("id", "")
+        query = f"{subtask_desc} {subtask_id}".strip()
 
         if not query:
             await memory.close()
@@ -215,7 +216,7 @@ async def get_graphiti_context(
 
         # Format the context
         sections = ["## Graphiti Memory Context\n"]
-        sections.append("_Retrieved from knowledge graph for this chunk:_\n")
+        sections.append("_Retrieved from knowledge graph for this subtask:_\n")
 
         if context_items:
             sections.append("### Relevant Knowledge\n")
@@ -254,10 +255,10 @@ async def get_graphiti_context(
 async def save_session_memory(
     spec_dir: Path,
     project_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     session_num: int,
     success: bool,
-    chunks_completed: list[str],
+    subtasks_completed: list[str],
     discoveries: Optional[dict] = None,
 ) -> tuple[bool, str]:
     """
@@ -272,10 +273,10 @@ async def save_session_memory(
     Args:
         spec_dir: Spec directory
         project_dir: Project root directory
-        chunk_id: The chunk that was worked on
+        subtask_id: The subtask that was worked on
         session_num: Current session number
-        success: Whether the chunk was completed successfully
-        chunks_completed: List of chunk IDs completed this session
+        success: Whether the subtask was completed successfully
+        subtasks_completed: List of subtask IDs completed this session
         discoveries: Optional dict with file discoveries, patterns, gotchas
 
     Returns:
@@ -285,22 +286,22 @@ async def save_session_memory(
     if is_debug_enabled():
         debug_section("memory", f"Saving Session {session_num} Memory")
         debug("memory", "Memory save initiated",
-              chunk_id=chunk_id,
+              subtask_id=subtask_id,
               session_num=session_num,
               success=success,
-              chunks_completed=chunks_completed,
+              subtasks_completed=subtasks_completed,
               spec_dir=str(spec_dir))
 
     # Build insights structure (same format for both storage systems)
     insights = {
-        "chunks_completed": chunks_completed,
+        "subtasks_completed": subtasks_completed,
         "discoveries": discoveries or {
             "files_understood": {},
             "patterns_found": [],
             "gotchas_encountered": [],
         },
-        "what_worked": [f"Implemented chunk: {chunk_id}"] if success else [],
-        "what_failed": [] if success else [f"Failed to complete chunk: {chunk_id}"],
+        "what_worked": [f"Implemented subtask: {subtask_id}"] if success else [],
+        "what_failed": [] if success else [f"Failed to complete subtask: {subtask_id}"],
         "recommendations_for_next_session": [],
     }
 
@@ -348,7 +349,7 @@ async def save_session_memory(
                     if is_debug_enabled():
                         debug_success("memory", f"Session {session_num} saved to Graphiti (PRIMARY)",
                                       storage_type="graphiti",
-                                      chunks_saved=len(chunks_completed))
+                                      subtasks_saved=len(subtasks_completed))
                     return True, "graphiti"
                 else:
                     logger.warning("Graphiti save returned False, falling back to file-based")
@@ -389,7 +390,7 @@ async def save_session_memory(
             debug_success("memory", f"Session {session_num} saved to file-based (FALLBACK)",
                           storage_type="file",
                           file_path=str(memory_dir / f"session_{session_num:03d}.json"),
-                          chunks_saved=len(chunks_completed))
+                          subtasks_saved=len(subtasks_completed))
         return True, "file"
     except Exception as e:
         logger.error(f"File-based memory save also failed: {e}")
@@ -402,15 +403,15 @@ async def save_session_memory(
 async def save_session_to_graphiti(
     spec_dir: Path,
     project_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     session_num: int,
     success: bool,
-    chunks_completed: list[str],
+    subtasks_completed: list[str],
     discoveries: Optional[dict] = None,
 ) -> bool:
     """Backwards compatibility wrapper for save_session_memory."""
     result, _ = await save_session_memory(
-        spec_dir, project_dir, chunk_id, session_num, success, chunks_completed, discoveries
+        spec_dir, project_dir, subtask_id, session_num, success, subtasks_completed, discoveries
     )
     return result
 
@@ -457,20 +458,20 @@ def load_implementation_plan(spec_dir: Path) -> Optional[dict]:
         return None
 
 
-def find_chunk_in_plan(plan: dict, chunk_id: str) -> Optional[dict]:
-    """Find a chunk by ID in the plan."""
+def find_subtask_in_plan(plan: dict, subtask_id: str) -> Optional[dict]:
+    """Find a subtask by ID in the plan."""
     for phase in plan.get("phases", []):
-        for chunk in phase.get("chunks", []):
-            if chunk.get("id") == chunk_id:
-                return chunk
+        for subtask in phase.get("subtasks", []):
+            if subtask.get("id") == subtask_id:
+                return subtask
     return None
 
 
-def find_phase_for_chunk(plan: dict, chunk_id: str) -> Optional[dict]:
-    """Find the phase containing a chunk."""
+def find_phase_for_subtask(plan: dict, subtask_id: str) -> Optional[dict]:
+    """Find the phase containing a subtask."""
     for phase in plan.get("phases", []):
-        for chunk in phase.get("chunks", []):
-            if chunk.get("id") == chunk_id:
+        for subtask in phase.get("subtasks", []):
+            if subtask.get("id") == subtask_id:
                 return phase
     return None
 
@@ -520,7 +521,7 @@ def sync_plan_to_source(spec_dir: Path, source_spec_dir: Optional[Path]) -> bool
 async def post_session_processing(
     spec_dir: Path,
     project_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     session_num: int,
     commit_before: Optional[str],
     commit_count_before: int,
@@ -537,7 +538,7 @@ async def post_session_processing(
     Args:
         spec_dir: Spec directory containing memory/
         project_dir: Project root for git operations
-        chunk_id: The chunk that was being worked on
+        subtask_id: The subtask that was being worked on
         session_num: Current session number
         commit_before: Git commit hash before session
         commit_count_before: Number of commits before session
@@ -547,7 +548,7 @@ async def post_session_processing(
         source_spec_dir: Original spec directory (for syncing back from worktree)
 
     Returns:
-        True if chunk was completed successfully
+        True if subtask was completed successfully
     """
     print()
     print(muted("--- Post-Session Processing ---"))
@@ -562,56 +563,56 @@ async def post_session_processing(
         print("  Warning: Could not load implementation plan")
         return False
 
-    chunk = find_chunk_in_plan(plan, chunk_id)
-    if not chunk:
-        print(f"  Warning: Chunk {chunk_id} not found in plan")
+    subtask = find_subtask_in_plan(plan, subtask_id)
+    if not subtask:
+        print(f"  Warning: Subtask {subtask_id} not found in plan")
         return False
 
-    chunk_status = chunk.get("status", "pending")
+    subtask_status = subtask.get("status", "pending")
 
     # Check for new commits
     commit_after = get_latest_commit(project_dir)
     commit_count_after = get_commit_count(project_dir)
     new_commits = commit_count_after - commit_count_before
 
-    print_key_value("Chunk status", chunk_status)
+    print_key_value("Subtask status", subtask_status)
     print_key_value("New commits", str(new_commits))
 
-    if chunk_status == "completed":
+    if subtask_status == "completed":
         # Success! Record the attempt and good commit
-        print_status(f"Chunk {chunk_id} completed successfully", "success")
+        print_status(f"Subtask {subtask_id} completed successfully", "success")
 
         # Update status file
         if status_manager:
-            chunks = count_chunks_detailed(spec_dir)
-            status_manager.update_chunks(
-                completed=chunks["completed"],
-                total=chunks["total"],
+            subtasks = count_subtasks_detailed(spec_dir)
+            status_manager.update_subtasks(
+                completed=subtasks["completed"],
+                total=subtasks["total"],
                 in_progress=0,
             )
 
         # Record successful attempt
         recovery_manager.record_attempt(
-            chunk_id=chunk_id,
+            subtask_id=subtask_id,
             session=session_num,
             success=True,
-            approach=f"Implemented: {chunk.get('description', 'chunk')[:100]}",
+            approach=f"Implemented: {subtask.get('description', 'subtask')[:100]}",
         )
 
         # Record good commit for rollback safety
         if commit_after and commit_after != commit_before:
-            recovery_manager.record_good_commit(commit_after, chunk_id)
+            recovery_manager.record_good_commit(commit_after, subtask_id)
             print_status(f"Recorded good commit: {commit_after[:8]}", "success")
 
         # Record Linear session result (if enabled)
         if linear_enabled:
             # Get progress counts for the comment
-            chunks_detail = count_chunks_detailed(spec_dir)
-            await linear_chunk_completed(
+            subtasks_detail = count_subtasks_detailed(spec_dir)
+            await linear_subtask_completed(
                 spec_dir=spec_dir,
-                chunk_id=chunk_id,
-                completed_count=chunks_detail["completed"],
-                total_count=chunks_detail["total"],
+                subtask_id=subtask_id,
+                completed_count=subtasks_detail["completed"],
+                total_count=subtasks_detail["total"],
             )
             print_status("Linear progress recorded", "success")
 
@@ -620,10 +621,10 @@ async def post_session_processing(
             save_success, storage_type = await save_session_memory(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 session_num=session_num,
                 success=True,
-                chunks_completed=[chunk_id],
+                subtasks_completed=[subtask_id],
             )
             if save_success:
                 if storage_type == "graphiti":
@@ -638,29 +639,29 @@ async def post_session_processing(
 
         return True
 
-    elif chunk_status == "in_progress":
+    elif subtask_status == "in_progress":
         # Session ended without completion
-        print_status(f"Chunk {chunk_id} still in progress", "warning")
+        print_status(f"Subtask {subtask_id} still in progress", "warning")
 
         recovery_manager.record_attempt(
-            chunk_id=chunk_id,
+            subtask_id=subtask_id,
             session=session_num,
             success=False,
-            approach="Session ended with chunk in_progress",
-            error="Chunk not marked as completed",
+            approach="Session ended with subtask in_progress",
+            error="Subtask not marked as completed",
         )
 
         # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
-            recovery_manager.record_good_commit(commit_after, chunk_id)
+            recovery_manager.record_good_commit(commit_after, subtask_id)
             print_status(f"Recorded partial progress commit: {commit_after[:8]}", "info")
 
         # Record Linear session result (if enabled)
         if linear_enabled:
-            attempt_count = recovery_manager.get_attempt_count(chunk_id)
-            await linear_chunk_failed(
+            attempt_count = recovery_manager.get_attempt_count(subtask_id)
+            await linear_subtask_failed(
                 spec_dir=spec_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 attempt=attempt_count,
                 error_summary="Session ended without completion",
             )
@@ -670,10 +671,10 @@ async def post_session_processing(
             await save_session_memory(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 session_num=session_num,
                 success=False,
-                chunks_completed=[],
+                subtasks_completed=[],
             )
         except Exception as e:
             logger.debug(f"Failed to save incomplete session memory: {e}")
@@ -681,25 +682,25 @@ async def post_session_processing(
         return False
 
     else:
-        # Chunk still pending or failed
-        print_status(f"Chunk {chunk_id} not completed (status: {chunk_status})", "error")
+        # Subtask still pending or failed
+        print_status(f"Subtask {subtask_id} not completed (status: {subtask_status})", "error")
 
         recovery_manager.record_attempt(
-            chunk_id=chunk_id,
+            subtask_id=subtask_id,
             session=session_num,
             success=False,
             approach="Session ended without progress",
-            error=f"Chunk status is {chunk_status}",
+            error=f"Subtask status is {subtask_status}",
         )
 
         # Record Linear session result (if enabled)
         if linear_enabled:
-            attempt_count = recovery_manager.get_attempt_count(chunk_id)
-            await linear_chunk_failed(
+            attempt_count = recovery_manager.get_attempt_count(subtask_id)
+            await linear_subtask_failed(
                 spec_dir=spec_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 attempt=attempt_count,
-                error_summary=f"Chunk status: {chunk_status}",
+                error_summary=f"Subtask status: {subtask_status}",
             )
 
         # Save failed session memory (to track what didn't work)
@@ -707,10 +708,10 @@ async def post_session_processing(
             await save_session_memory(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 session_num=session_num,
                 success=False,
-                chunks_completed=[],
+                subtasks_completed=[],
             )
         except Exception as e:
             logger.debug(f"Failed to save failed session memory: {e}")
@@ -738,7 +739,7 @@ async def run_agent_session(
     Returns:
         (status, response_text) where status is:
         - "continue" if agent should continue working
-        - "complete" if all chunks complete
+        - "complete" if all subtasks complete
         - "error" if an error occurred
     """
     print("Sending prompt to Claude Agent SDK...\n")
@@ -867,6 +868,7 @@ async def run_autonomous_agent(
     max_iterations: Optional[int] = None,
     verbose: bool = False,
     source_spec_dir: Optional[Path] = None,
+    max_parallel_subtasks: int = 1,
 ) -> None:
     """
     Run the autonomous agent loop with automatic memory management.
@@ -878,6 +880,7 @@ async def run_autonomous_agent(
         max_iterations: Maximum number of iterations (None for unlimited)
         verbose: Whether to show detailed output
         source_spec_dir: Original spec directory in main project (for syncing from worktree)
+        max_parallel_subtasks: Maximum parallel subtasks (1=sequential, 2-10=parallel)
     """
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
@@ -892,12 +895,12 @@ async def run_autonomous_agent(
     # Debug: Print memory system status at startup
     debug_memory_system_status()
 
-    # Update initial chunk counts
-    chunks = count_chunks_detailed(spec_dir)
-    status_manager.update_chunks(
-        completed=chunks["completed"],
-        total=chunks["total"],
-        in_progress=chunks["in_progress"],
+    # Update initial subtask counts
+    subtasks = count_subtasks_detailed(spec_dir)
+    status_manager.update_subtasks(
+        completed=subtasks["completed"],
+        total=subtasks["total"],
+        in_progress=subtasks["in_progress"],
     )
 
     # Check Linear integration status
@@ -926,7 +929,7 @@ async def run_autonomous_agent(
             bold(f"{icon(Icons.GEAR)} PLANNER SESSION"),
             "",
             f"Spec: {highlight(spec_dir.name)}",
-            muted("The agent will analyze your spec and create a chunk-based plan."),
+            muted("The agent will analyze your spec and create a subtask-based plan."),
         ]
         print()
         print(box(content, width=70, style="heavy"))
@@ -998,10 +1001,10 @@ async def run_autonomous_agent(
             print("To continue, run the script again without --max-iterations")
             break
 
-        # Get the next chunk to work on
-        next_chunk = get_next_chunk(spec_dir)
-        chunk_id = next_chunk.get("id") if next_chunk else None
-        phase_name = next_chunk.get("phase_name") if next_chunk else None
+        # Get the next subtask to work on
+        next_subtask = get_next_subtask(spec_dir)
+        subtask_id = next_subtask.get("id") if next_subtask else None
+        phase_name = next_subtask.get("phase_name") if next_subtask else None
 
         # Update status for this session
         status_manager.update_session(iteration)
@@ -1013,16 +1016,16 @@ async def run_autonomous_agent(
                     current_phase.get("phase", 0),
                     current_phase.get("total", 0),
                 )
-        status_manager.update_chunks(in_progress=1)
+        status_manager.update_subtasks(in_progress=1)
 
         # Print session header
         print_session_header(
             session_num=iteration,
             is_planner=first_run,
-            chunk_id=chunk_id,
-            chunk_desc=next_chunk.get("description") if next_chunk else None,
+            subtask_id=subtask_id,
+            subtask_desc=next_subtask.get("description") if next_subtask else None,
             phase_name=phase_name,
-            attempt=recovery_manager.get_attempt_count(chunk_id) + 1 if chunk_id else 1,
+            attempt=recovery_manager.get_attempt_count(subtask_id) + 1 if subtask_id else 1,
         )
 
         # Capture state before session for post-processing
@@ -1049,49 +1052,88 @@ async def run_autonomous_agent(
                 if task_logger:
                     task_logger.end_phase(LogPhase.PLANNING, success=True, message="Implementation plan created")
                     task_logger.start_phase(LogPhase.CODING, "Starting implementation...")
-            if not next_chunk:
-                print("No pending chunks found - build may be complete!")
+
+                # Check if parallel execution is requested
+                if max_parallel_subtasks > 1:
+                    print_status(f"Parallel mode: Using TaskToolCoordinator with {max_parallel_subtasks} workers", "info")
+
+                    coordinator = TaskToolCoordinator(
+                        spec_dir=spec_dir,
+                        project_dir=project_dir,
+                        model=model,
+                        max_parallel=max_parallel_subtasks,
+                    )
+
+                    # Run parallel build loop
+                    while True:
+                        completed, failed = await coordinator.run_next_batch()
+
+                        if completed == 0 and failed == 0:
+                            # No more pending subtasks
+                            break
+
+                        print(f"Batch complete: {completed} succeeded, {failed} failed")
+
+                        # Check if build is complete
+                        if is_build_complete(spec_dir):
+                            print_build_complete_banner(spec_dir)
+                            status_manager.update(state=BuildState.COMPLETE)
+                            return
+
+                        await asyncio.sleep(2)
+
+                    # After parallel loop completes, check final status
+                    if is_build_complete(spec_dir):
+                        print_build_complete_banner(spec_dir)
+                        status_manager.update(state=BuildState.COMPLETE)
+                    else:
+                        print_status("Parallel build incomplete - some subtasks may need retry", "warning")
+                        status_manager.update(state=BuildState.PAUSED)
+                    return
+
+            if not next_subtask:
+                print("No pending subtasks found - build may be complete!")
                 break
 
             # Get attempt count for recovery context
-            attempt_count = recovery_manager.get_attempt_count(chunk_id)
-            recovery_hints = recovery_manager.get_recovery_hints(chunk_id) if attempt_count > 0 else None
+            attempt_count = recovery_manager.get_attempt_count(subtask_id)
+            recovery_hints = recovery_manager.get_recovery_hints(subtask_id) if attempt_count > 0 else None
 
-            # Find the phase for this chunk
+            # Find the phase for this subtask
             plan = load_implementation_plan(spec_dir)
-            phase = find_phase_for_chunk(plan, chunk_id) if plan else {}
+            phase = find_phase_for_subtask(plan, subtask_id) if plan else {}
 
-            # Generate focused, minimal prompt for this chunk
-            prompt = generate_chunk_prompt(
+            # Generate focused, minimal prompt for this subtask
+            prompt = generate_subtask_prompt(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
-                chunk=next_chunk,
+                subtask=next_subtask,
                 phase=phase or {},
                 attempt_count=attempt_count,
                 recovery_hints=recovery_hints,
             )
 
             # Load and append relevant file context
-            context = load_chunk_context(spec_dir, project_dir, next_chunk)
+            context = load_subtask_context(spec_dir, project_dir, next_subtask)
             if context.get("patterns") or context.get("files_to_modify"):
                 prompt += "\n\n" + format_context_for_prompt(context)
 
             # Retrieve and append Graphiti memory context (if enabled)
-            graphiti_context = await get_graphiti_context(spec_dir, project_dir, next_chunk)
+            graphiti_context = await get_graphiti_context(spec_dir, project_dir, next_subtask)
             if graphiti_context:
                 prompt += "\n\n" + graphiti_context
                 print_status("Graphiti memory context loaded", "success")
 
             # Show what we're working on
-            print(f"Working on: {highlight(chunk_id)}")
-            print(f"Description: {next_chunk.get('description', 'No description')}")
+            print(f"Working on: {highlight(subtask_id)}")
+            print(f"Description: {next_subtask.get('description', 'No description')}")
             if attempt_count > 0:
                 print_status(f"Previous attempts: {attempt_count}", "warning")
             print()
 
-        # Set chunk info in logger
-        if task_logger and chunk_id:
-            task_logger.set_chunk(chunk_id)
+        # Set subtask info in logger
+        if task_logger and subtask_id:
+            task_logger.set_subtask(subtask_id)
             task_logger.set_session(iteration)
 
         # Run session with async context manager
@@ -1101,12 +1143,12 @@ async def run_autonomous_agent(
             )
 
         # === POST-SESSION PROCESSING (100% reliable) ===
-        if chunk_id and not first_run:
+        if subtask_id and not first_run:
             linear_is_enabled = linear_task is not None and linear_task.task_id is not None
             success = await post_session_processing(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
-                chunk_id=chunk_id,
+                subtask_id=subtask_id,
                 session_num=iteration,
                 commit_before=commit_before,
                 commit_count_before=commit_count_before,
@@ -1116,25 +1158,25 @@ async def run_autonomous_agent(
                 source_spec_dir=source_spec_dir,
             )
 
-            # Check for stuck chunks
-            attempt_count = recovery_manager.get_attempt_count(chunk_id)
+            # Check for stuck subtasks
+            attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= 3:
-                recovery_manager.mark_chunk_stuck(
-                    chunk_id,
+                recovery_manager.mark_subtask_stuck(
+                    subtask_id,
                     f"Failed after {attempt_count} attempts"
                 )
                 print()
-                print_status(f"Chunk {chunk_id} marked as STUCK after {attempt_count} attempts", "error")
-                print(muted("Consider: manual intervention or skipping this chunk"))
+                print_status(f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts", "error")
+                print(muted("Consider: manual intervention or skipping this subtask"))
 
-                # Record stuck chunk in Linear (if enabled)
+                # Record stuck subtask in Linear (if enabled)
                 if linear_is_enabled:
                     await linear_task_stuck(
                         spec_dir=spec_dir,
-                        chunk_id=chunk_id,
+                        subtask_id=subtask_id,
                         attempt_count=attempt_count,
                     )
-                    print_status("Linear notified of stuck chunk", "info")
+                    print_status("Linear notified of stuck subtask", "info")
         elif is_planning_phase and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
             if sync_plan_to_source(spec_dir, source_spec_dir):
@@ -1147,7 +1189,7 @@ async def run_autonomous_agent(
 
             # End coding phase in task logger
             if task_logger:
-                task_logger.end_phase(LogPhase.CODING, success=True, message="All chunks completed successfully")
+                task_logger.end_phase(LogPhase.CODING, success=True, message="All subtasks completed successfully")
 
             # Notify Linear that build is complete (moving to QA)
             if linear_task and linear_task.task_id:
@@ -1163,13 +1205,13 @@ async def run_autonomous_agent(
             # Update state back to building
             status_manager.update(state=BuildState.BUILDING)
 
-            # Show next chunk info
-            next_chunk = get_next_chunk(spec_dir)
-            if next_chunk:
-                chunk_id = next_chunk.get('id')
-                print(f"\nNext: {highlight(chunk_id)} - {next_chunk.get('description')}")
+            # Show next subtask info
+            next_subtask = get_next_subtask(spec_dir)
+            if next_subtask:
+                subtask_id = next_subtask.get('id')
+                print(f"\nNext: {highlight(subtask_id)} - {next_subtask.get('description')}")
 
-                attempt_count = recovery_manager.get_attempt_count(chunk_id)
+                attempt_count = recovery_manager.get_attempt_count(subtask_id)
                 if attempt_count > 0:
                     print_status(f"WARNING: {attempt_count} previous attempt(s)", "warning")
 
@@ -1198,28 +1240,28 @@ async def run_autonomous_agent(
     print(box(content, width=70, style="heavy"))
     print_progress_summary(spec_dir)
 
-    # Show stuck chunks if any
-    stuck_chunks = recovery_manager.get_stuck_chunks()
-    if stuck_chunks:
+    # Show stuck subtasks if any
+    stuck_subtasks = recovery_manager.get_stuck_subtasks()
+    if stuck_subtasks:
         print()
-        print_status("STUCK CHUNKS (need manual intervention):", "error")
-        for stuck in stuck_chunks:
-            print(f"  {icon(Icons.ERROR)} {stuck['chunk_id']}: {stuck['reason']}")
+        print_status("STUCK SUBTASKS (need manual intervention):", "error")
+        for stuck in stuck_subtasks:
+            print(f"  {icon(Icons.ERROR)} {stuck['subtask_id']}: {stuck['reason']}")
 
     # Instructions
-    completed, total = count_chunks(spec_dir)
+    completed, total = count_subtasks(spec_dir)
     if completed < total:
         content = [
             bold(f"{icon(Icons.PLAY)} NEXT STEPS"),
             "",
-            f"{total - completed} chunks remaining.",
+            f"{total - completed} subtasks remaining.",
             f"Run again: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
         ]
     else:
         content = [
             bold(f"{icon(Icons.SUCCESS)} NEXT STEPS"),
             "",
-            "All chunks completed!",
+            "All subtasks completed!",
             "  1. Review the auto-claude/* branch",
             "  2. Run manual tests",
             "  3. Merge to main",
@@ -1243,7 +1285,7 @@ async def run_followup_planner(
     verbose: bool = False,
 ) -> bool:
     """
-    Run the follow-up planner to add new chunks to a completed spec.
+    Run the follow-up planner to add new subtasks to a completed spec.
 
     This is a simplified version of run_autonomous_agent that:
     1. Creates a client
@@ -1254,7 +1296,7 @@ async def run_followup_planner(
     The planner agent will:
     - Read FOLLOWUP_REQUEST.md for the new task
     - Read the existing implementation_plan.json
-    - Add new phase(s) with pending chunks
+    - Add new phase(s) with pending subtasks
     - Update the plan status back to in_progress
 
     Args:
@@ -1283,7 +1325,7 @@ async def run_followup_planner(
         f"Spec: {highlight(spec_dir.name)}",
         muted("Adding follow-up work to completed spec."),
         "",
-        muted("The agent will read your FOLLOWUP_REQUEST.md and add new chunks."),
+        muted("The agent will read your FOLLOWUP_REQUEST.md and add new subtasks."),
     ]
     print()
     print(box(content, width=70, style="heavy"))
@@ -1324,16 +1366,16 @@ async def run_followup_planner(
             status_manager.update(state=BuildState.ERROR)
             return False
 
-        # Verify the plan was updated (should have pending chunks now)
+        # Verify the plan was updated (should have pending subtasks now)
         plan_file = spec_dir / "implementation_plan.json"
         if plan_file.exists():
             plan = ImplementationPlan.load(plan_file)
 
-            # Check if there are any pending chunks
-            all_chunks = [c for p in plan.phases for c in p.chunks]
-            pending_chunks = [c for c in all_chunks if c.status.value == "pending"]
+            # Check if there are any pending subtasks
+            all_subtasks = [c for p in plan.phases for c in p.subtasks]
+            pending_subtasks = [c for c in all_subtasks if c.status.value == "pending"]
 
-            if pending_chunks:
+            if pending_subtasks:
                 # Reset the plan status to in_progress (in case planner didn't)
                 plan.reset_for_followup()
                 plan.save(plan_file)
@@ -1342,8 +1384,8 @@ async def run_followup_planner(
                 content = [
                     bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
                     "",
-                    f"New pending chunks: {highlight(str(len(pending_chunks)))}",
-                    f"Total chunks: {len(all_chunks)}",
+                    f"New pending subtasks: {highlight(str(len(pending_subtasks)))}",
+                    f"Total subtasks: {len(all_subtasks)}",
                     "",
                     muted("Next steps:"),
                     f"  Run: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
@@ -1354,8 +1396,8 @@ async def run_followup_planner(
                 return True
             else:
                 print()
-                print_status("Warning: No pending chunks found after planning", "warning")
-                print(muted("The planner may not have added new chunks."))
+                print_status("Warning: No pending subtasks found after planning", "warning")
+                print(muted("The planner may not have added new subtasks."))
                 print(muted("Check implementation_plan.json manually."))
                 status_manager.update(state=BuildState.PAUSED)
                 return False

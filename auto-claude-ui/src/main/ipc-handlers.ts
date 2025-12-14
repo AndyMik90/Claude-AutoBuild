@@ -2085,6 +2085,98 @@ export function setupIpcHandlers(
     }
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.DIALOG_CREATE_PROJECT_FOLDER,
+    async (
+      _,
+      location: string,
+      name: string,
+      initGit: boolean
+    ): Promise<IPCResult<{ path: string; name: string; gitInitialized: boolean }>> => {
+      try {
+        // Validate inputs
+        if (!location || !name) {
+          return { success: false, error: 'Location and name are required' };
+        }
+
+        // Sanitize project name (convert to kebab-case, remove invalid chars)
+        const sanitizedName = name
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-_]/g, '')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+
+        if (!sanitizedName) {
+          return { success: false, error: 'Invalid project name' };
+        }
+
+        const projectPath = path.join(location, sanitizedName);
+
+        // Check if folder already exists
+        if (existsSync(projectPath)) {
+          return { success: false, error: `Folder "${sanitizedName}" already exists at this location` };
+        }
+
+        // Create the directory
+        mkdirSync(projectPath, { recursive: true });
+
+        // Initialize git if requested
+        let gitInitialized = false;
+        if (initGit) {
+          try {
+            execSync('git init', { cwd: projectPath, stdio: 'ignore' });
+            gitInitialized = true;
+          } catch {
+            // Git init failed, but folder was created - continue without git
+            console.warn('Failed to initialize git repository');
+          }
+        }
+
+        return {
+          success: true,
+          data: {
+            path: projectPath,
+            name: sanitizedName,
+            gitInitialized
+          }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create project folder'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.DIALOG_GET_DEFAULT_PROJECT_LOCATION,
+    async (): Promise<string | null> => {
+      try {
+        // Return user's home directory + common project folders
+        const homeDir = app.getPath('home');
+        const commonPaths = [
+          path.join(homeDir, 'Projects'),
+          path.join(homeDir, 'Developer'),
+          path.join(homeDir, 'Code'),
+          path.join(homeDir, 'Documents')
+        ];
+
+        // Return the first one that exists, or Documents as fallback
+        for (const p of commonPaths) {
+          if (existsSync(p)) {
+            return p;
+          }
+        }
+
+        return path.join(homeDir, 'Documents');
+      } catch {
+        return null;
+      }
+    }
+  );
+
   // ============================================
   // App Info
   // ============================================

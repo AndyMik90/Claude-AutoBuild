@@ -56,16 +56,16 @@ def _create_tools(spec_dir: Path, project_dir: Path):
     tools = []
 
     # -------------------------------------------------------------------------
-    # Tool: update_chunk_status
+    # Tool: update_subtask_status
     # -------------------------------------------------------------------------
     @tool(
-        "update_chunk_status",
-        "Update the status of a chunk in implementation_plan.json. Use this when completing or starting a chunk.",
-        {"chunk_id": str, "status": str, "notes": str}
+        "update_subtask_status",
+        "Update the status of a subtask in implementation_plan.json. Use this when completing or starting a subtask.",
+        {"subtask_id": str, "status": str, "notes": str}
     )
-    async def update_chunk_status(args: dict[str, Any]) -> dict[str, Any]:
-        """Update chunk status in the implementation plan."""
-        chunk_id = args["chunk_id"]
+    async def update_subtask_status(args: dict[str, Any]) -> dict[str, Any]:
+        """Update subtask status in the implementation plan."""
+        subtask_id = args["subtask_id"]
         status = args["status"]
         notes = args.get("notes", "")
 
@@ -91,25 +91,25 @@ def _create_tools(spec_dir: Path, project_dir: Path):
             with open(plan_file, "r") as f:
                 plan = json.load(f)
 
-            # Find and update the chunk
-            chunk_found = False
+            # Find and update the subtask
+            subtask_found = False
             for phase in plan.get("phases", []):
-                for chunk in phase.get("chunks", []):
-                    if chunk.get("id") == chunk_id:
-                        chunk["status"] = status
+                for subtask in phase.get("subtasks", []):
+                    if subtask.get("id") == subtask_id:
+                        subtask["status"] = status
                         if notes:
-                            chunk["notes"] = notes
-                        chunk["updated_at"] = datetime.now(timezone.utc).isoformat()
-                        chunk_found = True
+                            subtask["notes"] = notes
+                        subtask["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        subtask_found = True
                         break
-                if chunk_found:
+                if subtask_found:
                     break
 
-            if not chunk_found:
+            if not subtask_found:
                 return {
                     "content": [{
                         "type": "text",
-                        "text": f"Error: Chunk '{chunk_id}' not found in implementation plan"
+                        "text": f"Error: Subtask '{subtask_id}' not found in implementation plan"
                     }]
                 }
 
@@ -122,7 +122,7 @@ def _create_tools(spec_dir: Path, project_dir: Path):
             return {
                 "content": [{
                     "type": "text",
-                    "text": f"Successfully updated chunk '{chunk_id}' to status '{status}'"
+                    "text": f"Successfully updated subtask '{subtask_id}' to status '{status}'"
                 }]
             }
 
@@ -137,18 +137,18 @@ def _create_tools(spec_dir: Path, project_dir: Path):
             return {
                 "content": [{
                     "type": "text",
-                    "text": f"Error updating chunk status: {e}"
+                    "text": f"Error updating subtask status: {e}"
                 }]
             }
 
-    tools.append(update_chunk_status)
+    tools.append(update_subtask_status)
 
     # -------------------------------------------------------------------------
     # Tool: get_build_progress
     # -------------------------------------------------------------------------
     @tool(
         "get_build_progress",
-        "Get the current build progress including completed chunks, pending chunks, and next chunk to work on.",
+        "Get the current build progress including completed subtasks, pending subtasks, and next subtask to work on.",
         {}
     )
     async def get_build_progress(args: dict[str, Any]) -> dict[str, Any]:
@@ -176,18 +176,18 @@ def _create_tools(spec_dir: Path, project_dir: Path):
             }
 
             phases_summary = []
-            next_chunk = None
+            next_subtask = None
 
             for phase in plan.get("phases", []):
                 phase_id = phase.get("id") or phase.get("phase")
                 phase_name = phase.get("name", phase_id)
-                phase_chunks = phase.get("chunks", [])
+                phase_subtasks = phase.get("subtasks", [])
 
-                phase_stats = {"completed": 0, "total": len(phase_chunks)}
+                phase_stats = {"completed": 0, "total": len(phase_subtasks)}
 
-                for chunk in phase_chunks:
+                for subtask in phase_subtasks:
                     stats["total"] += 1
-                    status = chunk.get("status", "pending")
+                    status = subtask.get("status", "pending")
 
                     if status == "completed":
                         stats["completed"] += 1
@@ -198,11 +198,11 @@ def _create_tools(spec_dir: Path, project_dir: Path):
                         stats["failed"] += 1
                     else:
                         stats["pending"] += 1
-                        # Track next chunk to work on
-                        if next_chunk is None:
-                            next_chunk = {
-                                "id": chunk.get("id"),
-                                "description": chunk.get("description"),
+                        # Track next subtask to work on
+                        if next_subtask is None:
+                            next_subtask = {
+                                "id": subtask.get("id"),
+                                "description": subtask.get("description"),
                                 "phase": phase_name,
                             }
 
@@ -210,7 +210,7 @@ def _create_tools(spec_dir: Path, project_dir: Path):
 
             progress_pct = (stats["completed"] / stats["total"] * 100) if stats["total"] > 0 else 0
 
-            result = f"""Build Progress: {stats['completed']}/{stats['total']} chunks ({progress_pct:.0f}%)
+            result = f"""Build Progress: {stats['completed']}/{stats['total']} subtasks ({progress_pct:.0f}%)
 
 Status breakdown:
   Completed: {stats['completed']}
@@ -221,15 +221,15 @@ Status breakdown:
 Phases:
 {chr(10).join(phases_summary)}"""
 
-            if next_chunk:
+            if next_subtask:
                 result += f"""
 
-Next chunk to work on:
-  ID: {next_chunk['id']}
-  Phase: {next_chunk['phase']}
-  Description: {next_chunk['description']}"""
+Next subtask to work on:
+  ID: {next_subtask['id']}
+  Phase: {next_subtask['phase']}
+  Description: {next_subtask['description']}"""
             elif stats["completed"] == stats["total"]:
-                result += "\n\nAll chunks completed! Build is ready for QA."
+                result += "\n\nAll subtasks completed! Build is ready for QA."
 
             return {
                 "content": [{
@@ -556,7 +556,7 @@ def create_auto_claude_mcp_server(spec_dir: Path, project_dir: Path):
 
 
 # Tool name constants for easy reference
-TOOL_UPDATE_CHUNK_STATUS = "mcp__auto-claude__update_chunk_status"
+TOOL_UPDATE_SUBTASK_STATUS = "mcp__auto-claude__update_subtask_status"
 TOOL_GET_BUILD_PROGRESS = "mcp__auto-claude__get_build_progress"
 TOOL_RECORD_DISCOVERY = "mcp__auto-claude__record_discovery"
 TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
@@ -594,7 +594,7 @@ def get_allowed_tools(agent_type: str) -> list[str]:
         "coder": {
             "base": base_read_tools + base_write_tools,
             "auto_claude": [
-                TOOL_UPDATE_CHUNK_STATUS,
+                TOOL_UPDATE_SUBTASK_STATUS,
                 TOOL_GET_BUILD_PROGRESS,
                 TOOL_RECORD_DISCOVERY,
                 TOOL_RECORD_GOTCHA,
@@ -612,7 +612,7 @@ def get_allowed_tools(agent_type: str) -> list[str]:
         "qa_fixer": {
             "base": base_read_tools + base_write_tools,
             "auto_claude": [
-                TOOL_UPDATE_CHUNK_STATUS,
+                TOOL_UPDATE_SUBTASK_STATUS,
                 TOOL_GET_BUILD_PROGRESS,
                 TOOL_UPDATE_QA_STATUS,
                 TOOL_RECORD_GOTCHA,

@@ -4,14 +4,14 @@ Implementation Planner
 ======================
 
 Generates implementation plans from specs by analyzing the task and codebase.
-This replaces the initializer's test-generation with chunk-based planning.
+This replaces the initializer's test-generation with subtask-based planning.
 
 The planner:
 1. Reads the spec.md to understand what needs to be built
 2. Reads project_index.json to understand the codebase structure
 3. Reads context.json to know which files are relevant
 4. Determines the workflow type (feature, refactor, investigation, etc.)
-5. Generates phases and chunks with proper dependencies
+5. Generates phases and subtasks with proper dependencies
 6. Outputs implementation_plan.json
 
 Usage:
@@ -27,11 +27,11 @@ from typing import Optional
 from implementation_plan import (
     ImplementationPlan,
     Phase,
-    Chunk,
+    Subtask,
     Verification,
     WorkflowType,
     PhaseType,
-    ChunkStatus,
+    SubtaskStatus,
     VerificationType,
 )
 
@@ -244,29 +244,29 @@ class ImplementationPlanner:
                 patterns.append(file_info.get("path", ""))
         return patterns[:3]  # Limit to top 3
 
-    def _create_verification(self, service: str, chunk_type: str) -> Verification:
-        """Create appropriate verification for a chunk."""
+    def _create_verification(self, service: str, subtask_type: str) -> Verification:
+        """Create appropriate verification for a subtask."""
         service_info = self.context.project_index.get("services", {}).get(service, {})
         port = service_info.get("port")
 
-        if chunk_type == "model":
+        if subtask_type == "model":
             return Verification(
                 type=VerificationType.COMMAND,
                 run="echo 'Model created - verify with migration'",
             )
-        elif chunk_type == "endpoint":
+        elif subtask_type == "endpoint":
             return Verification(
                 type=VerificationType.API,
                 method="GET",
                 url=f"http://localhost:{port}/health" if port else "/health",
                 expect_status=200,
             )
-        elif chunk_type == "component":
+        elif subtask_type == "component":
             return Verification(
                 type=VerificationType.BROWSER,
                 scenario="Component renders without errors",
             )
-        elif chunk_type == "task":
+        elif subtask_type == "task":
             return Verification(
                 type=VerificationType.COMMAND,
                 run="echo 'Task registered - verify with celery inspect'",
@@ -309,32 +309,32 @@ class ImplementationPlanner:
             phase_num += 1
             patterns = self._get_patterns_for_service(service)
 
-            # Create chunks for each file
-            chunks = []
+            # Create subtasks for each file
+            subtasks = []
             for file_info in files:
                 path = file_info.get("path", "")
                 reason = file_info.get("reason", "")
 
-                # Determine chunk type from path
-                chunk_type = "code"
+                # Determine subtask type from path
+                subtask_type = "code"
                 if "model" in path.lower() or "schema" in path.lower():
-                    chunk_type = "model"
+                    subtask_type = "model"
                 elif "route" in path.lower() or "endpoint" in path.lower() or "api" in path.lower():
-                    chunk_type = "endpoint"
+                    subtask_type = "endpoint"
                 elif "component" in path.lower() or path.endswith(".tsx") or path.endswith(".jsx"):
-                    chunk_type = "component"
+                    subtask_type = "component"
                 elif "task" in path.lower() or "worker" in path.lower() or "celery" in path.lower():
-                    chunk_type = "task"
+                    subtask_type = "task"
 
-                chunk_id = Path(path).stem.replace(".", "-").lower()
+                subtask_id = Path(path).stem.replace(".", "-").lower()
 
-                chunks.append(Chunk(
-                    id=f"{service}-{chunk_id}",
+                subtasks.append(Subtask(
+                    id=f"{service}-{subtask_id}",
                     description=f"Modify {path}: {reason}" if reason else f"Update {path}",
                     service=service,
                     files_to_modify=[path],
                     patterns_from=patterns,
-                    verification=self._create_verification(service, chunk_type),
+                    verification=self._create_verification(service, subtask_type),
                 ))
 
             # Determine dependencies
@@ -350,9 +350,9 @@ class ImplementationPlanner:
                 phase=phase_num,
                 name=f"{service.title()} Implementation",
                 type=PhaseType.IMPLEMENTATION,
-                chunks=chunks,
+                subtasks=subtasks,
                 depends_on=depends_on,
-                parallel_safe=len(chunks) > 1,
+                parallel_safe=len(subtasks) > 1,
             )
             phases.append(phase)
 
@@ -372,8 +372,8 @@ class ImplementationPlanner:
                 name="Integration",
                 type=PhaseType.INTEGRATION,
                 depends_on=integration_depends,
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="integration-wiring",
                         description="Wire all services together",
                         all_services=True,
@@ -382,7 +382,7 @@ class ImplementationPlanner:
                             scenario="End-to-end flow works",
                         ),
                     ),
-                    Chunk(
+                    Subtask(
                         id="integration-testing",
                         description="Verify complete feature works",
                         all_services=True,
@@ -415,14 +415,14 @@ class ImplementationPlanner:
                 phase=1,
                 name="Reproduce & Instrument",
                 type=PhaseType.INVESTIGATION,
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="add-logging",
                         description="Add detailed logging around suspected problem areas",
                         expected_output="Logs capture relevant state changes and events",
                         files_to_modify=[f.get("path", "") for f in self.context.files_to_modify[:3]],
                     ),
-                    Chunk(
+                    Subtask(
                         id="create-repro",
                         description="Create reliable reproduction steps",
                         expected_output="Can reproduce issue on demand with documented steps",
@@ -434,13 +434,13 @@ class ImplementationPlanner:
                 name="Investigate & Analyze",
                 type=PhaseType.INVESTIGATION,
                 depends_on=[1],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="analyze-logs",
                         description="Analyze logs from multiple reproductions",
                         expected_output="Pattern identified in when/how issue occurs",
                     ),
-                    Chunk(
+                    Subtask(
                         id="form-hypothesis",
                         description="Form and test hypotheses about root cause",
                         expected_output="Root cause identified with supporting evidence",
@@ -452,16 +452,16 @@ class ImplementationPlanner:
                 name="Implement Fix",
                 type=PhaseType.IMPLEMENTATION,
                 depends_on=[2],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="implement-fix",
                         description="[TO BE DETERMINED: Fix based on investigation findings]",
-                        status=ChunkStatus.BLOCKED,
+                        status=SubtaskStatus.BLOCKED,
                     ),
-                    Chunk(
+                    Subtask(
                         id="add-regression-test",
                         description="Add test to prevent issue from recurring",
-                        status=ChunkStatus.BLOCKED,
+                        status=SubtaskStatus.BLOCKED,
                     ),
                 ],
             ),
@@ -470,8 +470,8 @@ class ImplementationPlanner:
                 name="Verify & Harden",
                 type=PhaseType.INTEGRATION,
                 depends_on=[3],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="verify-fix",
                         description="Verify issue no longer occurs",
                         verification=Verification(
@@ -479,7 +479,7 @@ class ImplementationPlanner:
                             scenario="Run reproduction steps - issue should not occur",
                         ),
                     ),
-                    Chunk(
+                    Subtask(
                         id="add-monitoring",
                         description="Add alerting/monitoring to catch if issue returns",
                     ),
@@ -510,8 +510,8 @@ class ImplementationPlanner:
                 phase=1,
                 name="Add New System",
                 type=PhaseType.IMPLEMENTATION,
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="add-new-implementation",
                         description="Implement new system alongside existing",
                         files_to_modify=[f.get("path", "") for f in self.context.files_to_modify],
@@ -528,8 +528,8 @@ class ImplementationPlanner:
                 name="Migrate Consumers",
                 type=PhaseType.IMPLEMENTATION,
                 depends_on=[1],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="migrate-to-new",
                         description="Update consumers to use new system",
                         verification=Verification(
@@ -544,8 +544,8 @@ class ImplementationPlanner:
                 name="Remove Old System",
                 type=PhaseType.CLEANUP,
                 depends_on=[2],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="remove-old",
                         description="Remove old system code",
                         verification=Verification(
@@ -560,12 +560,12 @@ class ImplementationPlanner:
                 name="Polish",
                 type=PhaseType.CLEANUP,
                 depends_on=[3],
-                chunks=[
-                    Chunk(
+                subtasks=[
+                    Subtask(
                         id="cleanup",
                         description="Final cleanup and documentation",
                     ),
-                    Chunk(
+                    Subtask(
                         id="verify-complete",
                         description="Verify refactor is complete",
                         verification=Verification(

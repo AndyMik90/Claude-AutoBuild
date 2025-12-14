@@ -25,9 +25,9 @@ from typing import Optional
 class FailureType(Enum):
     """Types of failures that can occur during autonomous builds."""
     BROKEN_BUILD = "broken_build"           # Code doesn't compile/run
-    VERIFICATION_FAILED = "verification_failed"  # Chunk verification failed
+    VERIFICATION_FAILED = "verification_failed"  # Subtask verification failed
     CIRCULAR_FIX = "circular_fix"           # Same fix attempted multiple times
-    CONTEXT_EXHAUSTED = "context_exhausted" # Ran out of context mid-chunk
+    CONTEXT_EXHAUSTED = "context_exhausted" # Ran out of context mid-subtask
     UNKNOWN = "unknown"
 
 
@@ -35,7 +35,7 @@ class FailureType(Enum):
 class RecoveryAction:
     """Action to take in response to a failure."""
     action: str  # "rollback", "retry", "skip", "escalate"
-    target: str  # commit hash, chunk id, or message
+    target: str  # commit hash, subtask id, or message
     reason: str
 
 
@@ -48,7 +48,7 @@ class RecoveryManager:
     - Classify failures and determine recovery actions
     - Rollback to working states
     - Detect circular fixes (same approach repeatedly)
-    - Escalate stuck chunks for human intervention
+    - Escalate stuck subtasks for human intervention
     """
 
     def __init__(self, spec_dir: Path, project_dir: Path):
@@ -78,8 +78,8 @@ class RecoveryManager:
     def _init_attempt_history(self) -> None:
         """Initialize the attempt history file."""
         initial_data = {
-            "chunks": {},
-            "stuck_chunks": [],
+            "subtasks": {},
+            "stuck_subtasks": [],
             "metadata": {
                 "created_at": datetime.now().isoformat(),
                 "last_updated": datetime.now().isoformat()
@@ -133,13 +133,13 @@ class RecoveryManager:
         with open(self.build_commits_file, "w") as f:
             json.dump(data, f, indent=2)
 
-    def classify_failure(self, error: str, chunk_id: str) -> FailureType:
+    def classify_failure(self, error: str, subtask_id: str) -> FailureType:
         """
         Classify what type of failure occurred.
 
         Args:
             error: Error message or description
-            chunk_id: ID of the chunk that failed
+            subtask_id: ID of the subtask that failed
 
         Returns:
             FailureType enum value
@@ -171,38 +171,38 @@ class RecoveryManager:
             return FailureType.CONTEXT_EXHAUSTED
 
         # Check for circular fixes (will be determined by attempt history)
-        if self.is_circular_fix(chunk_id, error):
+        if self.is_circular_fix(subtask_id, error):
             return FailureType.CIRCULAR_FIX
 
         return FailureType.UNKNOWN
 
-    def get_attempt_count(self, chunk_id: str) -> int:
+    def get_attempt_count(self, subtask_id: str) -> int:
         """
-        Get how many times this chunk has been attempted.
+        Get how many times this subtask has been attempted.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
 
         Returns:
             Number of attempts
         """
         history = self._load_attempt_history()
-        chunk_data = history["chunks"].get(chunk_id, {})
-        return len(chunk_data.get("attempts", []))
+        subtask_data = history["subtasks"].get(subtask_id, {})
+        return len(subtask_data.get("attempts", []))
 
     def record_attempt(
         self,
-        chunk_id: str,
+        subtask_id: str,
         session: int,
         success: bool,
         approach: str,
         error: Optional[str] = None
     ) -> None:
         """
-        Record an attempt at a chunk.
+        Record an attempt at a subtask.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
             session: Session number
             success: Whether the attempt succeeded
             approach: Description of the approach taken
@@ -210,9 +210,9 @@ class RecoveryManager:
         """
         history = self._load_attempt_history()
 
-        # Initialize chunk entry if it doesn't exist
-        if chunk_id not in history["chunks"]:
-            history["chunks"][chunk_id] = {
+        # Initialize subtask entry if it doesn't exist
+        if subtask_id not in history["subtasks"]:
+            history["subtasks"][subtask_id] = {
                 "attempts": [],
                 "status": "pending"
             }
@@ -225,30 +225,30 @@ class RecoveryManager:
             "success": success,
             "error": error
         }
-        history["chunks"][chunk_id]["attempts"].append(attempt)
+        history["subtasks"][subtask_id]["attempts"].append(attempt)
 
         # Update status
         if success:
-            history["chunks"][chunk_id]["status"] = "completed"
+            history["subtasks"][subtask_id]["status"] = "completed"
         else:
-            history["chunks"][chunk_id]["status"] = "failed"
+            history["subtasks"][subtask_id]["status"] = "failed"
 
         self._save_attempt_history(history)
 
-    def is_circular_fix(self, chunk_id: str, current_approach: str) -> bool:
+    def is_circular_fix(self, subtask_id: str, current_approach: str) -> bool:
         """
         Detect if we're trying the same approach repeatedly.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
             current_approach: Description of current approach
 
         Returns:
             True if this appears to be a circular fix attempt
         """
         history = self._load_attempt_history()
-        chunk_data = history["chunks"].get(chunk_id, {})
-        attempts = chunk_data.get("attempts", [])
+        subtask_data = history["subtasks"].get(subtask_id, {})
+        attempts = subtask_data.get("attempts", [])
 
         if len(attempts) < 2:
             return False
@@ -289,19 +289,19 @@ class RecoveryManager:
     def determine_recovery_action(
         self,
         failure_type: FailureType,
-        chunk_id: str
+        subtask_id: str
     ) -> RecoveryAction:
         """
         Decide what to do based on failure type and history.
 
         Args:
             failure_type: Type of failure that occurred
-            chunk_id: ID of the chunk that failed
+            subtask_id: ID of the subtask that failed
 
         Returns:
             RecoveryAction describing what to do
         """
-        attempt_count = self.get_attempt_count(chunk_id)
+        attempt_count = self.get_attempt_count(subtask_id)
 
         if failure_type == FailureType.BROKEN_BUILD:
             # Broken build: rollback to last good state
@@ -310,12 +310,12 @@ class RecoveryManager:
                 return RecoveryAction(
                     action="rollback",
                     target=last_good,
-                    reason=f"Build broken in chunk {chunk_id}, rolling back to working state"
+                    reason=f"Build broken in subtask {subtask_id}, rolling back to working state"
                 )
             else:
                 return RecoveryAction(
                     action="escalate",
-                    target=chunk_id,
+                    target=subtask_id,
                     reason="Build broken and no good commit found to rollback to"
                 )
 
@@ -324,13 +324,13 @@ class RecoveryManager:
             if attempt_count < 3:
                 return RecoveryAction(
                     action="retry",
-                    target=chunk_id,
+                    target=subtask_id,
                     reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/3)"
                 )
             else:
                 return RecoveryAction(
                     action="skip",
-                    target=chunk_id,
+                    target=subtask_id,
                     reason=f"Verification failed after {attempt_count} attempts, marking as stuck"
                 )
 
@@ -338,7 +338,7 @@ class RecoveryManager:
             # Circular fix detected: skip and escalate
             return RecoveryAction(
                 action="skip",
-                target=chunk_id,
+                target=subtask_id,
                 reason="Circular fix detected - same approach tried multiple times"
             )
 
@@ -346,7 +346,7 @@ class RecoveryManager:
             # Context exhausted: commit current progress and continue
             return RecoveryAction(
                 action="continue",
-                target=chunk_id,
+                target=subtask_id,
                 reason="Context exhausted, will commit progress and continue in next session"
             )
 
@@ -355,13 +355,13 @@ class RecoveryManager:
             if attempt_count < 2:
                 return RecoveryAction(
                     action="retry",
-                    target=chunk_id,
+                    target=subtask_id,
                     reason=f"Unknown error, retrying (attempt {attempt_count + 1}/2)"
                 )
             else:
                 return RecoveryAction(
                     action="escalate",
-                    target=chunk_id,
+                    target=subtask_id,
                     reason=f"Unknown error persists after {attempt_count} attempts"
                 )
 
@@ -375,19 +375,19 @@ class RecoveryManager:
         commits = self._load_build_commits()
         return commits.get("last_good_commit")
 
-    def record_good_commit(self, commit_hash: str, chunk_id: str) -> None:
+    def record_good_commit(self, commit_hash: str, subtask_id: str) -> None:
         """
         Record a commit where the build was working.
 
         Args:
             commit_hash: Git commit hash
-            chunk_id: Chunk that was successfully completed
+            subtask_id: Subtask that was successfully completed
         """
         commits = self._load_build_commits()
 
         commit_record = {
             "hash": commit_hash,
-            "chunk_id": chunk_id,
+            "subtask_id": subtask_id,
             "timestamp": datetime.now().isoformat()
         }
 
@@ -420,72 +420,72 @@ class RecoveryManager:
             print(f"Error rolling back to {commit_hash}: {e.stderr}")
             return False
 
-    def mark_chunk_stuck(self, chunk_id: str, reason: str) -> None:
+    def mark_subtask_stuck(self, subtask_id: str, reason: str) -> None:
         """
-        Mark a chunk as needing human intervention.
+        Mark a subtask as needing human intervention.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
             reason: Why it's stuck
         """
         history = self._load_attempt_history()
 
         stuck_entry = {
-            "chunk_id": chunk_id,
+            "subtask_id": subtask_id,
             "reason": reason,
             "escalated_at": datetime.now().isoformat(),
-            "attempt_count": self.get_attempt_count(chunk_id)
+            "attempt_count": self.get_attempt_count(subtask_id)
         }
 
         # Check if already in stuck list
-        existing = [s for s in history["stuck_chunks"] if s["chunk_id"] == chunk_id]
+        existing = [s for s in history["stuck_subtasks"] if s["subtask_id"] == subtask_id]
         if not existing:
-            history["stuck_chunks"].append(stuck_entry)
+            history["stuck_subtasks"].append(stuck_entry)
 
-        # Update chunk status
-        if chunk_id in history["chunks"]:
-            history["chunks"][chunk_id]["status"] = "stuck"
+        # Update subtask status
+        if subtask_id in history["subtasks"]:
+            history["subtasks"][subtask_id]["status"] = "stuck"
 
         self._save_attempt_history(history)
 
-    def get_stuck_chunks(self) -> list[dict]:
+    def get_stuck_subtasks(self) -> list[dict]:
         """
-        Get all chunks marked as stuck.
+        Get all subtasks marked as stuck.
 
         Returns:
-            List of stuck chunk entries
+            List of stuck subtask entries
         """
         history = self._load_attempt_history()
-        return history.get("stuck_chunks", [])
+        return history.get("stuck_subtasks", [])
 
-    def get_chunk_history(self, chunk_id: str) -> dict:
+    def get_subtask_history(self, subtask_id: str) -> dict:
         """
-        Get the attempt history for a specific chunk.
+        Get the attempt history for a specific subtask.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
 
         Returns:
-            Chunk history dict with attempts
+            Subtask history dict with attempts
         """
         history = self._load_attempt_history()
-        return history["chunks"].get(chunk_id, {"attempts": [], "status": "pending"})
+        return history["subtasks"].get(subtask_id, {"attempts": [], "status": "pending"})
 
-    def get_recovery_hints(self, chunk_id: str) -> list[str]:
+    def get_recovery_hints(self, subtask_id: str) -> list[str]:
         """
         Get hints for recovery based on previous attempts.
 
         Args:
-            chunk_id: ID of the chunk
+            subtask_id: ID of the subtask
 
         Returns:
             List of hint strings
         """
-        chunk_history = self.get_chunk_history(chunk_id)
-        attempts = chunk_history.get("attempts", [])
+        subtask_history = self.get_subtask_history(subtask_id)
+        attempts = subtask_history.get("attempts", [])
 
         if not attempts:
-            return ["This is the first attempt at this chunk"]
+            return ["This is the first attempt at this subtask"]
 
         hints = [f"Previous attempts: {len(attempts)}"]
 
@@ -505,32 +505,32 @@ class RecoveryManager:
 
         return hints
 
-    def clear_stuck_chunks(self) -> None:
-        """Clear all stuck chunks (for manual resolution)."""
+    def clear_stuck_subtasks(self) -> None:
+        """Clear all stuck subtasks (for manual resolution)."""
         history = self._load_attempt_history()
-        history["stuck_chunks"] = []
+        history["stuck_subtasks"] = []
         self._save_attempt_history(history)
 
-    def reset_chunk(self, chunk_id: str) -> None:
+    def reset_subtask(self, subtask_id: str) -> None:
         """
-        Reset a chunk's attempt history.
+        Reset a subtask's attempt history.
 
         Args:
-            chunk_id: ID of the chunk to reset
+            subtask_id: ID of the subtask to reset
         """
         history = self._load_attempt_history()
 
         # Clear attempt history
-        if chunk_id in history["chunks"]:
-            history["chunks"][chunk_id] = {
+        if subtask_id in history["subtasks"]:
+            history["subtasks"][subtask_id] = {
                 "attempts": [],
                 "status": "pending"
             }
 
-        # Remove from stuck chunks
-        history["stuck_chunks"] = [
-            s for s in history["stuck_chunks"]
-            if s["chunk_id"] != chunk_id
+        # Remove from stuck subtasks
+        history["stuck_subtasks"] = [
+            s for s in history["stuck_subtasks"]
+            if s["subtask_id"] != subtask_id
         ]
 
         self._save_attempt_history(history)
@@ -541,7 +541,7 @@ class RecoveryManager:
 def check_and_recover(
     spec_dir: Path,
     project_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
     error: Optional[str] = None
 ) -> Optional[RecoveryAction]:
     """
@@ -550,7 +550,7 @@ def check_and_recover(
     Args:
         spec_dir: Spec directory
         project_dir: Project directory
-        chunk_id: Current chunk ID
+        subtask_id: Current subtask ID
         error: Error message if any
 
     Returns:
@@ -560,19 +560,19 @@ def check_and_recover(
         return None
 
     manager = RecoveryManager(spec_dir, project_dir)
-    failure_type = manager.classify_failure(error, chunk_id)
+    failure_type = manager.classify_failure(error, subtask_id)
 
-    return manager.determine_recovery_action(failure_type, chunk_id)
+    return manager.determine_recovery_action(failure_type, subtask_id)
 
 
-def get_recovery_context(spec_dir: Path, project_dir: Path, chunk_id: str) -> dict:
+def get_recovery_context(spec_dir: Path, project_dir: Path, subtask_id: str) -> dict:
     """
-    Get recovery context for a chunk (for prompt generation).
+    Get recovery context for a subtask (for prompt generation).
 
     Args:
         spec_dir: Spec directory
         project_dir: Project directory
-        chunk_id: Chunk ID
+        subtask_id: Subtask ID
 
     Returns:
         Dict with recovery hints and history
@@ -580,8 +580,8 @@ def get_recovery_context(spec_dir: Path, project_dir: Path, chunk_id: str) -> di
     manager = RecoveryManager(spec_dir, project_dir)
 
     return {
-        "attempt_count": manager.get_attempt_count(chunk_id),
-        "hints": manager.get_recovery_hints(chunk_id),
-        "chunk_history": manager.get_chunk_history(chunk_id),
-        "stuck_chunks": manager.get_stuck_chunks()
+        "attempt_count": manager.get_attempt_count(subtask_id),
+        "hints": manager.get_recovery_hints(subtask_id),
+        "subtask_history": manager.get_subtask_history(subtask_id),
+        "stuck_subtasks": manager.get_stuck_subtasks()
     }

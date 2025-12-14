@@ -959,7 +959,7 @@ Write the fixed JSON to the file now.
         # Phase 3: Run all ideation types IN PARALLEL
         debug("ideation_runner", "Starting Phase 3: Generating Ideas",
               types=self.enabled_types, parallel=True)
-        print_section("PHASE 3: GENERATING IDEAS (PARALLEL)", Icons.CHUNK)
+        print_section("PHASE 3: GENERATING IDEAS (PARALLEL)", Icons.SUBTASK)
         print_status(f"Starting {len(self.enabled_types)} ideation agents in parallel...", "progress")
 
         # Create tasks for all enabled types

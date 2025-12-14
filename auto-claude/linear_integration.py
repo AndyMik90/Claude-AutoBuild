@@ -2,16 +2,16 @@
 Linear Integration Manager
 ==========================
 
-Manages synchronization between Auto-Build chunks and Linear issues.
+Manages synchronization between Auto-Build subtasks and Linear issues.
 Provides real-time visibility into build progress through Linear.
 
 The integration is OPTIONAL - if LINEAR_API_KEY is not set, all operations
 gracefully no-op and the build continues with local tracking only.
 
 Key Features:
-- Chunk → Issue mapping (sync implementation_plan.json to Linear)
+- Subtask → Issue mapping (sync implementation_plan.json to Linear)
 - Session attempt recording (comments on issues)
-- Stuck chunk escalation (move to Blocked, add detailed comments)
+- Stuck subtask escalation (move to Blocked, add detailed comments)
 - Progress tracking via META issue
 """
 
@@ -29,9 +29,9 @@ from linear_config import (
     LABELS,
     get_linear_status,
     get_priority_for_phase,
-    format_chunk_description,
+    format_subtask_description,
     format_session_comment,
-    format_stuck_chunk_comment,
+    format_stuck_subtask_comment,
     STATUS_TODO,
     STATUS_IN_PROGRESS,
     STATUS_DONE,
@@ -46,7 +46,7 @@ class LinearManager:
     This class provides a high-level interface for:
     - Creating/syncing issues from implementation_plan.json
     - Recording session attempts and results
-    - Escalating stuck chunks
+    - Escalating stuck subtasks
     - Tracking overall progress
 
     All operations are idempotent and gracefully handle Linear being unavailable.
@@ -88,32 +88,32 @@ class LinearManager:
         """Check if Linear project has been initialized for this spec."""
         return self.state is not None and self.state.initialized
 
-    def get_issue_id(self, chunk_id: str) -> Optional[str]:
+    def get_issue_id(self, subtask_id: str) -> Optional[str]:
         """
-        Get the Linear issue ID for a chunk.
+        Get the Linear issue ID for a subtask.
 
         Args:
-            chunk_id: Chunk ID from implementation_plan.json
+            subtask_id: Subtask ID from implementation_plan.json
 
         Returns:
             Linear issue ID or None if not mapped
         """
         if not self.state:
             return None
-        return self.state.issue_mapping.get(chunk_id)
+        return self.state.issue_mapping.get(subtask_id)
 
-    def set_issue_id(self, chunk_id: str, issue_id: str) -> None:
+    def set_issue_id(self, subtask_id: str, issue_id: str) -> None:
         """
-        Store the mapping between a chunk and its Linear issue.
+        Store the mapping between a subtask and its Linear issue.
 
         Args:
-            chunk_id: Chunk ID from implementation_plan.json
+            subtask_id: Subtask ID from implementation_plan.json
             issue_id: Linear issue ID
         """
         if not self.state:
             self.state = LinearProjectState()
 
-        self.state.issue_mapping[chunk_id] = issue_id
+        self.state.issue_mapping[subtask_id] = issue_id
         self.state.save(self.spec_dir)
 
     def initialize_project(self, team_id: str, project_name: str) -> bool:
@@ -169,18 +169,18 @@ class LinearManager:
         except (json.JSONDecodeError, IOError):
             return None
 
-    def get_chunks_for_sync(self) -> list[dict]:
+    def get_subtasks_for_sync(self) -> list[dict]:
         """
-        Get all chunks that need Linear issues.
+        Get all subtasks that need Linear issues.
 
         Returns:
-            List of chunk dicts with phase context
+            List of subtask dicts with phase context
         """
         plan = self.load_implementation_plan()
         if not plan:
             return []
 
-        chunks = []
+        subtasks = []
         phases = plan.get("phases", [])
         total_phases = len(phases)
 
@@ -188,56 +188,56 @@ class LinearManager:
             phase_num = phase.get("phase", 1)
             phase_name = phase.get("name", f"Phase {phase_num}")
 
-            for chunk in phase.get("chunks", []):
-                chunks.append({
-                    **chunk,
+            for subtask in phase.get("subtasks", []):
+                subtasks.append({
+                    **subtask,
                     "phase_num": phase_num,
                     "phase_name": phase_name,
                     "total_phases": total_phases,
                     "phase_depends_on": phase.get("depends_on", []),
                 })
 
-        return chunks
+        return subtasks
 
-    def generate_issue_data(self, chunk: dict) -> dict:
+    def generate_issue_data(self, subtask: dict) -> dict:
         """
-        Generate Linear issue data from a chunk.
+        Generate Linear issue data from a subtask.
 
         Args:
-            chunk: Chunk dict with phase context
+            subtask: Subtask dict with phase context
 
         Returns:
             Dict suitable for Linear create_issue
         """
         phase = {
-            "name": chunk.get("phase_name"),
-            "id": chunk.get("phase_num"),
+            "name": subtask.get("phase_name"),
+            "id": subtask.get("phase_num"),
         }
 
         # Determine priority based on phase position
         priority = get_priority_for_phase(
-            chunk.get("phase_num", 1),
-            chunk.get("total_phases", 1)
+            subtask.get("phase_num", 1),
+            subtask.get("total_phases", 1)
         )
 
         # Build labels list
         labels = [LABELS["auto_build"]]
-        if chunk.get("service"):
-            labels.append(f"{LABELS['service']}-{chunk['service']}")
-        if chunk.get("phase_num"):
-            labels.append(f"{LABELS['phase']}-{chunk['phase_num']}")
+        if subtask.get("service"):
+            labels.append(f"{LABELS['service']}-{subtask['service']}")
+        if subtask.get("phase_num"):
+            labels.append(f"{LABELS['phase']}-{subtask['phase_num']}")
 
         return {
-            "title": f"[{chunk.get('id', 'chunk')}] {chunk.get('description', 'Implement chunk')[:100]}",
-            "description": format_chunk_description(chunk, phase),
+            "title": f"[{subtask.get('id', 'subtask')}] {subtask.get('description', 'Implement subtask')[:100]}",
+            "description": format_subtask_description(subtask, phase),
             "priority": priority,
             "labels": labels,
-            "status": get_linear_status(chunk.get("status", "pending")),
+            "status": get_linear_status(subtask.get("status", "pending")),
         }
 
     def record_session_result(
         self,
-        chunk_id: str,
+        subtask_id: str,
         session_num: int,
         success: bool,
         approach: str = "",
@@ -250,7 +250,7 @@ class LinearManager:
         This is called by post_session_processing in agent.py.
 
         Args:
-            chunk_id: Chunk being worked on
+            subtask_id: Subtask being worked on
             session_num: Session number
             success: Whether the session succeeded
             approach: What was attempted
@@ -262,7 +262,7 @@ class LinearManager:
         """
         comment = format_session_comment(
             session_num=session_num,
-            chunk_id=chunk_id,
+            subtask_id=subtask_id,
             success=success,
             approach=approach,
             error=error,
@@ -273,40 +273,40 @@ class LinearManager:
         # This method prepares the data and returns it
         return comment
 
-    def prepare_status_update(self, chunk_id: str, new_status: str) -> dict:
+    def prepare_status_update(self, subtask_id: str, new_status: str) -> dict:
         """
         Prepare data for a Linear issue status update.
 
         Args:
-            chunk_id: Chunk ID
-            new_status: New chunk status (pending, in_progress, completed, etc.)
+            subtask_id: Subtask ID
+            new_status: New subtask status (pending, in_progress, completed, etc.)
 
         Returns:
             Dict with issue_id and linear_status for the update
         """
-        issue_id = self.get_issue_id(chunk_id)
+        issue_id = self.get_issue_id(subtask_id)
         linear_status = get_linear_status(new_status)
 
         return {
             "issue_id": issue_id,
             "status": linear_status,
-            "chunk_id": chunk_id,
+            "subtask_id": subtask_id,
         }
 
     def prepare_stuck_escalation(
         self,
-        chunk_id: str,
+        subtask_id: str,
         attempt_count: int,
         attempts: list[dict],
         reason: str = "",
     ) -> dict:
         """
-        Prepare data for escalating a stuck chunk.
+        Prepare data for escalating a stuck subtask.
 
         This creates the comment body and status update data.
 
         Args:
-            chunk_id: Stuck chunk ID
+            subtask_id: Stuck subtask ID
             attempt_count: Number of attempts
             attempts: List of attempt records
             reason: Why it's stuck
@@ -314,9 +314,9 @@ class LinearManager:
         Returns:
             Dict with issue_id, comment, labels for escalation
         """
-        issue_id = self.get_issue_id(chunk_id)
-        comment = format_stuck_chunk_comment(
-            chunk_id=chunk_id,
+        issue_id = self.get_issue_id(subtask_id)
+        comment = format_stuck_subtask_comment(
+            subtask_id=subtask_id,
             attempt_count=attempt_count,
             attempts=attempts,
             reason=reason,
@@ -324,7 +324,7 @@ class LinearManager:
 
         return {
             "issue_id": issue_id,
-            "chunk_id": chunk_id,
+            "subtask_id": subtask_id,
             "status": STATUS_BLOCKED,
             "comment": comment,
             "labels": [LABELS["stuck"], LABELS["needs_review"]],
@@ -342,14 +342,14 @@ class LinearManager:
             return {
                 "enabled": self.is_enabled,
                 "initialized": False,
-                "total_chunks": 0,
-                "mapped_chunks": 0,
+                "total_subtasks": 0,
+                "mapped_subtasks": 0,
             }
 
-        chunks = self.get_chunks_for_sync()
+        subtasks = self.get_subtasks_for_sync()
         mapped = sum(
-            1 for c in chunks
-            if self.get_issue_id(c.get("id", ""))
+            1 for s in subtasks
+            if self.get_issue_id(s.get("id", ""))
         )
 
         return {
@@ -359,15 +359,15 @@ class LinearManager:
             "project_id": self.state.project_id if self.state else None,
             "project_name": self.state.project_name if self.state else None,
             "meta_issue_id": self.state.meta_issue_id if self.state else None,
-            "total_chunks": len(chunks),
-            "mapped_chunks": mapped,
+            "total_subtasks": len(subtasks),
+            "mapped_subtasks": mapped,
         }
 
     def get_linear_context_for_prompt(self) -> str:
         """
         Generate Linear context section for agent prompts.
 
-        This is included in the chunk prompt to give the agent
+        This is included in the subtask prompt to give the agent
         awareness of Linear integration status.
 
         Returns:
@@ -388,7 +388,7 @@ During the planner session, create a Linear project and sync issues.
 Available Linear MCP tools:
 - `mcp__linear-server__list_teams` - List available teams
 - `mcp__linear-server__create_project` - Create a new project
-- `mcp__linear-server__create_issue` - Create issues for chunks
+- `mcp__linear-server__create_issue` - Create issues for subtasks
 - `mcp__linear-server__update_issue` - Update issue status
 - `mcp__linear-server__create_comment` - Add session comments
 """
@@ -397,12 +397,12 @@ Available Linear MCP tools:
             "## Linear Integration",
             "",
             f"**Project:** {summary['project_name']}",
-            f"**Issues:** {summary['mapped_chunks']}/{summary['total_chunks']} chunks mapped",
+            f"**Issues:** {summary['mapped_subtasks']}/{summary['total_subtasks']} subtasks mapped",
             "",
-            "When working on a chunk:",
+            "When working on a subtask:",
             "1. Update issue status to 'In Progress' at start",
             "2. Add comments with progress/blockers",
-            "3. Update status to 'Done' when chunk completes",
+            "3. Update status to 'Done' when subtask completes",
             "4. If stuck, status will be set to 'Blocked' automatically",
         ]
 
@@ -472,18 +472,18 @@ Use mcp__linear-server__create_project with:
 ```
 Save the project ID to .linear_project.json
 
-### Step 3: Create Issues for Each Chunk
-For each chunk in implementation_plan.json:
+### Step 3: Create Issues for Each Subtask
+For each subtask in implementation_plan.json:
 ```
 Use mcp__linear-server__create_issue with:
 - team: Your team ID
 - project: The project ID
-- title: "[chunk-id] Description"
-- description: Formatted chunk details
+- title: "[subtask-id] Description"
+- description: Formatted subtask details
 - priority: Based on phase (1=urgent for early phases, 4=low for polish)
 - labels: ["auto-claude", "phase-N", "service-NAME"]
 ```
-Save the chunk_id -> issue_id mapping to .linear_project.json
+Save the subtask_id -> issue_id mapping to .linear_project.json
 
 ### Step 4: Create META Issue
 ```
@@ -500,20 +500,20 @@ This issue receives session summary comments.
   - team_id: "..."
   - project_id: "..."
   - meta_issue_id: "..."
-  - issue_mapping: { "chunk-1-1": "LIN-123", ... }
+  - issue_mapping: { "subtask-1-1": "LIN-123", ... }
 """
 
 
 def prepare_coder_linear_instructions(
     spec_dir: Path,
-    chunk_id: str,
+    subtask_id: str,
 ) -> str:
     """
     Generate Linear instructions for the coding agent.
 
     Args:
         spec_dir: Spec directory
-        chunk_id: Current chunk being worked on
+        subtask_id: Current subtask being worked on
 
     Returns:
         Markdown instructions for Linear updates
@@ -526,14 +526,14 @@ def prepare_coder_linear_instructions(
     if not manager.is_initialized:
         return ""
 
-    issue_id = manager.get_issue_id(chunk_id)
+    issue_id = manager.get_issue_id(subtask_id)
     if not issue_id:
         return ""
 
     return f"""
 ## Linear Updates
 
-This chunk is linked to Linear issue: `{issue_id}`
+This subtask is linked to Linear issue: `{issue_id}`
 
 ### At Session Start
 Update the issue status to "In Progress":

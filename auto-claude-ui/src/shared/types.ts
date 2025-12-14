@@ -400,6 +400,12 @@ export interface InitializationResult {
   error?: string;
 }
 
+export interface CreateProjectFolderResult {
+  path: string;
+  name: string;
+  gitInitialized: boolean;
+}
+
 // Terminal Types
 export interface TerminalCreateOptions {
   id: string;
@@ -1375,6 +1381,8 @@ export interface ElectronAPI {
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
+  createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;
+  getDefaultProjectLocation: () => Promise<string | null>;
 
   // App info
   getAppVersion: () => Promise<string>;

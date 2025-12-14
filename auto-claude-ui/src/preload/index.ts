@@ -452,6 +452,16 @@ const electronAPI: ElectronAPI = {
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.DIALOG_SELECT_DIRECTORY),
 
+  createProjectFolder: (
+    location: string,
+    name: string,
+    initGit: boolean
+  ): Promise<IPCResult<import('../shared/types').CreateProjectFolderResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DIALOG_CREATE_PROJECT_FOLDER, location, name, initGit),
+
+  getDefaultProjectLocation: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DIALOG_GET_DEFAULT_PROJECT_LOCATION),
+
   // ============================================
   // App Info
   // ============================================

@@ -2,7 +2,7 @@
 
 You are continuing work on an autonomous development task. This is a **FRESH context window** - you have no memory of previous sessions. Everything you know must come from files.
 
-**Key Principle**: Work on ONE chunk at a time. Complete it. Verify it. Move on.
+**Key Principle**: Work on ONE subtask at a time. Complete it. Verify it. Move on.
 
 ---
 
@@ -56,8 +56,8 @@ cat "$SPEC_DIR/build-progress.txt" 2>/dev/null || echo "No previous progress"
 git log --oneline -10
 
 # 10. Count progress
-echo "Completed chunks: $(grep -c '"status": "completed"' "$SPEC_DIR/implementation_plan.json" 2>/dev/null || echo 0)"
-echo "Pending chunks: $(grep -c '"status": "pending"' "$SPEC_DIR/implementation_plan.json" 2>/dev/null || echo 0)"
+echo "Completed subtasks: $(grep -c '"status": "completed"' "$SPEC_DIR/implementation_plan.json" 2>/dev/null || echo 0)"
+echo "Pending subtasks: $(grep -c '"status": "pending"' "$SPEC_DIR/implementation_plan.json" 2>/dev/null || echo 0)"
 
 # 11. READ SESSION MEMORY (CRITICAL - Learn from past sessions)
 echo "=== SESSION MEMORY ==="
@@ -109,7 +109,7 @@ The `implementation_plan.json` has this hierarchy:
 ```
 Plan
   └─ Phases (ordered by dependencies)
-       └─ Chunks (the units of work you complete)
+       └─ Subtasks (the units of work you complete)
 ```
 
 ### Key Fields
@@ -118,15 +118,15 @@ Plan
 |-------|---------|
 | `workflow_type` | feature, refactor, investigation, migration, simple |
 | `phases[].depends_on` | What phases must complete first |
-| `chunks[].service` | Which service this chunk touches |
-| `chunks[].files_to_modify` | Your primary targets |
-| `chunks[].patterns_from` | Files to copy patterns from |
-| `chunks[].verification` | How to prove it works |
-| `chunks[].status` | pending, in_progress, completed |
+| `subtasks[].service` | Which service this subtask touches |
+| `subtasks[].files_to_modify` | Your primary targets |
+| `subtasks[].patterns_from` | Files to copy patterns from |
+| `subtasks[].verification` | How to prove it works |
+| `subtasks[].status` | pending, in_progress, completed |
 
 ### Dependency Rules
 
-**CRITICAL**: Never work on a chunk if its phase's dependencies aren't complete!
+**CRITICAL**: Never work on a subtask if its phase's dependencies aren't complete!
 
 ```
 Phase 1: Backend     [depends_on: []]           → Can start immediately
@@ -137,20 +137,20 @@ Phase 4: Integration [depends_on: ["phase-2", "phase-3"]] → Blocked until both
 
 ---
 
-## STEP 3: FIND YOUR NEXT CHUNK
+## STEP 3: FIND YOUR NEXT SUBTASK
 
 Scan `implementation_plan.json` in order:
 
 1. **Find phases with satisfied dependencies** (all depends_on phases complete)
-2. **Within those phases**, find the first chunk with `"status": "pending"`
-3. **That's your chunk**
+2. **Within those phases**, find the first subtask with `"status": "pending"`
+3. **That's your subtask**
 
 ```bash
 # Quick check: which phases can I work on?
-# Look at depends_on and check if those phases' chunks are all completed
+# Look at depends_on and check if those phases' subtasks are all completed
 ```
 
-**If all chunks are completed**: The build is done!
+**If all subtasks are completed**: The build is done!
 
 ---
 
@@ -180,14 +180,14 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:[PORT]
 
 ---
 
-## STEP 5: READ CHUNK CONTEXT
+## STEP 5: READ SUBTASK CONTEXT
 
-For your selected chunk, read the relevant files.
+For your selected subtask, read the relevant files.
 
 ### 5.1: Read Files to Modify
 
 ```bash
-# From your chunk's files_to_modify
+# From your subtask's files_to_modify
 cat [path/to/file]
 ```
 
@@ -199,7 +199,7 @@ Understand:
 ### 5.2: Read Pattern Files
 
 ```bash
-# From your chunk's patterns_from
+# From your subtask's patterns_from
 cat [path/to/pattern/file]
 ```
 
@@ -217,7 +217,7 @@ cat [service-path]/SERVICE_CONTEXT.md 2>/dev/null || echo "No service context"
 
 ### 5.4: Look Up External Library Documentation (Use Context7)
 
-**If your chunk involves external libraries or APIs**, use Context7 to get accurate documentation BEFORE implementing.
+**If your subtask involves external libraries or APIs**, use Context7 to get accurate documentation BEFORE implementing.
 
 #### When to Use Context7
 
@@ -232,7 +232,7 @@ Use Context7 when:
 **Step 1: Find the library in Context7**
 ```
 Tool: mcp__context7__resolve-library-id
-Input: { "libraryName": "[library name from chunk]" }
+Input: { "libraryName": "[library name from subtask]" }
 ```
 
 **Step 2: Get relevant documentation**
@@ -246,7 +246,7 @@ Input: {
 ```
 
 **Example workflow:**
-If chunk says "Add Stripe payment integration":
+If subtask says "Add Stripe payment integration":
 1. `resolve-library-id` with "stripe"
 2. `get-library-docs` with topic "payments" or "checkout"
 3. Use the exact patterns from documentation
@@ -267,7 +267,7 @@ This step uses historical data and pattern analysis to predict likely issues BEF
 
 ### Generate the Checklist
 
-Extract the chunk you're working on from implementation_plan.json, then generate the checklist:
+Extract the subtask you're working on from implementation_plan.json, then generate the checklist:
 
 ```python
 import json
@@ -277,24 +277,24 @@ from pathlib import Path
 with open("implementation_plan.json") as f:
     plan = json.load(f)
 
-# Find the chunk you're working on (the one you identified in Step 3)
-current_chunk = None
+# Find the subtask you're working on (the one you identified in Step 3)
+current_subtask = None
 for phase in plan.get("phases", []):
-    for chunk in phase.get("chunks", []):
-        if chunk.get("status") == "pending":
-            current_chunk = chunk
+    for subtask in phase.get("subtasks", []):
+        if subtask.get("status") == "pending":
+            current_subtask = subtask
             break
-    if current_chunk:
+    if current_subtask:
         break
 
 # Generate checklist
-if current_chunk:
+if current_subtask:
     import sys
     sys.path.insert(0, str(Path.cwd().parent))
-    from prediction import generate_chunk_checklist
+    from prediction import generate_subtask_checklist
 
     spec_dir = Path.cwd()  # You're in the spec directory
-    checklist = generate_chunk_checklist(spec_dir, current_chunk)
+    checklist = generate_subtask_checklist(spec_dir, current_subtask)
     print(checklist)
 ```
 
@@ -314,7 +314,7 @@ The checklist will show:
 4. Acknowledge that you understand the high-likelihood issues
 
 **DO NOT** skip this step. The predictions are based on:
-- Similar chunks that failed in the past
+- Similar subtasks that failed in the past
 - Common patterns that cause bugs
 - Known issues specific to this codebase
 
@@ -326,12 +326,12 @@ The checklist will show:
 
 ### If No Memory Files Exist Yet
 
-If this is the first chunk, there won't be historical data yet. The predictor will still provide:
+If this is the first subtask, there won't be historical data yet. The predictor will still provide:
 - Common issues for the detected work type (API, frontend, database, etc.)
 - General security and performance best practices
 - Verification reminders
 
-As you complete more chunks and document gotchas/patterns, the predictions will get better.
+As you complete more subtasks and document gotchas/patterns, the predictions will get better.
 
 ### Document Your Review
 
@@ -340,7 +340,7 @@ In your response, acknowledge the checklist:
 ```
 ## Pre-Implementation Checklist Review
 
-**Chunk:** [chunk-id]
+**Subtask:** [subtask-id]
 
 **Predicted Issues Reviewed:**
 - [Issue 1]: Understood - will prevent by [action]
@@ -356,7 +356,7 @@ In your response, acknowledge the checklist:
 
 ---
 
-## STEP 6: IMPLEMENT THE CHUNK
+## STEP 6: IMPLEMENT THE SUBTASK
 
 ### Mark as In Progress
 
@@ -370,22 +370,22 @@ Update `implementation_plan.json`:
 1. **Match patterns exactly** - Use the same style as patterns_from files
 2. **Modify only listed files** - Stay within files_to_modify scope
 3. **Create only listed files** - If files_to_create is specified
-4. **One service only** - This chunk is scoped to one service
+4. **One service only** - This subtask is scoped to one service
 5. **No console errors** - Clean implementation
 
-### Chunk-Specific Guidance
+### Subtask-Specific Guidance
 
-**For Investigation Chunks:**
+**For Investigation Subtasks:**
 - Your output might be documentation, not just code
 - Create INVESTIGATION.md with findings
 - Root cause must be clear before fix phase can start
 
-**For Refactor Chunks:**
+**For Refactor Subtasks:**
 - Old code must keep working
 - Add new → Migrate → Remove old
 - Tests must pass throughout
 
-**For Integration Chunks:**
+**For Integration Subtasks:**
 - All services must be running
 - Test end-to-end flow
 - Verify data flows correctly between services
@@ -394,7 +394,7 @@ Update `implementation_plan.json`:
 
 ## STEP 6.5: RUN SELF-CRITIQUE (MANDATORY)
 
-**CRITICAL:** Before marking a chunk complete, you MUST run through the self-critique checklist.
+**CRITICAL:** Before marking a subtask complete, you MUST run through the self-critique checklist.
 This is a required quality gate - not optional.
 
 ### Why Self-Critique Matters
@@ -437,7 +437,7 @@ Work through each section methodically:
 **Files Modified:**
 - [ ] All `files_to_modify` were actually modified
 - [ ] No unexpected files were modified
-- [ ] Changes match chunk scope
+- [ ] Changes match subtask scope
 
 **Files Created:**
 - [ ] All `files_to_create` were actually created
@@ -445,9 +445,9 @@ Work through each section methodically:
 - [ ] Files are in correct locations
 
 **Requirements:**
-- [ ] Chunk description requirements fully met
+- [ ] Subtask description requirements fully met
 - [ ] All acceptance criteria from spec considered
-- [ ] No scope creep - stayed within chunk boundaries
+- [ ] No scope creep - stayed within subtask boundaries
 
 #### 3. Identify Issues
 
@@ -487,7 +487,7 @@ Only YES if:
 ### Critique Flow
 
 ```
-Implement Chunk
+Implement Subtask
     ↓
 Run Self-Critique Checklist
     ↓
@@ -506,7 +506,7 @@ In your response, include:
 ```
 ## Self-Critique Results
 
-**Chunk:** [chunk-id]
+**Subtask:** [subtask-id]
 
 **Checklist Status:**
 - Pattern adherence: ✓
@@ -527,9 +527,9 @@ In your response, include:
 
 ---
 
-## STEP 7: VERIFY THE CHUNK
+## STEP 7: VERIFY THE SUBTASK
 
-Every chunk has a `verification` field. Run it.
+Every subtask has a `verification` field. Run it.
 
 ### Verification Types
 
@@ -573,14 +573,14 @@ The next session has no memory. You are the only one who can fix it efficiently.
 
 ## STEP 8: UPDATE implementation_plan.json
 
-After successful verification, update the chunk:
+After successful verification, update the subtask:
 
 ```json
 "status": "completed"
 ```
 
 **ONLY change the status field. Never modify:**
-- Chunk descriptions
+- Subtask descriptions
 - File lists
 - Verification criteria
 - Phase structure
@@ -615,11 +615,11 @@ The system **automatically scans for secrets** before every commit. If secrets a
 
 ```bash
 git add .
-git commit -m "auto-claude: Complete [chunk-id] - [chunk description]
+git commit -m "auto-claude: Complete [subtask-id] - [subtask description]
 
 - Files modified: [list]
 - Verification: [type] - passed
-- Phase progress: [X]/[Y] chunks complete"
+- Phase progress: [X]/[Y] subtasks complete"
 ```
 
 ### DO NOT Push to Remote
@@ -639,14 +639,14 @@ updated by the orchestrator after each session. You don't need to update them ma
 ```
 SESSION N - [DATE]
 ==================
-Chunk completed: [chunk-id] - [description]
+Subtask completed: [subtask-id] - [description]
 - Service: [service name]
 - Files modified: [list]
 - Verification: [type] - [result]
 
-Phase progress: [phase-name] [X]/[Y] chunks
+Phase progress: [phase-name] [X]/[Y] subtasks
 
-Next chunk: [chunk-id] - [description]
+Next subtask: [subtask-id] - [description]
 Next phase (if applicable): [phase-name]
 
 === END SESSION N ===
@@ -664,7 +664,7 @@ git commit -m "auto-claude: Update progress"
 
 ## STEP 11: CHECK COMPLETION
 
-### All Chunks in Current Phase Done?
+### All Subtasks in Current Phase Done?
 
 If yes, update the phase notes and check if next phase is unblocked.
 
@@ -683,18 +683,18 @@ If complete:
 ```
 === BUILD COMPLETE ===
 
-All chunks completed!
+All subtasks completed!
 Workflow type: [type]
 Total phases: [N]
-Total chunks: [N]
+Total subtasks: [N]
 Branch: auto-claude/[feature-name]
 
 Ready for human review and merge.
 ```
 
-### Chunks Remain?
+### Subtasks Remain?
 
-Continue with next pending chunk. Return to Step 5.
+Continue with next pending subtask. Return to Step 5.
 
 ---
 
@@ -722,8 +722,8 @@ insights = {
     "session_number": session_num,
     "timestamp": datetime.now(timezone.utc).isoformat(),
 
-    # What chunks did you complete?
-    "chunks_completed": ["chunk-1", "chunk-2"],  # Replace with actual chunk IDs
+    # What subtasks did you complete?
+    "subtasks_completed": ["subtask-1", "subtask-2"],  # Replace with actual subtask IDs
 
     # What did you discover about the codebase?
     "discoveries": {
@@ -861,14 +861,14 @@ Before context fills up:
 2. **Commit all working code** - no uncommitted changes
 3. **Update build-progress.txt** - document what's next
 4. **Leave app working** - no broken state
-5. **No half-finished chunks** - complete or revert
+5. **No half-finished subtasks** - complete or revert
 
 **NOTE**: Do NOT push to remote. All work stays local until user reviews and approves.
 
 The next session will:
 1. Read implementation_plan.json
 2. Read session memory (patterns, gotchas, insights)
-3. Find next pending chunk (respecting dependencies)
+3. Find next pending subtask (respecting dependencies)
 4. Continue from where you left off
 
 ---
@@ -906,10 +906,10 @@ Prepare → Test (small batch) → Execute (full) → Cleanup
 
 ## CRITICAL REMINDERS
 
-### One Chunk at a Time
-- Complete one chunk fully
+### One Subtask at a Time
+- Complete one subtask fully
 - Verify before moving on
-- Each chunk = one commit
+- Each subtask = one commit
 
 ### Respect Dependencies
 - Check phase.depends_on
