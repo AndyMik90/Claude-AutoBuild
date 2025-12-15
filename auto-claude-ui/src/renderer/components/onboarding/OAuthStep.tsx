@@ -140,7 +140,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
           </div>
         )}
 
-        {/* Success state */}
+        {/* Success state - differentiate between existing token and newly configured */}
         {!isChecking && success && (
           <div className="space-y-6">
             <Card className="border border-success/30 bg-success/10">
@@ -149,11 +149,14 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                   <CheckCircle2 className="h-6 w-6 text-success flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="text-lg font-medium text-success">
-                      Token configured successfully
+                      {hasExistingToken && !token
+                        ? 'Token already configured'
+                        : 'Token configured successfully'}
                     </h3>
                     <p className="mt-1 text-sm text-success/80">
-                      You're all set to use AI features like Ideation, Roadmap generation,
-                      and autonomous code generation.
+                      {hasExistingToken && !token
+                        ? 'Your Claude OAuth token is already set up. You can continue to the next step or reconfigure if needed.'
+                        : "You're all set to use AI features like Ideation, Roadmap generation, and autonomous code generation."}
                     </p>
                   </div>
                 </div>
@@ -165,7 +168,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                 onClick={handleReconfigure}
                 className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
               >
-                Configure a different token
+                {hasExistingToken && !token ? 'Reconfigure token' : 'Configure a different token'}
               </button>
             </div>
           </div>
