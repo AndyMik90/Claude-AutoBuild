@@ -61,7 +61,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       try {
         // Check infrastructure status via the electronAPI
         const result = await window.electronAPI.getInfrastructureStatus();
-        setDockerAvailable(result?.success && result?.data?.docker?.running);
+        setDockerAvailable(result?.success && result?.data?.docker?.running ? true : false);
       } catch {
         // Infrastructure check may fail, assume unavailable
         setDockerAvailable(false);
