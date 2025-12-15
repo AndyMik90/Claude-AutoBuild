@@ -166,6 +166,23 @@ export interface InfrastructureStatus {
   ready: boolean; // True if both Docker is running and FalkorDB is healthy
 }
 
+// Graphiti Validation Types
+export interface GraphitiValidationResult {
+  success: boolean;
+  message: string;
+  details?: {
+    provider?: string;
+    model?: string;
+    latencyMs?: number;
+  };
+}
+
+export interface GraphitiConnectionTestResult {
+  falkordb: GraphitiValidationResult;
+  openai: GraphitiValidationResult;
+  ready: boolean;
+}
+
 // Graphiti Provider Types (Memory System V2)
 export type GraphitiProviderType = 'openai' | 'anthropic' | 'google' | 'groq';
 export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'google' | 'huggingface';

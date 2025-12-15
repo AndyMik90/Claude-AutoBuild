@@ -16,7 +16,9 @@ import type {
   ContextSearchResult,
   MemoryEpisode,
   ProjectEnvConfig,
-  InfrastructureStatus
+  InfrastructureStatus,
+  GraphitiValidationResult,
+  GraphitiConnectionTestResult
 } from './project';
 import type {
   Task,
@@ -258,6 +260,14 @@ export interface ElectronAPI {
   stopFalkorDB: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
   openDockerDesktop: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
   getDockerDownloadUrl: () => Promise<string>;
+
+  // Graphiti validation operations
+  validateFalkorDBConnection: (uri: string) => Promise<IPCResult<GraphitiValidationResult>>;
+  validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
+  testGraphitiConnection: (
+    falkorDbUri: string,
+    openAiApiKey: string
+  ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
   // Linear integration operations
   getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;

@@ -926,6 +926,79 @@ const browserMockAPI: ElectronAPI = {
   onTaskLogsChanged: () => () => {},
   onTaskLogsStream: () => () => {},
 
+  // Docker & Infrastructure Operations (browser mock)
+  getInfrastructureStatus: async () => ({
+    success: true,
+    data: {
+      docker: {
+        installed: true,
+        running: true,
+        version: 'Docker version 24.0.0 (mock)'
+      },
+      falkordb: {
+        containerExists: true,
+        containerRunning: true,
+        containerName: 'auto-claude-falkordb',
+        port: 6380,
+        healthy: true
+      },
+      ready: true
+    }
+  }),
+
+  startFalkorDB: async () => ({
+    success: true,
+    data: { success: true }
+  }),
+
+  stopFalkorDB: async () => ({
+    success: true,
+    data: { success: true }
+  }),
+
+  openDockerDesktop: async () => ({
+    success: true,
+    data: { success: true }
+  }),
+
+  getDockerDownloadUrl: async () => 'https://www.docker.com/products/docker-desktop/',
+
+  // Graphiti Validation Operations (browser mock)
+  validateFalkorDBConnection: async () => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Connected to FalkorDB at localhost:6380 (mock)',
+      details: { latencyMs: 15 }
+    }
+  }),
+
+  validateOpenAIApiKey: async () => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'OpenAI API key is valid (mock)',
+      details: { provider: 'openai', latencyMs: 100 }
+    }
+  }),
+
+  testGraphitiConnection: async () => ({
+    success: true,
+    data: {
+      falkordb: {
+        success: true,
+        message: 'Connected to FalkorDB at localhost:6380 (mock)',
+        details: { latencyMs: 15 }
+      },
+      openai: {
+        success: true,
+        message: 'OpenAI API key is valid (mock)',
+        details: { provider: 'openai', latencyMs: 100 }
+      },
+      ready: true
+    }
+  }),
+
   // File explorer operations
   listDirectory: async () => ({
     success: true,

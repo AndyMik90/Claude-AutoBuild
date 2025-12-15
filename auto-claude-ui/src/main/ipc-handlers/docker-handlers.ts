@@ -15,6 +15,10 @@ import {
   stopFalkorDB,
   openDockerDesktop,
   getDockerDownloadUrl,
+  validateFalkorDBConnection,
+  validateOpenAIApiKey,
+  testGraphitiConnection,
+  type GraphitiValidationResult,
 } from '../docker-service';
 
 /**
@@ -89,4 +93,64 @@ export function registerDockerHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.DOCKER_GET_DOWNLOAD_URL, async (): Promise<string> => {
     return getDockerDownloadUrl();
   });
+
+  // ============================================
+  // Graphiti Validation Handlers
+  // ============================================
+
+  // Validate FalkorDB connection
+  ipcMain.handle(
+    IPC_CHANNELS.GRAPHITI_VALIDATE_FALKORDB,
+    async (_, uri: string): Promise<IPCResult<GraphitiValidationResult>> => {
+      try {
+        const result = await validateFalkorDBConnection(uri);
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to validate FalkorDB connection',
+        };
+      }
+    }
+  );
+
+  // Validate OpenAI API key
+  ipcMain.handle(
+    IPC_CHANNELS.GRAPHITI_VALIDATE_OPENAI,
+    async (_, apiKey: string): Promise<IPCResult<GraphitiValidationResult>> => {
+      try {
+        const result = await validateOpenAIApiKey(apiKey);
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to validate OpenAI API key',
+        };
+      }
+    }
+  );
+
+  // Test full Graphiti connection (FalkorDB + OpenAI)
+  ipcMain.handle(
+    IPC_CHANNELS.GRAPHITI_TEST_CONNECTION,
+    async (
+      _,
+      falkorDbUri: string,
+      openAiApiKey: string
+    ): Promise<IPCResult<{
+      falkordb: GraphitiValidationResult;
+      openai: GraphitiValidationResult;
+      ready: boolean;
+    }>> => {
+      try {
+        const result = await testGraphitiConnection(falkorDbUri, openAiApiKey);
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to test Graphiti connection',
+        };
+      }
+    }
+  );
 }

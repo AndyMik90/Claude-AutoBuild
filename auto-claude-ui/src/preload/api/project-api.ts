@@ -13,7 +13,9 @@ import type {
   MemoryEpisode,
   ProjectEnvConfig,
   ClaudeAuthResult,
-  InfrastructureStatus
+  InfrastructureStatus,
+  GraphitiValidationResult,
+  GraphitiConnectionTestResult
 } from '../../shared/types';
 
 export interface ProjectAPI {
@@ -57,6 +59,14 @@ export interface ProjectAPI {
   stopFalkorDB: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
   openDockerDesktop: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
   getDockerDownloadUrl: () => Promise<string>;
+
+  // Graphiti Validation Operations
+  validateFalkorDBConnection: (uri: string) => Promise<IPCResult<GraphitiValidationResult>>;
+  validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
+  testGraphitiConnection: (
+    falkorDbUri: string,
+    openAiApiKey: string
+  ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 }
 
 export const createProjectAPI = (): ProjectAPI => ({
@@ -142,5 +152,18 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.DOCKER_OPEN_DESKTOP),
 
   getDockerDownloadUrl: (): Promise<string> =>
-    ipcRenderer.invoke(IPC_CHANNELS.DOCKER_GET_DOWNLOAD_URL)
+    ipcRenderer.invoke(IPC_CHANNELS.DOCKER_GET_DOWNLOAD_URL),
+
+  // Graphiti Validation Operations
+  validateFalkorDBConnection: (uri: string): Promise<IPCResult<GraphitiValidationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GRAPHITI_VALIDATE_FALKORDB, uri),
+
+  validateOpenAIApiKey: (apiKey: string): Promise<IPCResult<GraphitiValidationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GRAPHITI_VALIDATE_OPENAI, apiKey),
+
+  testGraphitiConnection: (
+    falkorDbUri: string,
+    openAiApiKey: string
+  ): Promise<IPCResult<GraphitiConnectionTestResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GRAPHITI_TEST_CONNECTION, falkorDbUri, openAiApiKey)
 });

@@ -32,6 +32,34 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 }));
 
 /**
+ * Check if settings need migration for onboardingCompleted flag.
+ * Existing users (with tokens or projects configured) should have
+ * onboardingCompleted set to true to skip the onboarding wizard.
+ */
+function migrateOnboardingCompleted(settings: AppSettings): AppSettings {
+  // Only migrate if onboardingCompleted is undefined (not explicitly set)
+  if (settings.onboardingCompleted !== undefined) {
+    return settings;
+  }
+
+  // Check for signs of an existing user:
+  // - Has a Claude OAuth token configured
+  // - Has the auto-build source path configured
+  const hasOAuthToken = Boolean(settings.globalClaudeOAuthToken);
+  const hasAutoBuildPath = Boolean(settings.autoBuildPath);
+
+  const isExistingUser = hasOAuthToken || hasAutoBuildPath;
+
+  if (isExistingUser) {
+    // Mark onboarding as completed for existing users
+    return { ...settings, onboardingCompleted: true };
+  }
+
+  // New user - set to false to trigger onboarding wizard
+  return { ...settings, onboardingCompleted: false };
+}
+
+/**
  * Load settings from main process
  */
 export async function loadSettings(): Promise<void> {
@@ -41,7 +69,16 @@ export async function loadSettings(): Promise<void> {
   try {
     const result = await window.electronAPI.getSettings();
     if (result.success && result.data) {
-      store.setSettings(result.data);
+      // Apply migration for onboardingCompleted flag
+      const migratedSettings = migrateOnboardingCompleted(result.data);
+      store.setSettings(migratedSettings);
+
+      // If migration changed the settings, persist them
+      if (migratedSettings.onboardingCompleted !== result.data.onboardingCompleted) {
+        await window.electronAPI.saveSettings({
+          onboardingCompleted: migratedSettings.onboardingCompleted
+        });
+      }
     }
   } catch (error) {
     store.setError(error instanceof Error ? error.message : 'Failed to load settings');

@@ -90,6 +90,7 @@ export const DEFAULT_APP_SETTINGS = {
   autoBuildPath: undefined as string | undefined,
   autoUpdateAutoBuild: true,
   autoNameTerminals: true,
+  onboardingCompleted: false,
   notifications: {
     onTaskComplete: true,
     onTaskFailed: true,
@@ -294,6 +295,11 @@ export const IPC_CHANNELS = {
   DOCKER_STOP_FALKORDB: 'docker:stopFalkordb',
   DOCKER_OPEN_DESKTOP: 'docker:openDesktop',
   DOCKER_GET_DOWNLOAD_URL: 'docker:getDownloadUrl',
+
+  // Graphiti validation
+  GRAPHITI_VALIDATE_FALKORDB: 'graphiti:validateFalkordb',
+  GRAPHITI_VALIDATE_OPENAI: 'graphiti:validateOpenai',
+  GRAPHITI_TEST_CONNECTION: 'graphiti:testConnection',
 
   // Auto Claude source updates
   AUTOBUILD_SOURCE_CHECK: 'autobuild:source:check',

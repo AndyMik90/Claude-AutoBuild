@@ -12,7 +12,8 @@ import {
   Settings2,
   Zap,
   Github,
-  Database
+  Database,
+  Sparkles
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -40,6 +41,7 @@ interface AppSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialSection?: AppSection;
+  onRerunWizard?: () => void;
 }
 
 // App-level settings sections
@@ -73,7 +75,7 @@ const projectNavItems: NavItem<ProjectSettingsSection>[] = [
  * Main application settings dialog container
  * Coordinates app and project settings sections
  */
-export function AppSettingsDialog({ open, onOpenChange, initialSection }: AppSettingsDialogProps) {
+export function AppSettingsDialog({ open, onOpenChange, initialSection, onRerunWizard }: AppSettingsDialogProps) {
   const { settings, setSettings, isSaving, error, saveSettings } = useSettings();
   const [version, setVersion] = useState<string>('');
 
@@ -224,6 +226,27 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection }: AppSet
                           </button>
                         );
                       })}
+
+                      {/* Re-run Wizard button */}
+                      {onRerunWizard && (
+                        <button
+                          onClick={() => {
+                            onOpenChange(false);
+                            onRerunWizard();
+                          }}
+                          className={cn(
+                            'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all mt-2',
+                            'border border-dashed border-muted-foreground/30',
+                            'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm">Re-run Wizard</div>
+                            <div className="text-xs text-muted-foreground truncate">Start the setup wizard again</div>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   </div>
 
