@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
 import path from 'path';
 
 /**
@@ -14,6 +14,67 @@ function debug(message: string, data?: Record<string, unknown>): void {
       console.log(`[ProjectInitializer] ${message}`);
     }
   }
+}
+
+/**
+ * Entries to add to .gitignore when initializing a project
+ */
+const GITIGNORE_ENTRIES = ['.auto-claude/'];
+
+/**
+ * Ensure entries exist in the project's .gitignore file.
+ * Creates .gitignore if it doesn't exist.
+ */
+function ensureGitignoreEntries(projectPath: string, entries: string[]): void {
+  const gitignorePath = path.join(projectPath, '.gitignore');
+
+  let content = '';
+  let existingLines: string[] = [];
+
+  if (existsSync(gitignorePath)) {
+    content = readFileSync(gitignorePath, 'utf-8');
+    existingLines = content.split('\n').map(line => line.trim());
+  }
+
+  // Find entries that need to be added
+  const entriesToAdd: string[] = [];
+  for (const entry of entries) {
+    const entryNormalized = entry.replace(/\/$/, ''); // Remove trailing slash for comparison
+    const alreadyExists = existingLines.some(line => {
+      const lineNormalized = line.replace(/\/$/, '');
+      return lineNormalized === entry || lineNormalized === entryNormalized;
+    });
+
+    if (!alreadyExists) {
+      entriesToAdd.push(entry);
+    }
+  }
+
+  if (entriesToAdd.length === 0) {
+    debug('All gitignore entries already exist');
+    return;
+  }
+
+  // Build the content to append
+  let appendContent = '';
+
+  // Ensure file ends with newline before adding our entries
+  if (content && !content.endsWith('\n')) {
+    appendContent += '\n';
+  }
+
+  appendContent += '\n# Auto Claude data directory\n';
+  for (const entry of entriesToAdd) {
+    appendContent += entry + '\n';
+  }
+
+  if (existsSync(gitignorePath)) {
+    appendFileSync(gitignorePath, appendContent);
+  } else {
+    writeFileSync(gitignorePath, '# Auto Claude data directory\n' + entriesToAdd.join('\n') + '\n');
+  }
+
+  debug('Added entries to .gitignore', { entries: entriesToAdd });
 }
 
 /**
@@ -105,6 +166,9 @@ export function initializeProject(projectPath: string): InitializationResult {
       mkdirSync(dirPath, { recursive: true });
       writeFileSync(path.join(dirPath, '.gitkeep'), '');
     }
+
+    // Update .gitignore to exclude .auto-claude/
+    ensureGitignoreEntries(projectPath, GITIGNORE_ENTRIES);
 
     debug('Initialization complete');
     return { success: true };
