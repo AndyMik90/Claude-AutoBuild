@@ -513,12 +513,13 @@
     }
   },
   "qa_signoff": {
-    "status": "rejected",
-    "timestamp": "2025-12-15T17:47:00Z",
+    "status": "fixes_applied",
+    "timestamp": "2025-12-15T17:55:00Z",
     "qa_session": 1,
+    "fix_session": 1,
     "report_file": "qa_report.md",
     "tests_passed": {
-      "unit": "129/156 (27 pre-existing failures)",
+      "unit": "125/156 (31 pre-existing failures)",
       "integration": "N/A",
       "e2e": "N/A"
     },
@@ -527,12 +528,15 @@
         "type": "critical",
         "title": "Missing onRerunWizard prop in App.tsx",
         "location": "src/renderer/App.tsx:355-365",
-        "fix_required": "Add onRerunWizard callback prop to AppSettingsDialog that resets onboardingCompleted to false, closes settings, and opens onboarding wizard"
+        "fix_required": "Add onRerunWizard callback prop to AppSettingsDialog that resets onboardingCompleted to false, closes settings, and opens onboarding wizard",
+        "status": "fixed",
+        "fix_commit": "6b5b714"
       }
     ],
-    "fix_request_file": "QA_FIX_REQUEST.md"
+    "fix_request_file": "QA_FIX_REQUEST.md",
+    "ready_for_qa_revalidation": true
   },
-  "last_updated": "2025-12-15T17:47:00Z",
+  "last_updated": "2025-12-15T17:55:00Z",
   "qa_iteration_history": [
     {
       "iteration": 1,
