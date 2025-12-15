@@ -1,10 +1,10 @@
 {
   "name": "auto-claude-ui",
-  "version": "1.1.0",
+  "version": "2.0.1",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "main": "./out/main/index.js",
   "author": "Auto Claude Team",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "scripts": {
     "postinstall": "electron-rebuild",
     "dev": "electron-vite dev",

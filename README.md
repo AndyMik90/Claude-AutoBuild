@@ -2,48 +2,117 @@
 
 A production-ready framework for autonomous multi-session AI coding. Build complete applications or add features to existing projects through coordinated AI agent sessions.
 
+![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
+
 ## What It Does
 
 Auto Claude uses a **multi-agent pattern** to build software autonomously:
 
-### Spec Creation Pipeline (8 phases)
+### Spec Creation Pipeline (3-8 phases based on complexity)
 1. **Discovery** - Analyzes project structure
 2. **Requirements Gatherer** - Collects user requirements interactively
 3. **Research Agent** - Validates external integrations against documentation
 4. **Context Discovery** - Finds relevant files in codebase
 5. **Spec Writer** - Creates comprehensive spec.md
 6. **Spec Critic** - Uses ultrathink to find and fix issues before implementation
-7. **Planner** - Creates chunk-based implementation plan
+7. **Planner** - Creates subtask-based implementation plan
 8. **Validation** - Ensures all outputs are valid
 
 ### Implementation Pipeline
-1. **Planner Agent** (Session 1) - Analyzes spec, creates chunk-based implementation plan
-2. **Coder Agent** (Sessions 2+) - Implements chunks one-by-one with verification
+1. **Planner Agent** (Session 1) - Analyzes spec, creates subtask-based implementation plan
+2. **Coder Agent** (Sessions 2+) - Implements subtasks one-by-one with verification
 3. **QA Reviewer Agent** - Validates all acceptance criteria before sign-off
 4. **QA Fixer Agent** - Fixes issues found by QA in a self-validating loop
 
 Each session runs with a fresh context window. Progress is tracked via `implementation_plan.json` and Git commits.
 
-## Quick Start
+## Quick Start (Desktop UI)
+
+The Desktop UI is the recommended way to use Auto Claude. It provides visual task management, real-time progress tracking, and a Kanban board interface.
 
 ### Prerequisites
 
-- Python 3.8+
-- Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
+1. **Node.js 18+** - [Download Node.js](https://nodejs.org/)
+2. **Python 3.9+** - [Download Python](https://www.python.org/downloads/)
+3. **Docker Desktop** - Required for the Auto Claude Memory Layer (see [Installing Docker Desktop](#installing-docker-desktop) below)
+4. **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
 
-### Setup
+---
 
-**Step 1:** Copy the `auto-claude` folder into your project
+### Installing Docker Desktop
+
+> **What is Docker?** Docker is like a "container" that runs the memory database Auto Claude needs. You don't need to understand how it works - just install it and keep it running in the background.
+
+#### Step 1: Download Docker Desktop
+
+| Operating System | Download Link |
+|------------------|---------------|
+| **Mac (Apple Silicon M1/M2/M3)** | [Download for Mac - Apple Chip](https://desktop.docker.com/mac/main/arm64/Docker.dmg) |
+| **Mac (Intel)** | [Download for Mac - Intel Chip](https://desktop.docker.com/mac/main/amd64/Docker.dmg) |
+| **Windows** | [Download for Windows](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe) |
+| **Linux** | [Installation Guide](https://docs.docker.com/desktop/install/linux-install/) |
+
+> **Not sure which Mac you have?** Click the Apple logo () in the top-left corner → "About This Mac". If it says "Apple M1/M2/M3", use the Apple Chip version. If it says "Intel", use the Intel version.
+
+#### Step 2: Install Docker Desktop
+
+**On Mac:**
+1. Open the downloaded `.dmg` file
+2. Drag the Docker icon to your Applications folder
+3. Open Docker from your Applications folder
+4. Click "Open" if you see a security warning
+5. Wait for Docker to start (you'll see a whale icon in your menu bar)
+
+**On Windows:**
+1. Run the downloaded installer
+2. Follow the installation wizard (keep default settings)
+3. Restart your computer if prompted
+4. Open Docker Desktop from the Start menu
+5. Wait for Docker to start (you'll see a whale icon in your system tray)
+
+#### Step 3: Verify Docker is Running
+
+Open your terminal (Terminal on Mac, Command Prompt or PowerShell on Windows) and run:
 
 ```bash
-# Copy the auto-claude folder to your project root
-cp -r auto-claude /path/to/your/project/
+docker --version
 ```
 
-**Step 2:** Set up Python environment
+You should see something like: `Docker version 24.0.0, build abc123`
+
+If you see an error, make sure Docker Desktop is open and running (look for the whale icon).
+
+#### Troubleshooting Docker
+
+| Problem | Solution |
+|---------|----------|
+| "Docker command not found" | Make sure Docker Desktop is installed and running |
+| "Cannot connect to Docker daemon" | Open Docker Desktop and wait for it to fully start |
+| Docker Desktop won't start | Restart your computer and try again |
+| Mac: "Docker Desktop requires macOS 12 or later" | Update your macOS in System Preferences → Software Update |
+| Windows: "WSL 2 installation incomplete" | Follow the [WSL 2 setup guide](https://docs.microsoft.com/en-us/windows/wsl/install) |
+
+---
+
+### Step 1: Install the Desktop UI
 
 ```bash
-cd your-project
+cd auto-claude-ui
+
+# Install dependencies (pnpm recommended, npm works too)
+pnpm install
+# or: npm install
+
+# Build and start the application
+pnpm run build && pnpm run start
+# or: npm run build && npm run start
+```
+
+### Step 2: Set Up the Python Backend
+
+The Desktop UI runs Python scripts behind the scenes. Set up the Python environment:
+
+```bash
 cd auto-claude
 
 # Using uv (recommended)
@@ -53,242 +122,98 @@ uv venv && uv pip install -r requirements.txt
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 ```
 
-**Step 3:** Configure environment
+### Step 3: Configure Claude Authentication
 
 ```bash
-cp .env.example .env
-
 # Get your OAuth token
 claude setup-token
 
-# Add the token to .env
+# Create your .env file
+cp auto-claude/.env.example auto-claude/.env
+
+# Add your token to auto-claude/.env
 # CLAUDE_CODE_OAUTH_TOKEN=your-token-here
 ```
 
-**Step 4:** Create a spec using the orchestrator
+### Step 4: Start the Memory Layer
+
+The Auto Claude Memory Layer provides cross-session context retention using a graph database:
 
 ```bash
-# Activate the virtual environment
-source auto-claude/.venv/bin/activate
-
-# Create a spec interactively
-python auto-claude/spec_runner.py --interactive
-
-# Or with a task description
-python auto-claude/spec_runner.py --task "Add user authentication with OAuth"
+# Make sure Docker Desktop is running, then:
+docker-compose up -d falkordb
 ```
 
-The spec orchestrator will:
-1. Analyze your project structure
-2. Gather requirements interactively
-3. **Research external integrations** against documentation
-4. Discover relevant codebase context
-5. Write the specification
-6. **Self-critique using ultrathink** to find and fix issues
-7. Generate an implementation plan
-8. Validate all outputs
+### Step 5: Configure Memory Provider
 
-**Step 5:** Run the autonomous build
+Add your LLM provider credentials to `auto-claude/.env`:
 
 ```bash
-python auto-claude/run.py --spec 001
+# Enable memory integration
+GRAPHITI_ENABLED=true
+
+# Option A: OpenAI (simplest setup)
+GRAPHITI_LLM_PROVIDER=openai
+GRAPHITI_EMBEDDER_PROVIDER=openai
+OPENAI_API_KEY=sk-your-openai-key
+
+# Option B: Anthropic + Voyage (high quality)
+# GRAPHITI_LLM_PROVIDER=anthropic
+# GRAPHITI_EMBEDDER_PROVIDER=voyage
+# ANTHROPIC_API_KEY=sk-ant-xxx
+# VOYAGE_API_KEY=pa-xxx
+
+# Option C: Ollama (fully offline, no API keys)
+# GRAPHITI_LLM_PROVIDER=ollama
+# GRAPHITI_EMBEDDER_PROVIDER=ollama
+# OLLAMA_LLM_MODEL=deepseek-r1:7b
+# OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+# OLLAMA_EMBEDDING_DIM=768
 ```
 
-### Managing Specs
+### Step 6: Launch and Use
 
 ```bash
-# List all specs and their status
-python auto-claude/run.py --list
-
-# Run a specific spec
-python auto-claude/run.py --spec 001
-python auto-claude/run.py --spec 001-feature-name
-
-# Run with parallel workers (2-3x speedup for independent phases)
-python auto-claude/run.py --spec 001 --parallel 2
-python auto-claude/run.py --spec 001 --parallel 3
-
-# Limit iterations for testing
-python auto-claude/run.py --spec 001 --max-iterations 5
+cd auto-claude-ui
+pnpm run start  # or: npm run start
 ```
 
-### QA Validation
+1. Add your project in the UI
+2. Create a new task describing what you want to build
+3. Watch as Auto Claude creates a spec, plans, and implements your feature
+4. Review changes and merge when satisfied
 
-After all chunks are complete, QA validation runs automatically:
+## CLI Usage (Terminal-Only)
+
+For terminal-based workflows, headless servers, or CI/CD integration, see **[auto-claude/CLI-USAGE.md](auto-claude/CLI-USAGE.md)**.
+
+## Auto Claude Memory Layer
+
+The Memory Layer enables context retention across coding sessions using a graph database. Agents remember insights from previous sessions, discovered codebase patterns persist and are reusable, and historical context helps agents make better decisions.
+
+### Architecture
+
+- **Backend**: FalkorDB (graph database) via Docker
+- **Library**: Graphiti for knowledge graph operations
+- **Providers**: OpenAI, Anthropic, Azure OpenAI, or Ollama (local/offline)
+
+### Provider Combinations
+
+| Setup | LLM | Embeddings | Notes |
+|-------|-----|------------|-------|
+| **OpenAI** | OpenAI | OpenAI | Simplest - single API key |
+| **Anthropic + Voyage** | Anthropic | Voyage AI | High quality |
+| **Ollama** | Ollama | Ollama | Fully offline |
+| **Azure** | Azure OpenAI | Azure OpenAI | Enterprise |
+
+See `auto-claude/.env.example` for complete configuration options.
+
+### Verifying Memory Layer
 
 ```bash
-# QA runs automatically after build completes
-# To skip automatic QA:
-python auto-claude/run.py --spec 001 --skip-qa
-
-# Run QA validation manually on a completed build
-python auto-claude/run.py --spec 001 --qa
-
-# Check QA status
-python auto-claude/run.py --spec 001 --qa-status
-```
-
-The QA validation loop:
-1. **QA Reviewer** checks all acceptance criteria (unit tests, integration tests, E2E, browser verification, database migrations)
-2. If issues found → creates `QA_FIX_REQUEST.md`
-3. **QA Fixer** applies fixes
-4. Loop repeats until approved (up to 50 iterations)
-5. Final sign-off recorded in `implementation_plan.json`
-
-### Spec Creation Pipeline (Dynamic Complexity)
-
-The `spec_runner.py` orchestrator **automatically assesses task complexity** and adapts the number of phases accordingly:
-
-```bash
-# Simple task (auto-detected) - runs 3 phases
-python auto-claude/spec_runner.py --task "Fix button color in Header"
-
-# Complex task (auto-detected) - runs 8 phases
-python auto-claude/spec_runner.py --task "Add Graphiti memory integration with FalkorDB"
-
-# Force a specific complexity level
-python auto-claude/spec_runner.py --task "Update text" --complexity simple
-
-# Interactive mode
-python auto-claude/spec_runner.py --interactive
-
-# Continue an interrupted spec
-python auto-claude/spec_runner.py --continue 001-feature
-```
-
-**Complexity Tiers:**
-
-| Tier | Phases | When Used |
-|------|--------|-----------|
-| **SIMPLE** | 3 | 1-2 files, single service, no integrations (UI fixes, text changes) |
-| **STANDARD** | 6 | 3-10 files, 1-2 services, minimal integrations (features, bug fixes) |
-| **COMPLEX** | 8 | 10+ files, multiple services, external integrations (integrations, migrations) |
-
-**Phase Matrix:**
-
-| Phase | Simple | Standard | Complex |
-|-------|--------|----------|---------|
-| Discovery | ✓ | ✓ | ✓ |
-| Requirements | - | ✓ | ✓ |
-| **Research** | - | - | ✓ |
-| Context | - | ✓ | ✓ |
-| Spec Writing | Quick | Full | Full |
-| **Self-Critique** | - | - | ✓ |
-| Planning | Auto | ✓ | ✓ |
-| Validation | ✓ | ✓ | ✓ |
-
-**Complexity Detection Signals:**
-- Keywords: "fix", "typo", "color" → Simple | "integrate", "migrate", "oauth" → Complex
-- External integrations detected (redis, postgres, graphiti, etc.)
-- Number of files/services mentioned
-- Infrastructure changes (docker, deploy, schema)
-
-**Manual validation:**
-```bash
-python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --checkpoint all
-```
-
-### Isolated Worktrees (Safe by Default)
-
-Auto Claude uses Git worktrees to keep your work completely safe. All AI-generated code is built in a separate workspace (`.worktrees/auto-claude/`) - your current files are never touched until you explicitly merge.
-
-**How it works:**
-
-1. When you run auto-claude, it creates an isolated workspace
-2. All coding happens in `.worktrees/auto-claude/` on its own branch
-3. You can `cd` into the worktree to test the feature before accepting
-4. Only when you're satisfied, merge the changes into your project
-
-**After a build completes, you can:**
-
-```bash
-# Test the feature in the isolated workspace
-cd .worktrees/auto-claude/
-npm run dev  # or your project's run command
-
-# See what was changed
-python auto-claude/run.py --spec 001 --review
-
-# Add changes to your project
-python auto-claude/run.py --spec 001 --merge
-
-# Discard if you don't like it (requires confirmation)
-python auto-claude/run.py --spec 001 --discard
-```
-
-**Key benefits:**
-
-- **Safety**: Your uncommitted work is protected - auto-claude won't touch it
-- **Testability**: Run and test the feature before committing to it
-- **Easy rollback**: Don't like it? Just discard the worktree
-- **Parallel-safe**: Multiple workers can build without conflicts
-
-If you have uncommitted changes, auto-claude automatically uses isolated mode. With a clean working directory, you can choose between isolated (recommended) or direct mode.
-
-### Interactive Controls
-
-While the agent is running, you can:
-
-```bash
-# Pause and optionally add instructions
-Ctrl+C (once)
-# You'll be prompted to add instructions for the agent
-# The agent will read these instructions when you resume
-
-# Exit immediately without prompting
-Ctrl+C (twice)
-# Press Ctrl+C again during the prompt to exit
-```
-
-**Alternative (file-based):**
-```bash
-# Create PAUSE file to pause after current session
-touch auto-claude/specs/001-name/PAUSE
-
-# Manually edit instructions file
-echo "Focus on fixing the login bug first" > auto-claude/specs/001-name/HUMAN_INPUT.md
-```
-
-## Project Structure
-
-```
-your-project/
-├── .worktrees/              # Created during build (git-ignored)
-│   └── auto-claude/          # Isolated workspace for AI coding
-├── auto-claude/
-│   ├── run.py               # Build entry point
-│   ├── spec_runner.py       # Spec creation orchestrator (8-phase pipeline)
-│   ├── validate_spec.py     # Spec validation with JSON schemas
-│   ├── agent.py             # Session orchestration
-│   ├── planner.py           # Deterministic implementation planner
-│   ├── worktree.py          # Git worktree management
-│   ├── workspace.py         # Workspace selection UI
-│   ├── coordinator.py       # Parallel execution coordinator
-│   ├── qa_loop.py           # QA validation loop
-│   ├── client.py            # Claude SDK configuration
-│   ├── memory.py            # File-based session memory (primary storage)
-│   ├── graphiti_memory.py   # Graphiti knowledge graph integration (optional)
-│   ├── spec_contract.json   # Spec creation contract (required outputs)
-│   ├── prompts/
-│   │   ├── planner.md       # Session 1 - creates implementation plan
-│   │   ├── coder.md         # Sessions 2+ - implements chunks
-│   │   ├── spec_gatherer.md # Requirements gathering agent
-│   │   ├── spec_researcher.md # External integration research agent
-│   │   ├── spec_writer.md   # Spec document creation agent
-│   │   ├── spec_critic.md   # Self-critique agent (ultrathink)
-│   │   ├── qa_reviewer.md   # QA validation agent
-│   │   └── qa_fixer.md      # QA fix agent
-│   └── specs/
-│       └── 001-feature/     # Each spec in its own folder
-│           ├── spec.md
-│           ├── requirements.json     # User requirements (structured)
-│           ├── research.json         # External integration research
-│           ├── context.json          # Codebase context
-│           ├── critique_report.json  # Self-critique findings
-│           ├── implementation_plan.json
-│           ├── qa_report.md          # QA validation report
-│           └── QA_FIX_REQUEST.md     # Issues to fix (if rejected)
-└── [your project files]
+cd auto-claude
+source .venv/bin/activate
+python test_graphiti_memory.py
 ```
 
 ## Key Features
@@ -297,104 +222,37 @@ your-project/
 - **Multi-Session**: Unlimited sessions, each with fresh context
 - **Research-First Specs**: External integrations validated against documentation before implementation
 - **Self-Critique**: Specs are critiqued using ultrathink to find issues before coding begins
-- **Parallel Execution**: 2-3x speedup with multiple workers on independent phases
 - **Isolated Worktrees**: Build in a separate workspace - your current work is never touched
 - **Self-Verifying**: Agents test their work with browser automation before marking complete
 - **QA Validation Loop**: Automated QA agent validates all acceptance criteria before sign-off
 - **Self-Healing**: QA finds issues → Fixer agent resolves → QA re-validates (up to 50 iterations)
-- **8-Phase Spec Pipeline**: Discovery → Requirements → Research → Context → Spec → Critique → Plan → Validate
+- **Adaptive Spec Pipeline**: 3-8 phases based on task complexity
 - **Fix Bugs Immediately**: Agents fix discovered bugs in the same session, not later
 - **Defense-in-Depth Security**: OS sandbox, filesystem restrictions, command allowlist
 - **Secret Scanning**: Automatic pre-commit scanning blocks secrets with actionable fix instructions
 - **Human Intervention**: Pause, add instructions, or stop at any time
 - **Multiple Specs**: Track and run multiple specifications independently
-- **Graphiti Memory** (Optional): Persistent knowledge graph for cross-session context retention
+- **Memory Layer**: Persistent knowledge graph for cross-session context retention
 
-## Graphiti Memory Integration V2 (Optional)
+## Project Structure
 
-Auto Claude includes an optional **Graphiti-based persistent memory layer** that enables context retention across coding sessions. This uses FalkorDB as a graph database to store codebase patterns, session insights, and cross-session learnings.
-
-### Why Use Graphiti Memory?
-
-- **Cross-session context**: Agents remember insights from previous sessions
-- **Pattern recognition**: Discovered codebase patterns persist and are reusable
-- **Smarter agents**: Context retrieval helps agents make better decisions
-- **Historical hints**: Spec creation, ideation, and roadmap phases receive relevant historical insights
-
-### Multi-Provider Support (V2)
-
-Graphiti Memory V2 supports multiple LLM and embedding providers:
-
-| LLM Providers | Embedding Providers |
-|---------------|---------------------|
-| OpenAI (default) | OpenAI (default) |
-| Anthropic | Voyage AI |
-| Azure OpenAI | Azure OpenAI |
-| Ollama (local) | Ollama (local) |
-
-**Provider Combinations:**
-- **OpenAI + OpenAI**: Simplest setup, single API key
-- **Anthropic + Voyage**: High-quality LLM with specialized embeddings
-- **Ollama + Ollama**: Fully offline, no API keys needed
-- **Azure OpenAI + Azure OpenAI**: Enterprise deployments
-
-### Setup
-
-**Step 1:** Install the Graphiti dependency
-
-```bash
-# Uncomment the graphiti line in requirements.txt, or install directly:
-pip install graphiti-core[falkordb]
 ```
-
-**Step 2:** Start FalkorDB via Docker
-
-```bash
-docker-compose up -d falkordb
+your-project/
+├── .worktrees/               # Created during build (git-ignored)
+│   └── auto-claude/          # Isolated workspace for AI coding
+├── .auto-claude/             # Per-project data (specs, plans, QA reports)
+│   ├── specs/                # Task specifications
+│   ├── roadmap/              # Project roadmap
+│   └── ideation/             # Ideas and planning
+├── auto-claude/              # Python backend (framework code)
+│   ├── run.py                # Build entry point
+│   ├── spec_runner.py        # Spec creation orchestrator
+│   ├── prompts/              # Agent prompt templates
+│   └── ...
+├── auto-claude-ui/           # Electron desktop application
+│   └── ...
+└── docker-compose.yml        # FalkorDB for Memory Layer
 ```
-
-**Step 3:** Configure environment variables
-
-Add to your `.env` file (see `.env.example` for full documentation):
-
-```bash
-# Enable Graphiti integration
-GRAPHITI_ENABLED=true
-
-# Provider selection (defaults to openai)
-GRAPHITI_LLM_PROVIDER=openai
-GRAPHITI_EMBEDDER_PROVIDER=openai
-
-# Example 1: OpenAI (simplest)
-OPENAI_API_KEY=sk-your-openai-key-here
-
-# Example 2: Anthropic + Voyage (high quality)
-# GRAPHITI_LLM_PROVIDER=anthropic
-# GRAPHITI_EMBEDDER_PROVIDER=voyage
-# ANTHROPIC_API_KEY=sk-ant-xxx
-# VOYAGE_API_KEY=pa-xxx
-
-# Example 3: Ollama (fully offline)
-# GRAPHITI_LLM_PROVIDER=ollama
-# GRAPHITI_EMBEDDER_PROVIDER=ollama
-# OLLAMA_LLM_MODEL=deepseek-r1:7b
-# OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-# OLLAMA_EMBEDDING_DIM=768
-```
-
-**Step 4:** Verify it's working
-
-```bash
-python auto-claude/run.py --list
-# Should show: "Graphiti memory: ENABLED"
-
-# Test the full integration
-python auto-claude/test_graphiti_memory.py
-```
-
-### When Disabled
-
-When `GRAPHITI_ENABLED` is not set (default), Auto Claude uses file-based memory only. This is the zero-dependency default that works out of the box.
 
 ## Environment Variables
 
@@ -402,24 +260,14 @@ When `GRAPHITI_ENABLED` is not set (default), Auto Claude uses file-based memory
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
-| `GRAPHITI_ENABLED` | No | Set to `true` to enable Graphiti memory |
-| `GRAPHITI_LLM_PROVIDER` | No | LLM provider: openai, anthropic, azure_openai, ollama |
-| `GRAPHITI_EMBEDDER_PROVIDER` | No | Embedder: openai, voyage, azure_openai, ollama |
+| `GRAPHITI_ENABLED` | Recommended | Set to `true` to enable Memory Layer |
+| `GRAPHITI_LLM_PROVIDER` | For Memory | LLM provider: openai, anthropic, azure_openai, ollama |
+| `GRAPHITI_EMBEDDER_PROVIDER` | For Memory | Embedder: openai, voyage, azure_openai, ollama |
 | `OPENAI_API_KEY` | For OpenAI | Required for OpenAI provider |
 | `ANTHROPIC_API_KEY` | For Anthropic | Required for Anthropic LLM |
 | `VOYAGE_API_KEY` | For Voyage | Required for Voyage embeddings |
 
-See `auto-claude/.env.example` for complete provider configuration options.
-
-## Documentation
-
-For parallel execution details:
-- How parallelism works
-- Performance analysis
-- Best practices
-- Troubleshooting
-
-See [auto-claude/PARALLEL_EXECUTION.md](auto-claude/PARALLEL_EXECUTION.md)
+See `auto-claude/.env.example` for complete configuration options.
 
 ## Acknowledgments
 
@@ -427,4 +275,15 @@ This framework was inspired by Anthropic's [Autonomous Coding Agent](https://git
 
 ## License
 
-MIT License
+**AGPL-3.0** - GNU Affero General Public License v3.0
+
+This software is licensed under AGPL-3.0, which means:
+
+- **Attribution Required**: You must give appropriate credit, provide a link to the license, and indicate if changes were made. When using Auto Claude, please credit the project.
+- **Open Source Required**: If you modify this software and distribute it or run it as a service, you must release your source code under AGPL-3.0.
+- **Network Use (Copyleft)**: If you run this software as a network service (e.g., SaaS), users interacting with it over a network must be able to receive the source code.
+- **No Closed-Source Usage**: You cannot use this software in proprietary/closed-source projects without open-sourcing your entire project under AGPL-3.0.
+
+**In simple terms**: You can use Auto Claude freely, but if you build on it, your code must also be open source under AGPL-3.0 and attribute this project. Closed-source commercial use requires a separate license.
+
+For commercial licensing inquiries (closed-source usage), please contact the maintainers.
