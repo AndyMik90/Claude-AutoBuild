@@ -1,5 +1,17 @@
-import { useEffect } from 'react';
-import { FolderOpen } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import {
+  FolderOpen,
+  Zap,
+  Eye,
+  EyeOff,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Import,
+  Radio,
+  Github,
+  RefreshCw
+} from 'lucide-react';
 import { LinearTaskImportModal } from '../LinearTaskImportModal';
 import { Separator } from '../ui/separator';
 import { SettingsSection } from './SettingsSection';
@@ -8,7 +20,11 @@ import { EnvironmentSettings } from '../project-settings/EnvironmentSettings';
 import { IntegrationSettings } from '../project-settings/IntegrationSettings';
 import { SecuritySettings } from '../project-settings/SecuritySettings';
 import { useProjectSettings, UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
-import type { Project } from '../../../shared/types';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
+import type { Project, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus } from '../../../shared/types';
 
 export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'github' | 'memory';
 
@@ -72,6 +88,10 @@ function ProjectSettingsContentInner({
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
 }) {
   const hook = useProjectSettings(project, isOpen);
+  
+  // Keep a stable ref to the hook for the parent
+  const hookRef = useRef(hook);
+  hookRef.current = hook;
 
   const {
     settings,
@@ -109,15 +129,60 @@ function ProjectSettingsContentInner({
     error
   } = hook;
 
-  // Expose hook to parent for save coordination
+  // Expose hook to parent for save coordination - only once when dialog opens
+  // We use hookRef to avoid infinite loops (hook object is recreated each render)
   useEffect(() => {
     if (isOpen) {
-      onHookReady(hook);
+      // Create a proxy that always accesses the latest hook values via ref
+      const hookProxy: UseProjectSettingsReturn = {
+        get settings() { return hookRef.current.settings; },
+        get setSettings() { return hookRef.current.setSettings; },
+        get isSaving() { return hookRef.current.isSaving; },
+        get error() { return hookRef.current.error; },
+        get setError() { return hookRef.current.setError; },
+        get versionInfo() { return hookRef.current.versionInfo; },
+        get isCheckingVersion() { return hookRef.current.isCheckingVersion; },
+        get isUpdating() { return hookRef.current.isUpdating; },
+        get envConfig() { return hookRef.current.envConfig; },
+        get setEnvConfig() { return hookRef.current.setEnvConfig; },
+        get isLoadingEnv() { return hookRef.current.isLoadingEnv; },
+        get envError() { return hookRef.current.envError; },
+        get setEnvError() { return hookRef.current.setEnvError; },
+        get isSavingEnv() { return hookRef.current.isSavingEnv; },
+        get updateEnvConfig() { return hookRef.current.updateEnvConfig; },
+        get showClaudeToken() { return hookRef.current.showClaudeToken; },
+        get setShowClaudeToken() { return hookRef.current.setShowClaudeToken; },
+        get showLinearKey() { return hookRef.current.showLinearKey; },
+        get setShowLinearKey() { return hookRef.current.setShowLinearKey; },
+        get showOpenAIKey() { return hookRef.current.showOpenAIKey; },
+        get setShowOpenAIKey() { return hookRef.current.setShowOpenAIKey; },
+        get showFalkorPassword() { return hookRef.current.showFalkorPassword; },
+        get setShowFalkorPassword() { return hookRef.current.setShowFalkorPassword; },
+        get showGitHubToken() { return hookRef.current.showGitHubToken; },
+        get setShowGitHubToken() { return hookRef.current.setShowGitHubToken; },
+        get expandedSections() { return hookRef.current.expandedSections; },
+        get toggleSection() { return hookRef.current.toggleSection; },
+        get gitHubConnectionStatus() { return hookRef.current.gitHubConnectionStatus; },
+        get isCheckingGitHub() { return hookRef.current.isCheckingGitHub; },
+        get isCheckingClaudeAuth() { return hookRef.current.isCheckingClaudeAuth; },
+        get claudeAuthStatus() { return hookRef.current.claudeAuthStatus; },
+        get setClaudeAuthStatus() { return hookRef.current.setClaudeAuthStatus; },
+        get showLinearImportModal() { return hookRef.current.showLinearImportModal; },
+        get setShowLinearImportModal() { return hookRef.current.setShowLinearImportModal; },
+        get linearConnectionStatus() { return hookRef.current.linearConnectionStatus; },
+        get isCheckingLinear() { return hookRef.current.isCheckingLinear; },
+        get handleInitialize() { return hookRef.current.handleInitialize; },
+        get handleUpdate() { return hookRef.current.handleUpdate; },
+        get handleSaveEnv() { return hookRef.current.handleSaveEnv; },
+        get handleClaudeSetup() { return hookRef.current.handleClaudeSetup; },
+        get handleSave() { return hookRef.current.handleSave; },
+      };
+      onHookReady(hookProxy);
     }
     return () => {
       onHookReady(null);
     };
-  }, [isOpen, hook, onHookReady]);
+  }, [isOpen, onHookReady]);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -296,22 +361,6 @@ function ProjectSettingsContentInner({
 }
 
 // Extracted Linear-only integration (without the collapsible header)
-import {
-  Zap,
-  Eye,
-  EyeOff,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Import,
-  Radio
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
-import type { ProjectEnvConfig, LinearSyncStatus } from '../../../shared/types';
-
 function LinearOnlyIntegration({
   envConfig,
   updateEnvConfig,
@@ -487,9 +536,6 @@ function LinearOnlyIntegration({
 }
 
 // Extracted GitHub-only integration (without the collapsible header)
-import { Github, RefreshCw } from 'lucide-react';
-import type { GitHubSyncStatus } from '../../../shared/types';
-
 function GitHubOnlyIntegration({
   envConfig,
   updateEnvConfig,
