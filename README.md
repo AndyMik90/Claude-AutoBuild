@@ -1,18 +1,17 @@
-# Auto Claude 🤖
+# Auto Claude
 
-A production-ready framework for autonomous multi-session AI coding. Build complete applications or add features to existing projects through coordinated AI agent sessions.
+Your AI coding companion. Build features, fix bugs, and ship faster — with autonomous agents that plan, code, and validate for you.
 
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
 ## What It Does ✨
 
-**Auto Claude runs AI coding agents in parallel while you work on other things.** Whether you're a vibe coder just getting started or an experienced developer, Auto Claude meets you where you are. Describe what you want to build, and Auto Claude handles the rest — from understanding your codebase, to writing the code, to validating it actually works.
+**Auto Claude is a desktop app that supercharges your AI coding workflow.** Whether you're a vibe coder just getting started or an experienced developer, Auto Claude meets you where you are.
 
-Think of it as having a team of AI developers that:
-- **Work autonomously** — no babysitting required
-- **Run in parallel** — multiple features built simultaneously
-- **Self-validate** — QA agents check their own work before you see it
-- **Stay safe** — isolated workspaces mean your code is never touched until you approve
+- **Autonomous Tasks** — Describe what you want to build, and agents handle planning, coding, and validation while you focus on other work
+- **Agent Terminals** — Run Claude Code in up to 12 terminals with a clean layout, smart naming based on context, and one-click task context injection
+- **Safe by Default** — All work happens in git worktrees, keeping your main branch undisturbed until you're ready to merge
+- **Self-Validating** — Built-in QA agents check their own work before you review
 
 **The result?** 10x your output while maintaining code quality.
 
@@ -25,7 +24,6 @@ Think of it as having a team of AI developers that:
 - **Memory Layer**: Agents remember insights across sessions for smarter decisions
 - **Cross-Platform**: Desktop app runs on Mac, Windows, and Linux
 - **Any Project Type**: Build web apps, APIs, CLIs — works with any software project
-- **Human Control**: Pause, guide, or stop agents at any time
 
 ## 🚀 Quick Start (Desktop UI)
 
