@@ -1,88 +1,67 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { FileTreeItem } from './FileTreeItem';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
+import { useVirtualizedTree } from '../hooks/useVirtualizedTree';
 import { Loader2, AlertCircle, FolderOpen } from 'lucide-react';
-import type { FileNode } from '../../shared/types';
 
 interface FileTreeProps {
   rootPath: string;
 }
 
-interface FileTreeNodeProps {
-  node: FileNode;
-  depth: number;
-}
-
-function FileTreeNode({ node, depth }: FileTreeNodeProps) {
-  const {
-    isExpanded,
-    isLoadingDir,
-    getFiles,
-    loadDirectory,
-    toggleFolder
-  } = useFileExplorerStore();
-
-  const expanded = isExpanded(node.path);
-  const loading = isLoadingDir(node.path);
-  const children = getFiles(node.path);
-
-  // Load children when folder is expanded
-  useEffect(() => {
-    if (node.isDirectory && expanded && !children && !loading) {
-      loadDirectory(node.path);
-    }
-  }, [node.isDirectory, expanded, children, loading, loadDirectory, node.path]);
-
-  const handleToggle = useCallback(() => {
-    toggleFolder(node.path);
-    // Load children if expanding and not yet loaded
-    if (!expanded && node.isDirectory && !children) {
-      loadDirectory(node.path);
-    }
-  }, [expanded, node.isDirectory, node.path, children, toggleFolder, loadDirectory]);
-
-  return (
-    <FileTreeItem
-      node={node}
-      depth={depth}
-      isExpanded={expanded}
-      isLoading={loading}
-      onToggle={handleToggle}
-    >
-      {expanded && children && (
-        <div>
-          {children.map((child) => (
-            <FileTreeNode
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
-    </FileTreeItem>
-  );
-}
+// Estimated height of each tree item in pixels
+const ITEM_HEIGHT = 28;
+// Number of items to render outside the visible area for smoother scrolling
+const OVERSCAN = 10;
 
 export function FileTree({ rootPath }: FileTreeProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
   const {
-    getFiles,
     loadDirectory,
     isLoadingDir,
     error
   } = useFileExplorerStore();
 
-  const rootFiles = getFiles(rootPath);
+  const {
+    flattenedNodes,
+    count,
+    handleToggle,
+    isRootLoading,
+    hasRootFiles
+  } = useVirtualizedTree(rootPath);
+
   const loading = isLoadingDir(rootPath);
 
   // Load root directory on mount
   useEffect(() => {
-    if (!rootFiles && !loading) {
+    if (!hasRootFiles && !loading) {
       loadDirectory(rootPath);
     }
-  }, [rootPath, rootFiles, loading, loadDirectory]);
+  }, [rootPath, hasRootFiles, loading, loadDirectory]);
 
-  if (loading && !rootFiles) {
+  // Set up the virtualizer
+  const rowVirtualizer = useVirtualizer({
+    count,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ITEM_HEIGHT,
+    overscan: OVERSCAN,
+  });
+
+  // Create toggle handler for each item
+  const createToggleHandler = useCallback(
+    (index: number) => {
+      return () => {
+        const item = flattenedNodes[index];
+        if (item) {
+          handleToggle(item.node);
+        }
+      };
+    },
+    [flattenedNodes, handleToggle]
+  );
+
+  if (isRootLoading && !hasRootFiles) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -99,7 +78,7 @@ export function FileTree({ rootPath }: FileTreeProps) {
     );
   }
 
-  if (!rootFiles || rootFiles.length === 0) {
+  if (!hasRootFiles || count === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
         <FolderOpen className="h-6 w-6 text-muted-foreground mb-2" />
@@ -109,14 +88,46 @@ export function FileTree({ rootPath }: FileTreeProps) {
   }
 
   return (
-    <div className="py-1">
-      {rootFiles.map((node) => (
-        <FileTreeNode
-          key={node.path}
-          node={node}
-          depth={0}
-        />
-      ))}
+    <div
+      ref={parentRef}
+      className="h-full overflow-auto py-1"
+    >
+      {/* The large inner element to hold all of the items */}
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {/* Only the visible items in the virtualizer */}
+        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+          const item = flattenedNodes[virtualItem.index];
+          if (!item) return null;
+
+          return (
+            <div
+              key={item.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              <FileTreeItem
+                node={item.node}
+                depth={item.depth}
+                isExpanded={item.isExpanded}
+                isLoading={item.isLoading}
+                onToggle={createToggleHandler(virtualItem.index)}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -9,7 +9,6 @@ interface FileTreeItemProps {
   isExpanded: boolean;
   isLoading: boolean;
   onToggle: () => void;
-  children?: React.ReactNode;
 }
 
 // Get appropriate icon based on file extension
@@ -70,7 +69,6 @@ export function FileTreeItem({
   isExpanded,
   isLoading,
   onToggle,
-  children
 }: FileTreeItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: node.path,
@@ -97,59 +95,54 @@ export function FileTreeItem({
   };
 
   return (
-    <div>
-      <div
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        className={cn(
-          'flex items-center gap-1 py-1 px-2 rounded cursor-grab select-none',
-          'hover:bg-accent/50 transition-colors',
-          isDragging && 'opacity-50 bg-accent'
-        )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-      >
-        {/* Expand/collapse chevron for directories */}
-        {node.isDirectory ? (
-          <button
-            className="flex items-center justify-center w-4 h-4 hover:bg-accent rounded"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-          >
-            {isLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            ) : isExpanded ? (
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            )}
-          </button>
-        ) : (
-          <span className="w-4" />
-        )}
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        'flex items-center gap-1 py-1 px-2 rounded cursor-grab select-none',
+        'hover:bg-accent/50 transition-colors',
+        isDragging && 'opacity-50 bg-accent'
+      )}
+      style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
+      {/* Expand/collapse chevron for directories */}
+      {node.isDirectory ? (
+        <button
+          className="flex items-center justify-center w-4 h-4 hover:bg-accent rounded"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+        >
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          ) : isExpanded ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
+        </button>
+      ) : (
+        <span className="w-4" />
+      )}
 
-        {/* Icon */}
-        {node.isDirectory ? (
-          <Folder className={cn(
-            'h-4 w-4',
-            isExpanded ? 'text-primary' : 'text-warning'
-          )} />
-        ) : (
-          getFileIcon(node.name)
-        )}
+      {/* Icon */}
+      {node.isDirectory ? (
+        <Folder className={cn(
+          'h-4 w-4',
+          isExpanded ? 'text-primary' : 'text-warning'
+        )} />
+      ) : (
+        getFileIcon(node.name)
+      )}
 
-        {/* Name */}
-        <span className="text-xs truncate flex-1 text-foreground">
-          {node.name}
-        </span>
-      </div>
-
-      {/* Children (for expanded folders) */}
-      {node.isDirectory && isExpanded && children}
+      {/* Name */}
+      <span className="text-xs truncate flex-1 text-foreground">
+        {node.name}
+      </span>
     </div>
   );
 }

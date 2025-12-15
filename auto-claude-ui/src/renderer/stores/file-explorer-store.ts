@@ -23,6 +23,9 @@ interface FileExplorerState {
   isExpanded: (path: string) => boolean;
   getFiles: (dirPath: string) => FileNode[] | undefined;
   isLoadingDir: (dirPath: string) => boolean;
+  getAllExpandedFiles: () => Set<string>;
+  getVisibleFiles: (rootPath: string) => FileNode[];
+  computeVisibleItems: (rootPath: string) => { nodes: FileNode[]; count: number };
 }
 
 export const useFileExplorerStore = create<FileExplorerState>((set, get) => ({
@@ -134,5 +137,51 @@ export const useFileExplorerStore = create<FileExplorerState>((set, get) => ({
 
   isLoadingDir: (dirPath: string) => {
     return get().isLoading.get(dirPath) ?? false;
+  },
+
+  getAllExpandedFiles: () => {
+    return new Set(get().expandedFolders);
+  },
+
+  getVisibleFiles: (rootPath: string) => {
+    const state = get();
+    const result: FileNode[] = [];
+
+    const collectVisibleNodes = (dirPath: string): void => {
+      const nodes = state.files.get(dirPath);
+      if (!nodes) return;
+
+      for (const node of nodes) {
+        result.push(node);
+        // If this is an expanded directory, recursively collect its children
+        if (node.isDirectory && state.expandedFolders.has(node.path)) {
+          collectVisibleNodes(node.path);
+        }
+      }
+    };
+
+    collectVisibleNodes(rootPath);
+    return result;
+  },
+
+  computeVisibleItems: (rootPath: string) => {
+    const state = get();
+    const nodes: FileNode[] = [];
+
+    const collectVisibleNodes = (dirPath: string): void => {
+      const dirNodes = state.files.get(dirPath);
+      if (!dirNodes) return;
+
+      for (const node of dirNodes) {
+        nodes.push(node);
+        // If this is an expanded directory, recursively collect its children
+        if (node.isDirectory && state.expandedFolders.has(node.path)) {
+          collectVisibleNodes(node.path);
+        }
+      }
+    };
+
+    collectVisibleNodes(rootPath);
+    return { nodes, count: nodes.length };
   },
 }));
