@@ -34,13 +34,22 @@ const FORMAT_TEMPLATES = {
   'github-release': (version: string) => `## What's New in v${version}
 
 ### New Features
-- **Feature Name**: Description
+
+- Feature description
 
 ### Improvements
-- Description
+
+- Improvement description
 
 ### Bug Fixes
-- Fixed [issue]`
+
+- Fix description
+
+---
+
+## What's Changed
+
+- type: description by @contributor in commit-hash`
 };
 
 /**
@@ -53,13 +62,44 @@ const AUDIENCE_INSTRUCTIONS = {
 };
 
 /**
- * Get emoji usage instructions based on level
+ * Get emoji usage instructions based on level and format
  */
-function getEmojiInstructions(emojiLevel?: string): string {
+function getEmojiInstructions(emojiLevel?: string, format?: string): string {
   if (!emojiLevel || emojiLevel === 'none') {
     return '';
   }
 
+  // GitHub Release format uses specific emoji style matching Gemini CLI pattern
+  if (format === 'github-release') {
+    const githubInstructions: Record<string, string> = {
+      'little': `Add emojis ONLY to section headings. Use these specific emoji-heading pairs:
+- "### ✨ New Features"
+- "### 🛠️ Improvements"
+- "### 🐛 Bug Fixes"
+- "### 📚 Documentation"
+- "### 🔧 Other Changes"
+Do NOT add emojis to individual line items.`,
+      'medium': `Add emojis to section headings AND to notable/important items only.
+Section headings MUST use these specific emoji-heading pairs:
+- "### ✨ New Features"
+- "### 🛠️ Improvements"
+- "### 🐛 Bug Fixes"
+- "### 📚 Documentation"
+- "### 🔧 Other Changes"
+Add emojis to 2-3 highlighted items per section that are particularly significant.`,
+      'high': `Add emojis to section headings AND every line item.
+Section headings MUST use these specific emoji-heading pairs:
+- "### ✨ New Features"
+- "### 🛠️ Improvements"
+- "### 🐛 Bug Fixes"
+- "### 📚 Documentation"
+- "### 🔧 Other Changes"
+Every line item should start with a contextual emoji.`
+    };
+    return githubInstructions[emojiLevel] || '';
+  }
+
+  // Default instructions for other formats
   const instructions: Record<string, string> = {
     'little': `Add emojis ONLY to section headings. Each heading should have one contextual emoji at the start.
 Examples:
@@ -98,7 +138,7 @@ export function buildChangelogPrompt(
 ): string {
   const audienceInstruction = AUDIENCE_INSTRUCTIONS[request.audience];
   const formatInstruction = FORMAT_TEMPLATES[request.format](request.version, request.date);
-  const emojiInstruction = getEmojiInstructions(request.emojiLevel);
+  const emojiInstruction = getEmojiInstructions(request.emojiLevel, request.format);
 
   // Build CONCISE task summaries (key to avoiding timeout)
   const taskSummaries = specs.map(spec => {
@@ -143,20 +183,22 @@ export function buildGitPrompt(
 ): string {
   const audienceInstruction = AUDIENCE_INSTRUCTIONS[request.audience];
   const formatInstruction = FORMAT_TEMPLATES[request.format](request.version, request.date);
-  const emojiInstruction = getEmojiInstructions(request.emojiLevel);
+  const emojiInstruction = getEmojiInstructions(request.emojiLevel, request.format);
 
   // Format commits for the prompt
-  // Group by conventional commit type if detected
+  // Include author info for github-release format
   const commitLines = commits.map(commit => {
     const hash = commit.hash;
     const subject = commit.subject;
+    const author = commit.author;
+
     // Detect conventional commit format: type(scope): message
     const conventionalMatch = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.+)$/);
     if (conventionalMatch) {
       const [, type, scope, message] = conventionalMatch;
-      return `- ${hash}: [${type}${scope ? `/${scope}` : ''}] ${message}`;
+      return `- ${hash} | ${type}${scope ? `(${scope})` : ''}: ${message} | by ${author}`;
     }
-    return `- ${hash}: ${subject}`;
+    return `- ${hash} | ${subject} | by ${author}`;
   }).join('\n');
 
   // Add context about branch/range if available
@@ -177,6 +219,29 @@ export function buildGitPrompt(
     }
   }
 
+  // Format-specific instructions
+  let formatSpecificInstructions = '';
+  if (request.format === 'github-release') {
+    formatSpecificInstructions = `
+For GitHub Release format, create TWO parts:
+
+PART 1 - "What's New" (summarized changes):
+- Use category sections: New Features, Improvements, Bug Fixes, Documentation, Other Changes
+- ONLY include sections that have actual changes - skip empty sections entirely
+- Add a blank line between each bullet point for cleaner formatting
+- Summarize and group related commits into clear, readable descriptions
+- Do NOT include commit hashes in this section
+
+PART 2 - "What's Changed" (raw commit list):
+- Add a horizontal rule (---) before this section
+- List each commit in format: "- type: description by @author in hash"
+- Example: "- fix: upgrade react to 19.2.3 by @douxc in abc1234"
+- Example: "- feat: add dark mode support by @contributor in def5678"
+- Include the commit type prefix (feat:, fix:, docs:, etc.)
+- Show the author name with @ prefix
+- Show the short commit hash at the end`;
+  }
+
   return `${audienceInstruction}
 
 ${sourceContext}
@@ -184,14 +249,13 @@ ${sourceContext}
 Generate a changelog from these git commits. Group related changes together and categorize them appropriately.
 
 Conventional commit types to recognize:
-- feat/feature: New features → Added section
-- fix/bugfix: Bug fixes → Fixed section
-- docs: Documentation → Changed or separate Documentation section
-- style: Styling/formatting → Changed section
-- refactor: Code refactoring → Changed section
-- perf: Performance → Changed or Performance section
+- feat/feature: New features → New Features section
+- fix/bugfix: Bug fixes → Bug Fixes section
+- docs: Documentation → Documentation section
+- style/refactor/perf: Improvements → Improvements section
+- chore/build/ci: Other changes → Other Changes section (usually omit unless significant)
 - test: Tests → (usually omit unless significant)
-- chore: Maintenance → (usually omit unless significant)
+${formatSpecificInstructions}
 
 Format:
 ${formatInstruction}
@@ -202,7 +266,7 @@ ${commitLines}
 
 ${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
 
-CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually.`;
+CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually. Only include sections that have actual changes.`;
 }
 
 /**
