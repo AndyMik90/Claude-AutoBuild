@@ -75,3 +75,5 @@ dmypy.json
 dev/
 
 .auto-claude/
+
+/docs

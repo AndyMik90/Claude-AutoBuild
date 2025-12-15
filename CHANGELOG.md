@@ -1,3 +1,35 @@
+## What's New in v2.0.0
+
+### New Features
+- **Task Integration**: Connected ideas to tasks with "Go to Task" functionality across the UI
+- **File Explorer Panel**: Implemented file explorer panel with directory listing capabilities
+- **Terminal Task Selection**: Added task selection dropdown in terminal with auto-context loading
+- **Task Archiving**: Introduced task archiving functionality
+- **Graphiti MCP Server Integration**: Added support for Graphiti memory integration
+- **Roadmap Functionality**: New roadmap visualization and management features
+
+### Improvements
+- **File Tree Virtualization**: Refactored FileTree component to use efficient virtualization for improved performance with large file structures
+- **Agent Parallelization**: Improved Claude Code agent decision-making for parallel task execution
+- **Terminal Experience**: Enhanced terminal with task features and visual feedback for better user experience
+- **Python Environment Detection**: Auto-detect Python environment readiness before task execution
+- **Version System**: Cleaner version management system
+- **Project Initialization**: Simpler project initialization process
+
+### Bug Fixes
+- Fixed project settings bug
+- Fixed insight UI sidebar
+- Resolved Kanban and terminal integration issues
+
+### Changed
+- Updated project-store.ts to use proper Dirent type for specDirs variable
+- Refactored codebase for better code quality
+- Removed worktree-worker logic in favor of Claude Code's internal agent system
+- Removed obsolete security configuration file (.auto-claude-security.json)
+
+### Documentation
+- Added CONTRIBUTING.md with development guidelines
+
 ## What's New in v1.1.0
 
 ### New Features
