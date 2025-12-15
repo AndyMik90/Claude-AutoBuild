@@ -67,9 +67,8 @@ def gather_requirements_interactively(ui_module) -> dict:
     # Task description - multi-line support with editor option
     print(f"  {ui_module.bold('1. What do you want to build or fix?')}")
     print(f"     {ui_module.muted('(Describe the feature, bug fix, or change)')}")
-    print(
-        f"     {ui_module.muted('Type "edit" to open in your editor, or enter text below')}"
-    )
+    edit_hint = 'Type "edit" to open in your editor, or enter text below'
+    print(f"     {ui_module.muted(edit_hint)}")
     print(
         f"     {ui_module.muted('(Press Enter often for new lines, blank line = done)')}"
     )
