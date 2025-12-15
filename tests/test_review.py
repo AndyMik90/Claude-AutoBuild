@@ -23,13 +23,12 @@ from review import (
     ReviewState,
     ReviewChoice,
     REVIEW_STATE_FILE,
-    _compute_file_hash,
-    _compute_spec_hash,
-    _extract_section,
-    _truncate_text,
     get_review_status_summary,
     get_review_menu_options,
+    extract_section,
+    truncate_text,
 )
+from review.state import _compute_file_hash, _compute_spec_hash
 
 
 # =============================================================================
@@ -590,8 +589,8 @@ class TestReviewStateFeedback:
 class TestHelperFunctions:
     """Tests for helper functions."""
 
-    def test_extract_section_found(self):
-        """_extract_section() extracts content correctly."""
+    def testextract_section_found(self):
+        """extract_section() extracts content correctly."""
         content = """# Title
 
 ## Overview
@@ -602,25 +601,25 @@ This is the overview section.
 
 This is the details section.
 """
-        overview = _extract_section(content, "## Overview")
+        overview = extract_section(content, "## Overview")
 
         assert "This is the overview section." in overview
         assert "This is the details section." not in overview
 
-    def test_extract_section_not_found(self):
-        """_extract_section() returns empty string when not found."""
+    def testextract_section_not_found(self):
+        """extract_section() returns empty string when not found."""
         content = """# Title
 
 ## Existing Section
 
 Content here.
 """
-        result = _extract_section(content, "## Missing Section")
+        result = extract_section(content, "## Missing Section")
 
         assert result == ""
 
-    def test_extract_section_last_section(self):
-        """_extract_section() handles last section correctly."""
+    def testextract_section_last_section(self):
+        """extract_section() handles last section correctly."""
         content = """# Title
 
 ## First
@@ -631,23 +630,23 @@ First content.
 
 Last content.
 """
-        last = _extract_section(content, "## Last")
+        last = extract_section(content, "## Last")
 
         assert "Last content." in last
 
-    def test_truncate_text_short(self):
-        """_truncate_text() returns short text unchanged."""
+    def testtruncate_text_short(self):
+        """truncate_text() returns short text unchanged."""
         short_text = "Short text"
 
-        result = _truncate_text(short_text, max_lines=10, max_chars=100)
+        result = truncate_text(short_text, max_lines=10, max_chars=100)
 
         assert result == "Short text"
 
-    def test_truncate_text_too_many_lines(self):
-        """_truncate_text() truncates by line count."""
+    def testtruncate_text_too_many_lines(self):
+        """truncate_text() truncates by line count."""
         long_text = "\n".join(f"Line {i}" for i in range(20))
 
-        result = _truncate_text(long_text, max_lines=5, max_chars=1000)
+        result = truncate_text(long_text, max_lines=5, max_chars=1000)
 
         # Should contain 5 lines from original + "..." on new line
         lines = result.split("\n")
@@ -656,11 +655,11 @@ Last content.
         assert "Line 0" in result
         assert "Line 4" in result
 
-    def test_truncate_text_too_many_chars(self):
-        """_truncate_text() truncates by character count."""
+    def testtruncate_text_too_many_chars(self):
+        """truncate_text() truncates by character count."""
         long_text = "A" * 500
 
-        result = _truncate_text(long_text, max_lines=100, max_chars=100)
+        result = truncate_text(long_text, max_lines=100, max_chars=100)
 
         assert len(result) <= 100
         assert result.endswith("...")

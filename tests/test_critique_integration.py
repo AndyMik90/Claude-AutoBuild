@@ -215,7 +215,7 @@ def test_complete_workflow():
     # 6. Format summary
     summary = format_critique_summary(result)
     assert "PASSED ✓" in summary
-    assert "Chunk is ready to be marked complete" in summary
+    assert "Subtask is ready to be marked complete" in summary
 
     # 7. Store in chunk
     chunk_obj = Chunk(
@@ -247,7 +247,7 @@ def test_summary_formatting():
     summary = format_critique_summary(result)
     assert "PASSED ✓" in summary
     assert "Fixed error handling" in summary
-    assert "Chunk is ready to be marked complete" in summary
+    assert "Subtask is ready to be marked complete" in summary
 
     # Test failed critique summary
     result_fail = CritiqueResult(
@@ -260,7 +260,7 @@ def test_summary_formatting():
     summary_fail = format_critique_summary(result_fail)
     assert "FAILED ✗" in summary_fail
     assert "Missing validation" in summary_fail
-    assert "Chunk needs more work" in summary_fail
+    assert "Subtask needs more work" in summary_fail
 
     print("✓ Summary formatting works correctly")
 

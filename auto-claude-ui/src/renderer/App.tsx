@@ -48,6 +48,7 @@ export function App() {
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
+  const settingsLoading = useSettingsStore((state) => state.isLoading);
 
   // UI State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -72,14 +73,23 @@ export function App() {
     loadSettings();
   }, []);
 
-  // First-run detection - show onboarding wizard if not completed
+  // Track if settings have been loaded at least once
+  const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
+
+  // Mark settings as loaded when loading completes
   useEffect(() => {
-    // Only show wizard if onboardingCompleted is explicitly false (not undefined)
-    // This ensures we don't show the wizard before settings are loaded
-    if (settings.onboardingCompleted === false) {
+    if (!settingsLoading && !settingsHaveLoaded) {
+      setSettingsHaveLoaded(true);
+    }
+  }, [settingsLoading, settingsHaveLoaded]);
+
+  // First-run detection - show onboarding wizard if not completed
+  // Only check AFTER settings have been loaded from disk to avoid race condition
+  useEffect(() => {
+    if (settingsHaveLoaded && settings.onboardingCompleted === false) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settings.onboardingCompleted]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {

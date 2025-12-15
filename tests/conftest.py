@@ -391,3 +391,452 @@ def stage_files(temp_git_repo: Path):
             filepath.write_text(content)
         subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
     return _stage_files
+
+
+# =============================================================================
+# PHASE TESTING FIXTURES - Mock functions for spec/phases.py testing
+# =============================================================================
+
+@pytest.fixture
+def mock_run_agent_fn():
+    """
+    Mock agent function for testing PhaseExecutor.
+
+    Returns a factory that creates mock agent functions with configurable responses.
+
+    Usage:
+        async def test_something(mock_run_agent_fn):
+            agent_fn = mock_run_agent_fn(success=True, output="Done")
+            result = await agent_fn("prompt.md")
+            assert result == (True, "Done")
+    """
+    def _create_mock(
+        success: bool = True,
+        output: str = "Agent completed successfully",
+        side_effect: list = None,
+    ):
+        """Create a mock agent function.
+
+        Args:
+            success: Whether the agent should succeed
+            output: The output message to return
+            side_effect: Optional list of (success, output) tuples for sequential calls
+        """
+        call_count = 0
+
+        async def _mock_agent(
+            prompt_file: str,
+            additional_context: str = None,
+        ) -> tuple[bool, str]:
+            nonlocal call_count
+            if side_effect is not None:
+                if call_count < len(side_effect):
+                    result = side_effect[call_count]
+                    call_count += 1
+                    return result
+                # Fallback to last result if more calls than expected
+                return side_effect[-1]
+            return (success, output)
+
+        _mock_agent.call_count = 0
+        return _mock_agent
+
+    return _create_mock
+
+
+@pytest.fixture
+def mock_task_logger():
+    """
+    Mock TaskLogger for testing PhaseExecutor.
+
+    Returns a mock object that tracks all log calls without side effects.
+
+    Usage:
+        def test_something(mock_task_logger):
+            executor = PhaseExecutor(..., task_logger=mock_task_logger, ...)
+            # After test
+            assert mock_task_logger.log.call_count > 0
+    """
+    from unittest.mock import MagicMock
+
+    logger = MagicMock()
+    logger.log = MagicMock()
+    logger.start_phase = MagicMock()
+    logger.end_phase = MagicMock()
+    logger.tool_start = MagicMock()
+    logger.tool_end = MagicMock()
+    logger.save = MagicMock()
+    return logger
+
+
+@pytest.fixture
+def mock_ui_module():
+    """
+    Mock UI module for testing PhaseExecutor.
+
+    Provides mock implementations of UI functions used by PhaseExecutor.
+
+    Usage:
+        def test_something(mock_ui_module):
+            executor = PhaseExecutor(..., ui_module=mock_ui_module, ...)
+            # UI calls are captured
+            assert mock_ui_module.print_status.called
+    """
+    from unittest.mock import MagicMock
+
+    ui = MagicMock()
+    ui.print_status = MagicMock()
+    ui.muted = MagicMock(return_value="")
+    ui.bold = MagicMock(return_value="")
+    ui.success = MagicMock(return_value="")
+    ui.error = MagicMock(return_value="")
+    ui.warning = MagicMock(return_value="")
+    ui.info = MagicMock(return_value="")
+    ui.highlight = MagicMock(return_value="")
+    return ui
+
+
+@pytest.fixture
+def mock_spec_validator():
+    """
+    Mock spec validator for testing PhaseExecutor.
+
+    Returns a mock validator with configurable validation results.
+
+    Usage:
+        def test_something(mock_spec_validator):
+            validator = mock_spec_validator(spec_valid=True, plan_valid=True)
+            result = validator.validate_spec_document()
+            assert result.valid
+    """
+    from unittest.mock import MagicMock
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockValidationResult:
+        valid: bool
+        checkpoint: str = "test"
+        errors: list = None
+        fixes: list = None
+
+        def __post_init__(self):
+            if self.errors is None:
+                self.errors = []
+            if self.fixes is None:
+                self.fixes = []
+
+    def _create_mock(
+        spec_valid: bool = True,
+        plan_valid: bool = True,
+        context_valid: bool = True,
+        all_valid: bool = None,
+    ):
+        validator = MagicMock()
+
+        # validate_spec_document
+        spec_result = MockValidationResult(
+            valid=spec_valid,
+            checkpoint="spec_document",
+            errors=[] if spec_valid else ["Spec validation failed"],
+        )
+        validator.validate_spec_document = MagicMock(return_value=spec_result)
+
+        # validate_implementation_plan
+        plan_result = MockValidationResult(
+            valid=plan_valid,
+            checkpoint="implementation_plan",
+            errors=[] if plan_valid else ["Plan validation failed"],
+        )
+        validator.validate_implementation_plan = MagicMock(return_value=plan_result)
+
+        # validate_context
+        context_result = MockValidationResult(
+            valid=context_valid,
+            checkpoint="context",
+            errors=[] if context_valid else ["Context validation failed"],
+        )
+        validator.validate_context = MagicMock(return_value=context_result)
+
+        # validate_all returns list of all results
+        if all_valid is None:
+            all_valid = spec_valid and plan_valid and context_valid
+
+        all_results = [spec_result, plan_result, context_result]
+        if not all_valid:
+            # Add at least one failing result
+            if spec_valid and plan_valid and context_valid:
+                all_results[0] = MockValidationResult(
+                    valid=False,
+                    checkpoint="spec_document",
+                    errors=["Override: all_valid=False"],
+                )
+        validator.validate_all = MagicMock(return_value=all_results)
+
+        return validator
+
+    return _create_mock
+
+
+# =============================================================================
+# SAMPLE DATA FIXTURES - Sample JSON data for phase testing
+# =============================================================================
+
+@pytest.fixture
+def sample_requirements_json() -> dict:
+    """
+    Sample requirements.json data for testing.
+
+    Returns a dict that can be written to requirements.json in test specs.
+    """
+    return {
+        "task_description": "Add user authentication using OAuth2 with Google provider",
+        "workflow_type": "feature",
+        "services_involved": ["backend", "frontend"],
+        "user_requirements": [
+            "Users should be able to sign in with Google",
+            "Session should persist across page refreshes",
+            "Logout should clear all session data",
+        ],
+        "acceptance_criteria": [
+            "POST /api/auth/google endpoint accepts OAuth token",
+            "Frontend shows Google sign-in button",
+            "User profile displays after successful login",
+        ],
+        "constraints": [
+            "Must use existing user table schema",
+            "No third-party auth libraries except google-auth",
+        ],
+        "out_of_scope": [
+            "Other OAuth providers",
+            "Password-based authentication",
+        ],
+    }
+
+
+@pytest.fixture
+def sample_complexity_assessment() -> dict:
+    """
+    Sample complexity_assessment.json data for testing.
+
+    Returns a dict representing an AI-assessed complexity for a standard task.
+    """
+    return {
+        "complexity": "standard",
+        "confidence": 0.85,
+        "reasoning": "2 services involved, OAuth integration requires research",
+        "signals": {
+            "simple_keywords": 0,
+            "complex_keywords": 2,
+            "multi_service_keywords": 2,
+            "external_integrations": 1,
+            "infrastructure_changes": False,
+            "estimated_files": 6,
+            "estimated_services": 2,
+            "explicit_services": 2,
+        },
+        "estimated_files": 6,
+        "estimated_services": 2,
+        "external_integrations": ["oauth", "google"],
+        "infrastructure_changes": False,
+        "phases_to_run": [
+            "discovery",
+            "historical_context",
+            "requirements",
+            "research",
+            "context",
+            "spec_writing",
+            "planning",
+            "validation",
+        ],
+        "needs_research": True,
+        "needs_self_critique": False,
+        "dev_mode": False,
+        "created_at": "2024-01-15T10:30:00",
+    }
+
+
+@pytest.fixture
+def sample_context_json() -> dict:
+    """
+    Sample context.json data for testing.
+
+    Returns a dict representing discovered file context for a task.
+    """
+    return {
+        "task_description": "Add user authentication using OAuth2",
+        "services_involved": ["backend", "frontend"],
+        "files_to_modify": [
+            {
+                "path": "backend/app/routes/auth.py",
+                "reason": "Add OAuth endpoints",
+                "service": "backend",
+            },
+            {
+                "path": "frontend/src/components/Login.tsx",
+                "reason": "Add Google sign-in button",
+                "service": "frontend",
+            },
+        ],
+        "files_to_create": [
+            {
+                "path": "backend/app/services/oauth.py",
+                "reason": "OAuth service implementation",
+                "service": "backend",
+            },
+        ],
+        "files_to_reference": [
+            {
+                "path": "backend/app/models/user.py",
+                "reason": "Existing user model schema",
+                "service": "backend",
+            },
+            {
+                "path": "backend/app/config.py",
+                "reason": "Configuration patterns",
+                "service": "backend",
+            },
+        ],
+        "created_at": "2024-01-15T10:35:00",
+    }
+
+
+@pytest.fixture
+def sample_project_index() -> dict:
+    """
+    Sample project_index.json data for testing.
+
+    Returns a dict representing discovered project structure.
+    """
+    return {
+        "project_type": "monorepo",
+        "services": {
+            "backend": {
+                "path": "backend",
+                "language": "python",
+                "framework": "fastapi",
+                "package_manager": "pip",
+            },
+            "frontend": {
+                "path": "frontend",
+                "language": "typescript",
+                "framework": "next",
+                "package_manager": "npm",
+            },
+        },
+        "file_count": 150,
+        "top_level_dirs": ["backend", "frontend", "docs", ".github"],
+        "config_files": ["pyproject.toml", "package.json", "docker-compose.yml"],
+        "has_tests": True,
+        "has_ci": True,
+        "created_at": "2024-01-15T10:25:00",
+    }
+
+
+@pytest.fixture
+def sample_graph_hints() -> dict:
+    """
+    Sample graph_hints.json data for testing historical context phase.
+
+    Returns a dict representing Graphiti knowledge graph hints.
+    """
+    return {
+        "enabled": True,
+        "query": "Add user authentication using OAuth2",
+        "hints": [
+            {
+                "type": "session_insight",
+                "content": "Previous OAuth implementation used refresh tokens stored in HTTP-only cookies",
+                "relevance": 0.92,
+            },
+            {
+                "type": "gotcha",
+                "content": "Google OAuth requires verified domain for production",
+                "relevance": 0.88,
+            },
+            {
+                "type": "pattern",
+                "content": "Auth routes follow /api/auth/{provider} convention",
+                "relevance": 0.85,
+            },
+        ],
+        "hint_count": 3,
+        "created_at": "2024-01-15T10:28:00",
+    }
+
+
+@pytest.fixture
+def sample_research_json() -> dict:
+    """
+    Sample research.json data for testing research phase.
+
+    Returns a dict representing external research findings.
+    """
+    return {
+        "integrations_researched": [
+            {
+                "name": "google-auth",
+                "package": "google-auth>=2.0.0",
+                "documentation_url": "https://google-auth.readthedocs.io/",
+                "findings": [
+                    "Use google.oauth2.id_token for token verification",
+                    "Requires GOOGLE_CLIENT_ID environment variable",
+                ],
+                "gotchas": [
+                    "Token verification requires network call to Google",
+                ],
+            },
+        ],
+        "api_patterns": {
+            "oauth_flow": "Authorization code flow with PKCE recommended",
+            "token_storage": "Store refresh token server-side, access token in memory",
+        },
+        "security_considerations": [
+            "Validate token audience matches client ID",
+            "Use state parameter to prevent CSRF",
+        ],
+        "created_at": "2024-01-15T10:40:00",
+    }
+
+
+@pytest.fixture
+def populated_spec_dir(
+    spec_dir: Path,
+    sample_requirements_json: dict,
+    sample_complexity_assessment: dict,
+    sample_context_json: dict,
+    sample_project_index: dict,
+) -> Path:
+    """
+    Create a fully populated spec directory with all required files.
+
+    Useful for testing phases that depend on earlier phase outputs.
+    """
+    # Write all JSON files
+    (spec_dir / "requirements.json").write_text(json.dumps(sample_requirements_json, indent=2))
+    (spec_dir / "complexity_assessment.json").write_text(json.dumps(sample_complexity_assessment, indent=2))
+    (spec_dir / "context.json").write_text(json.dumps(sample_context_json, indent=2))
+    (spec_dir / "project_index.json").write_text(json.dumps(sample_project_index, indent=2))
+
+    # Write sample spec.md
+    spec_content = """# User Authentication with OAuth2
+
+## Overview
+Add Google OAuth2 authentication to the application.
+
+## Requirements
+1. Users can sign in with Google
+2. Sessions persist across page refreshes
+3. Logout clears all session data
+
+## Implementation Notes
+- Use google-auth library for token verification
+- Store refresh tokens server-side
+
+## Acceptance Criteria
+- [ ] POST /api/auth/google endpoint works
+- [ ] Frontend shows Google sign-in button
+- [ ] User profile displays after login
+"""
+    (spec_dir / "spec.md").write_text(spec_content)
+
+    return spec_dir

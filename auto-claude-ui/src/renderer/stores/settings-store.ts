@@ -16,7 +16,7 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: DEFAULT_APP_SETTINGS as AppSettings,
-  isLoading: false,
+  isLoading: true,  // Start as true since we load settings on app init
   error: null,
 
   setSettings: (settings) => set({ settings }),

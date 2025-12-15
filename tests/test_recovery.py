@@ -73,8 +73,8 @@ def test_initialization():
         # Verify initial structure
         with open(spec_dir / "memory" / "attempt_history.json") as f:
             history = json.load(f)
-            assert "chunks" in history, "chunks key missing"
-            assert "stuck_chunks" in history, "stuck_chunks key missing"
+            assert "subtasks" in history, "subtasks key missing"
+            assert "stuck_subtasks" in history, "stuck_subtasks key missing"
             assert "metadata" in history, "metadata key missing"
 
         print("  ✓ Initialization successful")
@@ -95,7 +95,7 @@ def test_record_attempt():
 
         # Record failed attempt
         manager.record_attempt(
-            chunk_id="chunk-1",
+            subtask_id="subtask-1",
             session=1,
             success=False,
             approach="First approach using async/await",
@@ -103,25 +103,25 @@ def test_record_attempt():
         )
 
         # Verify recorded
-        assert manager.get_attempt_count("chunk-1") == 1, "Attempt not recorded"
+        assert manager.get_attempt_count("subtask-1") == 1, "Attempt not recorded"
 
-        history = manager.get_chunk_history("chunk-1")
+        history = manager.get_subtask_history("subtask-1")
         assert len(history["attempts"]) == 1, "Wrong number of attempts"
         assert history["attempts"][0]["success"] is False, "Success flag wrong"
         assert history["status"] == "failed", "Status not updated"
 
         # Record successful attempt
         manager.record_attempt(
-            chunk_id="chunk-1",
+            subtask_id="subtask-1",
             session=2,
             success=True,
             approach="Second approach using callbacks",
             error=None
         )
 
-        assert manager.get_attempt_count("chunk-1") == 2, "Second attempt not recorded"
+        assert manager.get_attempt_count("subtask-1") == 2, "Second attempt not recorded"
 
-        history = manager.get_chunk_history("chunk-1")
+        history = manager.get_subtask_history("subtask-1")
         assert len(history["attempts"]) == 2, "Wrong number of attempts"
         assert history["attempts"][1]["success"] is True, "Success flag wrong"
         assert history["status"] == "completed", "Status not updated to completed"
@@ -143,18 +143,18 @@ def test_circular_fix_detection():
         manager = RecoveryManager(spec_dir, project_dir)
 
         # Record similar attempts
-        manager.record_attempt("chunk-1", 1, False, "Using async await pattern", "Error 1")
-        manager.record_attempt("chunk-1", 2, False, "Using async await with different import", "Error 2")
-        manager.record_attempt("chunk-1", 3, False, "Trying async await again", "Error 3")
+        manager.record_attempt("subtask-1", 1, False, "Using async await pattern", "Error 1")
+        manager.record_attempt("subtask-1", 2, False, "Using async await with different import", "Error 2")
+        manager.record_attempt("subtask-1", 3, False, "Trying async await again", "Error 3")
 
         # Check if circular fix is detected
-        is_circular = manager.is_circular_fix("chunk-1", "Using async await pattern once more")
+        is_circular = manager.is_circular_fix("subtask-1", "Using async await pattern once more")
 
         assert is_circular, "Circular fix not detected"
         print("  ✓ Circular fix detected correctly")
 
         # Test with different approach
-        is_circular = manager.is_circular_fix("chunk-1", "Using completely different callback-based approach")
+        is_circular = manager.is_circular_fix("subtask-1", "Using completely different callback-based approach")
 
         # This might be detected as circular if word overlap is high
         # But "callback-based" is sufficiently different from "async await"
@@ -175,17 +175,17 @@ def test_failure_classification():
         manager = RecoveryManager(spec_dir, project_dir)
 
         # Test broken build detection
-        failure = manager.classify_failure("SyntaxError: unexpected token", "chunk-1")
+        failure = manager.classify_failure("SyntaxError: unexpected token", "subtask-1")
         assert failure == FailureType.BROKEN_BUILD, "Broken build not detected"
         print("  ✓ Broken build classified correctly")
 
         # Test verification failed detection
-        failure = manager.classify_failure("Verification failed: expected 200 got 500", "chunk-2")
+        failure = manager.classify_failure("Verification failed: expected 200 got 500", "subtask-2")
         assert failure == FailureType.VERIFICATION_FAILED, "Verification failure not detected"
         print("  ✓ Verification failure classified correctly")
 
         # Test context exhaustion
-        failure = manager.classify_failure("Context length exceeded", "chunk-3")
+        failure = manager.classify_failure("Context length exceeded", "subtask-3")
         assert failure == FailureType.CONTEXT_EXHAUSTED, "Context exhaustion not detected"
         print("  ✓ Context exhaustion classified correctly")
 
@@ -205,27 +205,27 @@ def test_recovery_action_determination():
         manager = RecoveryManager(spec_dir, project_dir)
 
         # Test verification failed with < 3 attempts
-        manager.record_attempt("chunk-1", 1, False, "First try", "Error")
+        manager.record_attempt("subtask-1", 1, False, "First try", "Error")
 
-        action = manager.determine_recovery_action(FailureType.VERIFICATION_FAILED, "chunk-1")
+        action = manager.determine_recovery_action(FailureType.VERIFICATION_FAILED, "subtask-1")
         assert action.action == "retry", "Should retry for first verification failure"
         print("  ✓ Retry action for first failure")
 
         # Test verification failed with >= 3 attempts
-        manager.record_attempt("chunk-1", 2, False, "Second try", "Error")
-        manager.record_attempt("chunk-1", 3, False, "Third try", "Error")
+        manager.record_attempt("subtask-1", 2, False, "Second try", "Error")
+        manager.record_attempt("subtask-1", 3, False, "Third try", "Error")
 
-        action = manager.determine_recovery_action(FailureType.VERIFICATION_FAILED, "chunk-1")
+        action = manager.determine_recovery_action(FailureType.VERIFICATION_FAILED, "subtask-1")
         assert action.action == "skip", "Should skip after 3 attempts"
         print("  ✓ Skip action after 3 attempts")
 
         # Test circular fix
-        action = manager.determine_recovery_action(FailureType.CIRCULAR_FIX, "chunk-1")
+        action = manager.determine_recovery_action(FailureType.CIRCULAR_FIX, "subtask-1")
         assert action.action == "skip", "Should skip for circular fix"
         print("  ✓ Skip action for circular fix")
 
         # Test context exhausted
-        action = manager.determine_recovery_action(FailureType.CONTEXT_EXHAUSTED, "chunk-2")
+        action = manager.determine_recovery_action(FailureType.CONTEXT_EXHAUSTED, "subtask-2")
         assert action.action == "continue", "Should continue for context exhaustion"
         print("  ✓ Continue action for context exhaustion")
 
@@ -255,7 +255,7 @@ def test_good_commit_tracking():
         commit_hash = result.stdout.strip()
 
         # Record good commit
-        manager.record_good_commit(commit_hash, "chunk-1")
+        manager.record_good_commit(commit_hash, "subtask-1")
 
         # Verify recorded
         last_good = manager.get_last_good_commit()
@@ -276,7 +276,7 @@ def test_good_commit_tracking():
         )
         commit_hash2 = result.stdout.strip()
 
-        manager.record_good_commit(commit_hash2, "chunk-2")
+        manager.record_good_commit(commit_hash2, "subtask-2")
 
         # Last good should be updated
         last_good = manager.get_last_good_commit()
@@ -288,7 +288,7 @@ def test_good_commit_tracking():
         cleanup_test_environment(temp_dir)
 
 
-def test_mark_chunk_stuck():
+def test_mark_subtask_stuck():
     """Test marking chunks as stuck."""
     print("TEST: Mark Chunk Stuck")
 
@@ -298,21 +298,21 @@ def test_mark_chunk_stuck():
         manager = RecoveryManager(spec_dir, project_dir)
 
         # Record some attempts
-        manager.record_attempt("chunk-1", 1, False, "Try 1", "Error 1")
-        manager.record_attempt("chunk-1", 2, False, "Try 2", "Error 2")
-        manager.record_attempt("chunk-1", 3, False, "Try 3", "Error 3")
+        manager.record_attempt("subtask-1", 1, False, "Try 1", "Error 1")
+        manager.record_attempt("subtask-1", 2, False, "Try 2", "Error 2")
+        manager.record_attempt("subtask-1", 3, False, "Try 3", "Error 3")
 
         # Mark as stuck
-        manager.mark_chunk_stuck("chunk-1", "Circular fix after 3 attempts")
+        manager.mark_subtask_stuck("subtask-1", "Circular fix after 3 attempts")
 
         # Verify stuck
-        stuck_chunks = manager.get_stuck_chunks()
-        assert len(stuck_chunks) == 1, "Stuck chunk not recorded"
-        assert stuck_chunks[0]["chunk_id"] == "chunk-1", "Wrong chunk marked as stuck"
-        assert "Circular fix" in stuck_chunks[0]["reason"], "Reason not recorded"
+        stuck_subtasks = manager.get_stuck_subtasks()
+        assert len(stuck_subtasks) == 1, "Stuck subtask not recorded"
+        assert stuck_subtasks[0]["subtask_id"] == "subtask-1", "Wrong subtask marked as stuck"
+        assert "Circular fix" in stuck_subtasks[0]["reason"], "Reason not recorded"
 
-        # Check chunk status
-        history = manager.get_chunk_history("chunk-1")
+        # Check subtask status
+        history = manager.get_subtask_history("subtask-1")
         assert history["status"] == "stuck", "Chunk status not updated to stuck"
 
         print("  ✓ Chunk marked as stuck correctly")
@@ -332,11 +332,11 @@ def test_recovery_hints():
         manager = RecoveryManager(spec_dir, project_dir)
 
         # Record some attempts
-        manager.record_attempt("chunk-1", 1, False, "Async/await approach", "Import error")
-        manager.record_attempt("chunk-1", 2, False, "Threading approach", "Thread safety error")
+        manager.record_attempt("subtask-1", 1, False, "Async/await approach", "Import error")
+        manager.record_attempt("subtask-1", 2, False, "Threading approach", "Thread safety error")
 
         # Get hints
-        hints = manager.get_recovery_hints("chunk-1")
+        hints = manager.get_recovery_hints("subtask-1")
 
         assert len(hints) > 0, "No hints generated"
         assert "Previous attempts: 2" in hints[0], "Attempt count not in hints"
@@ -368,7 +368,7 @@ def run_all_tests():
         test_failure_classification,
         test_recovery_action_determination,
         test_good_commit_tracking,
-        test_mark_chunk_stuck,
+        test_mark_subtask_stuck,
         test_recovery_hints,
     ]
 

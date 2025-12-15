@@ -137,7 +137,7 @@ class TestSetupWorkspace:
 
     def test_setup_direct_mode(self, temp_git_repo: Path):
         """Direct mode returns project dir and no manager."""
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.DIRECT,
@@ -148,7 +148,7 @@ class TestSetupWorkspace:
 
     def test_setup_isolated_mode(self, temp_git_repo: Path):
         """Isolated mode creates worktree and returns manager."""
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             TEST_SPEC_NAME,
             WorkspaceMode.ISOLATED,
@@ -177,7 +177,7 @@ class TestWorkspaceUtilities:
     def test_per_spec_worktree_naming(self, temp_git_repo: Path):
         """Per-spec architecture uses spec name for worktree directory."""
         spec_name = "my-spec-001"
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             spec_name,
             WorkspaceMode.ISOLATED,
@@ -194,7 +194,7 @@ class TestWorkspaceIntegration:
     def test_isolated_workflow(self, temp_git_repo: Path):
         """Full isolated workflow: setup -> work -> finalize."""
         # Setup isolated workspace
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -212,7 +212,7 @@ class TestWorkspaceIntegration:
     def test_direct_workflow(self, temp_git_repo: Path):
         """Full direct workflow: setup -> work."""
         # Setup direct workspace
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.DIRECT,
@@ -230,7 +230,7 @@ class TestWorkspaceIntegration:
     def test_isolated_merge(self, temp_git_repo: Path):
         """Can merge isolated workspace back to main."""
         # Setup
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -258,7 +258,7 @@ class TestWorkspaceCleanup:
 
     def test_cleanup_after_merge(self, temp_git_repo: Path):
         """Workspace is cleaned up after merge with delete_after=True."""
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -276,7 +276,7 @@ class TestWorkspaceCleanup:
 
     def test_workspace_preserved_after_merge_no_delete(self, temp_git_repo: Path):
         """Workspace preserved after merge with delete_after=False."""
-        working_dir, manager = setup_workspace(
+        working_dir, manager, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -299,7 +299,7 @@ class TestWorkspaceReuse:
     def test_reuse_existing_workspace(self, temp_git_repo: Path):
         """Can reuse existing workspace on second setup."""
         # First setup
-        working_dir1, manager1 = setup_workspace(
+        working_dir1, manager1, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -309,7 +309,7 @@ class TestWorkspaceReuse:
         (working_dir1 / "marker.txt").write_text("marker")
 
         # Second setup (should reuse)
-        working_dir2, manager2 = setup_workspace(
+        working_dir2, manager2, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
@@ -342,7 +342,7 @@ class TestPerSpecWorktreeName:
     def test_worktree_named_after_spec(self, temp_git_repo: Path):
         """Worktree is named after the spec."""
         spec_name = "spec-1"
-        working_dir, _ = setup_workspace(
+        working_dir, _, _ = setup_workspace(
             temp_git_repo,
             spec_name,
             WorkspaceMode.ISOLATED,
@@ -353,13 +353,13 @@ class TestPerSpecWorktreeName:
 
     def test_different_specs_get_different_worktrees(self, temp_git_repo: Path):
         """Different specs create separate worktrees."""
-        working_dir1, _ = setup_workspace(
+        working_dir1, _, _ = setup_workspace(
             temp_git_repo,
             "spec-1",
             WorkspaceMode.ISOLATED,
         )
 
-        working_dir2, _ = setup_workspace(
+        working_dir2, _, _ = setup_workspace(
             temp_git_repo,
             "spec-2",
             WorkspaceMode.ISOLATED,
@@ -372,7 +372,7 @@ class TestPerSpecWorktreeName:
 
     def test_worktree_path_in_worktrees_dir(self, temp_git_repo: Path):
         """Worktree is created in .worktrees directory."""
-        working_dir, _ = setup_workspace(
+        working_dir, _, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,

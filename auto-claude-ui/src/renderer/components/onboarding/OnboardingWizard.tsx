@@ -81,27 +81,41 @@ export function OnboardingWizard({
     }
   }, [currentStepIndex]);
 
-  const skipWizard = useCallback(async () => {
-    // Mark onboarding as completed and close - save to disk AND update local state
-    await window.electronAPI.saveSettings({ onboardingCompleted: true });
-    updateSettings({ onboardingCompleted: true });
-    onOpenChange(false);
-    resetWizard();
-  }, [updateSettings, onOpenChange]);
-
-  const finishWizard = useCallback(async () => {
-    // Mark onboarding as completed - save to disk AND update local state
-    await window.electronAPI.saveSettings({ onboardingCompleted: true });
-    updateSettings({ onboardingCompleted: true });
-    onOpenChange(false);
-    resetWizard();
-  }, [updateSettings, onOpenChange]);
-
-  // Reset wizard state (for re-running)
+  // Reset wizard state (for re-running) - defined before skipWizard/finishWizard that use it
   const resetWizard = useCallback(() => {
     setCurrentStepIndex(0);
     setCompletedSteps(new Set());
   }, []);
+
+  const skipWizard = useCallback(async () => {
+    // Mark onboarding as completed and close - save to disk AND update local state
+    try {
+      const result = await window.electronAPI.saveSettings({ onboardingCompleted: true });
+      if (!result?.success) {
+        console.error('Failed to save onboarding completion:', result?.error);
+      }
+    } catch (err) {
+      console.error('Error saving onboarding completion:', err);
+    }
+    updateSettings({ onboardingCompleted: true });
+    onOpenChange(false);
+    resetWizard();
+  }, [updateSettings, onOpenChange, resetWizard]);
+
+  const finishWizard = useCallback(async () => {
+    // Mark onboarding as completed - save to disk AND update local state
+    try {
+      const result = await window.electronAPI.saveSettings({ onboardingCompleted: true });
+      if (!result?.success) {
+        console.error('Failed to save onboarding completion:', result?.error);
+      }
+    } catch (err) {
+      console.error('Error saving onboarding completion:', err);
+    }
+    updateSettings({ onboardingCompleted: true });
+    onOpenChange(false);
+    resetWizard();
+  }, [updateSettings, onOpenChange, resetWizard]);
 
   // Handle opening task creator from within wizard
   const handleOpenTaskCreator = useCallback(() => {

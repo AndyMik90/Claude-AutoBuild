@@ -3,12 +3,18 @@
 #
 # Services:
 #   - falkordb: Graph database for Graphiti memory integration
+#   - graphiti-mcp: MCP server for agent access to knowledge graph
 #
 # Usage:
-#   docker-compose up -d falkordb      # Start FalkorDB
+#   docker-compose up -d               # Start all services
+#   docker-compose up -d falkordb      # Start FalkorDB only
 #   docker-compose ps                  # Check status
-#   docker-compose logs falkordb       # View logs
+#   docker-compose logs -f             # View logs
 #   docker-compose down                # Stop services
+#
+# Note: Set OPENAI_API_KEY in your environment or .env file for the MCP server
+
+name: auto-claude
 
 services:
   falkordb:
@@ -19,13 +25,38 @@ services:
     volumes:
       - falkordb_data:/data
     environment:
-      # FalkorDB configuration
       - FALKORDB_ARGS=--appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  graphiti-mcp:
+    image: falkordb/graphiti-knowledge-graph-mcp:latest
+    container_name: auto-claude-graphiti-mcp
+    ports:
+      - "${GRAPHITI_MCP_PORT:-8000}:8000"
+    environment:
+      # Required: Database type
+      - DATABASE_TYPE=falkordb
+      # FalkorDB connection (uses docker network)
+      - FALKORDB_URI=redis://falkordb:6379
+      # OpenAI API key for embeddings/LLM (required)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Optional: Custom model settings
+      - MODEL_NAME=${GRAPHITI_MODEL_NAME:-gpt-4o-mini}
+      - EMBEDDING_MODEL=${GRAPHITI_EMBEDDING_MODEL:-text-embedding-3-small}
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:
