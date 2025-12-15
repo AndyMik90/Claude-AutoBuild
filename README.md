@@ -58,7 +58,7 @@ Docker runs the FalkorDB database that powers Auto Claude's cross-session memory
 
 > **Using the Desktop UI?** It automatically detects Docker status and offers one-click FalkorDB setup. No terminal commands needed!
 
-📚 **For detailed installation steps, troubleshooting, and advanced configuration, see [docs/DOCKER-SETUP.md](docs/DOCKER-SETUP.md)**
+📚 **For detailed installation steps, troubleshooting, and advanced configuration, see [guides/DOCKER-SETUP.md](guides/DOCKER-SETUP.md)**
 
 ---
 
@@ -154,28 +154,7 @@ See exactly what Auto Claude understands about your project — the tech stack, 
 
 ## CLI Usage (Terminal-Only)
 
-For terminal-based workflows, headless servers, or CI/CD integration, see **[auto-claude/CLI-USAGE.md](auto-claude/CLI-USAGE.md)**.
-
-## Auto Claude Memory Layer
-
-The Memory Layer enables context retention across coding sessions using a graph database. Agents remember insights from previous sessions, discovered codebase patterns persist and are reusable, and historical context helps agents make better decisions.
-
-### Architecture
-
-- **Backend**: FalkorDB (graph database) via Docker
-- **Library**: Graphiti for knowledge graph operations
-- **Providers**: OpenAI, Anthropic, Azure OpenAI, or Ollama (local/offline)
-
-### Provider Combinations
-
-| Setup | LLM | Embeddings | Notes |
-|-------|-----|------------|-------|
-| **OpenAI** | OpenAI | OpenAI | Simplest - single API key |
-| **Anthropic + Voyage** | Anthropic | Voyage AI | High quality |
-| **Ollama** | Ollama | Ollama | Fully offline |
-| **Azure** | Azure OpenAI | Azure OpenAI | Enterprise |
-
-See `auto-claude/.env.example` for complete configuration options.
+For terminal-based workflows, headless servers, or CI/CD integration, see **[guides/CLI-USAGE.md](guides/CLI-USAGE.md)**.
 
 ## ⚙️ How It Works
 
@@ -213,6 +192,22 @@ Three-layer defense keeps your code safe:
 - **OS Sandbox** — Bash commands run in isolation
 - **Filesystem Restrictions** — Operations limited to project directory
 - **Command Allowlist** — Only approved commands based on your project's stack
+
+### 🧠 Memory Layer
+
+The Memory Layer is a **hybrid RAG system** combining graph nodes with semantic search to deliver the best possible context during AI coding. Agents remember insights from previous sessions, discovered codebase patterns persist and are reusable, and historical context helps agents make smarter decisions.
+
+**Architecture:**
+- **Backend**: FalkorDB (graph database) via Docker
+- **Library**: Graphiti for knowledge graph operations
+- **Providers**: OpenAI, Anthropic, Azure OpenAI, or Ollama (local/offline)
+
+| Setup | LLM | Embeddings | Notes |
+|-------|-----|------------|-------|
+| **OpenAI** | OpenAI | OpenAI | Simplest - single API key |
+| **Anthropic + Voyage** | Anthropic | Voyage AI | High quality |
+| **Ollama** | Ollama | Ollama | Fully offline |
+| **Azure** | Azure OpenAI | Azure OpenAI | Enterprise |
 
 ## Project Structure
 
