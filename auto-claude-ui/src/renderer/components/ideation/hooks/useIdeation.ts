@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   useIdeationStore,
   loadIdeation,
@@ -17,7 +17,12 @@ import { useClaudeTokenCheck } from '../../EnvConfigModal';
 import type { Idea, IdeationType } from '../../../../shared/types';
 import { ALL_IDEATION_TYPES } from '../constants';
 
-export function useIdeation(projectId: string) {
+interface UseIdeationOptions {
+  onGoToTask?: (taskId: string) => void;
+}
+
+export function useIdeation(projectId: string, options: UseIdeationOptions = {}) {
+  const { onGoToTask } = options;
   const session = useIdeationStore((state) => state.session);
   const generationStatus = useIdeationStore((state) => state.generationStatus);
   const config = useIdeationStore((state) => state.config);
@@ -110,11 +115,21 @@ export function useIdeation(projectId: string) {
 
   const handleConvertToTask = async (idea: Idea) => {
     const result = await window.electronAPI.convertIdeaToTask(projectId, idea.id);
-    if (result.success) {
-      useIdeationStore.getState().updateIdeaStatus(idea.id, 'converted');
+    if (result.success && result.data) {
+      // Store the taskId on the idea so we can navigate to it later
+      useIdeationStore.getState().setIdeaTaskId(idea.id, result.data.id);
       loadTasks(projectId);
     }
   };
+
+  const handleGoToTask = useCallback(
+    (taskId: string) => {
+      if (onGoToTask) {
+        onGoToTask(taskId);
+      }
+    },
+    [onGoToTask]
+  );
 
   const handleDismiss = async (idea: Idea) => {
     const result = await window.electronAPI.dismissIdea(projectId, idea.id);
@@ -174,6 +189,7 @@ export function useIdeation(projectId: string) {
     handleAddMoreIdeas,
     toggleTypeToAdd,
     handleConvertToTask,
+    handleGoToTask,
     handleDismiss,
     toggleIdeationType,
 

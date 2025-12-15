@@ -31,6 +31,7 @@ interface GenerationProgressScreenProps {
   onSelectIdea: (idea: Idea | null) => void;
   selectedIdea: Idea | null;
   onConvert: (idea: Idea) => void;
+  onGoToTask?: (taskId: string) => void;
   onDismiss: (idea: Idea) => void;
   onStop: () => void;
 }
@@ -44,6 +45,7 @@ export function GenerationProgressScreen({
   onSelectIdea,
   selectedIdea,
   onConvert,
+  onGoToTask,
   onDismiss,
   onStop
 }: GenerationProgressScreenProps) {
@@ -191,6 +193,7 @@ export function GenerationProgressScreen({
                       idea={idea}
                       onClick={() => onSelectIdea(selectedIdea?.id === idea.id ? null : idea)}
                       onConvert={onConvert}
+                      onGoToTask={onGoToTask}
                       onDismiss={onDismiss}
                     />
                   ))}
@@ -236,6 +239,7 @@ export function GenerationProgressScreen({
           idea={selectedIdea}
           onClose={() => onSelectIdea(null)}
           onConvert={onConvert}
+          onGoToTask={onGoToTask}
           onDismiss={onDismiss}
         />
       )}

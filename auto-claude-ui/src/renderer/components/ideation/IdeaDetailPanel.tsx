@@ -1,4 +1,4 @@
-import { ChevronRight, Lightbulb, Play, X } from 'lucide-react';
+import { ChevronRight, ExternalLink, Lightbulb, Play, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import {
@@ -27,10 +27,11 @@ interface IdeaDetailPanelProps {
   idea: Idea;
   onClose: () => void;
   onConvert: (idea: Idea) => void;
+  onGoToTask?: (taskId: string) => void;
   onDismiss: (idea: Idea) => void;
 }
 
-export function IdeaDetailPanel({ idea, onClose, onConvert, onDismiss }: IdeaDetailPanelProps) {
+export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismiss }: IdeaDetailPanelProps) {
   const isDismissed = idea.status === 'dismissed';
   const isConverted = idea.status === 'converted';
 
@@ -99,6 +100,14 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onDismiss }: IdeaDet
           >
             <X className="h-4 w-4 mr-2" />
             Dismiss Idea
+          </Button>
+        </div>
+      )}
+      {isConverted && idea.taskId && onGoToTask && (
+        <div className="flex-shrink-0 p-4 border-t border-border">
+          <Button className="w-full" onClick={() => onGoToTask(idea.taskId!)}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Go to Task
           </Button>
         </div>
       )}

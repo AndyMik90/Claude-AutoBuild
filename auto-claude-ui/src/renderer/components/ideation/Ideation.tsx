@@ -13,9 +13,10 @@ import { ALL_IDEATION_TYPES } from './constants';
 
 interface IdeationProps {
   projectId: string;
+  onGoToTask?: (taskId: string) => void;
 }
 
-export function Ideation({ projectId }: IdeationProps) {
+export function Ideation({ projectId, onGoToTask }: IdeationProps) {
   const {
     session,
     generationStatus,
@@ -50,10 +51,11 @@ export function Ideation({ projectId }: IdeationProps) {
     handleAddMoreIdeas,
     toggleTypeToAdd,
     handleConvertToTask,
+    handleGoToTask,
     handleDismiss,
     toggleIdeationType,
     getIdeasByType
-  } = useIdeation(projectId);
+  } = useIdeation(projectId, { onGoToTask });
 
   // Show generation progress with streaming ideas
   if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete' && generationStatus.phase !== 'error') {
@@ -67,6 +69,7 @@ export function Ideation({ projectId }: IdeationProps) {
         onSelectIdea={setSelectedIdea}
         selectedIdea={selectedIdea}
         onConvert={handleConvertToTask}
+        onGoToTask={handleGoToTask}
         onDismiss={handleDismiss}
         onStop={handleStop}
       />
@@ -142,6 +145,7 @@ export function Ideation({ projectId }: IdeationProps) {
                   idea={idea}
                   onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                   onConvert={handleConvertToTask}
+                  onGoToTask={handleGoToTask}
                   onDismiss={handleDismiss}
                 />
               ))}
@@ -170,6 +174,7 @@ export function Ideation({ projectId }: IdeationProps) {
                       idea={idea}
                       onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                       onConvert={handleConvertToTask}
+                      onGoToTask={handleGoToTask}
                       onDismiss={handleDismiss}
                     />
                   ))}
@@ -185,6 +190,7 @@ export function Ideation({ projectId }: IdeationProps) {
           idea={selectedIdea}
           onClose={() => setSelectedIdea(null)}
           onConvert={handleConvertToTask}
+          onGoToTask={handleGoToTask}
           onDismiss={handleDismiss}
         />
       )}

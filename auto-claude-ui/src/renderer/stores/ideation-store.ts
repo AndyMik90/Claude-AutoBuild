@@ -27,6 +27,7 @@ interface IdeationState {
   setGenerationStatus: (status: IdeationGenerationStatus) => void;
   setConfig: (config: Partial<IdeationConfig>) => void;
   updateIdeaStatus: (ideaId: string, status: IdeationStatus) => void;
+  setIdeaTaskId: (ideaId: string, taskId: string) => void;
   dismissIdea: (ideaId: string) => void;
   dismissAllIdeas: () => void;
   clearSession: () => void;
@@ -86,6 +87,25 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
       const updatedIdeas = state.session.ideas.map((idea) =>
         idea.id === ideaId ? { ...idea, status } : idea
+      );
+
+      return {
+        session: {
+          ...state.session,
+          ideas: updatedIdeas,
+          updatedAt: new Date()
+        }
+      };
+    }),
+
+  setIdeaTaskId: (ideaId, taskId) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const updatedIdeas = state.session.ideas.map((idea) =>
+        idea.id === ideaId
+          ? { ...idea, taskId, status: 'converted' as IdeationStatus }
+          : idea
       );
 
       return {

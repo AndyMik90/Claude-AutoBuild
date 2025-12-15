@@ -192,6 +192,16 @@ export function App() {
     setPendingProject(null);
   };
 
+  const handleGoToTask = (taskId: string) => {
+    // Switch to kanban view
+    setActiveView('kanban');
+    // Find and select the task
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      setSelectedTask(task);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="flex h-screen bg-background">
@@ -264,7 +274,7 @@ export function App() {
                   <Context projectId={selectedProjectId} />
                 )}
                 {activeView === 'ideation' && selectedProjectId && (
-                  <Ideation projectId={selectedProjectId} />
+                  <Ideation projectId={selectedProjectId} onGoToTask={handleGoToTask} />
                 )}
                 {activeView === 'insights' && selectedProjectId && (
                   <Insights projectId={selectedProjectId} />

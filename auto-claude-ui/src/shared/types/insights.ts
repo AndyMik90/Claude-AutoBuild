@@ -35,6 +35,7 @@ export interface IdeaBase {
   rationale: string;
   status: IdeationStatus;
   createdAt: Date;
+  taskId?: string; // ID of the created task when status is 'converted'
 }
 
 export interface CodeImprovementIdea extends IdeaBase {
