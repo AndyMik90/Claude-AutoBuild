@@ -8,7 +8,6 @@ Shared utility functions for the Auto Claude CLI.
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Ensure parent directory is in path for imports (before other imports)
 _PARENT_DIR = Path(__file__).parent.parent
@@ -16,20 +15,17 @@ if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
 from dotenv import load_dotenv
-
 from graphiti_config import get_graphiti_status
 from init import init_auto_claude_dir
-from linear_updater import is_linear_enabled
 from linear_integration import LinearManager
+from linear_updater import is_linear_enabled
 from ui import (
     Icons,
-    icon,
-    box,
     bold,
+    box,
+    icon,
     muted,
 )
-from workspace import get_existing_build_worktree
-
 
 # Configuration
 DEFAULT_MODEL = "claude-opus-4-5-20251101"
@@ -81,7 +77,9 @@ def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
     return project_dir / ".auto-claude" / "specs"
 
 
-def find_spec(project_dir: Path, spec_identifier: str, dev_mode: bool = False) -> Optional[Path]:
+def find_spec(
+    project_dir: Path, spec_identifier: str, dev_mode: bool = False
+) -> Path | None:
     """
     Find a spec by number or full name.
 
@@ -140,12 +138,16 @@ def validate_environment(spec_dir: Path) -> bool:
     if is_linear_enabled():
         print("Linear integration: ENABLED")
         # Show Linear project status if initialized
-        project_dir = spec_dir.parent.parent  # auto-claude/specs/001-name -> project root
+        project_dir = (
+            spec_dir.parent.parent
+        )  # auto-claude/specs/001-name -> project root
         linear_manager = LinearManager(spec_dir, project_dir)
         if linear_manager.is_initialized:
             summary = linear_manager.get_progress_summary()
             print(f"  Project: {summary.get('project_name', 'Unknown')}")
-            print(f"  Issues: {summary.get('mapped_subtasks', 0)}/{summary.get('total_subtasks', 0)} mapped")
+            print(
+                f"  Issues: {summary.get('mapped_subtasks', 0)}/{summary.get('total_subtasks', 0)} mapped"
+            )
         else:
             print("  Status: Will be initialized during planner session")
     else:
@@ -158,7 +160,9 @@ def validate_environment(spec_dir: Path) -> bool:
         print(f"  Database: {graphiti_status['database']}")
         print(f"  Host: {graphiti_status['host']}:{graphiti_status['port']}")
     elif graphiti_status["enabled"]:
-        print(f"Graphiti memory: CONFIGURED but unavailable ({graphiti_status['reason']})")
+        print(
+            f"Graphiti memory: CONFIGURED but unavailable ({graphiti_status['reason']})"
+        )
     else:
         print("Graphiti memory: DISABLED (set GRAPHITI_ENABLED=true to enable)")
 
@@ -178,7 +182,7 @@ def print_banner() -> None:
     print(box(content, width=70, style="heavy"))
 
 
-def get_project_dir(provided_dir: Optional[Path]) -> Path:
+def get_project_dir(provided_dir: Path | None) -> Path:
     """
     Determine the project directory.
 

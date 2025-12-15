@@ -5,19 +5,20 @@ Insights Runner - AI chat for codebase insights using Claude SDK
 This script provides an AI-powered chat interface for asking questions
 about a codebase. It can also suggest tasks based on the conversation.
 """
+
+import argparse
 import asyncio
+import json
 import os
 import sys
-import json
-import argparse
 from pathlib import Path
-from typing import Optional
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
@@ -27,9 +28,9 @@ except ImportError:
 from debug import (
     debug,
     debug_detailed,
-    debug_success,
     debug_error,
     debug_section,
+    debug_success,
 )
 
 
@@ -50,8 +51,10 @@ def load_project_context(project_dir: str) -> str:
                 "services": list(index.get("services", {}).keys()),
                 "infrastructure": index.get("infrastructure", {}),
             }
-            context_parts.append(f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```")
-        except Exception as e:
+            context_parts.append(
+                f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```"
+            )
+        except Exception:
             pass
 
     # Load roadmap if available
@@ -62,9 +65,14 @@ def load_project_context(project_dir: str) -> str:
                 roadmap = json.load(f)
             # Summarize roadmap
             features = roadmap.get("features", [])
-            feature_summary = [{"title": f.get("title", ""), "status": f.get("status", "")} for f in features[:10]]
-            context_parts.append(f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```")
-        except Exception as e:
+            feature_summary = [
+                {"title": f.get("title", ""), "status": f.get("status", "")}
+                for f in features[:10]
+            ]
+            context_parts.append(
+                f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```"
+            )
+        except Exception:
             pass
 
     # Load existing tasks
@@ -74,11 +82,17 @@ def load_project_context(project_dir: str) -> str:
             task_dirs = [d for d in tasks_path.iterdir() if d.is_dir()]
             task_names = [d.name for d in task_dirs[:10]]
             if task_names:
-                context_parts.append(f"## Existing Tasks/Specs\n- " + "\n- ".join(task_names))
-        except Exception as e:
+                context_parts.append(
+                    "## Existing Tasks/Specs\n- " + "\n- ".join(task_names)
+                )
+        except Exception:
             pass
 
-    return "\n\n".join(context_parts) if context_parts else "No project context available yet."
+    return (
+        "\n\n".join(context_parts)
+        if context_parts
+        else "No project context available yet."
+    )
 
 
 def build_system_prompt(project_dir: str) -> str:
@@ -116,7 +130,10 @@ async def run_with_sdk(project_dir: str, message: str, history: list) -> None:
 
     oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
     if not oauth_token:
-        print("CLAUDE_CODE_OAUTH_TOKEN not set, falling back to simple mode", file=sys.stderr)
+        print(
+            "CLAUDE_CODE_OAUTH_TOKEN not set, falling back to simple mode",
+            file=sys.stderr,
+        )
         run_simple(project_dir, message, history)
         return
 
@@ -164,15 +181,19 @@ Current question: {message}"""
 
             async for msg in client.receive_response():
                 msg_type = type(msg).__name__
-                debug_detailed("insights_runner", f"Received message", msg_type=msg_type)
+                debug_detailed("insights_runner", "Received message", msg_type=msg_type)
 
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                     for block in msg.content:
                         block_type = type(block).__name__
-                        debug_detailed("insights_runner", f"Processing block", block_type=block_type)
+                        debug_detailed(
+                            "insights_runner", "Processing block", block_type=block_type
+                        )
                         if block_type == "TextBlock" and hasattr(block, "text"):
                             text = block.text
-                            debug_detailed("insights_runner", f"Text block", text_length=len(text))
+                            debug_detailed(
+                                "insights_runner", "Text block", text_length=len(text)
+                            )
                             # Print text with newline to ensure proper line separation for parsing
                             print(text, flush=True)
                             response_text += text
@@ -197,23 +218,34 @@ Current question: {message}"""
                                         tool_input = inp["path"]
 
                             current_tool = tool_name
-                            print(f"__TOOL_START__:{json.dumps({'name': tool_name, 'input': tool_input})}", flush=True)
+                            print(
+                                f"__TOOL_START__:{json.dumps({'name': tool_name, 'input': tool_input})}",
+                                flush=True,
+                            )
 
                 elif msg_type == "ToolResult":
                     # Tool finished executing
                     if current_tool:
-                        print(f"__TOOL_END__:{json.dumps({'name': current_tool})}", flush=True)
+                        print(
+                            f"__TOOL_END__:{json.dumps({'name': current_tool})}",
+                            flush=True,
+                        )
                         current_tool = None
 
             # Ensure we have a newline at the end
-            if response_text and not response_text.endswith('\n'):
+            if response_text and not response_text.endswith("\n"):
                 print()
 
-            debug("insights_runner", "Response complete", response_length=len(response_text))
+            debug(
+                "insights_runner",
+                "Response complete",
+                response_length=len(response_text),
+            )
 
     except Exception as e:
         print(f"Error using Claude SDK: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         run_simple(project_dir, message, history)
 
@@ -242,25 +274,27 @@ Assistant:"""
     try:
         # Try to use claude CLI with --print for simple output
         result = subprocess.run(
-            ['claude', '--print', '-p', full_prompt],
+            ["claude", "--print", "-p", full_prompt],
             capture_output=True,
             text=True,
             cwd=project_dir,
-            timeout=120
+            timeout=120,
         )
 
         if result.returncode == 0:
             print(result.stdout)
         else:
             # Fallback response if claude CLI fails
-            print(f"I apologize, but I encountered an issue processing your request. "
-                  f"Please ensure Claude CLI is properly configured.\n\n"
-                  f"Your question was: {message}\n\n"
-                  f"Based on the project context available, I can help you with:\n"
-                  f"- Understanding the codebase structure\n"
-                  f"- Suggesting improvements\n"
-                  f"- Planning new features\n\n"
-                  f"Please try again or check your Claude CLI configuration.")
+            print(
+                f"I apologize, but I encountered an issue processing your request. "
+                f"Please ensure Claude CLI is properly configured.\n\n"
+                f"Your question was: {message}\n\n"
+                f"Based on the project context available, I can help you with:\n"
+                f"- Understanding the codebase structure\n"
+                f"- Suggesting improvements\n"
+                f"- Planning new features\n\n"
+                f"Please try again or check your Claude CLI configuration."
+            )
 
     except subprocess.TimeoutExpired:
         print("Request timed out. Please try a shorter query.")
@@ -282,9 +316,12 @@ def main():
     project_dir = args.project_dir
     user_message = args.message
 
-    debug("insights_runner", "Arguments",
-          project_dir=project_dir,
-          message_length=len(user_message))
+    debug(
+        "insights_runner",
+        "Arguments",
+        project_dir=project_dir,
+        message_length=len(user_message),
+    )
 
     try:
         history = json.loads(args.history)

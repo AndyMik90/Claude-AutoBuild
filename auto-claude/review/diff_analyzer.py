@@ -7,10 +7,11 @@ including section extraction, table parsing, and text truncation.
 """
 
 import re
-from typing import List, Tuple
 
 
-def extract_section(content: str, header: str, next_header_pattern: str = r"^## ") -> str:
+def extract_section(
+    content: str, header: str, next_header_pattern: str = r"^## "
+) -> str:
     """
     Extract content from a markdown section.
 
@@ -35,7 +36,7 @@ def extract_section(content: str, header: str, next_header_pattern: str = r"^## 
     # Find the next section header
     next_match = re.search(next_header_pattern, remaining, re.MULTILINE)
     if next_match:
-        section = remaining[:next_match.start()]
+        section = remaining[: next_match.start()]
     else:
         section = remaining
 
@@ -49,14 +50,14 @@ def truncate_text(text: str, max_lines: int = 5, max_chars: int = 300) -> str:
     result = "\n".join(truncated_lines)
 
     if len(result) > max_chars:
-        result = result[:max_chars - 3] + "..."
+        result = result[: max_chars - 3] + "..."
     elif len(lines) > max_lines:
         result += "\n..."
 
     return result
 
 
-def extract_table_rows(content: str, table_header: str) -> List[Tuple[str, str, str]]:
+def extract_table_rows(content: str, table_header: str) -> list[tuple[str, str, str]]:
     """
     Extract rows from a markdown table.
 
@@ -107,7 +108,7 @@ def extract_title(content: str) -> str:
     return title_match.group(1) if title_match else "Specification"
 
 
-def extract_checkboxes(content: str, max_items: int = 10) -> List[str]:
+def extract_checkboxes(content: str, max_items: int = 10) -> list[str]:
     """
     Extract checkbox items from markdown content.
 

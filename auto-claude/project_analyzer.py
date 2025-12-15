@@ -29,29 +29,29 @@ needed for the detected tech stack, while blocking dangerous operations.
 
 # Re-export all public API from the project module
 from project import (
+    # Command registries
+    BASE_COMMANDS,
+    VALIDATED_COMMANDS,
+    CustomScripts,
     # Main classes
     ProjectAnalyzer,
     SecurityProfile,
     TechnologyStack,
-    CustomScripts,
     # Utility functions
     get_or_create_profile,
     is_command_allowed,
     needs_validation,
-    # Command registries
-    BASE_COMMANDS,
-    VALIDATED_COMMANDS,
 )
 
 # Also re-export command registries for backward compatibility
 from project.command_registry import (
-    LANGUAGE_COMMANDS,
-    PACKAGE_MANAGER_COMMANDS,
-    FRAMEWORK_COMMANDS,
-    DATABASE_COMMANDS,
-    INFRASTRUCTURE_COMMANDS,
     CLOUD_COMMANDS,
     CODE_QUALITY_COMMANDS,
+    DATABASE_COMMANDS,
+    FRAMEWORK_COMMANDS,
+    INFRASTRUCTURE_COMMANDS,
+    LANGUAGE_COMMANDS,
+    PACKAGE_MANAGER_COMMANDS,
     VERSION_MANAGER_COMMANDS,
 )
 

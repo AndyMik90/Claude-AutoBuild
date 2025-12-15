@@ -8,6 +8,7 @@ Detects frameworks and libraries from package dependencies
 
 import re
 from pathlib import Path
+
 from .config_parser import ConfigParser
 
 
@@ -134,7 +135,7 @@ class FrameworkDetector:
             if "project" in toml:
                 for dep in toml["project"].get("dependencies", []):
                     # Parse "package>=1.0" style
-                    match = re.match(r'^([a-zA-Z0-9_-]+)', dep)
+                    match = re.match(r"^([a-zA-Z0-9_-]+)", dep)
                     if match:
                         python_deps.add(match.group(1).lower())
 
@@ -142,18 +143,22 @@ class FrameworkDetector:
             if "project" in toml and "optional-dependencies" in toml["project"]:
                 for group_deps in toml["project"]["optional-dependencies"].values():
                     for dep in group_deps:
-                        match = re.match(r'^([a-zA-Z0-9_-]+)', dep)
+                        match = re.match(r"^([a-zA-Z0-9_-]+)", dep)
                         if match:
                             python_deps.add(match.group(1).lower())
 
         # Parse requirements.txt
-        for req_file in ["requirements.txt", "requirements-dev.txt", "requirements/dev.txt"]:
+        for req_file in [
+            "requirements.txt",
+            "requirements-dev.txt",
+            "requirements/dev.txt",
+        ]:
             content = self.parser.read_text(req_file)
             if content:
                 for line in content.splitlines():
                     line = line.strip()
                     if line and not line.startswith("#") and not line.startswith("-"):
-                        match = re.match(r'^([a-zA-Z0-9_-]+)', line)
+                        match = re.match(r"^([a-zA-Z0-9_-]+)", line)
                         if match:
                             python_deps.add(match.group(1).lower())
 

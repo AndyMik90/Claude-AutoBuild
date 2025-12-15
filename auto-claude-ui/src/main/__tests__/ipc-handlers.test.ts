@@ -43,6 +43,7 @@ vi.mock('electron', () => {
         if (name === 'userData') return path.join(TEST_DIR, 'userData');
         return TEST_DIR;
       }),
+      getAppPath: vi.fn(() => TEST_DIR),
       getVersion: vi.fn(() => '0.1.0'),
       isPackaged: false
     },
@@ -302,12 +303,15 @@ describe('IPC Handlers', () => {
       const { setupIpcHandlers } = await import('../ipc-handlers');
       setupIpcHandlers(mockAgentManager as never, mockTerminalManager as never, () => mockMainWindow as never, mockPythonEnvManager as never);
 
-      // Add a project first
+      // Create .auto-claude directory first (before adding project so it gets detected)
+      mkdirSync(path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs'), { recursive: true });
+
+      // Add a project - it will detect .auto-claude
       const addResult = await ipcMain.invokeHandler('project:add', {}, TEST_PROJECT_PATH);
       const projectId = (addResult as { data: { id: string } }).data.id;
 
-      // Create a spec directory with implementation plan
-      const specDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '001-test-feature');
+      // Create a spec directory with implementation plan in .auto-claude/specs
+      const specDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '001-test-feature');
       mkdirSync(specDir, { recursive: true });
       writeFileSync(path.join(specDir, 'implementation_plan.json'), JSON.stringify({
         feature: 'Test Feature',
@@ -352,9 +356,12 @@ describe('IPC Handlers', () => {
       });
     });
 
-    it('should create task and start spec creation', async () => {
+    it('should create task in backlog status', async () => {
       const { setupIpcHandlers } = await import('../ipc-handlers');
       setupIpcHandlers(mockAgentManager as never, mockTerminalManager as never, () => mockMainWindow as never, mockPythonEnvManager as never);
+
+      // Create .auto-claude directory first (before adding project so it gets detected)
+      mkdirSync(path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs'), { recursive: true });
 
       // Add a project first
       const addResult = await ipcMain.invokeHandler('project:add', {}, TEST_PROJECT_PATH);
@@ -369,7 +376,9 @@ describe('IPC Handlers', () => {
       );
 
       expect(result).toHaveProperty('success', true);
-      expect(mockAgentManager.startSpecCreation).toHaveBeenCalled();
+      // Task is created in backlog status, spec creation starts when task:start is called
+      const task = (result as { data: { status: string } }).data;
+      expect(task.status).toBe('backlog');
     });
   });
 
@@ -462,12 +471,13 @@ describe('IPC Handlers', () => {
       const { setupIpcHandlers } = await import('../ipc-handlers');
       setupIpcHandlers(mockAgentManager as never, mockTerminalManager as never, () => mockMainWindow as never, mockPythonEnvManager as never);
 
-      mockAgentManager.emit('exit', 'task-1', 0);
+      // Exit event with task-execution processType should result in human_review status
+      mockAgentManager.emit('exit', 'task-1', 0, 'task-execution');
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'task:statusChange',
         'task-1',
-        'ai_review'
+        'human_review'
       );
     });
   });

@@ -6,12 +6,13 @@ Core data structures for representing technology stacks,
 custom scripts, and security profiles.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
 class TechnologyStack:
     """Detected technologies in a project."""
+
     languages: list[str] = field(default_factory=list)
     package_managers: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
@@ -25,6 +26,7 @@ class TechnologyStack:
 @dataclass
 class CustomScripts:
     """Detected custom scripts in the project."""
+
     npm_scripts: list[str] = field(default_factory=list)
     make_targets: list[str] = field(default_factory=list)
     poetry_scripts: list[str] = field(default_factory=list)
@@ -35,6 +37,7 @@ class CustomScripts:
 @dataclass
 class SecurityProfile:
     """Complete security profile for a project."""
+
     # Command sets
     base_commands: set[str] = field(default_factory=set)
     stack_commands: set[str] = field(default_factory=set)
@@ -53,10 +56,10 @@ class SecurityProfile:
     def get_all_allowed_commands(self) -> set[str]:
         """Get the complete set of allowed commands."""
         return (
-            self.base_commands |
-            self.stack_commands |
-            self.script_commands |
-            self.custom_commands
+            self.base_commands
+            | self.stack_commands
+            | self.script_commands
+            | self.custom_commands
         )
 
     def to_dict(self) -> dict:

@@ -28,17 +28,18 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Load .env file
 from dotenv import load_dotenv
+
 env_file = Path(__file__).parent / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
 # Import from refactored modules
 from ideation import (
-    IdeationOrchestrator,
     IdeationConfig,
+    IdeationOrchestrator,
     IdeationPhaseResult,
 )
-from ideation.generator import IDEATION_TYPES, IDEATION_TYPE_LABELS
+from ideation.generator import IDEATION_TYPE_LABELS, IDEATION_TYPES
 
 # Re-export for backward compatibility
 __all__ = [

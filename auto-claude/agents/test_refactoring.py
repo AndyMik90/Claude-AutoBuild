@@ -21,36 +21,42 @@ def test_imports():
 
     # Test base module
     from agents import base
-    assert hasattr(base, 'AUTO_CONTINUE_DELAY_SECONDS')
-    assert hasattr(base, 'HUMAN_INTERVENTION_FILE')
+
+    assert hasattr(base, "AUTO_CONTINUE_DELAY_SECONDS")
+    assert hasattr(base, "HUMAN_INTERVENTION_FILE")
     print("  ✓ agents.base")
 
     # Test utils module
     from agents import utils
-    assert hasattr(utils, 'get_latest_commit')
-    assert hasattr(utils, 'load_implementation_plan')
+
+    assert hasattr(utils, "get_latest_commit")
+    assert hasattr(utils, "load_implementation_plan")
     print("  ✓ agents.utils")
 
     # Test memory module
     from agents import memory
-    assert hasattr(memory, 'save_session_memory')
-    assert hasattr(memory, 'get_graphiti_context')
+
+    assert hasattr(memory, "save_session_memory")
+    assert hasattr(memory, "get_graphiti_context")
     print("  ✓ agents.memory")
 
     # Test session module
     from agents import session
-    assert hasattr(session, 'run_agent_session')
-    assert hasattr(session, 'post_session_processing')
+
+    assert hasattr(session, "run_agent_session")
+    assert hasattr(session, "post_session_processing")
     print("  ✓ agents.session")
 
     # Test planner module
     from agents import planner
-    assert hasattr(planner, 'run_followup_planner')
+
+    assert hasattr(planner, "run_followup_planner")
     print("  ✓ agents.planner")
 
     # Test coder module
     from agents import coder
-    assert hasattr(coder, 'run_autonomous_agent')
+
+    assert hasattr(coder, "run_autonomous_agent")
     print("  ✓ agents.coder")
 
     print("\n✓ All module imports successful!\n")
@@ -64,14 +70,14 @@ def test_public_api():
     import agents
 
     required_functions = [
-        'run_autonomous_agent',
-        'run_followup_planner',
-        'save_session_memory',
-        'get_graphiti_context',
-        'run_agent_session',
-        'post_session_processing',
-        'get_latest_commit',
-        'load_implementation_plan',
+        "run_autonomous_agent",
+        "run_followup_planner",
+        "save_session_memory",
+        "get_graphiti_context",
+        "run_agent_session",
+        "post_session_processing",
+        "get_latest_commit",
+        "load_implementation_plan",
     ]
 
     for func_name in required_functions:
@@ -89,16 +95,18 @@ def test_backwards_compatibility():
     import agent
 
     required_functions = [
-        'run_autonomous_agent',
-        'run_followup_planner',
-        'save_session_memory',
-        'save_session_to_graphiti',
-        'run_agent_session',
-        'post_session_processing',
+        "run_autonomous_agent",
+        "run_followup_planner",
+        "save_session_memory",
+        "save_session_to_graphiti",
+        "run_agent_session",
+        "post_session_processing",
     ]
 
     for func_name in required_functions:
-        assert hasattr(agent, func_name), f"Missing function in agent module: {func_name}"
+        assert hasattr(agent, func_name), (
+            f"Missing function in agent module: {func_name}"
+        )
         print(f"  ✓ agent.{func_name}")
 
     print("\n✓ Backwards compatibility maintained!\n")
@@ -109,16 +117,17 @@ def test_module_structure():
     print("Testing module structure...")
 
     from pathlib import Path
+
     agents_dir = Path(__file__).parent
 
     required_files = [
-        '__init__.py',
-        'base.py',
-        'utils.py',
-        'memory.py',
-        'session.py',
-        'planner.py',
-        'coder.py',
+        "__init__.py",
+        "base.py",
+        "utils.py",
+        "memory.py",
+        "session.py",
+        "planner.py",
+        "coder.py",
     ]
 
     for filename in required_files:
@@ -129,7 +138,7 @@ def test_module_structure():
     print("\n✓ Module structure correct!\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         test_module_structure()
         test_imports()

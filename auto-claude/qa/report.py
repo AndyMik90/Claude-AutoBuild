@@ -11,10 +11,9 @@ from collections import Counter
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .criteria import load_implementation_plan, save_implementation_plan
-
 
 # Configuration
 RECURRING_ISSUE_THRESHOLD = 3  # Escalate if same issue appears this many times
@@ -26,7 +25,7 @@ ISSUE_SIMILARITY_THRESHOLD = 0.8  # Consider issues "same" if similarity >= this
 # =============================================================================
 
 
-def get_iteration_history(spec_dir: Path) -> List[Dict[str, Any]]:
+def get_iteration_history(spec_dir: Path) -> list[dict[str, Any]]:
     """
     Get the full iteration history from implementation_plan.json.
 
@@ -43,8 +42,8 @@ def record_iteration(
     spec_dir: Path,
     iteration: int,
     status: str,
-    issues: List[Dict[str, Any]],
-    duration_seconds: Optional[float] = None,
+    issues: list[dict[str, Any]],
+    duration_seconds: float | None = None,
 ) -> bool:
     """
     Record a QA iteration to the history.
@@ -101,7 +100,7 @@ def record_iteration(
 # =============================================================================
 
 
-def _normalize_issue_key(issue: Dict[str, Any]) -> str:
+def _normalize_issue_key(issue: dict[str, Any]) -> str:
     """
     Create a normalized key for issue comparison.
 
@@ -114,12 +113,12 @@ def _normalize_issue_key(issue: Dict[str, Any]) -> str:
     # Remove common prefixes/suffixes that might differ between iterations
     for prefix in ["error:", "issue:", "bug:", "fix:"]:
         if title.startswith(prefix):
-            title = title[len(prefix):].strip()
+            title = title[len(prefix) :].strip()
 
     return f"{title}|{file}|{line}"
 
 
-def _issue_similarity(issue1: Dict[str, Any], issue2: Dict[str, Any]) -> float:
+def _issue_similarity(issue1: dict[str, Any], issue2: dict[str, Any]) -> float:
     """
     Calculate similarity between two issues.
 
@@ -135,10 +134,10 @@ def _issue_similarity(issue1: Dict[str, Any], issue2: Dict[str, Any]) -> float:
 
 
 def has_recurring_issues(
-    current_issues: List[Dict[str, Any]],
-    history: List[Dict[str, Any]],
+    current_issues: list[dict[str, Any]],
+    history: list[dict[str, Any]],
     threshold: int = RECURRING_ISSUE_THRESHOLD,
-) -> Tuple[bool, List[Dict[str, Any]]]:
+) -> tuple[bool, list[dict[str, Any]]]:
     """
     Check if any current issues have appeared repeatedly in history.
 
@@ -169,17 +168,19 @@ def has_recurring_issues(
                 occurrence_count += 1
 
         if occurrence_count >= threshold:
-            recurring.append({
-                **current,
-                "occurrence_count": occurrence_count,
-            })
+            recurring.append(
+                {
+                    **current,
+                    "occurrence_count": occurrence_count,
+                }
+            )
 
     return len(recurring) > 0, recurring
 
 
 def get_recurring_issue_summary(
-    history: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    history: list[dict[str, Any]],
+) -> dict[str, Any]:
     """
     Analyze iteration history for issue patterns.
 
@@ -194,14 +195,17 @@ def get_recurring_issue_summary(
         return {"total_issues": 0, "unique_issues": 0, "most_common": []}
 
     # Group similar issues
-    issue_groups: Dict[str, List[Dict[str, Any]]] = {}
+    issue_groups: dict[str, list[dict[str, Any]]] = {}
 
     for issue in all_issues:
         key = _normalize_issue_key(issue)
         matched = False
 
         for existing_key in issue_groups:
-            if SequenceMatcher(None, key, existing_key).ratio() >= ISSUE_SIMILARITY_THRESHOLD:
+            if (
+                SequenceMatcher(None, key, existing_key).ratio()
+                >= ISSUE_SIMILARITY_THRESHOLD
+            ):
                 issue_groups[existing_key].append(issue)
                 matched = True
                 break
@@ -210,19 +214,17 @@ def get_recurring_issue_summary(
             issue_groups[key] = [issue]
 
     # Find most common issues
-    sorted_groups = sorted(
-        issue_groups.items(),
-        key=lambda x: len(x[1]),
-        reverse=True
-    )
+    sorted_groups = sorted(issue_groups.items(), key=lambda x: len(x[1]), reverse=True)
 
     most_common = []
     for key, issues in sorted_groups[:5]:  # Top 5
-        most_common.append({
-            "title": issues[0].get("title", key),
-            "file": issues[0].get("file"),
-            "occurrences": len(issues),
-        })
+        most_common.append(
+            {
+                "title": issues[0].get("title", key),
+                "file": issues[0].get("file"),
+                "occurrences": len(issues),
+            }
+        )
 
     # Calculate statistics
     approved_count = sum(1 for r in history if r.get("status") == "approved")
@@ -245,7 +247,7 @@ def get_recurring_issue_summary(
 
 async def escalate_to_human(
     spec_dir: Path,
-    recurring_issues: List[Dict[str, Any]],
+    recurring_issues: list[dict[str, Any]],
     iteration: int,
 ) -> None:
     """
@@ -272,9 +274,9 @@ async def escalate_to_human(
 ## Summary
 
 - **Total QA Iterations**: {len(history)}
-- **Total Issues Found**: {summary['total_issues']}
-- **Unique Issues**: {summary['unique_issues']}
-- **Fix Success Rate**: {summary['fix_success_rate']:.1%}
+- **Total Issues Found**: {summary["total_issues"]}
+- **Unique Issues**: {summary["unique_issues"]}
+- **Fix Success Rate**: {summary["fix_success_rate"]:.1%}
 
 ## Recurring Issues
 
@@ -283,13 +285,13 @@ These issues have appeared {RECURRING_ISSUE_THRESHOLD}+ times without being reso
 """
 
     for i, issue in enumerate(recurring_issues, 1):
-        content += f"""### {i}. {issue.get('title', 'Unknown Issue')}
+        content += f"""### {i}. {issue.get("title", "Unknown Issue")}
 
-- **File**: {issue.get('file', 'N/A')}
-- **Line**: {issue.get('line', 'N/A')}
-- **Type**: {issue.get('type', 'N/A')}
-- **Occurrences**: {issue.get('occurrence_count', 'N/A')}
-- **Description**: {issue.get('description', 'No description')}
+- **File**: {issue.get("file", "N/A")}
+- **Line**: {issue.get("line", "N/A")}
+- **Type**: {issue.get("type", "N/A")}
+- **Occurrences**: {issue.get("occurrence_count", "N/A")}
+- **Description**: {issue.get("description", "No description")}
 
 """
 
@@ -446,7 +448,7 @@ _Add any observations or issues found during testing_
 # =============================================================================
 
 
-def check_test_discovery(spec_dir: Path) -> Optional[Dict[str, Any]]:
+def check_test_discovery(spec_dir: Path) -> dict[str, Any] | None:
     """
     Check if test discovery has been run and what frameworks were found.
 
@@ -460,7 +462,7 @@ def check_test_discovery(spec_dir: Path) -> Optional[Dict[str, Any]]:
     try:
         with open(discovery_file) as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
@@ -509,12 +511,12 @@ def is_no_test_project(spec_dir: Path, project_dir: Path) -> bool:
             # Check if directory has test files
             for f in test_path.iterdir():
                 if f.is_file() and (
-                    f.name.startswith("test_") or
-                    f.name.endswith("_test.py") or
-                    f.name.endswith(".spec.js") or
-                    f.name.endswith(".spec.ts") or
-                    f.name.endswith(".test.js") or
-                    f.name.endswith(".test.ts")
+                    f.name.startswith("test_")
+                    or f.name.endswith("_test.py")
+                    or f.name.endswith(".spec.js")
+                    or f.name.endswith(".spec.ts")
+                    or f.name.endswith(".test.js")
+                    or f.name.endswith(".test.ts")
                 ):
                     return False
 

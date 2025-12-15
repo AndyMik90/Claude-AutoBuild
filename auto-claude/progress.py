@@ -10,28 +10,19 @@ Enhanced with colored output, icons, and better visual formatting.
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from ui import (
     Icons,
-    icon,
-    color,
-    Color,
-    success,
-    error,
-    warning,
-    info,
-    muted,
-    highlight,
     bold,
     box,
-    divider,
-    progress_bar,
-    print_header,
-    print_section,
-    print_status,
+    highlight,
+    icon,
+    muted,
     print_phase_status,
-    print_key_value,
+    print_status,
+    progress_bar,
+    success,
+    warning,
 )
 
 
@@ -51,7 +42,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
         return 0, 0
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         total = 0
@@ -64,7 +55,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
                     completed += 1
 
         return completed, total
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return 0, 0
 
 
@@ -89,7 +80,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
         return result
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
@@ -102,7 +93,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
                     result["pending"] += 1
 
         return result
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return result
 
 
@@ -190,19 +181,23 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
 
         # Phase summary
         try:
-            with open(spec_dir / "implementation_plan.json", "r") as f:
+            with open(spec_dir / "implementation_plan.json") as f:
                 plan = json.load(f)
 
             print("\nPhases:")
             for phase in plan.get("phases", []):
                 phase_subtasks = phase.get("subtasks", [])
-                phase_completed = sum(1 for s in phase_subtasks if s.get("status") == "completed")
+                phase_completed = sum(
+                    1 for s in phase_subtasks if s.get("status") == "completed"
+                )
                 phase_total = len(phase_subtasks)
                 phase_name = phase.get("name", phase.get("id", "Unknown"))
 
                 if phase_completed == phase_total:
                     status = "complete"
-                elif phase_completed > 0 or any(s.get("status") == "in_progress" for s in phase_subtasks):
+                elif phase_completed > 0 or any(
+                    s.get("status") == "in_progress" for s in phase_subtasks
+                ):
                     status = "in_progress"
                 else:
                     # Check if blocked by dependencies
@@ -212,7 +207,9 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                         for p in plan.get("phases", []):
                             if p.get("id") == dep_id or p.get("phase") == dep_id:
                                 p_subtasks = p.get("subtasks", [])
-                                if not all(s.get("status") == "completed" for s in p_subtasks):
+                                if not all(
+                                    s.get("status") == "completed" for s in p_subtasks
+                                ):
                                     all_deps_complete = False
                                 break
                     status = "pending" if all_deps_complete else "blocked"
@@ -228,9 +225,11 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                     next_desc = next_subtask.get("description", "")
                     if len(next_desc) > 60:
                         next_desc = next_desc[:57] + "..."
-                    print(f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}")
+                    print(
+                        f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}"
+                    )
 
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
     else:
         print()
@@ -302,7 +301,7 @@ def get_plan_summary(spec_dir: Path) -> dict:
         }
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         summary = {
@@ -342,18 +341,20 @@ def get_plan_summary(spec_dir: Path) -> dict:
                 else:
                     summary["pending_subtasks"] += 1
 
-                phase_info["subtasks"].append({
-                    "id": subtask.get("id"),
-                    "description": subtask.get("description"),
-                    "status": status,
-                    "service": subtask.get("service"),
-                })
+                phase_info["subtasks"].append(
+                    {
+                        "id": subtask.get("id"),
+                        "description": subtask.get("description"),
+                        "status": status,
+                        "service": subtask.get("service"),
+                    }
+                )
 
             summary["phases"].append(phase_info)
 
         return summary
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return {
             "workflow_type": None,
             "total_phases": 0,
@@ -366,7 +367,7 @@ def get_plan_summary(spec_dir: Path) -> dict:
         }
 
 
-def get_current_phase(spec_dir: Path) -> Optional[dict]:
+def get_current_phase(spec_dir: Path) -> dict | None:
     """Get the current phase being worked on."""
     plan_file = spec_dir / "implementation_plan.json"
 
@@ -374,7 +375,7 @@ def get_current_phase(spec_dir: Path) -> Optional[dict]:
         return None
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         for phase in plan.get("phases", []):
@@ -386,13 +387,15 @@ def get_current_phase(spec_dir: Path) -> Optional[dict]:
                     "id": phase.get("id"),
                     "phase": phase.get("phase"),
                     "name": phase.get("name"),
-                    "completed": sum(1 for s in subtasks if s.get("status") == "completed"),
+                    "completed": sum(
+                        1 for s in subtasks if s.get("status") == "completed"
+                    ),
                     "total": len(subtasks),
                 }
 
         return None
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
@@ -412,7 +415,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         phases = plan.get("phases", [])
@@ -448,7 +451,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
 
         return None
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 

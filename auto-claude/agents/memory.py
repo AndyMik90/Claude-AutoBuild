@@ -9,19 +9,18 @@ Handles session memory storage using dual-layer approach:
 
 import logging
 from pathlib import Path
-from typing import Optional
 
-from graphiti_config import is_graphiti_enabled, get_graphiti_status
-from memory import save_session_insights as save_file_based_memory
 from debug import (
     debug,
     debug_detailed,
-    debug_success,
     debug_error,
-    debug_warning,
     debug_section,
+    debug_success,
+    debug_warning,
     is_debug_enabled,
 )
+from graphiti_config import get_graphiti_status, is_graphiti_enabled
+from memory import save_session_insights as save_file_based_memory
 
 logger = logging.getLogger(__name__)
 
@@ -40,36 +39,50 @@ def debug_memory_system_status() -> None:
     # Get Graphiti status
     graphiti_status = get_graphiti_status()
 
-    debug("memory", "Memory system configuration",
-          primary_system="Graphiti" if graphiti_status.get("available") else "File-based (fallback)",
-          graphiti_enabled=graphiti_status.get("enabled"),
-          graphiti_available=graphiti_status.get("available"))
+    debug(
+        "memory",
+        "Memory system configuration",
+        primary_system="Graphiti"
+        if graphiti_status.get("available")
+        else "File-based (fallback)",
+        graphiti_enabled=graphiti_status.get("enabled"),
+        graphiti_available=graphiti_status.get("available"),
+    )
 
     if graphiti_status.get("enabled"):
-        debug_detailed("memory", "Graphiti configuration",
-                       host=graphiti_status.get("host"),
-                       port=graphiti_status.get("port"),
-                       database=graphiti_status.get("database"),
-                       llm_provider=graphiti_status.get("llm_provider"),
-                       embedder_provider=graphiti_status.get("embedder_provider"))
+        debug_detailed(
+            "memory",
+            "Graphiti configuration",
+            host=graphiti_status.get("host"),
+            port=graphiti_status.get("port"),
+            database=graphiti_status.get("database"),
+            llm_provider=graphiti_status.get("llm_provider"),
+            embedder_provider=graphiti_status.get("embedder_provider"),
+        )
 
         if not graphiti_status.get("available"):
-            debug_warning("memory", "Graphiti not available",
-                          reason=graphiti_status.get("reason"),
-                          errors=graphiti_status.get("errors"))
+            debug_warning(
+                "memory",
+                "Graphiti not available",
+                reason=graphiti_status.get("reason"),
+                errors=graphiti_status.get("errors"),
+            )
             debug("memory", "Will use file-based memory as fallback")
         else:
             debug_success("memory", "Graphiti ready as PRIMARY memory system")
     else:
-        debug("memory", "Graphiti disabled, using file-based memory only",
-              note="Set GRAPHITI_ENABLED=true to enable Graphiti")
+        debug(
+            "memory",
+            "Graphiti disabled, using file-based memory only",
+            note="Set GRAPHITI_ENABLED=true to enable Graphiti",
+        )
 
 
 async def get_graphiti_context(
     spec_dir: Path,
     project_dir: Path,
     subtask: dict,
-) -> Optional[str]:
+) -> str | None:
     """
     Retrieve relevant context from Graphiti for the current subtask.
 
@@ -85,9 +98,12 @@ async def get_graphiti_context(
         Formatted context string or None if unavailable
     """
     if is_debug_enabled():
-        debug("memory", "Retrieving Graphiti context for subtask",
-              subtask_id=subtask.get("id", "unknown"),
-              subtask_desc=subtask.get("description", "")[:100])
+        debug(
+            "memory",
+            "Retrieving Graphiti context for subtask",
+            subtask_id=subtask.get("id", "unknown"),
+            subtask_desc=subtask.get("description", "")[:100],
+        )
 
     if not is_graphiti_enabled():
         if is_debug_enabled():
@@ -117,9 +133,12 @@ async def get_graphiti_context(
             return None
 
         if is_debug_enabled():
-            debug_detailed("memory", "Searching Graphiti knowledge graph",
-                          query=query[:200],
-                          num_results=5)
+            debug_detailed(
+                "memory",
+                "Searching Graphiti knowledge graph",
+                query=query[:200],
+                num_results=5,
+            )
 
         # Get relevant context
         context_items = await memory.get_relevant_context(query, num_results=5)
@@ -130,9 +149,12 @@ async def get_graphiti_context(
         await memory.close()
 
         if is_debug_enabled():
-            debug("memory", "Graphiti context retrieval complete",
-                  context_items_found=len(context_items) if context_items else 0,
-                  session_history_found=len(session_history) if session_history else 0)
+            debug(
+                "memory",
+                "Graphiti context retrieval complete",
+                context_items_found=len(context_items) if context_items else 0,
+                session_history_found=len(session_history) if session_history else 0,
+            )
 
         if not context_items and not session_history:
             if is_debug_enabled():
@@ -162,8 +184,9 @@ async def get_graphiti_context(
                     sections.append("")
 
         if is_debug_enabled():
-            debug_success("memory", "Graphiti context formatted",
-                          total_sections=len(sections))
+            debug_success(
+                "memory", "Graphiti context formatted", total_sections=len(sections)
+            )
 
         return "\n".join(sections)
 
@@ -184,7 +207,7 @@ async def save_session_memory(
     session_num: int,
     success: bool,
     subtasks_completed: list[str],
-    discoveries: Optional[dict] = None,
+    discoveries: dict | None = None,
 ) -> tuple[bool, str]:
     """
     Save session insights to memory.
@@ -210,17 +233,21 @@ async def save_session_memory(
     # Debug: Log memory save start
     if is_debug_enabled():
         debug_section("memory", f"Saving Session {session_num} Memory")
-        debug("memory", "Memory save initiated",
-              subtask_id=subtask_id,
-              session_num=session_num,
-              success=success,
-              subtasks_completed=subtasks_completed,
-              spec_dir=str(spec_dir))
+        debug(
+            "memory",
+            "Memory save initiated",
+            subtask_id=subtask_id,
+            session_num=session_num,
+            success=success,
+            subtasks_completed=subtasks_completed,
+            spec_dir=str(spec_dir),
+        )
 
     # Build insights structure (same format for both storage systems)
     insights = {
         "subtasks_completed": subtasks_completed,
-        "discoveries": discoveries or {
+        "discoveries": discoveries
+        or {
             "files_understood": {},
             "patterns_found": [],
             "gotchas_encountered": [],
@@ -237,15 +264,18 @@ async def save_session_memory(
     graphiti_enabled = is_graphiti_enabled()
     if is_debug_enabled():
         graphiti_status = get_graphiti_status()
-        debug("memory", "Graphiti status check",
-              enabled=graphiti_status.get("enabled"),
-              available=graphiti_status.get("available"),
-              host=graphiti_status.get("host"),
-              port=graphiti_status.get("port"),
-              database=graphiti_status.get("database"),
-              llm_provider=graphiti_status.get("llm_provider"),
-              embedder_provider=graphiti_status.get("embedder_provider"),
-              reason=graphiti_status.get("reason") or "OK")
+        debug(
+            "memory",
+            "Graphiti status check",
+            enabled=graphiti_status.get("enabled"),
+            available=graphiti_status.get("available"),
+            host=graphiti_status.get("host"),
+            port=graphiti_status.get("port"),
+            database=graphiti_status.get("database"),
+            llm_provider=graphiti_status.get("llm_provider"),
+            embedder_provider=graphiti_status.get("embedder_provider"),
+            reason=graphiti_status.get("reason") or "OK",
+        )
 
     # PRIMARY: Try Graphiti if enabled
     if graphiti_enabled:
@@ -258,9 +288,12 @@ async def save_session_memory(
             memory = GraphitiMemory(spec_dir, project_dir)
 
             if is_debug_enabled():
-                debug_detailed("memory", "GraphitiMemory instance created",
-                               is_enabled=memory.is_enabled,
-                               group_id=getattr(memory, 'group_id', 'unknown'))
+                debug_detailed(
+                    "memory",
+                    "GraphitiMemory instance created",
+                    is_enabled=memory.is_enabled,
+                    group_id=getattr(memory, "group_id", "unknown"),
+                )
 
             if memory.is_enabled:
                 if is_debug_enabled():
@@ -270,7 +303,10 @@ async def save_session_memory(
                 if discoveries and discoveries.get("file_insights"):
                     # Rich insights from insight_extractor
                     if is_debug_enabled():
-                        debug("memory", "Using save_structured_insights (rich data available)")
+                        debug(
+                            "memory",
+                            "Using save_structured_insights (rich data available)",
+                        )
                     result = await memory.save_structured_insights(discoveries)
                 else:
                     # Fallback to basic session insights
@@ -279,20 +315,33 @@ async def save_session_memory(
                 await memory.close()
 
                 if result:
-                    logger.info(f"Session {session_num} insights saved to Graphiti (primary)")
+                    logger.info(
+                        f"Session {session_num} insights saved to Graphiti (primary)"
+                    )
                     if is_debug_enabled():
-                        debug_success("memory", f"Session {session_num} saved to Graphiti (PRIMARY)",
-                                      storage_type="graphiti",
-                                      subtasks_saved=len(subtasks_completed))
+                        debug_success(
+                            "memory",
+                            f"Session {session_num} saved to Graphiti (PRIMARY)",
+                            storage_type="graphiti",
+                            subtasks_saved=len(subtasks_completed),
+                        )
                     return True, "graphiti"
                 else:
-                    logger.warning("Graphiti save returned False, falling back to file-based")
+                    logger.warning(
+                        "Graphiti save returned False, falling back to file-based"
+                    )
                     if is_debug_enabled():
-                        debug_warning("memory", "Graphiti save returned False, using FALLBACK")
+                        debug_warning(
+                            "memory", "Graphiti save returned False, using FALLBACK"
+                        )
             else:
-                logger.warning("Graphiti memory not enabled, falling back to file-based")
+                logger.warning(
+                    "Graphiti memory not enabled, falling back to file-based"
+                )
                 if is_debug_enabled():
-                    debug_warning("memory", "GraphitiMemory.is_enabled=False, using FALLBACK")
+                    debug_warning(
+                        "memory", "GraphitiMemory.is_enabled=False, using FALLBACK"
+                    )
 
         except ImportError as e:
             logger.debug("Graphiti packages not installed, falling back to file-based")
@@ -313,18 +362,26 @@ async def save_session_memory(
     try:
         memory_dir = spec_dir / "memory" / "session_insights"
         if is_debug_enabled():
-            debug_detailed("memory", "File-based memory path",
-                           memory_dir=str(memory_dir),
-                           session_file=f"session_{session_num:03d}.json")
+            debug_detailed(
+                "memory",
+                "File-based memory path",
+                memory_dir=str(memory_dir),
+                session_file=f"session_{session_num:03d}.json",
+            )
 
         save_file_based_memory(spec_dir, session_num, insights)
-        logger.info(f"Session {session_num} insights saved to file-based memory (fallback)")
+        logger.info(
+            f"Session {session_num} insights saved to file-based memory (fallback)"
+        )
 
         if is_debug_enabled():
-            debug_success("memory", f"Session {session_num} saved to file-based (FALLBACK)",
-                          storage_type="file",
-                          file_path=str(memory_dir / f"session_{session_num:03d}.json"),
-                          subtasks_saved=len(subtasks_completed))
+            debug_success(
+                "memory",
+                f"Session {session_num} saved to file-based (FALLBACK)",
+                storage_type="file",
+                file_path=str(memory_dir / f"session_{session_num:03d}.json"),
+                subtasks_saved=len(subtasks_completed),
+            )
         return True, "file"
     except Exception as e:
         logger.error(f"File-based memory save also failed: {e}")
@@ -341,10 +398,16 @@ async def save_session_to_graphiti(
     session_num: int,
     success: bool,
     subtasks_completed: list[str],
-    discoveries: Optional[dict] = None,
+    discoveries: dict | None = None,
 ) -> bool:
     """Backwards compatibility wrapper for save_session_memory."""
     result, _ = await save_session_memory(
-        spec_dir, project_dir, subtask_id, session_num, success, subtasks_completed, discoveries
+        spec_dir,
+        project_dir,
+        subtask_id,
+        session_num,
+        success,
+        subtasks_completed,
+        discoveries,
     )
     return result

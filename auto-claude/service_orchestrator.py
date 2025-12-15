@@ -25,8 +25,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # =============================================================================
 # DATA CLASSES
@@ -49,11 +48,11 @@ class ServiceConfig:
     """
 
     name: str
-    path: Optional[str] = None
-    port: Optional[int] = None
+    path: str | None = None
+    port: int | None = None
     type: str = "docker"  # docker, local, mock
-    health_check_url: Optional[str] = None
-    startup_command: Optional[str] = None
+    health_check_url: str | None = None
+    startup_command: str | None = None
     startup_timeout: int = 120
 
 
@@ -70,9 +69,9 @@ class OrchestrationResult:
     """
 
     success: bool = False
-    services_started: List[str] = field(default_factory=list)
-    services_failed: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    services_started: list[str] = field(default_factory=list)
+    services_failed: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 # =============================================================================
@@ -98,9 +97,9 @@ class ServiceOrchestrator:
             project_dir: Path to the project root
         """
         self.project_dir = Path(project_dir)
-        self._compose_file: Optional[Path] = None
-        self._services: List[ServiceConfig] = []
-        self._processes: Dict[str, subprocess.Popen] = {}
+        self._compose_file: Path | None = None
+        self._services: list[ServiceConfig] = []
+        self._processes: dict[str, subprocess.Popen] = {}
         self._discover_services()
 
     def _discover_services(self) -> None:
@@ -114,7 +113,7 @@ class ServiceOrchestrator:
             # Check for monorepo structure
             self._discover_monorepo_services()
 
-    def _find_compose_file(self) -> Optional[Path]:
+    def _find_compose_file(self) -> Path | None:
         """Find docker-compose configuration file."""
         candidates = [
             "docker-compose.yml",
@@ -140,6 +139,7 @@ class ServiceOrchestrator:
         try:
             # Try to import yaml
             import yaml
+
             HAS_YAML = True
         except ImportError:
             HAS_YAML = False
@@ -155,14 +155,18 @@ class ServiceOrchestrator:
                     if line.strip() == "services:":
                         in_services = True
                         continue
-                    if in_services and line.startswith("  ") and not line.startswith("    "):
+                    if (
+                        in_services
+                        and line.startswith("  ")
+                        and not line.startswith("    ")
+                    ):
                         service_name = line.strip().rstrip(":")
                         if service_name:
                             self._services.append(ServiceConfig(name=service_name))
             return
 
         try:
-            with open(self._compose_file, "r", encoding="utf-8") as f:
+            with open(self._compose_file, encoding="utf-8") as f:
                 compose_data = yaml.safe_load(f)
 
             services = compose_data.get("services", {})
@@ -253,7 +257,7 @@ class ServiceOrchestrator:
         """
         return self._compose_file is not None
 
-    def get_services(self) -> List[ServiceConfig]:
+    def get_services(self) -> list[ServiceConfig]:
         """
         Get list of discovered services.
 
@@ -330,7 +334,9 @@ class ServiceOrchestrator:
                     proc = subprocess.Popen(
                         service.startup_command,
                         shell=True,
-                        cwd=self.project_dir / service.path if service.path else self.project_dir,
+                        cwd=self.project_dir / service.path
+                        if service.path
+                        else self.project_dir,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                     )
@@ -383,7 +389,7 @@ class ServiceOrchestrator:
                     pass
         self._processes.clear()
 
-    def _get_docker_compose_cmd(self) -> Optional[List[str]]:
+    def _get_docker_compose_cmd(self) -> list[str] | None:
         """Get the docker-compose command (v1 or v2)."""
         # Try docker compose v2 first
         try:
@@ -451,7 +457,7 @@ class ServiceOrchestrator:
         except Exception:
             return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert orchestration config to dictionary."""
         return {
             "is_multi_service": self.is_multi_service(),
@@ -489,7 +495,7 @@ def is_multi_service_project(project_dir: Path) -> bool:
     return orchestrator.is_multi_service()
 
 
-def get_service_config(project_dir: Path) -> Dict[str, Any]:
+def get_service_config(project_dir: Path) -> dict[str, Any]:
     """
     Get service configuration for project.
 
@@ -523,7 +529,7 @@ class ServiceContext:
         """Initialize service context."""
         self.orchestrator = ServiceOrchestrator(project_dir)
         self.timeout = timeout
-        self.result: Optional[OrchestrationResult] = None
+        self.result: OrchestrationResult | None = None
 
     def __enter__(self) -> "ServiceContext":
         """Start services on context entry."""
@@ -566,11 +572,16 @@ def main() -> None:
     if args.start:
         result = orchestrator.start_services()
         if args.json:
-            print(json.dumps({
-                "success": result.success,
-                "services_started": result.services_started,
-                "errors": result.errors,
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "success": result.success,
+                        "services_started": result.services_started,
+                        "errors": result.errors,
+                    },
+                    indent=2,
+                )
+            )
         else:
             print(f"Started: {result.services_started}")
             if result.errors:
@@ -587,11 +598,11 @@ def main() -> None:
         else:
             print(f"Multi-service: {config['is_multi_service']}")
             print(f"Docker Compose: {config['has_docker_compose']}")
-            if config['compose_file']:
+            if config["compose_file"]:
                 print(f"Compose File: {config['compose_file']}")
             print(f"\nServices ({len(config['services'])}):")
-            for service in config['services']:
-                port_info = f":{service['port']}" if service['port'] else ""
+            for service in config["services"]:
+                port_info = f":{service['port']}" if service["port"] else ""
                 print(f"  - {service['name']} ({service['type']}){port_info}")
 
 

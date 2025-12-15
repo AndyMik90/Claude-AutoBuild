@@ -51,11 +51,13 @@ class DatabaseDetector(BaseAnalyzer):
         for file_path in py_files:
             try:
                 content = file_path.read_text()
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
             # Find class definitions that inherit from Base or db.Model
-            class_pattern = r'class\s+(\w+)\([^)]*(?:Base|db\.Model|DeclarativeBase)[^)]*\):'
+            class_pattern = (
+                r"class\s+(\w+)\([^)]*(?:Base|db\.Model|DeclarativeBase)[^)]*\):"
+            )
             matches = re.finditer(class_pattern, content)
 
             for match in matches:
@@ -63,31 +65,37 @@ class DatabaseDetector(BaseAnalyzer):
 
                 # Extract table name if defined
                 table_match = re.search(r'__tablename__\s*=\s*["\'](\w+)["\']', content)
-                table_name = table_match.group(1) if table_match else model_name.lower() + 's'
+                table_name = (
+                    table_match.group(1) if table_match else model_name.lower() + "s"
+                )
 
                 # Extract columns
                 fields = {}
-                column_pattern = r'(\w+)\s*=\s*Column\((.*?)\)'
-                column_matches = re.finditer(column_pattern, content[match.end():match.end() + 2000])
+                column_pattern = r"(\w+)\s*=\s*Column\((.*?)\)"
+                column_matches = re.finditer(
+                    column_pattern, content[match.end() : match.end() + 2000]
+                )
 
                 for col_match in column_matches:
                     field_name = col_match.group(1)
                     field_def = col_match.group(2)
 
                     # Detect field properties
-                    is_primary = 'primary_key=True' in field_def
-                    is_unique = 'unique=True' in field_def
-                    is_nullable = 'nullable=False' not in field_def
+                    is_primary = "primary_key=True" in field_def
+                    is_unique = "unique=True" in field_def
+                    is_nullable = "nullable=False" not in field_def
 
                     # Extract type
-                    type_match = re.search(r'(Integer|String|Text|Boolean|DateTime|Float|JSON)', field_def)
+                    type_match = re.search(
+                        r"(Integer|String|Text|Boolean|DateTime|Float|JSON)", field_def
+                    )
                     field_type = type_match.group(1) if type_match else "Unknown"
 
                     fields[field_name] = {
                         "type": field_type,
                         "primary_key": is_primary,
                         "unique": is_unique,
-                        "nullable": is_nullable
+                        "nullable": is_nullable,
                     }
 
                 if fields:  # Only add if we found fields
@@ -95,7 +103,7 @@ class DatabaseDetector(BaseAnalyzer):
                         "table": table_name,
                         "fields": fields,
                         "file": str(file_path.relative_to(self.path)),
-                        "orm": "SQLAlchemy"
+                        "orm": "SQLAlchemy",
                     }
 
         return models
@@ -103,16 +111,18 @@ class DatabaseDetector(BaseAnalyzer):
     def _detect_django_models(self) -> dict:
         """Detect Django models."""
         models = {}
-        model_files = list(self.path.glob("**/models.py")) + list(self.path.glob("**/models/*.py"))
+        model_files = list(self.path.glob("**/models.py")) + list(
+            self.path.glob("**/models/*.py")
+        )
 
         for file_path in model_files:
             try:
                 content = file_path.read_text()
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
             # Find class definitions that inherit from models.Model
-            class_pattern = r'class\s+(\w+)\(models\.Model\):'
+            class_pattern = r"class\s+(\w+)\(models\.Model\):"
             matches = re.finditer(class_pattern, content)
 
             for match in matches:
@@ -121,8 +131,10 @@ class DatabaseDetector(BaseAnalyzer):
 
                 # Extract fields
                 fields = {}
-                field_pattern = r'(\w+)\s*=\s*models\.(\w+Field)\((.*?)\)'
-                field_matches = re.finditer(field_pattern, content[match.end():match.end() + 2000])
+                field_pattern = r"(\w+)\s*=\s*models\.(\w+Field)\((.*?)\)"
+                field_matches = re.finditer(
+                    field_pattern, content[match.end() : match.end() + 2000]
+                )
 
                 for field_match in field_matches:
                     field_name = field_match.group(1)
@@ -131,8 +143,8 @@ class DatabaseDetector(BaseAnalyzer):
 
                     fields[field_name] = {
                         "type": field_type,
-                        "unique": 'unique=True' in field_args,
-                        "nullable": 'null=True' in field_args
+                        "unique": "unique=True" in field_args,
+                        "nullable": "null=True" in field_args,
                     }
 
                 if fields:
@@ -140,7 +152,7 @@ class DatabaseDetector(BaseAnalyzer):
                         "table": table_name,
                         "fields": fields,
                         "file": str(file_path.relative_to(self.path)),
-                        "orm": "Django"
+                        "orm": "Django",
                     }
 
         return models
@@ -155,11 +167,11 @@ class DatabaseDetector(BaseAnalyzer):
 
         try:
             content = schema_file.read_text()
-        except (IOError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError):
             return models
 
         # Find model definitions
-        model_pattern = r'model\s+(\w+)\s*\{([^}]+)\}'
+        model_pattern = r"model\s+(\w+)\s*\{([^}]+)\}"
         matches = re.finditer(model_pattern, content, re.MULTILINE)
 
         for match in matches:
@@ -168,7 +180,7 @@ class DatabaseDetector(BaseAnalyzer):
 
             fields = {}
             # Parse fields: id Int @id @default(autoincrement())
-            field_pattern = r'(\w+)\s+(\w+)([^/\n]*)'
+            field_pattern = r"(\w+)\s+(\w+)([^/\n]*)"
             field_matches = re.finditer(field_pattern, model_body)
 
             for field_match in field_matches:
@@ -178,9 +190,9 @@ class DatabaseDetector(BaseAnalyzer):
 
                 fields[field_name] = {
                     "type": field_type,
-                    "primary_key": '@id' in field_attrs,
-                    "unique": '@unique' in field_attrs,
-                    "nullable": '?' in field_type
+                    "primary_key": "@id" in field_attrs,
+                    "unique": "@unique" in field_attrs,
+                    "nullable": "?" in field_type,
                 }
 
             if fields:
@@ -188,7 +200,7 @@ class DatabaseDetector(BaseAnalyzer):
                     "table": model_name.lower(),
                     "fields": fields,
                     "file": "prisma/schema.prisma",
-                    "orm": "Prisma"
+                    "orm": "Prisma",
                 }
 
         return models
@@ -196,16 +208,18 @@ class DatabaseDetector(BaseAnalyzer):
     def _detect_typeorm_models(self) -> dict:
         """Detect TypeORM entities."""
         models = {}
-        ts_files = list(self.path.glob("**/*.entity.ts")) + list(self.path.glob("**/entities/*.ts"))
+        ts_files = list(self.path.glob("**/*.entity.ts")) + list(
+            self.path.glob("**/entities/*.ts")
+        )
 
         for file_path in ts_files:
             try:
                 content = file_path.read_text()
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
             # Find @Entity() class declarations
-            entity_pattern = r'@Entity\([^)]*\)\s*(?:export\s+)?class\s+(\w+)'
+            entity_pattern = r"@Entity\([^)]*\)\s*(?:export\s+)?class\s+(\w+)"
             matches = re.finditer(entity_pattern, content)
 
             for match in matches:
@@ -213,7 +227,9 @@ class DatabaseDetector(BaseAnalyzer):
 
                 # Extract columns
                 fields = {}
-                column_pattern = r'@(PrimaryGeneratedColumn|Column)\(([^)]*)\)\s+(\w+):\s*(\w+)'
+                column_pattern = (
+                    r"@(PrimaryGeneratedColumn|Column)\(([^)]*)\)\s+(\w+):\s*(\w+)"
+                )
                 column_matches = re.finditer(column_pattern, content)
 
                 for col_match in column_matches:
@@ -225,7 +241,7 @@ class DatabaseDetector(BaseAnalyzer):
                     fields[field_name] = {
                         "type": field_type,
                         "primary_key": decorator == "PrimaryGeneratedColumn",
-                        "unique": 'unique: true' in options
+                        "unique": "unique: true" in options,
                     }
 
                 if fields:
@@ -233,7 +249,7 @@ class DatabaseDetector(BaseAnalyzer):
                         "table": model_name.lower(),
                         "fields": fields,
                         "file": str(file_path.relative_to(self.path)),
-                        "orm": "TypeORM"
+                        "orm": "TypeORM",
                     }
 
         return models
@@ -241,12 +257,14 @@ class DatabaseDetector(BaseAnalyzer):
     def _detect_drizzle_models(self) -> dict:
         """Detect Drizzle ORM schemas."""
         models = {}
-        schema_files = list(self.path.glob("**/schema.ts")) + list(self.path.glob("**/db/schema.ts"))
+        schema_files = list(self.path.glob("**/schema.ts")) + list(
+            self.path.glob("**/db/schema.ts")
+        )
 
         for file_path in schema_files:
             try:
                 content = file_path.read_text()
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
             # Find table definitions: export const users = pgTable('users', {...})
@@ -261,7 +279,7 @@ class DatabaseDetector(BaseAnalyzer):
                     "table": table_name,
                     "fields": {},  # Would need more parsing for fields
                     "file": str(file_path.relative_to(self.path)),
-                    "orm": "Drizzle"
+                    "orm": "Drizzle",
                 }
 
         return models
@@ -269,12 +287,14 @@ class DatabaseDetector(BaseAnalyzer):
     def _detect_mongoose_models(self) -> dict:
         """Detect Mongoose models."""
         models = {}
-        model_files = list(self.path.glob("**/models/*.js")) + list(self.path.glob("**/models/*.ts"))
+        model_files = list(self.path.glob("**/models/*.js")) + list(
+            self.path.glob("**/models/*.ts")
+        )
 
         for file_path in model_files:
             try:
                 content = file_path.read_text()
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
             # Find mongoose.model() or new Schema()
@@ -288,7 +308,7 @@ class DatabaseDetector(BaseAnalyzer):
                     "table": model_name.lower(),
                     "fields": {},
                     "file": str(file_path.relative_to(self.path)),
-                    "orm": "Mongoose"
+                    "orm": "Mongoose",
                 }
 
         return models

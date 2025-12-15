@@ -23,11 +23,9 @@ Usage:
 """
 
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # =============================================================================
 # DATA CLASSES
@@ -51,9 +49,9 @@ class TestFramework:
     name: str
     type: str  # unit, integration, e2e, all
     command: str
-    config_file: Optional[str] = None
-    version: Optional[str] = None
-    coverage_command: Optional[str] = None
+    config_file: str | None = None
+    version: str | None = None
+    coverage_command: str | None = None
 
 
 @dataclass
@@ -70,12 +68,12 @@ class TestDiscoveryResult:
         coverage_command: Command for coverage if available
     """
 
-    frameworks: List[TestFramework] = field(default_factory=list)
+    frameworks: list[TestFramework] = field(default_factory=list)
     test_command: str = ""
-    test_directories: List[str] = field(default_factory=list)
+    test_directories: list[str] = field(default_factory=list)
     package_manager: str = ""
     has_tests: bool = False
-    coverage_command: Optional[str] = None
+    coverage_command: str | None = None
 
 
 # =============================================================================
@@ -87,7 +85,12 @@ class TestDiscoveryResult:
 FRAMEWORK_PATTERNS = {
     # JavaScript/TypeScript
     "jest": {
-        "config_files": ["jest.config.js", "jest.config.ts", "jest.config.mjs", "jest.config.cjs"],
+        "config_files": [
+            "jest.config.js",
+            "jest.config.ts",
+            "jest.config.mjs",
+            "jest.config.cjs",
+        ],
         "package_key": "jest",
         "type": "unit",
         "command": "npx jest",
@@ -101,7 +104,12 @@ FRAMEWORK_PATTERNS = {
         "coverage_command": "npx vitest run --coverage",
     },
     "mocha": {
-        "config_files": [".mocharc.js", ".mocharc.json", ".mocharc.yaml", ".mocharc.yml"],
+        "config_files": [
+            ".mocharc.js",
+            ".mocharc.json",
+            ".mocharc.yaml",
+            ".mocharc.yml",
+        ],
         "package_key": "mocha",
         "type": "unit",
         "command": "npx mocha",
@@ -185,7 +193,7 @@ class TestDiscovery:
 
     def __init__(self) -> None:
         """Initialize the test discovery."""
-        self._cache: Dict[str, TestDiscoveryResult] = {}
+        self._cache: dict[str, TestDiscoveryResult] = {}
 
     def discover(self, project_dir: Path) -> TestDiscoveryResult:
         """
@@ -284,9 +292,9 @@ class TestDiscovery:
             return
 
         try:
-            with open(package_json, "r", encoding="utf-8") as f:
+            with open(package_json, encoding="utf-8") as f:
                 pkg = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return
 
         deps = pkg.get("dependencies", {})
@@ -314,7 +322,9 @@ class TestDiscovery:
 
                 # Determine command - prefer npm scripts if available
                 command = pattern["command"]
-                if "test" in scripts and pattern["package_key"] in scripts.get("test", ""):
+                if "test" in scripts and pattern["package_key"] in scripts.get(
+                    "test", ""
+                ):
                     command = f"{result.package_manager or 'npm'} test"
 
                 result.frameworks.append(
@@ -331,7 +341,10 @@ class TestDiscovery:
         # Check npm scripts for test commands
         if not result.frameworks and "test" in scripts:
             test_script = scripts["test"]
-            if test_script and test_script != 'echo "Error: no test specified" && exit 1':
+            if (
+                test_script
+                and test_script != 'echo "Error: no test specified" && exit 1'
+            ):
                 # Try to infer framework from script
                 framework_name = "npm_test"
                 framework_type = "unit"
@@ -382,7 +395,9 @@ class TestDiscovery:
             # Check for pytest
             if "pytest" in content:
                 if not any(f.name == "pytest" for f in result.frameworks):
-                    config_file = "pyproject.toml" if "[tool.pytest" in content else None
+                    config_file = (
+                        "pyproject.toml" if "[tool.pytest" in content else None
+                    )
                     result.frameworks.append(
                         TestFramework(
                             name="pytest",
@@ -396,7 +411,9 @@ class TestDiscovery:
         requirements = project_dir / "requirements.txt"
         if requirements.exists():
             content = requirements.read_text().lower()
-            if "pytest" in content and not any(f.name == "pytest" for f in result.frameworks):
+            if "pytest" in content and not any(
+                f.name == "pytest" for f in result.frameworks
+            ):
                 result.frameworks.append(
                     TestFramework(
                         name="pytest",
@@ -492,7 +509,7 @@ class TestDiscovery:
                 )
             )
 
-    def _find_test_directories(self, project_dir: Path) -> List[str]:
+    def _find_test_directories(self, project_dir: Path) -> list[str]:
         """Find test directories in the project."""
         test_dir_patterns = [
             "tests",
@@ -518,7 +535,7 @@ class TestDiscovery:
 
         return found_dirs
 
-    def _has_test_files(self, project_dir: Path, test_directories: List[str]) -> bool:
+    def _has_test_files(self, project_dir: Path, test_directories: list[str]) -> bool:
         """Check if any test files exist."""
         test_file_patterns = [
             "**/test_*.py",
@@ -550,7 +567,7 @@ class TestDiscovery:
 
         return False
 
-    def to_dict(self, result: TestDiscoveryResult) -> Dict[str, Any]:
+    def to_dict(self, result: TestDiscoveryResult) -> dict[str, Any]:
         """Convert result to dictionary for JSON serialization."""
         return {
             "frameworks": [
@@ -610,7 +627,7 @@ def get_test_command(project_dir: Path) -> str:
     return result.test_command
 
 
-def get_test_frameworks(project_dir: Path) -> List[str]:
+def get_test_frameworks(project_dir: Path) -> list[str]:
     """
     Get list of test framework names in a project.
 

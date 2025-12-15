@@ -9,7 +9,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Ensure parent directory is in path for imports (before other imports)
 _PARENT_DIR = Path(__file__).parent.parent
@@ -18,38 +17,36 @@ if str(_PARENT_DIR) not in sys.path:
 
 # Import only what we need at module level
 # Heavy imports are lazy-loaded in functions to avoid import errors
-from progress import count_subtasks, print_paused_banner, is_build_complete
+from progress import count_subtasks, is_build_complete, print_paused_banner
 from review import ReviewState
 from ui import (
+    BuildState,
     Icons,
-    icon,
-    box,
-    success,
-    error,
-    warning,
-    info,
-    muted,
-    highlight,
-    bold,
-    print_status,
-    select_menu,
     MenuOption,
     StatusManager,
-    BuildState,
+    bold,
+    box,
+    error,
+    highlight,
+    icon,
+    muted,
+    print_status,
+    select_menu,
+    success,
+    warning,
 )
 from workspace import (
     WorkspaceMode,
-    choose_workspace,
-    setup_workspace,
-    finalize_workspace,
-    handle_workspace_choice,
     check_existing_build,
+    choose_workspace,
+    finalize_workspace,
     get_existing_build_worktree,
+    handle_workspace_choice,
+    setup_workspace,
 )
-from worktree import WorktreeManager
 
 
-def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> Optional[str]:
+def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> str | None:
     """
     Collect a follow-up task description from the user.
 
@@ -117,7 +114,9 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> Optional[str]
         if choice == "file":
             # Read from file
             print()
-            print(f"{icon(Icons.DOCUMENT)} Enter the path to your task description file:")
+            print(
+                f"{icon(Icons.DOCUMENT)} Enter the path to your task description file:"
+            )
             try:
                 file_path_str = input(f"  {icon(Icons.POINTER)} ").strip()
             except (KeyboardInterrupt, EOFError):
@@ -139,23 +138,27 @@ def collect_followup_task(spec_dir: Path, max_retries: int = 3) -> Optional[str]
                     followup_task = file_path.read_text().strip()
                     if followup_task:
                         print_status(
-                            f"Loaded {len(followup_task)} characters from file", "success"
+                            f"Loaded {len(followup_task)} characters from file",
+                            "success",
                         )
                     else:
                         print()
                         print_status(
-                            "File is empty. Please provide a file with task description.", "error"
+                            "File is empty. Please provide a file with task description.",
+                            "error",
                         )
                         retry_count += 1
                         continue
                 else:
                     print_status(f"File not found: {file_path}", "error")
-                    print(muted(f"  Check that the path is correct and the file exists."))
+                    print(
+                        muted("  Check that the path is correct and the file exists.")
+                    )
                     retry_count += 1
                     continue
             except PermissionError:
                 print_status(f"Permission denied: cannot read {file_path_str}", "error")
-                print(muted(f"  Check file permissions and try again."))
+                print(muted("  Check file permissions and try again."))
                 retry_count += 1
                 continue
             except Exception as e:
@@ -244,6 +247,7 @@ def handle_followup_command(
     """
     # Lazy imports to avoid loading heavy modules
     from agent import run_followup_planner
+
     from .utils import print_banner, validate_environment
 
     print_banner()
@@ -273,7 +277,11 @@ def handle_followup_command(
         completed, total = count_subtasks(spec_dir)
         pending = total - completed
         print()
-        print(error(f"{icon(Icons.ERROR)} Build not complete ({completed}/{total} subtasks)."))
+        print(
+            error(
+                f"{icon(Icons.ERROR)} Build not complete ({completed}/{total} subtasks)."
+            )
+        )
         print()
         content = [
             f"There are still {pending} pending subtask(s) to complete.",
@@ -291,7 +299,7 @@ def handle_followup_command(
     # Check for prior follow-ups (for sequential follow-up context)
     prior_followup_count = 0
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan_data = json.load(f)
         phases = plan_data.get("phases", [])
         # Count phases that look like follow-up phases (name contains "Follow" or high phase number)
@@ -311,7 +319,11 @@ def handle_followup_command(
             )
         )
     else:
-        print(success(f"{icon(Icons.SUCCESS)} Build is complete. Ready for follow-up tasks."))
+        print(
+            success(
+                f"{icon(Icons.SUCCESS)} Build is complete. Ready for follow-up tasks."
+            )
+        )
 
     # Collect follow-up task from user
     followup_task = collect_followup_task(spec_dir)
@@ -381,7 +393,7 @@ def handle_build_command(
     project_dir: Path,
     spec_dir: Path,
     model: str,
-    max_iterations: Optional[int],
+    max_iterations: int | None,
     verbose: bool,
     force_isolated: bool,
     force_direct: bool,
@@ -408,11 +420,12 @@ def handle_build_command(
     from agent import run_autonomous_agent, sync_plan_to_source
     from debug import (
         debug,
+        debug_info,
         debug_section,
         debug_success,
-        debug_info,
     )
     from qa_loop import run_qa_validation_loop, should_run_qa
+
     from .utils import print_banner, validate_environment
 
     print_banner()
@@ -437,7 +450,11 @@ def handle_build_command(
         if force_bypass_approval:
             # User explicitly bypassed approval check
             print()
-            print(warning(f"{icon(Icons.WARNING)} WARNING: Bypassing approval check with --force"))
+            print(
+                warning(
+                    f"{icon(Icons.WARNING)} WARNING: Bypassing approval check with --force"
+                )
+            )
             print(muted("This spec has not been approved for building."))
             print()
         else:
@@ -467,7 +484,9 @@ def handle_build_command(
             print()
             sys.exit(1)
     else:
-        debug_success("run.py", "Review approval validated", approved_by=review_state.approved_by)
+        debug_success(
+            "run.py", "Review approval validated", approved_by=review_state.approved_by
+        )
 
     # Check for existing build
     if get_existing_build_worktree(project_dir, spec_dir.name):
@@ -568,12 +587,16 @@ def handle_build_command(
                     print("\nSome issues require manual attention.")
                     print(f"See: {spec_dir / 'qa_report.md'}")
                     print(f"Or:  {spec_dir / 'QA_FIX_REQUEST.md'}")
-                    print(f"\nResume QA: python auto-claude/run.py --spec {spec_dir.name} --qa\n")
+                    print(
+                        f"\nResume QA: python auto-claude/run.py --spec {spec_dir.name} --qa\n"
+                    )
 
                 # Sync implementation plan to main project after QA
                 # This ensures the main project has the latest status (human_review)
                 if sync_plan_to_source(spec_dir, source_spec_dir):
-                    debug_info("run.py", "Implementation plan synced to main project after QA")
+                    debug_info(
+                        "run.py", "Implementation plan synced to main project after QA"
+                    )
             except KeyboardInterrupt:
                 print("\n\nQA validation paused.")
                 print(f"Resume: python auto-claude/run.py --spec {spec_dir.name} --qa")
@@ -583,13 +606,20 @@ def handle_build_command(
         # This happens AFTER QA validation so the worktree still exists
         if worktree_manager:
             choice = finalize_workspace(
-                project_dir, spec_dir.name, worktree_manager, auto_continue=auto_continue
+                project_dir,
+                spec_dir.name,
+                worktree_manager,
+                auto_continue=auto_continue,
             )
-            handle_workspace_choice(choice, project_dir, spec_dir.name, worktree_manager)
+            handle_workspace_choice(
+                choice, project_dir, spec_dir.name, worktree_manager
+            )
 
     except KeyboardInterrupt:
         # Print paused banner
-        print_paused_banner(spec_dir, spec_dir.name, has_worktree=bool(worktree_manager))
+        print_paused_banner(
+            spec_dir, spec_dir.name, has_worktree=bool(worktree_manager)
+        )
 
         # Update status file
         status_manager = StatusManager(project_dir)
@@ -648,7 +678,9 @@ def handle_build_command(
             if choice == "file":
                 # Read from file
                 print()
-                print(f"{icon(Icons.DOCUMENT)} Enter the path to your instructions file:")
+                print(
+                    f"{icon(Icons.DOCUMENT)} Enter the path to your instructions file:"
+                )
                 file_path_input = input(f"  {icon(Icons.POINTER)} ").strip()
 
                 if file_path_input:
@@ -657,7 +689,10 @@ def handle_build_command(
                         file_path = Path(file_path_input).expanduser().resolve()
                         if file_path.exists():
                             human_input = file_path.read_text().strip()
-                            print_status(f"Loaded {len(human_input)} characters from file", "success")
+                            print_status(
+                                f"Loaded {len(human_input)} characters from file",
+                                "success",
+                            )
                         else:
                             print_status(f"File not found: {file_path}", "error")
                     except Exception as e:
@@ -686,7 +721,9 @@ def handle_build_command(
                             lines.append(line)
                     except KeyboardInterrupt:
                         print()
-                        print_status("Exiting without saving instructions...", "warning")
+                        print_status(
+                            "Exiting without saving instructions...", "warning"
+                        )
                         status_manager.set_inactive()
                         sys.exit(0)
 
@@ -702,7 +739,9 @@ def handle_build_command(
                     "",
                     f"Saved to: {highlight(str(input_file.name))}",
                     "",
-                    muted("The agent will read and follow these instructions when you resume."),
+                    muted(
+                        "The agent will read and follow these instructions when you resume."
+                    ),
                 ]
                 print()
                 print(box(content, width=70, style="heavy"))

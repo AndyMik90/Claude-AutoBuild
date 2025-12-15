@@ -29,7 +29,6 @@ from typing import Optional
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
-
 # Linear status constants (matching Valma AI team setup)
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
@@ -53,11 +52,12 @@ LINEAR_TOOLS = [
 @dataclass
 class LinearTaskState:
     """State of a Linear task for an auto-claude spec."""
-    task_id: Optional[str] = None
-    task_title: Optional[str] = None
-    team_id: Optional[str] = None
+
+    task_id: str | None = None
+    task_title: str | None = None
+    team_id: str | None = None
     status: str = STATUS_TODO
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -92,9 +92,9 @@ class LinearTaskState:
             return None
 
         try:
-            with open(state_file, "r") as f:
+            with open(state_file) as f:
                 return cls.from_dict(json.load(f))
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return None
 
 
@@ -130,7 +130,7 @@ def _create_linear_client() -> ClaudeSDKClient:
                 "linear": {
                     "type": "http",
                     "url": "https://mcp.linear.app/mcp",
-                    "headers": {"Authorization": f"Bearer {linear_api_key}"}
+                    "headers": {"Authorization": f"Bearer {linear_api_key}"},
                 }
             },
             max_turns=10,  # Should complete in 1-3 turns
@@ -138,7 +138,7 @@ def _create_linear_client() -> ClaudeSDKClient:
     )
 
 
-async def _run_linear_agent(prompt: str) -> Optional[str]:
+async def _run_linear_agent(prompt: str) -> str | None:
     """
     Run a focused mini-agent for a Linear operation.
 
@@ -173,8 +173,8 @@ async def _run_linear_agent(prompt: str) -> Optional[str]:
 async def create_linear_task(
     spec_dir: Path,
     title: str,
-    description: Optional[str] = None,
-) -> Optional[LinearTaskState]:
+    description: str | None = None,
+) -> LinearTaskState | None:
     """
     Create a new Linear task for a spec.
 
@@ -317,7 +317,7 @@ async def add_linear_comment(
         return False
 
     # Escape any quotes in the comment
-    safe_comment = comment.replace('"', '\\"').replace('\n', '\\n')
+    safe_comment = comment.replace('"', '\\"').replace("\n", "\\n")
 
     prompt = f"""Add a comment to Linear issue:
 
@@ -337,6 +337,7 @@ Confirm when done.
 
 
 # === Convenience functions for specific transitions ===
+
 
 async def linear_task_started(spec_dir: Path) -> bool:
     """

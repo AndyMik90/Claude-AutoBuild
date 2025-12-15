@@ -14,11 +14,117 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Generator
+from unittest.mock import MagicMock
 
 import pytest
 
 # Add auto-claude directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+
+
+# =============================================================================
+# MODULE MOCK CLEANUP - Prevents test isolation issues
+# =============================================================================
+
+# List of modules that might be mocked by test files
+# These need to be cleaned up between test modules to prevent leakage
+_POTENTIALLY_MOCKED_MODULES = [
+    'claude_code_sdk',
+    'claude_code_sdk.types',
+    'claude_agent_sdk',
+    'claude_agent_sdk.types',
+    'ui',
+    'progress',
+    'task_logger',
+    'linear_updater',
+    'client',
+    'init',
+    'review',
+    'validate_spec',
+    'graphiti_providers',
+]
+
+# Store original module references at import time (before any mocking)
+_original_module_state = {}
+for _name in _POTENTIALLY_MOCKED_MODULES:
+    if _name in sys.modules:
+        _original_module_state[_name] = sys.modules[_name]
+
+
+def _cleanup_mocked_modules():
+    """Remove any MagicMock modules from sys.modules."""
+    for name in _POTENTIALLY_MOCKED_MODULES:
+        if name in sys.modules:
+            module = sys.modules[name]
+            # Check if it's a MagicMock (indicating it was mocked)
+            if isinstance(module, MagicMock):
+                if name in _original_module_state:
+                    sys.modules[name] = _original_module_state[name]
+                else:
+                    del sys.modules[name]
+
+
+def pytest_sessionstart(session):
+    """Clean up any mocked modules before the test session starts."""
+    _cleanup_mocked_modules()
+
+
+def pytest_runtest_setup(item):
+    """Clean up mocked modules before each test to ensure isolation."""
+    import importlib
+
+    module_name = item.module.__name__
+
+    # Map of which test modules mock which specific modules
+    # Each test module should only preserve the mocks it installed
+    module_mocks = {
+        'test_qa_criteria': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
+        'test_qa_report': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
+        'test_qa_loop': {'claude_code_sdk', 'claude_code_sdk.types'},
+        'test_spec_pipeline': {'claude_code_sdk', 'claude_code_sdk.types', 'init', 'client', 'review', 'task_logger', 'ui', 'validate_spec'},
+        'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
+        'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
+    }
+
+    # Get the mocks that the current test module needs to preserve
+    preserved_mocks = module_mocks.get(module_name, set())
+
+    # Track if we cleaned up any mocks
+    cleaned_up = False
+
+    # Clean up all mocked modules EXCEPT those needed by the current test module
+    for name in _POTENTIALLY_MOCKED_MODULES:
+        if name in preserved_mocks:
+            continue  # Don't clean up mocks this module needs
+        if name in sys.modules:
+            module = sys.modules[name]
+            if isinstance(module, MagicMock):
+                if name in _original_module_state:
+                    sys.modules[name] = _original_module_state[name]
+                else:
+                    del sys.modules[name]
+                cleaned_up = True
+
+    # If we cleaned up mocks, we need to reload modules that might have cached
+    # references to the mocked versions
+    if cleaned_up and module_name in ('test_qa_loop', 'test_review'):
+        # Reload progress first
+        if 'progress' in sys.modules:
+            importlib.reload(sys.modules['progress'])
+        # Reload the entire qa module chain which imports progress
+        for qa_module in ['qa.criteria', 'qa.report', 'qa.loop', 'qa']:
+            if qa_module in sys.modules:
+                try:
+                    importlib.reload(sys.modules[qa_module])
+                except Exception:
+                    pass  # Some modules may fail to reload due to circular imports
+        # Reload review module chain
+        for review_module in ['review.state', 'review.formatters', 'review']:
+            if review_module in sys.modules:
+                try:
+                    importlib.reload(sys.modules[review_module])
+                except Exception:
+                    pass
 
 
 # =============================================================================

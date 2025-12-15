@@ -10,18 +10,17 @@ Gathers project context including:
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Optional
 import sys
+from pathlib import Path
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from graphiti_providers import get_graph_hints, is_graphiti_enabled
 from debug import (
     debug_success,
     debug_warning,
 )
+from graphiti_providers import get_graph_hints, is_graphiti_enabled
 
 
 class ProjectAnalyzer:
@@ -39,7 +38,7 @@ class ProjectAnalyzer:
         self.include_roadmap = include_roadmap
         self.include_kanban = include_kanban
 
-    def gather_context(self) -> Dict:
+    def gather_context(self) -> dict:
         """Gather context from project for ideation."""
         context = {
             "existing_features": [],
@@ -66,7 +65,9 @@ class ProjectAnalyzer:
 
         # Get roadmap context if enabled
         if self.include_roadmap:
-            roadmap_path = self.project_dir / ".auto-claude" / "roadmap" / "roadmap.json"
+            roadmap_path = (
+                self.project_dir / ".auto-claude" / "roadmap" / "roadmap.json"
+            )
             if roadmap_path.exists():
                 try:
                     with open(roadmap_path) as f:
@@ -81,7 +82,9 @@ class ProjectAnalyzer:
                     pass
 
             # Also check discovery for audience
-            discovery_path = self.project_dir / ".auto-claude" / "roadmap" / "roadmap_discovery.json"
+            discovery_path = (
+                self.project_dir / ".auto-claude" / "roadmap" / "roadmap_discovery.json"
+            )
             if discovery_path.exists() and not context["target_audience"]:
                 try:
                     with open(discovery_path) as f:
@@ -91,7 +94,9 @@ class ProjectAnalyzer:
 
                         # Also get existing features
                         current_state = discovery.get("current_state", {})
-                        context["existing_features"] = current_state.get("existing_features", [])
+                        context["existing_features"] = current_state.get(
+                            "existing_features", []
+                        )
                 except (json.JSONDecodeError, KeyError):
                     pass
 
@@ -116,7 +121,7 @@ class ProjectAnalyzer:
 
         return context
 
-    async def get_graph_hints(self, ideation_type: str) -> List[Dict]:
+    async def get_graph_hints(self, ideation_type: str) -> list[dict]:
         """Get graph hints for a specific ideation type from Graphiti.
 
         This runs in parallel with ideation agents to provide historical context.
@@ -142,8 +147,12 @@ class ProjectAnalyzer:
                 project_id=str(self.project_dir),
                 max_results=5,
             )
-            debug_success("ideation_analyzer", f"Got {len(hints)} graph hints for {ideation_type}")
+            debug_success(
+                "ideation_analyzer", f"Got {len(hints)} graph hints for {ideation_type}"
+            )
             return hints
         except Exception as e:
-            debug_warning("ideation_analyzer", f"Graph hints failed for {ideation_type}: {e}")
+            debug_warning(
+                "ideation_analyzer", f"Graph hints failed for {ideation_type}: {e}"
+            )
             return []

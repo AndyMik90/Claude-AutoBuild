@@ -196,7 +196,7 @@ class TestPhase:
 
         assert phase.phase == 1
         assert phase.name == "Setup"
-        assert len(phase.chunks) == 2
+        assert len(phase.subtasks) == 2
 
     def test_phase_is_complete(self):
         """Phase completion checks all chunks."""
@@ -270,7 +270,7 @@ class TestPhase:
 
         assert phase.phase == 2
         assert phase.type == PhaseType.IMPLEMENTATION
-        assert len(phase.chunks) == 1
+        assert len(phase.subtasks) == 1
         assert 1 in phase.depends_on
 
 
@@ -294,7 +294,7 @@ class TestImplementationPlan:
         plan = ImplementationPlan.from_dict(sample_implementation_plan)
 
         # Mark phase 1 as complete
-        for chunk in plan.phases[0].chunks:
+        for chunk in plan.phases[0].subtasks:
             chunk.status = ChunkStatus.COMPLETED
 
         available = plan.get_available_phases()
@@ -304,30 +304,30 @@ class TestImplementationPlan:
         assert 2 in phase_nums
         assert 3 in phase_nums
 
-    def test_plan_get_next_chunk(self, sample_implementation_plan: dict):
-        """Gets next chunk to work on."""
+    def test_plan_get_next_subtask(self, sample_implementation_plan: dict):
+        """Gets next subtask to work on."""
         plan = ImplementationPlan.from_dict(sample_implementation_plan)
 
-        result = plan.get_next_chunk()
+        result = plan.get_next_subtask()
 
         assert result is not None
-        phase, chunk = result
-        # Should be first pending chunk in phase 1
+        phase, subtask = result
+        # Should be first pending subtask in phase 1
         assert phase.phase == 1
-        assert chunk.status == ChunkStatus.PENDING
+        assert subtask.status == ChunkStatus.PENDING
 
     def test_plan_get_progress(self, sample_implementation_plan: dict):
         """Gets overall progress."""
         plan = ImplementationPlan.from_dict(sample_implementation_plan)
 
-        # Complete some chunks
-        plan.phases[0].chunks[0].status = ChunkStatus.COMPLETED
+        # Complete some subtasks
+        plan.phases[0].subtasks[0].status = ChunkStatus.COMPLETED
 
         progress = plan.get_progress()
 
         assert progress["total_phases"] == 3
-        assert progress["total_chunks"] == 4  # Based on fixture
-        assert progress["completed_chunks"] == 1
+        assert progress["total_subtasks"] == 4  # Based on fixture
+        assert progress["completed_subtasks"] == 1
         assert progress["percent_complete"] == 25.0  # 1/4 = 25%
         assert progress["is_complete"] is False
 
@@ -449,7 +449,7 @@ class TestCreateInvestigationPlan:
 
         # Fix phase should have blocked chunks
         fix_phase = plan.phases[2]  # Phase 3 - Fix
-        assert any(c.status == ChunkStatus.BLOCKED for c in fix_phase.chunks)
+        assert any(c.status == ChunkStatus.BLOCKED for c in fix_phase.subtasks)
 
 
 class TestCreateRefactorPlan:

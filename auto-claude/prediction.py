@@ -24,12 +24,12 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class PredictedIssue:
     """A potential issue that might occur during implementation."""
+
     category: str  # "integration", "pattern", "edge_case", "security", "performance"
     description: str
     likelihood: str  # "high", "medium", "low"
@@ -47,6 +47,7 @@ class PredictedIssue:
 @dataclass
 class PreImplementationChecklist:
     """Complete checklist for a subtask before implementation."""
+
     subtask_id: str
     subtask_description: str
     predicted_issues: list[PredictedIssue] = field(default_factory=list)
@@ -83,31 +84,31 @@ class BugPredictor:
                     "integration",
                     "CORS configuration missing or incorrect",
                     "high",
-                    "Check existing CORS setup in similar endpoints and ensure new routes are included"
+                    "Check existing CORS setup in similar endpoints and ensure new routes are included",
                 ),
                 PredictedIssue(
                     "security",
                     "Authentication middleware not applied",
                     "high",
-                    "Verify auth decorator is applied if endpoint requires authentication"
+                    "Verify auth decorator is applied if endpoint requires authentication",
                 ),
                 PredictedIssue(
                     "pattern",
                     "Response format doesn't match API conventions",
                     "medium",
-                    "Check existing endpoints for response structure (e.g., {\"data\": ..., \"error\": ...})"
+                    'Check existing endpoints for response structure (e.g., {"data": ..., "error": ...})',
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Missing input validation",
                     "high",
-                    "Add validation for all user inputs to prevent invalid data and SQL injection"
+                    "Add validation for all user inputs to prevent invalid data and SQL injection",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Error handling not comprehensive",
                     "medium",
-                    "Handle edge cases: missing fields, invalid types, database errors, etc."
+                    "Handle edge cases: missing fields, invalid types, database errors, etc.",
                 ),
             ],
             "database_model": [
@@ -115,25 +116,25 @@ class BugPredictor:
                     "integration",
                     "Database migration not created or run",
                     "high",
-                    "Create migration after model changes and run db upgrade before testing"
+                    "Create migration after model changes and run db upgrade before testing",
                 ),
                 PredictedIssue(
                     "pattern",
                     "Field naming doesn't match conventions",
                     "medium",
-                    "Check existing models for naming style (snake_case, timestamps, etc.)"
+                    "Check existing models for naming style (snake_case, timestamps, etc.)",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Missing indexes on frequently queried fields",
                     "low",
-                    "Add indexes for foreign keys and fields used in WHERE clauses"
+                    "Add indexes for foreign keys and fields used in WHERE clauses",
                 ),
                 PredictedIssue(
                     "pattern",
                     "Relationship configuration incorrect",
                     "medium",
-                    "Check existing relationships for backref and cascade patterns"
+                    "Check existing relationships for backref and cascade patterns",
                 ),
             ],
             "frontend_component": [
@@ -141,31 +142,31 @@ class BugPredictor:
                     "integration",
                     "API client not used correctly",
                     "high",
-                    "Use existing ApiClient or hook pattern, don't call fetch() directly"
+                    "Use existing ApiClient or hook pattern, don't call fetch() directly",
                 ),
                 PredictedIssue(
                     "pattern",
                     "State management doesn't follow conventions",
                     "medium",
-                    "Follow existing hook patterns (useState, useEffect, custom hooks)"
+                    "Follow existing hook patterns (useState, useEffect, custom hooks)",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Loading and error states not handled",
                     "high",
-                    "Show loading indicator during async operations and display errors to users"
+                    "Show loading indicator during async operations and display errors to users",
                 ),
                 PredictedIssue(
                     "pattern",
                     "Styling doesn't match design system",
                     "low",
-                    "Use existing CSS classes or styled components from the design system"
+                    "Use existing CSS classes or styled components from the design system",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Form validation missing",
                     "medium",
-                    "Add client-side validation before submission and show helpful error messages"
+                    "Add client-side validation before submission and show helpful error messages",
                 ),
             ],
             "celery_task": [
@@ -173,25 +174,25 @@ class BugPredictor:
                     "integration",
                     "Task not registered with Celery app",
                     "high",
-                    "Import task in celery app initialization or __init__.py"
+                    "Import task in celery app initialization or __init__.py",
                 ),
                 PredictedIssue(
                     "pattern",
                     "Arguments not JSON-serializable",
                     "high",
-                    "Use only JSON-serializable arguments (no objects, use IDs instead)"
+                    "Use only JSON-serializable arguments (no objects, use IDs instead)",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Retry logic not implemented",
                     "medium",
-                    "Add retry decorator for network/external service failures"
+                    "Add retry decorator for network/external service failures",
                 ),
                 PredictedIssue(
                     "integration",
                     "Task not called from correct location",
                     "medium",
-                    "Call with .delay() or .apply_async() after database commit"
+                    "Call with .delay() or .apply_async() after database commit",
                 ),
             ],
             "authentication": [
@@ -199,19 +200,19 @@ class BugPredictor:
                     "security",
                     "Password not hashed",
                     "high",
-                    "Use bcrypt or similar for password hashing, never store plaintext"
+                    "Use bcrypt or similar for password hashing, never store plaintext",
                 ),
                 PredictedIssue(
                     "security",
                     "Token not validated properly",
                     "high",
-                    "Verify token signature and expiration on every request"
+                    "Verify token signature and expiration on every request",
                 ),
                 PredictedIssue(
                     "security",
                     "Session not invalidated on logout",
                     "medium",
-                    "Clear session/token on logout and after password changes"
+                    "Clear session/token on logout and after password changes",
                 ),
             ],
             "database_query": [
@@ -219,19 +220,19 @@ class BugPredictor:
                     "performance",
                     "N+1 query problem",
                     "medium",
-                    "Use eager loading (joinedload/selectinload) for relationships"
+                    "Use eager loading (joinedload/selectinload) for relationships",
                 ),
                 PredictedIssue(
                     "security",
                     "SQL injection vulnerability",
                     "high",
-                    "Use parameterized queries, never concatenate user input into SQL"
+                    "Use parameterized queries, never concatenate user input into SQL",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Large result sets not paginated",
                     "medium",
-                    "Add pagination for queries that could return many results"
+                    "Add pagination for queries that could return many results",
                 ),
             ],
             "file_upload": [
@@ -239,19 +240,19 @@ class BugPredictor:
                     "security",
                     "File type not validated",
                     "high",
-                    "Validate file extension and MIME type, don't trust user input"
+                    "Validate file extension and MIME type, don't trust user input",
                 ),
                 PredictedIssue(
                     "security",
                     "File size not limited",
                     "high",
-                    "Set maximum file size to prevent DoS attacks"
+                    "Set maximum file size to prevent DoS attacks",
                 ),
                 PredictedIssue(
                     "edge_case",
                     "Uploaded files not cleaned up on error",
                     "low",
-                    "Use try/finally or context managers to ensure cleanup"
+                    "Use try/finally or context managers to ensure cleanup",
                 ),
             ],
         }
@@ -265,10 +266,10 @@ class BugPredictor:
         content = self.gotchas_file.read_text()
 
         # Parse markdown list items
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             line = line.strip()
-            if line.startswith('-') or line.startswith('*'):
-                gotcha = line.lstrip('-*').strip()
+            if line.startswith("-") or line.startswith("*"):
+                gotcha = line.lstrip("-*").strip()
                 if gotcha:
                     gotchas.append(gotcha)
 
@@ -284,15 +285,15 @@ class BugPredictor:
 
         # Parse markdown sections
         current_pattern = None
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             line = line.strip()
-            if line.startswith('##'):
+            if line.startswith("##"):
                 # Pattern heading
-                current_pattern = line.lstrip('#').strip()
+                current_pattern = line.lstrip("#").strip()
             elif line and current_pattern:
                 # Pattern detail
-                if line.startswith('-') or line.startswith('*'):
-                    detail = line.lstrip('-*').strip()
+                if line.startswith("-") or line.startswith("*"):
+                    detail = line.lstrip("-*").strip()
                     patterns.append(f"{current_pattern}: {detail}")
 
         return patterns
@@ -306,7 +307,7 @@ class BugPredictor:
             with open(self.history_file) as f:
                 history = json.load(f)
                 return history.get("attempts", [])
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return []
 
     def _detect_work_type(self, subtask: dict) -> list[str]:
@@ -322,13 +323,18 @@ class BugPredictor:
         service = subtask.get("service", "").lower()
 
         # API endpoint detection
-        if any(kw in description for kw in ["endpoint", "api", "route", "request", "response"]):
+        if any(
+            kw in description
+            for kw in ["endpoint", "api", "route", "request", "response"]
+        ):
             work_types.append("api_endpoint")
         if any("routes" in f or "api" in f for f in files):
             work_types.append("api_endpoint")
 
         # Database model detection
-        if any(kw in description for kw in ["model", "database", "migration", "schema"]):
+        if any(
+            kw in description for kw in ["model", "database", "migration", "schema"]
+        ):
             work_types.append("database_model")
         if any("models" in f or "migration" in f for f in files):
             work_types.append("database_model")
@@ -336,7 +342,7 @@ class BugPredictor:
         # Frontend component detection
         if service in ["frontend", "web", "ui"]:
             work_types.append("frontend_component")
-        if any(f.endswith(('.tsx', '.jsx', '.vue', '.svelte')) for f in files):
+        if any(f.endswith((".tsx", ".jsx", ".vue", ".svelte")) for f in files):
             work_types.append("frontend_component")
 
         # Celery task detection
@@ -346,7 +352,10 @@ class BugPredictor:
             work_types.append("celery_task")
 
         # Authentication detection
-        if any(kw in description for kw in ["auth", "login", "password", "token", "session"]):
+        if any(
+            kw in description
+            for kw in ["auth", "login", "password", "token", "session"]
+        ):
             work_types.append("authentication")
 
         # Database query detection
@@ -384,12 +393,14 @@ class BugPredictor:
         for failure in similar_failures:
             failure_reason = failure.get("failure_reason", "")
             if failure_reason:
-                issues.append(PredictedIssue(
-                    "pattern",
-                    f"Similar subtask failed: {failure_reason}",
-                    "high",
-                    f"Review the failed attempt in memory/attempt_history.json"
-                ))
+                issues.append(
+                    PredictedIssue(
+                        "pattern",
+                        f"Similar subtask failed: {failure_reason}",
+                        "high",
+                        "Review the failed attempt in memory/attempt_history.json",
+                    )
+                )
 
         # Deduplicate by description
         seen = set()
@@ -421,7 +432,9 @@ class BugPredictor:
             return []
 
         subtask_desc = subtask.get("description", "").lower()
-        subtask_files = set(subtask.get("files_to_modify", []) + subtask.get("files_to_create", []))
+        subtask_files = set(
+            subtask.get("files_to_modify", []) + subtask.get("files_to_create", [])
+        )
 
         similar = []
         for attempt in history:
@@ -437,8 +450,8 @@ class BugPredictor:
             score = 0
 
             # Description keyword overlap
-            subtask_keywords = set(re.findall(r'\w+', subtask_desc))
-            attempt_keywords = set(re.findall(r'\w+', attempt_desc))
+            subtask_keywords = set(re.findall(r"\w+", subtask_desc))
+            attempt_keywords = set(re.findall(r"\w+", attempt_desc))
             common_keywords = subtask_keywords & attempt_keywords
             if common_keywords:
                 score += len(common_keywords)
@@ -449,12 +462,14 @@ class BugPredictor:
                 score += len(common_files) * 3  # Files are stronger signal
 
             if score > 2:  # Threshold for similarity
-                similar.append({
-                    "subtask_id": attempt.get("subtask_id"),
-                    "description": attempt.get("subtask_description"),
-                    "failure_reason": attempt.get("error_message", "Unknown error"),
-                    "similarity_score": score,
-                })
+                similar.append(
+                    {
+                        "subtask_id": attempt.get("subtask_id"),
+                        "description": attempt.get("subtask_description"),
+                        "failure_reason": attempt.get("error_message", "Unknown error"),
+                        "similarity_score": score,
+                    }
+                )
 
         # Sort by similarity
         similar.sort(key=lambda x: x["similarity_score"], reverse=True)
@@ -489,7 +504,10 @@ class BugPredictor:
             if any(wt.replace("_", " ") in pattern_lower for wt in work_types):
                 relevant_patterns.append(pattern)
             # Or if it mentions any file being modified
-            elif any(f.split('/')[-1] in pattern_lower for f in subtask.get("files_to_modify", [])):
+            elif any(
+                f.split("/")[-1] in pattern_lower
+                for f in subtask.get("files_to_modify", [])
+            ):
                 relevant_patterns.append(pattern)
 
         checklist.patterns_to_follow = relevant_patterns[:5]  # Top 5
@@ -504,7 +522,10 @@ class BugPredictor:
         for gotcha in gotchas:
             gotcha_lower = gotcha.lower()
             # Check relevance to current subtask
-            if any(kw in gotcha_lower for kw in subtask.get("description", "").lower().split()):
+            if any(
+                kw in gotcha_lower
+                for kw in subtask.get("description", "").lower().split()
+            ):
                 relevant_gotchas.append(gotcha)
             elif any(wt.replace("_", " ") in gotcha_lower for wt in work_types):
                 relevant_gotchas.append(gotcha)
@@ -542,7 +563,9 @@ class BugPredictor:
         """
         lines = []
 
-        lines.append(f"## Pre-Implementation Checklist: {checklist.subtask_description}")
+        lines.append(
+            f"## Pre-Implementation Checklist: {checklist.subtask_description}"
+        )
         lines.append("")
 
         # Predicted issues
@@ -584,8 +607,10 @@ class BugPredictor:
             lines.append("")
             for file_path in checklist.files_to_reference:
                 # Extract filename and suggest what to look for
-                filename = file_path.split('/')[-1]
-                lines.append(f"- `{file_path}` - Check for similar patterns and code style")
+                filename = file_path.split("/")[-1]
+                lines.append(
+                    f"- `{file_path}` - Check for similar patterns and code style"
+                )
             lines.append("")
 
         # Verification reminders
@@ -600,7 +625,9 @@ class BugPredictor:
         lines.append("### Before You Start Implementing")
         lines.append("")
         lines.append("- [ ] I have read and understood all predicted issues above")
-        lines.append("- [ ] I have reviewed the reference files to understand existing patterns")
+        lines.append(
+            "- [ ] I have reviewed the reference files to understand existing patterns"
+        )
         lines.append("- [ ] I know how to prevent the high-likelihood issues")
         lines.append("- [ ] I understand the verification requirements")
         lines.append("")
@@ -649,7 +676,7 @@ if __name__ == "__main__":
                 "method": "POST",
                 "url": "/api/users/avatar",
                 "expect_status": 200,
-            }
+            },
         }
 
         checklist_md = generate_subtask_checklist(spec_dir, demo_subtask)

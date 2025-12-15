@@ -83,15 +83,15 @@ describe('ProjectStore', () => {
     });
 
     it('should detect auto-claude directory if present', async () => {
-      // Create auto-claude directory
-      mkdirSync(path.join(TEST_PROJECT_PATH, 'auto-claude'), { recursive: true });
+      // Create .auto-claude directory (the data directory, not source code)
+      mkdirSync(path.join(TEST_PROJECT_PATH, '.auto-claude'), { recursive: true });
 
       const { ProjectStore } = await import('../project-store');
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
 
-      expect(project.autoBuildPath).toBe('auto-claude');
+      expect(project.autoBuildPath).toBe('.auto-claude');
     });
 
     it('should set empty autoBuildPath if not present', async () => {
@@ -278,8 +278,8 @@ describe('ProjectStore', () => {
     });
 
     it('should read tasks from filesystem correctly', async () => {
-      // Create spec directory structure
-      const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '001-test-feature');
+      // Create spec directory structure in .auto-claude (the data directory)
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '001-test-feature');
       mkdirSync(specsDir, { recursive: true });
 
       const plan = {
@@ -325,7 +325,7 @@ describe('ProjectStore', () => {
     });
 
     it('should determine status as backlog when no subtasks completed', async () => {
-      const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '002-pending');
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '002-pending');
       mkdirSync(specsDir, { recursive: true });
 
       const plan = {
@@ -364,7 +364,7 @@ describe('ProjectStore', () => {
     });
 
     it('should determine status as ai_review when all subtasks completed', async () => {
-      const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '003-complete');
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '003-complete');
       mkdirSync(specsDir, { recursive: true });
 
       const plan = {
@@ -403,7 +403,7 @@ describe('ProjectStore', () => {
     });
 
     it('should determine status as human_review when QA report rejected', async () => {
-      const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '004-rejected');
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '004-rejected');
       mkdirSync(specsDir, { recursive: true });
 
       const plan = {
@@ -445,8 +445,9 @@ describe('ProjectStore', () => {
       expect(tasks[0].status).toBe('human_review');
     });
 
-    it('should determine status as done when QA report approved', async () => {
-      const specsDir = path.join(TEST_PROJECT_PATH, 'auto-claude', 'specs', '005-approved');
+    it('should determine status as human_review when QA report approved', async () => {
+      // QA approval moves task to human_review (user needs to review before marking done)
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '005-approved');
       mkdirSync(specsDir, { recursive: true });
 
       const plan = {
@@ -477,6 +478,47 @@ describe('ProjectStore', () => {
       writeFileSync(
         path.join(specsDir, 'qa_report.md'),
         '# QA Report\n\nStatus: APPROVED\n'
+      );
+
+      const { ProjectStore } = await import('../project-store');
+      const store = new ProjectStore();
+
+      const project = store.addProject(TEST_PROJECT_PATH);
+      const tasks = store.getTasks(project.id);
+
+      expect(tasks[0].status).toBe('human_review');
+      expect(tasks[0].reviewReason).toBe('completed');
+    });
+
+    it('should determine status as done when plan status is explicitly done', async () => {
+      // User explicitly marking task as done via drag-and-drop sets status to done
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '006-done');
+      mkdirSync(specsDir, { recursive: true });
+
+      const plan = {
+        feature: 'Done Feature',
+        workflow_type: 'feature',
+        services_involved: [],
+        status: 'done', // Explicitly set by user
+        phases: [
+          {
+            phase: 1,
+            name: 'Phase 1',
+            type: 'implementation',
+            subtasks: [
+              { id: 'subtask-1', description: 'Subtask 1', status: 'completed' }
+            ]
+          }
+        ],
+        final_acceptance: [],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        spec_file: 'spec.md'
+      };
+
+      writeFileSync(
+        path.join(specsDir, 'implementation_plan.json'),
+        JSON.stringify(plan)
       );
 
       const { ProjectStore } = await import('../project-store');

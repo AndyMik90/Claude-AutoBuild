@@ -9,14 +9,13 @@ acceptance criteria.
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
-
 from task_logger import (
-    LogPhase,
     LogEntryType,
+    LogPhase,
     get_task_logger,
 )
-from .criteria import get_qa_signoff_status
 
+from .criteria import get_qa_signoff_status
 
 # Configuration
 QA_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -65,7 +64,7 @@ async def run_qa_agent_session(
     """
     print(f"\n{'=' * 70}")
     print(f"  QA REVIEWER SESSION {qa_session}")
-    print(f"  Validating all acceptance criteria...")
+    print("  Validating all acceptance criteria...")
     print(f"{'=' * 70}\n")
 
     # Get task logger for streaming markers
@@ -99,7 +98,12 @@ async def run_qa_agent_session(
                         print(block.text, end="", flush=True)
                         # Log text to task logger (persist without double-printing)
                         if task_logger and block.text.strip():
-                            task_logger.log(block.text, LogEntryType.TEXT, LogPhase.VALIDATION, print_to_console=False)
+                            task_logger.log(
+                                block.text,
+                                LogEntryType.TEXT,
+                                LogPhase.VALIDATION,
+                                print_to_console=False,
+                            )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
                         tool_input = None
@@ -118,7 +122,12 @@ async def run_qa_agent_session(
 
                         # Log tool start (handles printing)
                         if task_logger:
-                            task_logger.tool_start(tool_name, tool_input, LogPhase.VALIDATION, print_to_console=True)
+                            task_logger.tool_start(
+                                tool_name,
+                                tool_input,
+                                LogPhase.VALIDATION,
+                                print_to_console=True,
+                            )
                         else:
                             print(f"\n[QA Tool: {tool_name}]", flush=True)
 
@@ -143,7 +152,13 @@ async def run_qa_agent_session(
                             print(f"   [Error] {error_str}", flush=True)
                             if task_logger and current_tool:
                                 # Store full error in detail for expandable view
-                                task_logger.tool_end(current_tool, success=False, result=error_str[:100], detail=str(result_content), phase=LogPhase.VALIDATION)
+                                task_logger.tool_end(
+                                    current_tool,
+                                    success=False,
+                                    result=error_str[:100],
+                                    detail=str(result_content),
+                                    phase=LogPhase.VALIDATION,
+                                )
                         else:
                             if verbose:
                                 result_str = str(result_content)[:200]
@@ -153,11 +168,22 @@ async def run_qa_agent_session(
                             if task_logger and current_tool:
                                 # Store full result in detail for expandable view
                                 detail_content = None
-                                if current_tool in ("Read", "Grep", "Bash", "Edit", "Write"):
+                                if current_tool in (
+                                    "Read",
+                                    "Grep",
+                                    "Bash",
+                                    "Edit",
+                                    "Write",
+                                ):
                                     result_str = str(result_content)
                                     if len(result_str) < 50000:
                                         detail_content = result_str
-                                task_logger.tool_end(current_tool, success=True, detail=detail_content, phase=LogPhase.VALIDATION)
+                                task_logger.tool_end(
+                                    current_tool,
+                                    success=True,
+                                    detail=detail_content,
+                                    phase=LogPhase.VALIDATION,
+                                )
 
                         current_tool = None
 

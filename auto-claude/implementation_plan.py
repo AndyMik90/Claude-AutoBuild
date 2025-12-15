@@ -18,66 +18,77 @@ Workflow Types:
 """
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
 
 
 class WorkflowType(str, Enum):
     """Types of workflows with different phase structures."""
-    FEATURE = "feature"           # Multi-service feature (phases = services)
-    REFACTOR = "refactor"         # Stage-based (add new, migrate, remove old)
+
+    FEATURE = "feature"  # Multi-service feature (phases = services)
+    REFACTOR = "refactor"  # Stage-based (add new, migrate, remove old)
     INVESTIGATION = "investigation"  # Bug hunting (investigate, hypothesize, fix)
-    MIGRATION = "migration"       # Data migration (prepare, test, execute, cleanup)
-    SIMPLE = "simple"             # Single-service, minimal overhead
-    DEVELOPMENT = "development"   # General development work
-    ENHANCEMENT = "enhancement"   # Improving existing features
+    MIGRATION = "migration"  # Data migration (prepare, test, execute, cleanup)
+    SIMPLE = "simple"  # Single-service, minimal overhead
+    DEVELOPMENT = "development"  # General development work
+    ENHANCEMENT = "enhancement"  # Improving existing features
 
 
 class PhaseType(str, Enum):
     """Types of phases within a workflow."""
-    SETUP = "setup"               # Project scaffolding, environment setup
+
+    SETUP = "setup"  # Project scaffolding, environment setup
     IMPLEMENTATION = "implementation"  # Writing code
-    INVESTIGATION = "investigation"    # Research, debugging, analysis
-    INTEGRATION = "integration"   # Wiring services together
-    CLEANUP = "cleanup"           # Removing old code, polish
+    INVESTIGATION = "investigation"  # Research, debugging, analysis
+    INTEGRATION = "integration"  # Wiring services together
+    CLEANUP = "cleanup"  # Removing old code, polish
 
 
 class SubtaskStatus(str, Enum):
     """Status of a subtask."""
-    PENDING = "pending"           # Not started
-    IN_PROGRESS = "in_progress"   # Currently being worked on
-    COMPLETED = "completed"       # Completed successfully (matches JSON format)
-    BLOCKED = "blocked"           # Can't start (dependency not met or undefined)
-    FAILED = "failed"             # Attempted but failed
+
+    PENDING = "pending"  # Not started
+    IN_PROGRESS = "in_progress"  # Currently being worked on
+    COMPLETED = "completed"  # Completed successfully (matches JSON format)
+    BLOCKED = "blocked"  # Can't start (dependency not met or undefined)
+    FAILED = "failed"  # Attempted but failed
 
 
 class VerificationType(str, Enum):
     """How to verify a subtask is complete."""
-    COMMAND = "command"           # Run a shell command
-    API = "api"                   # Make an API request
-    BROWSER = "browser"           # Browser automation check
-    COMPONENT = "component"       # Component renders correctly
-    MANUAL = "manual"             # Requires human verification
-    NONE = "none"                 # No verification needed (investigation)
+
+    COMMAND = "command"  # Run a shell command
+    API = "api"  # Make an API request
+    BROWSER = "browser"  # Browser automation check
+    COMPONENT = "component"  # Component renders correctly
+    MANUAL = "manual"  # Requires human verification
+    NONE = "none"  # No verification needed (investigation)
 
 
 @dataclass
 class Verification:
     """How to verify a subtask is complete."""
+
     type: VerificationType
-    run: Optional[str] = None           # Command to run
-    url: Optional[str] = None           # URL for API/browser tests
-    method: Optional[str] = None        # HTTP method for API tests
-    expect_status: Optional[int] = None # Expected HTTP status
-    expect_contains: Optional[str] = None  # Expected content
-    scenario: Optional[str] = None      # Description for browser/manual tests
+    run: str | None = None  # Command to run
+    url: str | None = None  # URL for API/browser tests
+    method: str | None = None  # HTTP method for API tests
+    expect_status: int | None = None  # Expected HTTP status
+    expect_contains: str | None = None  # Expected content
+    scenario: str | None = None  # Description for browser/manual tests
 
     def to_dict(self) -> dict:
         result = {"type": self.type.value}
-        for key in ["run", "url", "method", "expect_status", "expect_contains", "scenario"]:
+        for key in [
+            "run",
+            "url",
+            "method",
+            "expect_status",
+            "expect_contains",
+            "scenario",
+        ]:
             val = getattr(self, key)
             if val is not None:
                 result[key] = val
@@ -99,13 +110,14 @@ class Verification:
 @dataclass
 class Subtask:
     """A single unit of implementation work."""
+
     id: str
     description: str
     status: SubtaskStatus = SubtaskStatus.PENDING
 
     # Scoping
-    service: Optional[str] = None       # Which service (backend, frontend, worker)
-    all_services: bool = False          # True for integration subtasks
+    service: str | None = None  # Which service (backend, frontend, worker)
+    all_services: bool = False  # True for integration subtasks
 
     # Files
     files_to_modify: list[str] = field(default_factory=list)
@@ -113,19 +125,19 @@ class Subtask:
     patterns_from: list[str] = field(default_factory=list)
 
     # Verification
-    verification: Optional[Verification] = None
+    verification: Verification | None = None
 
     # For investigation subtasks
-    expected_output: Optional[str] = None  # Knowledge/decision output
-    actual_output: Optional[str] = None    # What was discovered
+    expected_output: str | None = None  # Knowledge/decision output
+    actual_output: str | None = None  # What was discovered
 
     # Tracking
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    session_id: Optional[int] = None       # Which session completed this
+    started_at: str | None = None
+    completed_at: str | None = None
+    session_id: int | None = None  # Which session completed this
 
     # Self-Critique
-    critique_result: Optional[dict] = None  # Results from self-critique before completion
+    critique_result: dict | None = None  # Results from self-critique before completion
 
     def to_dict(self) -> dict:
         result = {
@@ -192,14 +204,14 @@ class Subtask:
         self.completed_at = None
         self.actual_output = None
 
-    def complete(self, output: Optional[str] = None):
+    def complete(self, output: str | None = None):
         """Mark subtask as done."""
         self.status = SubtaskStatus.COMPLETED
         self.completed_at = datetime.now().isoformat()
         if output:
             self.actual_output = output
 
-    def fail(self, reason: Optional[str] = None):
+    def fail(self, reason: str | None = None):
         """Mark subtask as failed."""
         self.status = SubtaskStatus.FAILED
         self.completed_at = None  # Clear to maintain consistency (failed != completed)
@@ -210,6 +222,7 @@ class Subtask:
 @dataclass
 class Phase:
     """A group of subtasks with dependencies."""
+
     phase: int
     name: str
     type: PhaseType = PhaseType.IMPLEMENTATION
@@ -279,6 +292,7 @@ class Phase:
 @dataclass
 class ImplementationPlan:
     """Complete implementation plan for a feature/task."""
+
     feature: str
     workflow_type: WorkflowType = WorkflowType.FEATURE
     services_involved: list[str] = field(default_factory=list)
@@ -286,17 +300,17 @@ class ImplementationPlan:
     final_acceptance: list[str] = field(default_factory=list)
 
     # Metadata
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    spec_file: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    spec_file: str | None = None
 
     # Task status (synced with UI)
     # status: backlog, in_progress, ai_review, human_review, done
     # planStatus: pending, in_progress, review, completed
-    status: Optional[str] = None
-    planStatus: Optional[str] = None
-    recoveryNote: Optional[str] = None
-    qa_signoff: Optional[dict] = None
+    status: str | None = None
+    planStatus: str | None = None
+    recoveryNote: str | None = None
+    qa_signoff: dict | None = None
 
     def to_dict(self) -> dict:
         result = {
@@ -328,14 +342,19 @@ class ImplementationPlan:
             workflow_type = WorkflowType(workflow_type_str)
         except ValueError:
             # Unknown workflow type - default to FEATURE
-            print(f"Warning: Unknown workflow_type '{workflow_type_str}', defaulting to 'feature'")
+            print(
+                f"Warning: Unknown workflow_type '{workflow_type_str}', defaulting to 'feature'"
+            )
             workflow_type = WorkflowType.FEATURE
 
         return cls(
             feature=data["feature"],
             workflow_type=workflow_type,
             services_involved=data.get("services_involved", []),
-            phases=[Phase.from_dict(p, idx + 1) for idx, p in enumerate(data.get("phases", []))],
+            phases=[
+                Phase.from_dict(p, idx + 1)
+                for idx, p in enumerate(data.get("phases", []))
+            ],
             final_acceptance=data.get("final_acceptance", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
@@ -379,9 +398,13 @@ class ImplementationPlan:
                 self.planStatus = "pending"
             return
 
-        completed_count = sum(1 for s in all_subtasks if s.status == SubtaskStatus.COMPLETED)
+        completed_count = sum(
+            1 for s in all_subtasks if s.status == SubtaskStatus.COMPLETED
+        )
         failed_count = sum(1 for s in all_subtasks if s.status == SubtaskStatus.FAILED)
-        in_progress_count = sum(1 for s in all_subtasks if s.status == SubtaskStatus.IN_PROGRESS)
+        in_progress_count = sum(
+            1 for s in all_subtasks if s.status == SubtaskStatus.IN_PROGRESS
+        )
         total_count = len(all_subtasks)
 
         # Determine status based on subtask states
@@ -433,7 +456,7 @@ class ImplementationPlan:
 
         return available
 
-    def get_next_subtask(self) -> Optional[tuple[Phase, Subtask]]:
+    def get_next_subtask(self) -> tuple[Phase, Subtask] | None:
         """Get the next subtask to work on, respecting dependencies."""
         for phase in self.get_available_phases():
             pending = phase.get_pending_subtasks()
@@ -445,12 +468,14 @@ class ImplementationPlan:
         """Get overall progress statistics."""
         total_subtasks = sum(len(p.subtasks) for p in self.phases)
         done_subtasks = sum(
-            1 for p in self.phases
+            1
+            for p in self.phases
             for s in p.subtasks
             if s.status == SubtaskStatus.COMPLETED
         )
         failed_subtasks = sum(
-            1 for p in self.phases
+            1
+            for p in self.phases
             for s in p.subtasks
             if s.status == SubtaskStatus.FAILED
         )
@@ -463,7 +488,9 @@ class ImplementationPlan:
             "total_subtasks": total_subtasks,
             "completed_subtasks": done_subtasks,
             "failed_subtasks": failed_subtasks,
-            "percent_complete": round(100 * done_subtasks / total_subtasks, 1) if total_subtasks > 0 else 0,
+            "percent_complete": round(100 * done_subtasks / total_subtasks, 1)
+            if total_subtasks > 0
+            else 0,
             "is_complete": done_subtasks == total_subtasks and failed_subtasks == 0,
         }
 
@@ -477,16 +504,20 @@ class ImplementationPlan:
             f"Phases: {progress['completed_phases']}/{progress['total_phases']} complete",
         ]
 
-        if progress['failed_subtasks'] > 0:
-            lines.append(f"Failed: {progress['failed_subtasks']} subtasks need attention")
+        if progress["failed_subtasks"] > 0:
+            lines.append(
+                f"Failed: {progress['failed_subtasks']} subtasks need attention"
+            )
 
-        if progress['is_complete']:
+        if progress["is_complete"]:
             lines.append("Status: COMPLETE - Ready for final acceptance testing")
         else:
             next_work = self.get_next_subtask()
             if next_work:
                 phase, subtask = next_work
-                lines.append(f"Next: Phase {phase.phase} ({phase.name}) - {subtask.description}")
+                lines.append(
+                    f"Next: Phase {phase.phase} ({phase.name}) - {subtask.description}"
+                )
             else:
                 lines.append("Status: BLOCKED - No available subtasks")
 
@@ -581,8 +612,8 @@ class ImplementationPlan:
 
         # Check if plan is actually in a completed/reviewable state
         is_completed = (
-            self.status in completed_statuses or
-            self.planStatus in completed_plan_statuses
+            self.status in completed_statuses
+            or self.planStatus in completed_plan_statuses
         )
 
         # Also check if all subtasks are actually completed
@@ -778,7 +809,10 @@ if __name__ == "__main__":
                             "description": "Add avatar fields to User model",
                             "files_to_modify": ["app/models/user.py"],
                             "files_to_create": ["migrations/add_avatar.py"],
-                            "verification": {"type": "command", "run": "flask db upgrade"},
+                            "verification": {
+                                "type": "command",
+                                "run": "flask db upgrade",
+                            },
                         },
                         {
                             "id": "avatar-endpoint",
@@ -786,7 +820,11 @@ if __name__ == "__main__":
                             "description": "POST /api/users/avatar endpoint",
                             "files_to_modify": ["app/routes/users.py"],
                             "patterns_from": ["app/routes/profile.py"],
-                            "verification": {"type": "api", "method": "POST", "url": "/api/users/avatar"},
+                            "verification": {
+                                "type": "api",
+                                "method": "POST",
+                                "url": "/api/users/avatar",
+                            },
                         },
                     ],
                 },
@@ -825,7 +863,10 @@ if __name__ == "__main__":
                             "id": "e2e-wiring",
                             "all_services": True,
                             "description": "Connect frontend → backend → worker",
-                            "verification": {"type": "browser", "scenario": "Upload → Process → Display"},
+                            "verification": {
+                                "type": "browser",
+                                "scenario": "Upload → Process → Display",
+                            },
                         },
                     ],
                 },

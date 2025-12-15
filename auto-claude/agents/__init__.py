@@ -13,8 +13,12 @@ This module provides:
 """
 
 # Main agent functions (public API)
+# Constants
+from .base import (
+    AUTO_CONTINUE_DELAY_SECONDS,
+    HUMAN_INTERVENTION_FILE,
+)
 from .coder import run_autonomous_agent
-from .planner import run_followup_planner
 
 # Memory functions
 from .memory import (
@@ -23,27 +27,22 @@ from .memory import (
     save_session_memory,
     save_session_to_graphiti,  # Backwards compatibility
 )
+from .planner import run_followup_planner
 
 # Session management
 from .session import (
-    run_agent_session,
     post_session_processing,
+    run_agent_session,
 )
 
 # Utility functions
 from .utils import (
-    get_latest_commit,
-    get_commit_count,
-    load_implementation_plan,
-    find_subtask_in_plan,
     find_phase_for_subtask,
+    find_subtask_in_plan,
+    get_commit_count,
+    get_latest_commit,
+    load_implementation_plan,
     sync_plan_to_source,
-)
-
-# Constants
-from .base import (
-    AUTO_CONTINUE_DELAY_SECONDS,
-    HUMAN_INTERVENTION_FILE,
 )
 
 __all__ = [

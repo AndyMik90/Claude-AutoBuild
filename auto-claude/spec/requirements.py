@@ -12,7 +12,6 @@ import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 def open_editor_for_input(field_name: str) -> str:
@@ -43,8 +42,7 @@ def open_editor_for_input(field_name: str) -> str:
 
         # Filter out comment lines and join
         content_lines = [
-            line.rstrip() for line in lines
-            if not line.strip().startswith("#")
+            line.rstrip() for line in lines if not line.strip().startswith("#")
         ]
         return "\n".join(content_lines).strip()
 
@@ -69,8 +67,12 @@ def gather_requirements_interactively(ui_module) -> dict:
     # Task description - multi-line support with editor option
     print(f"  {ui_module.bold('1. What do you want to build or fix?')}")
     print(f"     {ui_module.muted('(Describe the feature, bug fix, or change)')}")
-    print(f"     {ui_module.muted('Type \"edit\" to open in your editor, or enter text below')}")
-    print(f"     {ui_module.muted('(Press Enter often for new lines, blank line = done)')}")
+    print(
+        f"     {ui_module.muted('Type "edit" to open in your editor, or enter text below')}"
+    )
+    print(
+        f"     {ui_module.muted('(Press Enter often for new lines, blank line = done)')}"
+    )
 
     task = ""
     task_lines = []
@@ -82,7 +84,9 @@ def gather_requirements_interactively(ui_module) -> dict:
             if not task_lines and line.strip().lower() == "edit":
                 task = open_editor_for_input("task_description")
                 if task:
-                    print(f"     {ui_module.muted(f'Got {len(task)} chars from editor')}")
+                    print(
+                        f"     {ui_module.muted(f'Got {len(task)} chars from editor')}"
+                    )
                 break
 
             if not line and task_lines:  # Blank line and we have content = done
@@ -109,18 +113,25 @@ def gather_requirements_interactively(ui_module) -> dict:
     print(f"     {ui_module.muted('[5] test     - Add or improve tests')}")
     workflow_choice = input("     > ").strip()
     workflow_map = {
-        "1": "feature", "feature": "feature",
-        "2": "bugfix", "bugfix": "bugfix",
-        "3": "refactor", "refactor": "refactor",
-        "4": "docs", "docs": "docs",
-        "5": "test", "test": "test",
+        "1": "feature",
+        "feature": "feature",
+        "2": "bugfix",
+        "bugfix": "bugfix",
+        "3": "refactor",
+        "refactor": "refactor",
+        "4": "docs",
+        "docs": "docs",
+        "5": "test",
+        "test": "test",
     }
     workflow_type = workflow_map.get(workflow_choice.lower(), "feature")
     print()
 
     # Additional context (optional) - multi-line support
     print(f"  {ui_module.bold('3. Any additional context or constraints?')}")
-    print(f"     {ui_module.muted('(Press Enter to skip, or enter a blank line when done)')}")
+    print(
+        f"     {ui_module.muted('(Press Enter to skip, or enter a blank line when done)')}"
+    )
 
     context_lines = []
     while True:
@@ -162,7 +173,7 @@ def save_requirements(spec_dir: Path, requirements: dict) -> Path:
     return requirements_file
 
 
-def load_requirements(spec_dir: Path) -> Optional[dict]:
+def load_requirements(spec_dir: Path) -> dict | None:
     """Load requirements from file if it exists."""
     requirements_file = spec_dir / "requirements.json"
     if not requirements_file.exists():

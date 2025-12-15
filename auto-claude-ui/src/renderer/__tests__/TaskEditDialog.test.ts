@@ -1,6 +1,8 @@
 /**
  * Unit tests for TaskEditDialog component
  * Tests edit functionality, form validation, and integration with task-store
+ *
+ * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useTaskStore, persistUpdateTask } from '../stores/task-store';

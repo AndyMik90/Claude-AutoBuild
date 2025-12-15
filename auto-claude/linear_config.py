@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-
 # Linear Status Constants (map to Linear workflow states)
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
@@ -22,11 +21,11 @@ STATUS_BLOCKED = "Blocked"  # For stuck subtasks
 STATUS_CANCELED = "Canceled"
 
 # Linear Priority Constants (1=Urgent, 4=Low, 0=No priority)
-PRIORITY_URGENT = 1      # Core infrastructure, blockers
-PRIORITY_HIGH = 2        # Primary features, dependencies
-PRIORITY_MEDIUM = 3      # Secondary features
-PRIORITY_LOW = 4         # Polish, nice-to-haves
-PRIORITY_NONE = 0        # No priority set
+PRIORITY_URGENT = 1  # Core infrastructure, blockers
+PRIORITY_HIGH = 2  # Primary features, dependencies
+PRIORITY_MEDIUM = 3  # Secondary features
+PRIORITY_LOW = 4  # Polish, nice-to-haves
+PRIORITY_NONE = 0  # No priority set
 
 # Subtask status to Linear status mapping
 SUBTASK_TO_LINEAR_STATUS = {
@@ -40,10 +39,10 @@ SUBTASK_TO_LINEAR_STATUS = {
 
 # Linear labels for categorization
 LABELS = {
-    "phase": "phase",           # Phase label prefix (e.g., "phase-1")
-    "service": "service",       # Service label prefix (e.g., "service-backend")
-    "stuck": "stuck",           # Mark stuck subtasks
-    "auto_build": "auto-claude", # All auto-claude issues
+    "phase": "phase",  # Phase label prefix (e.g., "phase-1")
+    "service": "service",  # Service label prefix (e.g., "service-backend")
+    "stuck": "stuck",  # Mark stuck subtasks
+    "auto_build": "auto-claude",  # All auto-claude issues
     "needs_review": "needs-review",
 }
 
@@ -57,11 +56,12 @@ META_ISSUE_TITLE = "[META] Build Progress Tracker"
 @dataclass
 class LinearConfig:
     """Configuration for Linear integration."""
+
     api_key: str
-    team_id: Optional[str] = None
-    project_id: Optional[str] = None
-    project_name: Optional[str] = None
-    meta_issue_id: Optional[str] = None
+    team_id: str | None = None
+    project_id: str | None = None
+    project_name: str | None = None
+    meta_issue_id: str | None = None
     enabled: bool = True
 
     @classmethod
@@ -84,13 +84,14 @@ class LinearConfig:
 @dataclass
 class LinearProjectState:
     """State of a Linear project for an auto-claude spec."""
+
     initialized: bool = False
-    team_id: Optional[str] = None
-    project_id: Optional[str] = None
-    project_name: Optional[str] = None
-    meta_issue_id: Optional[str] = None
+    team_id: str | None = None
+    project_id: str | None = None
+    project_name: str | None = None
+    meta_issue_id: str | None = None
     total_issues: int = 0
-    created_at: Optional[str] = None
+    created_at: str | None = None
     issue_mapping: dict = None  # subtask_id -> issue_id mapping
 
     def __post_init__(self):
@@ -136,9 +137,9 @@ class LinearProjectState:
             return None
 
         try:
-            with open(marker_file, "r") as f:
+            with open(marker_file) as f:
                 return cls.from_dict(json.load(f))
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return None
 
 

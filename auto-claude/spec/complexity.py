@@ -12,19 +12,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 
 class Complexity(Enum):
     """Task complexity tiers that determine which phases to run."""
-    SIMPLE = "simple"      # 1-2 files, single service, no integrations
+
+    SIMPLE = "simple"  # 1-2 files, single service, no integrations
     STANDARD = "standard"  # 3-10 files, 1-2 services, minimal integrations
-    COMPLEX = "complex"    # 10+ files, multiple services, external integrations
+    COMPLEX = "complex"  # 10+ files, multiple services, external integrations
 
 
 @dataclass
 class ComplexityAssessment:
     """Result of analyzing task complexity."""
+
     complexity: Complexity
     confidence: float  # 0.0 to 1.0
     signals: dict = field(default_factory=dict)
@@ -62,7 +63,17 @@ class ComplexityAssessment:
             phases.extend(["context", "spec_writing", "planning", "validation"])
             return phases
         else:  # COMPLEX
-            return ["discovery", "historical_context", "requirements", "research", "context", "spec_writing", "self_critique", "planning", "validation"]
+            return [
+                "discovery",
+                "historical_context",
+                "requirements",
+                "research",
+                "context",
+                "spec_writing",
+                "self_critique",
+                "planning",
+                "validation",
+            ]
 
 
 class ComplexityAnalyzer:
@@ -70,28 +81,81 @@ class ComplexityAnalyzer:
 
     # Keywords that suggest different complexity levels
     SIMPLE_KEYWORDS = [
-        "fix", "typo", "update", "change", "rename", "remove", "delete",
-        "adjust", "tweak", "correct", "modify", "style", "color", "text",
-        "label", "button", "margin", "padding", "font", "size", "hide", "show"
+        "fix",
+        "typo",
+        "update",
+        "change",
+        "rename",
+        "remove",
+        "delete",
+        "adjust",
+        "tweak",
+        "correct",
+        "modify",
+        "style",
+        "color",
+        "text",
+        "label",
+        "button",
+        "margin",
+        "padding",
+        "font",
+        "size",
+        "hide",
+        "show",
     ]
 
     COMPLEX_KEYWORDS = [
-        "integrate", "integration", "api", "sdk", "library", "package",
-        "database", "migrate", "migration", "docker", "kubernetes", "deploy",
-        "authentication", "oauth", "graphql", "websocket", "queue", "cache",
-        "redis", "postgres", "mongo", "elasticsearch", "kafka", "rabbitmq",
-        "microservice", "refactor", "architecture", "infrastructure"
+        "integrate",
+        "integration",
+        "api",
+        "sdk",
+        "library",
+        "package",
+        "database",
+        "migrate",
+        "migration",
+        "docker",
+        "kubernetes",
+        "deploy",
+        "authentication",
+        "oauth",
+        "graphql",
+        "websocket",
+        "queue",
+        "cache",
+        "redis",
+        "postgres",
+        "mongo",
+        "elasticsearch",
+        "kafka",
+        "rabbitmq",
+        "microservice",
+        "refactor",
+        "architecture",
+        "infrastructure",
     ]
 
     MULTI_SERVICE_KEYWORDS = [
-        "backend", "frontend", "worker", "service", "api", "client",
-        "server", "database", "queue", "cache", "proxy"
+        "backend",
+        "frontend",
+        "worker",
+        "service",
+        "api",
+        "client",
+        "server",
+        "database",
+        "queue",
+        "cache",
+        "proxy",
     ]
 
-    def __init__(self, project_index: Optional[dict] = None):
+    def __init__(self, project_index: dict | None = None):
         self.project_index = project_index or {}
 
-    def analyze(self, task_description: str, requirements: Optional[dict] = None) -> ComplexityAssessment:
+    def analyze(
+        self, task_description: str, requirements: dict | None = None
+    ) -> ComplexityAssessment:
         """Analyze task and return complexity assessment."""
         task_lower = task_description.lower()
         signals = {}
@@ -99,7 +163,9 @@ class ComplexityAnalyzer:
         # 1. Keyword analysis
         simple_matches = sum(1 for kw in self.SIMPLE_KEYWORDS if kw in task_lower)
         complex_matches = sum(1 for kw in self.COMPLEX_KEYWORDS if kw in task_lower)
-        multi_service_matches = sum(1 for kw in self.MULTI_SERVICE_KEYWORDS if kw in task_lower)
+        multi_service_matches = sum(
+            1 for kw in self.MULTI_SERVICE_KEYWORDS if kw in task_lower
+        )
 
         signals["simple_keywords"] = simple_matches
         signals["complex_keywords"] = complex_matches
@@ -144,17 +210,17 @@ class ComplexityAnalyzer:
     def _detect_integrations(self, task_lower: str) -> list[str]:
         """Detect external integrations mentioned in task."""
         integration_patterns = [
-            r'\b(graphiti|graphql|apollo)\b',
-            r'\b(stripe|paypal|payment)\b',
-            r'\b(auth0|okta|oauth|jwt)\b',
-            r'\b(aws|gcp|azure|s3|lambda)\b',
-            r'\b(redis|memcached|cache)\b',
-            r'\b(postgres|mysql|mongodb|database)\b',
-            r'\b(elasticsearch|algolia|search)\b',
-            r'\b(kafka|rabbitmq|sqs|queue)\b',
-            r'\b(docker|kubernetes|k8s)\b',
-            r'\b(openai|anthropic|llm|ai)\b',
-            r'\b(sendgrid|twilio|email|sms)\b',
+            r"\b(graphiti|graphql|apollo)\b",
+            r"\b(stripe|paypal|payment)\b",
+            r"\b(auth0|okta|oauth|jwt)\b",
+            r"\b(aws|gcp|azure|s3|lambda)\b",
+            r"\b(redis|memcached|cache)\b",
+            r"\b(postgres|mysql|mongodb|database)\b",
+            r"\b(elasticsearch|algolia|search)\b",
+            r"\b(kafka|rabbitmq|sqs|queue)\b",
+            r"\b(docker|kubernetes|k8s)\b",
+            r"\b(openai|anthropic|llm|ai)\b",
+            r"\b(sendgrid|twilio|email|sms)\b",
         ]
 
         found = []
@@ -167,10 +233,17 @@ class ComplexityAnalyzer:
     def _detect_infrastructure_changes(self, task_lower: str) -> bool:
         """Detect if task involves infrastructure changes."""
         infra_patterns = [
-            r'\bdocker\b', r'\bkubernetes\b', r'\bk8s\b',
-            r'\bdeploy\b', r'\binfrastructure\b', r'\bci/cd\b',
-            r'\benvironment\b', r'\bconfig\b', r'\b\.env\b',
-            r'\bdatabase migration\b', r'\bschema\b',
+            r"\bdocker\b",
+            r"\bkubernetes\b",
+            r"\bk8s\b",
+            r"\bdeploy\b",
+            r"\binfrastructure\b",
+            r"\bci/cd\b",
+            r"\benvironment\b",
+            r"\bconfig\b",
+            r"\b\.env\b",
+            r"\bdatabase migration\b",
+            r"\bschema\b",
         ]
 
         for pattern in infra_patterns:
@@ -178,14 +251,19 @@ class ComplexityAnalyzer:
                 return True
         return False
 
-    def _estimate_files(self, task_lower: str, requirements: Optional[dict]) -> int:
+    def _estimate_files(self, task_lower: str, requirements: dict | None) -> int:
         """Estimate number of files to be modified."""
         # Base estimate from task description
-        if any(kw in task_lower for kw in ["single", "one file", "one component", "this file"]):
+        if any(
+            kw in task_lower
+            for kw in ["single", "one file", "one component", "this file"]
+        ):
             return 1
 
         # Check for explicit file mentions
-        file_mentions = len(re.findall(r'\.(tsx?|jsx?|py|go|rs|java|rb|php|vue|svelte)\b', task_lower))
+        file_mentions = len(
+            re.findall(r"\.(tsx?|jsx?|py|go|rs|java|rb|php|vue|svelte)\b", task_lower)
+        )
         if file_mentions > 0:
             return max(1, file_mentions)
 
@@ -199,7 +277,7 @@ class ComplexityAnalyzer:
 
         return 5  # Default estimate
 
-    def _estimate_services(self, task_lower: str, requirements: Optional[dict]) -> int:
+    def _estimate_services(self, task_lower: str, requirements: dict | None) -> int:
         """Estimate number of services involved."""
         service_count = sum(1 for kw in self.MULTI_SERVICE_KEYWORDS if kw in task_lower)
 
@@ -228,25 +306,29 @@ class ComplexityAnalyzer:
 
         # Strong indicators for SIMPLE
         if (
-            estimated_files <= 2 and
-            estimated_services == 1 and
-            len(integrations) == 0 and
-            not infra_changes and
-            signals["simple_keywords"] > 0 and
-            signals["complex_keywords"] == 0
+            estimated_files <= 2
+            and estimated_services == 1
+            and len(integrations) == 0
+            and not infra_changes
+            and signals["simple_keywords"] > 0
+            and signals["complex_keywords"] == 0
         ):
-            reasons.append(f"Single service, {estimated_files} file(s), no integrations")
+            reasons.append(
+                f"Single service, {estimated_files} file(s), no integrations"
+            )
             return Complexity.SIMPLE, 0.9, "; ".join(reasons)
 
         # Strong indicators for COMPLEX
         if (
-            len(integrations) >= 2 or
-            infra_changes or
-            estimated_services >= 3 or
-            estimated_files >= 10 or
-            signals["complex_keywords"] >= 3
+            len(integrations) >= 2
+            or infra_changes
+            or estimated_services >= 3
+            or estimated_files >= 10
+            or signals["complex_keywords"] >= 3
         ):
-            reasons.append(f"{len(integrations)} integrations, {estimated_services} services, {estimated_files} files")
+            reasons.append(
+                f"{len(integrations)} integrations, {estimated_services} services, {estimated_files} files"
+            )
             if infra_changes:
                 reasons.append("infrastructure changes detected")
             return Complexity.COMPLEX, 0.85, "; ".join(reasons)
@@ -263,7 +345,7 @@ async def run_ai_complexity_assessment(
     spec_dir: Path,
     task_description: str,
     run_agent_fn,
-) -> Optional[ComplexityAssessment]:
+) -> ComplexityAssessment | None:
     """Run AI agent to assess complexity. Returns None if it fails.
 
     Args:
@@ -286,15 +368,15 @@ async def run_ai_complexity_assessment(
             req = json.load(f)
             context += f"""
 ## Requirements (from user)
-**Task Description**: {req.get('task_description', 'Not provided')}
-**Workflow Type**: {req.get('workflow_type', 'Not specified')}
-**Services Involved**: {', '.join(req.get('services_involved', []))}
+**Task Description**: {req.get("task_description", "Not provided")}
+**Workflow Type**: {req.get("workflow_type", "Not specified")}
+**Services Involved**: {", ".join(req.get("services_involved", []))}
 **User Requirements**:
-{chr(10).join(f'- {r}' for r in req.get('user_requirements', []))}
+{chr(10).join(f"- {r}" for r in req.get("user_requirements", []))}
 **Acceptance Criteria**:
-{chr(10).join(f'- {c}' for c in req.get('acceptance_criteria', []))}
+{chr(10).join(f"- {c}" for c in req.get("acceptance_criteria", []))}
 **Constraints**:
-{chr(10).join(f'- {c}' for c in req.get('constraints', []))}
+{chr(10).join(f"- {c}" for c in req.get("constraints", []))}
 """
     else:
         context += f"\n**Task Description**: {task_description or 'Not provided'}\n"
@@ -330,10 +412,18 @@ async def run_ai_complexity_assessment(
                 confidence=data.get("confidence", 0.75),
                 reasoning=data.get("reasoning", "AI assessment"),
                 signals=data.get("analysis", {}),
-                estimated_files=data.get("analysis", {}).get("scope", {}).get("estimated_files", 5),
-                estimated_services=data.get("analysis", {}).get("scope", {}).get("estimated_services", 1),
-                external_integrations=data.get("analysis", {}).get("integrations", {}).get("external_services", []),
-                infrastructure_changes=data.get("analysis", {}).get("infrastructure", {}).get("docker_changes", False),
+                estimated_files=data.get("analysis", {})
+                .get("scope", {})
+                .get("estimated_files", 5),
+                estimated_services=data.get("analysis", {})
+                .get("scope", {})
+                .get("estimated_services", 1),
+                external_integrations=data.get("analysis", {})
+                .get("integrations", {})
+                .get("external_services", []),
+                infrastructure_changes=data.get("analysis", {})
+                .get("infrastructure", {})
+                .get("docker_changes", False),
                 recommended_phases=data.get("recommended_phases", []),
                 needs_research=flags.get("needs_research", False),
                 needs_self_critique=flags.get("needs_self_critique", False),
@@ -345,26 +435,32 @@ async def run_ai_complexity_assessment(
         return None
 
 
-def save_assessment(spec_dir: Path, assessment: ComplexityAssessment, dev_mode: bool = False) -> Path:
+def save_assessment(
+    spec_dir: Path, assessment: ComplexityAssessment, dev_mode: bool = False
+) -> Path:
     """Save complexity assessment to file."""
     assessment_file = spec_dir / "complexity_assessment.json"
     phases = assessment.phases_to_run()
 
     with open(assessment_file, "w") as f:
-        json.dump({
-            "complexity": assessment.complexity.value,
-            "confidence": assessment.confidence,
-            "reasoning": assessment.reasoning,
-            "signals": assessment.signals,
-            "estimated_files": assessment.estimated_files,
-            "estimated_services": assessment.estimated_services,
-            "external_integrations": assessment.external_integrations,
-            "infrastructure_changes": assessment.infrastructure_changes,
-            "phases_to_run": phases,
-            "needs_research": assessment.needs_research,
-            "needs_self_critique": assessment.needs_self_critique,
-            "dev_mode": dev_mode,
-            "created_at": datetime.now().isoformat(),
-        }, f, indent=2)
+        json.dump(
+            {
+                "complexity": assessment.complexity.value,
+                "confidence": assessment.confidence,
+                "reasoning": assessment.reasoning,
+                "signals": assessment.signals,
+                "estimated_files": assessment.estimated_files,
+                "estimated_services": assessment.estimated_services,
+                "external_integrations": assessment.external_integrations,
+                "infrastructure_changes": assessment.infrastructure_changes,
+                "phases_to_run": phases,
+                "needs_research": assessment.needs_research,
+                "needs_self_critique": assessment.needs_self_critique,
+                "dev_mode": dev_mode,
+                "created_at": datetime.now().isoformat(),
+            },
+            f,
+            indent=2,
+        )
 
     return assessment_file

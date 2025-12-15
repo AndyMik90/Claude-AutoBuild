@@ -8,7 +8,7 @@ Analyzes entire projects, detecting monorepo structures, services, infrastructur
 from pathlib import Path
 from typing import Any
 
-from .base import SKIP_DIRS, SERVICE_INDICATORS, SERVICE_ROOT_FILES
+from .base import SERVICE_INDICATORS, SERVICE_ROOT_FILES, SKIP_DIRS
 from .service_analyzer import ServiceAnalyzer
 
 
@@ -47,11 +47,15 @@ class ProjectAnalyzer:
         for indicator in monorepo_indicators:
             if (self.project_dir / indicator).exists():
                 self.index["project_type"] = "monorepo"
-                self.index["monorepo_tool"] = indicator.replace(".json", "").replace(".yaml", "")
+                self.index["monorepo_tool"] = indicator.replace(".json", "").replace(
+                    ".yaml", ""
+                )
                 return
 
         # Check for packages/apps directories
-        if (self.project_dir / "packages").exists() or (self.project_dir / "apps").exists():
+        if (self.project_dir / "packages").exists() or (
+            self.project_dir / "apps"
+        ).exists():
             self.index["project_type"] = "monorepo"
             return
 
@@ -100,10 +104,14 @@ class ProjectAnalyzer:
                     has_root_file = any((item / f).exists() for f in SERVICE_ROOT_FILES)
                     is_service_name = item.name.lower() in SERVICE_INDICATORS
 
-                    if has_root_file or (location == self.project_dir and is_service_name):
+                    if has_root_file or (
+                        location == self.project_dir and is_service_name
+                    ):
                         analyzer = ServiceAnalyzer(item, item.name)
                         service_info = analyzer.analyze()
-                        if service_info.get("language"):  # Only include if we detected something
+                        if service_info.get(
+                            "language"
+                        ):  # Only include if we detected something
                             services[item.name] = service_info
         else:
             # Single project - analyze root
@@ -134,10 +142,14 @@ class ProjectAnalyzer:
         # Docker directory
         docker_dir = self.project_dir / "docker"
         if docker_dir.exists():
-            dockerfiles = list(docker_dir.glob("Dockerfile*")) + list(docker_dir.glob("*.Dockerfile"))
+            dockerfiles = list(docker_dir.glob("Dockerfile*")) + list(
+                docker_dir.glob("*.Dockerfile")
+            )
             if dockerfiles:
                 infra["docker_directory"] = "docker/"
-                infra["dockerfiles"] = [str(f.relative_to(self.project_dir)) for f in dockerfiles]
+                infra["dockerfiles"] = [
+                    str(f.relative_to(self.project_dir)) for f in dockerfiles
+                ]
 
         # CI/CD
         if (self.project_dir / ".github" / "workflows").exists():
@@ -178,7 +190,11 @@ class ProjectAnalyzer:
                 continue
             if in_services:
                 # Service names are at 2-space indent
-                if line.startswith("  ") and not line.startswith("    ") and line.strip().endswith(":"):
+                if (
+                    line.startswith("  ")
+                    and not line.startswith("    ")
+                    and line.strip().endswith(":")
+                ):
                     service_name = line.strip().rstrip(":")
                     services.append(service_name)
                 elif line and not line.startswith(" "):
@@ -204,12 +220,23 @@ class ProjectAnalyzer:
                 conventions["python_formatting"] = "Black"
 
         # JavaScript/TypeScript linting
-        eslint_files = [".eslintrc", ".eslintrc.js", ".eslintrc.json", ".eslintrc.yml", "eslint.config.js"]
+        eslint_files = [
+            ".eslintrc",
+            ".eslintrc.js",
+            ".eslintrc.json",
+            ".eslintrc.yml",
+            "eslint.config.js",
+        ]
         if any((self.project_dir / f).exists() for f in eslint_files):
             conventions["js_linting"] = "ESLint"
 
         # Prettier
-        prettier_files = [".prettierrc", ".prettierrc.js", ".prettierrc.json", "prettier.config.js"]
+        prettier_files = [
+            ".prettierrc",
+            ".prettierrc.js",
+            ".prettierrc.json",
+            "prettier.config.js",
+        ]
         if any((self.project_dir / f).exists() for f in prettier_files):
             conventions["formatting"] = "Prettier"
 
@@ -259,5 +286,5 @@ class ProjectAnalyzer:
     def _read_file(self, path: str) -> str:
         try:
             return (self.project_dir / path).read_text()
-        except (IOError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError):
             return ""

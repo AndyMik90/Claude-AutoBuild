@@ -7,21 +7,28 @@ Main orchestration logic for spec creation with dynamic complexity adaptation.
 
 import json
 import shutil
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from client import create_client
 from init import init_auto_claude_dir
-from review import ReviewState, run_review_checkpoint
+from review import run_review_checkpoint
 from task_logger import (
     LogEntryType,
     LogPhase,
     get_task_logger,
     update_task_logger_path,
 )
-from ui import Icons, box, highlight, icon, muted, print_key_value, print_section, print_status
+from ui import (
+    Icons,
+    box,
+    highlight,
+    icon,
+    muted,
+    print_key_value,
+    print_section,
+    print_status,
+)
 from validate_spec import SpecValidator
 
 from . import complexity, phases, requirements
@@ -56,11 +63,12 @@ class SpecOrchestrator:
     def __init__(
         self,
         project_dir: Path,
-        task_description: Optional[str] = None,
-        spec_name: Optional[str] = None,
-        spec_dir: Optional[Path] = None,  # Use existing spec directory (for UI integration)
+        task_description: str | None = None,
+        spec_name: str | None = None,
+        spec_dir: Path
+        | None = None,  # Use existing spec directory (for UI integration)
         model: str = "claude-opus-4-5-20251101",
-        complexity_override: Optional[str] = None,  # Force a specific complexity
+        complexity_override: str | None = None,  # Force a specific complexity
         use_ai_assessment: bool = True,  # Use AI for complexity assessment (vs heuristics)
         dev_mode: bool = False,  # Dev mode: specs in gitignored folder, code changes to auto-claude/
     ):
@@ -78,7 +86,7 @@ class SpecOrchestrator:
         self._cleanup_orphaned_pending_folders()
 
         # Complexity assessment (populated during run)
-        self.assessment: Optional[complexity.ComplexityAssessment] = None
+        self.assessment: complexity.ComplexityAssessment | None = None
 
         # Create/use spec directory
         if spec_dir:
@@ -151,12 +159,60 @@ class SpecOrchestrator:
     def _generate_spec_name(self, task_description: str) -> str:
         """Generate a clean kebab-case name from task description."""
         skip_words = {
-            "a", "an", "the", "to", "for", "of", "in", "on", "at", "by", "with",
-            "and", "or", "but", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "can", "this", "that", "these",
-            "those", "i", "you", "we", "they", "it", "add", "create", "make",
-            "implement", "build", "new", "using", "use", "via", "from",
+            "a",
+            "an",
+            "the",
+            "to",
+            "for",
+            "of",
+            "in",
+            "on",
+            "at",
+            "by",
+            "with",
+            "and",
+            "or",
+            "but",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "we",
+            "they",
+            "it",
+            "add",
+            "create",
+            "make",
+            "implement",
+            "build",
+            "new",
+            "using",
+            "use",
+            "via",
+            "from",
         }
 
         # Clean and tokenize
@@ -224,7 +280,7 @@ class SpecOrchestrator:
             print_status(f"Spec folder: {highlight(new_dir_name)}", "success")
             return True
 
-        except (json.JSONDecodeError, IOError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             print_status(f"Could not rename spec folder: {e}", "warning")
             return False
 
@@ -274,8 +330,15 @@ class SpecOrchestrator:
                                 response_text += block.text
                                 print(block.text, end="", flush=True)
                                 if task_logger and block.text.strip():
-                                    task_logger.log(block.text, LogEntryType.TEXT, LogPhase.PLANNING, print_to_console=False)
-                            elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                                    task_logger.log(
+                                        block.text,
+                                        LogEntryType.TEXT,
+                                        LogPhase.PLANNING,
+                                        print_to_console=False,
+                                    )
+                            elif block_type == "ToolUseBlock" and hasattr(
+                                block, "name"
+                            ):
                                 tool_name = block.name
                                 tool_input = None
 
@@ -299,7 +362,12 @@ class SpecOrchestrator:
                                             tool_input = inp["path"]
 
                                 if task_logger:
-                                    task_logger.tool_start(tool_name, tool_input, LogPhase.PLANNING, print_to_console=True)
+                                    task_logger.tool_start(
+                                        tool_name,
+                                        tool_input,
+                                        LogPhase.PLANNING,
+                                        print_to_console=True,
+                                    )
                                 else:
                                     print(f"\n[Tool: {tool_name}]", flush=True)
                                 current_tool = tool_name
@@ -312,11 +380,22 @@ class SpecOrchestrator:
                                 result_content = getattr(block, "content", "")
                                 if task_logger and current_tool:
                                     detail_content = None
-                                    if current_tool in ("Read", "Grep", "Bash", "Edit", "Write"):
+                                    if current_tool in (
+                                        "Read",
+                                        "Grep",
+                                        "Bash",
+                                        "Edit",
+                                        "Write",
+                                    ):
                                         result_str = str(result_content)
                                         if len(result_str) < 50000:
                                             detail_content = result_str
-                                    task_logger.tool_end(current_tool, success=not is_error, detail=detail_content, phase=LogPhase.PLANNING)
+                                    task_logger.tool_end(
+                                        current_tool,
+                                        success=not is_error,
+                                        detail=detail_content,
+                                        phase=LogPhase.PLANNING,
+                                    )
                                 current_tool = None
 
                 print()
@@ -344,13 +423,15 @@ class SpecOrchestrator:
         task_logger = get_task_logger(self.spec_dir)
         task_logger.start_phase(LogPhase.PLANNING, "Starting spec creation process")
 
-        print(box(
-            f"Spec Directory: {self.spec_dir}\n"
-            f"Project: {self.project_dir}" +
-            (f"\nTask: {self.task_description}" if self.task_description else ""),
-            title="SPEC CREATION ORCHESTRATOR",
-            style="heavy"
-        ))
+        print(
+            box(
+                f"Spec Directory: {self.spec_dir}\n"
+                f"Project: {self.project_dir}"
+                + (f"\nTask: {self.task_description}" if self.task_description else ""),
+                title="SPEC CREATION ORCHESTRATOR",
+                style="heavy",
+            )
+        )
 
         # Create phase executor
         phase_executor = phases.PhaseExecutor(
@@ -385,9 +466,13 @@ class SpecOrchestrator:
             """Run a phase with proper numbering and display."""
             nonlocal phase_num
             phase_num += 1
-            display_name, display_icon = phase_display.get(name, (name.upper(), Icons.GEAR))
+            display_name, display_icon = phase_display.get(
+                name, (name.upper(), Icons.GEAR)
+            )
             print_section(f"PHASE {phase_num}: {display_name}", display_icon)
-            task_logger.log(f"Starting phase {phase_num}: {display_name}", LogEntryType.INFO)
+            task_logger.log(
+                f"Starting phase {phase_num}: {display_name}", LogEntryType.INFO
+            )
             return phase_fn()
 
         # === PHASE 1: DISCOVERY ===
@@ -395,15 +480,23 @@ class SpecOrchestrator:
         results.append(result)
         if not result.success:
             print_status("Discovery failed", "error")
-            task_logger.end_phase(LogPhase.PLANNING, success=False, message="Discovery failed")
+            task_logger.end_phase(
+                LogPhase.PLANNING, success=False, message="Discovery failed"
+            )
             return False
 
         # === PHASE 2: REQUIREMENTS GATHERING ===
-        result = await run_phase("requirements", lambda: phase_executor.phase_requirements(interactive))
+        result = await run_phase(
+            "requirements", lambda: phase_executor.phase_requirements(interactive)
+        )
         results.append(result)
         if not result.success:
             print_status("Requirements gathering failed", "error")
-            task_logger.end_phase(LogPhase.PLANNING, success=False, message="Requirements gathering failed")
+            task_logger.end_phase(
+                LogPhase.PLANNING,
+                success=False,
+                message="Requirements gathering failed",
+            )
             return False
 
         # Rename spec folder with better name from requirements
@@ -429,14 +522,21 @@ class SpecOrchestrator:
             if linear_state:
                 print_status(f"Linear task created: {linear_state.task_id}", "success")
             else:
-                print_status("Linear task creation failed (continuing without)", "warning")
+                print_status(
+                    "Linear task creation failed (continuing without)", "warning"
+                )
 
         # === PHASE 3: AI COMPLEXITY ASSESSMENT ===
-        result = await run_phase("complexity_assessment", lambda: self._phase_complexity_assessment_with_requirements())
+        result = await run_phase(
+            "complexity_assessment",
+            lambda: self._phase_complexity_assessment_with_requirements(),
+        )
         results.append(result)
         if not result.success:
             print_status("Complexity assessment failed", "error")
-            task_logger.end_phase(LogPhase.PLANNING, success=False, message="Complexity assessment failed")
+            task_logger.end_phase(
+                LogPhase.PLANNING, success=False, message="Complexity assessment failed"
+            )
             return False
 
         # Map of all available phases
@@ -453,10 +553,14 @@ class SpecOrchestrator:
 
         # Get remaining phases to run based on complexity
         all_phases_to_run = self.assessment.phases_to_run()
-        phases_to_run = [p for p in all_phases_to_run if p not in ["discovery", "requirements"]]
+        phases_to_run = [
+            p for p in all_phases_to_run if p not in ["discovery", "requirements"]
+        ]
 
         print()
-        print(f"  Running {highlight(self.assessment.complexity.value.upper())} workflow")
+        print(
+            f"  Running {highlight(self.assessment.complexity.value.upper())} workflow"
+        )
         print(f"  {muted('Remaining phases:')} {', '.join(phases_to_run)}")
         print()
 
@@ -472,14 +576,26 @@ class SpecOrchestrator:
 
             if not result.success:
                 print()
-                print_status(f"Phase '{phase_name}' failed after {result.retries} retries", "error")
+                print_status(
+                    f"Phase '{phase_name}' failed after {result.retries} retries",
+                    "error",
+                )
                 print(f"  {muted('Errors:')}")
                 for err in result.errors:
                     print(f"    {icon(Icons.ARROW_RIGHT)} {err}")
                 print()
-                print_status("Spec creation incomplete. Fix errors and retry.", "warning")
-                task_logger.log(f"Phase '{phase_name}' failed: {'; '.join(result.errors)}", LogEntryType.ERROR)
-                task_logger.end_phase(LogPhase.PLANNING, success=False, message=f"Phase {phase_name} failed")
+                print_status(
+                    "Spec creation incomplete. Fix errors and retry.", "warning"
+                )
+                task_logger.log(
+                    f"Phase '{phase_name}' failed: {'; '.join(result.errors)}",
+                    LogEntryType.ERROR,
+                )
+                task_logger.end_phase(
+                    LogPhase.PLANNING,
+                    success=False,
+                    message=f"Phase {phase_name} failed",
+                )
                 return False
 
         # Summary
@@ -488,18 +604,22 @@ class SpecOrchestrator:
             for f in r.output_files:
                 files_created.append(Path(f).name)
 
-        print(box(
-            f"Complexity: {self.assessment.complexity.value.upper()}\n"
-            f"Phases run: {len(phases_executed) + 1}\n"
-            f"Spec saved to: {self.spec_dir}\n\n"
-            f"Files created:\n" +
-            "\n".join(f"  {icon(Icons.SUCCESS)} {f}" for f in files_created),
-            title=f"{icon(Icons.SUCCESS)} SPEC CREATION COMPLETE",
-            style="heavy"
-        ))
+        print(
+            box(
+                f"Complexity: {self.assessment.complexity.value.upper()}\n"
+                f"Phases run: {len(phases_executed) + 1}\n"
+                f"Spec saved to: {self.spec_dir}\n\n"
+                f"Files created:\n"
+                + "\n".join(f"  {icon(Icons.SUCCESS)} {f}" for f in files_created),
+                title=f"{icon(Icons.SUCCESS)} SPEC CREATION COMPLETE",
+                style="heavy",
+            )
+        )
 
         # End planning phase successfully
-        task_logger.end_phase(LogPhase.PLANNING, success=True, message="Spec creation complete")
+        task_logger.end_phase(
+            LogPhase.PLANNING, success=True, message="Spec creation complete"
+        )
 
         # === HUMAN REVIEW CHECKPOINT ===
         print()
@@ -527,7 +647,9 @@ class SpecOrchestrator:
 
         return True
 
-    async def _phase_complexity_assessment_with_requirements(self) -> phases.PhaseResult:
+    async def _phase_complexity_assessment_with_requirements(
+        self,
+    ) -> phases.PhaseResult:
         """Assess complexity after requirements are gathered (with full context)."""
         task_logger = get_task_logger(self.spec_dir)
         assessment_file = self.spec_dir / "complexity_assessment.json"
@@ -538,17 +660,19 @@ class SpecOrchestrator:
         if requirements_file.exists():
             with open(requirements_file) as f:
                 req = json.load(f)
-                self.task_description = req.get("task_description", self.task_description)
+                self.task_description = req.get(
+                    "task_description", self.task_description
+                )
                 requirements_context = f"""
-**Task Description**: {req.get('task_description', 'Not provided')}
-**Workflow Type**: {req.get('workflow_type', 'Not specified')}
-**Services Involved**: {', '.join(req.get('services_involved', []))}
+**Task Description**: {req.get("task_description", "Not provided")}
+**Workflow Type**: {req.get("workflow_type", "Not specified")}
+**Services Involved**: {", ".join(req.get("services_involved", []))}
 **User Requirements**:
-{chr(10).join(f'- {r}' for r in req.get('user_requirements', []))}
+{chr(10).join(f"- {r}" for r in req.get("user_requirements", []))}
 **Acceptance Criteria**:
-{chr(10).join(f'- {c}' for c in req.get('acceptance_criteria', []))}
+{chr(10).join(f"- {c}" for c in req.get("acceptance_criteria", []))}
 **Constraints**:
-{chr(10).join(f'- {c}' for c in req.get('constraints', []))}
+{chr(10).join(f"- {c}" for c in req.get("constraints", []))}
 """
 
         if self.complexity_override:
@@ -563,7 +687,11 @@ class SpecOrchestrator:
         elif self.use_ai_assessment:
             # Run AI assessment
             print_status("Running AI complexity assessment...", "progress")
-            task_logger.log("Analyzing task complexity with AI...", LogEntryType.INFO, LogPhase.PLANNING)
+            task_logger.log(
+                "Analyzing task complexity with AI...",
+                LogEntryType.INFO,
+                LogPhase.PLANNING,
+            )
             self.assessment = await complexity.run_ai_complexity_assessment(
                 self.spec_dir,
                 self.task_description,
@@ -571,7 +699,10 @@ class SpecOrchestrator:
             )
 
             if self.assessment:
-                print_status(f"AI assessed complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
+                print_status(
+                    f"AI assessed complexity: {highlight(self.assessment.complexity.value.upper())}",
+                    "success",
+                )
                 print_key_value("Confidence", f"{self.assessment.confidence:.0%}")
                 print_key_value("Reasoning", self.assessment.reasoning)
 
@@ -581,12 +712,17 @@ class SpecOrchestrator:
                     print(f"  {muted('→ Self-critique phase enabled')}")
             else:
                 # Fall back to heuristic assessment
-                print_status("AI assessment failed, falling back to heuristics...", "warning")
+                print_status(
+                    "AI assessment failed, falling back to heuristics...", "warning"
+                )
                 self.assessment = self._heuristic_assessment()
         else:
             # Use heuristic assessment
             self.assessment = self._heuristic_assessment()
-            print_status(f"Assessed complexity: {highlight(self.assessment.complexity.value.upper())}", "success")
+            print_status(
+                f"Assessed complexity: {highlight(self.assessment.complexity.value.upper())}",
+                "success",
+            )
             print_key_value("Confidence", f"{self.assessment.confidence:.0%}")
             print_key_value("Reasoning", self.assessment.reasoning)
 
@@ -601,7 +737,9 @@ class SpecOrchestrator:
         if not assessment_file.exists():
             complexity.save_assessment(self.spec_dir, self.assessment, self.dev_mode)
 
-        return phases.PhaseResult("complexity_assessment", True, [str(assessment_file)], [], 0)
+        return phases.PhaseResult(
+            "complexity_assessment", True, [str(assessment_file)], [], 0
+        )
 
     def _heuristic_assessment(self) -> complexity.ComplexityAssessment:
         """Fall back to heuristic-based complexity assessment."""

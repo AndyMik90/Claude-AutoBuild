@@ -7,27 +7,24 @@ Uses project_analyzer to create dynamic security profiles based on detected stac
 """
 
 from pathlib import Path
-from typing import Optional
 
 from project_analyzer import (
     SecurityProfile,
     get_or_create_profile,
-    is_command_allowed,
-    needs_validation,
-    BASE_COMMANDS,
 )
-
 
 # =============================================================================
 # GLOBAL STATE
 # =============================================================================
 
 # Cache the security profile to avoid re-analyzing on every command
-_cached_profile: Optional[SecurityProfile] = None
-_cached_project_dir: Optional[Path] = None
+_cached_profile: SecurityProfile | None = None
+_cached_project_dir: Path | None = None
 
 
-def get_security_profile(project_dir: Path, spec_dir: Optional[Path] = None) -> SecurityProfile:
+def get_security_profile(
+    project_dir: Path, spec_dir: Path | None = None
+) -> SecurityProfile:
     """
     Get the security profile for a project, using cache when possible.
 

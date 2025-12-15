@@ -6,8 +6,6 @@ Shared imports, types, and constants used across agent modules.
 """
 
 import logging
-from pathlib import Path
-from typing import Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)

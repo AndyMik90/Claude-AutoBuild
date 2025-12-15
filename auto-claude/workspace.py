@@ -26,40 +26,39 @@ import subprocess
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
-from worktree import WorktreeManager, WorktreeInfo
 from ui import (
     Icons,
-    icon,
+    MenuOption,
+    bold,
     box,
-    success,
     error,
-    warning,
+    highlight,
+    icon,
     info,
     muted,
-    highlight,
-    bold,
-    print_header,
     print_status,
-    print_key_value,
     select_menu,
-    MenuOption,
+    success,
+    warning,
 )
+from worktree import WorktreeInfo, WorktreeManager
 
 
 class WorkspaceMode(Enum):
     """How auto-claude should work."""
+
     ISOLATED = "isolated"  # Work in a separate worktree (safe)
-    DIRECT = "direct"      # Work directly in user's project
+    DIRECT = "direct"  # Work directly in user's project
 
 
 class WorkspaceChoice(Enum):
     """User's choice after build completes."""
-    MERGE = "merge"        # Add changes to project
-    REVIEW = "review"      # Show what changed
-    TEST = "test"          # Test the feature in the staging worktree
-    LATER = "later"        # Decide later
+
+    MERGE = "merge"  # Add changes to project
+    REVIEW = "review"  # Show what changed
+    TEST = "test"  # Test the feature in the staging worktree
+    LATER = "later"  # Decide later
 
 
 def has_uncommitted_changes(project_dir: Path) -> bool:
@@ -84,7 +83,7 @@ def get_current_branch(project_dir: Path) -> str:
     return result.stdout.strip()
 
 
-def get_existing_build_worktree(project_dir: Path, spec_name: str) -> Optional[Path]:
+def get_existing_build_worktree(project_dir: Path, spec_name: str) -> Path | None:
     """
     Check if there's an existing worktree for this specific spec.
 
@@ -154,7 +153,7 @@ def choose_workspace(
         print()
 
         try:
-            input(f"Press Enter to continue...")
+            input("Press Enter to continue...")
         except KeyboardInterrupt:
             print()
             print_status("Cancelled.", "info")
@@ -239,8 +238,8 @@ def setup_workspace(
     project_dir: Path,
     spec_name: str,
     mode: WorkspaceMode,
-    source_spec_dir: Optional[Path] = None,
-) -> tuple[Path, Optional[WorktreeManager], Optional[Path]]:
+    source_spec_dir: Path | None = None,
+) -> tuple[Path, WorktreeManager | None, Path | None]:
     """
     Set up the workspace based on user's choice.
 
@@ -280,7 +279,7 @@ def setup_workspace(
         localized_spec_dir = copy_spec_to_worktree(
             source_spec_dir, worktree_info.path, spec_name
         )
-        print_status(f"Spec files copied to workspace", "success")
+        print_status("Spec files copied to workspace", "success")
 
     print_status(f"Workspace ready: {worktree_info.path.name}", "success")
     print()
@@ -302,11 +301,23 @@ def show_build_summary(manager: WorktreeManager, spec_name: str) -> None:
     print()
     print(bold("What was built:"))
     if summary["new_files"] > 0:
-        print(success(f"  + {summary['new_files']} new file{'s' if summary['new_files'] != 1 else ''}"))
+        print(
+            success(
+                f"  + {summary['new_files']} new file{'s' if summary['new_files'] != 1 else ''}"
+            )
+        )
     if summary["modified_files"] > 0:
-        print(info(f"  ~ {summary['modified_files']} modified file{'s' if summary['modified_files'] != 1 else ''}"))
+        print(
+            info(
+                f"  ~ {summary['modified_files']} modified file{'s' if summary['modified_files'] != 1 else ''}"
+            )
+        )
     if summary["deleted_files"] > 0:
-        print(error(f"  - {summary['deleted_files']} deleted file{'s' if summary['deleted_files'] != 1 else ''}"))
+        print(
+            error(
+                f"  - {summary['deleted_files']} deleted file{'s' if summary['deleted_files'] != 1 else ''}"
+            )
+        )
 
 
 def show_changed_files(manager: WorktreeManager, spec_name: str) -> None:
@@ -333,7 +344,7 @@ def show_changed_files(manager: WorktreeManager, spec_name: str) -> None:
 def finalize_workspace(
     project_dir: Path,
     spec_name: str,
-    manager: Optional[WorktreeManager],
+    manager: WorktreeManager | None,
     auto_continue: bool = False,
 ) -> WorkspaceChoice:
     """
@@ -510,7 +521,11 @@ def handle_workspace_choice(
         print()
         print("To see full details of changes:")
         if worktree_info:
-            print(muted(f"  git diff {worktree_info.base_branch}...{worktree_info.branch}"))
+            print(
+                muted(
+                    f"  git diff {worktree_info.base_branch}...{worktree_info.branch}"
+                )
+            )
         print()
         print("To test the feature:")
         if staging_path:
@@ -538,7 +553,9 @@ def handle_workspace_choice(
         print()
 
 
-def merge_existing_build(project_dir: Path, spec_name: str, no_commit: bool = False) -> bool:
+def merge_existing_build(
+    project_dir: Path, spec_name: str, no_commit: bool = False
+) -> bool:
     """
     Merge an existing build into the project.
 
@@ -581,7 +598,9 @@ def merge_existing_build(project_dir: Path, spec_name: str, no_commit: bool = Fa
     show_build_summary(manager, spec_name)
     print()
 
-    success_result = manager.merge_worktree(spec_name, delete_after=True, no_commit=no_commit)
+    success_result = manager.merge_worktree(
+        spec_name, delete_after=True, no_commit=no_commit
+    )
 
     if success_result:
         print()
@@ -776,7 +795,7 @@ def check_existing_build(project_dir: Path, spec_name: str) -> bool:
     elif choice == "review":
         review_existing_build(project_dir, spec_name)
         print()
-        input(f"Press Enter to continue building...")
+        input("Press Enter to continue building...")
         return True
     elif choice == "merge":
         merge_existing_build(project_dir, spec_name)
@@ -839,7 +858,7 @@ def cleanup_all_worktrees(project_dir: Path, confirm: bool = True) -> bool:
     if confirm:
         print()
         response = input("  Type 'cleanup' to confirm: ").strip()
-        if response != 'cleanup':
+        if response != "cleanup":
             print_status("Cleanup cancelled.", "info")
             return False
 

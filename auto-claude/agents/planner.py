@@ -8,24 +8,24 @@ Handles follow-up planner sessions for adding new subtasks to completed specs.
 import logging
 from pathlib import Path
 
-from .base import AUTO_CONTINUE_DELAY_SECONDS
-from .session import run_agent_session
 from client import create_client
-from ui import (
-    Icons,
-    icon,
-    box,
-    bold,
-    muted,
-    highlight,
-    print_status,
-    StatusManager,
-    BuildState,
-)
 from task_logger import (
     LogPhase,
     get_task_logger,
 )
+from ui import (
+    BuildState,
+    Icons,
+    StatusManager,
+    bold,
+    box,
+    highlight,
+    icon,
+    muted,
+    print_status,
+)
+
+from .session import run_agent_session
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +60,8 @@ async def run_followup_planner(
     Returns:
         bool: True if planning completed successfully
     """
-    from prompts import get_followup_planner_prompt
     from implementation_plan import ImplementationPlan
+    from prompts import get_followup_planner_prompt
 
     # Initialize status manager for ccstatusline
     status_manager = StatusManager(project_dir)
@@ -109,7 +109,7 @@ async def run_followup_planner(
             task_logger.end_phase(
                 LogPhase.PLANNING,
                 success=(status != "error"),
-                message="Follow-up planning session completed"
+                message="Follow-up planning session completed",
             )
 
         if status == "error":
@@ -148,14 +148,18 @@ async def run_followup_planner(
                 return True
             else:
                 print()
-                print_status("Warning: No pending subtasks found after planning", "warning")
+                print_status(
+                    "Warning: No pending subtasks found after planning", "warning"
+                )
                 print(muted("The planner may not have added new subtasks."))
                 print(muted("Check implementation_plan.json manually."))
                 status_manager.update(state=BuildState.PAUSED)
                 return False
         else:
             print()
-            print_status("Error: implementation_plan.json not found after planning", "error")
+            print_status(
+                "Error: implementation_plan.json not found after planning", "error"
+            )
             status_manager.update(state=BuildState.ERROR)
             return False
 

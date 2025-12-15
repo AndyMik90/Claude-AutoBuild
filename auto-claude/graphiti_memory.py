@@ -24,20 +24,19 @@ see graphiti/graphiti.py.
 """
 
 from pathlib import Path
-from typing import Optional
 
 # Re-export from modular system
 from graphiti import (
+    EPISODE_TYPE_CODEBASE_DISCOVERY,
+    EPISODE_TYPE_GOTCHA,
+    EPISODE_TYPE_HISTORICAL_CONTEXT,
+    EPISODE_TYPE_PATTERN,
+    EPISODE_TYPE_QA_RESULT,
+    EPISODE_TYPE_SESSION_INSIGHT,
+    EPISODE_TYPE_TASK_OUTCOME,
+    MAX_CONTEXT_RESULTS,
     GraphitiMemory,
     GroupIdMode,
-    MAX_CONTEXT_RESULTS,
-    EPISODE_TYPE_SESSION_INSIGHT,
-    EPISODE_TYPE_CODEBASE_DISCOVERY,
-    EPISODE_TYPE_PATTERN,
-    EPISODE_TYPE_GOTCHA,
-    EPISODE_TYPE_TASK_OUTCOME,
-    EPISODE_TYPE_QA_RESULT,
-    EPISODE_TYPE_HISTORICAL_CONTEXT,
 )
 
 # Import config utilities
@@ -89,7 +88,7 @@ async def test_graphiti_connection() -> tuple[bool, str]:
     try:
         from graphiti_core import Graphiti
         from graphiti_core.driver.falkordb_driver import FalkorDriver
-        from graphiti_providers import create_llm_client, create_embedder, ProviderError
+        from graphiti_providers import ProviderError, create_embedder, create_llm_client
 
         # Create providers
         try:
@@ -136,10 +135,9 @@ async def test_provider_configuration() -> dict:
         Dict with test results for each component
     """
     from graphiti_providers import (
-        test_llm_connection,
         test_embedder_connection,
+        test_llm_connection,
         test_ollama_connection,
-        validate_embedding_config,
     )
 
     config = GraphitiConfig.from_env()
@@ -163,7 +161,9 @@ async def test_provider_configuration() -> dict:
 
     # Extra test for Ollama
     if config.llm_provider == "ollama" or config.embedder_provider == "ollama":
-        ollama_success, ollama_msg = await test_ollama_connection(config.ollama_base_url)
+        ollama_success, ollama_msg = await test_ollama_connection(
+            config.ollama_base_url
+        )
         results["ollama_test"] = {"success": ollama_success, "message": ollama_msg}
 
     return results

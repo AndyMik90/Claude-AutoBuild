@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from pathlib import Path
+
     from graphiti_config import GraphitiConfig
 
 logger = logging.getLogger(__name__)
@@ -32,17 +33,20 @@ logger = logging.getLogger(__name__)
 
 class ProviderError(Exception):
     """Raised when a provider cannot be initialized."""
+
     pass
 
 
 class ProviderNotInstalled(ProviderError):
     """Raised when required packages for a provider are not installed."""
+
     pass
 
 
 # ============================================================================
 # LLM Client Factory
 # ============================================================================
+
 
 def create_llm_client(config: "GraphitiConfig") -> Any:
     """
@@ -77,8 +81,8 @@ def create_llm_client(config: "GraphitiConfig") -> Any:
 def _create_openai_llm_client(config: "GraphitiConfig") -> Any:
     """Create OpenAI LLM client."""
     try:
-        from graphiti_core.llm_client.openai_client import OpenAIClient
         from graphiti_core.llm_client.config import LLMConfig
+        from graphiti_core.llm_client.openai_client import OpenAIClient
     except ImportError as e:
         raise ProviderNotInstalled(
             f"OpenAI provider requires graphiti-core. "
@@ -97,9 +101,9 @@ def _create_openai_llm_client(config: "GraphitiConfig") -> Any:
     # GPT-5 family and o1/o3 models support reasoning/verbosity params
     model_lower = config.openai_model.lower()
     supports_reasoning = (
-        model_lower.startswith("gpt-5") or
-        model_lower.startswith("o1") or
-        model_lower.startswith("o3")
+        model_lower.startswith("gpt-5")
+        or model_lower.startswith("o1")
+        or model_lower.startswith("o3")
     )
 
     if supports_reasoning:
@@ -136,9 +140,9 @@ def _create_anthropic_llm_client(config: "GraphitiConfig") -> Any:
 def _create_azure_openai_llm_client(config: "GraphitiConfig") -> Any:
     """Create Azure OpenAI LLM client."""
     try:
-        from openai import AsyncOpenAI
         from graphiti_core.llm_client.azure_openai_client import AzureOpenAILLMClient
         from graphiti_core.llm_client.config import LLMConfig
+        from openai import AsyncOpenAI
     except ImportError as e:
         raise ProviderNotInstalled(
             f"Azure OpenAI provider requires graphiti-core and openai. "
@@ -151,7 +155,9 @@ def _create_azure_openai_llm_client(config: "GraphitiConfig") -> Any:
     if not config.azure_openai_base_url:
         raise ProviderError("Azure OpenAI provider requires AZURE_OPENAI_BASE_URL")
     if not config.azure_openai_llm_deployment:
-        raise ProviderError("Azure OpenAI provider requires AZURE_OPENAI_LLM_DEPLOYMENT")
+        raise ProviderError(
+            "Azure OpenAI provider requires AZURE_OPENAI_LLM_DEPLOYMENT"
+        )
 
     azure_client = AsyncOpenAI(
         base_url=config.azure_openai_base_url,
@@ -169,8 +175,8 @@ def _create_azure_openai_llm_client(config: "GraphitiConfig") -> Any:
 def _create_ollama_llm_client(config: "GraphitiConfig") -> Any:
     """Create Ollama LLM client (using OpenAI-compatible interface)."""
     try:
-        from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
         from graphiti_core.llm_client.config import LLMConfig
+        from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
     except ImportError as e:
         raise ProviderNotInstalled(
             f"Ollama provider requires graphiti-core. "
@@ -199,6 +205,7 @@ def _create_ollama_llm_client(config: "GraphitiConfig") -> Any:
 # ============================================================================
 # Embedder Factory
 # ============================================================================
+
 
 def create_embedder(config: "GraphitiConfig") -> Any:
     """
@@ -255,7 +262,7 @@ def _create_openai_embedder(config: "GraphitiConfig") -> Any:
 def _create_voyage_embedder(config: "GraphitiConfig") -> Any:
     """Create Voyage AI embedder (commonly used with Anthropic LLM)."""
     try:
-        from graphiti_core.embedder.voyage import VoyageEmbedder, VoyageAIConfig
+        from graphiti_core.embedder.voyage import VoyageAIConfig, VoyageEmbedder
     except ImportError as e:
         raise ProviderNotInstalled(
             f"Voyage embedder requires graphiti-core[voyage]. "
@@ -277,8 +284,8 @@ def _create_voyage_embedder(config: "GraphitiConfig") -> Any:
 def _create_azure_openai_embedder(config: "GraphitiConfig") -> Any:
     """Create Azure OpenAI embedder."""
     try:
-        from openai import AsyncOpenAI
         from graphiti_core.embedder.azure_openai import AzureOpenAIEmbedderClient
+        from openai import AsyncOpenAI
     except ImportError as e:
         raise ProviderNotInstalled(
             f"Azure OpenAI embedder requires graphiti-core and openai. "
@@ -291,7 +298,9 @@ def _create_azure_openai_embedder(config: "GraphitiConfig") -> Any:
     if not config.azure_openai_base_url:
         raise ProviderError("Azure OpenAI embedder requires AZURE_OPENAI_BASE_URL")
     if not config.azure_openai_embedding_deployment:
-        raise ProviderError("Azure OpenAI embedder requires AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
+        raise ProviderError(
+            "Azure OpenAI embedder requires AZURE_OPENAI_EMBEDDING_DEPLOYMENT"
+        )
 
     azure_client = AsyncOpenAI(
         base_url=config.azure_openai_base_url,
@@ -337,7 +346,10 @@ def _create_ollama_embedder(config: "GraphitiConfig") -> Any:
 # Cross-Encoder / Reranker Factory (Optional)
 # ============================================================================
 
-def create_cross_encoder(config: "GraphitiConfig", llm_client: Any = None) -> Optional[Any]:
+
+def create_cross_encoder(
+    config: "GraphitiConfig", llm_client: Any = None
+) -> Any | None:
     """
     Create a cross-encoder/reranker for improved search quality.
 
@@ -359,7 +371,9 @@ def create_cross_encoder(config: "GraphitiConfig", llm_client: Any = None) -> Op
         return None
 
     try:
-        from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
+        from graphiti_core.cross_encoder.openai_reranker_client import (
+            OpenAIRerankerClient,
+        )
         from graphiti_core.llm_client.config import LLMConfig
     except ImportError:
         logger.debug("Cross-encoder not available (optional)")
@@ -408,7 +422,7 @@ EMBEDDING_DIMENSIONS = {
 }
 
 
-def get_expected_embedding_dim(model: str) -> Optional[int]:
+def get_expected_embedding_dim(model: str) -> int | None:
     """
     Get the expected embedding dimension for a known model.
 
@@ -458,8 +472,8 @@ def validate_embedding_config(config: "GraphitiConfig") -> tuple[bool, str]:
                 )
             else:
                 return False, (
-                    f"Ollama embedder requires OLLAMA_EMBEDDING_DIM. "
-                    f"Check your model's documentation for the correct dimension."
+                    "Ollama embedder requires OLLAMA_EMBEDDING_DIM. "
+                    "Check your model's documentation for the correct dimension."
                 )
 
     # Check for known dimension mismatches
@@ -467,12 +481,16 @@ def validate_embedding_config(config: "GraphitiConfig") -> tuple[bool, str]:
         expected = get_expected_embedding_dim(config.openai_embedding_model)
         # OpenAI handles this automatically, just log info
         if expected:
-            logger.debug(f"OpenAI embedding model '{config.openai_embedding_model}' has dimension {expected}")
+            logger.debug(
+                f"OpenAI embedding model '{config.openai_embedding_model}' has dimension {expected}"
+            )
 
     elif provider == "voyage":
         expected = get_expected_embedding_dim(config.voyage_embedding_model)
         if expected:
-            logger.debug(f"Voyage embedding model '{config.voyage_embedding_model}' has dimension {expected}")
+            logger.debug(
+                f"Voyage embedding model '{config.voyage_embedding_model}' has dimension {expected}"
+            )
 
     return True, "Embedding configuration valid"
 
@@ -480,6 +498,7 @@ def validate_embedding_config(config: "GraphitiConfig") -> tuple[bool, str]:
 # ============================================================================
 # Provider Health Checks
 # ============================================================================
+
 
 async def test_llm_connection(config: "GraphitiConfig") -> tuple[bool, str]:
     """
@@ -494,7 +513,10 @@ async def test_llm_connection(config: "GraphitiConfig") -> tuple[bool, str]:
     try:
         llm_client = create_llm_client(config)
         # Most clients don't have a ping method, so just verify creation succeeded
-        return True, f"LLM client created successfully for provider: {config.llm_provider}"
+        return (
+            True,
+            f"LLM client created successfully for provider: {config.llm_provider}",
+        )
     except ProviderNotInstalled as e:
         return False, str(e)
     except ProviderError as e:
@@ -520,7 +542,10 @@ async def test_embedder_connection(config: "GraphitiConfig") -> tuple[bool, str]
 
     try:
         embedder = create_embedder(config)
-        return True, f"Embedder created successfully for provider: {config.embedder_provider}"
+        return (
+            True,
+            f"Embedder created successfully for provider: {config.embedder_provider}",
+        )
     except ProviderNotInstalled as e:
         return False, str(e)
     except ProviderError as e:
@@ -529,7 +554,9 @@ async def test_embedder_connection(config: "GraphitiConfig") -> tuple[bool, str]
         return False, f"Failed to create embedder: {e}"
 
 
-async def test_ollama_connection(base_url: str = "http://localhost:11434") -> tuple[bool, str]:
+async def test_ollama_connection(
+    base_url: str = "http://localhost:11434",
+) -> tuple[bool, str]:
     """
     Test if Ollama server is running and reachable.
 
@@ -545,8 +572,8 @@ async def test_ollama_connection(base_url: str = "http://localhost:11434") -> tu
         import aiohttp
     except ImportError:
         # Fall back to sync request
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         try:
             # Normalize URL (remove /v1 suffix if present)
@@ -572,7 +599,9 @@ async def test_ollama_connection(base_url: str = "http://localhost:11434") -> tu
             url = url[:-3]
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{url}/api/tags", timeout=aiohttp.ClientTimeout(total=5)) as response:
+            async with session.get(
+                f"{url}/api/tags", timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
                 if response.status == 200:
                     return True, f"Ollama is running at {url}"
                 return False, f"Ollama returned status {response.status}"
@@ -588,6 +617,7 @@ async def test_ollama_connection(base_url: str = "http://localhost:11434") -> tu
 # Re-exports and Convenience Functions
 # ============================================================================
 
+
 def is_graphiti_enabled() -> bool:
     """
     Check if Graphiti memory integration is available and configured.
@@ -596,6 +626,7 @@ def is_graphiti_enabled() -> bool:
     Returns True if GRAPHITI_ENABLED=true and provider credentials are valid.
     """
     from graphiti_config import is_graphiti_enabled as _is_graphiti_enabled
+
     return _is_graphiti_enabled()
 
 
@@ -634,6 +665,7 @@ async def get_graph_hints(
 
     try:
         from pathlib import Path
+
         from graphiti_memory import GraphitiMemory, GroupIdMode
 
         # Determine project directory from project_id or use current dir
@@ -643,6 +675,7 @@ async def get_graph_hints(
         if spec_dir is None:
             # Create a temporary spec dir for the query
             import tempfile
+
             spec_dir = Path(tempfile.mkdtemp(prefix="graphiti_query_"))
 
         # Create memory instance with project-level scope for cross-spec hints

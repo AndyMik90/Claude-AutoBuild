@@ -12,39 +12,139 @@ tailored security profiles.
 
 BASE_COMMANDS = {
     # Core shell
-    "echo", "printf", "cat", "head", "tail", "less", "more",
-    "ls", "pwd", "cd", "pushd", "popd",
-    "cp", "mv", "mkdir", "rmdir", "touch", "ln",
-    "find", "fd", "grep", "egrep", "fgrep", "rg", "ag",
-    "sort", "uniq", "cut", "tr", "sed", "awk", "gawk",
-    "wc", "diff", "cmp", "comm",
-    "tee", "xargs", "read",
-    "file", "stat", "tree", "du", "df",
-    "which", "whereis", "type", "command",
-    "date", "time", "sleep", "timeout", "watch",
-    "true", "false", "test", "[", "[[",
-    "env", "printenv", "export", "unset", "set", "source", ".",
-    "eval", "exec", "exit", "return", "break", "continue",
-    "sh", "bash", "zsh",
+    "echo",
+    "printf",
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "ls",
+    "pwd",
+    "cd",
+    "pushd",
+    "popd",
+    "cp",
+    "mv",
+    "mkdir",
+    "rmdir",
+    "touch",
+    "ln",
+    "find",
+    "fd",
+    "grep",
+    "egrep",
+    "fgrep",
+    "rg",
+    "ag",
+    "sort",
+    "uniq",
+    "cut",
+    "tr",
+    "sed",
+    "awk",
+    "gawk",
+    "wc",
+    "diff",
+    "cmp",
+    "comm",
+    "tee",
+    "xargs",
+    "read",
+    "file",
+    "stat",
+    "tree",
+    "du",
+    "df",
+    "which",
+    "whereis",
+    "type",
+    "command",
+    "date",
+    "time",
+    "sleep",
+    "timeout",
+    "watch",
+    "true",
+    "false",
+    "test",
+    "[",
+    "[[",
+    "env",
+    "printenv",
+    "export",
+    "unset",
+    "set",
+    "source",
+    ".",
+    "eval",
+    "exec",
+    "exit",
+    "return",
+    "break",
+    "continue",
+    "sh",
+    "bash",
+    "zsh",
     # Archives
-    "tar", "zip", "unzip", "gzip", "gunzip",
+    "tar",
+    "zip",
+    "unzip",
+    "gzip",
+    "gunzip",
     # Network (read-only)
-    "curl", "wget", "ping", "host", "dig",
+    "curl",
+    "wget",
+    "ping",
+    "host",
+    "dig",
     # Git (always needed)
-    "git", "gh",
+    "git",
+    "gh",
     # Process management (with validation in security.py)
-    "ps", "pgrep", "lsof", "jobs",
-    "kill", "pkill", "killall",  # Validated for safe targets only
+    "ps",
+    "pgrep",
+    "lsof",
+    "jobs",
+    "kill",
+    "pkill",
+    "killall",  # Validated for safe targets only
     # File operations (with validation in security.py)
-    "rm", "chmod",  # Validated for safe operations only
+    "rm",
+    "chmod",  # Validated for safe operations only
     # Text tools
-    "paste", "join", "split", "fold", "fmt", "nl", "rev", "shuf",
-    "column", "expand", "unexpand", "iconv",
+    "paste",
+    "join",
+    "split",
+    "fold",
+    "fmt",
+    "nl",
+    "rev",
+    "shuf",
+    "column",
+    "expand",
+    "unexpand",
+    "iconv",
     # Misc safe
-    "clear", "reset", "man", "help", "uname", "whoami", "id",
-    "basename", "dirname", "realpath", "readlink", "mktemp",
-    "bc", "expr", "let", "seq", "yes",
-    "jq", "yq",
+    "clear",
+    "reset",
+    "man",
+    "help",
+    "uname",
+    "whoami",
+    "id",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
+    "mktemp",
+    "bc",
+    "expr",
+    "let",
+    "seq",
+    "yes",
+    "jq",
+    "yq",
 }
 
 # =============================================================================
@@ -65,67 +165,133 @@ VALIDATED_COMMANDS = {
 
 LANGUAGE_COMMANDS = {
     "python": {
-        "python", "python3", "pip", "pip3", "pipx",
-        "ipython", "jupyter", "notebook",
-        "pdb", "pudb",  # debuggers
+        "python",
+        "python3",
+        "pip",
+        "pip3",
+        "pipx",
+        "ipython",
+        "jupyter",
+        "notebook",
+        "pdb",
+        "pudb",  # debuggers
     },
     "javascript": {
-        "node", "npm", "npx",
+        "node",
+        "npm",
+        "npx",
     },
     "typescript": {
-        "tsc", "ts-node", "tsx",
+        "tsc",
+        "ts-node",
+        "tsx",
     },
     "rust": {
-        "cargo", "rustc", "rustup", "rustfmt", "clippy",
+        "cargo",
+        "rustc",
+        "rustup",
+        "rustfmt",
+        "clippy",
         "rust-analyzer",
     },
     "go": {
-        "go", "gofmt", "golint", "gopls",
-        "go-outline", "gocode", "gotests",
+        "go",
+        "gofmt",
+        "golint",
+        "gopls",
+        "go-outline",
+        "gocode",
+        "gotests",
     },
     "ruby": {
-        "ruby", "gem", "irb", "erb",
+        "ruby",
+        "gem",
+        "irb",
+        "erb",
     },
     "php": {
-        "php", "composer",
+        "php",
+        "composer",
     },
     "java": {
-        "java", "javac", "jar",
-        "mvn", "maven", "gradle", "gradlew", "ant",
+        "java",
+        "javac",
+        "jar",
+        "mvn",
+        "maven",
+        "gradle",
+        "gradlew",
+        "ant",
     },
     "kotlin": {
-        "kotlin", "kotlinc",
+        "kotlin",
+        "kotlinc",
     },
     "scala": {
-        "scala", "scalac", "sbt",
+        "scala",
+        "scalac",
+        "sbt",
     },
     "csharp": {
-        "dotnet", "nuget", "msbuild",
+        "dotnet",
+        "nuget",
+        "msbuild",
     },
     "c": {
-        "gcc", "g++", "clang", "clang++",
-        "make", "cmake", "ninja", "meson",
-        "ld", "ar", "nm", "objdump", "strip",
+        "gcc",
+        "g++",
+        "clang",
+        "clang++",
+        "make",
+        "cmake",
+        "ninja",
+        "meson",
+        "ld",
+        "ar",
+        "nm",
+        "objdump",
+        "strip",
     },
     "cpp": {
-        "gcc", "g++", "clang", "clang++",
-        "make", "cmake", "ninja", "meson",
-        "ld", "ar", "nm", "objdump", "strip",
+        "gcc",
+        "g++",
+        "clang",
+        "clang++",
+        "make",
+        "cmake",
+        "ninja",
+        "meson",
+        "ld",
+        "ar",
+        "nm",
+        "objdump",
+        "strip",
     },
     "elixir": {
-        "elixir", "mix", "iex",
+        "elixir",
+        "mix",
+        "iex",
     },
     "haskell": {
-        "ghc", "ghci", "cabal", "stack",
+        "ghc",
+        "ghci",
+        "cabal",
+        "stack",
     },
     "lua": {
-        "lua", "luac", "luarocks",
+        "lua",
+        "luac",
+        "luarocks",
     },
     "perl": {
-        "perl", "cpan", "cpanm",
+        "perl",
+        "cpan",
+        "cpanm",
     },
     "swift": {
-        "swift", "swiftc", "xcodebuild",
+        "swift",
+        "swiftc",
+        "xcodebuild",
     },
     "zig": {
         "zig",
@@ -176,7 +342,6 @@ FRAMEWORK_COMMANDS = {
     "pyramid": {"pserve", "pyramid"},
     "sanic": {"sanic"},
     "aiohttp": {"aiohttp"},
-
     # Python data/ML
     "celery": {"celery"},
     "dramatiq": {"dramatiq"},
@@ -189,7 +354,6 @@ FRAMEWORK_COMMANDS = {
     "gradio": {"gradio"},
     "panel": {"panel"},
     "dash": {"dash"},
-
     # Python testing/linting
     "pytest": {"pytest", "py.test"},
     "unittest": {"python", "python3"},
@@ -206,12 +370,10 @@ FRAMEWORK_COMMANDS = {
     "bandit": {"bandit"},
     "coverage": {"coverage"},
     "pre-commit": {"pre-commit"},
-
     # Python DB migrations
     "alembic": {"alembic"},
     "flask-migrate": {"flask"},
     "django-migrations": {"django-admin"},
-
     # Node.js frameworks
     "nextjs": {"next"},
     "nuxt": {"nuxt", "nuxi"},
@@ -242,7 +404,6 @@ FRAMEWORK_COMMANDS = {
     "capacitor": {"cap", "capacitor"},
     "expo": {"expo", "eas"},
     "react-native": {"react-native", "npx"},
-
     # Node.js build tools
     "vite": {"vite"},
     "webpack": {"webpack", "webpack-cli"},
@@ -254,7 +415,6 @@ FRAMEWORK_COMMANDS = {
     "lerna": {"lerna"},
     "rush": {"rush"},
     "changesets": {"changeset"},
-
     # Node.js testing/linting
     "jest": {"jest"},
     "vitest": {"vitest"},
@@ -272,14 +432,12 @@ FRAMEWORK_COMMANDS = {
     "tslint": {"tslint"},
     "standard": {"standard"},
     "xo": {"xo"},
-
     # Node.js ORMs/Database tools (also in DATABASE_COMMANDS for when detected via DB)
     "prisma": {"prisma", "npx"},
     "drizzle": {"drizzle-kit", "npx"},
     "typeorm": {"typeorm", "npx"},
     "sequelize": {"sequelize", "npx"},
     "knex": {"knex", "npx"},
-
     # Ruby frameworks
     "rails": {"rails", "rake", "spring"},
     "sinatra": {"sinatra", "rackup"},
@@ -287,7 +445,6 @@ FRAMEWORK_COMMANDS = {
     "rspec": {"rspec"},
     "minitest": {"rake"},
     "rubocop": {"rubocop"},
-
     # PHP frameworks
     "laravel": {"artisan", "sail"},
     "symfony": {"symfony", "console"},
@@ -296,21 +453,18 @@ FRAMEWORK_COMMANDS = {
     "phpunit": {"phpunit"},
     "phpstan": {"phpstan"},
     "psalm": {"psalm"},
-
     # Rust frameworks
     "actix": {"cargo"},
     "rocket": {"cargo"},
     "axum": {"cargo"},
     "warp": {"cargo"},
     "tokio": {"cargo"},
-
     # Go frameworks
     "gin": {"go"},
     "echo": {"go"},
     "fiber": {"go"},
     "chi": {"go"},
     "buffalo": {"buffalo"},
-
     # Elixir/Erlang
     "phoenix": {"mix", "iex"},
     "ecto": {"mix"},
@@ -322,35 +476,65 @@ FRAMEWORK_COMMANDS = {
 
 DATABASE_COMMANDS = {
     "postgresql": {
-        "psql", "pg_dump", "pg_restore", "pg_dumpall",
-        "createdb", "dropdb", "createuser", "dropuser",
-        "pg_ctl", "postgres", "initdb", "pg_isready",
+        "psql",
+        "pg_dump",
+        "pg_restore",
+        "pg_dumpall",
+        "createdb",
+        "dropdb",
+        "createuser",
+        "dropuser",
+        "pg_ctl",
+        "postgres",
+        "initdb",
+        "pg_isready",
     },
     "mysql": {
-        "mysql", "mysqldump", "mysqlimport", "mysqladmin",
-        "mysqlcheck", "mysqlshow",
+        "mysql",
+        "mysqldump",
+        "mysqlimport",
+        "mysqladmin",
+        "mysqlcheck",
+        "mysqlshow",
     },
     "mariadb": {
-        "mysql", "mariadb", "mysqldump", "mariadb-dump",
+        "mysql",
+        "mariadb",
+        "mysqldump",
+        "mariadb-dump",
     },
     "mongodb": {
-        "mongosh", "mongo", "mongod", "mongos",
-        "mongodump", "mongorestore", "mongoexport", "mongoimport",
+        "mongosh",
+        "mongo",
+        "mongod",
+        "mongos",
+        "mongodump",
+        "mongorestore",
+        "mongoexport",
+        "mongoimport",
     },
     "redis": {
-        "redis-cli", "redis-server", "redis-benchmark",
+        "redis-cli",
+        "redis-server",
+        "redis-benchmark",
     },
     "sqlite": {
-        "sqlite3", "sqlite",
+        "sqlite3",
+        "sqlite",
     },
     "cassandra": {
-        "cqlsh", "cassandra", "nodetool",
+        "cqlsh",
+        "cassandra",
+        "nodetool",
     },
     "elasticsearch": {
-        "elasticsearch", "curl",  # ES uses REST API
+        "elasticsearch",
+        "curl",  # ES uses REST API
     },
     "neo4j": {
-        "cypher-shell", "neo4j", "neo4j-admin",
+        "cypher-shell",
+        "neo4j",
+        "neo4j-admin",
     },
     "dynamodb": {
         "aws",  # DynamoDB uses AWS CLI
@@ -359,31 +543,40 @@ DATABASE_COMMANDS = {
         "cockroach",
     },
     "clickhouse": {
-        "clickhouse-client", "clickhouse-local",
+        "clickhouse-client",
+        "clickhouse-local",
     },
     "influxdb": {
-        "influx", "influxd",
+        "influx",
+        "influxd",
     },
     "timescaledb": {
         "psql",  # TimescaleDB uses PostgreSQL
     },
     "prisma": {
-        "prisma", "npx",
+        "prisma",
+        "npx",
     },
     "drizzle": {
-        "drizzle-kit", "npx",
+        "drizzle-kit",
+        "npx",
     },
     "typeorm": {
-        "typeorm", "npx",
+        "typeorm",
+        "npx",
     },
     "sequelize": {
-        "sequelize", "npx",
+        "sequelize",
+        "npx",
     },
     "knex": {
-        "knex", "npx",
+        "knex",
+        "npx",
     },
     "sqlalchemy": {
-        "alembic", "python", "python3",
+        "alembic",
+        "python",
+        "python3",
     },
 }
 
@@ -393,28 +586,45 @@ DATABASE_COMMANDS = {
 
 INFRASTRUCTURE_COMMANDS = {
     "docker": {
-        "docker", "docker-compose", "docker-buildx",
-        "dockerfile", "dive",  # Dockerfile analysis
+        "docker",
+        "docker-compose",
+        "docker-buildx",
+        "dockerfile",
+        "dive",  # Dockerfile analysis
     },
     "podman": {
-        "podman", "podman-compose", "buildah",
+        "podman",
+        "podman-compose",
+        "buildah",
     },
     "kubernetes": {
-        "kubectl", "k9s", "kubectx", "kubens",
-        "kustomize", "kubeseal", "kubeadm",
+        "kubectl",
+        "k9s",
+        "kubectx",
+        "kubens",
+        "kustomize",
+        "kubeseal",
+        "kubeadm",
     },
     "helm": {
-        "helm", "helmfile",
+        "helm",
+        "helmfile",
     },
     "terraform": {
-        "terraform", "terragrunt", "tflint", "tfsec",
+        "terraform",
+        "terragrunt",
+        "tflint",
+        "tfsec",
     },
     "pulumi": {
         "pulumi",
     },
     "ansible": {
-        "ansible", "ansible-playbook", "ansible-galaxy",
-        "ansible-vault", "ansible-lint",
+        "ansible",
+        "ansible-playbook",
+        "ansible-galaxy",
+        "ansible-vault",
+        "ansible-lint",
     },
     "vagrant": {
         "vagrant",
@@ -454,19 +664,29 @@ INFRASTRUCTURE_COMMANDS = {
 
 CLOUD_COMMANDS = {
     "aws": {
-        "aws", "sam", "cdk", "amplify", "eb",  # AWS CLI, SAM, CDK, Amplify, Elastic Beanstalk
+        "aws",
+        "sam",
+        "cdk",
+        "amplify",
+        "eb",  # AWS CLI, SAM, CDK, Amplify, Elastic Beanstalk
     },
     "gcp": {
-        "gcloud", "gsutil", "bq", "firebase",
+        "gcloud",
+        "gsutil",
+        "bq",
+        "firebase",
     },
     "azure": {
-        "az", "func",  # Azure CLI, Azure Functions
+        "az",
+        "func",  # Azure CLI, Azure Functions
     },
     "vercel": {
-        "vercel", "vc",
+        "vercel",
+        "vc",
     },
     "netlify": {
-        "netlify", "ntl",
+        "netlify",
+        "ntl",
     },
     "heroku": {
         "heroku",
@@ -475,13 +695,15 @@ CLOUD_COMMANDS = {
         "railway",
     },
     "fly": {
-        "fly", "flyctl",
+        "fly",
+        "flyctl",
     },
     "render": {
         "render",
     },
     "cloudflare": {
-        "wrangler", "cloudflared",
+        "wrangler",
+        "cloudflared",
     },
     "digitalocean": {
         "doctl",

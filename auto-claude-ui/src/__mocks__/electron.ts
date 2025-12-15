@@ -14,6 +14,7 @@ export const app = {
     };
     return paths[name] || '/tmp';
   }),
+  getAppPath: vi.fn(() => '/tmp/test-app'),
   getVersion: vi.fn(() => '0.1.0'),
   isPackaged: false,
   on: vi.fn(),

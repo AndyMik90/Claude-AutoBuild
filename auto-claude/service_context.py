@@ -19,15 +19,14 @@ Usage:
 """
 
 import json
-import os
-from pathlib import Path
-from typing import Any
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
 class ServiceContext:
     """Context information for a service."""
+
     name: str
     path: str
     service_type: str
@@ -101,11 +100,23 @@ class ServiceContextGenerator:
     def _discover_entry_points(self, service_path: Path, context: ServiceContext):
         """Discover entry points by looking for common patterns."""
         entry_patterns = [
-            "main.py", "app.py", "server.py", "index.py", "__main__.py",
-            "main.ts", "index.ts", "server.ts", "app.ts",
-            "main.js", "index.js", "server.js", "app.js",
-            "main.go", "cmd/main.go",
-            "src/main.rs", "src/lib.rs",
+            "main.py",
+            "app.py",
+            "server.py",
+            "index.py",
+            "__main__.py",
+            "main.ts",
+            "index.ts",
+            "server.ts",
+            "app.ts",
+            "main.js",
+            "index.js",
+            "server.js",
+            "app.js",
+            "main.go",
+            "cmd/main.go",
+            "src/main.rs",
+            "src/lib.rs",
         ]
 
         for pattern in entry_patterns:
@@ -129,7 +140,7 @@ class ServiceContextGenerator:
                         pkg = line.split("==")[0].split(">=")[0].split("[")[0].strip()
                         if pkg and pkg not in context.dependencies:
                             context.dependencies.append(pkg)
-            except IOError:
+            except OSError:
                 pass
 
         # Node.js
@@ -139,29 +150,35 @@ class ServiceContextGenerator:
                 with open(package_json) as f:
                     pkg = json.load(f)
                     deps = list(pkg.get("dependencies", {}).keys())[:15]
-                    context.dependencies.extend([d for d in deps if d not in context.dependencies])
-            except (IOError, json.JSONDecodeError):
+                    context.dependencies.extend(
+                        [d for d in deps if d not in context.dependencies]
+                    )
+            except (OSError, json.JSONDecodeError):
                 pass
 
     def _discover_api_patterns(self, service_path: Path, context: ServiceContext):
         """Discover API patterns (routes, endpoints)."""
         # Look for route definitions
-        route_files = list(service_path.glob("**/routes*.py")) + \
-                      list(service_path.glob("**/router*.py")) + \
-                      list(service_path.glob("**/routes*.ts")) + \
-                      list(service_path.glob("**/router*.ts")) + \
-                      list(service_path.glob("**/api/**/*.py")) + \
-                      list(service_path.glob("**/api/**/*.ts"))
+        route_files = (
+            list(service_path.glob("**/routes*.py"))
+            + list(service_path.glob("**/router*.py"))
+            + list(service_path.glob("**/routes*.ts"))
+            + list(service_path.glob("**/router*.ts"))
+            + list(service_path.glob("**/api/**/*.py"))
+            + list(service_path.glob("**/api/**/*.ts"))
+        )
 
         for route_file in route_files[:5]:  # Check first 5
             try:
                 content = route_file.read_text()
                 # Look for common route patterns
                 if "@app.route" in content or "@router." in content:
-                    context.api_patterns.append(f"Flask/FastAPI routes in {route_file.name}")
+                    context.api_patterns.append(
+                        f"Flask/FastAPI routes in {route_file.name}"
+                    )
                 elif "express.Router" in content or "app.get" in content:
                     context.api_patterns.append(f"Express routes in {route_file.name}")
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 pass
 
     def _discover_common_commands(self, service_path: Path, context: ServiceContext):
@@ -176,7 +193,7 @@ class ServiceContextGenerator:
                     for name in ["dev", "start", "build", "test", "lint"]:
                         if name in scripts:
                             context.common_commands[name] = f"npm run {name}"
-            except (IOError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError):
                 pass
 
         # From Makefile
@@ -187,9 +204,16 @@ class ServiceContextGenerator:
                 for line in content.split("\n"):
                     if line and not line.startswith("\t") and ":" in line:
                         target = line.split(":")[0].strip()
-                        if target in ["dev", "run", "start", "test", "build", "install"]:
+                        if target in [
+                            "dev",
+                            "run",
+                            "start",
+                            "test",
+                            "build",
+                            "install",
+                        ]:
                             context.common_commands[target] = f"make {target}"
-            except IOError:
+            except OSError:
                 pass
 
         # Infer from framework
@@ -219,7 +243,7 @@ class ServiceContextGenerator:
                             var_name = line.split("=")[0].strip()
                             if var_name and var_name not in context.environment_vars:
                                 context.environment_vars.append(var_name)
-                except IOError:
+                except OSError:
                     pass
                 break  # Only use first found
 
@@ -243,54 +267,64 @@ class ServiceContextGenerator:
 
         # Entry Points
         if context.entry_points:
-            lines.extend([
-                "",
-                "## Entry Points",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Entry Points",
+                    "",
+                ]
+            )
             for entry in context.entry_points:
                 lines.append(f"- `{entry}`")
 
         # Key Directories
         if context.key_directories:
-            lines.extend([
-                "",
-                "## Key Directories",
-                "",
-                "| Directory | Purpose |",
-                "|-----------|---------|",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Key Directories",
+                    "",
+                    "| Directory | Purpose |",
+                    "|-----------|---------|",
+                ]
+            )
             for dir_name, purpose in context.key_directories.items():
                 lines.append(f"| `{dir_name}` | {purpose} |")
 
         # Dependencies
         if context.dependencies:
-            lines.extend([
-                "",
-                "## Key Dependencies",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Key Dependencies",
+                    "",
+                ]
+            )
             for dep in context.dependencies[:15]:  # Limit to 15
                 lines.append(f"- {dep}")
 
         # API Patterns
         if context.api_patterns:
-            lines.extend([
-                "",
-                "## API Patterns",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## API Patterns",
+                    "",
+                ]
+            )
             for pattern in context.api_patterns:
                 lines.append(f"- {pattern}")
 
         # Common Commands
         if context.common_commands:
-            lines.extend([
-                "",
-                "## Common Commands",
-                "",
-                "```bash",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Common Commands",
+                    "",
+                    "```bash",
+                ]
+            )
             for name, cmd in context.common_commands.items():
                 lines.append(f"# {name}")
                 lines.append(cmd)
@@ -299,31 +333,37 @@ class ServiceContextGenerator:
 
         # Environment Variables
         if context.environment_vars:
-            lines.extend([
-                "",
-                "## Environment Variables",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Environment Variables",
+                    "",
+                ]
+            )
             for var in context.environment_vars[:20]:  # Limit to 20
                 lines.append(f"- `{var}`")
 
         # Notes
         if context.notes:
-            lines.extend([
-                "",
-                "## Notes",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "## Notes",
+                    "",
+                ]
+            )
             for note in context.notes:
                 lines.append(f"- {note}")
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "*This file was auto-generated by the Auto-Build framework.*",
-            "*Update manually if you need to add service-specific patterns or notes.*",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "*This file was auto-generated by the Auto-Build framework.*",
+                "*Update manually if you need to add service-specific patterns or notes.*",
+            ]
+        )
 
         return "\n".join(lines)
 

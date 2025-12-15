@@ -8,12 +8,11 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 from .schema import (
-    MAX_CONTEXT_RESULTS,
     EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_TASK_OUTCOME,
+    MAX_CONTEXT_RESULTS,
     GroupIdMode,
 )
 
@@ -75,7 +74,9 @@ class GraphitiSearch:
             # In spec mode, optionally include project context too
             if self.group_id_mode == GroupIdMode.SPEC and include_project_context:
                 project_name = self.project_dir.name
-                path_hash = hashlib.md5(str(self.project_dir.resolve()).encode()).hexdigest()[:8]
+                path_hash = hashlib.md5(
+                    str(self.project_dir.resolve()).encode()
+                ).hexdigest()[:8]
                 project_group_id = f"project_{project_name}_{path_hash}"
                 if project_group_id != self.group_id:
                     group_ids.append(project_group_id)
@@ -89,15 +90,23 @@ class GraphitiSearch:
             context_items = []
             for result in results:
                 # Extract content from result
-                content = getattr(result, 'content', None) or getattr(result, 'fact', None) or str(result)
+                content = (
+                    getattr(result, "content", None)
+                    or getattr(result, "fact", None)
+                    or str(result)
+                )
 
-                context_items.append({
-                    "content": content,
-                    "score": getattr(result, 'score', 0.0),
-                    "type": getattr(result, 'type', 'unknown'),
-                })
+                context_items.append(
+                    {
+                        "content": content,
+                        "score": getattr(result, "score", 0.0),
+                        "type": getattr(result, "type", "unknown"),
+                    }
+                )
 
-            logger.info(f"Found {len(context_items)} relevant context items for: {query[:50]}...")
+            logger.info(
+                f"Found {len(context_items)} relevant context items for: {query[:50]}..."
+            )
             return context_items
 
         except Exception as e:
@@ -128,20 +137,27 @@ class GraphitiSearch:
 
             sessions = []
             for result in results:
-                content = getattr(result, 'content', None) or getattr(result, 'fact', None)
+                content = getattr(result, "content", None) or getattr(
+                    result, "fact", None
+                )
                 if content and EPISODE_TYPE_SESSION_INSIGHT in str(content):
                     try:
-                        data = json.loads(content) if isinstance(content, str) else content
-                        if data.get('type') == EPISODE_TYPE_SESSION_INSIGHT:
+                        data = (
+                            json.loads(content) if isinstance(content, str) else content
+                        )
+                        if data.get("type") == EPISODE_TYPE_SESSION_INSIGHT:
                             # Filter by spec if requested
-                            if spec_only and data.get('spec_id') != self.spec_context_id:
+                            if (
+                                spec_only
+                                and data.get("spec_id") != self.spec_context_id
+                            ):
                                 continue
                             sessions.append(data)
                     except (json.JSONDecodeError, TypeError):
                         continue
 
             # Sort by session number and return latest
-            sessions.sort(key=lambda x: x.get('session_number', 0), reverse=True)
+            sessions.sort(key=lambda x: x.get("session_number", 0), reverse=True)
             return sessions[:limit]
 
         except Exception as e:
@@ -172,17 +188,23 @@ class GraphitiSearch:
 
             outcomes = []
             for result in results:
-                content = getattr(result, 'content', None) or getattr(result, 'fact', None)
+                content = getattr(result, "content", None) or getattr(
+                    result, "fact", None
+                )
                 if content and EPISODE_TYPE_TASK_OUTCOME in str(content):
                     try:
-                        data = json.loads(content) if isinstance(content, str) else content
-                        if data.get('type') == EPISODE_TYPE_TASK_OUTCOME:
-                            outcomes.append({
-                                "task_id": data.get("task_id"),
-                                "success": data.get("success"),
-                                "outcome": data.get("outcome"),
-                                "score": getattr(result, 'score', 0.0),
-                            })
+                        data = (
+                            json.loads(content) if isinstance(content, str) else content
+                        )
+                        if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
+                            outcomes.append(
+                                {
+                                    "task_id": data.get("task_id"),
+                                    "success": data.get("success"),
+                                    "outcome": data.get("outcome"),
+                                    "score": getattr(result, "score", 0.0),
+                                }
+                            )
                     except (json.JSONDecodeError, TypeError):
                         continue
 

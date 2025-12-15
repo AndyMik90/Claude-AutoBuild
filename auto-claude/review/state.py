@@ -11,8 +11,6 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
 
 # State file name
 REVIEW_STATE_FILE = "review_state.json"
@@ -25,7 +23,7 @@ def _compute_file_hash(file_path: Path) -> str:
     try:
         content = file_path.read_text(encoding="utf-8")
         return hashlib.md5(content.encode("utf-8")).hexdigest()
-    except (IOError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -53,6 +51,7 @@ class ReviewState:
         spec_hash: Hash of spec files at time of approval (for change detection)
         review_count: Number of review sessions conducted
     """
+
     approved: bool = False
     approved_by: str = ""
     approved_at: str = ""
@@ -101,9 +100,9 @@ class ReviewState:
             return cls()
 
         try:
-            with open(state_file, "r") as f:
+            with open(state_file) as f:
                 return cls.from_dict(json.load(f))
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return cls()
 
     def is_approved(self) -> bool:
@@ -171,7 +170,7 @@ class ReviewState:
     def add_feedback(
         self,
         feedback: str,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
         auto_save: bool = True,
     ) -> None:
         """

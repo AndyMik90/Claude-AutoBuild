@@ -21,6 +21,23 @@ from unittest.mock import MagicMock, patch, AsyncMock
 # Add auto-claude directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
 
+# Store original modules for cleanup
+_original_modules = {}
+_mocked_module_names = [
+    'claude_code_sdk',
+    'claude_code_sdk.types',
+    'init',
+    'client',
+    'review',
+    'task_logger',
+    'ui',
+    'validate_spec',
+]
+
+for name in _mocked_module_names:
+    if name in sys.modules:
+        _original_modules[name] = sys.modules[name]
+
 # Mock modules that have external dependencies
 mock_sdk = MagicMock()
 mock_sdk.ClaudeSDKClient = MagicMock()
@@ -69,6 +86,19 @@ sys.modules['validate_spec'] = mock_validate_spec
 
 # Now import the module under test
 from spec.pipeline import SpecOrchestrator, get_specs_dir
+
+
+# Cleanup fixture to restore original modules after all tests in this module
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_mocked_modules():
+    """Restore original modules after all tests in this module complete."""
+    yield  # Run all tests first
+    # Cleanup: restore original modules or remove mocks
+    for name in _mocked_module_names:
+        if name in _original_modules:
+            sys.modules[name] = _original_modules[name]
+        elif name in sys.modules:
+            del sys.modules[name]
 
 
 class TestGetSpecsDir:

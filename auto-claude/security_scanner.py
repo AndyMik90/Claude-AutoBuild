@@ -25,11 +25,12 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Import the existing secrets scanner
 try:
-    from scan_secrets import scan_files, get_all_tracked_files, SecretMatch
+    from scan_secrets import SecretMatch, get_all_tracked_files, scan_files
+
     HAS_SECRETS_SCANNER = True
 except ImportError:
     HAS_SECRETS_SCANNER = False
@@ -60,9 +61,9 @@ class SecurityVulnerability:
     source: str  # secrets, bandit, npm_audit, semgrep, etc.
     title: str
     description: str
-    file: Optional[str] = None
-    line: Optional[int] = None
-    cwe: Optional[str] = None
+    file: str | None = None
+    line: int | None = None
+    cwe: str | None = None
 
 
 @dataclass
@@ -78,9 +79,9 @@ class SecurityScanResult:
         should_block_qa: Whether these results should block QA approval
     """
 
-    secrets: List[Dict[str, Any]] = field(default_factory=list)
-    vulnerabilities: List[SecurityVulnerability] = field(default_factory=list)
-    scan_errors: List[str] = field(default_factory=list)
+    secrets: list[dict[str, Any]] = field(default_factory=list)
+    vulnerabilities: list[SecurityVulnerability] = field(default_factory=list)
+    scan_errors: list[str] = field(default_factory=list)
     has_critical_issues: bool = False
     should_block_qa: bool = False
 
@@ -102,14 +103,14 @@ class SecurityScanner:
 
     def __init__(self) -> None:
         """Initialize the security scanner."""
-        self._bandit_available: Optional[bool] = None
-        self._npm_available: Optional[bool] = None
+        self._bandit_available: bool | None = None
+        self._npm_available: bool | None = None
 
     def scan(
         self,
         project_dir: Path,
-        spec_dir: Optional[Path] = None,
-        changed_files: Optional[List[str]] = None,
+        spec_dir: Path | None = None,
+        changed_files: list[str] | None = None,
         run_secrets: bool = True,
         run_sast: bool = True,
         run_dependency_audit: bool = True,
@@ -144,10 +145,10 @@ class SecurityScanner:
             self._run_dependency_audits(project_dir, result)
 
         # Determine if should block QA
-        result.has_critical_issues = any(
-            v.severity in ["critical", "high"]
-            for v in result.vulnerabilities
-        ) or len(result.secrets) > 0
+        result.has_critical_issues = (
+            any(v.severity in ["critical", "high"] for v in result.vulnerabilities)
+            or len(result.secrets) > 0
+        )
 
         # Any secrets always block, critical vulnerabilities block
         result.should_block_qa = len(result.secrets) > 0 or any(
@@ -163,7 +164,7 @@ class SecurityScanner:
     def _run_secrets_scan(
         self,
         project_dir: Path,
-        changed_files: Optional[List[str]],
+        changed_files: list[str] | None,
         result: SecurityScanResult,
     ) -> None:
         """Run secrets scanning using scan_secrets.py."""
@@ -183,12 +184,14 @@ class SecurityScanner:
 
             # Convert matches to result format
             for match in matches:
-                result.secrets.append({
-                    "file": match.file_path,
-                    "line": match.line_number,
-                    "pattern": match.pattern_name,
-                    "matched_text": self._redact_secret(match.matched_text),
-                })
+                result.secrets.append(
+                    {
+                        "file": match.file_path,
+                        "line": match.line_number,
+                        "pattern": match.pattern_name,
+                        "matched_text": self._redact_secret(match.matched_text),
+                    }
+                )
 
                 # Also add as vulnerability
                 result.vulnerabilities.append(
@@ -224,7 +227,10 @@ class SecurityScanner:
             src_dirs = []
             for candidate in ["src", "app", project_dir.name, "."]:
                 candidate_path = project_dir / candidate
-                if candidate_path.exists() and (candidate_path / "__init__.py").exists():
+                if (
+                    candidate_path.exists()
+                    and (candidate_path / "__init__.py").exists()
+                ):
                     src_dirs.append(str(candidate_path))
 
             if not src_dirs:
@@ -239,7 +245,8 @@ class SecurityScanner:
                 "bandit",
                 "-r",
                 *src_dirs,
-                "-f", "json",
+                "-f",
+                "json",
                 "--exit-zero",  # Don't fail on findings
             ]
 
@@ -331,7 +338,9 @@ class SecurityScanner:
                                 severity=severity,
                                 source="npm_audit",
                                 title=f"Vulnerable dependency: {pkg_name}",
-                                description=vuln_info.get("via", [{}])[0].get("title", "")
+                                description=vuln_info.get("via", [{}])[0].get(
+                                    "title", ""
+                                )
                                 if isinstance(vuln_info.get("via"), list)
                                 and vuln_info.get("via")
                                 else str(vuln_info.get("via", "")),
@@ -373,7 +382,9 @@ class SecurityScanner:
                                 source="pip_audit",
                                 title=f"Vulnerable package: {vuln.get('name')}",
                                 description=vuln.get("description", ""),
-                                cwe=vuln.get("aliases", [""])[0] if vuln.get("aliases") else None,
+                                cwe=vuln.get("aliases", [""])[0]
+                                if vuln.get("aliases")
+                                else None,
                             )
                         )
                 except json.JSONDecodeError:
@@ -427,7 +438,7 @@ class SecurityScanner:
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(output_data, f, indent=2)
 
-    def to_dict(self, result: SecurityScanResult) -> Dict[str, Any]:
+    def to_dict(self, result: SecurityScanResult) -> dict[str, Any]:
         """Convert result to dictionary for JSON serialization."""
         return {
             "secrets": result.secrets,
@@ -449,10 +460,18 @@ class SecurityScanner:
             "summary": {
                 "total_secrets": len(result.secrets),
                 "total_vulnerabilities": len(result.vulnerabilities),
-                "critical_count": sum(1 for v in result.vulnerabilities if v.severity == "critical"),
-                "high_count": sum(1 for v in result.vulnerabilities if v.severity == "high"),
-                "medium_count": sum(1 for v in result.vulnerabilities if v.severity == "medium"),
-                "low_count": sum(1 for v in result.vulnerabilities if v.severity == "low"),
+                "critical_count": sum(
+                    1 for v in result.vulnerabilities if v.severity == "critical"
+                ),
+                "high_count": sum(
+                    1 for v in result.vulnerabilities if v.severity == "high"
+                ),
+                "medium_count": sum(
+                    1 for v in result.vulnerabilities if v.severity == "medium"
+                ),
+                "low_count": sum(
+                    1 for v in result.vulnerabilities if v.severity == "low"
+                ),
             },
         }
 
@@ -464,8 +483,8 @@ class SecurityScanner:
 
 def scan_for_security_issues(
     project_dir: Path,
-    spec_dir: Optional[Path] = None,
-    changed_files: Optional[List[str]] = None,
+    spec_dir: Path | None = None,
+    changed_files: list[str] | None = None,
 ) -> SecurityScanResult:
     """
     Convenience function to run security scan.
@@ -499,8 +518,8 @@ def has_security_issues(project_dir: Path) -> bool:
 
 def scan_secrets_only(
     project_dir: Path,
-    changed_files: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+    changed_files: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """
     Scan only for secrets (quick scan).
 
@@ -533,7 +552,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run security scans")
     parser.add_argument("project_dir", type=Path, help="Path to project root")
     parser.add_argument("--spec-dir", type=Path, help="Path to spec directory")
-    parser.add_argument("--secrets-only", action="store_true", help="Only scan for secrets")
+    parser.add_argument(
+        "--secrets-only", action="store_true", help="Only scan for secrets"
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()

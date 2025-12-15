@@ -494,8 +494,8 @@ class TestFollowupProgressCalculation:
 
         # Initially 100% complete
         progress = plan.get_progress()
-        assert progress["completed_chunks"] == 1
-        assert progress["total_chunks"] == 1
+        assert progress["completed_subtasks"] == 1
+        assert progress["total_subtasks"] == 1
         assert progress["is_complete"] is True
 
         # Add follow-up
@@ -503,13 +503,13 @@ class TestFollowupProgressCalculation:
 
         # Now 50% complete
         progress = plan.get_progress()
-        assert progress["completed_chunks"] == 1
-        assert progress["total_chunks"] == 2
+        assert progress["completed_subtasks"] == 1
+        assert progress["total_subtasks"] == 2
         assert progress["percent_complete"] == 50.0
         assert progress["is_complete"] is False
 
     def test_next_chunk_returns_followup_chunk(self):
-        """get_next_chunk returns follow-up chunk when original work is done."""
+        """get_next_subtask returns follow-up subtask when original work is done."""
         plan = ImplementationPlan(
             feature="Test Feature",
             phases=[
@@ -522,13 +522,13 @@ class TestFollowupProgressCalculation:
         )
 
         # No next chunk when complete
-        assert plan.get_next_chunk() is None
+        assert plan.get_next_subtask() is None
 
         # Add follow-up
         plan.add_followup_phase("Follow-Up", [Chunk(id="f1", description="New task")])
 
         # Now follow-up chunk is next
-        next_work = plan.get_next_chunk()
+        next_work = plan.get_next_subtask()
         assert next_work is not None
         phase, chunk = next_work
         assert phase.name == "Follow-Up"

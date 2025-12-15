@@ -17,6 +17,19 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 
+# Store original modules for cleanup
+_original_modules = {}
+_mocked_module_names = [
+    'claude_code_sdk',
+    'claude_code_sdk.types',
+    'claude_agent_sdk',
+    'claude_agent_sdk.types',
+]
+
+for name in _mocked_module_names:
+    if name in sys.modules:
+        _original_modules[name] = sys.modules[name]
+
 # Mock claude_agent_sdk and related modules before importing spec modules
 # The SDK isn't available in the test environment
 mock_code_sdk = MagicMock()
@@ -46,6 +59,19 @@ from spec.complexity import (
     save_assessment,
     run_ai_complexity_assessment,
 )
+
+
+# Cleanup fixture to restore original modules after all tests in this module
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_mocked_modules():
+    """Restore original modules after all tests in this module complete."""
+    yield  # Run all tests first
+    # Cleanup: restore original modules or remove mocks
+    for name in _mocked_module_names:
+        if name in _original_modules:
+            sys.modules[name] = _original_modules[name]
+        elif name in sys.modules:
+            del sys.modules[name]
 
 
 class TestComplexityEnum:

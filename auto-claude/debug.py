@@ -17,14 +17,15 @@ Usage:
     debug_verbose("client", "Full request payload", payload=data)
 """
 
+import json
 import os
 import sys
-import json
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Optional
-from functools import wraps
 import time
+from datetime import datetime
+from functools import wraps
+from pathlib import Path
+from typing import Any
+
 
 # ANSI color codes for terminal output
 class Colors:
@@ -33,15 +34,15 @@ class Colors:
     DIM = "\033[2m"
 
     # Debug colors
-    DEBUG = "\033[36m"      # Cyan
+    DEBUG = "\033[36m"  # Cyan
     DEBUG_DIM = "\033[96m"  # Light cyan
     TIMESTAMP = "\033[90m"  # Gray
-    MODULE = "\033[33m"     # Yellow
-    KEY = "\033[35m"        # Magenta
-    VALUE = "\033[37m"      # White
-    SUCCESS = "\033[32m"    # Green
-    WARNING = "\033[33m"    # Yellow
-    ERROR = "\033[31m"      # Red
+    MODULE = "\033[33m"  # Yellow
+    KEY = "\033[35m"  # Magenta
+    VALUE = "\033[37m"  # White
+    SUCCESS = "\033[32m"  # Green
+    WARNING = "\033[33m"  # Yellow
+    ERROR = "\033[31m"  # Red
 
 
 def _get_debug_enabled() -> bool:
@@ -58,7 +59,7 @@ def _get_debug_level() -> int:
         return 1
 
 
-def _get_log_file() -> Optional[Path]:
+def _get_log_file() -> Path | None:
     """Get optional log file path."""
     log_file = os.environ.get("DEBUG_LOG_FILE")
     if log_file:
@@ -107,7 +108,8 @@ def _write_log(message: str, to_file: bool = True) -> None:
                 log_file.parent.mkdir(parents=True, exist_ok=True)
                 # Strip ANSI codes for file output
                 import re
-                clean_message = re.sub(r'\033\[[0-9;]*m', '', message)
+
+                clean_message = re.sub(r"\033\[[0-9;]*m", "", message)
                 with open(log_file, "a") as f:
                     f.write(clean_message + "\n")
             except Exception:
@@ -250,6 +252,7 @@ def debug_timer(module: str):
         def my_function():
             ...
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -262,14 +265,24 @@ def debug_timer(module: str):
             try:
                 result = func(*args, **kwargs)
                 elapsed = time.time() - start
-                debug_success(module, f"Completed {func.__name__}()", elapsed_ms=f"{elapsed*1000:.1f}ms")
+                debug_success(
+                    module,
+                    f"Completed {func.__name__}()",
+                    elapsed_ms=f"{elapsed * 1000:.1f}ms",
+                )
                 return result
             except Exception as e:
                 elapsed = time.time() - start
-                debug_error(module, f"Failed {func.__name__}()", error=str(e), elapsed_ms=f"{elapsed*1000:.1f}ms")
+                debug_error(
+                    module,
+                    f"Failed {func.__name__}()",
+                    error=str(e),
+                    elapsed_ms=f"{elapsed * 1000:.1f}ms",
+                )
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -282,6 +295,7 @@ def debug_async_timer(module: str):
         async def my_async_function():
             ...
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -294,14 +308,24 @@ def debug_async_timer(module: str):
             try:
                 result = await func(*args, **kwargs)
                 elapsed = time.time() - start
-                debug_success(module, f"Completed {func.__name__}()", elapsed_ms=f"{elapsed*1000:.1f}ms")
+                debug_success(
+                    module,
+                    f"Completed {func.__name__}()",
+                    elapsed_ms=f"{elapsed * 1000:.1f}ms",
+                )
                 return result
             except Exception as e:
                 elapsed = time.time() - start
-                debug_error(module, f"Failed {func.__name__}()", error=str(e), elapsed_ms=f"{elapsed*1000:.1f}ms")
+                debug_error(
+                    module,
+                    f"Failed {func.__name__}()",
+                    error=str(e),
+                    elapsed_ms=f"{elapsed * 1000:.1f}ms",
+                )
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -311,10 +335,13 @@ def debug_env_status() -> None:
         return
 
     debug_section("debug", "Debug Mode Enabled")
-    debug("debug", "Environment configuration",
-          DEBUG=os.environ.get("DEBUG", "not set"),
-          DEBUG_LEVEL=_get_debug_level(),
-          DEBUG_LOG_FILE=os.environ.get("DEBUG_LOG_FILE", "not set"))
+    debug(
+        "debug",
+        "Environment configuration",
+        DEBUG=os.environ.get("DEBUG", "not set"),
+        DEBUG_LEVEL=_get_debug_level(),
+        DEBUG_LOG_FILE=os.environ.get("DEBUG_LOG_FILE", "not set"),
+    )
 
 
 # Print status on import if debug is enabled

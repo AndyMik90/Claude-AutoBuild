@@ -13,31 +13,30 @@ Provides:
 import json
 import os
 import sys
-import tty
 import termios
+import tty
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Callable
-
 
 # =============================================================================
 # Capability Detection
 # =============================================================================
 
+
 def _is_fancy_ui_enabled() -> bool:
     """Check if fancy UI is enabled via environment variable."""
-    value = os.environ.get('ENABLE_FANCY_UI', 'true').lower()
-    return value in ('true', '1', 'yes', 'on')
+    value = os.environ.get("ENABLE_FANCY_UI", "true").lower()
+    return value in ("true", "1", "yes", "on")
 
 
 def supports_unicode() -> bool:
     """Check if terminal supports Unicode."""
     if not _is_fancy_ui_enabled():
         return False
-    encoding = getattr(sys.stdout, 'encoding', '') or ''
-    return encoding.lower() in ('utf-8', 'utf8')
+    encoding = getattr(sys.stdout, "encoding", "") or ""
+    return encoding.lower() in ("utf-8", "utf8")
 
 
 def supports_color() -> bool:
@@ -45,16 +44,16 @@ def supports_color() -> bool:
     if not _is_fancy_ui_enabled():
         return False
     # Check for explicit disable
-    if os.environ.get('NO_COLOR'):
+    if os.environ.get("NO_COLOR"):
         return False
-    if os.environ.get('FORCE_COLOR'):
+    if os.environ.get("FORCE_COLOR"):
         return True
     # Check if stdout is a TTY
-    if not hasattr(sys.stdout, 'isatty') or not sys.stdout.isatty():
+    if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
         return False
     # Check TERM
-    term = os.environ.get('TERM', '')
-    if term == 'dumb':
+    term = os.environ.get("TERM", "")
+    if term == "dumb":
         return False
     return True
 
@@ -63,7 +62,7 @@ def supports_interactive() -> bool:
     """Check if terminal supports interactive input."""
     if not _is_fancy_ui_enabled():
         return False
-    return hasattr(sys.stdin, 'isatty') and sys.stdin.isatty()
+    return hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
 
 
 # Cache capability checks
@@ -76,6 +75,7 @@ _INTERACTIVE = supports_interactive()
 # =============================================================================
 # Icons
 # =============================================================================
+
 
 class Icons:
     """Icon definitions with Unicode and ASCII fallbacks."""
@@ -157,6 +157,7 @@ def icon(icon_tuple: tuple[str, str]) -> str:
 # =============================================================================
 # Colors
 # =============================================================================
+
 
 class Color:
     """ANSI color codes."""
@@ -244,6 +245,7 @@ def bold(text: str) -> str:
 # Box Drawing
 # =============================================================================
 
+
 def box(
     content: str | list[str],
     title: str = "",
@@ -268,7 +270,7 @@ def box(
 
     # Normalize content to list of strings
     if isinstance(content, str):
-        content = content.split('\n')
+        content = content.split("\n")
 
     # Plain text fallback when fancy UI is disabled
     if not _FANCY_UI:
@@ -280,7 +282,7 @@ def box(
             lines.append(separator)
         for line in content:
             # Strip ANSI codes for plain output
-            plain_line = re.sub(r'\033\[[0-9;]*m', '', line)
+            plain_line = re.sub(r"\033\[[0-9;]*m", "", line)
             lines.append(f"  {plain_line}")
         lines.append(separator)
         return "\n".join(lines)
@@ -290,7 +292,12 @@ def box(
         h, v = Icons.BOX_H, Icons.BOX_V
         ml, mr = Icons.BOX_ML, Icons.BOX_MR
     else:
-        tl, tr, bl, br = Icons.BOX_TL_LIGHT, Icons.BOX_TR_LIGHT, Icons.BOX_BL_LIGHT, Icons.BOX_BR_LIGHT
+        tl, tr, bl, br = (
+            Icons.BOX_TL_LIGHT,
+            Icons.BOX_TR_LIGHT,
+            Icons.BOX_BL_LIGHT,
+            Icons.BOX_BR_LIGHT,
+        )
         h, v = Icons.BOX_H_LIGHT, Icons.BOX_V_LIGHT
         ml, mr = Icons.BOX_ML_LIGHT, Icons.BOX_MR_LIGHT
 
@@ -304,7 +311,7 @@ def box(
     # Top border with optional title
     if title:
         # Calculate visible length (strip ANSI codes for length calculation)
-        visible_title = re.sub(r'\033\[[0-9;]*m', '', title)
+        visible_title = re.sub(r"\033\[[0-9;]*m", "", title)
         title_len = len(visible_title)
         padding = inner_width - title_len - 2  # -2 for spaces around title
 
@@ -324,11 +331,11 @@ def box(
     # Content lines
     for line in content:
         # Strip ANSI for length calculation
-        visible_line = re.sub(r'\033\[[0-9;]*m', '', line)
+        visible_line = re.sub(r"\033\[[0-9;]*m", "", line)
         padding = inner_width - len(visible_line) - 2  # -2 for padding spaces
         if padding < 0:
             # Truncate if too long
-            line = line[:inner_width - 5] + "..."
+            line = line[: inner_width - 5] + "..."
             padding = 0
         lines.append(v + " " + line + " " * (padding + 1) + v)
 
@@ -350,6 +357,7 @@ def divider(width: int = 70, style: str = "heavy", char: str = None) -> str:
 # =============================================================================
 # Progress Bar
 # =============================================================================
+
 
 def progress_bar(
     current: int,
@@ -411,9 +419,11 @@ def progress_bar(
 # Interactive Menu
 # =============================================================================
 
+
 @dataclass
 class MenuOption:
     """A menu option."""
+
     key: str
     label: str
     icon: tuple[str, str] = None
@@ -429,18 +439,18 @@ def _getch() -> str:
         tty.setraw(sys.stdin.fileno())
         ch = sys.stdin.read(1)
         # Handle escape sequences (arrow keys)
-        if ch == '\x1b':
+        if ch == "\x1b":
             ch2 = sys.stdin.read(1)
-            if ch2 == '[':
+            if ch2 == "[":
                 ch3 = sys.stdin.read(1)
-                if ch3 == 'A':
-                    return 'UP'
-                elif ch3 == 'B':
-                    return 'DOWN'
-                elif ch3 == 'C':
-                    return 'RIGHT'
-                elif ch3 == 'D':
-                    return 'LEFT'
+                if ch3 == "A":
+                    return "UP"
+                elif ch3 == "B":
+                    return "DOWN"
+                elif ch3 == "C":
+                    return "RIGHT"
+                elif ch3 == "D":
+                    return "LEFT"
         return ch
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -451,7 +461,7 @@ def select_menu(
     options: list[MenuOption],
     subtitle: str = "",
     allow_quit: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """
     Display an interactive selection menu.
 
@@ -509,7 +519,9 @@ def select_menu(
                 content.append(muted(f"      {opt.description}"))
 
         content.append("")
-        nav_hint = muted(f"{icon(Icons.ARROW_UP)}{icon(Icons.ARROW_DOWN)} Navigate  Enter Select")
+        nav_hint = muted(
+            f"{icon(Icons.ARROW_UP)}{icon(Icons.ARROW_DOWN)} Navigate  Enter Select"
+        )
         if allow_quit:
             nav_hint += muted("  q Quit")
         content.append(nav_hint)
@@ -528,28 +540,32 @@ def select_menu(
             # Fallback if getch fails
             return _fallback_menu(title, options, subtitle, allow_quit)
 
-        if key == 'UP' or key == 'k':
+        if key == "UP" or key == "k":
             # Find previous valid option
-            current_idx = valid_options.index(selected) if selected in valid_options else 0
+            current_idx = (
+                valid_options.index(selected) if selected in valid_options else 0
+            )
             if current_idx > 0:
                 selected = valid_options[current_idx - 1]
                 render()
 
-        elif key == 'DOWN' or key == 'j':
+        elif key == "DOWN" or key == "j":
             # Find next valid option
-            current_idx = valid_options.index(selected) if selected in valid_options else 0
+            current_idx = (
+                valid_options.index(selected) if selected in valid_options else 0
+            )
             if current_idx < len(valid_options) - 1:
                 selected = valid_options[current_idx + 1]
                 render()
 
-        elif key == '\r' or key == '\n':
+        elif key == "\r" or key == "\n":
             # Enter - select current option
             return options[selected].key
 
-        elif key == 'q' and allow_quit:
+        elif key == "q" and allow_quit:
             return None
 
-        elif key in '123456789':
+        elif key in "123456789":
             # Number key - direct selection
             idx = int(key) - 1
             if idx < len(options) and not options[idx].disabled:
@@ -561,7 +577,7 @@ def _fallback_menu(
     options: list[MenuOption],
     subtitle: str = "",
     allow_quit: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """Fallback menu using simple numbered input."""
     print()
     print(divider())
@@ -579,7 +595,7 @@ def _fallback_menu(
             print(f"      {opt.description}")
 
     if allow_quit:
-        print(f"  [q] Quit")
+        print("  [q] Quit")
 
     print()
 
@@ -589,7 +605,7 @@ def _fallback_menu(
         except (EOFError, KeyboardInterrupt):
             return None
 
-        if choice == 'q' and allow_quit:
+        if choice == "q" and allow_quit:
             return None
 
         try:
@@ -606,8 +622,10 @@ def _fallback_menu(
 # Status File Management (for ccstatusline)
 # =============================================================================
 
+
 class BuildState(Enum):
     """Build state enumeration."""
+
     IDLE = "idle"
     PLANNING = "planning"
     BUILDING = "building"
@@ -620,6 +638,7 @@ class BuildState(Enum):
 @dataclass
 class BuildStatus:
     """Current build status for status line display."""
+
     active: bool = False
     spec: str = ""
     state: BuildState = BuildState.IDLE
@@ -709,7 +728,7 @@ class StatusManager:
                 data = json.load(f)
             self._status = BuildStatus.from_dict(data)
             return self._status
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return BuildStatus()
 
     def write(self, status: BuildStatus = None) -> None:
@@ -721,7 +740,7 @@ class StatusManager:
         try:
             with open(self.status_file, "w") as f:
                 json.dump(self._status.to_dict(), f, indent=2)
-        except IOError as e:
+        except OSError as e:
             print(warning(f"Could not write status file: {e}"))
 
     def update(self, **kwargs) -> None:
@@ -787,13 +806,14 @@ class StatusManager:
         if self.status_file.exists():
             try:
                 self.status_file.unlink()
-            except IOError:
+            except OSError:
                 pass
 
 
 # =============================================================================
 # Formatted Output Helpers
 # =============================================================================
+
 
 def print_header(
     title: str,
@@ -884,10 +904,15 @@ def print_phase_status(
 # Spinner (for long operations)
 # =============================================================================
 
+
 class Spinner:
     """Simple spinner for long operations."""
 
-    FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] if _UNICODE else ["|", "/", "-", "\\"]
+    FRAMES = (
+        ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        if _UNICODE
+        else ["|", "/", "-", "\\"]
+    )
 
     def __init__(self, message: str = ""):
         self.message = message

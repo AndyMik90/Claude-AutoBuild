@@ -50,7 +50,7 @@ from typing import Optional
 
 def get_or_create_profile(
     project_dir: Path,
-    spec_dir: Optional[Path] = None,
+    spec_dir: Path | None = None,
     force_reanalyze: bool = False,
 ) -> SecurityProfile:
     """
@@ -100,7 +100,7 @@ def is_command_allowed(
     return False, f"Command '{command}' is not in the allowed commands for this project"
 
 
-def needs_validation(command: str) -> Optional[str]:
+def needs_validation(command: str) -> str | None:
     """
     Check if a command needs extra validation.
 

@@ -8,19 +8,20 @@ Main enforcement point for the security system.
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from project_analyzer import SecurityProfile, is_command_allowed, BASE_COMMANDS
-from .parser import extract_commands, split_command_segments, get_command_for_validation
+from project_analyzer import BASE_COMMANDS, SecurityProfile, is_command_allowed
+
+from .parser import extract_commands, get_command_for_validation, split_command_segments
 from .profile import get_security_profile
 from .validator import VALIDATORS
 
 
 async def bash_security_hook(
-    input_data: Dict[str, Any],
-    tool_use_id: Optional[str] = None,
-    context: Optional[Any] = None
-) -> Dict[str, Any]:
+    input_data: dict[str, Any],
+    tool_use_id: str | None = None,
+    context: Any | None = None,
+) -> dict[str, Any]:
     """
     Pre-tool-use hook that validates bash commands using dynamic allowlist.
 
@@ -48,7 +49,7 @@ async def bash_security_hook(
     # Get the working directory from context or use current directory
     # In the actual client, this would be set by the ClaudeSDKClient
     cwd = os.getcwd()
-    if context and hasattr(context, 'cwd'):
+    if context and hasattr(context, "cwd"):
         cwd = context.cwd
 
     # Get or create security profile
@@ -104,7 +105,7 @@ async def bash_security_hook(
 
 def validate_command(
     command: str,
-    project_dir: Optional[Path] = None,
+    project_dir: Path | None = None,
 ) -> tuple[bool, str]:
     """
     Validate a command string (for testing/debugging).

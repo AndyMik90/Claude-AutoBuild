@@ -11,16 +11,17 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
+from task_logger import LogEntryType, LogPhase
 
 # Import submodules
-from . import complexity, context, discovery, requirements, validator, writer
-from task_logger import LogEntryType, LogPhase
+from . import context, discovery, requirements, validator, writer
 
 
 @dataclass
 class PhaseResult:
     """Result of a phase execution."""
+
     phase: str
     success: bool
     output_files: list[str]
@@ -83,13 +84,15 @@ class PhaseExecutor:
                 LogEntryType.ERROR,
                 LogPhase.PLANNING,
             )
-            self.ui.print_status(f"Attempt {attempt + 1} failed: {output[:200]}", "error")
+            self.ui.print_status(
+                f"Attempt {attempt + 1} failed: {output[:200]}", "error"
+            )
 
         return PhaseResult("discovery", False, [], errors, retries)
 
     async def phase_historical_context(self) -> PhaseResult:
         """Retrieve historical context from Graphiti knowledge graph (if enabled)."""
-        from graphiti_providers import is_graphiti_enabled, get_graph_hints
+        from graphiti_providers import get_graph_hints, is_graphiti_enabled
 
         hints_file = self.spec_dir / "graph_hints.json"
 
@@ -103,7 +106,9 @@ class PhaseExecutor:
             return PhaseResult("historical_context", True, [str(hints_file)], [], 0)
 
         if not is_graphiti_enabled():
-            self.ui.print_status("Graphiti not enabled, skipping historical context", "info")
+            self.ui.print_status(
+                "Graphiti not enabled, skipping historical context", "info"
+            )
             self.task_logger.log(
                 "Knowledge graph not configured, skipping",
                 LogEntryType.INFO,
@@ -125,7 +130,9 @@ class PhaseExecutor:
             task_query = req.get("task_description", task_query)
 
         if not task_query:
-            self.ui.print_status("No task description for graph query, skipping", "warning")
+            self.ui.print_status(
+                "No task description for graph query, skipping", "warning"
+            )
             validator.create_empty_hints(
                 self.spec_dir,
                 enabled=True,
@@ -149,13 +156,17 @@ class PhaseExecutor:
 
             # Save hints to file
             with open(hints_file, "w") as f:
-                json.dump({
-                    "enabled": True,
-                    "query": task_query,
-                    "hints": hints,
-                    "hint_count": len(hints),
-                    "created_at": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "enabled": True,
+                        "query": task_query,
+                        "hints": hints,
+                        "hint_count": len(hints),
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
 
             if hints:
                 self.ui.print_status(f"Retrieved {len(hints)} graph hints", "success")
@@ -176,7 +187,9 @@ class PhaseExecutor:
                 enabled=True,
                 reason=f"Error: {str(e)}",
             )
-            return PhaseResult("historical_context", True, [str(hints_file)], [str(e)], 0)
+            return PhaseResult(
+                "historical_context", True, [str(hints_file)], [str(e)], 0
+            )
 
     async def phase_requirements(self, interactive: bool = True) -> PhaseResult:
         """Gather requirements from user or task description."""
@@ -190,8 +203,14 @@ class PhaseExecutor:
         if self.task_description and not interactive:
             req = requirements.create_requirements_from_task(self.task_description)
             requirements.save_requirements(self.spec_dir, req)
-            self.ui.print_status("Created requirements.json from task description", "success")
-            task_preview = self.task_description[:100] + "..." if len(self.task_description) > 100 else self.task_description
+            self.ui.print_status(
+                "Created requirements.json from task description", "success"
+            )
+            task_preview = (
+                self.task_description[:100] + "..."
+                if len(self.task_description) > 100
+                else self.task_description
+            )
             self.task_logger.log(
                 f"Task: {task_preview}",
                 LogEntryType.SUCCESS,
@@ -214,14 +233,18 @@ class PhaseExecutor:
 
                 requirements.save_requirements(self.spec_dir, req)
                 self.ui.print_status("Created requirements.json", "success")
-                return PhaseResult("requirements", True, [str(requirements_file)], [], 0)
+                return PhaseResult(
+                    "requirements", True, [str(requirements_file)], [], 0
+                )
             except (KeyboardInterrupt, EOFError):
                 print()
                 self.ui.print_status("Requirements gathering cancelled", "warning")
                 return PhaseResult("requirements", False, [], ["User cancelled"], 0)
 
         # Fallback: create minimal requirements
-        req = requirements.create_requirements_from_task(self.task_description or "Unknown task")
+        req = requirements.create_requirements_from_task(
+            self.task_description or "Unknown task"
+        )
         requirements.save_requirements(self.spec_dir, req)
         self.ui.print_status("Created minimal requirements.json", "success")
         return PhaseResult("requirements", True, [str(requirements_file)], [], 0)
@@ -233,11 +256,15 @@ class PhaseExecutor:
 
         if spec_file.exists() and plan_file.exists():
             self.ui.print_status("Quick spec already exists", "success")
-            return PhaseResult("quick_spec", True, [str(spec_file), str(plan_file)], [], 0)
+            return PhaseResult(
+                "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
+            )
 
         errors = []
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running quick spec agent (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running quick spec agent (attempt {attempt + 1})...", "progress"
+            )
 
             context_str = f"""
 **Task**: {self.task_description}
@@ -262,7 +289,9 @@ Create:
                     writer.create_minimal_plan(self.spec_dir, self.task_description)
 
                 self.ui.print_status("Quick spec created", "success")
-                return PhaseResult("quick_spec", True, [str(spec_file), str(plan_file)], [], attempt)
+                return PhaseResult(
+                    "quick_spec", True, [str(spec_file), str(plan_file)], [], attempt
+                )
 
             errors.append(f"Attempt {attempt + 1}: Quick spec agent failed")
 
@@ -278,7 +307,9 @@ Create:
             return PhaseResult("research", True, [str(research_file)], [], 0)
 
         if not requirements_file.exists():
-            self.ui.print_status("No requirements.json - skipping research phase", "warning")
+            self.ui.print_status(
+                "No requirements.json - skipping research phase", "warning"
+            )
             validator.create_minimal_research(
                 self.spec_dir,
                 reason="No requirements file available",
@@ -287,7 +318,9 @@ Create:
 
         errors = []
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running research agent (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running research agent (attempt {attempt + 1})...", "progress"
+            )
 
             context_str = f"""
 **Requirements File**: {requirements_file}
@@ -345,7 +378,9 @@ Output your findings to research.json.
 
         errors = []
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running context discovery (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running context discovery (attempt {attempt + 1})...", "progress"
+            )
 
             success, output = context.run_context_discovery(
                 self.project_dir,
@@ -383,11 +418,15 @@ Output your findings to research.json.
             if result.valid:
                 self.ui.print_status("spec.md already exists and is valid", "success")
                 return PhaseResult("spec_writing", True, [str(spec_file)], [], 0)
-            self.ui.print_status("spec.md exists but has issues, regenerating...", "warning")
+            self.ui.print_status(
+                "spec.md exists but has issues, regenerating...", "warning"
+            )
 
         errors = []
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running spec writer (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running spec writer (attempt {attempt + 1})...", "progress"
+            )
 
             success, output = await self.run_agent_fn("spec_writer.md")
 
@@ -395,10 +434,16 @@ Output your findings to research.json.
                 result = self.spec_validator.validate_spec_document()
                 if result.valid:
                     self.ui.print_status("Created valid spec.md", "success")
-                    return PhaseResult("spec_writing", True, [str(spec_file)], [], attempt)
+                    return PhaseResult(
+                        "spec_writing", True, [str(spec_file)], [], attempt
+                    )
                 else:
-                    errors.append(f"Attempt {attempt + 1}: Spec invalid - {result.errors}")
-                    self.ui.print_status(f"Spec created but invalid: {result.errors}", "error")
+                    errors.append(
+                        f"Attempt {attempt + 1}: Spec invalid - {result.errors}"
+                    )
+                    self.ui.print_status(
+                        f"Spec created but invalid: {result.errors}", "error"
+                    )
             else:
                 errors.append(f"Attempt {attempt + 1}: Agent did not create spec.md")
 
@@ -412,18 +457,26 @@ Output your findings to research.json.
 
         if not spec_file.exists():
             self.ui.print_status("No spec.md to critique", "error")
-            return PhaseResult("self_critique", False, [], ["spec.md does not exist"], 0)
+            return PhaseResult(
+                "self_critique", False, [], ["spec.md does not exist"], 0
+            )
 
         if critique_file.exists():
             with open(critique_file) as f:
                 critique = json.load(f)
-                if critique.get("issues_fixed", False) or critique.get("no_issues_found", False):
+                if critique.get("issues_fixed", False) or critique.get(
+                    "no_issues_found", False
+                ):
                     self.ui.print_status("Self-critique already completed", "success")
-                    return PhaseResult("self_critique", True, [str(critique_file)], [], 0)
+                    return PhaseResult(
+                        "self_critique", True, [str(critique_file)], [], 0
+                    )
 
         errors = []
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running self-critique agent (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running self-critique agent (attempt {attempt + 1})...", "progress"
+            )
 
             context_str = f"""
 **Spec File**: {spec_file}
@@ -463,11 +516,19 @@ Output critique_report.json with:
 
                 result = self.spec_validator.validate_spec_document()
                 if result.valid:
-                    self.ui.print_status("Self-critique completed, spec is valid", "success")
-                    return PhaseResult("self_critique", True, [str(critique_file)], [], attempt)
+                    self.ui.print_status(
+                        "Self-critique completed, spec is valid", "success"
+                    )
+                    return PhaseResult(
+                        "self_critique", True, [str(critique_file)], [], attempt
+                    )
                 else:
-                    self.ui.print_status(f"Spec invalid after critique: {result.errors}", "warning")
-                    errors.append(f"Attempt {attempt + 1}: Spec still invalid after critique")
+                    self.ui.print_status(
+                        f"Spec invalid after critique: {result.errors}", "warning"
+                    )
+                    errors.append(
+                        f"Attempt {attempt + 1}: Spec still invalid after critique"
+                    )
             else:
                 errors.append(f"Attempt {attempt + 1}: Critique agent failed")
 
@@ -475,7 +536,9 @@ Output critique_report.json with:
             self.spec_dir,
             reason="Critique failed after retries",
         )
-        return PhaseResult("self_critique", True, [str(critique_file)], errors, MAX_RETRIES)
+        return PhaseResult(
+            "self_critique", True, [str(critique_file)], errors, MAX_RETRIES
+        )
 
     async def phase_planning(self) -> PhaseResult:
         """Create the implementation plan."""
@@ -486,7 +549,9 @@ Output critique_report.json with:
         if plan_file.exists():
             result = self.spec_validator.validate_implementation_plan()
             if result.valid:
-                self.ui.print_status("implementation_plan.json already exists and is valid", "success")
+                self.ui.print_status(
+                    "implementation_plan.json already exists and is valid", "success"
+                )
                 return PhaseResult("planning", True, [str(plan_file)], [], 0)
             self.ui.print_status("Plan exists but invalid, regenerating...", "warning")
 
@@ -494,12 +559,16 @@ Output critique_report.json with:
 
         # Try Python script first (deterministic)
         self.ui.print_status("Trying planner.py (deterministic)...", "progress")
-        success, output = self._run_script("planner.py", ["--spec-dir", str(self.spec_dir)])
+        success, output = self._run_script(
+            "planner.py", ["--spec-dir", str(self.spec_dir)]
+        )
 
         if success and plan_file.exists():
             result = self.spec_validator.validate_implementation_plan()
             if result.valid:
-                self.ui.print_status("Created valid implementation_plan.json via script", "success")
+                self.ui.print_status(
+                    "Created valid implementation_plan.json via script", "success"
+                )
                 stats = writer.get_plan_stats(self.spec_dir)
                 if stats:
                     self.task_logger.log(
@@ -512,28 +581,38 @@ Output critique_report.json with:
                 if auto_fix_plan(self.spec_dir):
                     result = self.spec_validator.validate_implementation_plan()
                     if result.valid:
-                        self.ui.print_status("Auto-fixed implementation_plan.json", "success")
+                        self.ui.print_status(
+                            "Auto-fixed implementation_plan.json", "success"
+                        )
                         return PhaseResult("planning", True, [str(plan_file)], [], 0)
                 errors.append(f"Script output invalid: {result.errors}")
 
         # Fall back to agent
         self.ui.print_status("Falling back to planner agent...", "progress")
         for attempt in range(MAX_RETRIES):
-            self.ui.print_status(f"Running planner agent (attempt {attempt + 1})...", "progress")
+            self.ui.print_status(
+                f"Running planner agent (attempt {attempt + 1})...", "progress"
+            )
 
             success, output = await self.run_agent_fn("planner.md")
 
             if success and plan_file.exists():
                 result = self.spec_validator.validate_implementation_plan()
                 if result.valid:
-                    self.ui.print_status("Created valid implementation_plan.json via agent", "success")
+                    self.ui.print_status(
+                        "Created valid implementation_plan.json via agent", "success"
+                    )
                     return PhaseResult("planning", True, [str(plan_file)], [], attempt)
                 else:
                     if auto_fix_plan(self.spec_dir):
                         result = self.spec_validator.validate_implementation_plan()
                         if result.valid:
-                            self.ui.print_status("Auto-fixed implementation_plan.json", "success")
-                            return PhaseResult("planning", True, [str(plan_file)], [], attempt)
+                            self.ui.print_status(
+                                "Auto-fixed implementation_plan.json", "success"
+                            )
+                            return PhaseResult(
+                                "planning", True, [str(plan_file)], [], attempt
+                            )
                     errors.append(f"Agent attempt {attempt + 1}: {result.errors}")
                     self.ui.print_status("Plan created but invalid", "error")
             else:
@@ -563,17 +642,22 @@ Output critique_report.json with:
             # If not valid, try to auto-fix with AI agent
             if attempt < MAX_RETRIES - 1:
                 print()
-                self.ui.print_status(f"Attempting auto-fix (attempt {attempt + 1}/{MAX_RETRIES - 1})...", "progress")
+                self.ui.print_status(
+                    f"Attempting auto-fix (attempt {attempt + 1}/{MAX_RETRIES - 1})...",
+                    "progress",
+                )
 
                 # Collect all errors for the fixer agent
                 error_details = []
                 for result in results:
                     if not result.valid:
-                        error_details.append(f"**{result.checkpoint}** validation failed:")
+                        error_details.append(
+                            f"**{result.checkpoint}** validation failed:"
+                        )
                         for err in result.errors:
                             error_details.append(f"  - {err}")
                         if result.fixes:
-                            error_details.append(f"  Suggested fixes:")
+                            error_details.append("  Suggested fixes:")
                             for fix in result.fixes:
                                 error_details.append(f"    - {fix}")
 
@@ -604,11 +688,7 @@ Read the failed files, understand the errors, and fix them.
                     self.ui.print_status("Auto-fix agent failed", "warning")
 
         # All retries exhausted
-        errors = [
-            f"{r.checkpoint}: {err}"
-            for r in results
-            for err in r.errors
-        ]
+        errors = [f"{r.checkpoint}: {err}" for r in results for err in r.errors]
         return PhaseResult("validation", False, [], errors, MAX_RETRIES)
 
     def _run_script(self, script: str, args: list[str]) -> tuple[bool, str]:

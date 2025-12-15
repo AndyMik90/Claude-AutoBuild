@@ -1,10 +1,14 @@
 /**
+ * @vitest-environment jsdom
+ */
+
+/**
  * Unit tests for useVirtualizedTree hook
  * Tests flattenTree function and visible items computation
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { flattenTree, useVirtualizedTree } from '../useVirtualizedTree';
+import { flattenTree, useVirtualizedTree, FlattenedNode } from '../useVirtualizedTree';
 import { useFileExplorerStore } from '../../stores/file-explorer-store';
 import type { FileNode } from '../../../shared/types';
 
@@ -450,7 +454,7 @@ describe('useVirtualizedTree', () => {
       const { result } = renderHook(() => useVirtualizedTree(ROOT_PATH));
 
       expect(result.current.flattenedNodes).toHaveLength(3);
-      expect(result.current.flattenedNodes.map((n) => n.node.name)).toEqual([
+      expect(result.current.flattenedNodes.map((n: FlattenedNode) => n.node.name)).toEqual([
         'dir1',
         'child1.ts',
         'dir2',

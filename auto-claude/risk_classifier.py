@@ -23,10 +23,8 @@ Usage:
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 # =============================================================================
 # DATA CLASSES
@@ -47,8 +45,8 @@ class ScopeAnalysis:
 class IntegrationAnalysis:
     """Analysis of external integrations."""
 
-    external_services: List[str] = field(default_factory=list)
-    new_dependencies: List[str] = field(default_factory=list)
+    external_services: list[str] = field(default_factory=list)
+    new_dependencies: list[str] = field(default_factory=list)
     research_needed: bool = False
     notes: str = ""
 
@@ -69,7 +67,7 @@ class KnowledgeAnalysis:
 
     patterns_exist: bool = True
     research_required: bool = False
-    unfamiliar_tech: List[str] = field(default_factory=list)
+    unfamiliar_tech: list[str] = field(default_factory=list)
     notes: str = ""
 
 
@@ -78,7 +76,7 @@ class RiskAnalysis:
     """Analysis of task risk."""
 
     level: str = "low"  # low, medium, high
-    concerns: List[str] = field(default_factory=list)
+    concerns: list[str] = field(default_factory=list)
     notes: str = ""
 
 
@@ -88,7 +86,9 @@ class ComplexityAnalysis:
 
     scope: ScopeAnalysis = field(default_factory=ScopeAnalysis)
     integrations: IntegrationAnalysis = field(default_factory=IntegrationAnalysis)
-    infrastructure: InfrastructureAnalysis = field(default_factory=InfrastructureAnalysis)
+    infrastructure: InfrastructureAnalysis = field(
+        default_factory=InfrastructureAnalysis
+    )
     knowledge: KnowledgeAnalysis = field(default_factory=KnowledgeAnalysis)
     risk: RiskAnalysis = field(default_factory=RiskAnalysis)
 
@@ -100,7 +100,7 @@ class ValidationRecommendations:
     risk_level: str = "medium"  # trivial, low, medium, high, critical
     skip_validation: bool = False
     minimal_mode: bool = False
-    test_types_required: List[str] = field(default_factory=lambda: ["unit"])
+    test_types_required: list[str] = field(default_factory=lambda: ["unit"])
     security_scan_required: bool = False
     staging_deployment_required: bool = False
     reasoning: str = ""
@@ -124,10 +124,10 @@ class RiskAssessment:
     confidence: float
     reasoning: str
     analysis: ComplexityAnalysis
-    recommended_phases: List[str]
+    recommended_phases: list[str]
     flags: AssessmentFlags
     validation: ValidationRecommendations
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     @property
     def risk_level(self) -> str:
@@ -151,9 +151,9 @@ class RiskClassifier:
 
     def __init__(self) -> None:
         """Initialize the risk classifier."""
-        self._cache: Dict[str, RiskAssessment] = {}
+        self._cache: dict[str, RiskAssessment] = {}
 
-    def load_assessment(self, spec_dir: Path) -> Optional[RiskAssessment]:
+    def load_assessment(self, spec_dir: Path) -> RiskAssessment | None:
         """
         Load complexity_assessment.json from spec directory.
 
@@ -175,7 +175,7 @@ class RiskClassifier:
             return None
 
         try:
-            with open(assessment_file, "r", encoding="utf-8") as f:
+            with open(assessment_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             assessment = self._parse_assessment(data)
@@ -187,13 +187,15 @@ class RiskClassifier:
             print(f"Warning: Failed to parse complexity_assessment.json: {e}")
             return None
 
-    def _parse_assessment(self, data: Dict[str, Any]) -> RiskAssessment:
+    def _parse_assessment(self, data: dict[str, Any]) -> RiskAssessment:
         """Parse raw JSON data into a RiskAssessment object."""
         # Parse analysis sections
         analysis_data = data.get("analysis", {})
         analysis = ComplexityAnalysis(
             scope=self._parse_scope(analysis_data.get("scope", {})),
-            integrations=self._parse_integrations(analysis_data.get("integrations", {})),
+            integrations=self._parse_integrations(
+                analysis_data.get("integrations", {})
+            ),
             infrastructure=self._parse_infrastructure(
                 analysis_data.get("infrastructure", {})
             ),
@@ -227,7 +229,7 @@ class RiskClassifier:
             created_at=data.get("created_at"),
         )
 
-    def _parse_scope(self, data: Dict[str, Any]) -> ScopeAnalysis:
+    def _parse_scope(self, data: dict[str, Any]) -> ScopeAnalysis:
         """Parse scope analysis section."""
         return ScopeAnalysis(
             estimated_files=int(data.get("estimated_files", 0)),
@@ -236,7 +238,7 @@ class RiskClassifier:
             notes=str(data.get("notes", "")),
         )
 
-    def _parse_integrations(self, data: Dict[str, Any]) -> IntegrationAnalysis:
+    def _parse_integrations(self, data: dict[str, Any]) -> IntegrationAnalysis:
         """Parse integrations analysis section."""
         return IntegrationAnalysis(
             external_services=list(data.get("external_services", [])),
@@ -245,7 +247,7 @@ class RiskClassifier:
             notes=str(data.get("notes", "")),
         )
 
-    def _parse_infrastructure(self, data: Dict[str, Any]) -> InfrastructureAnalysis:
+    def _parse_infrastructure(self, data: dict[str, Any]) -> InfrastructureAnalysis:
         """Parse infrastructure analysis section."""
         return InfrastructureAnalysis(
             docker_changes=bool(data.get("docker_changes", False)),
@@ -254,7 +256,7 @@ class RiskClassifier:
             notes=str(data.get("notes", "")),
         )
 
-    def _parse_knowledge(self, data: Dict[str, Any]) -> KnowledgeAnalysis:
+    def _parse_knowledge(self, data: dict[str, Any]) -> KnowledgeAnalysis:
         """Parse knowledge analysis section."""
         return KnowledgeAnalysis(
             patterns_exist=bool(data.get("patterns_exist", True)),
@@ -263,7 +265,7 @@ class RiskClassifier:
             notes=str(data.get("notes", "")),
         )
 
-    def _parse_risk(self, data: Dict[str, Any]) -> RiskAnalysis:
+    def _parse_risk(self, data: dict[str, Any]) -> RiskAnalysis:
         """Parse risk analysis section."""
         return RiskAnalysis(
             level=str(data.get("level", "low")),
@@ -272,7 +274,7 @@ class RiskClassifier:
         )
 
     def _parse_validation_recommendations(
-        self, data: Dict[str, Any], analysis: ComplexityAnalysis
+        self, data: dict[str, Any], analysis: ComplexityAnalysis
     ) -> ValidationRecommendations:
         """
         Parse validation recommendations section.
@@ -325,7 +327,14 @@ class RiskClassifier:
         test_types = test_types_map.get(normalized_risk, ["unit", "integration"])
 
         # Security scan for high risk or security-related concerns
-        security_keywords = ["security", "auth", "password", "credential", "token", "api key"]
+        security_keywords = [
+            "security",
+            "auth",
+            "password",
+            "credential",
+            "token",
+            "api key",
+        ]
         has_security_concerns = any(
             kw in str(analysis.risk.concerns).lower() for kw in security_keywords
         )
@@ -386,7 +395,7 @@ class RiskClassifier:
 
         return assessment.validation.minimal_mode
 
-    def get_required_test_types(self, spec_dir: Path) -> List[str]:
+    def get_required_test_types(self, spec_dir: Path) -> list[str]:
         """
         Get list of required test types based on risk.
 
@@ -466,7 +475,7 @@ class RiskClassifier:
 
         return assessment.complexity
 
-    def get_validation_summary(self, spec_dir: Path) -> Dict[str, Any]:
+    def get_validation_summary(self, spec_dir: Path) -> dict[str, Any]:
         """
         Get a summary of validation requirements.
 
@@ -511,7 +520,7 @@ class RiskClassifier:
 # =============================================================================
 
 
-def load_risk_assessment(spec_dir: Path) -> Optional[RiskAssessment]:
+def load_risk_assessment(spec_dir: Path) -> RiskAssessment | None:
     """
     Convenience function to load a risk assessment.
 
@@ -525,7 +534,7 @@ def load_risk_assessment(spec_dir: Path) -> Optional[RiskAssessment]:
     return classifier.load_assessment(spec_dir)
 
 
-def get_validation_requirements(spec_dir: Path) -> Dict[str, Any]:
+def get_validation_requirements(spec_dir: Path) -> dict[str, Any]:
     """
     Convenience function to get validation requirements.
 
@@ -550,11 +559,11 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Load and display risk assessment")
     parser.add_argument(
-        "spec_dir", type=Path, help="Path to spec directory with complexity_assessment.json"
+        "spec_dir",
+        type=Path,
+        help="Path to spec directory with complexity_assessment.json",
     )
-    parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
 

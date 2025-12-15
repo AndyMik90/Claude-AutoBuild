@@ -34,17 +34,17 @@ def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
                         "patterns_from": [],
                         "verification": {
                             "type": "manual",
-                            "run": "Verify the change works as expected"
-                        }
+                            "run": "Verify the change works as expected",
+                        },
                     }
-                ]
+                ],
             }
         ],
         "metadata": {
             "created_at": datetime.now().isoformat(),
             "complexity": "simple",
             "estimated_sessions": 1,
-        }
+        },
     }
 
     plan_file = spec_dir / "implementation_plan.json"
@@ -63,7 +63,9 @@ def get_plan_stats(spec_dir: Path) -> dict:
     try:
         with open(plan_file) as f:
             plan_data = json.load(f)
-        total_subtasks = sum(len(p.get("subtasks", [])) for p in plan_data.get("phases", []))
+        total_subtasks = sum(
+            len(p.get("subtasks", [])) for p in plan_data.get("phases", [])
+        )
         return {
             "total_subtasks": total_subtasks,
             "total_phases": len(plan_data.get("phases", [])),

@@ -28,16 +28,14 @@ The context builder will:
 
 import asyncio
 import json
-import os
 import re
-import sys
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
-from dataclasses import dataclass, field, asdict
 
 # Import graphiti providers for optional historical hints
 try:
     from graphiti_providers import get_graph_hints, is_graphiti_enabled
+
     GRAPHITI_AVAILABLE = True
 except ImportError:
     GRAPHITI_AVAILABLE = False
@@ -45,26 +43,55 @@ except ImportError:
     def is_graphiti_enabled() -> bool:
         return False
 
-    async def get_graph_hints(query: str, project_id: str, max_results: int = 10) -> list:
+    async def get_graph_hints(
+        query: str, project_id: str, max_results: int = 10
+    ) -> list:
         return []
+
 
 # Directories to skip
 SKIP_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build",
-    ".next", ".nuxt", "target", "vendor", ".idea", ".vscode", "auto-claude",
-    ".pytest_cache", ".mypy_cache", "coverage", ".turbo", ".cache",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    "target",
+    "vendor",
+    ".idea",
+    ".vscode",
+    "auto-claude",
+    ".pytest_cache",
+    ".mypy_cache",
+    "coverage",
+    ".turbo",
+    ".cache",
 }
 
 # File extensions to search
 CODE_EXTENSIONS = {
-    ".py", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte",
-    ".go", ".rs", ".rb", ".php",
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".svelte",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
 }
 
 
 @dataclass
 class FileMatch:
     """A file that matched the search criteria."""
+
     path: str
     service: str
     reason: str
@@ -75,13 +102,16 @@ class FileMatch:
 @dataclass
 class TaskContext:
     """Complete context for a task."""
+
     task_description: str
     scoped_services: list[str]
     files_to_modify: list[dict]
     files_to_reference: list[dict]
     patterns_discovered: dict[str, str]
     service_contexts: dict[str, dict]
-    graph_hints: list[dict] = field(default_factory=list)  # Historical hints from Graphiti
+    graph_hints: list[dict] = field(
+        default_factory=list
+    )  # Historical hints from Graphiti
 
 
 class ContextBuilder:
@@ -119,6 +149,7 @@ class ContextBuilder:
 
         # Try to create one
         from analyzer import analyze_project
+
         return analyze_project(self.project_dir)
 
     def build_context(
@@ -171,7 +202,9 @@ class ContextBuilder:
             )
 
         # Categorize matches
-        files_to_modify, files_to_reference = self._categorize_matches(all_matches, task)
+        files_to_modify, files_to_reference = self._categorize_matches(
+            all_matches, task
+        )
 
         # Discover patterns from reference files
         patterns = self._discover_patterns(files_to_reference, keywords)
@@ -196,8 +229,12 @@ class ContextBuilder:
         return TaskContext(
             task_description=task,
             scoped_services=services,
-            files_to_modify=[asdict(f) if isinstance(f, FileMatch) else f for f in files_to_modify],
-            files_to_reference=[asdict(f) if isinstance(f, FileMatch) else f for f in files_to_reference],
+            files_to_modify=[
+                asdict(f) if isinstance(f, FileMatch) else f for f in files_to_modify
+            ],
+            files_to_reference=[
+                asdict(f) if isinstance(f, FileMatch) else f for f in files_to_reference
+            ],
             patterns_discovered=patterns,
             service_contexts=service_contexts,
             graph_hints=graph_hints,
@@ -256,7 +293,9 @@ class ContextBuilder:
             )
 
         # Categorize matches
-        files_to_modify, files_to_reference = self._categorize_matches(all_matches, task)
+        files_to_modify, files_to_reference = self._categorize_matches(
+            all_matches, task
+        )
 
         # Discover patterns from reference files
         patterns = self._discover_patterns(files_to_reference, keywords)
@@ -269,8 +308,12 @@ class ContextBuilder:
         return TaskContext(
             task_description=task,
             scoped_services=services,
-            files_to_modify=[asdict(f) if isinstance(f, FileMatch) else f for f in files_to_modify],
-            files_to_reference=[asdict(f) if isinstance(f, FileMatch) else f for f in files_to_reference],
+            files_to_modify=[
+                asdict(f) if isinstance(f, FileMatch) else f for f in files_to_modify
+            ],
+            files_to_reference=[
+                asdict(f) if isinstance(f, FileMatch) else f for f in files_to_reference
+            ],
             patterns_discovered=patterns,
             service_contexts=service_contexts,
             graph_hints=graph_hints,
@@ -292,13 +335,23 @@ class ContextBuilder:
 
             # Check service type relevance
             service_type = service_info.get("type", "")
-            if service_type == "backend" and any(kw in task_lower for kw in ["api", "endpoint", "route", "database", "model"]):
+            if service_type == "backend" and any(
+                kw in task_lower
+                for kw in ["api", "endpoint", "route", "database", "model"]
+            ):
                 score += 5
-            if service_type == "frontend" and any(kw in task_lower for kw in ["ui", "component", "page", "button", "form"]):
+            if service_type == "frontend" and any(
+                kw in task_lower for kw in ["ui", "component", "page", "button", "form"]
+            ):
                 score += 5
-            if service_type == "worker" and any(kw in task_lower for kw in ["job", "task", "queue", "background", "async"]):
+            if service_type == "worker" and any(
+                kw in task_lower
+                for kw in ["job", "task", "queue", "background", "async"]
+            ):
                 score += 5
-            if service_type == "scraper" and any(kw in task_lower for kw in ["scrape", "crawl", "fetch", "parse"]):
+            if service_type == "scraper" and any(
+                kw in task_lower for kw in ["scrape", "crawl", "fetch", "parse"]
+            ):
                 score += 5
 
             # Check framework relevance
@@ -320,7 +373,9 @@ class ContextBuilder:
         for name, info in services.items():
             if info.get("type") == "backend" and "backend" not in [s for s in default]:
                 default.append(name)
-            elif info.get("type") == "frontend" and "frontend" not in [s for s in default]:
+            elif info.get("type") == "frontend" and "frontend" not in [
+                s for s in default
+            ]:
                 default.append(name)
         return default[:2] if default else list(services.keys())[:2]
 
@@ -328,17 +383,69 @@ class ContextBuilder:
         """Extract search keywords from task description."""
         # Remove common words
         stopwords = {
-            "a", "an", "the", "to", "for", "of", "in", "on", "at", "by", "with",
-            "and", "or", "but", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "can", "this", "that", "these",
-            "those", "i", "you", "we", "they", "it", "add", "create", "make",
-            "implement", "build", "fix", "update", "change", "modify", "when",
-            "if", "then", "else", "new", "existing",
+            "a",
+            "an",
+            "the",
+            "to",
+            "for",
+            "of",
+            "in",
+            "on",
+            "at",
+            "by",
+            "with",
+            "and",
+            "or",
+            "but",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "we",
+            "they",
+            "it",
+            "add",
+            "create",
+            "make",
+            "implement",
+            "build",
+            "fix",
+            "update",
+            "change",
+            "modify",
+            "when",
+            "if",
+            "then",
+            "else",
+            "new",
+            "existing",
         }
 
         # Tokenize and filter
-        words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', task.lower())
+        words = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", task.lower())
         keywords = [w for w in words if w not in stopwords and len(w) > 2]
 
         # Deduplicate while preserving order
@@ -365,7 +472,7 @@ class ContextBuilder:
 
         for file_path in self._iter_code_files(service_path):
             try:
-                content = file_path.read_text(errors='ignore')
+                content = file_path.read_text(errors="ignore")
                 content_lower = content.lower()
 
                 # Score this file
@@ -381,7 +488,7 @@ class ContextBuilder:
                         matching_keywords.append(keyword)
 
                         # Find matching lines (first 3 per keyword)
-                        lines = content.split('\n')
+                        lines = content.split("\n")
                         found = 0
                         for i, line in enumerate(lines, 1):
                             if keyword in line.lower() and found < 3:
@@ -390,15 +497,17 @@ class ContextBuilder:
 
                 if score > 0:
                     rel_path = str(file_path.relative_to(self.project_dir))
-                    matches.append(FileMatch(
-                        path=rel_path,
-                        service=service_name,
-                        reason=f"Contains: {', '.join(matching_keywords)}",
-                        relevance_score=score,
-                        matching_lines=matching_lines[:5],  # Top 5 lines
-                    ))
+                    matches.append(
+                        FileMatch(
+                            path=rel_path,
+                            service=service_name,
+                            reason=f"Contains: {', '.join(matching_keywords)}",
+                            relevance_score=score,
+                            matching_lines=matching_lines[:5],  # Top 5 lines
+                        )
+                    )
 
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
         # Sort by relevance
@@ -424,7 +533,16 @@ class ContextBuilder:
         to_reference = []
 
         # Keywords that suggest modification
-        modify_keywords = ["add", "create", "implement", "fix", "update", "change", "modify", "new"]
+        modify_keywords = [
+            "add",
+            "create",
+            "implement",
+            "fix",
+            "update",
+            "change",
+            "modify",
+            "new",
+        ]
         task_lower = task.lower()
         is_modification = any(kw in task_lower for kw in modify_keywords)
 
@@ -463,26 +581,28 @@ class ContextBuilder:
         for match in reference_files[:5]:  # Analyze top 5 reference files
             try:
                 file_path = self.project_dir / match.path
-                content = file_path.read_text(errors='ignore')
+                content = file_path.read_text(errors="ignore")
 
                 # Look for common patterns
                 for keyword in keywords:
                     if keyword in content.lower():
                         # Extract a snippet around the keyword
-                        lines = content.split('\n')
+                        lines = content.split("\n")
                         for i, line in enumerate(lines):
                             if keyword in line.lower():
                                 # Get context (3 lines before and after)
                                 start = max(0, i - 3)
                                 end = min(len(lines), i + 4)
-                                snippet = '\n'.join(lines[start:end])
+                                snippet = "\n".join(lines[start:end])
 
                                 pattern_key = f"{keyword}_pattern"
                                 if pattern_key not in patterns:
-                                    patterns[pattern_key] = f"From {match.path}:\n{snippet[:300]}"
+                                    patterns[pattern_key] = (
+                                        f"From {match.path}:\n{snippet[:300]}"
+                                    )
                                 break
 
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
         return patterns

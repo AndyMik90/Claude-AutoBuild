@@ -4,16 +4,16 @@ Type definitions for the ideation module.
 Contains dataclasses and type definitions used throughout ideation components.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, List
 
 
 @dataclass
 class IdeationPhaseResult:
     """Result of an ideation phase execution."""
+
     phase: str
-    ideation_type: Optional[str]
+    ideation_type: str | None
     success: bool
     output_files: list[str]
     ideas_count: int
@@ -24,9 +24,10 @@ class IdeationPhaseResult:
 @dataclass
 class IdeationConfig:
     """Configuration for ideation generation."""
+
     project_dir: Path
     output_dir: Path
-    enabled_types: List[str]
+    enabled_types: list[str]
     include_roadmap_context: bool = True
     include_kanban_context: bool = True
     max_ideas_per_type: int = 5

@@ -41,26 +41,11 @@ from pathlib import Path
 
 # Re-export all public APIs from the review package
 from review import (
-    # State management
     ReviewState,
-    get_review_status_summary,
-    REVIEW_STATE_FILE,
-    # Display functions
-    display_spec_summary,
-    display_plan_summary,
     display_review_status,
-    # Review orchestration
-    ReviewChoice,
+    # Display functions
     run_review_checkpoint,
-    open_file_in_editor,
-    get_review_menu_options,
-    prompt_feedback,
-    # Utilities
-    extract_section,
-    extract_table_rows,
-    truncate_text,
 )
-
 from ui import print_status
 
 

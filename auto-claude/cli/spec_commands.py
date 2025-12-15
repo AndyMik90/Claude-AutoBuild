@@ -7,7 +7,6 @@ CLI commands for managing specs (listing, finding, etc.)
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Ensure parent directory is in path for imports (before other imports)
 _PARENT_DIR = Path(__file__).parent.parent
@@ -79,15 +78,17 @@ def list_specs(project_dir: Path, dev_mode: bool = False) -> list[dict]:
         if has_build:
             status = f"{status} (has build)"
 
-        specs.append({
-            "number": number,
-            "name": name,
-            "folder": folder_name,
-            "path": spec_folder,
-            "status": status,
-            "progress": progress,
-            "has_build": has_build,
-        })
+        specs.append(
+            {
+                "number": number,
+                "name": name,
+                "folder": folder_name,
+                "path": spec_folder,
+                "status": status,
+                "progress": progress,
+                "has_build": has_build,
+            }
+        )
 
     return specs
 

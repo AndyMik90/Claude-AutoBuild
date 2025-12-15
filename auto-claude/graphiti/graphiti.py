@@ -12,14 +12,13 @@ import hashlib
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from graphiti_config import GraphitiConfig, GraphitiState
 
 from .client import GraphitiClient
 from .queries import GraphitiQueries
+from .schema import MAX_CONTEXT_RESULTS, GroupIdMode
 from .search import GraphitiSearch
-from .schema import GroupIdMode, MAX_CONTEXT_RESULTS
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +60,12 @@ class GraphitiMemory:
         self.project_dir = project_dir
         self.group_id_mode = group_id_mode
         self.config = GraphitiConfig.from_env()
-        self.state: Optional[GraphitiState] = None
+        self.state: GraphitiState | None = None
 
         # Component modules
-        self._client: Optional[GraphitiClient] = None
-        self._queries: Optional[GraphitiQueries] = None
-        self._search: Optional[GraphitiSearch] = None
+        self._client: GraphitiClient | None = None
+        self._queries: GraphitiQueries | None = None
+        self._search: GraphitiSearch | None = None
 
         self._available = False
 
@@ -78,7 +77,9 @@ class GraphitiMemory:
 
         # Log provider configuration if enabled
         if self._available:
-            logger.info(f"Graphiti configured with providers: {self.config.get_provider_summary()}")
+            logger.info(
+                f"Graphiti configured with providers: {self.config.get_provider_summary()}"
+            )
 
     @property
     def is_enabled(self) -> bool:
@@ -106,7 +107,9 @@ class GraphitiMemory:
         """
         if self.group_id_mode == GroupIdMode.PROJECT:
             project_name = self.project_dir.name
-            path_hash = hashlib.md5(str(self.project_dir.resolve()).encode()).hexdigest()[:8]
+            path_hash = hashlib.md5(
+                str(self.project_dir.resolve()).encode()
+            ).hexdigest()[:8]
             return f"project_{project_name}_{path_hash}"
         else:
             return self.spec_dir.name
@@ -253,13 +256,15 @@ class GraphitiMemory:
         task_id: str,
         success: bool,
         outcome: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> bool:
         """Save a task outcome for learning from past successes/failures."""
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_task_outcome(task_id, success, outcome, metadata)
+        result = await self._queries.add_task_outcome(
+            task_id, success, outcome, metadata
+        )
 
         if result and self.state:
             self.state.episode_count += 1
@@ -331,11 +336,15 @@ class GraphitiMemory:
             "enabled": self.is_enabled,
             "initialized": self.is_initialized,
             "database": self.config.database if self.is_enabled else None,
-            "host": f"{self.config.falkordb_host}:{self.config.falkordb_port}" if self.is_enabled else None,
+            "host": f"{self.config.falkordb_host}:{self.config.falkordb_port}"
+            if self.is_enabled
+            else None,
             "group_id": self.group_id,
             "group_id_mode": self.group_id_mode,
             "llm_provider": self.config.llm_provider if self.is_enabled else None,
-            "embedder_provider": self.config.embedder_provider if self.is_enabled else None,
+            "embedder_provider": self.config.embedder_provider
+            if self.is_enabled
+            else None,
             "episode_count": self.state.episode_count if self.state else 0,
             "last_session": self.state.last_session if self.state else None,
             "errors": len(self.state.error_log) if self.state else 0,

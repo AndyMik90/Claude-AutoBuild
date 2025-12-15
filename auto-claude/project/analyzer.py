@@ -10,17 +10,16 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .command_registry import (
     BASE_COMMANDS,
-    LANGUAGE_COMMANDS,
-    PACKAGE_MANAGER_COMMANDS,
-    FRAMEWORK_COMMANDS,
-    DATABASE_COMMANDS,
-    INFRASTRUCTURE_COMMANDS,
     CLOUD_COMMANDS,
     CODE_QUALITY_COMMANDS,
+    DATABASE_COMMANDS,
+    FRAMEWORK_COMMANDS,
+    INFRASTRUCTURE_COMMANDS,
+    LANGUAGE_COMMANDS,
+    PACKAGE_MANAGER_COMMANDS,
     VERSION_MANAGER_COMMANDS,
 )
 from .config_parser import ConfigParser
@@ -44,7 +43,7 @@ class ProjectAnalyzer:
 
     PROFILE_FILENAME = ".auto-claude-security.json"
 
-    def __init__(self, project_dir: Path, spec_dir: Optional[Path] = None):
+    def __init__(self, project_dir: Path, spec_dir: Path | None = None):
         """
         Initialize analyzer.
 
@@ -63,17 +62,17 @@ class ProjectAnalyzer:
             return self.spec_dir / self.PROFILE_FILENAME
         return self.project_dir / self.PROFILE_FILENAME
 
-    def load_profile(self) -> Optional[SecurityProfile]:
+    def load_profile(self) -> SecurityProfile | None:
         """Load existing profile if it exists."""
         profile_path = self.get_profile_path()
         if not profile_path.exists():
             return None
 
         try:
-            with open(profile_path, "r") as f:
+            with open(profile_path) as f:
                 data = json.load(f)
             return SecurityProfile.from_dict(data)
-        except (json.JSONDecodeError, IOError, KeyError):
+        except (OSError, json.JSONDecodeError, KeyError):
             return None
 
     def save_profile(self, profile: SecurityProfile) -> None:
@@ -239,7 +238,9 @@ class ProjectAnalyzer:
         """Detect code quality tools (backward compatibility)."""
         detector = StackDetector(self.project_dir)
         detector.detect_code_quality_tools()
-        self.profile.detected_stack.code_quality_tools = detector.stack.code_quality_tools
+        self.profile.detected_stack.code_quality_tools = (
+            detector.stack.code_quality_tools
+        )
 
     def _detect_version_managers(self) -> None:
         """Detect version managers (backward compatibility)."""

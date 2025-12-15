@@ -10,7 +10,6 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple
 
 
 def run_context_discovery(
@@ -18,7 +17,7 @@ def run_context_discovery(
     spec_dir: Path,
     task_description: str,
     services: list[str],
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Run context.py script to discover relevant files.
 
     Args:
@@ -42,8 +41,10 @@ def run_context_discovery(
     args = [
         sys.executable,
         str(script_path),
-        "--task", task_description or "unknown task",
-        "--output", str(context_file),
+        "--task",
+        task_description or "unknown task",
+        "--output",
+        str(context_file),
     ]
 
     if services:
@@ -74,7 +75,7 @@ def run_context_discovery(
 
                     with open(context_file, "w") as f:
                         json.dump(ctx, f, indent=2)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 context_file.unlink(missing_ok=True)
                 return False, "Invalid context.json created"
 

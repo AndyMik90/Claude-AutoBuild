@@ -7,7 +7,6 @@ Provides common constants, utilities, and base functionality shared across all a
 
 import json
 from pathlib import Path
-from typing import Any
 
 # Directories to skip during analysis
 SKIP_DIRS = {
@@ -41,17 +40,47 @@ SKIP_DIRS = {
 
 # Common service directory names
 SERVICE_INDICATORS = {
-    "backend", "frontend", "api", "web", "app", "server", "client",
-    "worker", "workers", "services", "packages", "apps", "libs",
-    "scraper", "crawler", "proxy", "gateway", "admin", "dashboard",
-    "mobile", "desktop", "cli", "sdk", "core", "shared", "common",
+    "backend",
+    "frontend",
+    "api",
+    "web",
+    "app",
+    "server",
+    "client",
+    "worker",
+    "workers",
+    "services",
+    "packages",
+    "apps",
+    "libs",
+    "scraper",
+    "crawler",
+    "proxy",
+    "gateway",
+    "admin",
+    "dashboard",
+    "mobile",
+    "desktop",
+    "cli",
+    "sdk",
+    "core",
+    "shared",
+    "common",
 }
 
 # Files that indicate a service root
 SERVICE_ROOT_FILES = {
-    "package.json", "requirements.txt", "pyproject.toml", "Cargo.toml",
-    "go.mod", "Gemfile", "composer.json", "pom.xml", "build.gradle",
-    "Makefile", "Dockerfile",
+    "package.json",
+    "requirements.txt",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "Gemfile",
+    "composer.json",
+    "pom.xml",
+    "build.gradle",
+    "Makefile",
+    "Dockerfile",
 }
 
 
@@ -69,7 +98,7 @@ class BaseAnalyzer:
         """Read a file relative to the analyzer's path."""
         try:
             return (self.path / path).read_text()
-        except (IOError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError):
             return ""
 
     def _read_json(self, path: str) -> dict | None:
@@ -88,7 +117,7 @@ class BaseAnalyzer:
             return "string"
 
         # Boolean
-        if value.lower() in ['true', 'false', '1', '0', 'yes', 'no']:
+        if value.lower() in ["true", "false", "1", "0", "yes", "no"]:
             return "boolean"
 
         # Number
@@ -96,15 +125,25 @@ class BaseAnalyzer:
             return "number"
 
         # URL
-        if value.startswith(('http://', 'https://', 'postgres://', 'postgresql://', 'mysql://', 'mongodb://', 'redis://')):
+        if value.startswith(
+            (
+                "http://",
+                "https://",
+                "postgres://",
+                "postgresql://",
+                "mysql://",
+                "mongodb://",
+                "redis://",
+            )
+        ):
             return "url"
 
         # Email
-        if '@' in value and '.' in value:
+        if "@" in value and "." in value:
             return "email"
 
         # Path
-        if '/' in value or '\\' in value:
+        if "/" in value or "\\" in value:
             return "path"
 
         return "string"

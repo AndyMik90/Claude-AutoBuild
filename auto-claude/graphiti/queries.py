@@ -7,13 +7,12 @@ Handles episode storage, retrieval, and filtering operations.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from .schema import (
-    EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_CODEBASE_DISCOVERY,
-    EPISODE_TYPE_PATTERN,
     EPISODE_TYPE_GOTCHA,
+    EPISODE_TYPE_PATTERN,
+    EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_TASK_OUTCOME,
 )
 
@@ -76,7 +75,9 @@ class GraphitiQueries:
                 group_id=self.group_id,
             )
 
-            logger.info(f"Saved session {session_num} insights to Graphiti (group: {self.group_id})")
+            logger.info(
+                f"Saved session {session_num} insights to Graphiti (group: {self.group_id})"
+            )
             return True
 
         except Exception as e:
@@ -202,7 +203,7 @@ class GraphitiQueries:
         task_id: str,
         success: bool,
         outcome: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> bool:
         """
         Save a task outcome for learning from past successes/failures.
@@ -296,9 +297,19 @@ class GraphitiQueries:
             for pattern in insights.get("patterns_discovered", []):
                 total_count += 1
                 try:
-                    pattern_text = pattern.get("pattern", "") if isinstance(pattern, dict) else str(pattern)
-                    applies_to = pattern.get("applies_to", "") if isinstance(pattern, dict) else ""
-                    example = pattern.get("example", "") if isinstance(pattern, dict) else ""
+                    pattern_text = (
+                        pattern.get("pattern", "")
+                        if isinstance(pattern, dict)
+                        else str(pattern)
+                    )
+                    applies_to = (
+                        pattern.get("applies_to", "")
+                        if isinstance(pattern, dict)
+                        else ""
+                    )
+                    example = (
+                        pattern.get("example", "") if isinstance(pattern, dict) else ""
+                    )
 
                     episode_content = {
                         "type": EPISODE_TYPE_PATTERN,
@@ -325,9 +336,17 @@ class GraphitiQueries:
             for gotcha in insights.get("gotchas_discovered", []):
                 total_count += 1
                 try:
-                    gotcha_text = gotcha.get("gotcha", "") if isinstance(gotcha, dict) else str(gotcha)
-                    trigger = gotcha.get("trigger", "") if isinstance(gotcha, dict) else ""
-                    solution = gotcha.get("solution", "") if isinstance(gotcha, dict) else ""
+                    gotcha_text = (
+                        gotcha.get("gotcha", "")
+                        if isinstance(gotcha, dict)
+                        else str(gotcha)
+                    )
+                    trigger = (
+                        gotcha.get("trigger", "") if isinstance(gotcha, dict) else ""
+                    )
+                    solution = (
+                        gotcha.get("solution", "") if isinstance(gotcha, dict) else ""
+                    )
 
                     episode_content = {
                         "type": EPISODE_TYPE_GOTCHA,

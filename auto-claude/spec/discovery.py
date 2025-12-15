@@ -10,13 +10,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple
 
 
 def run_discovery_script(
     project_dir: Path,
     spec_dir: Path,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Run the analyzer.py script to discover project structure.
 
     Returns:

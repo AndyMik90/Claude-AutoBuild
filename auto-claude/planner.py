@@ -22,23 +22,23 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from implementation_plan import (
     ImplementationPlan,
     Phase,
-    Subtask,
-    Verification,
-    WorkflowType,
     PhaseType,
+    Subtask,
     SubtaskStatus,
+    Verification,
     VerificationType,
+    WorkflowType,
 )
 
 
 @dataclass
 class PlannerContext:
     """Context gathered for planning."""
+
     spec_content: str
     project_index: dict
     task_context: dict
@@ -53,7 +53,7 @@ class ImplementationPlanner:
 
     def __init__(self, spec_dir: Path):
         self.spec_dir = spec_dir
-        self.context: Optional[PlannerContext] = None
+        self.context: PlannerContext | None = None
 
     def load_context(self) -> PlannerContext:
         """Load all context files from spec directory."""
@@ -97,7 +97,7 @@ class ImplementationPlanner:
 
     def _determine_workflow_type(self, spec_content: str) -> WorkflowType:
         """Determine workflow type from multiple sources.
-        
+
         Priority order (highest to lowest):
         1. requirements.json - User's explicit intent
         2. complexity_assessment.json - AI's assessment
@@ -105,13 +105,13 @@ class ImplementationPlanner:
         4. Keyword-based detection - Last resort fallback
         """
         type_mapping = {
-            'feature': WorkflowType.FEATURE,
-            'refactor': WorkflowType.REFACTOR,
-            'investigation': WorkflowType.INVESTIGATION,
-            'migration': WorkflowType.MIGRATION,
-            'simple': WorkflowType.SIMPLE,
+            "feature": WorkflowType.FEATURE,
+            "refactor": WorkflowType.REFACTOR,
+            "investigation": WorkflowType.INVESTIGATION,
+            "migration": WorkflowType.MIGRATION,
+            "simple": WorkflowType.SIMPLE,
         }
-        
+
         # 1. Check requirements.json (user's explicit intent)
         requirements_file = self.spec_dir / "requirements.json"
         if requirements_file.exists():
@@ -123,7 +123,7 @@ class ImplementationPlanner:
                     return type_mapping[declared_type]
             except (json.JSONDecodeError, KeyError):
                 pass
-        
+
         # 2. Check complexity_assessment.json (AI's assessment)
         assessment_file = self.spec_dir / "complexity_assessment.json"
         if assessment_file.exists():
@@ -135,35 +135,35 @@ class ImplementationPlanner:
                     return type_mapping[declared_type]
             except (json.JSONDecodeError, KeyError):
                 pass
-        
+
         # 3. & 4. Fall back to spec content detection
         return self._detect_workflow_type_from_spec(spec_content)
-    
+
     def _detect_workflow_type_from_spec(self, spec_content: str) -> WorkflowType:
         """Detect workflow type from spec content (fallback method).
-        
+
         Priority:
         1. Explicit Type: declaration in spec.md
         2. Keyword-based detection (last resort)
         """
         content_lower = spec_content.lower()
-        
+
         type_mapping = {
-            'feature': WorkflowType.FEATURE,
-            'refactor': WorkflowType.REFACTOR,
-            'investigation': WorkflowType.INVESTIGATION,
-            'migration': WorkflowType.MIGRATION,
-            'simple': WorkflowType.SIMPLE,
+            "feature": WorkflowType.FEATURE,
+            "refactor": WorkflowType.REFACTOR,
+            "investigation": WorkflowType.INVESTIGATION,
+            "migration": WorkflowType.MIGRATION,
+            "simple": WorkflowType.SIMPLE,
         }
-        
+
         # Check for explicit workflow type declaration in spec
         # Look for patterns like "**Type**: feature" or "Type: refactor"
         explicit_type_patterns = [
-            r'\*\*type\*\*:\s*(\w+)',      # **Type**: feature
-            r'type:\s*(\w+)',               # Type: feature
-            r'workflow\s*type:\s*(\w+)',    # Workflow Type: feature
+            r"\*\*type\*\*:\s*(\w+)",  # **Type**: feature
+            r"type:\s*(\w+)",  # Type: feature
+            r"workflow\s*type:\s*(\w+)",  # Workflow Type: feature
         ]
-        
+
         for pattern in explicit_type_patterns:
             match = re.search(pattern, content_lower)
             if match:
@@ -173,25 +173,51 @@ class ImplementationPlanner:
 
         # FALLBACK: Keyword-based detection (only if no explicit type found)
         # Investigation indicators
-        investigation_keywords = ["bug", "fix", "issue", "broken", "not working", "investigate", "debug"]
+        investigation_keywords = [
+            "bug",
+            "fix",
+            "issue",
+            "broken",
+            "not working",
+            "investigate",
+            "debug",
+        ]
         if any(kw in content_lower for kw in investigation_keywords):
             # Check if it's clearly a bug investigation
-            if "unknown" in content_lower or "intermittent" in content_lower or "random" in content_lower:
+            if (
+                "unknown" in content_lower
+                or "intermittent" in content_lower
+                or "random" in content_lower
+            ):
                 return WorkflowType.INVESTIGATION
 
         # Refactor indicators - only match if the INTENT is to refactor, not incidental mentions
         # These should be in headings or task descriptions, not implementation notes
-        refactor_keywords = ["migrate", "refactor", "convert", "upgrade", "replace", "move from", "transition"]
+        refactor_keywords = [
+            "migrate",
+            "refactor",
+            "convert",
+            "upgrade",
+            "replace",
+            "move from",
+            "transition",
+        ]
         # Check if refactor keyword appears in a heading or workflow type context
-        for line in spec_content.split('\n'):
+        for line in spec_content.split("\n"):
             line_lower = line.lower().strip()
             # Only trigger on headings or explicit task descriptions
-            if line_lower.startswith(('#', '**', '- [ ]', '- [x]')):
+            if line_lower.startswith(("#", "**", "- [ ]", "- [x]")):
                 if any(kw in line_lower for kw in refactor_keywords):
                     return WorkflowType.REFACTOR
 
         # Migration indicators (data)
-        migration_keywords = ["data migration", "migrate data", "import", "export", "batch"]
+        migration_keywords = [
+            "data migration",
+            "migrate data",
+            "import",
+            "export",
+            "batch",
+        ]
         if any(kw in content_lower for kw in migration_keywords):
             return WorkflowType.MIGRATION
 
@@ -208,7 +234,7 @@ class ImplementationPlanner:
                 # Remove common prefixes
                 for prefix in ["Specification:", "Spec:", "Feature:"]:
                     if title.startswith(prefix):
-                        title = title[len(prefix):].strip()
+                        title = title[len(prefix) :].strip()
                 return title
 
         return "Unnamed Feature"
@@ -223,7 +249,9 @@ class ImplementationPlanner:
 
             # Try to infer service from path if not specified
             if service == "unknown":
-                for svc_name, svc_info in self.context.project_index.get("services", {}).items():
+                for svc_name, svc_info in self.context.project_index.get(
+                    "services", {}
+                ).items():
                     svc_path = svc_info.get("path", svc_name)
                     if path.startswith(svc_path) or path.startswith(f"{svc_name}/"):
                         service = svc_name
@@ -319,27 +347,47 @@ class ImplementationPlanner:
                 subtask_type = "code"
                 if "model" in path.lower() or "schema" in path.lower():
                     subtask_type = "model"
-                elif "route" in path.lower() or "endpoint" in path.lower() or "api" in path.lower():
+                elif (
+                    "route" in path.lower()
+                    or "endpoint" in path.lower()
+                    or "api" in path.lower()
+                ):
                     subtask_type = "endpoint"
-                elif "component" in path.lower() or path.endswith(".tsx") or path.endswith(".jsx"):
+                elif (
+                    "component" in path.lower()
+                    or path.endswith(".tsx")
+                    or path.endswith(".jsx")
+                ):
                     subtask_type = "component"
-                elif "task" in path.lower() or "worker" in path.lower() or "celery" in path.lower():
+                elif (
+                    "task" in path.lower()
+                    or "worker" in path.lower()
+                    or "celery" in path.lower()
+                ):
                     subtask_type = "task"
 
                 subtask_id = Path(path).stem.replace(".", "-").lower()
 
-                subtasks.append(Subtask(
-                    id=f"{service}-{subtask_id}",
-                    description=f"Modify {path}: {reason}" if reason else f"Update {path}",
-                    service=service,
-                    files_to_modify=[path],
-                    patterns_from=patterns,
-                    verification=self._create_verification(service, subtask_type),
-                ))
+                subtasks.append(
+                    Subtask(
+                        id=f"{service}-{subtask_id}",
+                        description=f"Modify {path}: {reason}"
+                        if reason
+                        else f"Update {path}",
+                        service=service,
+                        files_to_modify=[path],
+                        patterns_from=patterns,
+                        verification=self._create_verification(service, subtask_type),
+                    )
+                )
 
             # Determine dependencies
             depends_on = []
-            service_type = self.context.project_index.get("services", {}).get(service, {}).get("type", "")
+            service_type = (
+                self.context.project_index.get("services", {})
+                .get(service, {})
+                .get("type", "")
+            )
 
             if service_type in ["worker", "celery", "jobs"] and backend_phase:
                 depends_on = [backend_phase]
@@ -367,32 +415,34 @@ class ImplementationPlanner:
             phase_num += 1
             integration_depends = list(range(1, phase_num))
 
-            phases.append(Phase(
-                phase=phase_num,
-                name="Integration",
-                type=PhaseType.INTEGRATION,
-                depends_on=integration_depends,
-                subtasks=[
-                    Subtask(
-                        id="integration-wiring",
-                        description="Wire all services together",
-                        all_services=True,
-                        verification=Verification(
-                            type=VerificationType.BROWSER,
-                            scenario="End-to-end flow works",
+            phases.append(
+                Phase(
+                    phase=phase_num,
+                    name="Integration",
+                    type=PhaseType.INTEGRATION,
+                    depends_on=integration_depends,
+                    subtasks=[
+                        Subtask(
+                            id="integration-wiring",
+                            description="Wire all services together",
+                            all_services=True,
+                            verification=Verification(
+                                type=VerificationType.BROWSER,
+                                scenario="End-to-end flow works",
+                            ),
                         ),
-                    ),
-                    Subtask(
-                        id="integration-testing",
-                        description="Verify complete feature works",
-                        all_services=True,
-                        verification=Verification(
-                            type=VerificationType.BROWSER,
-                            scenario="All acceptance criteria met",
+                        Subtask(
+                            id="integration-testing",
+                            description="Verify complete feature works",
+                            all_services=True,
+                            verification=Verification(
+                                type=VerificationType.BROWSER,
+                                scenario="All acceptance criteria met",
+                            ),
                         ),
-                    ),
-                ],
-            ))
+                    ],
+                )
+            )
 
         # Extract final acceptance from spec
         final_acceptance = self._extract_acceptance_criteria()
@@ -420,7 +470,9 @@ class ImplementationPlanner:
                         id="add-logging",
                         description="Add detailed logging around suspected problem areas",
                         expected_output="Logs capture relevant state changes and events",
-                        files_to_modify=[f.get("path", "") for f in self.context.files_to_modify[:3]],
+                        files_to_modify=[
+                            f.get("path", "") for f in self.context.files_to_modify[:3]
+                        ],
                     ),
                     Subtask(
                         id="create-repro",
@@ -514,8 +566,13 @@ class ImplementationPlanner:
                     Subtask(
                         id="add-new-implementation",
                         description="Implement new system alongside existing",
-                        files_to_modify=[f.get("path", "") for f in self.context.files_to_modify],
-                        patterns_from=[f.get("path", "") for f in self.context.files_to_reference[:3]],
+                        files_to_modify=[
+                            f.get("path", "") for f in self.context.files_to_modify
+                        ],
+                        patterns_from=[
+                            f.get("path", "")
+                            for f in self.context.files_to_reference[:3]
+                        ],
                         verification=Verification(
                             type=VerificationType.COMMAND,
                             run="echo 'New system added - both old and new should work'",
@@ -597,7 +654,15 @@ class ImplementationPlanner:
 
         for line in self.context.spec_content.split("\n"):
             # Look for success criteria or acceptance sections
-            if any(header in line.lower() for header in ["success criteria", "acceptance", "done when", "complete when"]):
+            if any(
+                header in line.lower()
+                for header in [
+                    "success criteria",
+                    "acceptance",
+                    "done when",
+                    "complete when",
+                ]
+            ):
                 in_criteria_section = True
                 continue
 

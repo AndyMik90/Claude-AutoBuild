@@ -43,6 +43,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Load .env file
 from dotenv import load_dotenv
+
 env_file = Path(__file__).parent / ".env"
 dev_env_file = Path(__file__).parent.parent / "dev" / "auto-claude" / ".env"
 if env_file.exists():
@@ -51,8 +52,8 @@ elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
 from review import ReviewState
-from ui import Icons, highlight, icon, muted, print_section, print_status
 from spec import SpecOrchestrator
+from ui import Icons, highlight, icon, muted, print_section, print_status
 
 
 def main():
@@ -80,7 +81,7 @@ Examples:
 
   # Interactive mode
   python spec_runner.py --interactive
-        """
+        """,
     )
     parser.add_argument(
         "--task",
@@ -164,9 +165,11 @@ Examples:
     if task_description:
         # Warn about very long descriptions but don't block
         if len(task_description) > 5000:
-            print(f"Warning: Task description is very long ({len(task_description)} chars). Consider breaking into subtasks.")
+            print(
+                f"Warning: Task description is very long ({len(task_description)} chars). Consider breaking into subtasks."
+            )
         # Sanitize null bytes which could cause issues
-        task_description = task_description.replace('\x00', '')
+        task_description = task_description.replace("\x00", "")
 
     # Find project root (look for auto-claude folder)
     project_dir = args.project_dir
@@ -185,7 +188,9 @@ Examples:
 
     # Note: --dev flag is deprecated but kept for API compatibility
     if args.dev:
-        print(f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now go to .auto-claude/specs/\n")
+        print(
+            f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now go to .auto-claude/specs/\n"
+        )
 
     orchestrator = SpecOrchestrator(
         project_dir=project_dir,
@@ -199,10 +204,12 @@ Examples:
     )
 
     try:
-        success = asyncio.run(orchestrator.run(
-            interactive=args.interactive or not task_description,
-            auto_approve=args.auto_approve,
-        ))
+        success = asyncio.run(
+            orchestrator.run(
+                interactive=args.interactive or not task_description,
+                auto_approve=args.auto_approve,
+            )
+        )
 
         if not success:
             sys.exit(1)
@@ -216,10 +223,16 @@ Examples:
                 print_status("Build cannot start: spec not approved.", "error")
                 print()
                 print(f"  {muted('To approve the spec, run:')}")
-                print(f"  {highlight(f'python auto-claude/review.py --spec-dir {orchestrator.spec_dir}')}")
+                print(
+                    f"  {highlight(f'python auto-claude/review.py --spec-dir {orchestrator.spec_dir}')}"
+                )
                 print()
-                print(f"  {muted('Or re-run spec_runner with --auto-approve to skip review:')}")
-                print(f"  {highlight(f'python auto-claude/spec_runner.py --task \"...\" --auto-approve')}")
+                print(
+                    f"  {muted('Or re-run spec_runner with --auto-approve to skip review:')}"
+                )
+                print(
+                    f"  {highlight('python auto-claude/spec_runner.py --task "..." --auto-approve')}"
+                )
                 sys.exit(1)
 
             print()
@@ -231,8 +244,10 @@ Examples:
             run_cmd = [
                 sys.executable,
                 str(run_script),
-                "--spec", orchestrator.spec_dir.name,
-                "--project-dir", str(orchestrator.project_dir),
+                "--spec",
+                orchestrator.spec_dir.name,
+                "--project-dir",
+                str(orchestrator.project_dir),
                 "--auto-continue",  # Non-interactive mode for chained execution
             ]
 
@@ -254,7 +269,9 @@ Examples:
 
     except KeyboardInterrupt:
         print("\n\nSpec creation interrupted.")
-        print(f"To continue: python auto-claude/spec_runner.py --continue {orchestrator.spec_dir.name}")
+        print(
+            f"To continue: python auto-claude/spec_runner.py --continue {orchestrator.spec_dir.name}"
+        )
         sys.exit(1)
 
 

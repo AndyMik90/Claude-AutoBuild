@@ -16,20 +16,22 @@ Example:
     python ai_analyzer_runner.py --skip-cache
 """
 
-from pathlib import Path
-from typing import Optional
-import json
-import time
 import asyncio
+import json
 import os
+import time
 from datetime import datetime
+from pathlib import Path
 
 try:
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
     CLAUDE_SDK_AVAILABLE = True
 except ImportError:
     CLAUDE_SDK_AVAILABLE = False
-    print("⚠️  Warning: claude-agent-sdk not available. Install with: pip install claude-agent-sdk")
+    print(
+        "⚠️  Warning: claude-agent-sdk not available. Install with: pip install claude-agent-sdk"
+    )
 
 
 class AIAnalyzerRunner:
@@ -49,9 +51,7 @@ class AIAnalyzerRunner:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     async def run_full_analysis(
-        self,
-        skip_cache: bool = False,
-        selected_analyzers: Optional[list[str]] = None
+        self, skip_cache: bool = False, selected_analyzers: list[str] | None = None
     ) -> dict:
         """
         Run all AI analyzers.
@@ -85,7 +85,7 @@ class AIAnalyzerRunner:
 
         # Estimate cost before running
         cost_estimate = self._estimate_cost()
-        print(f"\n📊 Cost Estimate:")
+        print("\n📊 Cost Estimate:")
         print(f"   Tokens: ~{cost_estimate['estimated_tokens']:,}")
         print(f"   Cost: ~${cost_estimate['estimated_cost_usd']:.4f} USD")
         print(f"   Files: {cost_estimate['files_to_analyze']}")
@@ -104,7 +104,7 @@ class AIAnalyzerRunner:
             "architecture",
             "security",
             "performance",
-            "code_quality"
+            "code_quality",
         ]
 
         analyzers_to_run = selected_analyzers if selected_analyzers else all_analyzers
@@ -174,10 +174,12 @@ class AIAnalyzerRunner:
         routes = service_data.get("api", {}).get("routes", [])
         models = service_data.get("database", {}).get("models", {})
 
-        routes_str = "\n".join([
-            f"  - {r['methods']} {r['path']} (in {r['file']})"
-            for r in routes[:10]  # Limit to top 10
-        ])
+        routes_str = "\n".join(
+            [
+                f"  - {r['methods']} {r['path']} (in {r['file']})"
+                for r in routes[:10]  # Limit to top 10
+            ]
+        )
 
         models_str = "\n".join([f"  - {name}" for name in list(models.keys())[:10]])
 
@@ -225,7 +227,7 @@ Use Read, Grep, and Glob tools to analyze the codebase. Focus on actual code, no
         service_name, service_data = next(iter(services.items()))
         routes = service_data.get("api", {}).get("routes", [])
 
-        prompt = f"""Analyze the business logic in this project.
+        prompt = """Analyze the business logic in this project.
 
 Identify the key business workflows (payment processing, user registration, data sync, etc.).
 For each workflow:
@@ -235,19 +237,19 @@ For each workflow:
 4. What happens on success vs failure?
 
 Output JSON:
-{{
+{
   "workflows": [
-    {{
+    {
       "name": "User Registration",
       "trigger": "POST /users",
       "steps": ["validate input", "create user", "send email", "return token"],
       "business_rules": ["email must be unique", "password min 8 chars"],
       "error_handling": "rolls back transaction on failure"
-    }}
+    }
   ],
   "key_business_rules": [],
   "score": 80
-}}
+}
 
 Use Read and Grep to analyze actual code logic."""
 
@@ -282,7 +284,9 @@ Output JSON:
 Analyze the actual code structure using Read, Grep, and Glob."""
 
         result = await self._run_claude_query(prompt)
-        return self._parse_json_response(result, {"score": 0, "architecture_style": "unknown"})
+        return self._parse_json_response(
+            result, {"score": 0, "architecture_style": "unknown"}
+        )
 
     async def _analyze_security(self) -> dict:
         """Analyze security vulnerabilities."""
@@ -395,9 +399,7 @@ Use Read and Glob to analyze code structure."""
         """
         oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
         if not oauth_token:
-            raise ValueError(
-                "CLAUDE_CODE_OAUTH_TOKEN not set. Run: claude setup-token"
-            )
+            raise ValueError("CLAUDE_CODE_OAUTH_TOKEN not set. Run: claude setup-token")
 
         # Create minimal security settings
         settings = {
@@ -490,7 +492,7 @@ Use Read and Glob to analyze code structure."""
         end_idx = response.rfind("}")
         if start_idx >= 0 and end_idx > start_idx:
             try:
-                return json.loads(response[start_idx:end_idx + 1])
+                return json.loads(response[start_idx : end_idx + 1])
             except json.JSONDecodeError:
                 pass
 
@@ -504,7 +506,7 @@ Use Read and Glob to analyze code structure."""
             return {
                 "estimated_tokens": 0,
                 "estimated_cost_usd": 0.0,
-                "files_to_analyze": 0
+                "files_to_analyze": 0,
             }
 
         # Count items from programmatic analysis
@@ -518,10 +520,18 @@ Use Read and Glob to analyze code structure."""
 
         # Count Python files in project
         python_files = list(self.project_dir.glob("**/*.py"))
-        total_files = len([f for f in python_files if ".venv" not in str(f) and "node_modules" not in str(f)])
+        total_files = len(
+            [
+                f
+                for f in python_files
+                if ".venv" not in str(f) and "node_modules" not in str(f)
+            ]
+        )
 
         # Rough estimation: each route = 500 tokens, each model = 300 tokens, each file scan = 200 tokens
-        estimated_tokens = (total_routes * 500) + (total_models * 300) + (total_files * 200)
+        estimated_tokens = (
+            (total_routes * 500) + (total_models * 300) + (total_files * 200)
+        )
 
         # Claude Sonnet pricing: $9.00 per 1M tokens (input)
         cost_per_1m_tokens = 9.00
@@ -532,7 +542,7 @@ Use Read and Glob to analyze code structure."""
             "estimated_cost_usd": estimated_cost,
             "files_to_analyze": total_files,
             "routes_count": total_routes,
-            "models_count": total_models
+            "models_count": total_models,
         }
 
     def print_summary(self, insights: dict):
@@ -550,7 +560,14 @@ Use Read and Glob to analyze code structure."""
 
         # Print each analyzer's score
         print("\n🤖 Analyzer Scores:")
-        analyzers = ["code_relationships", "business_logic", "architecture", "security", "performance", "code_quality"]
+        analyzers = [
+            "code_relationships",
+            "business_logic",
+            "architecture",
+            "security",
+            "performance",
+            "code_quality",
+        ]
         for name in analyzers:
             if name in insights and "error" not in insights[name]:
                 score = insights[name].get("score", 0)
@@ -562,14 +579,18 @@ Use Read and Glob to analyze code structure."""
             if vulns:
                 print(f"\n🔒 Security: Found {len(vulns)} vulnerabilities")
                 for vuln in vulns[:3]:
-                    print(f"   - [{vuln.get('severity', 'unknown')}] {vuln.get('type', 'Unknown')}")
+                    print(
+                        f"   - [{vuln.get('severity', 'unknown')}] {vuln.get('type', 'Unknown')}"
+                    )
 
         if "performance" in insights and "bottlenecks" in insights["performance"]:
             bottlenecks = insights["performance"]["bottlenecks"]
             if bottlenecks:
                 print(f"\n⚡ Performance: Found {len(bottlenecks)} bottlenecks")
                 for bn in bottlenecks[:3]:
-                    print(f"   - {bn.get('type', 'Unknown')} in {bn.get('location', 'unknown')}")
+                    print(
+                        f"   - {bn.get('type', 'Unknown')} in {bn.get('location', 'unknown')}"
+                    )
 
 
 def main():
@@ -577,14 +598,26 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="AI-Enhanced Project Analyzer")
-    parser.add_argument("--project-dir", type=Path, default=Path.cwd(),
-                        help="Project directory to analyze")
-    parser.add_argument("--index", type=str, default="comprehensive_analysis.json",
-                        help="Path to programmatic analysis JSON")
-    parser.add_argument("--skip-cache", action="store_true",
-                        help="Skip cached results and re-analyze")
-    parser.add_argument("--analyzers", nargs="+",
-                        help="Run only specific analyzers (code_relationships, business_logic, etc.)")
+    parser.add_argument(
+        "--project-dir",
+        type=Path,
+        default=Path.cwd(),
+        help="Project directory to analyze",
+    )
+    parser.add_argument(
+        "--index",
+        type=str,
+        default="comprehensive_analysis.json",
+        help="Path to programmatic analysis JSON",
+    )
+    parser.add_argument(
+        "--skip-cache", action="store_true", help="Skip cached results and re-analyze"
+    )
+    parser.add_argument(
+        "--analyzers",
+        nargs="+",
+        help="Run only specific analyzers (code_relationships, business_logic, etc.)",
+    )
 
     args = parser.parse_args()
 
@@ -603,8 +636,7 @@ def main():
     # Run async analysis
     insights = asyncio.run(
         analyzer.run_full_analysis(
-            skip_cache=args.skip_cache,
-            selected_analyzers=args.analyzers
+            skip_cache=args.skip_cache, selected_analyzers=args.analyzers
         )
     )
 

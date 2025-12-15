@@ -32,10 +32,11 @@ Usage:
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 try:
-    from claude_agent_sdk import tool, create_sdk_mcp_server
+    from claude_agent_sdk import create_sdk_mcp_server, tool
+
     SDK_TOOLS_AVAILABLE = True
 except ImportError:
     SDK_TOOLS_AVAILABLE = False
@@ -46,6 +47,7 @@ except ImportError:
 # =============================================================================
 # Tool Definitions
 # =============================================================================
+
 
 def _create_tools(spec_dir: Path, project_dir: Path):
     """Create all custom tools with the given spec and project directories."""
@@ -61,7 +63,7 @@ def _create_tools(spec_dir: Path, project_dir: Path):
     @tool(
         "update_subtask_status",
         "Update the status of a subtask in implementation_plan.json. Use this when completing or starting a subtask.",
-        {"subtask_id": str, "status": str, "notes": str}
+        {"subtask_id": str, "status": str, "notes": str},
     )
     async def update_subtask_status(args: dict[str, Any]) -> dict[str, Any]:
         """Update subtask status in the implementation plan."""
@@ -72,23 +74,27 @@ def _create_tools(spec_dir: Path, project_dir: Path):
         valid_statuses = ["pending", "in_progress", "completed", "failed"]
         if status not in valid_statuses:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error: Invalid status '{status}'. Must be one of: {valid_statuses}"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error: Invalid status '{status}'. Must be one of: {valid_statuses}",
+                    }
+                ]
             }
 
         plan_file = spec_dir / "implementation_plan.json"
         if not plan_file.exists():
             return {
-                "content": [{
-                    "type": "text",
-                    "text": "Error: implementation_plan.json not found"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Error: implementation_plan.json not found",
+                    }
+                ]
             }
 
         try:
-            with open(plan_file, "r") as f:
+            with open(plan_file) as f:
                 plan = json.load(f)
 
             # Find and update the subtask
@@ -107,10 +113,12 @@ def _create_tools(spec_dir: Path, project_dir: Path):
 
             if not subtask_found:
                 return {
-                    "content": [{
-                        "type": "text",
-                        "text": f"Error: Subtask '{subtask_id}' not found in implementation plan"
-                    }]
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Error: Subtask '{subtask_id}' not found in implementation plan",
+                        }
+                    ]
                 }
 
             # Update plan metadata
@@ -120,25 +128,28 @@ def _create_tools(spec_dir: Path, project_dir: Path):
                 json.dump(plan, f, indent=2)
 
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Successfully updated subtask '{subtask_id}' to status '{status}'"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully updated subtask '{subtask_id}' to status '{status}'",
+                    }
+                ]
             }
 
         except json.JSONDecodeError as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error: Invalid JSON in implementation_plan.json: {e}"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error: Invalid JSON in implementation_plan.json: {e}",
+                    }
+                ]
             }
         except Exception as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error updating subtask status: {e}"
-                }]
+                "content": [
+                    {"type": "text", "text": f"Error updating subtask status: {e}"}
+                ]
             }
 
     tools.append(update_subtask_status)
@@ -149,7 +160,7 @@ def _create_tools(spec_dir: Path, project_dir: Path):
     @tool(
         "get_build_progress",
         "Get the current build progress including completed subtasks, pending subtasks, and next subtask to work on.",
-        {}
+        {},
     )
     async def get_build_progress(args: dict[str, Any]) -> dict[str, Any]:
         """Get current build progress."""
@@ -157,14 +168,16 @@ def _create_tools(spec_dir: Path, project_dir: Path):
 
         if not plan_file.exists():
             return {
-                "content": [{
-                    "type": "text",
-                    "text": "No implementation plan found. Run the planner first."
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "No implementation plan found. Run the planner first.",
+                    }
+                ]
             }
 
         try:
-            with open(plan_file, "r") as f:
+            with open(plan_file) as f:
                 plan = json.load(f)
 
             stats = {
@@ -206,17 +219,21 @@ def _create_tools(spec_dir: Path, project_dir: Path):
                                 "phase": phase_name,
                             }
 
-                phases_summary.append(f"  {phase_name}: {phase_stats['completed']}/{phase_stats['total']}")
+                phases_summary.append(
+                    f"  {phase_name}: {phase_stats['completed']}/{phase_stats['total']}"
+                )
 
-            progress_pct = (stats["completed"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            progress_pct = (
+                (stats["completed"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            )
 
-            result = f"""Build Progress: {stats['completed']}/{stats['total']} subtasks ({progress_pct:.0f}%)
+            result = f"""Build Progress: {stats["completed"]}/{stats["total"]} subtasks ({progress_pct:.0f}%)
 
 Status breakdown:
-  Completed: {stats['completed']}
-  In Progress: {stats['in_progress']}
-  Pending: {stats['pending']}
-  Failed: {stats['failed']}
+  Completed: {stats["completed"]}
+  In Progress: {stats["in_progress"]}
+  Pending: {stats["pending"]}
+  Failed: {stats["failed"]}
 
 Phases:
 {chr(10).join(phases_summary)}"""
@@ -225,25 +242,19 @@ Phases:
                 result += f"""
 
 Next subtask to work on:
-  ID: {next_subtask['id']}
-  Phase: {next_subtask['phase']}
-  Description: {next_subtask['description']}"""
+  ID: {next_subtask["id"]}
+  Phase: {next_subtask["phase"]}
+  Description: {next_subtask["description"]}"""
             elif stats["completed"] == stats["total"]:
                 result += "\n\nAll subtasks completed! Build is ready for QA."
 
-            return {
-                "content": [{
-                    "type": "text",
-                    "text": result
-                }]
-            }
+            return {"content": [{"type": "text", "text": result}]}
 
         except Exception as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error reading build progress: {e}"
-                }]
+                "content": [
+                    {"type": "text", "text": f"Error reading build progress: {e}"}
+                ]
             }
 
     tools.append(get_build_progress)
@@ -254,7 +265,7 @@ Next subtask to work on:
     @tool(
         "record_discovery",
         "Record a codebase discovery to session memory. Use this when you learn something important about the codebase.",
-        {"file_path": str, "description": str, "category": str}
+        {"file_path": str, "description": str, "category": str},
     )
     async def record_discovery(args: dict[str, Any]) -> dict[str, Any]:
         """Record a discovery to the codebase map."""
@@ -270,7 +281,7 @@ Next subtask to work on:
         try:
             # Load existing map or create new
             if codebase_map_file.exists():
-                with open(codebase_map_file, "r") as f:
+                with open(codebase_map_file) as f:
                     codebase_map = json.load(f)
             else:
                 codebase_map = {
@@ -290,18 +301,17 @@ Next subtask to work on:
                 json.dump(codebase_map, f, indent=2)
 
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Recorded discovery for '{file_path}': {description}"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Recorded discovery for '{file_path}': {description}",
+                    }
+                ]
             }
 
         except Exception as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error recording discovery: {e}"
-                }]
+                "content": [{"type": "text", "text": f"Error recording discovery: {e}"}]
             }
 
     tools.append(record_discovery)
@@ -312,7 +322,7 @@ Next subtask to work on:
     @tool(
         "record_gotcha",
         "Record a gotcha or pitfall to avoid. Use this when you encounter something that future sessions should know.",
-        {"gotcha": str, "context": str}
+        {"gotcha": str, "context": str},
     )
     async def record_gotcha(args: dict[str, Any]) -> dict[str, Any]:
         """Record a gotcha to session memory."""
@@ -334,22 +344,16 @@ Next subtask to work on:
 
             with open(gotchas_file, "a") as f:
                 if not gotchas_file.exists() or gotchas_file.stat().st_size == 0:
-                    f.write("# Gotchas & Pitfalls\n\nThings to watch out for in this codebase.\n")
+                    f.write(
+                        "# Gotchas & Pitfalls\n\nThings to watch out for in this codebase.\n"
+                    )
                 f.write(entry)
 
-            return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Recorded gotcha: {gotcha}"
-                }]
-            }
+            return {"content": [{"type": "text", "text": f"Recorded gotcha: {gotcha}"}]}
 
         except Exception as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error recording gotcha: {e}"
-                }]
+                "content": [{"type": "text", "text": f"Error recording gotcha: {e}"}]
             }
 
     tools.append(record_gotcha)
@@ -360,7 +364,7 @@ Next subtask to work on:
     @tool(
         "get_session_context",
         "Get context from previous sessions including discoveries, gotchas, and patterns.",
-        {}
+        {},
     )
     async def get_session_context(args: dict[str, Any]) -> dict[str, Any]:
         """Get accumulated session context."""
@@ -368,10 +372,12 @@ Next subtask to work on:
 
         if not memory_dir.exists():
             return {
-                "content": [{
-                    "type": "text",
-                    "text": "No session memory found. This appears to be the first session."
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "No session memory found. This appears to be the first session.",
+                    }
+                ]
             }
 
         result_parts = []
@@ -380,7 +386,7 @@ Next subtask to work on:
         codebase_map_file = memory_dir / "codebase_map.json"
         if codebase_map_file.exists():
             try:
-                with open(codebase_map_file, "r") as f:
+                with open(codebase_map_file) as f:
                     codebase_map = json.load(f)
 
                 discoveries = codebase_map.get("discovered_files", {})
@@ -400,7 +406,9 @@ Next subtask to work on:
                 if content.strip():
                     result_parts.append("\n## Gotchas")
                     # Take last 1000 chars to avoid too much context
-                    result_parts.append(content[-1000:] if len(content) > 1000 else content)
+                    result_parts.append(
+                        content[-1000:] if len(content) > 1000 else content
+                    )
             except Exception:
                 pass
 
@@ -411,24 +419,20 @@ Next subtask to work on:
                 content = patterns_file.read_text()
                 if content.strip():
                     result_parts.append("\n## Patterns")
-                    result_parts.append(content[-1000:] if len(content) > 1000 else content)
+                    result_parts.append(
+                        content[-1000:] if len(content) > 1000 else content
+                    )
             except Exception:
                 pass
 
         if not result_parts:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": "No session context available yet."
-                }]
+                "content": [
+                    {"type": "text", "text": "No session context available yet."}
+                ]
             }
 
-        return {
-            "content": [{
-                "type": "text",
-                "text": "\n".join(result_parts)
-            }]
-        }
+        return {"content": [{"type": "text", "text": "\n".join(result_parts)}]}
 
     tools.append(get_session_context)
 
@@ -438,7 +442,7 @@ Next subtask to work on:
     @tool(
         "update_qa_status",
         "Update the QA sign-off status in implementation_plan.json. Use after QA review.",
-        {"status": str, "issues": str, "tests_passed": str}
+        {"status": str, "issues": str, "tests_passed": str},
     )
     async def update_qa_status(args: dict[str, Any]) -> dict[str, Any]:
         """Update QA status in the implementation plan."""
@@ -446,22 +450,32 @@ Next subtask to work on:
         issues_str = args.get("issues", "[]")
         tests_str = args.get("tests_passed", "{}")
 
-        valid_statuses = ["pending", "in_review", "approved", "rejected", "fixes_applied"]
+        valid_statuses = [
+            "pending",
+            "in_review",
+            "approved",
+            "rejected",
+            "fixes_applied",
+        ]
         if status not in valid_statuses:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error: Invalid QA status '{status}'. Must be one of: {valid_statuses}"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error: Invalid QA status '{status}'. Must be one of: {valid_statuses}",
+                    }
+                ]
             }
 
         plan_file = spec_dir / "implementation_plan.json"
         if not plan_file.exists():
             return {
-                "content": [{
-                    "type": "text",
-                    "text": "Error: implementation_plan.json not found"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Error: implementation_plan.json not found",
+                    }
+                ]
             }
 
         try:
@@ -476,7 +490,7 @@ Next subtask to work on:
             except json.JSONDecodeError:
                 tests_passed = {}
 
-            with open(plan_file, "r") as f:
+            with open(plan_file) as f:
                 plan = json.load(f)
 
             # Get current QA session number
@@ -509,18 +523,17 @@ Next subtask to work on:
                 json.dump(plan, f, indent=2)
 
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Updated QA status to '{status}' (session {qa_session})"
-                }]
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Updated QA status to '{status}' (session {qa_session})",
+                    }
+                ]
             }
 
         except Exception as e:
             return {
-                "content": [{
-                    "type": "text",
-                    "text": f"Error updating QA status: {e}"
-                }]
+                "content": [{"type": "text", "text": f"Error updating QA status: {e}"}]
             }
 
     tools.append(update_qa_status)
@@ -531,6 +544,7 @@ Next subtask to work on:
 # =============================================================================
 # Public API
 # =============================================================================
+
 
 def create_auto_claude_mcp_server(spec_dir: Path, project_dir: Path):
     """
@@ -548,11 +562,7 @@ def create_auto_claude_mcp_server(spec_dir: Path, project_dir: Path):
 
     tools = _create_tools(spec_dir, project_dir)
 
-    return create_sdk_mcp_server(
-        name="auto-claude",
-        version="1.0.0",
-        tools=tools
-    )
+    return create_sdk_mcp_server(name="auto-claude", version="1.0.0", tools=tools)
 
 
 # Tool name constants for easy reference

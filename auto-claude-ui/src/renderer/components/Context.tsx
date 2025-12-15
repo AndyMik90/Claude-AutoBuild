@@ -350,7 +350,7 @@ export function Context({ projectId }: ContextProps) {
                   {memoryStatus?.available ? (
                     <>
                       <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                        <InfoItem label="Database" value={memoryStatus.database || 'auto_build_memory'} />
+                        <InfoItem label="Database" value={memoryStatus.database || 'auto_claude_memory'} />
                         <InfoItem label="Host" value={`${memoryStatus.host}:${memoryStatus.port}`} />
                         {memoryState && (
                           <InfoItem label="Episodes" value={memoryState.episode_count.toString()} />

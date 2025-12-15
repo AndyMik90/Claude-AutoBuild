@@ -71,13 +71,17 @@ class ServiceAnalyzer(BaseAnalyzer):
             self.analysis["type"] = "frontend"
         elif any(kw in name_lower for kw in ["backend", "api", "server", "service"]):
             self.analysis["type"] = "backend"
-        elif any(kw in name_lower for kw in ["worker", "job", "queue", "task", "celery"]):
+        elif any(
+            kw in name_lower for kw in ["worker", "job", "queue", "task", "celery"]
+        ):
             self.analysis["type"] = "worker"
         elif any(kw in name_lower for kw in ["scraper", "crawler", "spider"]):
             self.analysis["type"] = "scraper"
         elif any(kw in name_lower for kw in ["proxy", "gateway", "router"]):
             self.analysis["type"] = "proxy"
-        elif any(kw in name_lower for kw in ["lib", "shared", "common", "core", "utils"]):
+        elif any(
+            kw in name_lower for kw in ["lib", "shared", "common", "core", "utils"]
+        ):
             self.analysis["type"] = "library"
         else:
             # Try to infer from language and content if name doesn't match
@@ -90,7 +94,10 @@ class ServiceAnalyzer(BaseAnalyzer):
                 has_main_module = (self.path / "__main__.py").exists()
 
                 # Check for agent/automation framework patterns
-                has_agent_files = any((self.path / f).exists() for f in ["agent.py", "agents", "runner.py", "runners"])
+                has_agent_files = any(
+                    (self.path / f).exists()
+                    for f in ["agent.py", "agents", "runner.py", "runners"]
+                )
 
                 if has_run_py or has_main_py or has_main_module or has_agent_files:
                     # It's a backend tool/framework/CLI
@@ -145,13 +152,33 @@ class ServiceAnalyzer(BaseAnalyzer):
     def _find_entry_points(self) -> None:
         """Find main entry point files."""
         entry_patterns = [
-            "main.py", "app.py", "__main__.py", "server.py", "wsgi.py", "asgi.py",
-            "index.ts", "index.js", "main.ts", "main.js", "server.ts", "server.js",
-            "app.ts", "app.js", "src/index.ts", "src/index.js", "src/main.ts",
-            "src/app.ts", "src/server.ts", "src/App.tsx", "src/App.jsx",
-            "pages/_app.tsx", "pages/_app.js",  # Next.js
-            "main.go", "cmd/main.go",
-            "src/main.rs", "src/lib.rs",
+            "main.py",
+            "app.py",
+            "__main__.py",
+            "server.py",
+            "wsgi.py",
+            "asgi.py",
+            "index.ts",
+            "index.js",
+            "main.ts",
+            "main.js",
+            "server.ts",
+            "server.js",
+            "app.ts",
+            "app.js",
+            "src/index.ts",
+            "src/index.js",
+            "src/main.ts",
+            "src/app.ts",
+            "src/server.ts",
+            "src/App.tsx",
+            "src/App.jsx",
+            "pages/_app.tsx",
+            "pages/_app.js",  # Next.js
+            "main.go",
+            "cmd/main.go",
+            "src/main.rs",
+            "src/lib.rs",
         ]
 
         for pattern in entry_patterns:
@@ -233,8 +260,12 @@ class ServiceAnalyzer(BaseAnalyzer):
             self.analysis["api"] = {
                 "routes": routes,
                 "total_routes": len(routes),
-                "methods": list(set(method for r in routes for method in r.get("methods", []))),
-                "protected_routes": [r["path"] for r in routes if r.get("requires_auth")]
+                "methods": list(
+                    set(method for r in routes for method in r.get("methods", []))
+                ),
+                "protected_routes": [
+                    r["path"] for r in routes if r.get("requires_auth")
+                ],
             }
 
     def _detect_database_models(self) -> None:
@@ -246,7 +277,7 @@ class ServiceAnalyzer(BaseAnalyzer):
             self.analysis["database"] = {
                 "models": models,
                 "total_models": len(models),
-                "model_names": list(models.keys())
+                "model_names": list(models.keys()),
             }
 
     def _detect_external_services(self) -> None:

@@ -14,36 +14,33 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ui import (
-    Icons,
-    icon,
-    box,
-    muted,
-    print_status,
-    print_key_value,
-    print_section,
-)
 from debug import (
     debug,
     debug_section,
-    debug_success,
-    debug_warning,
 )
 from graphiti_providers import is_graphiti_enabled
 from init import init_auto_claude_dir
+from ui import (
+    Icons,
+    box,
+    icon,
+    muted,
+    print_key_value,
+    print_section,
+    print_status,
+)
+
+from .analyzer import ProjectAnalyzer
+from .formatter import IdeationFormatter
+from .generator import IDEATION_TYPE_LABELS, IDEATION_TYPES, IdeationGenerator
+from .prioritizer import IdeaPrioritizer
 
 # Import ideation components
-from .types import IdeationPhaseResult, IdeationConfig
-from .generator import IdeationGenerator, IDEATION_TYPES, IDEATION_TYPE_LABELS
-from .analyzer import ProjectAnalyzer
-from .prioritizer import IdeaPrioritizer
-from .formatter import IdeationFormatter
-
+from .types import IdeationPhaseResult
 
 # Configuration
 MAX_RETRIES = 3
@@ -55,8 +52,8 @@ class IdeationOrchestrator:
     def __init__(
         self,
         project_dir: Path,
-        output_dir: Optional[Path] = None,
-        enabled_types: Optional[List[str]] = None,
+        output_dir: Path | None = None,
+        enabled_types: list[str] | None = None,
         include_roadmap_context: bool = True,
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
@@ -154,12 +151,16 @@ class IdeationOrchestrator:
         if not is_graphiti_enabled():
             print_status("Graphiti not enabled, skipping graph hints", "info")
             with open(hints_file, "w") as f:
-                json.dump({
-                    "enabled": False,
-                    "reason": "Graphiti not configured",
-                    "hints_by_type": {},
-                    "created_at": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "enabled": False,
+                        "reason": "Graphiti not configured",
+                        "hints_by_type": {},
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
             return IdeationPhaseResult(
                 phase="graph_hints",
                 ideation_type=None,
@@ -196,15 +197,22 @@ class IdeationOrchestrator:
 
         # Save hints
         with open(hints_file, "w") as f:
-            json.dump({
-                "enabled": True,
-                "hints_by_type": hints_by_type,
-                "total_hints": total_hints,
-                "created_at": datetime.now().isoformat(),
-            }, f, indent=2)
+            json.dump(
+                {
+                    "enabled": True,
+                    "hints_by_type": hints_by_type,
+                    "total_hints": total_hints,
+                    "created_at": datetime.now().isoformat(),
+                },
+                f,
+                indent=2,
+            )
 
         if total_hints > 0:
-            print_status(f"Retrieved {total_hints} graph hints across {len(self.enabled_types)} types", "success")
+            print_status(
+                f"Retrieved {total_hints} graph hints across {len(self.enabled_types)} types",
+                "success",
+            )
         else:
             print_status("No relevant graph hints found", "info")
 
@@ -235,7 +243,7 @@ class IdeationOrchestrator:
                 with open(hints_file) as f:
                     hints_data = json.load(f)
                     graph_hints = hints_data.get("hints_by_type", {})
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 pass
 
         # Write context file
@@ -257,10 +265,12 @@ class IdeationOrchestrator:
         with open(context_file, "w") as f:
             json.dump(context_data, f, indent=2)
 
-        print_status(f"Created ideation_context.json", "success")
+        print_status("Created ideation_context.json", "success")
         print_key_value("Tech Stack", ", ".join(context["tech_stack"][:5]) or "Unknown")
         print_key_value("Planned Features", str(len(context["planned_features"])))
-        print_key_value("Target Audience", context["target_audience"] or "Not specified")
+        print_key_value(
+            "Target Audience", context["target_audience"] or "Not specified"
+        )
         if graph_hints:
             total_hints = sum(len(h) for h in graph_hints.values())
             print_key_value("Graph Hints", str(total_hints))
@@ -284,24 +294,30 @@ class IdeationOrchestrator:
         # Check if we can copy existing index
         if auto_build_index.exists():
             import shutil
+
             shutil.copy(auto_build_index, project_index)
             print_status("Copied existing project_index.json", "success")
-            return IdeationPhaseResult("project_index", None, True, [str(project_index)], 0, [], 0)
+            return IdeationPhaseResult(
+                "project_index", None, True, [str(project_index)], 0, [], 0
+            )
 
         if project_index.exists() and not self.refresh:
             print_status("project_index.json already exists", "success")
-            return IdeationPhaseResult("project_index", None, True, [str(project_index)], 0, [], 0)
+            return IdeationPhaseResult(
+                "project_index", None, True, [str(project_index)], 0, [], 0
+            )
 
         # Run analyzer
         print_status("Running project analyzer...", "progress")
         success, output = self._run_script(
-            "analyzer.py",
-            ["--output", str(project_index)]
+            "analyzer.py", ["--output", str(project_index)]
         )
 
         if success and project_index.exists():
             print_status("Created project_index.json", "success")
-            return IdeationPhaseResult("project_index", None, True, [str(project_index)], 0, [], 0)
+            return IdeationPhaseResult(
+                "project_index", None, True, [str(project_index)], 0, [], 0
+            )
 
         return IdeationPhaseResult("project_index", None, False, [], 0, [output], 1)
 
@@ -331,7 +347,10 @@ class IdeationOrchestrator:
 
                 if count >= 1:
                     # Valid ideas exist, skip regeneration
-                    print_status(f"{ideation_type}_ideas.json already exists ({count} ideas)", "success")
+                    print_status(
+                        f"{ideation_type}_ideas.json already exists ({count} ideas)",
+                        "success",
+                    )
                     return IdeationPhaseResult(
                         phase="ideation",
                         ideation_type=ideation_type,
@@ -343,15 +362,24 @@ class IdeationOrchestrator:
                     )
                 else:
                     # File exists but has no valid ideas - needs regeneration
-                    print_status(f"{ideation_type}_ideas.json exists but has 0 ideas, regenerating...", "warning")
+                    print_status(
+                        f"{ideation_type}_ideas.json exists but has 0 ideas, regenerating...",
+                        "warning",
+                    )
             except (json.JSONDecodeError, KeyError):
                 # Invalid file - will regenerate
-                print_status(f"{ideation_type}_ideas.json exists but is invalid, regenerating...", "warning")
+                print_status(
+                    f"{ideation_type}_ideas.json exists but is invalid, regenerating...",
+                    "warning",
+                )
 
         errors = []
 
         # First attempt: run the full ideation agent
-        print_status(f"Running {self.generator.get_type_label(ideation_type)} agent...", "progress")
+        print_status(
+            f"Running {self.generator.get_type_label(ideation_type)} agent...",
+            "progress",
+        )
 
         context = f"""
 **Ideation Context**: {self.output_dir / "ideation_context.json"}
@@ -369,10 +397,15 @@ Output your ideas to {output_file.name}.
         )
 
         # Validate the output
-        validation_result = self.prioritizer.validate_ideation_output(output_file, ideation_type)
+        validation_result = self.prioritizer.validate_ideation_output(
+            output_file, ideation_type
+        )
 
         if validation_result["success"]:
-            print_status(f"Created {output_file.name} ({validation_result['count']} ideas)", "success")
+            print_status(
+                f"Created {output_file.name} ({validation_result['count']} ideas)",
+                "success",
+            )
             return IdeationPhaseResult(
                 phase="ideation",
                 ideation_type=ideation_type,
@@ -387,21 +420,28 @@ Output your ideas to {output_file.name}.
 
         # Recovery attempts: show the current state and ask AI to fix it
         for recovery_attempt in range(MAX_RETRIES - 1):
-            print_status(f"Running recovery agent (attempt {recovery_attempt + 1})...", "warning")
+            print_status(
+                f"Running recovery agent (attempt {recovery_attempt + 1})...", "warning"
+            )
 
             recovery_success = await self.generator.run_recovery_agent(
                 output_file,
                 ideation_type,
                 validation_result["error"],
-                validation_result.get("current_content", "")
+                validation_result.get("current_content", ""),
             )
 
             if recovery_success:
                 # Re-validate after recovery
-                validation_result = self.prioritizer.validate_ideation_output(output_file, ideation_type)
+                validation_result = self.prioritizer.validate_ideation_output(
+                    output_file, ideation_type
+                )
 
                 if validation_result["success"]:
-                    print_status(f"Recovery successful: {output_file.name} ({validation_result['count']} ideas)", "success")
+                    print_status(
+                        f"Recovery successful: {output_file.name} ({validation_result['count']} ideas)",
+                        "success",
+                    )
                     return IdeationPhaseResult(
                         phase="ideation",
                         ideation_type=ideation_type,
@@ -412,7 +452,9 @@ Output your ideas to {output_file.name}.
                         retries=recovery_attempt + 1,
                     )
                 else:
-                    errors.append(f"Recovery {recovery_attempt + 1}: {validation_result['error']}")
+                    errors.append(
+                        f"Recovery {recovery_attempt + 1}: {validation_result['error']}"
+                    )
             else:
                 errors.append(f"Recovery {recovery_attempt + 1}: Agent failed to run")
 
@@ -449,7 +491,9 @@ Output your ideas to {output_file.name}.
             retries=0,
         )
 
-    async def _run_ideation_type_with_streaming(self, ideation_type: str) -> IdeationPhaseResult:
+    async def _run_ideation_type_with_streaming(
+        self, ideation_type: str
+    ) -> IdeationPhaseResult:
         """Run a single ideation type and stream results when complete."""
         result = await self.phase_ideation_type(ideation_type)
 
@@ -467,22 +511,27 @@ Output your ideas to {output_file.name}.
         """Run the complete ideation generation process."""
 
         debug_section("ideation_runner", "Starting Ideation Generation")
-        debug("ideation_runner", "Configuration",
-              project_dir=str(self.project_dir),
-              output_dir=str(self.output_dir),
-              model=self.model,
-              enabled_types=self.enabled_types,
-              refresh=self.refresh,
-              append=self.append)
+        debug(
+            "ideation_runner",
+            "Configuration",
+            project_dir=str(self.project_dir),
+            output_dir=str(self.output_dir),
+            model=self.model,
+            enabled_types=self.enabled_types,
+            refresh=self.refresh,
+            append=self.append,
+        )
 
-        print(box(
-            f"Project: {self.project_dir}\n"
-            f"Output: {self.output_dir}\n"
-            f"Model: {self.model}\n"
-            f"Types: {', '.join(self.enabled_types)}",
-            title="IDEATION GENERATOR",
-            style="heavy"
-        ))
+        print(
+            box(
+                f"Project: {self.project_dir}\n"
+                f"Output: {self.output_dir}\n"
+                f"Model: {self.model}\n"
+                f"Types: {', '.join(self.enabled_types)}",
+                title="IDEATION GENERATOR",
+                style="heavy",
+            )
+        )
 
         results = []
 
@@ -512,10 +561,17 @@ Output your ideas to {output_file.name}.
         # Note: hints_result.success is always True (graceful degradation)
 
         # Phase 3: Run all ideation types IN PARALLEL
-        debug("ideation_runner", "Starting Phase 3: Generating Ideas",
-              types=self.enabled_types, parallel=True)
+        debug(
+            "ideation_runner",
+            "Starting Phase 3: Generating Ideas",
+            types=self.enabled_types,
+            parallel=True,
+        )
         print_section("PHASE 3: GENERATING IDEAS (PARALLEL)", Icons.SUBTASK)
-        print_status(f"Starting {len(self.enabled_types)} ideation agents in parallel...", "progress")
+        print_status(
+            f"Starting {len(self.enabled_types)} ideation agents in parallel...",
+            "progress",
+        )
 
         # Create tasks for all enabled types
         ideation_tasks = [
@@ -530,22 +586,33 @@ Output your ideas to {output_file.name}.
         for i, result in enumerate(ideation_results):
             ideation_type = self.enabled_types[i]
             if isinstance(result, Exception):
-                print_status(f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed with exception: {result}", "error")
-                results.append(IdeationPhaseResult(
-                    phase="ideation",
-                    ideation_type=ideation_type,
-                    success=False,
-                    output_files=[],
-                    ideas_count=0,
-                    errors=[str(result)],
-                    retries=0,
-                ))
+                print_status(
+                    f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed with exception: {result}",
+                    "error",
+                )
+                results.append(
+                    IdeationPhaseResult(
+                        phase="ideation",
+                        ideation_type=ideation_type,
+                        success=False,
+                        output_files=[],
+                        ideas_count=0,
+                        errors=[str(result)],
+                        retries=0,
+                    )
+                )
             else:
                 results.append(result)
                 if result.success:
-                    print_status(f"{IDEATION_TYPE_LABELS[ideation_type]}: {result.ideas_count} ideas", "success")
+                    print_status(
+                        f"{IDEATION_TYPE_LABELS[ideation_type]}: {result.ideas_count} ideas",
+                        "success",
+                    )
                 else:
-                    print_status(f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed", "warning")
+                    print_status(
+                        f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed",
+                        "warning",
+                    )
                     for err in result.errors:
                         print(f"  {muted('Error:')} {err}")
 
@@ -564,14 +631,18 @@ Output your ideas to {output_file.name}.
             summary = ideation.get("summary", {})
             by_type = summary.get("by_type", {})
 
-            print(box(
-                f"Total Ideas: {len(ideas)}\n\n"
-                f"By Type:\n" +
-                "\n".join(f"  {icon(Icons.ARROW_RIGHT)} {IDEATION_TYPE_LABELS.get(t, t)}: {c}"
-                         for t, c in by_type.items()) +
-                f"\n\nIdeation saved to: {ideation_file}",
-                title=f"{icon(Icons.SUCCESS)} IDEATION COMPLETE",
-                style="heavy"
-            ))
+            print(
+                box(
+                    f"Total Ideas: {len(ideas)}\n\n"
+                    f"By Type:\n"
+                    + "\n".join(
+                        f"  {icon(Icons.ARROW_RIGHT)} {IDEATION_TYPE_LABELS.get(t, t)}: {c}"
+                        for t, c in by_type.items()
+                    )
+                    + f"\n\nIdeation saved to: {ideation_file}",
+                    title=f"{icon(Icons.SUCCESS)} IDEATION COMPLETE",
+                    style="heavy",
+                )
+            )
 
         return True

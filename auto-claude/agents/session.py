@@ -8,39 +8,38 @@ memory updates, recovery tracking, and Linear integration.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from claude_agent_sdk import ClaudeSDKClient
-
-from .utils import (
-    get_latest_commit,
-    get_commit_count,
-    load_implementation_plan,
-    find_subtask_in_plan,
-    sync_plan_to_source,
-)
-from .memory import save_session_memory
-from recovery import RecoveryManager
-from progress import (
-    is_build_complete,
-    count_subtasks_detailed,
-)
+from insight_extractor import extract_session_insights
 from linear_updater import (
     linear_subtask_completed,
     linear_subtask_failed,
 )
-from ui import (
-    muted,
-    print_status,
-    print_key_value,
-    StatusManager,
+from progress import (
+    count_subtasks_detailed,
+    is_build_complete,
 )
+from recovery import RecoveryManager
 from task_logger import (
-    LogPhase,
     LogEntryType,
+    LogPhase,
     get_task_logger,
 )
-from insight_extractor import extract_session_insights
+from ui import (
+    StatusManager,
+    muted,
+    print_key_value,
+    print_status,
+)
+
+from .memory import save_session_memory
+from .utils import (
+    find_subtask_in_plan,
+    get_commit_count,
+    get_latest_commit,
+    load_implementation_plan,
+    sync_plan_to_source,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +49,12 @@ async def post_session_processing(
     project_dir: Path,
     subtask_id: str,
     session_num: int,
-    commit_before: Optional[str],
+    commit_before: str | None,
     commit_count_before: int,
     recovery_manager: RecoveryManager,
     linear_enabled: bool = False,
-    status_manager: Optional[StatusManager] = None,
-    source_spec_dir: Optional[Path] = None,
+    status_manager: StatusManager | None = None,
+    source_spec_dir: Path | None = None,
 ) -> bool:
     """
     Process session results and update memory automatically.
@@ -181,7 +180,9 @@ async def post_session_processing(
                 if storage_type == "graphiti":
                     print_status("Session saved to Graphiti memory", "success")
                 else:
-                    print_status("Session saved to file-based memory (fallback)", "info")
+                    print_status(
+                        "Session saved to file-based memory (fallback)", "info"
+                    )
             else:
                 print_status("Failed to save session memory", "warning")
         except Exception as e:
@@ -205,7 +206,9 @@ async def post_session_processing(
         # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
-            print_status(f"Recorded partial progress commit: {commit_after[:8]}", "info")
+            print_status(
+                f"Recorded partial progress commit: {commit_after[:8]}", "info"
+            )
 
         # Record Linear session result (if enabled)
         if linear_enabled:
@@ -251,7 +254,9 @@ async def post_session_processing(
 
     else:
         # Subtask still pending or failed
-        print_status(f"Subtask {subtask_id} not completed (status: {subtask_status})", "error")
+        print_status(
+            f"Subtask {subtask_id} not completed (status: {subtask_status})", "error"
+        )
 
         recovery_manager.record_attempt(
             subtask_id=subtask_id,
@@ -352,7 +357,12 @@ async def run_agent_session(
                         print(block.text, end="", flush=True)
                         # Log text to task logger (persist without double-printing)
                         if task_logger and block.text.strip():
-                            task_logger.log(block.text, LogEntryType.TEXT, phase, print_to_console=False)
+                            task_logger.log(
+                                block.text,
+                                LogEntryType.TEXT,
+                                phase,
+                                print_to_console=False,
+                            )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
                         tool_input = None
@@ -378,7 +388,9 @@ async def run_agent_session(
 
                         # Log tool start (handles printing too)
                         if task_logger:
-                            task_logger.tool_start(tool_name, tool_input, phase, print_to_console=True)
+                            task_logger.tool_start(
+                                tool_name, tool_input, phase, print_to_console=True
+                            )
                         else:
                             print(f"\n[Tool: {tool_name}]", flush=True)
 
@@ -403,14 +415,26 @@ async def run_agent_session(
                         if "blocked" in str(result_content).lower():
                             print(f"   [BLOCKED] {result_content}", flush=True)
                             if task_logger and current_tool:
-                                task_logger.tool_end(current_tool, success=False, result="BLOCKED", detail=str(result_content), phase=phase)
+                                task_logger.tool_end(
+                                    current_tool,
+                                    success=False,
+                                    result="BLOCKED",
+                                    detail=str(result_content),
+                                    phase=phase,
+                                )
                         elif is_error:
                             # Show errors (truncated)
                             error_str = str(result_content)[:500]
                             print(f"   [Error] {error_str}", flush=True)
                             if task_logger and current_tool:
                                 # Store full error in detail for expandable view
-                                task_logger.tool_end(current_tool, success=False, result=error_str[:100], detail=str(result_content), phase=phase)
+                                task_logger.tool_end(
+                                    current_tool,
+                                    success=False,
+                                    result=error_str[:100],
+                                    detail=str(result_content),
+                                    phase=phase,
+                                )
                         else:
                             # Tool succeeded
                             if verbose:
@@ -422,12 +446,25 @@ async def run_agent_session(
                                 # Store full result in detail for expandable view (only for certain tools)
                                 # Skip storing for very large outputs like Glob results
                                 detail_content = None
-                                if current_tool in ("Read", "Grep", "Bash", "Edit", "Write"):
+                                if current_tool in (
+                                    "Read",
+                                    "Grep",
+                                    "Bash",
+                                    "Edit",
+                                    "Write",
+                                ):
                                     result_str = str(result_content)
                                     # Only store if not too large (detail truncation happens in logger)
-                                    if len(result_str) < 50000:  # 50KB max before truncation
+                                    if (
+                                        len(result_str) < 50000
+                                    ):  # 50KB max before truncation
                                         detail_content = result_str
-                                task_logger.tool_end(current_tool, success=True, detail=detail_content, phase=phase)
+                                task_logger.tool_end(
+                                    current_tool,
+                                    success=True,
+                                    detail=detail_content,
+                                    phase=phase,
+                                )
 
                         current_tool = None
 

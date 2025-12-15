@@ -18,17 +18,19 @@ from ui import (
     icon,
 )
 from workspace import (
-    merge_existing_build,
-    review_existing_build,
+    cleanup_all_worktrees,
     discard_existing_build,
     list_all_worktrees,
-    cleanup_all_worktrees,
+    merge_existing_build,
+    review_existing_build,
 )
 
 from .utils import print_banner
 
 
-def handle_merge_command(project_dir: Path, spec_name: str, no_commit: bool = False) -> None:
+def handle_merge_command(
+    project_dir: Path, spec_name: str, no_commit: bool = False
+) -> None:
     """
     Handle the --merge command.
 
@@ -94,7 +96,9 @@ def handle_list_worktrees_command(project_dir: Path) -> None:
         print("  To review:  python auto-claude/run.py --spec <name> --review")
         print("  To discard: python auto-claude/run.py --spec <name> --discard")
         print()
-        print("  To cleanup all worktrees: python auto-claude/run.py --cleanup-worktrees")
+        print(
+            "  To cleanup all worktrees: python auto-claude/run.py --cleanup-worktrees"
+        )
     print()
 
 

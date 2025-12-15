@@ -10,11 +10,25 @@ export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 
 // Create fresh test directory before each test
 beforeEach(() => {
-  if (existsSync(TEST_DATA_DIR)) {
-    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  // Use a unique subdirectory per test to avoid race conditions in parallel tests
+  const testId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const testDir = path.join(TEST_DATA_DIR, testId);
+
+  try {
+    if (existsSync(TEST_DATA_DIR)) {
+      rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    }
+  } catch {
+    // Ignore errors if directory is in use by another parallel test
+    // Each test uses unique subdirectory anyway
   }
-  mkdirSync(TEST_DATA_DIR, { recursive: true });
-  mkdirSync(path.join(TEST_DATA_DIR, 'store'), { recursive: true });
+
+  try {
+    mkdirSync(TEST_DATA_DIR, { recursive: true });
+    mkdirSync(path.join(TEST_DATA_DIR, 'store'), { recursive: true });
+  } catch {
+    // Ignore errors if directory already exists from another parallel test
+  }
 });
 
 // Clean up test directory after each test

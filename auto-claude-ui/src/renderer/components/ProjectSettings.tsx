@@ -1294,7 +1294,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-foreground">Database Name</Label>
                             <Input
-                              placeholder="auto_build_memory"
+                              placeholder="auto_claude_memory"
                               value={envConfig.graphitiDatabase || ''}
                               onChange={(e) => updateEnvConfig({ graphitiDatabase: e.target.value })}
                             />

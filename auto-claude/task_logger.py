@@ -14,15 +14,15 @@ Key features:
 
 import json
 import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional, Literal
-from dataclasses import dataclass, asdict
 from enum import Enum
+from pathlib import Path
 
 
 class LogPhase(str, Enum):
     """Log phases matching the execution flow."""
+
     PLANNING = "planning"
     CODING = "coding"
     VALIDATION = "validation"
@@ -30,6 +30,7 @@ class LogPhase(str, Enum):
 
 class LogEntryType(str, Enum):
     """Types of log entries."""
+
     TEXT = "text"
     TOOL_START = "tool_start"
     TOOL_END = "tool_end"
@@ -43,18 +44,23 @@ class LogEntryType(str, Enum):
 @dataclass
 class LogEntry:
     """A single log entry."""
+
     timestamp: str
     type: str
     content: str
     phase: str
-    tool_name: Optional[str] = None
-    tool_input: Optional[str] = None
-    subtask_id: Optional[str] = None
-    session: Optional[int] = None
+    tool_name: str | None = None
+    tool_input: str | None = None
+    subtask_id: str | None = None
+    session: int | None = None
     # New fields for expandable detail view
-    detail: Optional[str] = None  # Full content that can be expanded (e.g., file contents, command output)
-    subphase: Optional[str] = None  # Subphase grouping (e.g., "PROJECT DISCOVERY", "CONTEXT GATHERING")
-    collapsed: Optional[bool] = None  # Whether to show collapsed by default in UI
+    detail: str | None = (
+        None  # Full content that can be expanded (e.g., file contents, command output)
+    )
+    subphase: str | None = (
+        None  # Subphase grouping (e.g., "PROJECT DISCOVERY", "CONTEXT GATHERING")
+    )
+    collapsed: bool | None = None  # Whether to show collapsed by default in UI
 
     def to_dict(self) -> dict:
         """Convert to dictionary, excluding None values."""
@@ -64,10 +70,11 @@ class LogEntry:
 @dataclass
 class PhaseLog:
     """Logs for a single phase."""
+
     phase: str
     status: str  # "pending", "active", "completed", "failed"
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
     entries: list = None
 
     def __post_init__(self):
@@ -80,7 +87,7 @@ class PhaseLog:
             "status": self.status,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
-            "entries": self.entries
+            "entries": self.entries,
         }
 
 
@@ -114,9 +121,9 @@ class TaskLogger:
         self.spec_dir = Path(spec_dir)
         self.log_file = self.spec_dir / self.LOG_FILE
         self.emit_markers = emit_markers
-        self.current_phase: Optional[LogPhase] = None
-        self.current_session: Optional[int] = None
-        self.current_subtask: Optional[str] = None
+        self.current_phase: LogPhase | None = None
+        self.current_session: int | None = None
+        self.current_subtask: str | None = None
         self._data: dict = self._load_or_create()
 
     def _load_or_create(self) -> dict:
@@ -125,7 +132,7 @@ class TaskLogger:
             try:
                 with open(self.log_file) as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 pass
 
         return {
@@ -138,23 +145,23 @@ class TaskLogger:
                     "status": "pending",
                     "started_at": None,
                     "completed_at": None,
-                    "entries": []
+                    "entries": [],
                 },
                 LogPhase.CODING.value: {
                     "phase": LogPhase.CODING.value,
                     "status": "pending",
                     "started_at": None,
                     "completed_at": None,
-                    "entries": []
+                    "entries": [],
                 },
                 LogPhase.VALIDATION.value: {
                     "phase": LogPhase.VALIDATION.value,
                     "status": "pending",
                     "started_at": None,
                     "completed_at": None,
-                    "entries": []
-                }
-            }
+                    "entries": [],
+                },
+            },
         }
 
     def _save(self):
@@ -164,7 +171,7 @@ class TaskLogger:
             self.spec_dir.mkdir(parents=True, exist_ok=True)
             with open(self.log_file, "w") as f:
                 json.dump(self._data, f, indent=2)
-        except IOError as e:
+        except OSError as e:
             print(f"Warning: Failed to save task logs: {e}", file=sys.stderr)
 
     def _timestamp(self) -> str:
@@ -191,7 +198,7 @@ class TaskLogger:
                 "status": "active",
                 "started_at": self._timestamp(),
                 "completed_at": None,
-                "entries": []
+                "entries": [],
             }
 
         self._data["phases"][phase_key]["entries"].append(entry.to_dict())
@@ -201,11 +208,11 @@ class TaskLogger:
         """Set the current session number."""
         self.current_session = session
 
-    def set_subtask(self, subtask_id: Optional[str]):
+    def set_subtask(self, subtask_id: str | None):
         """Set the current subtask being processed."""
         self.current_subtask = subtask_id
 
-    def start_phase(self, phase: LogPhase, message: Optional[str] = None):
+    def start_phase(self, phase: LogPhase, message: str | None = None):
         """
         Start a new phase, auto-closing any stale active phases.
 
@@ -232,9 +239,11 @@ class TaskLogger:
                     type=LogEntryType.PHASE_END.value,
                     content=f"{other_phase_key} phase auto-closed on resume",
                     phase=other_phase_key,
-                    session=self.current_session
+                    session=self.current_session,
                 )
-                self._data["phases"][other_phase_key]["entries"].append(auto_close_entry.to_dict())
+                self._data["phases"][other_phase_key]["entries"].append(
+                    auto_close_entry.to_dict()
+                )
 
         # Update phase status
         if phase_key in self._data["phases"]:
@@ -242,10 +251,7 @@ class TaskLogger:
             self._data["phases"][phase_key]["started_at"] = self._timestamp()
 
         # Emit marker for UI
-        self._emit("PHASE_START", {
-            "phase": phase_key,
-            "timestamp": self._timestamp()
-        })
+        self._emit("PHASE_START", {"phase": phase_key, "timestamp": self._timestamp()})
 
         # Add phase start entry
         entry = LogEntry(
@@ -253,7 +259,7 @@ class TaskLogger:
             type=LogEntryType.PHASE_START.value,
             content=message or f"Starting {phase_key} phase",
             phase=phase_key,
-            session=self.current_session
+            session=self.current_session,
         )
         self._add_entry(entry)
 
@@ -261,7 +267,9 @@ class TaskLogger:
         if message:
             print(message, flush=True)
 
-    def end_phase(self, phase: LogPhase, success: bool = True, message: Optional[str] = None):
+    def end_phase(
+        self, phase: LogPhase, success: bool = True, message: str | None = None
+    ):
         """
         End a phase.
 
@@ -274,23 +282,25 @@ class TaskLogger:
 
         # Update phase status
         if phase_key in self._data["phases"]:
-            self._data["phases"][phase_key]["status"] = "completed" if success else "failed"
+            self._data["phases"][phase_key]["status"] = (
+                "completed" if success else "failed"
+            )
             self._data["phases"][phase_key]["completed_at"] = self._timestamp()
 
         # Emit marker for UI
-        self._emit("PHASE_END", {
-            "phase": phase_key,
-            "success": success,
-            "timestamp": self._timestamp()
-        })
+        self._emit(
+            "PHASE_END",
+            {"phase": phase_key, "success": success, "timestamp": self._timestamp()},
+        )
 
         # Add phase end entry
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_END.value,
-            content=message or f"{'Completed' if success else 'Failed'} {phase_key} phase",
+            content=message
+            or f"{'Completed' if success else 'Failed'} {phase_key} phase",
             phase=phase_key,
-            session=self.current_session
+            session=self.current_session,
         )
         self._add_entry(entry)
 
@@ -302,7 +312,13 @@ class TaskLogger:
 
         self._save()
 
-    def log(self, content: str, entry_type: LogEntryType = LogEntryType.TEXT, phase: Optional[LogPhase] = None, print_to_console: bool = True):
+    def log(
+        self,
+        content: str,
+        entry_type: LogEntryType = LogEntryType.TEXT,
+        phase: LogPhase | None = None,
+        print_to_console: bool = True,
+    ):
         """
         Log a message.
 
@@ -320,32 +336,35 @@ class TaskLogger:
             content=content,
             phase=phase_key,
             subtask_id=self.current_subtask,
-            session=self.current_session
+            session=self.current_session,
         )
         self._add_entry(entry)
 
         # Emit streaming marker
-        self._emit("TEXT", {
-            "content": content,
-            "phase": phase_key,
-            "type": entry_type.value,
-            "subtask_id": self.current_subtask,
-            "timestamp": self._timestamp()
-        })
+        self._emit(
+            "TEXT",
+            {
+                "content": content,
+                "phase": phase_key,
+                "type": entry_type.value,
+                "subtask_id": self.current_subtask,
+                "timestamp": self._timestamp(),
+            },
+        )
 
         # Also print to console (unless caller handles printing)
         if print_to_console:
             print(content, flush=True)
 
-    def log_error(self, content: str, phase: Optional[LogPhase] = None):
+    def log_error(self, content: str, phase: LogPhase | None = None):
         """Log an error message."""
         self.log(content, LogEntryType.ERROR, phase)
 
-    def log_success(self, content: str, phase: Optional[LogPhase] = None):
+    def log_success(self, content: str, phase: LogPhase | None = None):
         """Log a success message."""
         self.log(content, LogEntryType.SUCCESS, phase)
 
-    def log_info(self, content: str, phase: Optional[LogPhase] = None):
+    def log_info(self, content: str, phase: LogPhase | None = None):
         """Log an info message."""
         self.log(content, LogEntryType.INFO, phase)
 
@@ -354,10 +373,10 @@ class TaskLogger:
         content: str,
         detail: str,
         entry_type: LogEntryType = LogEntryType.TEXT,
-        phase: Optional[LogPhase] = None,
-        subphase: Optional[str] = None,
+        phase: LogPhase | None = None,
+        subphase: str | None = None,
         collapsed: bool = True,
-        print_to_console: bool = True
+        print_to_console: bool = True,
     ):
         """
         Log a message with expandable detail content.
@@ -382,25 +401,33 @@ class TaskLogger:
             session=self.current_session,
             detail=detail,
             subphase=subphase,
-            collapsed=collapsed
+            collapsed=collapsed,
         )
         self._add_entry(entry)
 
         # Emit streaming marker with detail indicator
-        self._emit("TEXT", {
-            "content": content,
-            "phase": phase_key,
-            "type": entry_type.value,
-            "subtask_id": self.current_subtask,
-            "timestamp": self._timestamp(),
-            "has_detail": True,
-            "subphase": subphase
-        })
+        self._emit(
+            "TEXT",
+            {
+                "content": content,
+                "phase": phase_key,
+                "type": entry_type.value,
+                "subtask_id": self.current_subtask,
+                "timestamp": self._timestamp(),
+                "has_detail": True,
+                "subphase": subphase,
+            },
+        )
 
         if print_to_console:
             print(content, flush=True)
 
-    def start_subphase(self, subphase: str, phase: Optional[LogPhase] = None, print_to_console: bool = True):
+    def start_subphase(
+        self,
+        subphase: str,
+        phase: LogPhase | None = None,
+        print_to_console: bool = True,
+    ):
         """
         Mark the start of a subphase within the current phase.
 
@@ -418,21 +445,26 @@ class TaskLogger:
             phase=phase_key,
             subtask_id=self.current_subtask,
             session=self.current_session,
-            subphase=subphase
+            subphase=subphase,
         )
         self._add_entry(entry)
 
         # Emit streaming marker
-        self._emit("SUBPHASE_START", {
-            "subphase": subphase,
-            "phase": phase_key,
-            "timestamp": self._timestamp()
-        })
+        self._emit(
+            "SUBPHASE_START",
+            {"subphase": subphase, "phase": phase_key, "timestamp": self._timestamp()},
+        )
 
         if print_to_console:
             print(f"\n--- {subphase} ---", flush=True)
 
-    def tool_start(self, tool_name: str, tool_input: Optional[str] = None, phase: Optional[LogPhase] = None, print_to_console: bool = True):
+    def tool_start(
+        self,
+        tool_name: str,
+        tool_input: str | None = None,
+        phase: LogPhase | None = None,
+        print_to_console: bool = True,
+    ):
         """
         Log the start of a tool execution.
 
@@ -457,16 +489,15 @@ class TaskLogger:
             tool_name=tool_name,
             tool_input=display_input,
             subtask_id=self.current_subtask,
-            session=self.current_session
+            session=self.current_session,
         )
         self._add_entry(entry)
 
         # Emit streaming marker (same format as insights_runner.py)
-        self._emit("TOOL_START", {
-            "name": tool_name,
-            "input": display_input,
-            "phase": phase_key
-        })
+        self._emit(
+            "TOOL_START",
+            {"name": tool_name, "input": display_input, "phase": phase_key},
+        )
 
         if print_to_console:
             print(f"\n[Tool: {tool_name}]", flush=True)
@@ -475,10 +506,10 @@ class TaskLogger:
         self,
         tool_name: str,
         success: bool = True,
-        result: Optional[str] = None,
-        detail: Optional[str] = None,
-        phase: Optional[LogPhase] = None,
-        print_to_console: bool = False
+        result: str | None = None,
+        detail: str | None = None,
+        phase: LogPhase | None = None,
+        print_to_console: bool = False,
     ):
         """
         Log the end of a tool execution.
@@ -506,7 +537,10 @@ class TaskLogger:
         # Truncate detail for storage (max 10KB to avoid bloating JSON)
         stored_detail = detail
         if stored_detail and len(stored_detail) > 10240:
-            stored_detail = stored_detail[:10240] + "\n\n... [truncated - full output was {} chars]".format(len(detail))
+            stored_detail = (
+                stored_detail[:10240]
+                + f"\n\n... [truncated - full output was {len(detail)} chars]"
+            )
 
         entry = LogEntry(
             timestamp=self._timestamp(),
@@ -517,17 +551,20 @@ class TaskLogger:
             subtask_id=self.current_subtask,
             session=self.current_session,
             detail=stored_detail,
-            collapsed=True
+            collapsed=True,
         )
         self._add_entry(entry)
 
         # Emit streaming marker
-        self._emit("TOOL_END", {
-            "name": tool_name,
-            "success": success,
-            "phase": phase_key,
-            "has_detail": detail is not None
-        })
+        self._emit(
+            "TOOL_END",
+            {
+                "name": tool_name,
+                "success": success,
+                "phase": phase_key,
+                "has_detail": detail is not None,
+            },
+        )
 
         if print_to_console:
             if result:
@@ -549,7 +586,7 @@ class TaskLogger:
         self._save()
 
 
-def load_task_logs(spec_dir: Path) -> Optional[dict]:
+def load_task_logs(spec_dir: Path) -> dict | None:
     """
     Load task logs from a spec directory.
 
@@ -566,11 +603,11 @@ def load_task_logs(spec_dir: Path) -> Optional[dict]:
     try:
         with open(log_file) as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
-def get_active_phase(spec_dir: Path) -> Optional[str]:
+def get_active_phase(spec_dir: Path) -> str | None:
     """
     Get the currently active phase for a spec.
 
@@ -592,10 +629,12 @@ def get_active_phase(spec_dir: Path) -> Optional[str]:
 
 
 # Global logger instance for easy access
-_current_logger: Optional[TaskLogger] = None
+_current_logger: TaskLogger | None = None
 
 
-def get_task_logger(spec_dir: Optional[Path] = None, emit_markers: bool = True) -> Optional[TaskLogger]:
+def get_task_logger(
+    spec_dir: Path | None = None, emit_markers: bool = True
+) -> TaskLogger | None:
     """
     Get or create a task logger for the given spec directory.
 
@@ -660,10 +699,10 @@ class StreamingLogCapture:
                 capture.process_message(msg)
     """
 
-    def __init__(self, logger: TaskLogger, phase: Optional[LogPhase] = None):
+    def __init__(self, logger: TaskLogger, phase: LogPhase | None = None):
         self.logger = logger
         self.phase = phase
-        self.current_tool: Optional[str] = None
+        self.current_tool: str | None = None
 
     def __enter__(self):
         return self
@@ -671,7 +710,9 @@ class StreamingLogCapture:
     def __exit__(self, exc_type, exc_val, exc_tb):
         # End any active tool
         if self.current_tool:
-            self.logger.tool_end(self.current_tool, success=exc_type is None, phase=self.phase)
+            self.logger.tool_end(
+                self.current_tool, success=exc_type is None, phase=self.phase
+            )
             self.current_tool = None
         return False
 
@@ -680,7 +721,7 @@ class StreamingLogCapture:
         if text.strip():
             self.logger.log(text, phase=self.phase)
 
-    def process_tool_start(self, tool_name: str, tool_input: Optional[str] = None):
+    def process_tool_start(self, tool_name: str, tool_input: str | None = None):
         """Process tool start."""
         # End previous tool if any
         if self.current_tool:
@@ -689,9 +730,17 @@ class StreamingLogCapture:
         self.current_tool = tool_name
         self.logger.tool_start(tool_name, tool_input, phase=self.phase)
 
-    def process_tool_end(self, tool_name: str, success: bool = True, result: Optional[str] = None, detail: Optional[str] = None):
+    def process_tool_end(
+        self,
+        tool_name: str,
+        success: bool = True,
+        result: str | None = None,
+        detail: str | None = None,
+    ):
         """Process tool end."""
-        self.logger.tool_end(tool_name, success, result, detail=detail, phase=self.phase)
+        self.logger.tool_end(
+            tool_name, success, result, detail=detail, phase=self.phase
+        )
         if self.current_tool == tool_name:
             self.current_tool = None
 
@@ -750,9 +799,20 @@ class StreamingLogCapture:
 
                         # Capture full detail for expandable view
                         detail_content = None
-                        if capture_detail and self.current_tool in ("Read", "Grep", "Bash", "Edit", "Write"):
+                        if capture_detail and self.current_tool in (
+                            "Read",
+                            "Grep",
+                            "Bash",
+                            "Edit",
+                            "Write",
+                        ):
                             full_result = str(result_content)
                             if len(full_result) < 50000:  # 50KB max
                                 detail_content = full_result
 
-                        self.process_tool_end(self.current_tool, success=not is_error, result=result_str, detail=detail_content)
+                        self.process_tool_end(
+                            self.current_tool,
+                            success=not is_error,
+                            result=result_str,
+                            detail=detail_content,
+                        )

@@ -8,59 +8,59 @@ Main autonomous agent loop that runs the coder agent to implement subtasks.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
-from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
-from .session import run_agent_session, post_session_processing
-from .memory import debug_memory_system_status, get_graphiti_context
-from .utils import (
-    get_latest_commit,
-    get_commit_count,
-    load_implementation_plan,
-    find_phase_for_subtask,
-    sync_plan_to_source,
-)
 from client import create_client
-from recovery import RecoveryManager
-from progress import (
-    print_session_header,
-    print_progress_summary,
-    print_build_complete_banner,
-    count_subtasks,
-    count_subtasks_detailed,
-    is_build_complete,
-    get_next_subtask,
-    get_current_phase,
-)
-from prompt_generator import (
-    generate_subtask_prompt,
-    generate_planner_prompt,
-    load_subtask_context,
-    format_context_for_prompt,
-)
-from prompts import is_first_run
 from linear_updater import (
-    is_linear_enabled,
     LinearTaskState,
-    linear_task_started,
+    is_linear_enabled,
     linear_build_complete,
+    linear_task_started,
     linear_task_stuck,
 )
-from ui import (
-    Icons,
-    icon,
-    box,
-    bold,
-    muted,
-    highlight,
-    print_status,
-    print_key_value,
-    StatusManager,
-    BuildState,
+from progress import (
+    count_subtasks,
+    count_subtasks_detailed,
+    get_current_phase,
+    get_next_subtask,
+    is_build_complete,
+    print_build_complete_banner,
+    print_progress_summary,
+    print_session_header,
 )
+from prompt_generator import (
+    format_context_for_prompt,
+    generate_planner_prompt,
+    generate_subtask_prompt,
+    load_subtask_context,
+)
+from prompts import is_first_run
+from recovery import RecoveryManager
 from task_logger import (
     LogPhase,
     get_task_logger,
+)
+from ui import (
+    BuildState,
+    Icons,
+    StatusManager,
+    bold,
+    box,
+    highlight,
+    icon,
+    muted,
+    print_key_value,
+    print_status,
+)
+
+from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
+from .memory import debug_memory_system_status, get_graphiti_context
+from .session import post_session_processing, run_agent_session
+from .utils import (
+    find_phase_for_subtask,
+    get_commit_count,
+    get_latest_commit,
+    load_implementation_plan,
+    sync_plan_to_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,9 +70,9 @@ async def run_autonomous_agent(
     project_dir: Path,
     spec_dir: Path,
     model: str,
-    max_iterations: Optional[int] = None,
+    max_iterations: int | None = None,
     verbose: bool = False,
-    source_spec_dir: Optional[Path] = None,
+    source_spec_dir: Path | None = None,
 ) -> None:
     """
     Run the autonomous agent loop with automatic memory management.
@@ -130,7 +130,9 @@ async def run_autonomous_agent(
     is_planning_phase = False
 
     if first_run:
-        print_status("Fresh start - will use Planner Agent to create implementation plan", "info")
+        print_status(
+            "Fresh start - will use Planner Agent to create implementation plan", "info"
+        )
         content = [
             bold(f"{icon(Icons.GEAR)} PLANNER SESSION"),
             "",
@@ -148,7 +150,9 @@ async def run_autonomous_agent(
 
         # Start planning phase in task logger
         if task_logger:
-            task_logger.start_phase(LogPhase.PLANNING, "Starting implementation planning...")
+            task_logger.start_phase(
+                LogPhase.PLANNING, "Starting implementation planning..."
+            )
 
         # Update Linear to "In Progress" when build starts
         if linear_task and linear_task.task_id:
@@ -195,9 +199,9 @@ async def run_autonomous_agent(
             if pause_content:
                 print(f"\nMessage: {pause_content}")
 
-            print(f"\nTo resume, delete the PAUSE file:")
+            print("\nTo resume, delete the PAUSE file:")
             print(f"  rm {pause_file}")
-            print(f"\nThen run again:")
+            print("\nThen run again:")
             print(f"  python auto-claude/run.py --spec {spec_dir.name}")
             return
 
@@ -231,7 +235,9 @@ async def run_autonomous_agent(
             subtask_id=subtask_id,
             subtask_desc=next_subtask.get("description") if next_subtask else None,
             phase_name=phase_name,
-            attempt=recovery_manager.get_attempt_count(subtask_id) + 1 if subtask_id else 1,
+            attempt=recovery_manager.get_attempt_count(subtask_id) + 1
+            if subtask_id
+            else 1,
         )
 
         # Capture state before session for post-processing
@@ -256,8 +262,14 @@ async def run_autonomous_agent(
                 is_planning_phase = False
                 current_log_phase = LogPhase.CODING
                 if task_logger:
-                    task_logger.end_phase(LogPhase.PLANNING, success=True, message="Implementation plan created")
-                    task_logger.start_phase(LogPhase.CODING, "Starting implementation...")
+                    task_logger.end_phase(
+                        LogPhase.PLANNING,
+                        success=True,
+                        message="Implementation plan created",
+                    )
+                    task_logger.start_phase(
+                        LogPhase.CODING, "Starting implementation..."
+                    )
 
             if not next_subtask:
                 print("No pending subtasks found - build may be complete!")
@@ -265,7 +277,11 @@ async def run_autonomous_agent(
 
             # Get attempt count for recovery context
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            recovery_hints = recovery_manager.get_recovery_hints(subtask_id) if attempt_count > 0 else None
+            recovery_hints = (
+                recovery_manager.get_recovery_hints(subtask_id)
+                if attempt_count > 0
+                else None
+            )
 
             # Find the phase for this subtask
             plan = load_implementation_plan(spec_dir)
@@ -287,7 +303,9 @@ async def run_autonomous_agent(
                 prompt += "\n\n" + format_context_for_prompt(context)
 
             # Retrieve and append Graphiti memory context (if enabled)
-            graphiti_context = await get_graphiti_context(spec_dir, project_dir, next_subtask)
+            graphiti_context = await get_graphiti_context(
+                spec_dir, project_dir, next_subtask
+            )
             if graphiti_context:
                 prompt += "\n\n" + graphiti_context
                 print_status("Graphiti memory context loaded", "success")
@@ -312,7 +330,9 @@ async def run_autonomous_agent(
 
         # === POST-SESSION PROCESSING (100% reliable) ===
         if subtask_id and not first_run:
-            linear_is_enabled = linear_task is not None and linear_task.task_id is not None
+            linear_is_enabled = (
+                linear_task is not None and linear_task.task_id is not None
+            )
             success = await post_session_processing(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
@@ -330,11 +350,13 @@ async def run_autonomous_agent(
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
             if not success and attempt_count >= 3:
                 recovery_manager.mark_subtask_stuck(
-                    subtask_id,
-                    f"Failed after {attempt_count} attempts"
+                    subtask_id, f"Failed after {attempt_count} attempts"
                 )
                 print()
-                print_status(f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts", "error")
+                print_status(
+                    f"Subtask {subtask_id} marked as STUCK after {attempt_count} attempts",
+                    "error",
+                )
                 print(muted("Consider: manual intervention or skipping this subtask"))
 
                 # Record stuck subtask in Linear (if enabled)
@@ -357,7 +379,11 @@ async def run_autonomous_agent(
 
             # End coding phase in task logger
             if task_logger:
-                task_logger.end_phase(LogPhase.CODING, success=True, message="All subtasks completed successfully")
+                task_logger.end_phase(
+                    LogPhase.CODING,
+                    success=True,
+                    message="All subtasks completed successfully",
+                )
 
             # Notify Linear that build is complete (moving to QA)
             if linear_task and linear_task.task_id:
@@ -367,7 +393,11 @@ async def run_autonomous_agent(
             break
 
         elif status == "continue":
-            print(muted(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."))
+            print(
+                muted(
+                    f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s..."
+                )
+            )
             print_progress_summary(spec_dir)
 
             # Update state back to building
@@ -376,12 +406,16 @@ async def run_autonomous_agent(
             # Show next subtask info
             next_subtask = get_next_subtask(spec_dir)
             if next_subtask:
-                subtask_id = next_subtask.get('id')
-                print(f"\nNext: {highlight(subtask_id)} - {next_subtask.get('description')}")
+                subtask_id = next_subtask.get("id")
+                print(
+                    f"\nNext: {highlight(subtask_id)} - {next_subtask.get('description')}"
+                )
 
                 attempt_count = recovery_manager.get_attempt_count(subtask_id)
                 if attempt_count > 0:
-                    print_status(f"WARNING: {attempt_count} previous attempt(s)", "warning")
+                    print_status(
+                        f"WARNING: {attempt_count} previous attempt(s)", "warning"
+                    )
 
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 

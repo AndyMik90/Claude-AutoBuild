@@ -10,17 +10,14 @@ Uses Claude agents to generate ideas of different types:
 - Code quality
 """
 
-import asyncio
-from pathlib import Path
-from typing import Optional, Dict
 import sys
+from pathlib import Path
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
 from ui import print_status
-
 
 # Ideation types
 IDEATION_TYPES = [
@@ -106,7 +103,9 @@ class IdeationGenerator:
                             if block_type == "TextBlock" and hasattr(block, "text"):
                                 response_text += block.text
                                 print(block.text, end="", flush=True)
-                            elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                            elif block_type == "ToolUseBlock" and hasattr(
+                                block, "name"
+                            ):
                                 print(f"\n[Tool: {block.name}]", flush=True)
 
                 print()
@@ -190,7 +189,9 @@ Write the fixed JSON to the file now.
                             block_type = type(block).__name__
                             if block_type == "TextBlock" and hasattr(block, "text"):
                                 print(block.text, end="", flush=True)
-                            elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                            elif block_type == "ToolUseBlock" and hasattr(
+                                block, "name"
+                            ):
                                 print(f"\n[Recovery Tool: {block.name}]", flush=True)
 
                 print()
@@ -200,7 +201,7 @@ Write the fixed JSON to the file now.
             print_status(f"Recovery agent error: {e}", "error")
             return False
 
-    def get_prompt_file(self, ideation_type: str) -> Optional[str]:
+    def get_prompt_file(self, ideation_type: str) -> str | None:
         """Get the prompt file for a specific ideation type."""
         return IDEATION_TYPE_PROMPTS.get(ideation_type)
 

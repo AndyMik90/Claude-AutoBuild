@@ -51,7 +51,9 @@ def analyze_project(project_dir: Path, output_file: Path | None = None) -> dict:
     return results
 
 
-def analyze_service(project_dir: Path, service_name: str, output_file: Path | None = None) -> dict:
+def analyze_service(
+    project_dir: Path, service_name: str, output_file: Path | None = None
+) -> dict:
     """
     Analyze a specific service within a project.
 

@@ -115,15 +115,18 @@ describe('IPC Bridge Integration', () => {
         const createTask = electronAPI['createTask'] as (
           projectId: string,
           title: string,
-          desc: string
+          desc: string,
+          metadata?: unknown
         ) => Promise<unknown>;
         await createTask('project-id', 'Task Title', 'Task description');
 
+        // Fourth argument is optional metadata (undefined when not provided)
         expect(mockIpcRenderer.invoke).toHaveBeenCalledWith(
           'task:create',
           'project-id',
           'Task Title',
-          'Task description'
+          'Task description',
+          undefined
         );
       });
 

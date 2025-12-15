@@ -44,7 +44,7 @@ Environment Variables:
     GRAPHITI_FALKORDB_HOST: FalkorDB host (default: localhost)
     GRAPHITI_FALKORDB_PORT: FalkorDB port (default: 6380)
     GRAPHITI_FALKORDB_PASSWORD: FalkorDB password (default: empty)
-    GRAPHITI_DATABASE: Graph database name (default: auto_build_memory)
+    GRAPHITI_DATABASE: Graph database name (default: auto_claude_memory)
     GRAPHITI_TELEMETRY_ENABLED: Set to "false" to disable telemetry (default: true)
 """
 
@@ -54,13 +54,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List
-
+from typing import Optional
 
 # Default configuration values
 DEFAULT_FALKORDB_HOST = "localhost"
 DEFAULT_FALKORDB_PORT = 6380
-DEFAULT_DATABASE = "auto_build_memory"
+DEFAULT_DATABASE = "auto_claude_memory"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 # Graphiti state marker file (stores connection info and status)
@@ -78,6 +77,7 @@ EPISODE_TYPE_HISTORICAL_CONTEXT = "historical_context"
 
 class LLMProvider(str, Enum):
     """Supported LLM providers for Graphiti."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
@@ -86,6 +86,7 @@ class LLMProvider(str, Enum):
 
 class EmbedderProvider(str, Enum):
     """Supported embedder providers for Graphiti."""
+
     OPENAI = "openai"
     VOYAGE = "voyage"
     AZURE_OPENAI = "azure_openai"
@@ -142,19 +143,17 @@ class GraphitiConfig:
 
         # Provider selection
         llm_provider = os.environ.get("GRAPHITI_LLM_PROVIDER", "openai").lower()
-        embedder_provider = os.environ.get("GRAPHITI_EMBEDDER_PROVIDER", "openai").lower()
+        embedder_provider = os.environ.get(
+            "GRAPHITI_EMBEDDER_PROVIDER", "openai"
+        ).lower()
 
         # FalkorDB connection settings
-        falkordb_host = os.environ.get(
-            "GRAPHITI_FALKORDB_HOST",
-            DEFAULT_FALKORDB_HOST
-        )
+        falkordb_host = os.environ.get("GRAPHITI_FALKORDB_HOST", DEFAULT_FALKORDB_HOST)
 
         try:
-            falkordb_port = int(os.environ.get(
-                "GRAPHITI_FALKORDB_PORT",
-                str(DEFAULT_FALKORDB_PORT)
-            ))
+            falkordb_port = int(
+                os.environ.get("GRAPHITI_FALKORDB_PORT", str(DEFAULT_FALKORDB_PORT))
+            )
         except ValueError:
             falkordb_port = DEFAULT_FALKORDB_PORT
 
@@ -168,17 +167,23 @@ class GraphitiConfig:
         # OpenAI settings
         openai_api_key = os.environ.get("OPENAI_API_KEY", "")
         openai_model = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
-        openai_embedding_model = os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+        openai_embedding_model = os.environ.get(
+            "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
+        )
 
         # Anthropic settings
         anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        anthropic_model = os.environ.get("GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-5-latest")
+        anthropic_model = os.environ.get(
+            "GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-5-latest"
+        )
 
         # Azure OpenAI settings
         azure_openai_api_key = os.environ.get("AZURE_OPENAI_API_KEY", "")
         azure_openai_base_url = os.environ.get("AZURE_OPENAI_BASE_URL", "")
         azure_openai_llm_deployment = os.environ.get("AZURE_OPENAI_LLM_DEPLOYMENT", "")
-        azure_openai_embedding_deployment = os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "")
+        azure_openai_embedding_deployment = os.environ.get(
+            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", ""
+        )
 
         # Voyage AI settings
         voyage_api_key = os.environ.get("VOYAGE_API_KEY", "")
@@ -250,7 +255,11 @@ class GraphitiConfig:
         elif self.llm_provider == "anthropic":
             return bool(self.anthropic_api_key)
         elif self.llm_provider == "azure_openai":
-            return bool(self.azure_openai_api_key and self.azure_openai_base_url and self.azure_openai_llm_deployment)
+            return bool(
+                self.azure_openai_api_key
+                and self.azure_openai_base_url
+                and self.azure_openai_llm_deployment
+            )
         elif self.llm_provider == "ollama":
             return bool(self.ollama_llm_model)
         return False
@@ -262,12 +271,16 @@ class GraphitiConfig:
         elif self.embedder_provider == "voyage":
             return bool(self.voyage_api_key)
         elif self.embedder_provider == "azure_openai":
-            return bool(self.azure_openai_api_key and self.azure_openai_base_url and self.azure_openai_embedding_deployment)
+            return bool(
+                self.azure_openai_api_key
+                and self.azure_openai_base_url
+                and self.azure_openai_embedding_deployment
+            )
         elif self.embedder_provider == "ollama":
             return bool(self.ollama_embedding_model and self.ollama_embedding_dim)
         return False
 
-    def get_validation_errors(self) -> List[str]:
+    def get_validation_errors(self) -> list[str]:
         """Get list of validation errors for current configuration."""
         errors = []
 
@@ -286,9 +299,13 @@ class GraphitiConfig:
             if not self.azure_openai_api_key:
                 errors.append("Azure OpenAI LLM provider requires AZURE_OPENAI_API_KEY")
             if not self.azure_openai_base_url:
-                errors.append("Azure OpenAI LLM provider requires AZURE_OPENAI_BASE_URL")
+                errors.append(
+                    "Azure OpenAI LLM provider requires AZURE_OPENAI_BASE_URL"
+                )
             if not self.azure_openai_llm_deployment:
-                errors.append("Azure OpenAI LLM provider requires AZURE_OPENAI_LLM_DEPLOYMENT")
+                errors.append(
+                    "Azure OpenAI LLM provider requires AZURE_OPENAI_LLM_DEPLOYMENT"
+                )
         elif self.llm_provider == "ollama":
             if not self.ollama_llm_model:
                 errors.append("Ollama LLM provider requires OLLAMA_LLM_MODEL")
@@ -304,14 +321,22 @@ class GraphitiConfig:
                 errors.append("Voyage embedder provider requires VOYAGE_API_KEY")
         elif self.embedder_provider == "azure_openai":
             if not self.azure_openai_api_key:
-                errors.append("Azure OpenAI embedder provider requires AZURE_OPENAI_API_KEY")
+                errors.append(
+                    "Azure OpenAI embedder provider requires AZURE_OPENAI_API_KEY"
+                )
             if not self.azure_openai_base_url:
-                errors.append("Azure OpenAI embedder provider requires AZURE_OPENAI_BASE_URL")
+                errors.append(
+                    "Azure OpenAI embedder provider requires AZURE_OPENAI_BASE_URL"
+                )
             if not self.azure_openai_embedding_deployment:
-                errors.append("Azure OpenAI embedder provider requires AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
+                errors.append(
+                    "Azure OpenAI embedder provider requires AZURE_OPENAI_EMBEDDING_DEPLOYMENT"
+                )
         elif self.embedder_provider == "ollama":
             if not self.ollama_embedding_model:
-                errors.append("Ollama embedder provider requires OLLAMA_EMBEDDING_MODEL")
+                errors.append(
+                    "Ollama embedder provider requires OLLAMA_EMBEDDING_MODEL"
+                )
             if not self.ollama_embedding_dim:
                 errors.append("Ollama embedder provider requires OLLAMA_EMBEDDING_DIM")
         else:
@@ -333,16 +358,17 @@ class GraphitiConfig:
 @dataclass
 class GraphitiState:
     """State of Graphiti integration for an auto-claude spec."""
+
     initialized: bool = False
-    database: Optional[str] = None
+    database: str | None = None
     indices_built: bool = False
-    created_at: Optional[str] = None
-    last_session: Optional[int] = None
+    created_at: str | None = None
+    last_session: int | None = None
     episode_count: int = 0
     error_log: list = field(default_factory=list)
     # V2 additions
-    llm_provider: Optional[str] = None
-    embedder_provider: Optional[str] = None
+    llm_provider: str | None = None
+    embedder_provider: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -385,17 +411,19 @@ class GraphitiState:
             return None
 
         try:
-            with open(marker_file, "r") as f:
+            with open(marker_file) as f:
                 return cls.from_dict(json.load(f))
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return None
 
     def record_error(self, error_msg: str) -> None:
         """Record an error in the state."""
-        self.error_log.append({
-            "timestamp": datetime.now().isoformat(),
-            "error": error_msg[:500],  # Limit error message length
-        })
+        self.error_log.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "error": error_msg[:500],  # Limit error message length
+            }
+        )
         # Keep only last 10 errors
         self.error_log = self.error_log[-10:]
 

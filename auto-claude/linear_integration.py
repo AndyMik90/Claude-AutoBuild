@@ -19,23 +19,17 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from linear_config import (
+    LABELS,
+    STATUS_BLOCKED,
     LinearConfig,
     LinearProjectState,
-    LINEAR_PROJECT_MARKER,
-    META_ISSUE_TITLE,
-    LABELS,
-    get_linear_status,
-    get_priority_for_phase,
-    format_subtask_description,
     format_session_comment,
     format_stuck_subtask_comment,
-    STATUS_TODO,
-    STATUS_IN_PROGRESS,
-    STATUS_DONE,
-    STATUS_BLOCKED,
+    format_subtask_description,
+    get_linear_status,
+    get_priority_for_phase,
 )
 
 
@@ -63,7 +57,7 @@ class LinearManager:
         self.spec_dir = spec_dir
         self.project_dir = project_dir
         self.config = LinearConfig.from_env()
-        self.state: Optional[LinearProjectState] = None
+        self.state: LinearProjectState | None = None
         self._mcp_available = False
 
         # Load existing state if available
@@ -88,7 +82,7 @@ class LinearManager:
         """Check if Linear project has been initialized for this spec."""
         return self.state is not None and self.state.initialized
 
-    def get_issue_id(self, subtask_id: str) -> Optional[str]:
+    def get_issue_id(self, subtask_id: str) -> str | None:
         """
         Get the Linear issue ID for a subtask.
 
@@ -157,16 +151,16 @@ class LinearManager:
             self.state.meta_issue_id = meta_issue_id
             self.state.save(self.spec_dir)
 
-    def load_implementation_plan(self) -> Optional[dict]:
+    def load_implementation_plan(self) -> dict | None:
         """Load the implementation plan from spec directory."""
         plan_file = self.spec_dir / "implementation_plan.json"
         if not plan_file.exists():
             return None
 
         try:
-            with open(plan_file, "r") as f:
+            with open(plan_file) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return None
 
     def get_subtasks_for_sync(self) -> list[dict]:
@@ -189,13 +183,15 @@ class LinearManager:
             phase_name = phase.get("name", f"Phase {phase_num}")
 
             for subtask in phase.get("subtasks", []):
-                subtasks.append({
-                    **subtask,
-                    "phase_num": phase_num,
-                    "phase_name": phase_name,
-                    "total_phases": total_phases,
-                    "phase_depends_on": phase.get("depends_on", []),
-                })
+                subtasks.append(
+                    {
+                        **subtask,
+                        "phase_num": phase_num,
+                        "phase_name": phase_name,
+                        "total_phases": total_phases,
+                        "phase_depends_on": phase.get("depends_on", []),
+                    }
+                )
 
         return subtasks
 
@@ -216,8 +212,7 @@ class LinearManager:
 
         # Determine priority based on phase position
         priority = get_priority_for_phase(
-            subtask.get("phase_num", 1),
-            subtask.get("total_phases", 1)
+            subtask.get("phase_num", 1), subtask.get("total_phases", 1)
         )
 
         # Build labels list
@@ -347,10 +342,7 @@ class LinearManager:
             }
 
         subtasks = self.get_subtasks_for_sync()
-        mapped = sum(
-            1 for s in subtasks
-            if self.get_issue_id(s.get("id", ""))
-        )
+        mapped = sum(1 for s in subtasks if self.get_issue_id(s.get("id", "")))
 
         return {
             "enabled": self.is_enabled,

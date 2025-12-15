@@ -42,8 +42,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from ui import (
     BuildState,
     BuildStatus,
-    StatusManager,
     Icons,
+    StatusManager,
     icon,
     supports_unicode,
 )
@@ -89,12 +89,16 @@ def format_compact(status: BuildStatus) -> str:
     # Subtasks progress
     if status.subtasks_total > 0:
         subtask_icon = icon(Icons.SUBTASK)
-        parts.append(f"{subtask_icon} {status.subtasks_completed}/{status.subtasks_total}")
+        parts.append(
+            f"{subtask_icon} {status.subtasks_completed}/{status.subtasks_total}"
+        )
 
     # Current phase
     if status.phase_current:
         phase_icon = icon(Icons.PHASE)
-        phase_status = icon(Icons.ARROW_RIGHT) if status.state == BuildState.BUILDING else ""
+        phase_status = (
+            icon(Icons.ARROW_RIGHT) if status.state == BuildState.BUILDING else ""
+        )
         parts.append(f"{phase_icon} {status.phase_current} {phase_status}".strip())
 
     # Workers (only in parallel mode)
@@ -131,7 +135,9 @@ def format_full(status: BuildStatus) -> str:
 
     if status.subtasks_total > 0:
         pct = int(100 * status.subtasks_completed / status.subtasks_total)
-        lines.append(f"Progress: {status.subtasks_completed}/{status.subtasks_total} subtasks ({pct}%)")
+        lines.append(
+            f"Progress: {status.subtasks_completed}/{status.subtasks_total} subtasks ({pct}%)"
+        )
 
         if status.subtasks_in_progress > 0:
             lines.append(f"In Progress: {status.subtasks_in_progress}")
@@ -139,7 +145,9 @@ def format_full(status: BuildStatus) -> str:
             lines.append(f"Failed: {status.subtasks_failed}")
 
     if status.phase_current:
-        lines.append(f"Phase: {status.phase_current} ({status.phase_id}/{status.phase_total})")
+        lines.append(
+            f"Phase: {status.phase_current} ({status.phase_id}/{status.phase_total})"
+        )
 
     if status.workers_max > 1:
         lines.append(f"Workers: {status.workers_active}/{status.workers_max}")
@@ -169,23 +177,26 @@ Examples:
   python statusline.py                    # Default compact format
   python statusline.py --format full      # Detailed output
   python statusline.py --format json      # JSON for scripting
-        """
+        """,
     )
 
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["compact", "full", "json"],
         default="compact",
         help="Output format (default: compact)",
     )
 
     parser.add_argument(
-        "--spec", "-s",
+        "--spec",
+        "-s",
         help="Specific spec to check (default: auto-detect from status file)",
     )
 
     parser.add_argument(
-        "--project-dir", "-p",
+        "--project-dir",
+        "-p",
         type=Path,
         help="Project directory (default: auto-detect)",
     )

@@ -2,6 +2,10 @@
 .DS_Store
 Thumbs.db
 
+# Environment files (contain API keys)
+.env
+.env.local
+
 # Git worktrees (used by auto-build parallel mode)
 .worktrees/
 

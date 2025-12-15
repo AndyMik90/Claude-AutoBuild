@@ -25,35 +25,34 @@ Usage:
 """
 
 # Core state management
-from .state import (
-    ReviewState,
-    get_review_status_summary,
-    REVIEW_STATE_FILE,
+# Diff analysis utilities (internal, but available if needed)
+from .diff_analyzer import (
+    extract_checkboxes,
+    extract_section,
+    extract_table_rows,
+    extract_title,
+    truncate_text,
 )
 
 # Display formatters
 from .formatters import (
-    display_spec_summary,
     display_plan_summary,
     display_review_status,
+    display_spec_summary,
 )
 
 # Review orchestration
 from .reviewer import (
     ReviewChoice,
-    run_review_checkpoint,
-    open_file_in_editor,
     get_review_menu_options,
+    open_file_in_editor,
     prompt_feedback,
+    run_review_checkpoint,
 )
-
-# Diff analysis utilities (internal, but available if needed)
-from .diff_analyzer import (
-    extract_section,
-    extract_table_rows,
-    truncate_text,
-    extract_title,
-    extract_checkboxes,
+from .state import (
+    REVIEW_STATE_FILE,
+    ReviewState,
+    get_review_status_summary,
 )
 
 __all__ = [

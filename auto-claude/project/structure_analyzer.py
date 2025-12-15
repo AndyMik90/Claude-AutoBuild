@@ -9,6 +9,7 @@ command allowlists.
 
 import re
 from pathlib import Path
+
 from .config_parser import ConfigParser
 from .models import CustomScripts
 
@@ -73,11 +74,11 @@ class StructureAnalyzer:
 
         for line in content.splitlines():
             # Match target definitions like "target:" or "target: deps"
-            match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:', line)
+            match = re.match(r"^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:", line)
             if match:
                 target = match.group(1)
                 # Skip common internal targets
-                if not target.startswith('.'):
+                if not target.startswith("."):
                     self.custom_scripts.make_targets.append(target)
 
         if self.custom_scripts.make_targets:
@@ -96,7 +97,9 @@ class StructureAnalyzer:
 
         # PEP 621 scripts
         if "project" in toml and "scripts" in toml["project"]:
-            self.custom_scripts.poetry_scripts.extend(list(toml["project"]["scripts"].keys()))
+            self.custom_scripts.poetry_scripts.extend(
+                list(toml["project"]["scripts"].keys())
+            )
 
     def _detect_shell_scripts(self) -> None:
         """Detect shell scripts in root directory."""

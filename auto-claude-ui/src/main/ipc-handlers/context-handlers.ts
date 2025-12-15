@@ -91,7 +91,7 @@ export function registerContextHandlers(
                 memoryStatus = {
                   enabled: true,
                   available: true,
-                  database: memoryState.database || 'auto_build_memory',
+                  database: memoryState.database || 'auto_claude_memory',
                   host: process.env.GRAPHITI_FALKORDB_HOST || 'localhost',
                   port: parseInt(process.env.GRAPHITI_FALKORDB_PORT || '6380', 10)
                 };
@@ -157,7 +157,7 @@ export function registerContextHandlers(
           // Get Graphiti connection details from project .env or process.env
           const graphitiHost = projectEnvVars['GRAPHITI_FALKORDB_HOST'] || process.env.GRAPHITI_FALKORDB_HOST || 'localhost';
           const graphitiPort = parseInt(projectEnvVars['GRAPHITI_FALKORDB_PORT'] || process.env.GRAPHITI_FALKORDB_PORT || '6380', 10);
-          const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_build_memory';
+          const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_claude_memory';
 
           if (graphitiEnabled && hasOpenAI) {
             memoryStatus = {
@@ -393,7 +393,7 @@ export function registerContextHandlers(
       // Get Graphiti connection details from project .env or process.env
       const graphitiHost = projectEnvVars['GRAPHITI_FALKORDB_HOST'] || process.env.GRAPHITI_FALKORDB_HOST || 'localhost';
       const graphitiPort = parseInt(projectEnvVars['GRAPHITI_FALKORDB_PORT'] || process.env.GRAPHITI_FALKORDB_PORT || '6380', 10);
-      const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_build_memory';
+      const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_claude_memory';
 
       if (!graphitiEnabled) {
         return {

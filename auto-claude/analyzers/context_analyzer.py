@@ -39,9 +39,16 @@ class ContextAnalyzer(BaseAnalyzer):
 
         # 1. Parse .env files
         env_files = [
-            ".env", ".env.local", ".env.development", ".env.production",
-            ".env.dev", ".env.prod", ".env.test", ".env.staging",
-            "config/.env", "../.env"
+            ".env",
+            ".env.local",
+            ".env.development",
+            ".env.production",
+            ".env.dev",
+            ".env.prod",
+            ".env.test",
+            ".env.staging",
+            "config/.env",
+            "../.env",
         ]
 
         for env_file in env_files:
@@ -49,22 +56,31 @@ class ContextAnalyzer(BaseAnalyzer):
             if not content:
                 continue
 
-            for line in content.split('\n'):
+            for line in content.split("\n"):
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
 
                 # Parse KEY=value or KEY="value" or KEY='value'
-                match = re.match(r'^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$', line)
+                match = re.match(r"^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$", line)
                 if match:
                     key = match.group(1)
                     value = match.group(2).strip().strip('"').strip("'")
 
                     # Detect if sensitive
-                    is_sensitive = any(keyword in key.lower() for keyword in [
-                        'secret', 'key', 'password', 'token', 'api_key',
-                        'private', 'credential', 'auth'
-                    ])
+                    is_sensitive = any(
+                        keyword in key.lower()
+                        for keyword in [
+                            "secret",
+                            "key",
+                            "password",
+                            "token",
+                            "api_key",
+                            "private",
+                            "credential",
+                            "auth",
+                        ]
+                    )
 
                     # Detect type
                     var_type = self._infer_env_var_type(value)
@@ -73,18 +89,20 @@ class ContextAnalyzer(BaseAnalyzer):
                         "value": "<REDACTED>" if is_sensitive else value,
                         "source": env_file,
                         "type": var_type,
-                        "sensitive": is_sensitive
+                        "sensitive": is_sensitive,
                     }
 
         # 2. Parse .env.example to find required variables
-        example_content = self._read_file(".env.example") or self._read_file(".env.sample")
+        example_content = self._read_file(".env.example") or self._read_file(
+            ".env.sample"
+        )
         if example_content:
-            for line in example_content.split('\n'):
+            for line in example_content.split("\n"):
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
 
-                match = re.match(r'^([A-Z_][A-Z0-9_]*)\s*=', line)
+                match = re.match(r"^([A-Z_][A-Z0-9_]*)\s*=", line)
                 if match:
                     key = match.group(1)
                     required_vars.add(key)
@@ -94,8 +112,11 @@ class ContextAnalyzer(BaseAnalyzer):
                             "value": None,
                             "source": ".env.example",
                             "type": "string",
-                            "sensitive": any(k in key.lower() for k in ['secret', 'key', 'password', 'token']),
-                            "required": True
+                            "sensitive": any(
+                                k in key.lower()
+                                for k in ["secret", "key", "password", "token"]
+                            ),
+                            "required": True,
                         }
 
         # 3. Parse docker-compose.yml environment section
@@ -106,19 +127,19 @@ class ContextAnalyzer(BaseAnalyzer):
 
             # Look for environment variables in docker-compose
             in_env_section = False
-            for line in content.split('\n'):
-                if 'environment:' in line:
+            for line in content.split("\n"):
+                if "environment:" in line:
                     in_env_section = True
                     continue
 
                 if in_env_section:
                     # Check if we left the environment section
-                    if line and not line.startswith((' ', '\t', '-')):
+                    if line and not line.startswith((" ", "\t", "-")):
                         in_env_section = False
                         continue
 
                     # Parse - KEY=value or - KEY
-                    match = re.match(r'^\s*-\s*([A-Z_][A-Z0-9_]*)', line)
+                    match = re.match(r"^\s*-\s*([A-Z_][A-Z0-9_]*)", line)
                     if match:
                         key = match.group(1)
                         if key not in env_vars:
@@ -126,14 +147,21 @@ class ContextAnalyzer(BaseAnalyzer):
                                 "value": None,
                                 "source": compose_file,
                                 "type": "string",
-                                "sensitive": False
+                                "sensitive": False,
                             }
 
         # 4. Scan code for os.getenv() / process.env usage to find optional vars
         entry_files = [
-            "app.py", "main.py", "config.py", "settings.py",
-            "src/config.py", "src/settings.py",
-            "index.js", "index.ts", "config.js", "config.ts"
+            "app.py",
+            "main.py",
+            "config.py",
+            "settings.py",
+            "src/config.py",
+            "src/settings.py",
+            "index.js",
+            "index.ts",
+            "config.js",
+            "config.ts",
         ]
 
         for entry_file in entry_files:
@@ -150,7 +178,7 @@ class ContextAnalyzer(BaseAnalyzer):
 
             # JavaScript: process.env.VAR
             js_patterns = [
-                r'process\.env\.([A-Z_][A-Z0-9_]*)',
+                r"process\.env\.([A-Z_][A-Z0-9_]*)",
             ]
 
             for pattern in python_patterns + js_patterns:
@@ -162,21 +190,24 @@ class ContextAnalyzer(BaseAnalyzer):
                             "value": None,
                             "source": f"code:{entry_file}",
                             "type": "string",
-                            "sensitive": any(k in var_name.lower() for k in ['secret', 'key', 'password', 'token']),
-                            "required": False
+                            "sensitive": any(
+                                k in var_name.lower()
+                                for k in ["secret", "key", "password", "token"]
+                            ),
+                            "required": False,
                         }
 
         # Mark required vs optional
         for key in env_vars:
-            if 'required' not in env_vars[key]:
-                env_vars[key]['required'] = key in required_vars
+            if "required" not in env_vars[key]:
+                env_vars[key]["required"] = key in required_vars
 
         if env_vars:
             self.analysis["environment"] = {
                 "variables": env_vars,
                 "required_count": len(required_vars),
                 "optional_count": len(optional_vars),
-                "detected_count": len(env_vars)
+                "detected_count": len(env_vars),
             }
 
     def detect_external_services(self) -> None:
@@ -193,7 +224,7 @@ class ContextAnalyzer(BaseAnalyzer):
             "payments": [],
             "storage": [],
             "auth_providers": [],
-            "monitoring": []
+            "monitoring": [],
         }
 
         # Get all dependencies
@@ -202,7 +233,7 @@ class ContextAnalyzer(BaseAnalyzer):
         # Python dependencies
         if self._exists("requirements.txt"):
             content = self._read_file("requirements.txt")
-            all_deps.update(re.findall(r'^([a-zA-Z0-9_-]+)', content, re.MULTILINE))
+            all_deps.update(re.findall(r"^([a-zA-Z0-9_-]+)", content, re.MULTILINE))
 
         # Node.js dependencies
         pkg = self._read_json("package.json")
@@ -224,15 +255,12 @@ class ContextAnalyzer(BaseAnalyzer):
             "redis-py": "redis",
             "ioredis": "redis",
             "sqlite3": "sqlite",
-            "better-sqlite3": "sqlite"
+            "better-sqlite3": "sqlite",
         }
 
         for dep, db_type in db_indicators.items():
             if dep in all_deps:
-                services["databases"].append({
-                    "type": db_type,
-                    "client": dep
-                })
+                services["databases"].append({"type": db_type, "client": dep})
 
         # Cache services
         cache_indicators = ["redis", "memcached", "node-cache"]
@@ -248,15 +276,12 @@ class ContextAnalyzer(BaseAnalyzer):
             "kafka-python": "kafka",
             "kafkajs": "kafka",
             "amqplib": "rabbitmq",
-            "amqp": "rabbitmq"
+            "amqp": "rabbitmq",
         }
 
         for dep, queue_type in queue_indicators.items():
             if dep in all_deps:
-                services["message_queues"].append({
-                    "type": queue_type,
-                    "client": dep
-                })
+                services["message_queues"].append({"type": queue_type, "client": dep})
 
         # Email services
         email_indicators = {
@@ -264,30 +289,24 @@ class ContextAnalyzer(BaseAnalyzer):
             "@sendgrid/mail": "sendgrid",
             "nodemailer": "smtp",
             "mailgun": "mailgun",
-            "postmark": "postmark"
+            "postmark": "postmark",
         }
 
         for dep, email_type in email_indicators.items():
             if dep in all_deps:
-                services["email"].append({
-                    "provider": email_type,
-                    "client": dep
-                })
+                services["email"].append({"provider": email_type, "client": dep})
 
         # Payment processors
         payment_indicators = {
             "stripe": "stripe",
             "paypal": "paypal",
             "square": "square",
-            "braintree": "braintree"
+            "braintree": "braintree",
         }
 
         for dep, payment_type in payment_indicators.items():
             if dep in all_deps:
-                services["payments"].append({
-                    "provider": payment_type,
-                    "client": dep
-                })
+                services["payments"].append({"provider": payment_type, "client": dep})
 
         # Storage services
         storage_indicators = {
@@ -295,15 +314,12 @@ class ContextAnalyzer(BaseAnalyzer):
             "@aws-sdk/client-s3": "aws_s3",
             "aws-sdk": "aws_s3",
             "@google-cloud/storage": "google_cloud_storage",
-            "azure-storage-blob": "azure_blob_storage"
+            "azure-storage-blob": "azure_blob_storage",
         }
 
         for dep, storage_type in storage_indicators.items():
             if dep in all_deps:
-                services["storage"].append({
-                    "provider": storage_type,
-                    "client": dep
-                })
+                services["storage"].append({"provider": storage_type, "client": dep})
 
         # Auth providers
         auth_indicators = {
@@ -313,15 +329,12 @@ class ContextAnalyzer(BaseAnalyzer):
             "jsonwebtoken": "jwt",
             "passport": "oauth",
             "next-auth": "oauth",
-            "@auth/core": "oauth"
+            "@auth/core": "oauth",
         }
 
         for dep, auth_type in auth_indicators.items():
             if dep in all_deps:
-                services["auth_providers"].append({
-                    "type": auth_type,
-                    "client": dep
-                })
+                services["auth_providers"].append({"type": auth_type, "client": dep})
 
         # Monitoring/observability
         monitoring_indicators = {
@@ -331,15 +344,12 @@ class ContextAnalyzer(BaseAnalyzer):
             "newrelic": "new_relic",
             "loguru": "logging",
             "winston": "logging",
-            "pino": "logging"
+            "pino": "logging",
         }
 
         for dep, monitoring_type in monitoring_indicators.items():
             if dep in all_deps:
-                services["monitoring"].append({
-                    "type": monitoring_type,
-                    "client": dep
-                })
+                services["monitoring"].append({"type": monitoring_type, "client": dep})
 
         # Remove empty categories
         services = {k: v for k, v in services.items() if v}
@@ -357,7 +367,7 @@ class ContextAnalyzer(BaseAnalyzer):
             "strategies": [],
             "libraries": [],
             "user_model": None,
-            "middleware": []
+            "middleware": [],
         }
 
         # Scan for auth libraries in dependencies
@@ -365,7 +375,7 @@ class ContextAnalyzer(BaseAnalyzer):
 
         if self._exists("requirements.txt"):
             content = self._read_file("requirements.txt")
-            all_deps.update(re.findall(r'^([a-zA-Z0-9_-]+)', content, re.MULTILINE))
+            all_deps.update(re.findall(r"^([a-zA-Z0-9_-]+)", content, re.MULTILINE))
 
         pkg = self._read_json("package.json")
         if pkg:
@@ -396,8 +406,12 @@ class ContextAnalyzer(BaseAnalyzer):
 
         # Find user model
         user_model_files = [
-            "models/user.py", "models/User.py", "app/models/user.py",
-            "models/user.ts", "models/User.ts", "src/models/user.ts"
+            "models/user.py",
+            "models/User.py",
+            "app/models/user.py",
+            "models/user.ts",
+            "models/User.ts",
+            "src/models/user.ts",
         ]
 
         for model_file in user_model_files:
@@ -413,10 +427,14 @@ class ContextAnalyzer(BaseAnalyzer):
             try:
                 content = py_file.read_text()
                 # Find custom decorators
-                if '@require' in content or '@login_required' in content or '@authenticate' in content:
-                    decorators = re.findall(r'@(\w*(?:require|auth|login)\w*)', content)
+                if (
+                    "@require" in content
+                    or "@login_required" in content
+                    or "@authenticate" in content
+                ):
+                    decorators = re.findall(r"@(\w*(?:require|auth|login)\w*)", content)
                     auth_decorators.update(decorators)
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
         if auth_decorators:
@@ -440,13 +458,15 @@ class ContextAnalyzer(BaseAnalyzer):
         if self._exists("alembic.ini") or self._exists("alembic"):
             migration_info = {
                 "tool": "alembic",
-                "directory": "alembic/versions" if self._exists("alembic/versions") else "alembic",
+                "directory": "alembic/versions"
+                if self._exists("alembic/versions")
+                else "alembic",
                 "config_file": "alembic.ini",
                 "commands": {
                     "upgrade": "alembic upgrade head",
                     "downgrade": "alembic downgrade -1",
-                    "create": "alembic revision --autogenerate -m 'message'"
-                }
+                    "create": "alembic revision --autogenerate -m 'message'",
+                },
             }
 
         # Django migrations
@@ -455,11 +475,13 @@ class ContextAnalyzer(BaseAnalyzer):
             if migration_dirs:
                 migration_info = {
                     "tool": "django",
-                    "directories": [str(d.relative_to(self.path)) for d in migration_dirs],
+                    "directories": [
+                        str(d.relative_to(self.path)) for d in migration_dirs
+                    ],
                     "commands": {
                         "migrate": "python manage.py migrate",
-                        "makemigrations": "python manage.py makemigrations"
-                    }
+                        "makemigrations": "python manage.py makemigrations",
+                    },
                 }
 
         # Knex (Node.js)
@@ -471,8 +493,8 @@ class ContextAnalyzer(BaseAnalyzer):
                 "commands": {
                     "migrate": "knex migrate:latest",
                     "rollback": "knex migrate:rollback",
-                    "create": "knex migrate:make migration_name"
-                }
+                    "create": "knex migrate:make migration_name",
+                },
             }
 
         # TypeORM migrations
@@ -483,8 +505,8 @@ class ContextAnalyzer(BaseAnalyzer):
                 "commands": {
                     "run": "typeorm migration:run",
                     "revert": "typeorm migration:revert",
-                    "create": "typeorm migration:create"
-                }
+                    "create": "typeorm migration:create",
+                },
             }
 
         # Prisma migrations
@@ -496,8 +518,8 @@ class ContextAnalyzer(BaseAnalyzer):
                 "commands": {
                     "migrate": "prisma migrate deploy",
                     "dev": "prisma migrate dev",
-                    "create": "prisma migrate dev --name migration_name"
-                }
+                    "create": "prisma migrate dev --name migration_name",
+                },
             }
 
         if migration_info:
@@ -512,23 +534,27 @@ class ContextAnalyzer(BaseAnalyzer):
         jobs_info = {}
 
         # Celery (Python)
-        celery_files = list(self.path.glob("**/celery.py")) + list(self.path.glob("**/tasks.py"))
+        celery_files = list(self.path.glob("**/celery.py")) + list(
+            self.path.glob("**/tasks.py")
+        )
         if celery_files:
             tasks = []
             for task_file in celery_files:
                 try:
                     content = task_file.read_text()
                     # Find @celery.task or @shared_task decorators
-                    task_pattern = r'@(?:celery\.task|shared_task|app\.task)\s*(?:\([^)]*\))?\s*def\s+(\w+)'
+                    task_pattern = r"@(?:celery\.task|shared_task|app\.task)\s*(?:\([^)]*\))?\s*def\s+(\w+)"
                     task_matches = re.findall(task_pattern, content)
 
                     for task_name in task_matches:
-                        tasks.append({
-                            "name": task_name,
-                            "file": str(task_file.relative_to(self.path))
-                        })
+                        tasks.append(
+                            {
+                                "name": task_name,
+                                "file": str(task_file.relative_to(self.path)),
+                            }
+                        )
 
-                except (IOError, UnicodeDecodeError):
+                except (OSError, UnicodeDecodeError):
                     continue
 
             if tasks:
@@ -536,17 +562,22 @@ class ContextAnalyzer(BaseAnalyzer):
                     "system": "celery",
                     "tasks": tasks,
                     "total_tasks": len(tasks),
-                    "worker_command": "celery -A app worker"
+                    "worker_command": "celery -A app worker",
                 }
 
         # BullMQ (Node.js)
         elif self._exists("package.json"):
             pkg = self._read_json("package.json")
-            if pkg and ("bullmq" in pkg.get("dependencies", {}) or "bull" in pkg.get("dependencies", {})):
+            if pkg and (
+                "bullmq" in pkg.get("dependencies", {})
+                or "bull" in pkg.get("dependencies", {})
+            ):
                 jobs_info = {
-                    "system": "bullmq" if "bullmq" in pkg.get("dependencies", {}) else "bull",
+                    "system": "bullmq"
+                    if "bullmq" in pkg.get("dependencies", {})
+                    else "bull",
                     "tasks": [],
-                    "worker_command": "node worker.js"
+                    "worker_command": "node worker.js",
                 }
 
         # Sidekiq (Ruby)
@@ -555,7 +586,7 @@ class ContextAnalyzer(BaseAnalyzer):
             if "sidekiq" in gemfile.lower():
                 jobs_info = {
                     "system": "sidekiq",
-                    "worker_command": "bundle exec sidekiq"
+                    "worker_command": "bundle exec sidekiq",
                 }
 
         if jobs_info:
@@ -576,7 +607,7 @@ class ContextAnalyzer(BaseAnalyzer):
                 "auto_generated": True,
                 "docs_url": "/docs",
                 "redoc_url": "/redoc",
-                "openapi_url": "/openapi.json"
+                "openapi_url": "/openapi.json",
             }
 
         # Swagger/OpenAPI for Node.js
@@ -588,7 +619,7 @@ class ContextAnalyzer(BaseAnalyzer):
                     docs_info = {
                         "type": "openapi",
                         "library": "swagger-ui-express",
-                        "docs_url": "/api-docs"
+                        "docs_url": "/api-docs",
                     }
 
         # GraphQL
@@ -596,12 +627,18 @@ class ContextAnalyzer(BaseAnalyzer):
             pkg = self._read_json("package.json")
             if pkg:
                 deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
-                if "graphql" in deps or "apollo-server" in deps or "@apollo/server" in deps:
+                if (
+                    "graphql" in deps
+                    or "apollo-server" in deps
+                    or "@apollo/server" in deps
+                ):
                     if not docs_info:
                         docs_info = {}
                     docs_info["graphql"] = {
                         "playground_url": "/graphql",
-                        "library": "apollo-server" if "apollo-server" in deps else "graphql"
+                        "library": "apollo-server"
+                        if "apollo-server" in deps
+                        else "graphql",
                     }
 
         if docs_info:
@@ -618,13 +655,19 @@ class ContextAnalyzer(BaseAnalyzer):
         # Health check endpoints (look in routes)
         if "api" in self.analysis:
             routes = self.analysis["api"].get("routes", [])
-            health_routes = [r for r in routes if "health" in r["path"].lower() or "ping" in r["path"].lower()]
+            health_routes = [
+                r
+                for r in routes
+                if "health" in r["path"].lower() or "ping" in r["path"].lower()
+            ]
 
             if health_routes:
                 monitoring_info["health_checks"] = [r["path"] for r in health_routes]
 
         # Prometheus metrics - look for actual Prometheus imports/usage, not just keywords
-        all_files = list(self.path.glob("**/*.py"))[:30] + list(self.path.glob("**/*.js"))[:30]
+        all_files = (
+            list(self.path.glob("**/*.py"))[:30] + list(self.path.glob("**/*.js"))[:30]
+        )
         for file_path in all_files:
             # Skip analyzer files to avoid self-detection
             if "analyzers" in str(file_path) or "analyzer.py" in str(file_path):
@@ -638,20 +681,22 @@ class ContextAnalyzer(BaseAnalyzer):
                     "import prometheus_client",
                     "prometheus_client.",
                     "@app.route('/metrics')",  # Flask
-                    "app.get('/metrics'",       # Express/Fastify
-                    "router.get('/metrics'",     # Express Router
+                    "app.get('/metrics'",  # Express/Fastify
+                    "router.get('/metrics'",  # Express Router
                 ]
 
                 if any(pattern in content for pattern in prometheus_patterns):
                     monitoring_info["metrics_endpoint"] = "/metrics"
                     monitoring_info["metrics_type"] = "prometheus"
                     break
-            except (IOError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 continue
 
         # APM tools (already detected in external_services, just reference here)
         if "services" in self.analysis and "monitoring" in self.analysis["services"]:
-            monitoring_info["apm_tools"] = [s["type"] for s in self.analysis["services"]["monitoring"]]
+            monitoring_info["apm_tools"] = [
+                s["type"] for s in self.analysis["services"]["monitoring"]
+            ]
 
         if monitoring_info:
             self.analysis["monitoring"] = monitoring_info

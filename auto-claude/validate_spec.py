@@ -25,50 +25,106 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
 
 # JSON Schemas for validation
 IMPLEMENTATION_PLAN_SCHEMA = {
     "required_fields": ["feature", "workflow_type", "phases"],
-    "optional_fields": ["services_involved", "final_acceptance", "created_at", "updated_at", "spec_file", "qa_acceptance", "qa_signoff", "summary", "description", "workflow_rationale", "status"],
+    "optional_fields": [
+        "services_involved",
+        "final_acceptance",
+        "created_at",
+        "updated_at",
+        "spec_file",
+        "qa_acceptance",
+        "qa_signoff",
+        "summary",
+        "description",
+        "workflow_rationale",
+        "status",
+    ],
     "workflow_types": ["feature", "refactor", "investigation", "migration", "simple"],
     "phase_schema": {
         # Support both old format ("phase" number) and new format ("id" string)
         "required_fields_either": [["phase", "id"]],  # At least one of these
         "required_fields": ["name", "subtasks"],
-        "optional_fields": ["type", "depends_on", "parallel_safe", "description", "phase", "id"],
-        "phase_types": ["setup", "implementation", "investigation", "integration", "cleanup"],
+        "optional_fields": [
+            "type",
+            "depends_on",
+            "parallel_safe",
+            "description",
+            "phase",
+            "id",
+        ],
+        "phase_types": [
+            "setup",
+            "implementation",
+            "investigation",
+            "integration",
+            "cleanup",
+        ],
     },
     "subtask_schema": {
         "required_fields": ["id", "description", "status"],
         "optional_fields": [
-            "service", "all_services", "files_to_modify", "files_to_create",
-            "patterns_from", "verification", "expected_output", "actual_output",
-            "started_at", "completed_at", "session_id", "critique_result"
+            "service",
+            "all_services",
+            "files_to_modify",
+            "files_to_create",
+            "patterns_from",
+            "verification",
+            "expected_output",
+            "actual_output",
+            "started_at",
+            "completed_at",
+            "session_id",
+            "critique_result",
         ],
         "status_values": ["pending", "in_progress", "completed", "blocked", "failed"],
     },
     "verification_schema": {
         "required_fields": ["type"],
-        "optional_fields": ["run", "url", "method", "expect_status", "expect_contains", "scenario", "steps"],
-        "verification_types": ["command", "api", "browser", "component", "manual", "none", "e2e"],
+        "optional_fields": [
+            "run",
+            "url",
+            "method",
+            "expect_status",
+            "expect_contains",
+            "scenario",
+            "steps",
+        ],
+        "verification_types": [
+            "command",
+            "api",
+            "browser",
+            "component",
+            "manual",
+            "none",
+            "e2e",
+        ],
     },
 }
 
 CONTEXT_SCHEMA = {
     "required_fields": ["task_description"],
     "optional_fields": [
-        "scoped_services", "files_to_modify", "files_to_reference",
-        "patterns", "service_contexts", "created_at"
+        "scoped_services",
+        "files_to_modify",
+        "files_to_reference",
+        "patterns",
+        "service_contexts",
+        "created_at",
     ],
 }
 
 PROJECT_INDEX_SCHEMA = {
     "required_fields": ["project_type"],
     "optional_fields": [
-        "services", "infrastructure", "conventions", "root_path",
-        "created_at", "git_info"
+        "services",
+        "infrastructure",
+        "conventions",
+        "root_path",
+        "created_at",
+        "git_info",
     ],
     "project_types": ["single", "monorepo"],
 }
@@ -91,6 +147,7 @@ SPEC_RECOMMENDED_SECTIONS = [
 @dataclass
 class ValidationResult:
     """Result of a validation check."""
+
     valid: bool
     checkpoint: str
     errors: list[str]
@@ -153,11 +210,15 @@ class SpecValidator:
             # Check if it exists at auto-claude level
             auto_build_index = self.spec_dir.parent.parent / "project_index.json"
             if auto_build_index.exists():
-                warnings.append("project_index.json exists at auto-claude/ but not in spec folder")
+                warnings.append(
+                    "project_index.json exists at auto-claude/ but not in spec folder"
+                )
                 fixes.append(f"Copy: cp {auto_build_index} {project_index}")
             else:
                 errors.append("project_index.json not found")
-                fixes.append("Run: python auto-claude/analyzer.py --output auto-claude/project_index.json")
+                fixes.append(
+                    "Run: python auto-claude/analyzer.py --output auto-claude/project_index.json"
+                )
 
         return ValidationResult(
             valid=len(errors) == 0,
@@ -177,7 +238,9 @@ class SpecValidator:
 
         if not context_file.exists():
             errors.append("context.json not found")
-            fixes.append("Run: python auto-claude/context.py --task '[task]' --services '[services]' --output context.json")
+            fixes.append(
+                "Run: python auto-claude/context.py --task '[task]' --services '[services]' --output context.json"
+            )
             return ValidationResult(False, "context", errors, warnings, fixes)
 
         try:
@@ -259,7 +322,9 @@ class SpecValidator:
 
         if not plan_file.exists():
             errors.append("implementation_plan.json not found")
-            fixes.append(f"Run: python auto-claude/planner.py --spec-dir {self.spec_dir}")
+            fixes.append(
+                f"Run: python auto-claude/planner.py --spec-dir {self.spec_dir}"
+            )
             return ValidationResult(False, "plan", errors, warnings, fixes)
 
         try:
@@ -267,7 +332,10 @@ class SpecValidator:
                 plan = json.load(f)
         except json.JSONDecodeError as e:
             errors.append(f"implementation_plan.json is invalid JSON: {e}")
-            fixes.append("Regenerate with: python auto-claude/planner.py --spec-dir " + str(self.spec_dir))
+            fixes.append(
+                "Regenerate with: python auto-claude/planner.py --spec-dir "
+                + str(self.spec_dir)
+            )
             return ValidationResult(False, "plan", errors, warnings, fixes)
 
         # Validate top-level required fields
@@ -327,7 +395,9 @@ class SpecValidator:
         # Check either-or required fields (must have at least one from each group)
         for field_group in schema.get("required_fields_either", []):
             if not any(f in phase for f in field_group):
-                errors.append(f"Phase {index + 1}: missing required field (need one of: {', '.join(field_group)})")
+                errors.append(
+                    f"Phase {index + 1}: missing required field (need one of: {', '.join(field_group)})"
+                )
 
         if "type" in phase and phase["type"] not in schema["phase_types"]:
             errors.append(f"Phase {index + 1}: invalid type '{phase['type']}'")
@@ -340,17 +410,23 @@ class SpecValidator:
 
         return errors
 
-    def _validate_subtask(self, subtask: dict, phase_idx: int, subtask_idx: int) -> list[str]:
+    def _validate_subtask(
+        self, subtask: dict, phase_idx: int, subtask_idx: int
+    ) -> list[str]:
         """Validate a single subtask."""
         errors = []
         schema = IMPLEMENTATION_PLAN_SCHEMA["subtask_schema"]
 
         for field in schema["required_fields"]:
             if field not in subtask:
-                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: missing required field '{field}'")
+                errors.append(
+                    f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: missing required field '{field}'"
+                )
 
         if "status" in subtask and subtask["status"] not in schema["status_values"]:
-            errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid status '{subtask['status']}'")
+            errors.append(
+                f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid status '{subtask['status']}'"
+            )
 
         # Validate verification if present
         if "verification" in subtask:
@@ -358,9 +434,13 @@ class SpecValidator:
             ver_schema = IMPLEMENTATION_PLAN_SCHEMA["verification_schema"]
 
             if "type" not in ver:
-                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: verification missing 'type'")
+                errors.append(
+                    f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: verification missing 'type'"
+                )
             elif ver["type"] not in ver_schema["verification_types"]:
-                errors.append(f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid verification type '{ver['type']}'")
+                errors.append(
+                    f"Phase {phase_idx + 1}, Subtask {subtask_idx + 1}: invalid verification type '{ver['type']}'"
+                )
 
         return errors
 
@@ -388,10 +468,14 @@ class SpecValidator:
 
             for dep in depends_on:
                 if dep not in phase_ids:
-                    errors.append(f"Phase {phase_id}: depends on non-existent phase {dep}")
+                    errors.append(
+                        f"Phase {phase_id}: depends on non-existent phase {dep}"
+                    )
                 # Check for forward references (cycles) by comparing positions
                 elif phase_order.get(dep, -1) >= i:
-                    errors.append(f"Phase {phase_id}: cannot depend on phase {dep} (would create cycle)")
+                    errors.append(
+                        f"Phase {phase_id}: cannot depend on phase {dep} (would create cycle)"
+                    )
 
         return errors
 
@@ -464,9 +548,7 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Validate spec outputs at checkpoints"
-    )
+    parser = argparse.ArgumentParser(description="Validate spec outputs at checkpoints")
     parser.add_argument(
         "--spec-dir",
         type=Path,

@@ -294,6 +294,11 @@ const browserMockAPI: ElectronAPI = {
     console.log('[Browser Mock] invokeClaudeInTerminal called');
   },
 
+  generateTerminalName: async () => ({
+    success: true,
+    data: 'Mock Terminal'
+  }),
+
   // Terminal session management
   getTerminalSessions: async () => ({
     success: true,
@@ -710,6 +715,14 @@ const browserMockAPI: ElectronAPI = {
     data: {
       filePath: 'CHANGELOG.md',
       bytesWritten: 1024
+    }
+  }),
+
+  saveChangelogImage: async () => ({
+    success: true,
+    data: {
+      relativePath: 'images/mock-image.png',
+      url: 'file:///mock/path/images/mock-image.png'
     }
   }),
 

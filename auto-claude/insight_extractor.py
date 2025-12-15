@@ -14,7 +14,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +43,11 @@ def get_extraction_model() -> str:
 # Git Helpers
 # =============================================================================
 
+
 def get_session_diff(
     project_dir: Path,
-    commit_before: Optional[str],
-    commit_after: Optional[str],
+    commit_before: str | None,
+    commit_after: str | None,
 ) -> str:
     """
     Get the git diff between two commits.
@@ -77,7 +78,9 @@ def get_session_diff(
 
         if len(diff) > MAX_DIFF_CHARS:
             # Truncate and add note
-            diff = diff[:MAX_DIFF_CHARS] + f"\n\n... (truncated, {len(diff)} chars total)"
+            diff = (
+                diff[:MAX_DIFF_CHARS] + f"\n\n... (truncated, {len(diff)} chars total)"
+            )
 
         return diff if diff else "(Empty diff)"
 
@@ -91,8 +94,8 @@ def get_session_diff(
 
 def get_changed_files(
     project_dir: Path,
-    commit_before: Optional[str],
-    commit_after: Optional[str],
+    commit_before: str | None,
+    commit_after: str | None,
 ) -> list[str]:
     """
     Get list of files changed between two commits.
@@ -126,8 +129,8 @@ def get_changed_files(
 
 def get_commit_messages(
     project_dir: Path,
-    commit_before: Optional[str],
-    commit_after: Optional[str],
+    commit_before: str | None,
+    commit_after: str | None,
 ) -> str:
     """Get commit messages between two commits."""
     if not commit_before or not commit_after or commit_before == commit_after:
@@ -152,13 +155,14 @@ def get_commit_messages(
 # Input Gathering
 # =============================================================================
 
+
 def gather_extraction_inputs(
     spec_dir: Path,
     project_dir: Path,
     subtask_id: str,
     session_num: int,
-    commit_before: Optional[str],
-    commit_after: Optional[str],
+    commit_before: str | None,
+    commit_after: str | None,
     success: bool,
     recovery_manager: Any,
 ) -> dict:
@@ -249,6 +253,7 @@ def _get_attempt_history(recovery_manager: Any, subtask_id: str) -> list[dict]:
 # LLM Extraction
 # =============================================================================
 
+
 def _build_extraction_prompt(inputs: dict) -> str:
     """Build the prompt for insight extraction."""
     prompt_file = Path(__file__).parent / "prompts" / "insight_extractor.md"
@@ -267,24 +272,24 @@ Output ONLY valid JSON with: file_insights, patterns_discovered, gotchas_discove
 ## SESSION DATA
 
 ### Subtask
-- **ID**: {inputs['subtask_id']}
-- **Description**: {inputs['subtask_description']}
-- **Session Number**: {inputs['session_num']}
-- **Outcome**: {'SUCCESS' if inputs['success'] else 'FAILED'}
+- **ID**: {inputs["subtask_id"]}
+- **Description**: {inputs["subtask_description"]}
+- **Session Number**: {inputs["session_num"]}
+- **Outcome**: {"SUCCESS" if inputs["success"] else "FAILED"}
 
 ### Files Changed
-{chr(10).join(f'- {f}' for f in inputs['changed_files']) if inputs['changed_files'] else '(No files changed)'}
+{chr(10).join(f"- {f}" for f in inputs["changed_files"]) if inputs["changed_files"] else "(No files changed)"}
 
 ### Commit Messages
-{inputs['commit_messages']}
+{inputs["commit_messages"]}
 
 ### Git Diff
 ```diff
-{inputs['diff']}
+{inputs["diff"]}
 ```
 
 ### Previous Attempts
-{_format_attempt_history(inputs['attempt_history'])}
+{_format_attempt_history(inputs["attempt_history"])}
 
 ---
 
@@ -311,7 +316,7 @@ def _format_attempt_history(attempts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def run_insight_extraction(inputs: dict) -> Optional[dict]:
+async def run_insight_extraction(inputs: dict) -> dict | None:
     """
     Run the insight extraction using Anthropic API.
 
@@ -341,9 +346,7 @@ async def run_insight_extraction(inputs: dict) -> Optional[dict]:
         message = client.messages.create(
             model=model,
             max_tokens=4096,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
         )
 
         # Extract text content
@@ -360,7 +363,7 @@ async def run_insight_extraction(inputs: dict) -> Optional[dict]:
         return None
 
 
-def parse_insights(response_text: str) -> Optional[dict]:
+def parse_insights(response_text: str) -> dict | None:
     """
     Parse the LLM response into structured insights.
 
@@ -412,13 +415,14 @@ def parse_insights(response_text: str) -> Optional[dict]:
 # Main Entry Point
 # =============================================================================
 
+
 async def extract_session_insights(
     spec_dir: Path,
     project_dir: Path,
     subtask_id: str,
     session_num: int,
-    commit_before: Optional[str],
-    commit_after: Optional[str],
+    commit_before: str | None,
+    commit_after: str | None,
     success: bool,
     recovery_manager: Any,
 ) -> dict:
@@ -519,10 +523,18 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Test insight extraction")
     parser.add_argument("--spec-dir", type=Path, required=True, help="Spec directory")
-    parser.add_argument("--project-dir", type=Path, required=True, help="Project directory")
-    parser.add_argument("--commit-before", type=str, required=True, help="Commit before session")
-    parser.add_argument("--commit-after", type=str, required=True, help="Commit after session")
-    parser.add_argument("--subtask-id", type=str, default="test-subtask", help="Subtask ID")
+    parser.add_argument(
+        "--project-dir", type=Path, required=True, help="Project directory"
+    )
+    parser.add_argument(
+        "--commit-before", type=str, required=True, help="Commit before session"
+    )
+    parser.add_argument(
+        "--commit-after", type=str, required=True, help="Commit after session"
+    )
+    parser.add_argument(
+        "--subtask-id", type=str, default="test-subtask", help="Subtask ID"
+    )
 
     args = parser.parse_args()
 

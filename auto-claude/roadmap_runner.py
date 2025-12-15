@@ -15,50 +15,41 @@ Usage:
 
 import asyncio
 import json
-import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Load .env file
 from dotenv import load_dotenv
+
 env_file = Path(__file__).parent / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
 from client import create_client
-from ui import (
-    Icons,
-    icon,
-    box,
-    success,
-    error,
-    warning,
-    info,
-    muted,
-    highlight,
-    bold,
-    print_status,
-    print_key_value,
-    print_section,
-)
 from debug import (
     debug,
     debug_detailed,
+    debug_error,
     debug_section,
     debug_success,
-    debug_error,
     debug_warning,
 )
 from graphiti_providers import get_graph_hints, is_graphiti_enabled
 from init import init_auto_claude_dir
-
+from ui import (
+    Icons,
+    box,
+    icon,
+    muted,
+    print_section,
+    print_status,
+)
 
 # Configuration
 MAX_RETRIES = 3
@@ -68,6 +59,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 @dataclass
 class RoadmapPhaseResult:
     """Result of a roadmap phase execution."""
+
     phase: str
     success: bool
     output_files: list[str]
@@ -78,6 +70,7 @@ class RoadmapPhaseResult:
 @dataclass
 class RoadmapConfig:
     """Configuration for roadmap generation."""
+
     project_dir: Path
     output_dir: Path
     model: str = "claude-opus-4-5-20251101"
@@ -90,7 +83,7 @@ class RoadmapOrchestrator:
     def __init__(
         self,
         project_dir: Path,
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
         model: str = "claude-opus-4-5-20251101",
         refresh: bool = False,
     ):
@@ -110,19 +103,25 @@ class RoadmapOrchestrator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         debug_section("roadmap_runner", "Roadmap Orchestrator Initialized")
-        debug("roadmap_runner", "Configuration",
-              project_dir=str(self.project_dir),
-              output_dir=str(self.output_dir),
-              model=self.model,
-              refresh=self.refresh)
+        debug(
+            "roadmap_runner",
+            "Configuration",
+            project_dir=str(self.project_dir),
+            output_dir=str(self.output_dir),
+            model=self.model,
+            refresh=self.refresh,
+        )
 
     def _run_script(self, script: str, args: list[str]) -> tuple[bool, str]:
         """Run a Python script and return (success, output)."""
         script_path = Path(__file__).parent / script
 
-        debug_detailed("roadmap_runner", f"Running script: {script}",
-                       script_path=str(script_path),
-                       args=args)
+        debug_detailed(
+            "roadmap_runner",
+            f"Running script: {script}",
+            script_path=str(script_path),
+            args=args,
+        )
 
         if not script_path.exists():
             debug_error("roadmap_runner", f"Script not found: {script_path}")
@@ -143,9 +142,12 @@ class RoadmapOrchestrator:
                 debug_success("roadmap_runner", f"Script completed: {script}")
                 return True, result.stdout
             else:
-                debug_error("roadmap_runner", f"Script failed: {script}",
-                            returncode=result.returncode,
-                            stderr=result.stderr[:500] if result.stderr else None)
+                debug_error(
+                    "roadmap_runner",
+                    f"Script failed: {script}",
+                    returncode=result.returncode,
+                    stderr=result.stderr[:500] if result.stderr else None,
+                )
                 return False, result.stderr or result.stdout
 
         except subprocess.TimeoutExpired:
@@ -163,9 +165,12 @@ class RoadmapOrchestrator:
         """Run an agent with the given prompt."""
         prompt_path = PROMPTS_DIR / prompt_file
 
-        debug_detailed("roadmap_runner", f"Running agent with prompt: {prompt_file}",
-                       prompt_path=str(prompt_path),
-                       model=self.model)
+        debug_detailed(
+            "roadmap_runner",
+            f"Running agent with prompt: {prompt_file}",
+            prompt_path=str(prompt_path),
+            model=self.model,
+        )
 
         if not prompt_path.exists():
             debug_error("roadmap_runner", f"Prompt file not found: {prompt_path}")
@@ -173,8 +178,9 @@ class RoadmapOrchestrator:
 
         # Load prompt
         prompt = prompt_path.read_text()
-        debug_detailed("roadmap_runner", "Loaded prompt file",
-                       prompt_length=len(prompt))
+        debug_detailed(
+            "roadmap_runner", "Loaded prompt file", prompt_length=len(prompt)
+        )
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"
@@ -182,13 +188,19 @@ class RoadmapOrchestrator:
 
         if additional_context:
             prompt += f"\n{additional_context}\n"
-            debug_detailed("roadmap_runner", "Added additional context",
-                           context_length=len(additional_context))
+            debug_detailed(
+                "roadmap_runner",
+                "Added additional context",
+                context_length=len(additional_context),
+            )
 
         # Create client
-        debug("roadmap_runner", "Creating Claude client",
-              project_dir=str(self.project_dir),
-              model=self.model)
+        debug(
+            "roadmap_runner",
+            "Creating Claude client",
+            project_dir=str(self.project_dir),
+            model=self.model,
+        )
         client = create_client(self.project_dir, self.output_dir, self.model)
 
         try:
@@ -206,13 +218,20 @@ class RoadmapOrchestrator:
                             if block_type == "TextBlock" and hasattr(block, "text"):
                                 response_text += block.text
                                 print(block.text, end="", flush=True)
-                            elif block_type == "ToolUseBlock" and hasattr(block, "name"):
-                                debug_detailed("roadmap_runner", f"Tool called: {block.name}")
+                            elif block_type == "ToolUseBlock" and hasattr(
+                                block, "name"
+                            ):
+                                debug_detailed(
+                                    "roadmap_runner", f"Tool called: {block.name}"
+                                )
                                 print(f"\n[Tool: {block.name}]", flush=True)
 
                 print()
-                debug_success("roadmap_runner", f"Agent completed: {prompt_file}",
-                              response_length=len(response_text))
+                debug_success(
+                    "roadmap_runner",
+                    f"Agent completed: {prompt_file}",
+                    response_length=len(response_text),
+                )
                 return True, response_text
 
         except Exception as e:
@@ -228,8 +247,11 @@ class RoadmapOrchestrator:
         hints_file = self.output_dir / "graph_hints.json"
 
         if hints_file.exists() and not self.refresh:
-            debug("roadmap_runner", "graph_hints.json already exists, skipping",
-                  hints_file=str(hints_file))
+            debug(
+                "roadmap_runner",
+                "graph_hints.json already exists, skipping",
+                hints_file=str(hints_file),
+            )
             print_status("graph_hints.json already exists", "success")
             return RoadmapPhaseResult("graph_hints", True, [str(hints_file)], [], 0)
 
@@ -237,12 +259,16 @@ class RoadmapOrchestrator:
             debug("roadmap_runner", "Graphiti not enabled, creating placeholder")
             print_status("Graphiti not enabled, skipping graph hints", "info")
             with open(hints_file, "w") as f:
-                json.dump({
-                    "enabled": False,
-                    "reason": "Graphiti not configured",
-                    "hints": [],
-                    "created_at": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "enabled": False,
+                        "reason": "Graphiti not configured",
+                        "hints": [],
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
             return RoadmapPhaseResult("graph_hints", True, [str(hints_file)], [], 0)
 
         debug("roadmap_runner", "Querying Graphiti for roadmap insights")
@@ -258,12 +284,16 @@ class RoadmapOrchestrator:
             debug_success("roadmap_runner", f"Retrieved {len(hints)} graph hints")
 
             with open(hints_file, "w") as f:
-                json.dump({
-                    "enabled": True,
-                    "hints": hints,
-                    "hint_count": len(hints),
-                    "created_at": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "enabled": True,
+                        "hints": hints,
+                        "hint_count": len(hints),
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
 
             if hints:
                 print_status(f"Retrieved {len(hints)} graph hints", "success")
@@ -276,13 +306,19 @@ class RoadmapOrchestrator:
             debug_error("roadmap_runner", "Graph query failed", error=str(e))
             print_status(f"Graph query failed: {e}", "warning")
             with open(hints_file, "w") as f:
-                json.dump({
-                    "enabled": True,
-                    "error": str(e),
-                    "hints": [],
-                    "created_at": datetime.now().isoformat(),
-                }, f, indent=2)
-            return RoadmapPhaseResult("graph_hints", True, [str(hints_file)], [str(e)], 0)
+                json.dump(
+                    {
+                        "enabled": True,
+                        "error": str(e),
+                        "hints": [],
+                        "created_at": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
+            return RoadmapPhaseResult(
+                "graph_hints", True, [str(hints_file)], [str(e)], 0
+            )
 
     async def phase_project_index(self) -> RoadmapPhaseResult:
         """Ensure project index exists."""
@@ -291,38 +327,53 @@ class RoadmapOrchestrator:
         project_index = self.output_dir / "project_index.json"
         auto_build_index = Path(__file__).parent / "project_index.json"
 
-        debug_detailed("roadmap_runner", "Checking for existing project index",
-                       project_index=str(project_index),
-                       auto_build_index=str(auto_build_index))
+        debug_detailed(
+            "roadmap_runner",
+            "Checking for existing project index",
+            project_index=str(project_index),
+            auto_build_index=str(auto_build_index),
+        )
 
         # Check if we can copy existing index
         if auto_build_index.exists() and not project_index.exists():
             import shutil
-            debug("roadmap_runner", "Copying existing project_index.json from auto-claude")
+
+            debug(
+                "roadmap_runner", "Copying existing project_index.json from auto-claude"
+            )
             shutil.copy(auto_build_index, project_index)
             print_status("Copied existing project_index.json", "success")
             debug_success("roadmap_runner", "Project index copied successfully")
-            return RoadmapPhaseResult("project_index", True, [str(project_index)], [], 0)
+            return RoadmapPhaseResult(
+                "project_index", True, [str(project_index)], [], 0
+            )
 
         if project_index.exists() and not self.refresh:
             debug("roadmap_runner", "project_index.json already exists, skipping")
             print_status("project_index.json already exists", "success")
-            return RoadmapPhaseResult("project_index", True, [str(project_index)], [], 0)
+            return RoadmapPhaseResult(
+                "project_index", True, [str(project_index)], [], 0
+            )
 
         # Run analyzer
         debug("roadmap_runner", "Running project analyzer to create index")
         print_status("Running project analyzer...", "progress")
         success, output = self._run_script(
-            "analyzer.py",
-            ["--output", str(project_index)]
+            "analyzer.py", ["--output", str(project_index)]
         )
 
         if success and project_index.exists():
             debug_success("roadmap_runner", "Created project_index.json")
             print_status("Created project_index.json", "success")
-            return RoadmapPhaseResult("project_index", True, [str(project_index)], [], 0)
+            return RoadmapPhaseResult(
+                "project_index", True, [str(project_index)], [], 0
+            )
 
-        debug_error("roadmap_runner", "Failed to create project index", output=output[:500] if output else None)
+        debug_error(
+            "roadmap_runner",
+            "Failed to create project index",
+            output=output[:500] if output else None,
+        )
         return RoadmapPhaseResult("project_index", False, [], [output], 1)
 
     async def phase_discovery(self) -> RoadmapPhaseResult:
@@ -339,7 +390,9 @@ class RoadmapOrchestrator:
         errors = []
         for attempt in range(MAX_RETRIES):
             debug("roadmap_runner", f"Discovery attempt {attempt + 1}/{MAX_RETRIES}")
-            print_status(f"Running discovery agent (attempt {attempt + 1})...", "progress")
+            print_status(
+                f"Running discovery agent (attempt {attempt + 1})...", "progress"
+            )
 
             context = f"""
 **Project Index**: {self.output_dir / "project_index.json"}
@@ -370,21 +423,37 @@ Do NOT ask questions. Make educated inferences and create the file.
                     missing = [k for k in required if k not in data]
 
                     if not missing:
-                        debug_success("roadmap_runner", "Created valid roadmap_discovery.json",
-                                      attempt=attempt + 1)
+                        debug_success(
+                            "roadmap_runner",
+                            "Created valid roadmap_discovery.json",
+                            attempt=attempt + 1,
+                        )
                         print_status("Created valid roadmap_discovery.json", "success")
-                        return RoadmapPhaseResult("discovery", True, [str(discovery_file)], [], attempt)
+                        return RoadmapPhaseResult(
+                            "discovery", True, [str(discovery_file)], [], attempt
+                        )
                     else:
-                        debug_warning("roadmap_runner", f"Missing required fields: {missing}")
+                        debug_warning(
+                            "roadmap_runner", f"Missing required fields: {missing}"
+                        )
                         errors.append(f"Missing required fields: {missing}")
                 except json.JSONDecodeError as e:
-                    debug_error("roadmap_runner", "Invalid JSON in discovery file", error=str(e))
+                    debug_error(
+                        "roadmap_runner", "Invalid JSON in discovery file", error=str(e)
+                    )
                     errors.append(f"Invalid JSON: {e}")
             else:
-                debug_warning("roadmap_runner", f"Discovery attempt {attempt + 1} failed - file not created")
-                errors.append(f"Attempt {attempt + 1}: Agent did not create discovery file")
+                debug_warning(
+                    "roadmap_runner",
+                    f"Discovery attempt {attempt + 1} failed - file not created",
+                )
+                errors.append(
+                    f"Attempt {attempt + 1}: Agent did not create discovery file"
+                )
 
-        debug_error("roadmap_runner", "Discovery phase failed after all retries", errors=errors)
+        debug_error(
+            "roadmap_runner", "Discovery phase failed after all retries", errors=errors
+        )
         return RoadmapPhaseResult("discovery", False, [], errors, MAX_RETRIES)
 
     async def phase_features(self) -> RoadmapPhaseResult:
@@ -395,9 +464,14 @@ Do NOT ask questions. Make educated inferences and create the file.
         discovery_file = self.output_dir / "roadmap_discovery.json"
 
         if not discovery_file.exists():
-            debug_error("roadmap_runner", "Discovery file not found - cannot generate features",
-                        discovery_file=str(discovery_file))
-            return RoadmapPhaseResult("features", False, [], ["Discovery file not found"], 0)
+            debug_error(
+                "roadmap_runner",
+                "Discovery file not found - cannot generate features",
+                discovery_file=str(discovery_file),
+            )
+            return RoadmapPhaseResult(
+                "features", False, [], ["Discovery file not found"], 0
+            )
 
         if roadmap_file.exists() and not self.refresh:
             debug("roadmap_runner", "roadmap.json already exists, skipping")
@@ -407,7 +481,10 @@ Do NOT ask questions. Make educated inferences and create the file.
         errors = []
         for attempt in range(MAX_RETRIES):
             debug("roadmap_runner", f"Features attempt {attempt + 1}/{MAX_RETRIES}")
-            print_status(f"Running feature generation agent (attempt {attempt + 1})...", "progress")
+            print_status(
+                f"Running feature generation agent (attempt {attempt + 1})...",
+                "progress",
+            )
 
             context = f"""
 **Discovery File**: {discovery_file}
@@ -438,58 +515,89 @@ Output the complete roadmap to roadmap.json.
                     missing = [k for k in required if k not in data]
                     feature_count = len(data.get("features", []))
 
-                    debug_detailed("roadmap_runner", "Validating roadmap.json",
-                                   missing_fields=missing,
-                                   feature_count=feature_count)
+                    debug_detailed(
+                        "roadmap_runner",
+                        "Validating roadmap.json",
+                        missing_fields=missing,
+                        feature_count=feature_count,
+                    )
 
                     if not missing and feature_count >= 3:
-                        debug_success("roadmap_runner", "Created valid roadmap.json",
-                                      attempt=attempt + 1,
-                                      feature_count=feature_count)
+                        debug_success(
+                            "roadmap_runner",
+                            "Created valid roadmap.json",
+                            attempt=attempt + 1,
+                            feature_count=feature_count,
+                        )
                         print_status("Created valid roadmap.json", "success")
-                        return RoadmapPhaseResult("features", True, [str(roadmap_file)], [], attempt)
+                        return RoadmapPhaseResult(
+                            "features", True, [str(roadmap_file)], [], attempt
+                        )
                     else:
                         if missing:
-                            debug_warning("roadmap_runner", f"Missing required fields: {missing}")
+                            debug_warning(
+                                "roadmap_runner", f"Missing required fields: {missing}"
+                            )
                             errors.append(f"Missing required fields: {missing}")
                         else:
-                            debug_warning("roadmap_runner", f"Roadmap has only {feature_count} features (min 3)")
+                            debug_warning(
+                                "roadmap_runner",
+                                f"Roadmap has only {feature_count} features (min 3)",
+                            )
                             errors.append("Roadmap has fewer than 3 features")
                 except json.JSONDecodeError as e:
-                    debug_error("roadmap_runner", "Invalid JSON in roadmap file", error=str(e))
+                    debug_error(
+                        "roadmap_runner", "Invalid JSON in roadmap file", error=str(e)
+                    )
                     errors.append(f"Invalid JSON: {e}")
             else:
-                debug_warning("roadmap_runner", f"Features attempt {attempt + 1} failed - file not created")
-                errors.append(f"Attempt {attempt + 1}: Agent did not create roadmap file")
+                debug_warning(
+                    "roadmap_runner",
+                    f"Features attempt {attempt + 1} failed - file not created",
+                )
+                errors.append(
+                    f"Attempt {attempt + 1}: Agent did not create roadmap file"
+                )
 
-        debug_error("roadmap_runner", "Features phase failed after all retries", errors=errors)
+        debug_error(
+            "roadmap_runner", "Features phase failed after all retries", errors=errors
+        )
         return RoadmapPhaseResult("features", False, [], errors, MAX_RETRIES)
 
     async def run(self) -> bool:
         """Run the complete roadmap generation process."""
         debug_section("roadmap_runner", "Starting Roadmap Generation")
-        debug("roadmap_runner", "Run configuration",
-              project_dir=str(self.project_dir),
-              output_dir=str(self.output_dir),
-              model=self.model,
-              refresh=self.refresh)
+        debug(
+            "roadmap_runner",
+            "Run configuration",
+            project_dir=str(self.project_dir),
+            output_dir=str(self.output_dir),
+            model=self.model,
+            refresh=self.refresh,
+        )
 
-        print(box(
-            f"Project: {self.project_dir}\n"
-            f"Output: {self.output_dir}\n"
-            f"Model: {self.model}",
-            title="ROADMAP GENERATOR",
-            style="heavy"
-        ))
+        print(
+            box(
+                f"Project: {self.project_dir}\n"
+                f"Output: {self.output_dir}\n"
+                f"Model: {self.model}",
+                title="ROADMAP GENERATOR",
+                style="heavy",
+            )
+        )
 
         results = []
 
         # Phase 1: Project Index & Graph Hints (in parallel)
-        debug("roadmap_runner", "Starting Phase 1: Project Analysis & Graph Hints (parallel)")
+        debug(
+            "roadmap_runner",
+            "Starting Phase 1: Project Analysis & Graph Hints (parallel)",
+        )
         print_section("PHASE 1: PROJECT ANALYSIS & GRAPH HINTS", Icons.FOLDER)
 
         # Run project index and graph hints in parallel
         import asyncio
+
         index_task = self.phase_project_index()
         hints_task = self.phase_graph_hints()
         index_result, hints_result = await asyncio.gather(index_task, hints_task)
@@ -497,12 +605,18 @@ Output the complete roadmap to roadmap.json.
         results.append(index_result)
         results.append(hints_result)
 
-        debug("roadmap_runner", "Phase 1 complete",
-              index_success=index_result.success,
-              hints_success=hints_result.success)
+        debug(
+            "roadmap_runner",
+            "Phase 1 complete",
+            index_success=index_result.success,
+            hints_success=hints_result.success,
+        )
 
         if not index_result.success:
-            debug_error("roadmap_runner", "Project analysis failed - aborting roadmap generation")
+            debug_error(
+                "roadmap_runner",
+                "Project analysis failed - aborting roadmap generation",
+            )
             print_status("Project analysis failed", "error")
             return False
         # Note: hints_result.success is always True (graceful degradation)
@@ -513,8 +627,11 @@ Output the complete roadmap to roadmap.json.
         result = await self.phase_discovery()
         results.append(result)
         if not result.success:
-            debug_error("roadmap_runner", "Discovery failed - aborting roadmap generation",
-                        errors=result.errors)
+            debug_error(
+                "roadmap_runner",
+                "Discovery failed - aborting roadmap generation",
+                errors=result.errors,
+            )
             print_status("Discovery failed", "error")
             for err in result.errors:
                 print(f"  {muted('Error:')} {err}")
@@ -527,8 +644,11 @@ Output the complete roadmap to roadmap.json.
         result = await self.phase_features()
         results.append(result)
         if not result.success:
-            debug_error("roadmap_runner", "Feature generation failed - aborting",
-                        errors=result.errors)
+            debug_error(
+                "roadmap_runner",
+                "Feature generation failed - aborting",
+                errors=result.errors,
+            )
             print_status("Feature generation failed", "error")
             for err in result.errors:
                 print(f"  {muted('Error:')} {err}")
@@ -550,21 +670,29 @@ Output the complete roadmap to roadmap.json.
                 p = f.get("priority", "unknown")
                 priority_counts[p] = priority_counts.get(p, 0) + 1
 
-            debug_success("roadmap_runner", "Roadmap generation complete",
-                          phase_count=len(phases),
-                          feature_count=len(features),
-                          priority_breakdown=priority_counts)
+            debug_success(
+                "roadmap_runner",
+                "Roadmap generation complete",
+                phase_count=len(phases),
+                feature_count=len(features),
+                priority_breakdown=priority_counts,
+            )
 
-            print(box(
-                f"Vision: {roadmap.get('vision', 'N/A')}\n"
-                f"Phases: {len(phases)}\n"
-                f"Features: {len(features)}\n\n"
-                f"Priority breakdown:\n" +
-                "\n".join(f"  {icon(Icons.ARROW_RIGHT)} {p.upper()}: {c}" for p, c in priority_counts.items()) +
-                f"\n\nRoadmap saved to: {roadmap_file}",
-                title=f"{icon(Icons.SUCCESS)} ROADMAP GENERATED",
-                style="heavy"
-            ))
+            print(
+                box(
+                    f"Vision: {roadmap.get('vision', 'N/A')}\n"
+                    f"Phases: {len(phases)}\n"
+                    f"Features: {len(features)}\n\n"
+                    f"Priority breakdown:\n"
+                    + "\n".join(
+                        f"  {icon(Icons.ARROW_RIGHT)} {p.upper()}: {c}"
+                        for p, c in priority_counts.items()
+                    )
+                    + f"\n\nRoadmap saved to: {roadmap_file}",
+                    title=f"{icon(Icons.SUCCESS)} ROADMAP GENERATED",
+                    style="heavy",
+                )
+            )
 
         return True
 
@@ -602,22 +730,29 @@ def main():
 
     args = parser.parse_args()
 
-    debug("roadmap_runner", "CLI invoked",
-          project=str(args.project),
-          output=str(args.output) if args.output else None,
-          model=args.model,
-          refresh=args.refresh)
+    debug(
+        "roadmap_runner",
+        "CLI invoked",
+        project=str(args.project),
+        output=str(args.output) if args.output else None,
+        model=args.model,
+        refresh=args.refresh,
+    )
 
     # Validate project directory
     project_dir = args.project.resolve()
     if not project_dir.exists():
-        debug_error("roadmap_runner", "Project directory does not exist",
-                    project_dir=str(project_dir))
+        debug_error(
+            "roadmap_runner",
+            "Project directory does not exist",
+            project_dir=str(project_dir),
+        )
         print(f"Error: Project directory does not exist: {project_dir}")
         sys.exit(1)
 
-    debug("roadmap_runner", "Creating RoadmapOrchestrator",
-          project_dir=str(project_dir))
+    debug(
+        "roadmap_runner", "Creating RoadmapOrchestrator", project_dir=str(project_dir)
+    )
 
     orchestrator = RoadmapOrchestrator(
         project_dir=project_dir,

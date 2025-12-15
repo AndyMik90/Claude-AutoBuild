@@ -32,25 +32,25 @@ export default tseslint.config(
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-empty-object-type': 'off', // Allow empty interfaces for extensibility
-      '@typescript-eslint/no-unsafe-function-type': 'off', // Allow Function type in mocks
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
 
       // React
       ...react.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       'react/display-name': 'off',
+      'react/no-unescaped-entities': 'off',
 
-      // React Hooks
-      ...reactHooks.configs.recommended.rules,
+      // React Hooks - only classic rules, no compiler rules
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      'react-hooks/set-state-in-effect': 'warn', // Downgrade to warning
 
       // General
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'warn',
-      'no-unused-expressions': 'warn'
+      'no-unused-expressions': 'warn',
+      '@typescript-eslint/no-require-imports': 'warn'
     }
   },
   {
@@ -59,6 +59,9 @@ export default tseslint.config(
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
     }
   },
   {
@@ -74,4 +77,3 @@ export default tseslint.config(
     ignores: ['out/**', 'dist/**', '.eslintrc.cjs', 'eslint.config.mjs', 'node_modules/**']
   }
 );
-

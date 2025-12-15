@@ -9,16 +9,17 @@ import json
 import os
 from pathlib import Path
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from claude_agent_sdk.types import HookMatcher
-
-from security import bash_security_hook
-from linear_updater import is_linear_enabled
 from auto_claude_tools import (
     create_auto_claude_mcp_server,
-    get_allowed_tools as get_agent_allowed_tools,
     is_tools_available,
 )
+from auto_claude_tools import (
+    get_allowed_tools as get_agent_allowed_tools,
+)
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk.types import HookMatcher
+from linear_updater import is_linear_enabled
+from security import bash_security_hook
 
 
 def is_graphiti_mcp_enabled() -> bool:
@@ -77,11 +78,11 @@ CONTEXT7_TOOLS = [
 # Graphiti MCP tools for knowledge graph memory (when GRAPHITI_MCP_ENABLED is set)
 # See: https://docs.falkordb.com/agentic-memory/graphiti-mcp-server.html
 GRAPHITI_MCP_TOOLS = [
-    "mcp__graphiti-memory__search_nodes",      # Search entity summaries
-    "mcp__graphiti-memory__search_facts",      # Search relationships between entities
-    "mcp__graphiti-memory__add_episode",       # Add data to knowledge graph
-    "mcp__graphiti-memory__get_episodes",      # Retrieve recent episodes
-    "mcp__graphiti-memory__get_entity_edge",   # Get specific entity/relationship
+    "mcp__graphiti-memory__search_nodes",  # Search entity summaries
+    "mcp__graphiti-memory__search_facts",  # Search relationships between entities
+    "mcp__graphiti-memory__add_episode",  # Add data to knowledge graph
+    "mcp__graphiti-memory__get_episodes",  # Retrieve recent episodes
+    "mcp__graphiti-memory__get_entity_edge",  # Get specific entity/relationship
 ]
 
 # Built-in tools
@@ -213,7 +214,7 @@ def create_client(
         mcp_servers["linear"] = {
             "type": "http",
             "url": "https://mcp.linear.app/mcp",
-            "headers": {"Authorization": f"Bearer {linear_api_key}"}
+            "headers": {"Authorization": f"Bearer {linear_api_key}"},
         }
 
     # Add Graphiti MCP server if enabled

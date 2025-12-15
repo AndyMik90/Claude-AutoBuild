@@ -76,32 +76,49 @@ class PortDetector(BaseAnalyzer):
     def _detect_port_in_entry_points(self) -> int | None:
         """Detect port in entry point files."""
         entry_files = [
-            "app.py", "main.py", "server.py", "__main__.py", "asgi.py", "wsgi.py",
-            "src/app.py", "src/main.py", "src/server.py",
-            "index.js", "index.ts", "server.js", "server.ts", "main.js", "main.ts",
-            "src/index.js", "src/index.ts", "src/server.js", "src/server.ts",
-            "main.go", "cmd/main.go", "src/main.rs",
+            "app.py",
+            "main.py",
+            "server.py",
+            "__main__.py",
+            "asgi.py",
+            "wsgi.py",
+            "src/app.py",
+            "src/main.py",
+            "src/server.py",
+            "index.js",
+            "index.ts",
+            "server.js",
+            "server.ts",
+            "main.js",
+            "main.ts",
+            "src/index.js",
+            "src/index.ts",
+            "src/server.js",
+            "src/server.ts",
+            "main.go",
+            "cmd/main.go",
+            "src/main.rs",
         ]
 
         # Patterns to search for ports
         patterns = [
             # Python: uvicorn.run(app, host="0.0.0.0", port=8050)
-            r'uvicorn\.run\([^)]*port\s*=\s*(\d+)',
+            r"uvicorn\.run\([^)]*port\s*=\s*(\d+)",
             # Python: app.run(port=8050, host="0.0.0.0")
-            r'\.run\([^)]*port\s*=\s*(\d+)',
+            r"\.run\([^)]*port\s*=\s*(\d+)",
             # Python: port = 8050 or PORT = 8050
-            r'^\s*[Pp][Oo][Rr][Tt]\s*=\s*(\d+)',
+            r"^\s*[Pp][Oo][Rr][Tt]\s*=\s*(\d+)",
             # Python: os.getenv("PORT", 8050) or os.environ.get("PORT", 8050)
             r'getenv\(\s*["\']PORT["\']\s*,\s*(\d+)',
             r'environ\.get\(\s*["\']PORT["\']\s*,\s*(\d+)',
             # JavaScript/TypeScript: app.listen(8050)
-            r'\.listen\(\s*(\d+)',
+            r"\.listen\(\s*(\d+)",
             # JavaScript/TypeScript: const PORT = 8050 or let port = 8050
-            r'(?:const|let|var)\s+[Pp][Oo][Rr][Tt]\s*=\s*(\d+)',
+            r"(?:const|let|var)\s+[Pp][Oo][Rr][Tt]\s*=\s*(\d+)",
             # JavaScript/TypeScript: process.env.PORT || 8050
-            r'process\.env\.PORT\s*\|\|\s*(\d+)',
+            r"process\.env\.PORT\s*\|\|\s*(\d+)",
             # JavaScript/TypeScript: Number(process.env.PORT) || 8050
-            r'Number\(process\.env\.PORT\)\s*\|\|\s*(\d+)',
+            r"Number\(process\.env\.PORT\)\s*\|\|\s*(\d+)",
             # Go: :8050 or ":8050"
             r':\s*(\d+)(?:["\s]|$)',
             # Rust: .bind("127.0.0.1:8050")
@@ -130,15 +147,20 @@ class PortDetector(BaseAnalyzer):
     def _detect_port_in_env_files(self) -> int | None:
         """Detect port in environment files."""
         env_files = [
-            ".env", ".env.local", ".env.development", ".env.dev",
-            "config/.env", "config/.env.local", "../.env",
+            ".env",
+            ".env.local",
+            ".env.development",
+            ".env.dev",
+            "config/.env",
+            "config/.env.local",
+            "../.env",
         ]
 
         patterns = [
-            r'^\s*PORT\s*=\s*(\d+)',
-            r'^\s*API_PORT\s*=\s*(\d+)',
-            r'^\s*SERVER_PORT\s*=\s*(\d+)',
-            r'^\s*APP_PORT\s*=\s*(\d+)',
+            r"^\s*PORT\s*=\s*(\d+)",
+            r"^\s*API_PORT\s*=\s*(\d+)",
+            r"^\s*SERVER_PORT\s*=\s*(\d+)",
+            r"^\s*APP_PORT\s*=\s*(\d+)",
         ]
 
         for env_file in env_files:
@@ -161,8 +183,10 @@ class PortDetector(BaseAnalyzer):
     def _detect_port_in_docker_compose(self) -> int | None:
         """Detect port from docker-compose.yml mappings."""
         compose_files = [
-            "docker-compose.yml", "docker-compose.yaml",
-            "../docker-compose.yml", "../docker-compose.yaml",
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "../docker-compose.yml",
+            "../docker-compose.yaml",
         ]
 
         service_name = self.path.name.lower()
@@ -179,20 +203,24 @@ class PortDetector(BaseAnalyzer):
             in_service = False
             in_ports = False
 
-            for line in content.split('\n'):
+            for line in content.split("\n"):
                 # Check if we're in the right service block
-                if re.match(rf'^\s*{re.escape(service_name)}\s*:', line):
+                if re.match(rf"^\s*{re.escape(service_name)}\s*:", line):
                     in_service = True
                     continue
 
                 # Check if we hit another service
-                if in_service and re.match(r'^\s*\w+\s*:', line) and 'ports:' not in line:
+                if (
+                    in_service
+                    and re.match(r"^\s*\w+\s*:", line)
+                    and "ports:" not in line
+                ):
                     in_service = False
                     in_ports = False
                     continue
 
                 # Check if we're in the ports section
-                if in_service and 'ports:' in line:
+                if in_service and "ports:" in line:
                     in_ports = True
                     continue
 
@@ -212,9 +240,15 @@ class PortDetector(BaseAnalyzer):
     def _detect_port_in_config_files(self) -> int | None:
         """Detect port in configuration files."""
         config_files = [
-            "config.py", "settings.py", "config/settings.py", "src/config.py",
-            "config.json", "settings.json", "config/config.json",
-            "config.toml", "settings.toml",
+            "config.py",
+            "settings.py",
+            "config/settings.py",
+            "src/config.py",
+            "config.json",
+            "settings.json",
+            "config/config.json",
+            "config.toml",
+            "settings.toml",
         ]
 
         for config_file in config_files:
@@ -224,7 +258,7 @@ class PortDetector(BaseAnalyzer):
 
             # Python config patterns
             patterns = [
-                r'[Pp][Oo][Rr][Tt]\s*=\s*(\d+)',
+                r"[Pp][Oo][Rr][Tt]\s*=\s*(\d+)",
                 r'["\']port["\']\s*:\s*(\d+)',
             ]
 
@@ -252,9 +286,9 @@ class PortDetector(BaseAnalyzer):
         # e.g., "dev": "next dev -p 3001"
         # e.g., "start": "node server.js --port 8050"
         patterns = [
-            r'-p\s+(\d+)',
-            r'--port\s+(\d+)',
-            r'PORT=(\d+)',
+            r"-p\s+(\d+)",
+            r"--port\s+(\d+)",
+            r"PORT=(\d+)",
         ]
 
         for script in scripts.values():
@@ -278,9 +312,9 @@ class PortDetector(BaseAnalyzer):
         script_files = ["Makefile", "start.sh", "run.sh", "dev.sh"]
 
         patterns = [
-            r'PORT=(\d+)',
-            r'--port\s+(\d+)',
-            r'-p\s+(\d+)',
+            r"PORT=(\d+)",
+            r"--port\s+(\d+)",
+            r"-p\s+(\d+)",
         ]
 
         for script_file in script_files:

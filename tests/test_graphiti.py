@@ -72,7 +72,7 @@ class TestGraphitiConfig:
             assert config.enabled is False
             assert config.falkordb_host == "localhost"
             assert config.falkordb_port == 6380  # Maps to internal 6379
-            assert config.database == "auto_build_memory"
+            assert config.database == "auto_claude_memory"
 
     def test_from_env_custom_values(self):
         """Config reads custom environment values."""

@@ -10,12 +10,11 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def get_latest_commit(project_dir: Path) -> Optional[str]:
+def get_latest_commit(project_dir: Path) -> str | None:
     """Get the hash of the latest git commit."""
     try:
         result = subprocess.run(
@@ -45,7 +44,7 @@ def get_commit_count(project_dir: Path) -> int:
         return 0
 
 
-def load_implementation_plan(spec_dir: Path) -> Optional[dict]:
+def load_implementation_plan(spec_dir: Path) -> dict | None:
     """Load the implementation plan JSON."""
     plan_file = spec_dir / "implementation_plan.json"
     if not plan_file.exists():
@@ -53,11 +52,11 @@ def load_implementation_plan(spec_dir: Path) -> Optional[dict]:
     try:
         with open(plan_file) as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
-def find_subtask_in_plan(plan: dict, subtask_id: str) -> Optional[dict]:
+def find_subtask_in_plan(plan: dict, subtask_id: str) -> dict | None:
     """Find a subtask by ID in the plan."""
     for phase in plan.get("phases", []):
         for subtask in phase.get("subtasks", []):
@@ -66,7 +65,7 @@ def find_subtask_in_plan(plan: dict, subtask_id: str) -> Optional[dict]:
     return None
 
 
-def find_phase_for_subtask(plan: dict, subtask_id: str) -> Optional[dict]:
+def find_phase_for_subtask(plan: dict, subtask_id: str) -> dict | None:
     """Find the phase containing a subtask."""
     for phase in plan.get("phases", []):
         for subtask in phase.get("subtasks", []):
@@ -75,7 +74,7 @@ def find_phase_for_subtask(plan: dict, subtask_id: str) -> Optional[dict]:
     return None
 
 
-def sync_plan_to_source(spec_dir: Path, source_spec_dir: Optional[Path]) -> bool:
+def sync_plan_to_source(spec_dir: Path, source_spec_dir: Path | None) -> bool:
     """
     Sync implementation_plan.json from worktree back to source spec directory.
 

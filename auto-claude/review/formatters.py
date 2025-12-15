@@ -13,24 +13,23 @@ from pathlib import Path
 
 from ui import (
     Icons,
-    icon,
-    box,
     bold,
-    muted,
+    box,
     highlight,
+    icon,
+    info,
+    muted,
+    print_status,
     success,
     warning,
-    info,
-    error,
-    print_status,
 )
 
 from .diff_analyzer import (
-    extract_section,
-    extract_title,
-    extract_table_rows,
-    truncate_text,
     extract_checkboxes,
+    extract_section,
+    extract_table_rows,
+    extract_title,
+    truncate_text,
 )
 from .state import ReviewState, get_review_status_summary
 
@@ -58,7 +57,7 @@ def display_spec_summary(spec_dir: Path) -> None:
 
     try:
         content = spec_file.read_text(encoding="utf-8")
-    except (IOError, UnicodeDecodeError) as e:
+    except (OSError, UnicodeDecodeError) as e:
         print_status(f"Could not read spec.md: {e}", "error")
         return
 
@@ -126,9 +125,13 @@ def display_spec_summary(spec_dir: Path) -> None:
         # Extract checkbox items
         checkboxes = extract_checkboxes(criteria, max_items=5)
         for item in checkboxes:
-            summary_lines.append(f"  {icon(Icons.PENDING)} {item[:60]}{'...' if len(item) > 60 else ''}")
+            summary_lines.append(
+                f"  {icon(Icons.PENDING)} {item[:60]}{'...' if len(item) > 60 else ''}"
+            )
         if len(re.findall(r"^\s*[-*]\s*\[[ x]\]\s*(.+)$", criteria, re.MULTILINE)) > 5:
-            total_count = len(re.findall(r"^\s*[-*]\s*\[[ x]\]\s*(.+)$", criteria, re.MULTILINE))
+            total_count = len(
+                re.findall(r"^\s*[-*]\s*\[[ x]\]\s*(.+)$", criteria, re.MULTILINE)
+            )
             summary_lines.append(f"  {muted(f'... and {total_count - 5} more')}")
 
     # Print the summary box
@@ -156,9 +159,9 @@ def display_plan_summary(spec_dir: Path) -> None:
         return
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print_status(f"Could not read implementation_plan.json: {e}", "error")
         return
 
@@ -173,14 +176,17 @@ def display_plan_summary(spec_dir: Path) -> None:
     phases = plan.get("phases", [])
     total_subtasks = sum(len(p.get("subtasks", [])) for p in phases)
     completed_subtasks = sum(
-        1 for p in phases
+        1
+        for p in phases
         for c in p.get("subtasks", [])
         if c.get("status") == "completed"
     )
     services = plan.get("services_involved", [])
 
     summary_lines.append(f"{muted('Phases:')} {len(phases)}")
-    summary_lines.append(f"{muted('Subtasks:')} {completed_subtasks}/{total_subtasks} completed")
+    summary_lines.append(
+        f"{muted('Subtasks:')} {completed_subtasks}/{total_subtasks} completed"
+    )
     if services:
         summary_lines.append(f"{muted('Services:')} {', '.join(services)}")
 
@@ -207,7 +213,9 @@ def display_plan_summary(spec_dir: Path) -> None:
                 status_icon = icon(Icons.PENDING)
                 phase_display = f"Phase {phase_num}: {phase_name}"
 
-            summary_lines.append(f"  {status_icon} {phase_display} ({completed}/{subtask_count} subtasks)")
+            summary_lines.append(
+                f"  {status_icon} {phase_display} ({completed}/{subtask_count} subtasks)"
+            )
 
             # Show subtask details for non-completed phases
             if completed < subtask_count:
@@ -224,12 +232,20 @@ def display_plan_summary(spec_dir: Path) -> None:
                         status_str = muted(icon(Icons.PENDING))
 
                     # Truncate description
-                    desc_short = subtask_desc[:50] + "..." if len(subtask_desc) > 50 else subtask_desc
-                    summary_lines.append(f"      {status_str} {muted(subtask_id)}: {desc_short}")
+                    desc_short = (
+                        subtask_desc[:50] + "..."
+                        if len(subtask_desc) > 50
+                        else subtask_desc
+                    )
+                    summary_lines.append(
+                        f"      {status_str} {muted(subtask_id)}: {desc_short}"
+                    )
 
                 if len(subtasks) > 3:
                     remaining = len(subtasks) - 3
-                    summary_lines.append(f"      {muted(f'... {remaining} more subtasks')}")
+                    summary_lines.append(
+                        f"      {muted(f'... {remaining} more subtasks')}"
+                    )
 
     # Parallelism info
     summary_section = plan.get("summary", {})

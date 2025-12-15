@@ -12,38 +12,40 @@ import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List
 
 from ui import (
     Icons,
-    icon,
-    box,
+    MenuOption,
     bold,
-    muted,
-    highlight,
-    success,
-    warning,
-    info,
+    box,
     error,
+    icon,
+    muted,
     print_status,
     select_menu,
-    MenuOption,
+    success,
+    warning,
 )
 
+from .formatters import (
+    display_plan_summary,
+    display_review_status,
+    display_spec_summary,
+)
 from .state import ReviewState
-from .formatters import display_spec_summary, display_plan_summary, display_review_status
 
 
 class ReviewChoice(Enum):
     """User choices during review checkpoint."""
-    APPROVE = "approve"          # Approve and proceed to build
-    EDIT_SPEC = "edit_spec"      # Edit spec.md
-    EDIT_PLAN = "edit_plan"      # Edit implementation_plan.json
-    FEEDBACK = "feedback"        # Add feedback comment
-    REJECT = "reject"            # Reject and exit
+
+    APPROVE = "approve"  # Approve and proceed to build
+    EDIT_SPEC = "edit_spec"  # Edit spec.md
+    EDIT_PLAN = "edit_plan"  # Edit implementation_plan.json
+    FEEDBACK = "feedback"  # Add feedback comment
+    REJECT = "reject"  # Reject and exit
 
 
-def get_review_menu_options() -> List[MenuOption]:
+def get_review_menu_options() -> list[MenuOption]:
     """
     Get the menu options for the review checkpoint.
 
@@ -84,7 +86,7 @@ def get_review_menu_options() -> List[MenuOption]:
     ]
 
 
-def prompt_feedback() -> Optional[str]:
+def prompt_feedback() -> str | None:
     """
     Prompt user to enter feedback text.
 

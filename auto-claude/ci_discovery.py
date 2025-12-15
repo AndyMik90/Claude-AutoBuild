@@ -26,11 +26,12 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Try to import yaml, fall back gracefully
 try:
     import yaml
+
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False
@@ -54,8 +55,8 @@ class CIWorkflow:
     """
 
     name: str
-    trigger: List[str] = field(default_factory=list)
-    steps: List[str] = field(default_factory=list)
+    trigger: list[str] = field(default_factory=list)
+    steps: list[str] = field(default_factory=list)
     test_related: bool = False
 
 
@@ -74,11 +75,11 @@ class CIConfig:
     """
 
     ci_system: str
-    config_files: List[str] = field(default_factory=list)
-    test_commands: Dict[str, str] = field(default_factory=dict)
-    coverage_command: Optional[str] = None
-    workflows: List[CIWorkflow] = field(default_factory=list)
-    environment_variables: List[str] = field(default_factory=list)
+    config_files: list[str] = field(default_factory=list)
+    test_commands: dict[str, str] = field(default_factory=dict)
+    coverage_command: str | None = None
+    workflows: list[CIWorkflow] = field(default_factory=list)
+    environment_variables: list[str] = field(default_factory=list)
 
 
 # =============================================================================
@@ -99,9 +100,9 @@ class CIDiscovery:
 
     def __init__(self) -> None:
         """Initialize CI discovery."""
-        self._cache: Dict[str, Optional[CIConfig]] = {}
+        self._cache: dict[str, CIConfig | None] = {}
 
-    def discover(self, project_dir: Path) -> Optional[CIConfig]:
+    def discover(self, project_dir: Path) -> CIConfig | None:
         """
         Discover CI configuration in the project.
 
@@ -150,10 +151,14 @@ class CIDiscovery:
         """Parse GitHub Actions workflow files."""
         result = CIConfig(ci_system="github_actions")
 
-        workflow_files = list(workflows_dir.glob("*.yml")) + list(workflows_dir.glob("*.yaml"))
+        workflow_files = list(workflows_dir.glob("*.yml")) + list(
+            workflows_dir.glob("*.yaml")
+        )
 
         for wf_file in workflow_files:
-            result.config_files.append(str(wf_file.relative_to(workflows_dir.parent.parent)))
+            result.config_files.append(
+                str(wf_file.relative_to(workflows_dir.parent.parent))
+            )
 
             try:
                 content = wf_file.read_text()
@@ -242,7 +247,18 @@ class CIDiscovery:
                 return result
 
             # Parse jobs (top-level keys that aren't special keywords)
-            special_keys = {"stages", "variables", "image", "services", "before_script", "after_script", "cache", "include", "default", "workflow"}
+            special_keys = {
+                "stages",
+                "variables",
+                "image",
+                "services",
+                "before_script",
+                "after_script",
+                "cache",
+                "include",
+                "default",
+                "workflow",
+            }
 
             for key, value in data.items():
                 if key.startswith(".") or key in special_keys:
@@ -264,7 +280,8 @@ class CIDiscovery:
                 result.workflows.append(
                     CIWorkflow(
                         name=key,
-                        trigger=job_config.get("only", []) or job_config.get("rules", []),
+                        trigger=job_config.get("only", [])
+                        or job_config.get("rules", []),
                         steps=script,
                         test_related=test_related,
                     )
@@ -364,7 +381,9 @@ class CIDiscovery:
                 steps.append(cmd)
                 self._extract_test_commands(cmd, result)
 
-                if any(kw in cmd.lower() for kw in ["test", "pytest", "jest", "coverage"]):
+                if any(
+                    kw in cmd.lower() for kw in ["test", "pytest", "jest", "coverage"]
+                ):
                     test_related = True
 
             # Extract stage names
@@ -386,7 +405,7 @@ class CIDiscovery:
 
         return result
 
-    def _parse_yaml(self, content: str) -> Optional[Dict]:
+    def _parse_yaml(self, content: str) -> dict | None:
         """Parse YAML content, with fallback to basic parsing if yaml not available."""
         if HAS_YAML:
             try:
@@ -410,7 +429,11 @@ class CIDiscovery:
                 result.coverage_command = cmd.strip()
 
         # Node.js test commands
-        if "npm test" in cmd_lower or "yarn test" in cmd_lower or "pnpm test" in cmd_lower:
+        if (
+            "npm test" in cmd_lower
+            or "yarn test" in cmd_lower
+            or "pnpm test" in cmd_lower
+        ):
             if "unit" not in result.test_commands:
                 result.test_commands["unit"] = cmd.strip()
 
@@ -441,7 +464,7 @@ class CIDiscovery:
             if "unit" not in result.test_commands:
                 result.test_commands["unit"] = cmd.strip()
 
-    def to_dict(self, result: CIConfig) -> Dict[str, Any]:
+    def to_dict(self, result: CIConfig) -> dict[str, Any]:
         """Convert result to dictionary for JSON serialization."""
         return {
             "ci_system": result.ci_system,
@@ -470,7 +493,7 @@ class CIDiscovery:
 # =============================================================================
 
 
-def discover_ci(project_dir: Path) -> Optional[CIConfig]:
+def discover_ci(project_dir: Path) -> CIConfig | None:
     """
     Convenience function to discover CI configuration.
 
@@ -484,7 +507,7 @@ def discover_ci(project_dir: Path) -> Optional[CIConfig]:
     return discovery.discover(project_dir)
 
 
-def get_ci_test_commands(project_dir: Path) -> Dict[str, str]:
+def get_ci_test_commands(project_dir: Path) -> dict[str, str]:
     """
     Get test commands from CI configuration.
 
@@ -501,7 +524,7 @@ def get_ci_test_commands(project_dir: Path) -> Dict[str, str]:
     return {}
 
 
-def get_ci_system(project_dir: Path) -> Optional[str]:
+def get_ci_system(project_dir: Path) -> str | None:
     """
     Get the CI system name if configured.
 
@@ -545,7 +568,7 @@ def main() -> None:
     else:
         print(f"CI System: {result.ci_system}")
         print(f"Config Files: {', '.join(result.config_files)}")
-        print(f"\nTest Commands:")
+        print("\nTest Commands:")
         for test_type, cmd in result.test_commands.items():
             print(f"  {test_type}: {cmd}")
         if result.coverage_command:

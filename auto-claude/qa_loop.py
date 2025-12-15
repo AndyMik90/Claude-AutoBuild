@@ -24,43 +24,39 @@ Enhanced features:
 
 # Re-export everything from the qa package for backward compatibility
 from qa import (
+    ISSUE_SIMILARITY_THRESHOLD,
     # Configuration
     MAX_QA_ITERATIONS,
     RECURRING_ISSUE_THRESHOLD,
-    ISSUE_SIMILARITY_THRESHOLD,
-
-    # Main loop
-    run_qa_validation_loop,
-
-    # Criteria & status
-    load_implementation_plan,
-    save_implementation_plan,
-    get_qa_signoff_status,
-    is_qa_approved,
-    is_qa_rejected,
-    is_fixes_applied,
-    get_qa_iteration_count,
-    should_run_qa,
-    should_run_fixes,
-    print_qa_status,
-
+    _issue_similarity,
+    _normalize_issue_key,
+    check_test_discovery,
+    create_manual_test_plan,
+    escalate_to_human,
     # Report & tracking
     get_iteration_history,
-    record_iteration,
-    has_recurring_issues,
+    get_qa_iteration_count,
+    get_qa_signoff_status,
     get_recurring_issue_summary,
-    escalate_to_human,
-    create_manual_test_plan,
-    check_test_discovery,
+    has_recurring_issues,
+    is_fixes_applied,
     is_no_test_project,
-    _normalize_issue_key,
-    _issue_similarity,
-
+    is_qa_approved,
+    is_qa_rejected,
+    # Criteria & status
+    load_implementation_plan,
+    load_qa_fixer_prompt,
     # Agent sessions
     load_qa_reviewer_prompt,
+    print_qa_status,
+    record_iteration,
     run_qa_agent_session,
-    load_qa_fixer_prompt,
     run_qa_fixer_session,
+    # Main loop
+    run_qa_validation_loop,
+    save_implementation_plan,
+    should_run_fixes,
+    should_run_qa,
 )
 
 # Maintain original __all__ for explicit exports
@@ -69,10 +65,8 @@ __all__ = [
     "MAX_QA_ITERATIONS",
     "RECURRING_ISSUE_THRESHOLD",
     "ISSUE_SIMILARITY_THRESHOLD",
-
     # Main loop
     "run_qa_validation_loop",
-
     # Criteria & status
     "load_implementation_plan",
     "save_implementation_plan",
@@ -84,7 +78,6 @@ __all__ = [
     "should_run_qa",
     "should_run_fixes",
     "print_qa_status",
-
     # Report & tracking
     "get_iteration_history",
     "record_iteration",
@@ -96,7 +89,6 @@ __all__ = [
     "is_no_test_project",
     "_normalize_issue_key",
     "_issue_similarity",
-
     # Agent sessions
     "load_qa_reviewer_prompt",
     "run_qa_agent_session",

@@ -9,10 +9,9 @@ Handles compound commands, pipes, subshells, and various shell constructs.
 import os
 import re
 import shlex
-from typing import List
 
 
-def split_command_segments(command_string: str) -> List[str]:
+def split_command_segments(command_string: str) -> list[str]:
     """
     Split a compound command into individual command segments.
 
@@ -33,7 +32,7 @@ def split_command_segments(command_string: str) -> List[str]:
     return result
 
 
-def extract_commands(command_string: str) -> List[str]:
+def extract_commands(command_string: str) -> list[str]:
     """
     Extract command names from a shell command string.
 
@@ -71,10 +70,24 @@ def extract_commands(command_string: str) -> List[str]:
 
             # Skip shell keywords that precede commands
             if token in (
-                "if", "then", "else", "elif", "fi",
-                "for", "while", "until", "do", "done",
-                "case", "esac", "in",
-                "!", "{", "}", "(", ")",
+                "if",
+                "then",
+                "else",
+                "elif",
+                "fi",
+                "for",
+                "while",
+                "until",
+                "do",
+                "done",
+                "case",
+                "esac",
+                "in",
+                "!",
+                "{",
+                "}",
+                "(",
+                ")",
                 "function",
             ):
                 continue
@@ -100,7 +113,7 @@ def extract_commands(command_string: str) -> List[str]:
     return commands
 
 
-def get_command_for_validation(cmd: str, segments: List[str]) -> str:
+def get_command_for_validation(cmd: str, segments: list[str]) -> str:
     """
     Find the specific command segment that contains the given command.
     """

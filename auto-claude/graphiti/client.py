@@ -6,7 +6,6 @@ Handles database connection, initialization, and lifecycle management.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from graphiti_config import GraphitiConfig, GraphitiState
 
@@ -44,7 +43,7 @@ class GraphitiClient:
         """Check if client is initialized."""
         return self._initialized
 
-    async def initialize(self, state: Optional[GraphitiState] = None) -> bool:
+    async def initialize(self, state: GraphitiState | None = None) -> bool:
         """
         Initialize the Graphiti client with configured providers.
 
@@ -64,16 +63,18 @@ class GraphitiClient:
 
             # Import our provider factory
             from graphiti_providers import (
-                create_llm_client,
-                create_embedder,
                 ProviderError,
                 ProviderNotInstalled,
+                create_embedder,
+                create_llm_client,
             )
 
             # Create providers using factory pattern
             try:
                 self._llm_client = create_llm_client(self.config)
-                logger.info(f"Created LLM client for provider: {self.config.llm_provider}")
+                logger.info(
+                    f"Created LLM client for provider: {self.config.llm_provider}"
+                )
             except ProviderNotInstalled as e:
                 logger.warning(f"LLM provider packages not installed: {e}")
                 return False
@@ -83,7 +84,9 @@ class GraphitiClient:
 
             try:
                 self._embedder = create_embedder(self.config)
-                logger.info(f"Created embedder for provider: {self.config.embedder_provider}")
+                logger.info(
+                    f"Created embedder for provider: {self.config.embedder_provider}"
+                )
             except ProviderNotInstalled as e:
                 logger.warning(f"Embedder provider packages not installed: {e}")
                 return False

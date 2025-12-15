@@ -8,13 +8,13 @@ codebase patterns, gotchas, and insights.
 
 Architecture Decision:
     Memory System Hierarchy:
-    
+
     PRIMARY: Graphiti (when GRAPHITI_ENABLED=true)
         - Graph-based knowledge storage with FalkorDB
         - Semantic search across sessions
         - Cross-project context retrieval
         - Rich relationship modeling
-    
+
     FALLBACK: File-based (when Graphiti is disabled)
         - Zero external dependencies (no database required)
         - Human-readable files for debugging and inspection
@@ -24,7 +24,7 @@ Architecture Decision:
     The agent.py orchestrator uses save_session_memory() which:
     1. Tries Graphiti first if enabled
     2. Falls back to file-based if Graphiti is disabled or fails
-    
+
     This ensures memory is ALWAYS saved, regardless of configuration.
 
 Each spec has its own memory directory:
@@ -91,7 +91,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -100,6 +100,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Graphiti Integration Helpers
 # =============================================================================
+
 
 def is_graphiti_memory_enabled() -> bool:
     """
@@ -114,12 +115,13 @@ def is_graphiti_memory_enabled() -> bool:
     """
     try:
         from graphiti_config import is_graphiti_enabled
+
         return is_graphiti_enabled()
     except ImportError:
         return False
 
 
-def _get_graphiti_memory(spec_dir: Path, project_dir: Optional[Path] = None):
+def _get_graphiti_memory(spec_dir: Path, project_dir: Path | None = None):
     """
     Get a GraphitiMemory instance if available.
 
@@ -135,6 +137,7 @@ def _get_graphiti_memory(spec_dir: Path, project_dir: Optional[Path] = None):
 
     try:
         from graphiti_memory import GraphitiMemory
+
         if project_dir is None:
             project_dir = spec_dir.parent.parent
         return GraphitiMemory(spec_dir, project_dir)
@@ -161,7 +164,7 @@ async def _save_to_graphiti_async(
     spec_dir: Path,
     session_num: int,
     insights: dict,
-    project_dir: Optional[Path] = None,
+    project_dir: Path | None = None,
 ) -> bool:
     """
     Save session insights to Graphiti (async helper).
@@ -204,6 +207,7 @@ async def _save_to_graphiti_async(
 # =============================================================================
 # File-Based Memory Functions
 # =============================================================================
+
 
 def get_memory_dir(spec_dir: Path) -> Path:
     """
@@ -275,14 +279,15 @@ def save_session_insights(spec_dir: Path, session_num: int, insights: dict) -> N
         "session_number": session_num,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "subtasks_completed": insights.get("subtasks_completed", []),
-        "discoveries": insights.get("discoveries", {
-            "files_understood": {},
-            "patterns_found": [],
-            "gotchas_encountered": []
-        }),
+        "discoveries": insights.get(
+            "discoveries",
+            {"files_understood": {}, "patterns_found": [], "gotchas_encountered": []},
+        ),
         "what_worked": insights.get("what_worked", []),
         "what_failed": insights.get("what_failed", []),
-        "recommendations_for_next_session": insights.get("recommendations_for_next_session", []),
+        "recommendations_for_next_session": insights.get(
+            "recommendations_for_next_session", []
+        ),
     }
 
     # Write to file (always use file-based storage)
@@ -320,9 +325,9 @@ def load_all_insights(spec_dir: Path) -> list[dict]:
     insights = []
     for session_file in session_files:
         try:
-            with open(session_file, "r") as f:
+            with open(session_file) as f:
                 insights.append(json.load(f))
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             # Skip corrupted files
             continue
 
@@ -350,9 +355,9 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
     # Load existing map or create new
     if map_file.exists():
         try:
-            with open(map_file, "r") as f:
+            with open(map_file) as f:
                 codebase_map = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             codebase_map = {}
     else:
         codebase_map = {}
@@ -365,7 +370,9 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
         codebase_map["_metadata"] = {}
 
     codebase_map["_metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat()
-    codebase_map["_metadata"]["total_files"] = len([k for k in codebase_map.keys() if k != "_metadata"])
+    codebase_map["_metadata"]["total_files"] = len(
+        [k for k in codebase_map.keys() if k != "_metadata"]
+    )
 
     # Write back
     with open(map_file, "w") as f:
@@ -377,7 +384,7 @@ def update_codebase_map(spec_dir: Path, discoveries: dict[str, str]) -> None:
             graphiti = _get_graphiti_memory(spec_dir)
             if graphiti:
                 _run_async(graphiti.save_codebase_discoveries(discoveries))
-                logger.info(f"Codebase discoveries also saved to Graphiti")
+                logger.info("Codebase discoveries also saved to Graphiti")
         except Exception as e:
             logger.warning(f"Graphiti codebase save failed: {e}")
 
@@ -400,14 +407,14 @@ def load_codebase_map(spec_dir: Path) -> dict[str, str]:
         return {}
 
     try:
-        with open(map_file, "r") as f:
+        with open(map_file) as f:
             codebase_map = json.load(f)
 
         # Remove metadata before returning
         codebase_map.pop("_metadata", None)
         return codebase_map
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return {}
 
 
@@ -608,6 +615,7 @@ def clear_memory(spec_dir: Path) -> None:
 
     if memory_dir.exists():
         import shutil
+
         shutil.rmtree(memory_dir)
 
 
@@ -627,7 +635,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--action",
-        choices=["summary", "list-insights", "list-map", "list-patterns", "list-gotchas", "clear"],
+        choices=[
+            "summary",
+            "list-insights",
+            "list-map",
+            "list-patterns",
+            "list-gotchas",
+            "clear",
+        ],
         default="summary",
         help="Action to perform",
     )
@@ -649,11 +664,11 @@ if __name__ == "__main__":
         print(f"Patterns: {summary['total_patterns']}")
         print(f"Gotchas: {summary['total_gotchas']}")
 
-        if summary['recent_insights']:
+        if summary["recent_insights"]:
             print("\nRecent sessions:")
-            for insight in summary['recent_insights']:
-                session_num = insight.get('session_number')
-                subtasks = len(insight.get('subtasks_completed', []))
+            for insight in summary["recent_insights"]:
+                session_num = insight.get("session_number")
+                subtasks = len(insight.get("subtasks_completed", []))
                 print(f"  Session {session_num}: {subtasks} subtasks completed")
 
     elif args.action == "list-insights":

@@ -16,14 +16,11 @@ Exit codes:
 """
 
 import argparse
-import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
 
 # =============================================================================
 # SECRET PATTERNS
@@ -32,128 +29,132 @@ from typing import Optional
 # Generic high-entropy patterns that match common API key formats
 GENERIC_PATTERNS = [
     # Generic API key patterns (32+ char alphanumeric strings assigned to variables)
-    (r'(?:api[_-]?key|apikey|api_secret|secret[_-]?key)\s*[:=]\s*["\']([a-zA-Z0-9_-]{32,})["\']',
-     "Generic API key assignment"),
-
+    (
+        r'(?:api[_-]?key|apikey|api_secret|secret[_-]?key)\s*[:=]\s*["\']([a-zA-Z0-9_-]{32,})["\']',
+        "Generic API key assignment",
+    ),
     # Generic token patterns
-    (r'(?:access[_-]?token|auth[_-]?token|bearer[_-]?token|token)\s*[:=]\s*["\']([a-zA-Z0-9_-]{32,})["\']',
-     "Generic access token"),
-
+    (
+        r'(?:access[_-]?token|auth[_-]?token|bearer[_-]?token|token)\s*[:=]\s*["\']([a-zA-Z0-9_-]{32,})["\']',
+        "Generic access token",
+    ),
     # Password patterns
-    (r'(?:password|passwd|pwd|pass)\s*[:=]\s*["\']([^"\']{8,})["\']',
-     "Password assignment"),
-
+    (
+        r'(?:password|passwd|pwd|pass)\s*[:=]\s*["\']([^"\']{8,})["\']',
+        "Password assignment",
+    ),
     # Generic secret patterns
-    (r'(?:secret|client_secret|app_secret)\s*[:=]\s*["\']([a-zA-Z0-9_/+=]{16,})["\']',
-     "Secret assignment"),
-
+    (
+        r'(?:secret|client_secret|app_secret)\s*[:=]\s*["\']([a-zA-Z0-9_/+=]{16,})["\']',
+        "Secret assignment",
+    ),
     # Bearer tokens in headers
-    (r'["\']?[Bb]earer\s+([a-zA-Z0-9_-]{20,})["\']?',
-     "Bearer token"),
-
+    (r'["\']?[Bb]earer\s+([a-zA-Z0-9_-]{20,})["\']?', "Bearer token"),
     # Base64-encoded secrets (longer than typical, may be credentials)
-    (r'["\'][A-Za-z0-9+/]{64,}={0,2}["\']',
-     "Potential base64-encoded secret"),
+    (r'["\'][A-Za-z0-9+/]{64,}={0,2}["\']', "Potential base64-encoded secret"),
 ]
 
 # Service-specific patterns (known formats)
 SERVICE_PATTERNS = [
     # OpenAI / Anthropic style keys
-    (r'sk-[a-zA-Z0-9]{20,}', "OpenAI/Anthropic-style API key"),
-    (r'sk-ant-[a-zA-Z0-9-]{20,}', "Anthropic API key"),
-    (r'sk-proj-[a-zA-Z0-9-]{20,}', "OpenAI project API key"),
-
+    (r"sk-[a-zA-Z0-9]{20,}", "OpenAI/Anthropic-style API key"),
+    (r"sk-ant-[a-zA-Z0-9-]{20,}", "Anthropic API key"),
+    (r"sk-proj-[a-zA-Z0-9-]{20,}", "OpenAI project API key"),
     # AWS
-    (r'AKIA[0-9A-Z]{16}', "AWS Access Key ID"),
-    (r'(?:aws_secret_access_key|aws_secret)\s*[:=]\s*["\']?([a-zA-Z0-9/+=]{40})["\']?', "AWS Secret Access Key"),
-
+    (r"AKIA[0-9A-Z]{16}", "AWS Access Key ID"),
+    (
+        r'(?:aws_secret_access_key|aws_secret)\s*[:=]\s*["\']?([a-zA-Z0-9/+=]{40})["\']?',
+        "AWS Secret Access Key",
+    ),
     # Google Cloud
-    (r'AIza[0-9A-Za-z_-]{35}', "Google API Key"),
+    (r"AIza[0-9A-Za-z_-]{35}", "Google API Key"),
     (r'"type"\s*:\s*"service_account"', "Google Service Account JSON"),
-
     # GitHub
-    (r'ghp_[a-zA-Z0-9]{36}', "GitHub Personal Access Token"),
-    (r'github_pat_[a-zA-Z0-9_]{22,}', "GitHub Fine-grained PAT"),
-    (r'gho_[a-zA-Z0-9]{36}', "GitHub OAuth Token"),
-    (r'ghs_[a-zA-Z0-9]{36}', "GitHub App Installation Token"),
-    (r'ghr_[a-zA-Z0-9]{36}', "GitHub Refresh Token"),
-
+    (r"ghp_[a-zA-Z0-9]{36}", "GitHub Personal Access Token"),
+    (r"github_pat_[a-zA-Z0-9_]{22,}", "GitHub Fine-grained PAT"),
+    (r"gho_[a-zA-Z0-9]{36}", "GitHub OAuth Token"),
+    (r"ghs_[a-zA-Z0-9]{36}", "GitHub App Installation Token"),
+    (r"ghr_[a-zA-Z0-9]{36}", "GitHub Refresh Token"),
     # Stripe
-    (r'sk_live_[0-9a-zA-Z]{24,}', "Stripe Live Secret Key"),
-    (r'sk_test_[0-9a-zA-Z]{24,}', "Stripe Test Secret Key"),
-    (r'pk_live_[0-9a-zA-Z]{24,}', "Stripe Live Publishable Key"),
-    (r'rk_live_[0-9a-zA-Z]{24,}', "Stripe Restricted Key"),
-
+    (r"sk_live_[0-9a-zA-Z]{24,}", "Stripe Live Secret Key"),
+    (r"sk_test_[0-9a-zA-Z]{24,}", "Stripe Test Secret Key"),
+    (r"pk_live_[0-9a-zA-Z]{24,}", "Stripe Live Publishable Key"),
+    (r"rk_live_[0-9a-zA-Z]{24,}", "Stripe Restricted Key"),
     # Slack
-    (r'xox[baprs]-[0-9a-zA-Z-]{10,}', "Slack Token"),
-    (r'https://hooks\.slack\.com/services/[A-Z0-9/]+', "Slack Webhook URL"),
-
+    (r"xox[baprs]-[0-9a-zA-Z-]{10,}", "Slack Token"),
+    (r"https://hooks\.slack\.com/services/[A-Z0-9/]+", "Slack Webhook URL"),
     # Discord
-    (r'[MN][A-Za-z\d]{23,}\.[\w-]{6}\.[\w-]{27}', "Discord Bot Token"),
-    (r'https://discord(?:app)?\.com/api/webhooks/\d+/[\w-]+', "Discord Webhook URL"),
-
+    (r"[MN][A-Za-z\d]{23,}\.[\w-]{6}\.[\w-]{27}", "Discord Bot Token"),
+    (r"https://discord(?:app)?\.com/api/webhooks/\d+/[\w-]+", "Discord Webhook URL"),
     # Twilio
-    (r'SK[a-f0-9]{32}', "Twilio API Key"),
-    (r'AC[a-f0-9]{32}', "Twilio Account SID"),
-
+    (r"SK[a-f0-9]{32}", "Twilio API Key"),
+    (r"AC[a-f0-9]{32}", "Twilio Account SID"),
     # SendGrid
-    (r'SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}', "SendGrid API Key"),
-
+    (r"SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}", "SendGrid API Key"),
     # Mailchimp
-    (r'[a-f0-9]{32}-us\d+', "Mailchimp API Key"),
-
+    (r"[a-f0-9]{32}-us\d+", "Mailchimp API Key"),
     # NPM
-    (r'npm_[a-zA-Z0-9]{36}', "NPM Access Token"),
-
+    (r"npm_[a-zA-Z0-9]{36}", "NPM Access Token"),
     # PyPI
-    (r'pypi-[a-zA-Z0-9]{60,}', "PyPI API Token"),
-
+    (r"pypi-[a-zA-Z0-9]{60,}", "PyPI API Token"),
     # Supabase/JWT
-    (r'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{50,}', "Supabase/JWT Token"),
-
+    (r"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{50,}", "Supabase/JWT Token"),
     # Linear
-    (r'lin_api_[a-zA-Z0-9]{40,}', "Linear API Key"),
-
+    (r"lin_api_[a-zA-Z0-9]{40,}", "Linear API Key"),
     # Vercel
-    (r'[a-zA-Z0-9]{24}_[a-zA-Z0-9]{28,}', "Potential Vercel Token"),
-
+    (r"[a-zA-Z0-9]{24}_[a-zA-Z0-9]{28,}", "Potential Vercel Token"),
     # Heroku
-    (r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', "Heroku API Key / UUID"),
-
+    (
+        r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
+        "Heroku API Key / UUID",
+    ),
     # Doppler
-    (r'dp\.pt\.[a-zA-Z0-9]{40,}', "Doppler Service Token"),
+    (r"dp\.pt\.[a-zA-Z0-9]{40,}", "Doppler Service Token"),
 ]
 
 # Private key patterns
 PRIVATE_KEY_PATTERNS = [
-    (r'-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----', "RSA Private Key"),
-    (r'-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----', "OpenSSH Private Key"),
-    (r'-----BEGIN\s+DSA\s+PRIVATE\s+KEY-----', "DSA Private Key"),
-    (r'-----BEGIN\s+EC\s+PRIVATE\s+KEY-----', "EC Private Key"),
-    (r'-----BEGIN\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----', "PGP Private Key"),
-    (r'-----BEGIN\s+CERTIFICATE-----', "Certificate (may contain private key)"),
+    (r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----", "RSA Private Key"),
+    (r"-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----", "OpenSSH Private Key"),
+    (r"-----BEGIN\s+DSA\s+PRIVATE\s+KEY-----", "DSA Private Key"),
+    (r"-----BEGIN\s+EC\s+PRIVATE\s+KEY-----", "EC Private Key"),
+    (r"-----BEGIN\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----", "PGP Private Key"),
+    (r"-----BEGIN\s+CERTIFICATE-----", "Certificate (may contain private key)"),
 ]
 
 # Database connection strings with embedded credentials
 DATABASE_PATTERNS = [
-    (r'mongodb(?:\+srv)?://[^"\s:]+:[^@"\s]+@[^\s"]+', "MongoDB Connection String with credentials"),
-    (r'postgres(?:ql)?://[^"\s:]+:[^@"\s]+@[^\s"]+', "PostgreSQL Connection String with credentials"),
+    (
+        r'mongodb(?:\+srv)?://[^"\s:]+:[^@"\s]+@[^\s"]+',
+        "MongoDB Connection String with credentials",
+    ),
+    (
+        r'postgres(?:ql)?://[^"\s:]+:[^@"\s]+@[^\s"]+',
+        "PostgreSQL Connection String with credentials",
+    ),
     (r'mysql://[^"\s:]+:[^@"\s]+@[^\s"]+', "MySQL Connection String with credentials"),
     (r'redis://[^"\s:]+:[^@"\s]+@[^\s"]+', "Redis Connection String with credentials"),
-    (r'amqp://[^"\s:]+:[^@"\s]+@[^\s"]+', "RabbitMQ Connection String with credentials"),
+    (
+        r'amqp://[^"\s:]+:[^@"\s]+@[^\s"]+',
+        "RabbitMQ Connection String with credentials",
+    ),
 ]
 
 # Combine all patterns
-ALL_PATTERNS = GENERIC_PATTERNS + SERVICE_PATTERNS + PRIVATE_KEY_PATTERNS + DATABASE_PATTERNS
+ALL_PATTERNS = (
+    GENERIC_PATTERNS + SERVICE_PATTERNS + PRIVATE_KEY_PATTERNS + DATABASE_PATTERNS
+)
 
 
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
 
+
 @dataclass
 class SecretMatch:
     """A potential secret found in a file."""
+
     file_path: str
     line_number: int
     pattern_name: str
@@ -167,57 +168,86 @@ class SecretMatch:
 
 # Files/directories to always skip
 DEFAULT_IGNORE_PATTERNS = [
-    r'\.git/',
-    r'node_modules/',
-    r'\.venv/',
-    r'venv/',
-    r'__pycache__/',
-    r'\.pyc$',
-    r'dist/',
-    r'build/',
-    r'\.egg-info/',
-    r'\.example$',
-    r'\.sample$',
-    r'\.template$',
-    r'\.md$',  # Documentation files
-    r'\.rst$',
-    r'\.txt$',
-    r'package-lock\.json$',
-    r'yarn\.lock$',
-    r'pnpm-lock\.yaml$',
-    r'Cargo\.lock$',
-    r'poetry\.lock$',
+    r"\.git/",
+    r"node_modules/",
+    r"\.venv/",
+    r"venv/",
+    r"__pycache__/",
+    r"\.pyc$",
+    r"dist/",
+    r"build/",
+    r"\.egg-info/",
+    r"\.example$",
+    r"\.sample$",
+    r"\.template$",
+    r"\.md$",  # Documentation files
+    r"\.rst$",
+    r"\.txt$",
+    r"package-lock\.json$",
+    r"yarn\.lock$",
+    r"pnpm-lock\.yaml$",
+    r"Cargo\.lock$",
+    r"poetry\.lock$",
 ]
 
 # Binary file extensions to skip
 BINARY_EXTENSIONS = {
-    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.svg',
-    '.woff', '.woff2', '.ttf', '.eot', '.otf',
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-    '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar',
-    '.exe', '.dll', '.so', '.dylib',
-    '.mp3', '.mp4', '.wav', '.avi', '.mov',
-    '.pyc', '.pyo', '.class', '.o',
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".svg",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".otf",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".7z",
+    ".rar",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".mp3",
+    ".mp4",
+    ".wav",
+    ".avi",
+    ".mov",
+    ".pyc",
+    ".pyo",
+    ".class",
+    ".o",
 }
 
 # False positive patterns to filter out
 FALSE_POSITIVE_PATTERNS = [
-    r'process\.env\.',      # Environment variable references
-    r'os\.environ',         # Python env references
-    r'ENV\[',               # Ruby/other env references
-    r'\$\{[A-Z_]+\}',       # Shell variable substitution
-    r'your[-_]?api[-_]?key',# Placeholder values
-    r'xxx+',                # Placeholder
-    r'placeholder',         # Placeholder
-    r'example',             # Example value
-    r'sample',              # Sample value
-    r'test[-_]?key',        # Test placeholder
-    r'<[A-Z_]+>',           # Placeholder like <API_KEY>
-    r'TODO',                # Comment markers
-    r'FIXME',
-    r'CHANGEME',
-    r'INSERT[-_]?YOUR',
-    r'REPLACE[-_]?WITH',
+    r"process\.env\.",  # Environment variable references
+    r"os\.environ",  # Python env references
+    r"ENV\[",  # Ruby/other env references
+    r"\$\{[A-Z_]+\}",  # Shell variable substitution
+    r"your[-_]?api[-_]?key",  # Placeholder values
+    r"xxx+",  # Placeholder
+    r"placeholder",  # Placeholder
+    r"example",  # Example value
+    r"sample",  # Sample value
+    r"test[-_]?key",  # Test placeholder
+    r"<[A-Z_]+>",  # Placeholder like <API_KEY>
+    r"TODO",  # Comment markers
+    r"FIXME",
+    r"CHANGEME",
+    r"INSERT[-_]?YOUR",
+    r"REPLACE[-_]?WITH",
 ]
 
 
@@ -225,9 +255,10 @@ FALSE_POSITIVE_PATTERNS = [
 # CORE FUNCTIONS
 # =============================================================================
 
+
 def load_secretsignore(project_dir: Path) -> list[str]:
     """Load custom ignore patterns from .secretsignore file."""
-    ignore_file = project_dir / '.secretsignore'
+    ignore_file = project_dir / ".secretsignore"
     if not ignore_file.exists():
         return []
 
@@ -237,9 +268,9 @@ def load_secretsignore(project_dir: Path) -> list[str]:
         for line in content.splitlines():
             line = line.strip()
             # Skip comments and empty lines
-            if line and not line.startswith('#'):
+            if line and not line.startswith("#"):
                 patterns.append(line)
-    except IOError:
+    except OSError:
         pass
 
     return patterns
@@ -275,14 +306,18 @@ def is_false_positive(line: str, matched_text: str) -> bool:
             return True
 
     # Check if it's just a variable name or type hint
-    if re.match(r'^[a-z_]+:\s*str\s*$', line.strip(), re.IGNORECASE):
+    if re.match(r"^[a-z_]+:\s*str\s*$", line.strip(), re.IGNORECASE):
         return True
 
     # Check if it's in a comment
     stripped = line.strip()
-    if stripped.startswith('#') or stripped.startswith('//') or stripped.startswith('*'):
+    if (
+        stripped.startswith("#")
+        or stripped.startswith("//")
+        or stripped.startswith("*")
+    ):
         # But still flag if there's an actual long key-like string
-        if not re.search(r'[a-zA-Z0-9_-]{40,}', matched_text):
+        if not re.search(r"[a-zA-Z0-9_-]{40,}", matched_text):
             return True
 
     return False
@@ -292,7 +327,7 @@ def mask_secret(text: str, visible_chars: int = 8) -> str:
     """Mask a secret, showing only first few characters."""
     if len(text) <= visible_chars:
         return text
-    return text[:visible_chars] + '***'
+    return text[:visible_chars] + "***"
 
 
 def scan_content(content: str, file_path: str) -> list[SecretMatch]:
@@ -310,13 +345,15 @@ def scan_content(content: str, file_path: str) -> list[SecretMatch]:
                     if is_false_positive(line, matched_text):
                         continue
 
-                    matches.append(SecretMatch(
-                        file_path=file_path,
-                        line_number=line_num,
-                        pattern_name=pattern_name,
-                        matched_text=matched_text,
-                        line_content=line.strip()[:100],  # Truncate long lines
-                    ))
+                    matches.append(
+                        SecretMatch(
+                            file_path=file_path,
+                            line_number=line_num,
+                            pattern_name=pattern_name,
+                            matched_text=matched_text,
+                            line_content=line.strip()[:100],  # Truncate long lines
+                        )
+                    )
             except re.error:
                 # Invalid regex, skip
                 continue
@@ -328,7 +365,7 @@ def get_staged_files() -> list[str]:
     """Get list of staged files from git (excluding deleted files)."""
     try:
         result = subprocess.run(
-            ['git', 'diff', '--cached', '--name-only', '--diff-filter=ACM'],
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
             capture_output=True,
             text=True,
             check=True,
@@ -343,7 +380,7 @@ def get_all_tracked_files() -> list[str]:
     """Get all tracked files in the repository."""
     try:
         result = subprocess.run(
-            ['git', 'ls-files'],
+            ["git", "ls-files"],
             capture_output=True,
             text=True,
             check=True,
@@ -356,7 +393,7 @@ def get_all_tracked_files() -> list[str]:
 
 def scan_files(
     files: list[str],
-    project_dir: Optional[Path] = None,
+    project_dir: Path | None = None,
 ) -> list[SecretMatch]:
     """Scan a list of files for secrets."""
     if project_dir is None:
@@ -377,10 +414,10 @@ def scan_files(
             continue
 
         try:
-            content = full_path.read_text(encoding='utf-8', errors='ignore')
+            content = full_path.read_text(encoding="utf-8", errors="ignore")
             matches = scan_content(content, file_path)
             all_matches.extend(matches)
-        except (IOError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError):
             # Skip files that can't be read
             continue
 
@@ -392,11 +429,11 @@ def scan_files(
 # =============================================================================
 
 # ANSI color codes
-RED = '\033[0;31m'
-GREEN = '\033[0;32m'
-YELLOW = '\033[1;33m'
-CYAN = '\033[0;36m'
-NC = '\033[0m'  # No Color
+RED = "\033[0;31m"
+GREEN = "\033[0;32m"
+YELLOW = "\033[1;33m"
+CYAN = "\033[0;36m"
+NC = "\033[0m"  # No Color
 
 
 def print_results(matches: list[SecretMatch]) -> None:
@@ -435,17 +472,17 @@ def print_json_results(matches: list[SecretMatch]) -> None:
     import json
 
     results = {
-        'secrets_found': len(matches) > 0,
-        'count': len(matches),
-        'matches': [
+        "secrets_found": len(matches) > 0,
+        "count": len(matches),
+        "matches": [
             {
-                'file': m.file_path,
-                'line': m.line_number,
-                'type': m.pattern_name,
-                'preview': mask_secret(m.matched_text),
+                "file": m.file_path,
+                "line": m.line_number,
+                "type": m.pattern_name,
+                "preview": mask_secret(m.matched_text),
             }
             for m in matches
-        ]
+        ],
     }
     print(json.dumps(results, indent=2))
 
@@ -454,36 +491,28 @@ def print_json_results(matches: list[SecretMatch]) -> None:
 # MAIN
 # =============================================================================
 
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Scan files for potential secrets before commit'
+        description="Scan files for potential secrets before commit"
     )
     parser.add_argument(
-        '--staged-only', '-s',
-        action='store_true',
+        "--staged-only",
+        "-s",
+        action="store_true",
         default=True,
-        help='Only scan staged files (default)'
+        help="Only scan staged files (default)",
     )
     parser.add_argument(
-        '--all-files', '-a',
-        action='store_true',
-        help='Scan all tracked files'
+        "--all-files", "-a", action="store_true", help="Scan all tracked files"
     )
     parser.add_argument(
-        '--path', '-p',
-        type=str,
-        help='Scan a specific file or directory'
+        "--path", "-p", type=str, help="Scan a specific file or directory"
     )
+    parser.add_argument("--json", action="store_true", help="Output results as JSON")
     parser.add_argument(
-        '--json',
-        action='store_true',
-        help='Output results as JSON'
-    )
-    parser.add_argument(
-        '--quiet', '-q',
-        action='store_true',
-        help='Only output if secrets are found'
+        "--quiet", "-q", action="store_true", help="Only output if secrets are found"
     )
 
     args = parser.parse_args()
@@ -496,7 +525,9 @@ def main() -> int:
         if path.is_file():
             files = [str(path)]
         elif path.is_dir():
-            files = [str(f.relative_to(project_dir)) for f in path.rglob('*') if f.is_file()]
+            files = [
+                str(f.relative_to(project_dir)) for f in path.rglob("*") if f.is_file()
+            ]
         else:
             print(f"{RED}Error: Path not found: {args.path}{NC}", file=sys.stderr)
             return 2
@@ -526,5 +557,5 @@ def main() -> int:
     return 1 if matches else 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

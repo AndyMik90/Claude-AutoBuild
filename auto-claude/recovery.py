@@ -19,21 +19,22 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 
 class FailureType(Enum):
     """Types of failures that can occur during autonomous builds."""
-    BROKEN_BUILD = "broken_build"           # Code doesn't compile/run
+
+    BROKEN_BUILD = "broken_build"  # Code doesn't compile/run
     VERIFICATION_FAILED = "verification_failed"  # Subtask verification failed
-    CIRCULAR_FIX = "circular_fix"           # Same fix attempted multiple times
-    CONTEXT_EXHAUSTED = "context_exhausted" # Ran out of context mid-subtask
+    CIRCULAR_FIX = "circular_fix"  # Same fix attempted multiple times
+    CONTEXT_EXHAUSTED = "context_exhausted"  # Ran out of context mid-subtask
     UNKNOWN = "unknown"
 
 
 @dataclass
 class RecoveryAction:
     """Action to take in response to a failure."""
+
     action: str  # "rollback", "retry", "skip", "escalate"
     target: str  # commit hash, subtask id, or message
     reason: str
@@ -82,8 +83,8 @@ class RecoveryManager:
             "stuck_subtasks": [],
             "metadata": {
                 "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat()
-            }
+                "last_updated": datetime.now().isoformat(),
+            },
         }
         with open(self.attempt_history_file, "w") as f:
             json.dump(initial_data, f, indent=2)
@@ -95,8 +96,8 @@ class RecoveryManager:
             "last_good_commit": None,
             "metadata": {
                 "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat()
-            }
+                "last_updated": datetime.now().isoformat(),
+            },
         }
         with open(self.build_commits_file, "w") as f:
             json.dump(initial_data, f, indent=2)
@@ -104,11 +105,11 @@ class RecoveryManager:
     def _load_attempt_history(self) -> dict:
         """Load attempt history from JSON file."""
         try:
-            with open(self.attempt_history_file, "r") as f:
+            with open(self.attempt_history_file) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             self._init_attempt_history()
-            with open(self.attempt_history_file, "r") as f:
+            with open(self.attempt_history_file) as f:
                 return json.load(f)
 
     def _save_attempt_history(self, data: dict) -> None:
@@ -120,11 +121,11 @@ class RecoveryManager:
     def _load_build_commits(self) -> dict:
         """Load build commits from JSON file."""
         try:
-            with open(self.build_commits_file, "r") as f:
+            with open(self.build_commits_file) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             self._init_build_commits()
-            with open(self.build_commits_file, "r") as f:
+            with open(self.build_commits_file) as f:
                 return json.load(f)
 
     def _save_build_commits(self, data: dict) -> None:
@@ -148,25 +149,31 @@ class RecoveryManager:
 
         # Check for broken build indicators
         build_errors = [
-            "syntax error", "compilation error", "module not found",
-            "import error", "cannot find module", "unexpected token",
-            "indentation error", "parse error"
+            "syntax error",
+            "compilation error",
+            "module not found",
+            "import error",
+            "cannot find module",
+            "unexpected token",
+            "indentation error",
+            "parse error",
         ]
         if any(be in error_lower for be in build_errors):
             return FailureType.BROKEN_BUILD
 
         # Check for verification failures
         verification_errors = [
-            "verification failed", "expected", "assertion",
-            "test failed", "status code"
+            "verification failed",
+            "expected",
+            "assertion",
+            "test failed",
+            "status code",
         ]
         if any(ve in error_lower for ve in verification_errors):
             return FailureType.VERIFICATION_FAILED
 
         # Check for context exhaustion
-        context_errors = [
-            "context", "token limit", "maximum length"
-        ]
+        context_errors = ["context", "token limit", "maximum length"]
         if any(ce in error_lower for ce in context_errors):
             return FailureType.CONTEXT_EXHAUSTED
 
@@ -196,7 +203,7 @@ class RecoveryManager:
         session: int,
         success: bool,
         approach: str,
-        error: Optional[str] = None
+        error: str | None = None,
     ) -> None:
         """
         Record an attempt at a subtask.
@@ -212,10 +219,7 @@ class RecoveryManager:
 
         # Initialize subtask entry if it doesn't exist
         if subtask_id not in history["subtasks"]:
-            history["subtasks"][subtask_id] = {
-                "attempts": [],
-                "status": "pending"
-            }
+            history["subtasks"][subtask_id] = {"attempts": [], "status": "pending"}
 
         # Add the attempt
         attempt = {
@@ -223,7 +227,7 @@ class RecoveryManager:
             "timestamp": datetime.now().isoformat(),
             "approach": approach,
             "success": success,
-            "error": error
+            "error": error,
         }
         history["subtasks"][subtask_id]["attempts"].append(attempt)
 
@@ -258,16 +262,31 @@ class RecoveryManager:
         recent_attempts = attempts[-3:] if len(attempts) >= 3 else attempts
 
         # Extract key terms from current approach (ignore common words)
-        stop_words = {'with', 'using', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'trying'}
+        stop_words = {
+            "with",
+            "using",
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "trying",
+        }
         current_keywords = set(
-            word for word in current_approach.lower().split()
-            if word not in stop_words
+            word for word in current_approach.lower().split() if word not in stop_words
         )
 
         similar_count = 0
         for attempt in recent_attempts:
             attempt_keywords = set(
-                word for word in attempt["approach"].lower().split()
+                word
+                for word in attempt["approach"].lower().split()
                 if word not in stop_words
             )
 
@@ -287,9 +306,7 @@ class RecoveryManager:
         return similar_count >= 2
 
     def determine_recovery_action(
-        self,
-        failure_type: FailureType,
-        subtask_id: str
+        self, failure_type: FailureType, subtask_id: str
     ) -> RecoveryAction:
         """
         Decide what to do based on failure type and history.
@@ -310,13 +327,13 @@ class RecoveryManager:
                 return RecoveryAction(
                     action="rollback",
                     target=last_good,
-                    reason=f"Build broken in subtask {subtask_id}, rolling back to working state"
+                    reason=f"Build broken in subtask {subtask_id}, rolling back to working state",
                 )
             else:
                 return RecoveryAction(
                     action="escalate",
                     target=subtask_id,
-                    reason="Build broken and no good commit found to rollback to"
+                    reason="Build broken and no good commit found to rollback to",
                 )
 
         elif failure_type == FailureType.VERIFICATION_FAILED:
@@ -325,13 +342,13 @@ class RecoveryManager:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/3)"
+                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/3)",
                 )
             else:
                 return RecoveryAction(
                     action="skip",
                     target=subtask_id,
-                    reason=f"Verification failed after {attempt_count} attempts, marking as stuck"
+                    reason=f"Verification failed after {attempt_count} attempts, marking as stuck",
                 )
 
         elif failure_type == FailureType.CIRCULAR_FIX:
@@ -339,7 +356,7 @@ class RecoveryManager:
             return RecoveryAction(
                 action="skip",
                 target=subtask_id,
-                reason="Circular fix detected - same approach tried multiple times"
+                reason="Circular fix detected - same approach tried multiple times",
             )
 
         elif failure_type == FailureType.CONTEXT_EXHAUSTED:
@@ -347,7 +364,7 @@ class RecoveryManager:
             return RecoveryAction(
                 action="continue",
                 target=subtask_id,
-                reason="Context exhausted, will commit progress and continue in next session"
+                reason="Context exhausted, will commit progress and continue in next session",
             )
 
         else:  # UNKNOWN
@@ -356,16 +373,16 @@ class RecoveryManager:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/2)"
+                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/2)",
                 )
             else:
                 return RecoveryAction(
                     action="escalate",
                     target=subtask_id,
-                    reason=f"Unknown error persists after {attempt_count} attempts"
+                    reason=f"Unknown error persists after {attempt_count} attempts",
                 )
 
-    def get_last_good_commit(self) -> Optional[str]:
+    def get_last_good_commit(self) -> str | None:
         """
         Find the most recent commit where build was working.
 
@@ -388,7 +405,7 @@ class RecoveryManager:
         commit_record = {
             "hash": commit_hash,
             "subtask_id": subtask_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         commits["commits"].append(commit_record)
@@ -413,7 +430,7 @@ class RecoveryManager:
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             return True
         except subprocess.CalledProcessError as e:
@@ -434,11 +451,13 @@ class RecoveryManager:
             "subtask_id": subtask_id,
             "reason": reason,
             "escalated_at": datetime.now().isoformat(),
-            "attempt_count": self.get_attempt_count(subtask_id)
+            "attempt_count": self.get_attempt_count(subtask_id),
         }
 
         # Check if already in stuck list
-        existing = [s for s in history["stuck_subtasks"] if s["subtask_id"] == subtask_id]
+        existing = [
+            s for s in history["stuck_subtasks"] if s["subtask_id"] == subtask_id
+        ]
         if not existing:
             history["stuck_subtasks"].append(stuck_entry)
 
@@ -469,7 +488,9 @@ class RecoveryManager:
             Subtask history dict with attempts
         """
         history = self._load_attempt_history()
-        return history["subtasks"].get(subtask_id, {"attempts": [], "status": "pending"})
+        return history["subtasks"].get(
+            subtask_id, {"attempts": [], "status": "pending"}
+        )
 
     def get_recovery_hints(self, subtask_id: str) -> list[str]:
         """
@@ -500,8 +521,12 @@ class RecoveryManager:
 
         # Add guidance
         if len(attempts) >= 2:
-            hints.append("\n⚠️  IMPORTANT: Try a DIFFERENT approach than previous attempts")
-            hints.append("Consider: different library, different pattern, or simpler implementation")
+            hints.append(
+                "\n⚠️  IMPORTANT: Try a DIFFERENT approach than previous attempts"
+            )
+            hints.append(
+                "Consider: different library, different pattern, or simpler implementation"
+            )
 
         return hints
 
@@ -522,15 +547,11 @@ class RecoveryManager:
 
         # Clear attempt history
         if subtask_id in history["subtasks"]:
-            history["subtasks"][subtask_id] = {
-                "attempts": [],
-                "status": "pending"
-            }
+            history["subtasks"][subtask_id] = {"attempts": [], "status": "pending"}
 
         # Remove from stuck subtasks
         history["stuck_subtasks"] = [
-            s for s in history["stuck_subtasks"]
-            if s["subtask_id"] != subtask_id
+            s for s in history["stuck_subtasks"] if s["subtask_id"] != subtask_id
         ]
 
         self._save_attempt_history(history)
@@ -538,12 +559,10 @@ class RecoveryManager:
 
 # Utility functions for integration with agent.py
 
+
 def check_and_recover(
-    spec_dir: Path,
-    project_dir: Path,
-    subtask_id: str,
-    error: Optional[str] = None
-) -> Optional[RecoveryAction]:
+    spec_dir: Path, project_dir: Path, subtask_id: str, error: str | None = None
+) -> RecoveryAction | None:
     """
     Check if recovery is needed and return appropriate action.
 
@@ -583,5 +602,5 @@ def get_recovery_context(spec_dir: Path, project_dir: Path, subtask_id: str) -> 
         "attempt_count": manager.get_attempt_count(subtask_id),
         "hints": manager.get_recovery_hints(subtask_id),
         "subtask_history": manager.get_subtask_history(subtask_id),
-        "stuck_subtasks": manager.get_stuck_subtasks()
+        "stuck_subtasks": manager.get_stuck_subtasks(),
     }

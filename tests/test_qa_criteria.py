@@ -26,6 +26,21 @@ import pytest
 # MOCK SETUP - Must happen before ANY imports from auto-claude
 # =============================================================================
 
+# Store original modules for cleanup
+_original_modules = {}
+_mocked_module_names = [
+    'claude_agent_sdk',
+    'ui',
+    'progress',
+    'task_logger',
+    'linear_updater',
+    'client',
+]
+
+for name in _mocked_module_names:
+    if name in sys.modules:
+        _original_modules[name] = sys.modules[name]
+
 # Mock claude_agent_sdk FIRST (before any other imports)
 mock_sdk = MagicMock()
 mock_sdk.ClaudeSDKClient = MagicMock()
@@ -111,6 +126,19 @@ mock_report.get_recurring_issue_summary = MagicMock(return_value={})
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
+
+# Cleanup fixture to restore original modules after all tests in this module
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_mocked_modules():
+    """Restore original modules after all tests in this module complete."""
+    yield  # Run all tests first
+    # Cleanup: restore original modules or remove mocks
+    for name in _mocked_module_names:
+        if name in _original_modules:
+            sys.modules[name] = _original_modules[name]
+        elif name in sys.modules:
+            del sys.modules[name]
 
 
 @pytest.fixture

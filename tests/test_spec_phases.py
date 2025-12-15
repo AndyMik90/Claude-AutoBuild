@@ -16,6 +16,21 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
+# Store original modules before mocking (for cleanup)
+_original_modules = {}
+_mocked_module_names = [
+    'claude_code_sdk',
+    'claude_code_sdk.types',
+    'claude_agent_sdk',
+    'graphiti_providers',
+    'validate_spec',
+    'client',
+]
+
+for name in _mocked_module_names:
+    if name in sys.modules:
+        _original_modules[name] = sys.modules[name]
+
 # Mock ALL external dependencies before ANY imports from the spec module
 # The import chain is: spec.phases -> spec.__init__ -> spec.pipeline -> client -> claude_agent_sdk
 mock_sdk = MagicMock()
@@ -49,6 +64,19 @@ sys.modules['client'] = mock_client
 
 # Now import the phases module directly (bypasses __init__.py issues)
 from spec.phases import PhaseExecutor, PhaseResult, MAX_RETRIES
+
+
+# Cleanup fixture to restore original modules after all tests in this module
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_mocked_modules():
+    """Restore original modules after all tests in this module complete."""
+    yield  # Run all tests first
+    # Cleanup: restore original modules or remove mocks
+    for name in _mocked_module_names:
+        if name in _original_modules:
+            sys.modules[name] = _original_modules[name]
+        elif name in sys.modules:
+            del sys.modules[name]
 
 
 class TestPhaseResult:

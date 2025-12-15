@@ -173,7 +173,7 @@ export class TerminalNameGenerator extends EventEmitter {
               suggestedProfile: rateLimitDetection.suggestedProfile?.name
             });
 
-            const rateLimitInfo = createSDKRateLimitInfo('terminal-name-generator', rateLimitDetection);
+            const rateLimitInfo = createSDKRateLimitInfo('other', rateLimitDetection);
             this.emit('sdk-rate-limit', rateLimitInfo);
           }
 

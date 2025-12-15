@@ -9,38 +9,37 @@ approval or max iterations.
 import time as time_module
 from pathlib import Path
 
-from progress import count_subtasks, is_build_complete
+from client import create_client
 from linear_updater import (
-    is_linear_enabled,
     LinearTaskState,
-    linear_qa_started,
+    is_linear_enabled,
     linear_qa_approved,
-    linear_qa_rejected,
     linear_qa_max_iterations,
+    linear_qa_rejected,
+    linear_qa_started,
 )
+from progress import count_subtasks, is_build_complete
 from task_logger import (
     LogPhase,
     get_task_logger,
 )
-from client import create_client
 
 from .criteria import (
-    is_qa_approved,
     get_qa_iteration_count,
     get_qa_signoff_status,
+    is_qa_approved,
 )
+from .fixer import run_qa_fixer_session
 from .report import (
-    get_iteration_history,
-    record_iteration,
-    has_recurring_issues,
-    get_recurring_issue_summary,
-    escalate_to_human,
-    is_no_test_project,
     create_manual_test_plan,
+    escalate_to_human,
+    get_iteration_history,
+    get_recurring_issue_summary,
+    has_recurring_issues,
+    is_no_test_project,
+    record_iteration,
 )
 from .reviewer import run_qa_agent_session
-from .fixer import run_qa_fixer_session
-
 
 # Configuration
 MAX_QA_ITERATIONS = 50
@@ -155,7 +154,11 @@ async def run_qa_validation_loop(
 
             # End validation phase successfully
             if task_logger:
-                task_logger.end_phase(LogPhase.VALIDATION, success=True, message="QA validation passed - all criteria met")
+                task_logger.end_phase(
+                    LogPhase.VALIDATION,
+                    success=True,
+                    message="QA validation passed - all criteria met",
+                )
 
             # Update Linear: QA approved, awaiting human review
             if linear_task and linear_task.task_id:
@@ -172,16 +175,22 @@ async def run_qa_validation_loop(
             current_issues = qa_status.get("issues_found", []) if qa_status else []
 
             # Record rejected iteration
-            record_iteration(spec_dir, qa_iteration, "rejected", current_issues, iteration_duration)
+            record_iteration(
+                spec_dir, qa_iteration, "rejected", current_issues, iteration_duration
+            )
 
             # Check for recurring issues
             history = get_iteration_history(spec_dir)
-            has_recurring, recurring_issues = has_recurring_issues(current_issues, history)
+            has_recurring, recurring_issues = has_recurring_issues(
+                current_issues, history
+            )
 
             if has_recurring:
                 from .report import RECURRING_ISSUE_THRESHOLD
 
-                print(f"\n⚠️  Recurring issues detected ({len(recurring_issues)} issue(s) appeared {RECURRING_ISSUE_THRESHOLD}+ times)")
+                print(
+                    f"\n⚠️  Recurring issues detected ({len(recurring_issues)} issue(s) appeared {RECURRING_ISSUE_THRESHOLD}+ times)"
+                )
                 print("Escalating to human review due to recurring issues...")
 
                 # Create escalation file
@@ -192,13 +201,15 @@ async def run_qa_validation_loop(
                     task_logger.end_phase(
                         LogPhase.VALIDATION,
                         success=False,
-                        message=f"QA escalated to human after {qa_iteration} iterations due to recurring issues"
+                        message=f"QA escalated to human after {qa_iteration} iterations due to recurring issues",
                     )
 
                 # Update Linear
                 if linear_task and linear_task.task_id:
                     await linear_qa_max_iterations(spec_dir, qa_iteration)
-                    print("\nLinear: Task marked as needing human intervention (recurring issues)")
+                    print(
+                        "\nLinear: Task marked as needing human intervention (recurring issues)"
+                    )
 
                 return False
 
@@ -224,14 +235,24 @@ async def run_qa_validation_loop(
 
             if fix_status == "error":
                 print(f"\n❌ Fixer encountered error: {fix_response}")
-                record_iteration(spec_dir, qa_iteration, "error", [{"title": "Fixer error", "description": fix_response}])
+                record_iteration(
+                    spec_dir,
+                    qa_iteration,
+                    "error",
+                    [{"title": "Fixer error", "description": fix_response}],
+                )
                 break
 
             print("\n✅ Fixes applied. Re-running QA validation...")
 
         elif status == "error":
             print(f"\n❌ QA error: {response}")
-            record_iteration(spec_dir, qa_iteration, "error", [{"title": "QA error", "description": response}])
+            record_iteration(
+                spec_dir,
+                qa_iteration,
+                "error",
+                [{"title": "QA error", "description": response}],
+            )
             print("Retrying...")
 
     # Max iterations reached without approval
@@ -245,18 +266,22 @@ async def run_qa_validation_loop(
     history = get_iteration_history(spec_dir)
     summary = get_recurring_issue_summary(history)
     if summary["total_issues"] > 0:
-        print(f"\n📊 Iteration Summary:")
+        print("\n📊 Iteration Summary:")
         print(f"   Total iterations: {len(history)}")
         print(f"   Total issues found: {summary['total_issues']}")
         print(f"   Unique issues: {summary['unique_issues']}")
         if summary.get("most_common"):
-            print(f"   Most common issues:")
+            print("   Most common issues:")
             for issue in summary["most_common"][:3]:
                 print(f"     - {issue['title']} ({issue['occurrences']} occurrences)")
 
     # End validation phase as failed
     if task_logger:
-        task_logger.end_phase(LogPhase.VALIDATION, success=False, message=f"QA validation incomplete after {qa_iteration} iterations")
+        task_logger.end_phase(
+            LogPhase.VALIDATION,
+            success=False,
+            message=f"QA validation incomplete after {qa_iteration} iterations",
+        )
 
     # Show the fix request file if it exists
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"

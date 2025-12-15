@@ -20,17 +20,18 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 class WorktreeError(Exception):
     """Error during worktree operations."""
+
     pass
 
 
 @dataclass
 class WorktreeInfo:
     """Information about a spec's worktree."""
+
     path: Path
     branch: str
     spec_name: str
@@ -50,7 +51,7 @@ class WorktreeManager:
     a corresponding branch auto-claude/{spec-name}.
     """
 
-    def __init__(self, project_dir: Path, base_branch: Optional[str] = None):
+    def __init__(self, project_dir: Path, base_branch: str | None = None):
         self.project_dir = project_dir
         self.base_branch = base_branch or self._get_current_branch()
         self.worktrees_dir = project_dir / ".worktrees"
@@ -68,7 +69,9 @@ class WorktreeManager:
             raise WorktreeError(f"Failed to get current branch: {result.stderr}")
         return result.stdout.strip()
 
-    def _run_git(self, args: list[str], cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+    def _run_git(
+        self, args: list[str], cwd: Path | None = None
+    ) -> subprocess.CompletedProcess:
         """Run a git command and return the result."""
         return subprocess.run(
             ["git"] + args,
@@ -134,7 +137,7 @@ class WorktreeManager:
         """Check if a worktree exists for a spec."""
         return self.get_worktree_path(spec_name).exists()
 
-    def get_worktree_info(self, spec_name: str) -> Optional[WorktreeInfo]:
+    def get_worktree_info(self, spec_name: str) -> WorktreeInfo | None:
         """Get info about a spec's worktree."""
         worktree_path = self.get_worktree_path(spec_name)
         if not worktree_path.exists():
@@ -156,7 +159,7 @@ class WorktreeManager:
             spec_name=spec_name,
             base_branch=self.base_branch,
             is_active=True,
-            **stats
+            **stats,
         )
 
     def _get_worktree_stats(self, spec_name: str) -> dict:
@@ -175,16 +178,14 @@ class WorktreeManager:
 
         # Commit count
         result = self._run_git(
-            ["rev-list", "--count", f"{self.base_branch}..HEAD"],
-            cwd=worktree_path
+            ["rev-list", "--count", f"{self.base_branch}..HEAD"], cwd=worktree_path
         )
         if result.returncode == 0:
             stats["commit_count"] = int(result.stdout.strip() or "0")
 
         # Diff stats
         result = self._run_git(
-            ["diff", "--shortstat", f"{self.base_branch}...HEAD"],
-            cwd=worktree_path
+            ["diff", "--shortstat", f"{self.base_branch}...HEAD"], cwd=worktree_path
         )
         if result.returncode == 0 and result.stdout.strip():
             # Parse: "3 files changed, 50 insertions(+), 10 deletions(-)"
@@ -221,13 +222,14 @@ class WorktreeManager:
         self._run_git(["branch", "-D", branch_name])
 
         # Create worktree with new branch from base
-        result = self._run_git([
-            "worktree", "add", "-b", branch_name,
-            str(worktree_path), self.base_branch
-        ])
+        result = self._run_git(
+            ["worktree", "add", "-b", branch_name, str(worktree_path), self.base_branch]
+        )
 
         if result.returncode != 0:
-            raise WorktreeError(f"Failed to create worktree for {spec_name}: {result.stderr}")
+            raise WorktreeError(
+                f"Failed to create worktree for {spec_name}: {result.stderr}"
+            )
 
         print(f"Created worktree: {worktree_path.name} on branch {branch_name}")
 
@@ -268,7 +270,9 @@ class WorktreeManager:
         branch_name = self.get_branch_name(spec_name)
 
         if worktree_path.exists():
-            result = self._run_git(["worktree", "remove", "--force", str(worktree_path)])
+            result = self._run_git(
+                ["worktree", "remove", "--force", str(worktree_path)]
+            )
             if result.returncode == 0:
                 print(f"Removed worktree: {worktree_path.name}")
             else:
@@ -281,7 +285,9 @@ class WorktreeManager:
 
         self._run_git(["worktree", "prune"])
 
-    def merge_worktree(self, spec_name: str, delete_after: bool = False, no_commit: bool = False) -> bool:
+    def merge_worktree(
+        self, spec_name: str, delete_after: bool = False, no_commit: bool = False
+    ) -> bool:
         """
         Merge a spec's worktree branch back to base branch.
 
@@ -299,7 +305,9 @@ class WorktreeManager:
             return False
 
         if no_commit:
-            print(f"Merging {info.branch} into {self.base_branch} (staged, not committed)...")
+            print(
+                f"Merging {info.branch} into {self.base_branch} (staged, not committed)..."
+            )
         else:
             print(f"Merging {info.branch} into {self.base_branch}...")
 
@@ -320,7 +328,7 @@ class WorktreeManager:
         result = self._run_git(merge_args)
 
         if result.returncode != 0:
-            print(f"Merge conflict! Aborting merge...")
+            print("Merge conflict! Aborting merge...")
             self._run_git(["merge", "--abort"])
             return False
 
@@ -328,9 +336,11 @@ class WorktreeManager:
             # Unstage any files that are gitignored in the main branch
             # These get staged during merge because they exist in the worktree branch
             self._unstage_gitignored_files()
-            print(f"Changes from {info.branch} are now staged in your working directory.")
+            print(
+                f"Changes from {info.branch} are now staged in your working directory."
+            )
             print("Review the changes, then commit when ready:")
-            print(f"  git commit -m 'your commit message'")
+            print("  git commit -m 'your commit message'")
         else:
             print(f"Successfully merged {info.branch}")
 
@@ -394,8 +404,7 @@ class WorktreeManager:
             return []
 
         result = self._run_git(
-            ["diff", "--name-status", f"{self.base_branch}...HEAD"],
-            cwd=worktree_path
+            ["diff", "--name-status", f"{self.base_branch}...HEAD"], cwd=worktree_path
         )
 
         files = []
@@ -475,7 +484,7 @@ class WorktreeManager:
     # ==================== Backward Compatibility ====================
     # These methods provide backward compatibility with the old single-worktree API
 
-    def get_staging_path(self) -> Optional[Path]:
+    def get_staging_path(self) -> Path | None:
         """
         Backward compatibility: Get path to any existing spec worktree.
         Prefer using get_worktree_path(spec_name) instead.
@@ -485,7 +494,7 @@ class WorktreeManager:
             return worktrees[0].path
         return None
 
-    def get_staging_info(self) -> Optional[WorktreeInfo]:
+    def get_staging_info(self) -> WorktreeInfo | None:
         """
         Backward compatibility: Get info about any existing spec worktree.
         Prefer using get_worktree_info(spec_name) instead.

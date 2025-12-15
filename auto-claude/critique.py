@@ -14,14 +14,14 @@ The critique system ensures:
 - Implementation matches subtask requirements
 """
 
-from dataclasses import dataclass, field
-from typing import Optional
 import re
+from dataclasses import dataclass, field
 
 
 @dataclass
 class CritiqueResult:
     """Result of a self-critique evaluation."""
+
     passes: bool
     issues: list[str] = field(default_factory=list)
     improvements_made: list[str] = field(default_factory=list)
@@ -48,9 +48,7 @@ class CritiqueResult:
 
 
 def generate_critique_prompt(
-    subtask: dict,
-    files_modified: list[str],
-    patterns_from: list[str]
+    subtask: dict, files_modified: list[str], patterns_from: list[str]
 ) -> str:
     """
     Generate a critique prompt for the agent to self-evaluate.
@@ -82,7 +80,7 @@ This is NOT optional - it's a required quality gate.
 Review your implementation against these criteria:
 
 **Pattern Adherence:**
-- [ ] Follows patterns from reference files exactly: {', '.join(patterns_from) if patterns_from else 'N/A'}
+- [ ] Follows patterns from reference files exactly: {", ".join(patterns_from) if patterns_from else "N/A"}
 - [ ] Variable naming matches codebase conventions
 - [ ] Imports organized correctly (grouped, sorted)
 - [ ] Code style consistent with existing files
@@ -108,13 +106,13 @@ Review your implementation against these criteria:
 ### STEP 2: Implementation Completeness
 
 **Files Modified:**
-Expected: {', '.join(files_to_modify) if files_to_modify else 'None'}
-Actual: {', '.join(files_modified) if files_modified else 'None'}
+Expected: {", ".join(files_to_modify) if files_to_modify else "None"}
+Actual: {", ".join(files_modified) if files_modified else "None"}
 - [ ] All files_to_modify were actually modified
 - [ ] No unexpected files were modified
 
 **Files Created:**
-Expected: {', '.join(files_to_create) if files_to_create else 'None'}
+Expected: {", ".join(files_to_create) if files_to_create else "None"}
 - [ ] All files_to_create were actually created
 - [ ] Files follow naming conventions
 
@@ -182,56 +180,78 @@ def parse_critique_response(response: str) -> CritiqueResult:
     passes = False
 
     # Extract PROCEED verdict
-    proceed_match = re.search(r'\*\*PROCEED:\*\*\s*\[?\s*(YES|NO)', response, re.IGNORECASE)
+    proceed_match = re.search(
+        r"\*\*PROCEED:\*\*\s*\[?\s*(YES|NO)", response, re.IGNORECASE
+    )
     if proceed_match:
         passes = proceed_match.group(1).upper() == "YES"
 
     # Extract issues from Step 3
     issues_section = re.search(
-        r'### STEP 3:.*?Potential Issues.*?\n\n(.*?)(?=###|\Z)',
+        r"### STEP 3:.*?Potential Issues.*?\n\n(.*?)(?=###|\Z)",
         response,
-        re.DOTALL | re.IGNORECASE
+        re.DOTALL | re.IGNORECASE,
     )
     if issues_section:
-        issue_lines = issues_section.group(1).strip().split('\n')
+        issue_lines = issues_section.group(1).strip().split("\n")
         for line in issue_lines:
             line = line.strip()
-            if not line or line.startswith('---'):
+            if not line or line.startswith("---"):
                 continue
             # Remove list markers
-            issue = re.sub(r'^\d+\.\s*|\*\s*|-\s*', '', line).strip()
+            issue = re.sub(r"^\d+\.\s*|\*\s*|-\s*", "", line).strip()
             # Skip if it's a placeholder or indicates no issues
-            if (issue and
-                issue.lower() not in ['none', 'none identified', 'no issues', 'no concerns'] and
-                issue not in ['[Issue 1, or "None identified"]', '[Issue 2, if any]', '[Issue 3, if any]']):
+            if (
+                issue
+                and issue.lower()
+                not in ["none", "none identified", "no issues", "no concerns"]
+                and issue
+                not in [
+                    '[Issue 1, or "None identified"]',
+                    "[Issue 2, if any]",
+                    "[Issue 3, if any]",
+                ]
+            ):
                 issues.append(issue)
 
     # Extract improvements from Step 4
     improvements_section = re.search(
-        r'### STEP 4:.*?Improvements Made.*?\n\n(.*?)(?=###|\Z)',
+        r"### STEP 4:.*?Improvements Made.*?\n\n(.*?)(?=###|\Z)",
         response,
-        re.DOTALL | re.IGNORECASE
+        re.DOTALL | re.IGNORECASE,
     )
     if improvements_section:
-        improvement_lines = improvements_section.group(1).strip().split('\n')
+        improvement_lines = improvements_section.group(1).strip().split("\n")
         for line in improvement_lines:
             line = line.strip()
-            if not line or line.startswith('---'):
+            if not line or line.startswith("---"):
                 continue
             # Remove list markers
-            improvement = re.sub(r'^\d+\.\s*|\*\s*|-\s*', '', line).strip()
+            improvement = re.sub(r"^\d+\.\s*|\*\s*|-\s*", "", line).strip()
             # Skip if it's a placeholder or indicates no improvements
-            if (improvement and
-                improvement.lower() not in ['none', 'no fixes needed', 'no improvements', 'n/a'] and
-                improvement not in ['[Improvement 1, or "No fixes needed"]', '[Improvement 2, if applicable]', '[Improvement 3, if applicable]']):
+            if (
+                improvement
+                and improvement.lower()
+                not in ["none", "no fixes needed", "no improvements", "n/a"]
+                and improvement
+                not in [
+                    '[Improvement 1, or "No fixes needed"]',
+                    "[Improvement 2, if applicable]",
+                    "[Improvement 3, if applicable]",
+                ]
+            ):
                 improvements.append(improvement)
 
     # Extract confidence level as recommendation
-    confidence_match = re.search(r'\*\*CONFIDENCE:\*\*\s*\[?\s*(High|Medium|Low)', response, re.IGNORECASE)
+    confidence_match = re.search(
+        r"\*\*CONFIDENCE:\*\*\s*\[?\s*(High|Medium|Low)", response, re.IGNORECASE
+    )
     if confidence_match:
         confidence = confidence_match.group(1)
-        if confidence.lower() != 'high':
-            recommendations.append(f"Confidence level: {confidence} - consider additional review")
+        if confidence.lower() != "high":
+            recommendations.append(
+                f"Confidence level: {confidence} - consider additional review"
+            )
 
     return CritiqueResult(
         passes=passes,
@@ -319,7 +339,7 @@ if __name__ == "__main__":
     # Generate prompt
     prompt = generate_critique_prompt(subtask, files_modified, subtask["patterns_from"])
     print(prompt)
-    print("\n" + "="*80 + "\n")
+    print("\n" + "=" * 80 + "\n")
 
     # Simulate a critique response
     sample_response = """

@@ -7,9 +7,9 @@ Utilities for reading and parsing project configuration files
 """
 
 import json
-import tomllib
 from pathlib import Path
-from typing import Optional
+
+import tomllib
 
 
 class ConfigParser:
@@ -24,15 +24,15 @@ class ConfigParser:
         """
         self.project_dir = Path(project_dir).resolve()
 
-    def read_json(self, filename: str) -> Optional[dict]:
+    def read_json(self, filename: str) -> dict | None:
         """Read a JSON file from project root."""
         try:
-            with open(self.project_dir / filename, "r") as f:
+            with open(self.project_dir / filename) as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return None
 
-    def read_toml(self, filename: str) -> Optional[dict]:
+    def read_toml(self, filename: str) -> dict | None:
         """Read a TOML file from project root."""
         try:
             with open(self.project_dir / filename, "rb") as f:
@@ -40,12 +40,12 @@ class ConfigParser:
         except (FileNotFoundError, tomllib.TOMLDecodeError):
             return None
 
-    def read_text(self, filename: str) -> Optional[str]:
+    def read_text(self, filename: str) -> str | None:
         """Read a text file from project root."""
         try:
-            with open(self.project_dir / filename, "r") as f:
+            with open(self.project_dir / filename) as f:
                 return f.read()
-        except (FileNotFoundError, IOError):
+        except (OSError, FileNotFoundError):
             return None
 
     def file_exists(self, *paths: str) -> bool:

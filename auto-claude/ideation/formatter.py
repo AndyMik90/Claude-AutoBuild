@@ -5,10 +5,9 @@ Formats and merges ideation outputs into a cohesive ideation.json file.
 """
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
-import sys
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -25,8 +24,8 @@ class IdeationFormatter:
 
     def merge_ideation_outputs(
         self,
-        enabled_types: List[str],
-        context_data: Dict,
+        enabled_types: list[str],
+        context_data: dict,
         append: bool = False,
     ) -> tuple[Path, int]:
         """Merge all ideation outputs into a single ideation.json.
@@ -43,7 +42,9 @@ class IdeationFormatter:
                 with open(ideation_file) as f:
                     existing_session = json.load(f)
                     existing_ideas = existing_session.get("ideas", [])
-                    print_status(f"Preserving {len(existing_ideas)} existing ideas", "info")
+                    print_status(
+                        f"Preserving {len(existing_ideas)} existing ideas", "info"
+                    )
             except json.JSONDecodeError:
                 pass
 
@@ -68,18 +69,28 @@ class IdeationFormatter:
         if append and existing_ideas:
             # Keep existing ideas that are NOT from the types we just generated
             preserved_ideas = [
-                idea for idea in existing_ideas
-                if idea.get("type") not in enabled_types
+                idea for idea in existing_ideas if idea.get("type") not in enabled_types
             ]
             all_ideas = preserved_ideas + new_ideas
-            print_status(f"Merged: {len(preserved_ideas)} preserved + {len(new_ideas)} new = {len(all_ideas)} total", "info")
+            print_status(
+                f"Merged: {len(preserved_ideas)} preserved + {len(new_ideas)} new = {len(all_ideas)} total",
+                "info",
+            )
         else:
             all_ideas = new_ideas
 
         # Create merged ideation session
         # Preserve session ID and generated_at if appending
-        session_id = existing_session.get("id") if existing_session else f"ideation-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        generated_at = existing_session.get("generated_at") if existing_session else datetime.now().isoformat()
+        session_id = (
+            existing_session.get("id")
+            if existing_session
+            else f"ideation-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        )
+        generated_at = (
+            existing_session.get("generated_at")
+            if existing_session
+            else datetime.now().isoformat()
+        )
 
         ideation_session = {
             "id": session_id,
@@ -105,20 +116,24 @@ class IdeationFormatter:
         for idea in all_ideas:
             idea_type = idea.get("type", "unknown")
             idea_status = idea.get("status", "draft")
-            ideation_session["summary"]["by_type"][idea_type] = \
+            ideation_session["summary"]["by_type"][idea_type] = (
                 ideation_session["summary"]["by_type"].get(idea_type, 0) + 1
-            ideation_session["summary"]["by_status"][idea_status] = \
+            )
+            ideation_session["summary"]["by_status"][idea_status] = (
                 ideation_session["summary"]["by_status"].get(idea_status, 0) + 1
+            )
 
         with open(ideation_file, "w") as f:
             json.dump(ideation_session, f, indent=2)
 
         action = "Updated" if append else "Created"
-        print_status(f"{action} ideation.json ({len(all_ideas)} total ideas)", "success")
+        print_status(
+            f"{action} ideation.json ({len(all_ideas)} total ideas)", "success"
+        )
 
         return ideation_file, len(all_ideas)
 
-    def load_context(self) -> Dict:
+    def load_context(self) -> dict:
         """Load context data from ideation_context.json."""
         context_file = self.output_dir / "ideation_context.json"
         context_data = {}

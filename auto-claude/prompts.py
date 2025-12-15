@@ -8,7 +8,6 @@ Functions for loading agent prompts from markdown files.
 import json
 from pathlib import Path
 
-
 # Directory containing prompt files
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -175,7 +174,7 @@ Subtasks with previous attempts:
 
         return ""
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return ""
 
 
@@ -248,7 +247,7 @@ def is_first_run(spec_dir: Path) -> bool:
         return True
 
     try:
-        with open(plan_file, "r") as f:
+        with open(plan_file) as f:
             plan = json.load(f)
 
         # Check if there are any phases with subtasks
@@ -259,6 +258,6 @@ def is_first_run(spec_dir: Path) -> bool:
         # Check if any phase has subtasks
         total_subtasks = sum(len(phase.get("subtasks", [])) for phase in phases)
         return total_subtasks == 0
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         # If we can't read the file, treat as first run
         return True

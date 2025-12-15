@@ -16,18 +16,18 @@ if str(_PARENT_DIR) not in sys.path:
 
 from progress import count_subtasks
 from qa_loop import (
-    run_qa_validation_loop,
-    should_run_qa,
     is_qa_approved,
     print_qa_status,
+    run_qa_validation_loop,
+    should_run_qa,
 )
 from review import ReviewState, display_review_status
 from ui import (
     Icons,
     icon,
+    info,
     success,
     warning,
-    info,
 )
 
 from .utils import print_banner, validate_environment
@@ -61,7 +61,11 @@ def handle_review_status_command(spec_dir: Path) -> None:
     if review_state.is_approval_valid(spec_dir):
         print(success(f"{icon(Icons.SUCCESS)} Ready to build - approval is valid."))
     elif review_state.approved:
-        print(warning(f"{icon(Icons.WARNING)} Spec changed since approval - re-review required."))
+        print(
+            warning(
+                f"{icon(Icons.WARNING)} Spec changed since approval - re-review required."
+            )
+        )
     else:
         print(info(f"{icon(Icons.INFO)} Review required before building."))
     print()

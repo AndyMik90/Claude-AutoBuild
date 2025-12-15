@@ -14,7 +14,6 @@ This approach:
 
 import json
 from pathlib import Path
-from typing import Optional
 
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
@@ -80,7 +79,7 @@ def generate_subtask_prompt(
     subtask: dict,
     phase: dict,
     attempt_count: int = 0,
-    recovery_hints: Optional[list[str]] = None,
+    recovery_hints: list[str] | None = None,
 ) -> str:
     """
     Generate a minimal, focused prompt for implementing a single subtask.
@@ -117,7 +116,7 @@ def generate_subtask_prompt(
     sections.append(f"""# Subtask Implementation Task
 
 **Subtask ID:** `{subtask_id}`
-**Phase:** {phase.get('name', phase.get('id', 'Unknown'))}
+**Phase:** {phase.get("name", phase.get("id", "Unknown"))}
 **Service:** {service}
 
 ## Description
@@ -167,9 +166,9 @@ You MUST use a DIFFERENT approach than previous attempts.
     if v_type == "command":
         sections.append(f"""Run this command to verify:
 ```bash
-{verification.get('command', 'echo "No command specified"')}
+{verification.get("command", 'echo "No command specified"')}
 ```
-Expected: {verification.get('expected', 'Success')}
+Expected: {verification.get("expected", "Success")}
 """)
     elif v_type == "api":
         method = verification.get("method", "GET")
@@ -178,7 +177,7 @@ Expected: {verification.get('expected', 'Success')}
         expected_status = verification.get("expected_status", 200)
         sections.append(f"""Test the API endpoint:
 ```bash
-curl -X {method} {url} -H "Content-Type: application/json" {f'-d \'{json.dumps(body)}\'' if body else ''}
+curl -X {method} {url} -H "Content-Type: application/json" {f"-d '{json.dumps(body)}'" if body else ""}
 ```
 Expected status: {expected_status}
 """)
@@ -202,7 +201,7 @@ Verify:""")
         sections.append(f"**Manual Verification:**\n{instructions}\n")
 
     # Instructions
-    sections.append("""## Instructions
+    sections.append(f"""## Instructions
 
 1. **Read the pattern files** to understand code style and conventions
 2. **Read the files to modify** (if any) to understand current implementation
@@ -211,7 +210,7 @@ Verify:""")
 5. **Commit your changes:**
    ```bash
    git add .
-   git commit -m "auto-claude: {subtask_id} - {short_description}"
+   git commit -m "auto-claude: {subtask_id} - {description[:50]}"
    ```
 6. **Update the plan** - set this subtask's status to "completed" in implementation_plan.json
 
@@ -229,7 +228,7 @@ Before marking complete, verify:
 - Focus ONLY on this subtask - don't modify unrelated code
 - If verification fails, FIX IT before committing
 - If you encounter a blocker, document it in build-progress.txt
-""".format(subtask_id=subtask_id, short_description=description[:50]))
+""")
 
     # Note: Linear updates are now handled by Python orchestrator via linear_updater.py
     # Agents no longer need to call Linear MCP tools directly
@@ -237,7 +236,7 @@ Before marking complete, verify:
     return "\n".join(sections)
 
 
-def generate_planner_prompt(spec_dir: Path, project_dir: Optional[Path] = None) -> str:
+def generate_planner_prompt(spec_dir: Path, project_dir: Path | None = None) -> str:
     """
     Generate the planner prompt (used only once at start).
     This is a simplified version that focuses on plan creation.
@@ -256,7 +255,9 @@ def generate_planner_prompt(spec_dir: Path, project_dir: Optional[Path] = None) 
     if planner_file.exists():
         prompt = planner_file.read_text()
     else:
-        prompt = "Read spec.md and create implementation_plan.json with phases and subtasks."
+        prompt = (
+            "Read spec.md and create implementation_plan.json with phases and subtasks."
+        )
 
     # Use project_dir for relative paths, or infer from spec_dir
     if project_dir is None:
@@ -323,7 +324,9 @@ def load_subtask_context(
                 lines = full_path.read_text().split("\n")
                 if len(lines) > max_file_lines:
                     content = "\n".join(lines[:max_file_lines])
-                    content += f"\n\n... (truncated, {len(lines) - max_file_lines} more lines)"
+                    content += (
+                        f"\n\n... (truncated, {len(lines) - max_file_lines} more lines)"
+                    )
                 else:
                     content = "\n".join(lines)
                 context["patterns"][pattern_path] = content
@@ -338,7 +341,9 @@ def load_subtask_context(
                 lines = full_path.read_text().split("\n")
                 if len(lines) > max_file_lines:
                     content = "\n".join(lines[:max_file_lines])
-                    content += f"\n\n... (truncated, {len(lines) - max_file_lines} more lines)"
+                    content += (
+                        f"\n\n... (truncated, {len(lines) - max_file_lines} more lines)"
+                    )
                 else:
                     content = "\n".join(lines)
                 context["files_to_modify"][file_path] = content

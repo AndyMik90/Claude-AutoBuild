@@ -20,29 +20,29 @@ from ui import (
     icon,
 )
 
-from .utils import (
-    setup_environment,
-    get_project_dir,
-    find_spec,
-    print_banner,
-    DEFAULT_MODEL,
-)
-from .spec_commands import print_specs_list
-from .workspace_commands import (
-    handle_merge_command,
-    handle_review_command,
-    handle_discard_command,
-    handle_list_worktrees_command,
-    handle_cleanup_worktrees_command,
+from .build_commands import (
+    handle_build_command,
+    handle_followup_command,
 )
 from .qa_commands import (
+    handle_qa_command,
     handle_qa_status_command,
     handle_review_status_command,
-    handle_qa_command,
 )
-from .build_commands import (
-    handle_followup_command,
-    handle_build_command,
+from .spec_commands import print_specs_list
+from .utils import (
+    DEFAULT_MODEL,
+    find_spec,
+    get_project_dir,
+    print_banner,
+    setup_environment,
+)
+from .workspace_commands import (
+    handle_cleanup_worktrees_command,
+    handle_discard_command,
+    handle_list_worktrees_command,
+    handle_merge_command,
+    handle_review_command,
 )
 
 
@@ -238,7 +238,7 @@ def main() -> None:
     args = parse_args()
 
     # Import debug functions after environment setup
-    from debug import debug, debug_section, debug_error, debug_success
+    from debug import debug, debug_error, debug_section, debug_success
 
     debug_section("run.py", "Starting Auto-Build Framework")
     debug("run.py", "Arguments parsed", args=vars(args))
@@ -252,7 +252,9 @@ def main() -> None:
 
     # Note: --dev flag is deprecated but kept for API compatibility
     if args.dev:
-        print(f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now use .auto-claude/specs/\n")
+        print(
+            f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now use .auto-claude/specs/\n"
+        )
 
     # Handle --list command
     if args.list:

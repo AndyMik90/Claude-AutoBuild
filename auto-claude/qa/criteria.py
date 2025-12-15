@@ -6,19 +6,16 @@ Manages acceptance criteria validation and status tracking.
 """
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
-from progress import count_subtasks, is_build_complete
-
+from progress import is_build_complete
 
 # =============================================================================
 # IMPLEMENTATION PLAN I/O
 # =============================================================================
 
 
-def load_implementation_plan(spec_dir: Path) -> Optional[dict]:
+def load_implementation_plan(spec_dir: Path) -> dict | None:
     """Load the implementation plan JSON."""
     plan_file = spec_dir / "implementation_plan.json"
     if not plan_file.exists():
@@ -26,7 +23,7 @@ def load_implementation_plan(spec_dir: Path) -> Optional[dict]:
     try:
         with open(plan_file) as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
@@ -37,7 +34,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
         with open(plan_file, "w") as f:
             json.dump(plan, f, indent=2)
         return True
-    except IOError:
+    except OSError:
         return False
 
 
@@ -46,7 +43,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
 # =============================================================================
 
 
-def get_qa_signoff_status(spec_dir: Path) -> Optional[dict]:
+def get_qa_signoff_status(spec_dir: Path) -> dict | None:
     """Get the current QA sign-off status from implementation plan."""
     plan = load_implementation_plan(spec_dir)
     if not plan:
@@ -75,7 +72,9 @@ def is_fixes_applied(spec_dir: Path) -> bool:
     status = get_qa_signoff_status(spec_dir)
     if not status:
         return False
-    return status.get("status") == "fixes_applied" and status.get("ready_for_qa_revalidation", False)
+    return status.get("status") == "fixes_applied" and status.get(
+        "ready_for_qa_revalidation", False
+    )
 
 
 def get_qa_iteration_count(spec_dir: Path) -> int:
@@ -153,12 +152,16 @@ def print_qa_status(spec_dir: Path) -> None:
 
     if qa_status == "approved":
         tests = status.get("tests_passed", {})
-        print(f"Tests: Unit {tests.get('unit', '?')}, Integration {tests.get('integration', '?')}, E2E {tests.get('e2e', '?')}")
+        print(
+            f"Tests: Unit {tests.get('unit', '?')}, Integration {tests.get('integration', '?')}, E2E {tests.get('e2e', '?')}"
+        )
     elif qa_status == "rejected":
         issues = status.get("issues_found", [])
         print(f"Issues Found: {len(issues)}")
         for issue in issues[:3]:  # Show first 3
-            print(f"  - {issue.get('title', 'Unknown')}: {issue.get('type', 'unknown')}")
+            print(
+                f"  - {issue.get('title', 'Unknown')}: {issue.get('type', 'unknown')}"
+            )
         if len(issues) > 3:
             print(f"  ... and {len(issues) - 3} more")
 
@@ -166,11 +169,11 @@ def print_qa_status(spec_dir: Path) -> None:
     history = get_iteration_history(spec_dir)
     if history:
         summary = get_recurring_issue_summary(history)
-        print(f"\nIteration History:")
+        print("\nIteration History:")
         print(f"  Total iterations: {len(history)}")
         print(f"  Approved: {summary.get('iterations_approved', 0)}")
         print(f"  Rejected: {summary.get('iterations_rejected', 0)}")
         if summary.get("most_common"):
-            print(f"  Most common issues:")
+            print("  Most common issues:")
             for issue in summary["most_common"][:3]:
                 print(f"    - {issue['title']} ({issue['occurrences']} occurrences)")

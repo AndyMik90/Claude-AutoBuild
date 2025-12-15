@@ -8,30 +8,58 @@ Each validator performs deep inspection of command arguments to ensure safety.
 
 import re
 import shlex
-from typing import Tuple
-
 
 # =============================================================================
 # PROCESS MANAGEMENT VALIDATORS
 # =============================================================================
 
-def validate_pkill_command(command_string: str) -> Tuple[bool, str]:
+
+def validate_pkill_command(command_string: str) -> tuple[bool, str]:
     """
     Validate pkill commands - only allow killing dev-related processes.
     """
     allowed_process_names = {
         # Node.js ecosystem
-        "node", "npm", "npx", "yarn", "pnpm", "bun", "deno",
-        "vite", "next", "nuxt", "webpack", "esbuild", "rollup",
-        "tsx", "ts-node",
+        "node",
+        "npm",
+        "npx",
+        "yarn",
+        "pnpm",
+        "bun",
+        "deno",
+        "vite",
+        "next",
+        "nuxt",
+        "webpack",
+        "esbuild",
+        "rollup",
+        "tsx",
+        "ts-node",
         # Python ecosystem
-        "python", "python3", "flask", "uvicorn", "gunicorn",
-        "django", "celery", "streamlit", "gradio",
-        "pytest", "mypy", "ruff",
+        "python",
+        "python3",
+        "flask",
+        "uvicorn",
+        "gunicorn",
+        "django",
+        "celery",
+        "streamlit",
+        "gradio",
+        "pytest",
+        "mypy",
+        "ruff",
         # Other languages
-        "cargo", "rustc", "go", "ruby", "rails", "php",
+        "cargo",
+        "rustc",
+        "go",
+        "ruby",
+        "rails",
+        "php",
         # Databases (local dev)
-        "postgres", "mysql", "mongod", "redis-server",
+        "postgres",
+        "mysql",
+        "mongod",
+        "redis-server",
     }
 
     try:
@@ -60,10 +88,13 @@ def validate_pkill_command(command_string: str) -> Tuple[bool, str]:
 
     if target in allowed_process_names:
         return True, ""
-    return False, f"pkill only allowed for dev processes: {sorted(allowed_process_names)[:10]}..."
+    return (
+        False,
+        f"pkill only allowed for dev processes: {sorted(allowed_process_names)[:10]}...",
+    )
 
 
-def validate_kill_command(command_string: str) -> Tuple[bool, str]:
+def validate_kill_command(command_string: str) -> tuple[bool, str]:
     """
     Validate kill commands - allow killing by PID (user must know the PID).
     """
@@ -81,7 +112,7 @@ def validate_kill_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_killall_command(command_string: str) -> Tuple[bool, str]:
+def validate_killall_command(command_string: str) -> tuple[bool, str]:
     """
     Validate killall commands - same rules as pkill.
     """
@@ -92,7 +123,8 @@ def validate_killall_command(command_string: str) -> Tuple[bool, str]:
 # FILE SYSTEM VALIDATORS
 # =============================================================================
 
-def validate_chmod_command(command_string: str) -> Tuple[bool, str]:
+
+def validate_chmod_command(command_string: str) -> tuple[bool, str]:
     """
     Validate chmod commands - only allow making files executable with +x.
     """
@@ -131,14 +163,30 @@ def validate_chmod_command(command_string: str) -> Tuple[bool, str]:
 
     # Only allow +x variants (making files executable)
     # Also allow common safe modes like 755, 644
-    safe_modes = {"+x", "a+x", "u+x", "g+x", "o+x", "ug+x", "755", "644", "700", "600", "775", "664"}
+    safe_modes = {
+        "+x",
+        "a+x",
+        "u+x",
+        "g+x",
+        "o+x",
+        "ug+x",
+        "755",
+        "644",
+        "700",
+        "600",
+        "775",
+        "664",
+    }
     if mode not in safe_modes and not re.match(r"^[ugoa]*\+x$", mode):
-        return False, f"chmod only allowed with executable modes (+x, 755, etc.), got: {mode}"
+        return (
+            False,
+            f"chmod only allowed with executable modes (+x, 755, etc.), got: {mode}",
+        )
 
     return True, ""
 
 
-def validate_rm_command(command_string: str) -> Tuple[bool, str]:
+def validate_rm_command(command_string: str) -> tuple[bool, str]:
     """
     Validate rm commands - prevent dangerous deletions.
     """
@@ -152,19 +200,19 @@ def validate_rm_command(command_string: str) -> Tuple[bool, str]:
 
     # Check for dangerous patterns
     dangerous_patterns = [
-        r"^/$",           # Root
-        r"^\.\.$",        # Parent directory
-        r"^~$",           # Home directory
-        r"^\*$",          # Wildcard only
-        r"^/\*$",         # Root wildcard
-        r"^\.\./",        # Escaping current directory
-        r"^/home$",       # /home
-        r"^/usr$",        # /usr
-        r"^/etc$",        # /etc
-        r"^/var$",        # /var
-        r"^/bin$",        # /bin
-        r"^/lib$",        # /lib
-        r"^/opt$",        # /opt
+        r"^/$",  # Root
+        r"^\.\.$",  # Parent directory
+        r"^~$",  # Home directory
+        r"^\*$",  # Wildcard only
+        r"^/\*$",  # Root wildcard
+        r"^\.\./",  # Escaping current directory
+        r"^/home$",  # /home
+        r"^/usr$",  # /usr
+        r"^/etc$",  # /etc
+        r"^/var$",  # /var
+        r"^/bin$",  # /bin
+        r"^/lib$",  # /lib
+        r"^/opt$",  # /opt
     ]
 
     for token in tokens[1:]:
@@ -178,7 +226,7 @@ def validate_rm_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_init_script(command_string: str) -> Tuple[bool, str]:
+def validate_init_script(command_string: str) -> tuple[bool, str]:
     """
     Validate init.sh script execution - only allow ./init.sh.
     """
@@ -203,7 +251,8 @@ def validate_init_script(command_string: str) -> Tuple[bool, str]:
 # GIT VALIDATORS
 # =============================================================================
 
-def validate_git_commit(command_string: str) -> Tuple[bool, str]:
+
+def validate_git_commit(command_string: str) -> tuple[bool, str]:
     """
     Validate git commit commands - run secret scan before allowing commit.
 
@@ -226,7 +275,7 @@ def validate_git_commit(command_string: str) -> Tuple[bool, str]:
 
     # Import the secret scanner
     try:
-        from scan_secrets import scan_files, get_staged_files, mask_secret
+        from scan_secrets import get_staged_files, mask_secret, scan_files
     except ImportError:
         # Scanner not available, allow commit (don't break the build)
         return True, ""
@@ -265,24 +314,26 @@ def validate_git_commit(command_string: str) -> Tuple[bool, str]:
             error_lines.append(f"    Found: {masked}")
         error_lines.append("")
 
-    error_lines.extend([
-        "ACTION REQUIRED:",
-        "",
-        "1. Move secrets to environment variables:",
-        "   - Add the secret value to .env (create if needed)",
-        "   - Update the code to use os.environ.get('VAR_NAME') or process.env.VAR_NAME",
-        "   - Add the variable name (not value) to .env.example",
-        "",
-        "2. Example fix:",
-        "   BEFORE: api_key = 'sk-abc123...'",
-        "   AFTER:  api_key = os.environ.get('API_KEY')",
-        "",
-        "3. If this is a FALSE POSITIVE (test data, example, mock):",
-        "   - Add the file pattern to .secretsignore",
-        "   - Example: echo 'tests/fixtures/' >> .secretsignore",
-        "",
-        "After fixing, stage the changes with 'git add .' and retry the commit.",
-    ])
+    error_lines.extend(
+        [
+            "ACTION REQUIRED:",
+            "",
+            "1. Move secrets to environment variables:",
+            "   - Add the secret value to .env (create if needed)",
+            "   - Update the code to use os.environ.get('VAR_NAME') or process.env.VAR_NAME",
+            "   - Add the variable name (not value) to .env.example",
+            "",
+            "2. Example fix:",
+            "   BEFORE: api_key = 'sk-abc123...'",
+            "   AFTER:  api_key = os.environ.get('API_KEY')",
+            "",
+            "3. If this is a FALSE POSITIVE (test data, example, mock):",
+            "   - Add the file pattern to .secretsignore",
+            "   - Example: echo 'tests/fixtures/' >> .secretsignore",
+            "",
+            "After fixing, stage the changes with 'git add .' and retry the commit.",
+        ]
+    )
 
     return False, "\n".join(error_lines)
 
@@ -293,29 +344,29 @@ def validate_git_commit(command_string: str) -> Tuple[bool, str]:
 
 # Patterns that indicate destructive SQL operations
 DESTRUCTIVE_SQL_PATTERNS = [
-    r'\bDROP\s+(DATABASE|SCHEMA|TABLE|INDEX|VIEW|FUNCTION|PROCEDURE|TRIGGER)\b',
-    r'\bTRUNCATE\s+(TABLE\s+)?\w+',
-    r'\bDELETE\s+FROM\s+\w+\s*(;|$)',  # DELETE without WHERE clause
-    r'\bDROP\s+ALL\b',
-    r'\bDESTROY\b',
+    r"\bDROP\s+(DATABASE|SCHEMA|TABLE|INDEX|VIEW|FUNCTION|PROCEDURE|TRIGGER)\b",
+    r"\bTRUNCATE\s+(TABLE\s+)?\w+",
+    r"\bDELETE\s+FROM\s+\w+\s*(;|$)",  # DELETE without WHERE clause
+    r"\bDROP\s+ALL\b",
+    r"\bDESTROY\b",
 ]
 
 # Safe database names that can be dropped (test/dev databases)
 SAFE_DATABASE_PATTERNS = [
-    r'^test',
-    r'_test$',
-    r'^dev',
-    r'_dev$',
-    r'^local',
-    r'_local$',
-    r'^tmp',
-    r'_tmp$',
-    r'^temp',
-    r'_temp$',
-    r'^scratch',
-    r'^sandbox',
-    r'^mock',
-    r'_mock$',
+    r"^test",
+    r"_test$",
+    r"^dev",
+    r"_dev$",
+    r"^local",
+    r"_local$",
+    r"^tmp",
+    r"_tmp$",
+    r"^temp",
+    r"_temp$",
+    r"^scratch",
+    r"^sandbox",
+    r"^mock",
+    r"_mock$",
 ]
 
 
@@ -328,7 +379,7 @@ def _is_safe_database_name(db_name: str) -> bool:
     return False
 
 
-def _contains_destructive_sql(sql: str) -> Tuple[bool, str]:
+def _contains_destructive_sql(sql: str) -> tuple[bool, str]:
     """Check if SQL contains destructive operations."""
     sql_upper = sql.upper()
     for pattern in DESTRUCTIVE_SQL_PATTERNS:
@@ -338,7 +389,7 @@ def _contains_destructive_sql(sql: str) -> Tuple[bool, str]:
     return False, ""
 
 
-def validate_dropdb_command(command_string: str) -> Tuple[bool, str]:
+def validate_dropdb_command(command_string: str) -> tuple[bool, str]:
     """
     Validate dropdb commands - only allow dropping test/dev databases.
 
@@ -360,8 +411,19 @@ def validate_dropdb_command(command_string: str) -> Tuple[bool, str]:
             skip_next = False
             continue
         # Flags that take arguments
-        if token in ("-h", "--host", "-p", "--port", "-U", "--username",
-                     "-w", "--no-password", "-W", "--password", "--maintenance-db"):
+        if token in (
+            "-h",
+            "--host",
+            "-p",
+            "--port",
+            "-U",
+            "--username",
+            "-w",
+            "--no-password",
+            "-W",
+            "--password",
+            "--maintenance-db",
+        ):
             skip_next = True
             continue
         if token.startswith("-"):
@@ -380,7 +442,7 @@ def validate_dropdb_command(command_string: str) -> Tuple[bool, str]:
     )
 
 
-def validate_dropuser_command(command_string: str) -> Tuple[bool, str]:
+def validate_dropuser_command(command_string: str) -> tuple[bool, str]:
     """
     Validate dropuser commands - only allow dropping test/dev users.
     """
@@ -399,8 +461,18 @@ def validate_dropuser_command(command_string: str) -> Tuple[bool, str]:
         if skip_next:
             skip_next = False
             continue
-        if token in ("-h", "--host", "-p", "--port", "-U", "--username",
-                     "-w", "--no-password", "-W", "--password"):
+        if token in (
+            "-h",
+            "--host",
+            "-p",
+            "--port",
+            "-U",
+            "--username",
+            "-w",
+            "--no-password",
+            "-W",
+            "--password",
+        ):
             skip_next = True
             continue
         if token.startswith("-"):
@@ -411,7 +483,15 @@ def validate_dropuser_command(command_string: str) -> Tuple[bool, str]:
         return False, "dropuser requires a username"
 
     # Only allow dropping test/dev users
-    safe_user_patterns = [r'^test', r'_test$', r'^dev', r'_dev$', r'^tmp', r'^temp', r'^mock']
+    safe_user_patterns = [
+        r"^test",
+        r"_test$",
+        r"^dev",
+        r"_dev$",
+        r"^tmp",
+        r"^temp",
+        r"^mock",
+    ]
     username_lower = username.lower()
     for pattern in safe_user_patterns:
         if re.search(pattern, username_lower):
@@ -423,7 +503,7 @@ def validate_dropuser_command(command_string: str) -> Tuple[bool, str]:
     )
 
 
-def validate_psql_command(command_string: str) -> Tuple[bool, str]:
+def validate_psql_command(command_string: str) -> tuple[bool, str]:
     """
     Validate psql commands - block destructive SQL operations.
 
@@ -460,7 +540,7 @@ def validate_psql_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_mysql_command(command_string: str) -> Tuple[bool, str]:
+def validate_mysql_command(command_string: str) -> tuple[bool, str]:
     """
     Validate mysql commands - block destructive SQL operations.
     """
@@ -496,23 +576,23 @@ def validate_mysql_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_redis_cli_command(command_string: str) -> Tuple[bool, str]:
+def validate_redis_cli_command(command_string: str) -> tuple[bool, str]:
     """
     Validate redis-cli commands - block destructive operations.
 
     Blocks: FLUSHALL, FLUSHDB, DEBUG SEGFAULT, SHUTDOWN, CONFIG SET
     """
     dangerous_redis_commands = {
-        "FLUSHALL",      # Deletes ALL data from ALL databases
-        "FLUSHDB",       # Deletes all data from current database
-        "DEBUG",         # Can crash the server
-        "SHUTDOWN",      # Shuts down the server
-        "SLAVEOF",       # Can change replication
-        "REPLICAOF",     # Can change replication
-        "CONFIG",        # Can modify server config
-        "BGSAVE",        # Can cause disk issues
+        "FLUSHALL",  # Deletes ALL data from ALL databases
+        "FLUSHDB",  # Deletes all data from current database
+        "DEBUG",  # Can crash the server
+        "SHUTDOWN",  # Shuts down the server
+        "SLAVEOF",  # Can change replication
+        "REPLICAOF",  # Can change replication
+        "CONFIG",  # Can modify server config
+        "BGSAVE",  # Can cause disk issues
         "BGREWRITEAOF",  # Can cause disk issues
-        "CLUSTER",       # Can modify cluster topology
+        "CLUSTER",  # Can modify cluster topology
     }
 
     try:
@@ -548,19 +628,19 @@ def validate_redis_cli_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_mongosh_command(command_string: str) -> Tuple[bool, str]:
+def validate_mongosh_command(command_string: str) -> tuple[bool, str]:
     """
     Validate mongosh/mongo commands - block destructive operations.
 
     Blocks: dropDatabase(), drop(), deleteMany({}), remove({})
     """
     dangerous_mongo_patterns = [
-        r'\.dropDatabase\s*\(',
-        r'\.drop\s*\(',
-        r'\.deleteMany\s*\(\s*\{\s*\}\s*\)',  # deleteMany({}) - deletes all
-        r'\.remove\s*\(\s*\{\s*\}\s*\)',       # remove({}) - deletes all (deprecated)
-        r'db\.dropAllUsers\s*\(',
-        r'db\.dropAllRoles\s*\(',
+        r"\.dropDatabase\s*\(",
+        r"\.drop\s*\(",
+        r"\.deleteMany\s*\(\s*\{\s*\}\s*\)",  # deleteMany({}) - deletes all
+        r"\.remove\s*\(\s*\{\s*\}\s*\)",  # remove({}) - deletes all (deprecated)
+        r"db\.dropAllUsers\s*\(",
+        r"db\.dropAllRoles\s*\(",
     ]
 
     try:
@@ -589,7 +669,7 @@ def validate_mongosh_command(command_string: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_mysqladmin_command(command_string: str) -> Tuple[bool, str]:
+def validate_mysqladmin_command(command_string: str) -> tuple[bool, str]:
     """
     Validate mysqladmin commands - block destructive operations.
     """

@@ -26,7 +26,7 @@ If Docker Desktop is already installed and running:
 
 ```bash
 # Start FalkorDB
-docker run -d --name auto-claude-falkordb -p 6380:6379 falkordb/falkordb:latest
+docker run -d --name auto-claude-falkordb -p 6379:6379 falkordb/falkordb:latest
 
 # Verify it's running
 docker ps | grep falkordb
@@ -178,7 +178,11 @@ sudo usermod -aG docker $USER
 From the Auto Claude root directory:
 
 ```bash
+# Start FalkorDB only (for Python library integration)
 docker-compose up -d falkordb
+
+# Or start both FalkorDB + Graphiti MCP server (for agent memory access)
+docker-compose up -d
 ```
 
 This uses the project's `docker-compose.yml` which is pre-configured.
@@ -188,7 +192,7 @@ This uses the project's `docker-compose.yml` which is pre-configured.
 ```bash
 docker run -d \
   --name auto-claude-falkordb \
-  -p 6380:6379 \
+  -p 6379:6379 \
   --restart unless-stopped \
   falkordb/falkordb:latest
 ```
@@ -201,6 +205,57 @@ If you're using the Auto Claude Desktop UI:
 2. Enable "Use Graphiti"
 3. The UI will show Docker/FalkorDB status
 4. Click "Start" to launch FalkorDB automatically
+
+---
+
+## Starting the Graphiti MCP Server (Optional)
+
+The Graphiti MCP server allows Claude agents to directly search and add to the knowledge graph during builds. This is optional but recommended for the best memory experience.
+
+### Prerequisites
+
+1. FalkorDB must be running
+2. OpenAI API key (for embeddings)
+
+### Setup
+
+**For CLI users** - The API key is read from `auto-claude/.env`:
+
+```bash
+docker-compose up -d
+```
+
+**For Frontend/UI users** - Create a `.env` file in the project root:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit and add your OpenAI API key
+nano .env  # or use any text editor
+
+# Start the services
+docker-compose up -d
+```
+
+### Verify MCP Server is Running
+
+```bash
+# Check container status
+docker ps | grep graphiti-mcp
+
+# Check health endpoint
+curl http://localhost:8000/health
+
+# View logs if there are issues
+docker logs auto-claude-graphiti-mcp
+```
+
+### Configure Auto Claude to Use MCP
+
+In Project Settings → Memory Backend:
+- Enable "Enable Agent Memory Access"
+- Set MCP URL to: `http://localhost:8000/mcp/`
 
 ---
 
@@ -252,10 +307,20 @@ docker logs auto-claude-falkordb
 
 | Problem | Solution |
 |---------|----------|
-| **Container won't start** | Check if port 6380 is in use: `lsof -i :6380` (Mac/Linux) or `netstat -ano | findstr 6380` (Windows) |
+| **Container won't start** | Check if port 6379 is in use: `lsof -i :6379` (Mac/Linux) or `netstat -ano | findstr 6379` (Windows) |
 | **"port is already allocated"** | Stop conflicting container: `docker stop auto-claude-falkordb && docker rm auto-claude-falkordb` |
 | **Connection refused** | Verify container is running: `docker ps`. If not listed, start it again. |
 | **Container crashes immediately** | Check logs: `docker logs auto-claude-falkordb`. May need more memory. |
+
+### Graphiti MCP Server Issues
+
+| Problem | Solution |
+|---------|----------|
+| **"OPENAI_API_KEY must be set"** | Create `.env` file with your API key: `echo "OPENAI_API_KEY=sk-your-key" > .env` |
+| **"DATABASE_TYPE must be set"** | Using old docker run command. Use `docker-compose up -d` instead. |
+| **Container keeps restarting** | Check logs: `docker logs auto-claude-graphiti-mcp`. Usually missing API key. |
+| **Platform warning on Apple Silicon** | This is normal - the image runs via Rosetta emulation. It may be slower but works. |
+| **Health check fails** | Wait 30 seconds for startup. Check: `curl http://localhost:8000/health` |
 
 ### Memory/Performance Issues
 
@@ -270,7 +335,7 @@ docker logs auto-claude-falkordb
 | Problem | Solution |
 |---------|----------|
 | **"network not found"** | Run `docker network create auto-claude-network` or use `docker-compose up` |
-| **Can't connect from app** | Ensure port 6380 is exposed. Check firewall isn't blocking localhost connections. |
+| **Can't connect from app** | Ensure port 6379 is exposed. Check firewall isn't blocking localhost connections. |
 
 ---
 
@@ -278,7 +343,7 @@ docker logs auto-claude-falkordb
 
 ### Custom Port
 
-If port 6380 is in use, change it:
+If port 6379 is in use, change it:
 
 ```bash
 # Using docker run
@@ -294,7 +359,7 @@ To persist FalkorDB data between container restarts:
 ```bash
 docker run -d \
   --name auto-claude-falkordb \
-  -p 6380:6379 \
+  -p 6379:6379 \
   -v auto-claude-falkordb-data:/data \
   --restart unless-stopped \
   falkordb/falkordb:latest
@@ -307,7 +372,7 @@ To limit FalkorDB memory usage:
 ```bash
 docker run -d \
   --name auto-claude-falkordb \
-  -p 6380:6379 \
+  -p 6379:6379 \
   --memory=2g \
   --restart unless-stopped \
   falkordb/falkordb:latest
@@ -319,12 +384,12 @@ If running Docker on a different machine:
 
 1. Expose the port on the server:
    ```bash
-   docker run -d -p 0.0.0.0:6380:6379 falkordb/falkordb:latest
+   docker run -d -p 0.0.0.0:6379:6379 falkordb/falkordb:latest
    ```
 
 2. Update Auto Claude settings:
    - Set `GRAPHITI_FALKORDB_HOST=your-server-ip`
-   - Set `GRAPHITI_FALKORDB_PORT=6380`
+   - Set `GRAPHITI_FALKORDB_PORT=6379`
 
 ---
 

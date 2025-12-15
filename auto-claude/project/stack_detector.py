@@ -7,6 +7,7 @@ infrastructure tools, and cloud providers from project files.
 """
 
 from pathlib import Path
+
 from .config_parser import ConfigParser
 from .models import TechnologyStack
 
@@ -44,7 +45,14 @@ class StackDetector:
     def detect_languages(self) -> None:
         """Detect programming languages used."""
         # Python
-        if self.parser.file_exists("*.py", "**/*.py", "pyproject.toml", "requirements.txt", "setup.py", "Pipfile"):
+        if self.parser.file_exists(
+            "*.py",
+            "**/*.py",
+            "pyproject.toml",
+            "requirements.txt",
+            "setup.py",
+            "Pipfile",
+        ):
             self.stack.languages.append("python")
 
         # JavaScript
@@ -52,7 +60,9 @@ class StackDetector:
             self.stack.languages.append("javascript")
 
         # TypeScript
-        if self.parser.file_exists("*.ts", "*.tsx", "**/*.ts", "**/*.tsx", "tsconfig.json"):
+        if self.parser.file_exists(
+            "*.ts", "*.tsx", "**/*.ts", "**/*.tsx", "tsconfig.json"
+        ):
             self.stack.languages.append("typescript")
 
         # Rust
@@ -88,7 +98,9 @@ class StackDetector:
             self.stack.languages.append("csharp")
 
         # C/C++
-        if self.parser.file_exists("*.c", "*.h", "**/*.c", "**/*.h", "CMakeLists.txt", "Makefile"):
+        if self.parser.file_exists(
+            "*.c", "*.h", "**/*.c", "**/*.h", "CMakeLists.txt", "Makefile"
+        ):
             self.stack.languages.append("c")
         if self.parser.file_exists("*.cpp", "*.hpp", "*.cc", "**/*.cpp", "**/*.hpp"):
             self.stack.languages.append("cpp")
@@ -182,7 +194,12 @@ class StackDetector:
                     self.stack.databases.append("sqlite")
 
         # Check Docker Compose for database services
-        for compose_file in ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]:
+        for compose_file in [
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml",
+        ]:
             content = self.parser.read_text(compose_file)
             if content:
                 content_lower = content.lower()
@@ -203,7 +220,9 @@ class StackDetector:
     def detect_infrastructure(self) -> None:
         """Detect infrastructure tools."""
         # Docker
-        if self.parser.file_exists("Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore"):
+        if self.parser.file_exists(
+            "Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore"
+        ):
             self.stack.infrastructure.append("docker")
 
         # Podman
@@ -211,16 +230,20 @@ class StackDetector:
             self.stack.infrastructure.append("podman")
 
         # Kubernetes
-        if self.parser.file_exists("k8s/", "kubernetes/", "*.yaml") or self.parser.glob_files("**/deployment.yaml"):
+        if self.parser.file_exists(
+            "k8s/", "kubernetes/", "*.yaml"
+        ) or self.parser.glob_files("**/deployment.yaml"):
             # Check if YAML files contain k8s resources
-            for yaml_file in self.parser.glob_files("**/*.yaml") + self.parser.glob_files("**/*.yml"):
+            for yaml_file in self.parser.glob_files(
+                "**/*.yaml"
+            ) + self.parser.glob_files("**/*.yml"):
                 try:
                     with open(yaml_file) as f:
                         content = f.read()
                         if "apiVersion:" in content and "kind:" in content:
                             self.stack.infrastructure.append("kubernetes")
                             break
-                except IOError:
+                except OSError:
                     pass
 
         # Helm
@@ -249,11 +272,21 @@ class StackDetector:
     def detect_cloud_providers(self) -> None:
         """Detect cloud provider usage."""
         # AWS
-        if self.parser.file_exists("aws/", ".aws/", "serverless.yml", "sam.yaml", "template.yaml", "cdk.json", "amplify.yml"):
+        if self.parser.file_exists(
+            "aws/",
+            ".aws/",
+            "serverless.yml",
+            "sam.yaml",
+            "template.yaml",
+            "cdk.json",
+            "amplify.yml",
+        ):
             self.stack.cloud_providers.append("aws")
 
         # GCP
-        if self.parser.file_exists("app.yaml", ".gcloudignore", "firebase.json", ".firebaserc"):
+        if self.parser.file_exists(
+            "app.yaml", ".gcloudignore", "firebase.json", ".firebaserc"
+        ):
             self.stack.cloud_providers.append("gcp")
 
         # Azure
