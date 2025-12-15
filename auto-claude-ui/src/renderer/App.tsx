@@ -31,6 +31,7 @@ import { Worktrees } from './components/Worktrees';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
+import { OnboardingWizard } from './components/onboarding';
 import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
@@ -54,6 +55,7 @@ export function App() {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<AppSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
+  const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -69,6 +71,15 @@ export function App() {
     loadProjects();
     loadSettings();
   }, []);
+
+  // First-run detection - show onboarding wizard if not completed
+  useEffect(() => {
+    // Only show wizard if onboardingCompleted is explicitly false (not undefined)
+    // This ensures we don't show the wizard before settings are loaded
+    if (settings.onboardingCompleted === false) {
+      setIsOnboardingWizardOpen(true);
+    }
+  }, [settings.onboardingCompleted]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {
@@ -423,6 +434,20 @@ export function App() {
 
         {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
         <SDKRateLimitModal />
+
+        {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
+        <OnboardingWizard
+          open={isOnboardingWizardOpen}
+          onOpenChange={setIsOnboardingWizardOpen}
+          onOpenTaskCreator={() => {
+            setIsOnboardingWizardOpen(false);
+            setIsNewTaskDialogOpen(true);
+          }}
+          onOpenSettings={() => {
+            setIsOnboardingWizardOpen(false);
+            setIsSettingsDialogOpen(true);
+          }}
+        />
       </div>
     </TooltipProvider>
   );
