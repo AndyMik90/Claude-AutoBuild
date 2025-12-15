@@ -4,6 +4,8 @@ Your AI coding companion. Build features, fix bugs, and ship faster — with aut
 
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/maj9EWmY)
+
 ## What It Does ✨
 
 **Auto Claude is a desktop app that supercharges your AI coding workflow.** Whether you're a vibe coder just getting started or an experienced developer, Auto Claude meets you where you are.
