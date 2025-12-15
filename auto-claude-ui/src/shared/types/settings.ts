@@ -16,6 +16,8 @@ export interface AppSettings {
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken?: string;
   globalOpenAIApiKey?: string;
+  // Onboarding wizard completion state
+  onboardingCompleted?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
