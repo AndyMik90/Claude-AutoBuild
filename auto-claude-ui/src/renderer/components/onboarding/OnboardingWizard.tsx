@@ -82,15 +82,17 @@ export function OnboardingWizard({
   }, [currentStepIndex]);
 
   const skipWizard = useCallback(async () => {
-    // Mark onboarding as completed and close
-    await updateSettings({ onboardingCompleted: true });
+    // Mark onboarding as completed and close - save to disk AND update local state
+    await window.electronAPI.saveSettings({ onboardingCompleted: true });
+    updateSettings({ onboardingCompleted: true });
     onOpenChange(false);
     resetWizard();
   }, [updateSettings, onOpenChange]);
 
   const finishWizard = useCallback(async () => {
-    // Mark onboarding as completed
-    await updateSettings({ onboardingCompleted: true });
+    // Mark onboarding as completed - save to disk AND update local state
+    await window.electronAPI.saveSettings({ onboardingCompleted: true });
+    updateSettings({ onboardingCompleted: true });
     onOpenChange(false);
     resetWizard();
   }, [updateSettings, onOpenChange]);
