@@ -81,3 +81,7 @@ dev/
 .auto-claude/
 
 /docs
+
+_bmad
+
+.claude
