@@ -6,19 +6,15 @@ Workspace Management - Per-Spec Architecture
 Handles workspace isolation through Git worktrees, where each spec
 gets its own isolated worktree in .worktrees/{spec-name}/.
 
-Key changes from old design:
-- Each spec has its own worktree (not shared)
-- Worktree path: .worktrees/{spec-name}/
-- Branch name: auto-claude/{spec-name}
-- Fixed: get_existing_build_worktree() now properly checks spec_name
-- Fixed: finalize_workspace() skips prompts in auto_continue mode
+This module has been refactored for better maintainability:
+- Models and enums: workspace/models.py
+- Git utilities: workspace/git_utils.py
+- Setup functions: workspace/setup.py
+- Display functions: workspace/display.py
+- Finalization: workspace/finalization.py
+- Complex merge operations: remain here (workspace.py)
 
-Terminology mapping (technical -> user-friendly):
-- worktree -> "separate workspace"
-- branch -> "version of your project"
-- uncommitted changes -> "unsaved work"
-- merge -> "add to your project"
-- working directory -> "your project"
+Public API is exported via workspace/__init__.py for backward compatibility.
 """
 
 import asyncio
@@ -27,7 +23,6 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -69,645 +64,81 @@ from merge import (
     FileTimelineTracker,
 )
 
-# Track if we've already tried to install the git hook this session
-_git_hook_check_done = False
+# Import from refactored modules in core/workspace/
+from core.workspace.models import (
+    WorkspaceMode,
+    WorkspaceChoice,
+    ParallelMergeTask,
+    ParallelMergeResult,
+    MergeLock,
+    MergeLockError,
+)
+
+from core.workspace.git_utils import (
+    has_uncommitted_changes,
+    get_current_branch,
+    get_existing_build_worktree,
+    get_file_content_from_ref as _get_file_content_from_ref,
+    get_changed_files_from_branch as _get_changed_files_from_branch,
+    is_process_running as _is_process_running,
+    is_binary_file as _is_binary_file,
+    is_lock_file as _is_lock_file,
+    validate_merged_syntax as _validate_merged_syntax,
+    create_conflict_file_with_git as _create_conflict_file_with_git,
+    MAX_FILE_LINES_FOR_AI,
+    MAX_PARALLEL_AI_MERGES,
+    MAX_SYNTAX_FIX_RETRIES,
+    BINARY_EXTENSIONS,
+    LOCK_FILES,
+    MERGE_LOCK_TIMEOUT,
+)
+
+from core.workspace.setup import (
+    choose_workspace,
+    copy_spec_to_worktree,
+    setup_workspace,
+    ensure_timeline_hook_installed as _ensure_timeline_hook_installed,
+    initialize_timeline_tracking as _initialize_timeline_tracking,
+)
+
+from core.workspace.display import (
+    show_build_summary,
+    show_changed_files,
+    print_merge_success as _print_merge_success,
+    print_conflict_info as _print_conflict_info,
+)
+
+from core.workspace.finalization import (
+    finalize_workspace,
+    handle_workspace_choice,
+    review_existing_build,
+    discard_existing_build,
+    check_existing_build,
+    list_all_worktrees,
+    cleanup_all_worktrees,
+)
 
 MODULE = "workspace"
 
-
-class WorkspaceMode(Enum):
-    """How auto-claude should work."""
-
-    ISOLATED = "isolated"  # Work in a separate worktree (safe)
-    DIRECT = "direct"  # Work directly in user's project
-
-
-class WorkspaceChoice(Enum):
-    """User's choice after build completes."""
-
-    MERGE = "merge"  # Add changes to project
-    REVIEW = "review"  # Show what changed
-    TEST = "test"  # Test the feature in the staging worktree
-    LATER = "later"  # Decide later
-
-
-def has_uncommitted_changes(project_dir: Path) -> bool:
-    """Check if user has unsaved work."""
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=project_dir,
-        capture_output=True,
-        text=True,
-    )
-    return bool(result.stdout.strip())
-
-
-def get_current_branch(project_dir: Path) -> str:
-    """Get the current branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=project_dir,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
-def get_existing_build_worktree(project_dir: Path, spec_name: str) -> Path | None:
-    """
-    Check if there's an existing worktree for this specific spec.
-
-    Args:
-        project_dir: The main project directory
-        spec_name: The spec folder name (e.g., "001-feature-name")
-
-    Returns:
-        Path to the worktree if it exists for this spec, None otherwise
-    """
-    # Per-spec worktree path: .worktrees/{spec-name}/
-    worktree_path = project_dir / ".worktrees" / spec_name
-    if worktree_path.exists():
-        return worktree_path
-    return None
-
-
-def choose_workspace(
-    project_dir: Path,
-    spec_name: str,
-    force_isolated: bool = False,
-    force_direct: bool = False,
-    auto_continue: bool = False,
-) -> WorkspaceMode:
-    """
-    Let user choose where auto-claude should work.
-
-    Uses simple, non-technical language. Safe defaults.
-
-    Args:
-        project_dir: The project directory
-        spec_name: Name of the spec being built
-        force_isolated: Skip prompts and use isolated mode
-        force_direct: Skip prompts and use direct mode
-        auto_continue: Non-interactive mode (for UI integration) - skip all prompts
-
-    Returns:
-        WorkspaceMode indicating where to work
-    """
-    # Handle forced modes
-    if force_isolated:
-        return WorkspaceMode.ISOLATED
-    if force_direct:
-        return WorkspaceMode.DIRECT
-
-    # Non-interactive mode: default to isolated for safety
-    if auto_continue:
-        print("Auto-continue: Using isolated workspace for safety.")
-        return WorkspaceMode.ISOLATED
-
-    # Check for unsaved work
-    has_unsaved = has_uncommitted_changes(project_dir)
-
-    if has_unsaved:
-        # Unsaved work detected - use isolated mode for safety
-        content = [
-            success(f"{icon(Icons.SHIELD)} YOUR WORK IS PROTECTED"),
-            "",
-            "You have unsaved work in your project.",
-            "",
-            "To keep your work safe, the AI will build in a",
-            "separate workspace. Your current files won't be",
-            "touched until you're ready.",
-        ]
-        print()
-        print(box(content, width=60, style="heavy"))
-        print()
-
-        try:
-            input("Press Enter to continue...")
-        except KeyboardInterrupt:
-            print()
-            print_status("Cancelled.", "info")
-            sys.exit(0)
-
-        return WorkspaceMode.ISOLATED
-
-    # Clean working directory - give choice with enhanced menu
-    options = [
-        MenuOption(
-            key="isolated",
-            label="Separate workspace (Recommended)",
-            icon=Icons.SHIELD,
-            description="Your current files stay untouched. Easy to review and undo.",
-        ),
-        MenuOption(
-            key="direct",
-            label="Right here in your project",
-            icon=Icons.LIGHTNING,
-            description="Changes happen directly. Best if you're not working on anything else.",
-        ),
-    ]
-
-    choice = select_menu(
-        title="Where should the AI build your feature?",
-        options=options,
-        allow_quit=True,
-    )
-
-    if choice is None:
-        print()
-        print_status("Cancelled.", "info")
-        sys.exit(0)
-
-    if choice == "direct":
-        print()
-        print_status("Working directly in your project.", "info")
-        return WorkspaceMode.DIRECT
-    else:
-        print()
-        print_status("Using a separate workspace for safety.", "success")
-        return WorkspaceMode.ISOLATED
-
-
-def copy_spec_to_worktree(
-    source_spec_dir: Path,
-    worktree_path: Path,
-    spec_name: str,
-) -> Path:
-    """
-    Copy spec files into the worktree so the AI can access them.
-
-    The AI's filesystem is restricted to the worktree, so spec files
-    must be copied inside for access.
-
-    Args:
-        source_spec_dir: Original spec directory (may be outside worktree)
-        worktree_path: Path to the worktree
-        spec_name: Name of the spec folder
-
-    Returns:
-        Path to the spec directory inside the worktree
-    """
-    # Determine target location inside worktree
-    # Use .auto-claude/specs/{spec_name}/ as the standard location
-    # Note: auto-claude/ is source code, .auto-claude/ is the installed instance
-    target_spec_dir = worktree_path / ".auto-claude" / "specs" / spec_name
-
-    # Create parent directories if needed
-    target_spec_dir.parent.mkdir(parents=True, exist_ok=True)
-
-    # Copy spec files (overwrite if exists to get latest)
-    if target_spec_dir.exists():
-        shutil.rmtree(target_spec_dir)
-
-    shutil.copytree(source_spec_dir, target_spec_dir)
-
-    return target_spec_dir
-
-
-def setup_workspace(
-    project_dir: Path,
-    spec_name: str,
-    mode: WorkspaceMode,
-    source_spec_dir: Path | None = None,
-) -> tuple[Path, WorktreeManager | None, Path | None]:
-    """
-    Set up the workspace based on user's choice.
-
-    Uses per-spec worktrees - each spec gets its own isolated worktree.
-
-    Args:
-        project_dir: The project directory
-        spec_name: Name of the spec being built (e.g., "001-feature-name")
-        mode: The workspace mode to use
-        source_spec_dir: Optional source spec directory to copy to worktree
-
-    Returns:
-        Tuple of (working_directory, worktree_manager or None, localized_spec_dir or None)
-
-        When using isolated mode with source_spec_dir:
-        - working_directory: Path to the worktree
-        - worktree_manager: Manager for the worktree
-        - localized_spec_dir: Path to spec files INSIDE the worktree (accessible to AI)
-    """
-    if mode == WorkspaceMode.DIRECT:
-        # Work directly in project - spec_dir stays as-is
-        return project_dir, None, source_spec_dir
-
-    # Create isolated workspace using per-spec worktree
-    print()
-    print_status("Setting up separate workspace...", "progress")
-
-    # Ensure timeline tracking hook is installed (once per session)
-    _ensure_timeline_hook_installed(project_dir)
-
-    manager = WorktreeManager(project_dir)
-    manager.setup()
-
-    # Get or create worktree for THIS SPECIFIC SPEC
-    worktree_info = manager.get_or_create_worktree(spec_name)
-
-    # Copy spec files to worktree if provided
-    localized_spec_dir = None
-    if source_spec_dir and source_spec_dir.exists():
-        localized_spec_dir = copy_spec_to_worktree(
-            source_spec_dir, worktree_info.path, spec_name
-        )
-        print_status("Spec files copied to workspace", "success")
-
-    print_status(f"Workspace ready: {worktree_info.path.name}", "success")
-    print()
-
-    # Initialize FileTimelineTracker for this task
-    _initialize_timeline_tracking(
-        project_dir=project_dir,
-        spec_name=spec_name,
-        worktree_path=worktree_info.path,
-        source_spec_dir=localized_spec_dir or source_spec_dir,
-    )
-
-    return worktree_info.path, manager, localized_spec_dir
-
-
-def _ensure_timeline_hook_installed(project_dir: Path) -> None:
-    """
-    Ensure the FileTimelineTracker git post-commit hook is installed.
-
-    This enables tracking human commits to main branch for drift detection.
-    Called once per session during first workspace setup.
-    """
-    global _git_hook_check_done
-    if _git_hook_check_done:
-        return
-
-    _git_hook_check_done = True
-
-    try:
-        git_dir = project_dir / ".git"
-        if not git_dir.exists():
-            return  # Not a git repo
-
-        # Handle worktrees (where .git is a file, not directory)
-        if git_dir.is_file():
-            content = git_dir.read_text().strip()
-            if content.startswith("gitdir:"):
-                git_dir = Path(content.split(":", 1)[1].strip())
-            else:
-                return
-
-        hook_path = git_dir / "hooks" / "post-commit"
-
-        # Check if hook already installed
-        if hook_path.exists():
-            if "FileTimelineTracker" in hook_path.read_text():
-                debug(MODULE, "FileTimelineTracker hook already installed")
-                return
-
-        # Auto-install the hook (silent, non-intrusive)
-        from merge.install_hook import install_hook
-        install_hook(project_dir)
-        debug(MODULE, "Auto-installed FileTimelineTracker git hook")
-
-    except Exception as e:
-        # Non-fatal - hook installation is optional
-        debug_warning(MODULE, f"Could not auto-install timeline hook: {e}")
-
-
-def _initialize_timeline_tracking(
-    project_dir: Path,
-    spec_name: str,
-    worktree_path: Path,
-    source_spec_dir: Path | None = None,
-) -> None:
-    """
-    Initialize FileTimelineTracker for a new task.
-
-    This registers the task's branch point and the files it intends to modify,
-    enabling intent-aware merge conflict resolution later.
-    """
-    try:
-        tracker = FileTimelineTracker(project_dir)
-
-        # Get task intent from implementation plan
-        task_intent = ""
-        task_title = spec_name
-        files_to_modify = []
-
-        if source_spec_dir:
-            plan_path = source_spec_dir / "implementation_plan.json"
-            if plan_path.exists():
-                import json
-                with open(plan_path) as f:
-                    plan = json.load(f)
-                task_title = plan.get("title", spec_name)
-                task_intent = plan.get("description", "")
-
-                # Extract files from phases/subtasks
-                for phase in plan.get("phases", []):
-                    for subtask in phase.get("subtasks", []):
-                        files_to_modify.extend(subtask.get("files", []))
-
-        # Get the current branch point commit
-        import subprocess
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-        )
-        branch_point = result.stdout.strip() if result.returncode == 0 else None
-
-        if files_to_modify and branch_point:
-            # Register the task with known files
-            tracker.on_task_start(
-                task_id=spec_name,
-                files_to_modify=list(set(files_to_modify)),  # Dedupe
-                branch_point_commit=branch_point,
-                task_intent=task_intent,
-                task_title=task_title,
-            )
-            debug(MODULE, f"Timeline tracking initialized for {spec_name}",
-                  files_tracked=len(files_to_modify),
-                  branch_point=branch_point[:8] if branch_point else None)
-        else:
-            # Initialize retroactively from worktree if no plan
-            tracker.initialize_from_worktree(
-                task_id=spec_name,
-                worktree_path=worktree_path,
-                task_intent=task_intent,
-                task_title=task_title,
-            )
-
-    except Exception as e:
-        # Non-fatal - timeline tracking is supplementary
-        debug_warning(MODULE, f"Could not initialize timeline tracking: {e}")
-        print(muted(f"  Note: Timeline tracking could not be initialized: {e}"))
-
-
-def show_build_summary(manager: WorktreeManager, spec_name: str) -> None:
-    """Show a summary of what was built."""
-    summary = manager.get_change_summary(spec_name)
-    files = manager.get_changed_files(spec_name)
-
-    total = summary["new_files"] + summary["modified_files"] + summary["deleted_files"]
-
-    if total == 0:
-        print_status("No changes were made.", "info")
-        return
-
-    print()
-    print(bold("What was built:"))
-    if summary["new_files"] > 0:
-        print(
-            success(
-                f"  + {summary['new_files']} new file{'s' if summary['new_files'] != 1 else ''}"
-            )
-        )
-    if summary["modified_files"] > 0:
-        print(
-            info(
-                f"  ~ {summary['modified_files']} modified file{'s' if summary['modified_files'] != 1 else ''}"
-            )
-        )
-    if summary["deleted_files"] > 0:
-        print(
-            error(
-                f"  - {summary['deleted_files']} deleted file{'s' if summary['deleted_files'] != 1 else ''}"
-            )
-        )
-
-
-def show_changed_files(manager: WorktreeManager, spec_name: str) -> None:
-    """Show detailed list of changed files."""
-    files = manager.get_changed_files(spec_name)
-
-    if not files:
-        print_status("No changes.", "info")
-        return
-
-    print()
-    print(bold("Changed files:"))
-    for status, filepath in files:
-        if status == "A":
-            print(success(f"  + {filepath}"))
-        elif status == "M":
-            print(info(f"  ~ {filepath}"))
-        elif status == "D":
-            print(error(f"  - {filepath}"))
-        else:
-            print(f"  {status} {filepath}")
-
-
-def finalize_workspace(
-    project_dir: Path,
-    spec_name: str,
-    manager: WorktreeManager | None,
-    auto_continue: bool = False,
-) -> WorkspaceChoice:
-    """
-    Handle post-build workflow - let user decide what to do with changes.
-
-    Safe design:
-    - No "discard" option (requires separate --discard command)
-    - Default is "test" - encourages testing before merging
-    - Everything is preserved until user explicitly merges or discards
-
-    Args:
-        project_dir: The project directory
-        spec_name: Name of the spec that was built
-        manager: The worktree manager (None if direct mode was used)
-        auto_continue: If True, skip interactive prompts (UI mode)
-
-    Returns:
-        WorkspaceChoice indicating what user wants to do
-    """
-    if manager is None:
-        # Direct mode - nothing to finalize
-        content = [
-            success(f"{icon(Icons.SUCCESS)} BUILD COMPLETE!"),
-            "",
-            "Changes were made directly to your project.",
-            muted("Use 'git status' to see what changed."),
-        ]
-        print()
-        print(box(content, width=60, style="heavy"))
-        return WorkspaceChoice.MERGE  # Already merged
-
-    # In auto_continue mode (UI), skip interactive prompts
-    # The worktree stays for the UI to manage
-    if auto_continue:
-        worktree_info = manager.get_worktree_info(spec_name)
-        if worktree_info:
-            print()
-            print(success(f"Build complete in worktree: {worktree_info.path}"))
-            print(muted("Worktree preserved for UI review."))
-        return WorkspaceChoice.LATER
-
-    # Isolated mode - show options with testing as the recommended path
-    content = [
-        success(f"{icon(Icons.SUCCESS)} BUILD COMPLETE!"),
-        "",
-        "The AI built your feature in a separate workspace.",
-    ]
-    print()
-    print(box(content, width=60, style="heavy"))
-
-    show_build_summary(manager, spec_name)
-
-    # Get the worktree path for test instructions
-    worktree_info = manager.get_worktree_info(spec_name)
-    staging_path = worktree_info.path if worktree_info else None
-
-    # Enhanced menu for post-build options
-    options = [
-        MenuOption(
-            key="test",
-            label="Test the feature (Recommended)",
-            icon=Icons.PLAY,
-            description="Run the app and try it out before adding to your project",
-        ),
-        MenuOption(
-            key="merge",
-            label="Add to my project now",
-            icon=Icons.SUCCESS,
-            description="Merge the changes into your files immediately",
-        ),
-        MenuOption(
-            key="review",
-            label="Review what changed",
-            icon=Icons.FILE,
-            description="See exactly what files were modified",
-        ),
-        MenuOption(
-            key="later",
-            label="Decide later",
-            icon=Icons.PAUSE,
-            description="Your build is saved - you can come back anytime",
-        ),
-    ]
-
-    print()
-    choice = select_menu(
-        title="What would you like to do?",
-        options=options,
-        allow_quit=False,
-    )
-
-    if choice == "test":
-        return WorkspaceChoice.TEST
-    elif choice == "merge":
-        return WorkspaceChoice.MERGE
-    elif choice == "review":
-        return WorkspaceChoice.REVIEW
-    else:
-        return WorkspaceChoice.LATER
-
-
-def handle_workspace_choice(
-    choice: WorkspaceChoice,
-    project_dir: Path,
-    spec_name: str,
-    manager: WorktreeManager,
-) -> None:
-    """
-    Execute the user's choice.
-
-    Args:
-        choice: What the user wants to do
-        project_dir: The project directory
-        spec_name: Name of the spec
-        manager: The worktree manager
-    """
-    worktree_info = manager.get_worktree_info(spec_name)
-    staging_path = worktree_info.path if worktree_info else None
-
-    if choice == WorkspaceChoice.TEST:
-        # Show testing instructions
-        content = [
-            bold(f"{icon(Icons.PLAY)} TEST YOUR FEATURE"),
-            "",
-            "Your feature is ready to test in a separate workspace.",
-        ]
-        print()
-        print(box(content, width=60, style="heavy"))
-
-        print()
-        print("To test it, open a NEW terminal and run:")
-        print()
-        if staging_path:
-            print(highlight(f"  cd {staging_path}"))
-        else:
-            print(highlight(f"  cd {project_dir}/.worktrees/{spec_name}"))
-
-        # Show likely test/run commands
-        if staging_path:
-            commands = manager.get_test_commands(spec_name)
-            print()
-            print("Then run your project:")
-            for cmd in commands[:2]:  # Show top 2 commands
-                print(f"  {cmd}")
-
-        print()
-        print(muted("-" * 60))
-        print()
-        print("When you're done testing:")
-        print(highlight(f"  python auto-claude/run.py --spec {spec_name} --merge"))
-        print()
-        print("To discard (if you don't like it):")
-        print(muted(f"  python auto-claude/run.py --spec {spec_name} --discard"))
-        print()
-
-    elif choice == WorkspaceChoice.MERGE:
-        print()
-        print_status("Adding changes to your project...", "progress")
-        success_result = manager.merge_worktree(spec_name, delete_after=True)
-
-        if success_result:
-            print()
-            print_status("Your feature has been added to your project.", "success")
-        else:
-            print()
-            print_status("There was a conflict merging the changes.", "error")
-            print(muted("Your build is still saved in the separate workspace."))
-            print(muted("You may need to merge manually or ask for help."))
-
-    elif choice == WorkspaceChoice.REVIEW:
-        show_changed_files(manager, spec_name)
-        print()
-        print(muted("-" * 60))
-        print()
-        print("To see full details of changes:")
-        if worktree_info:
-            print(
-                muted(
-                    f"  git diff {worktree_info.base_branch}...{worktree_info.branch}"
-                )
-            )
-        print()
-        print("To test the feature:")
-        if staging_path:
-            print(highlight(f"  cd {staging_path}"))
-        print()
-        print("To add these changes to your project:")
-        print(highlight(f"  python auto-claude/run.py --spec {spec_name} --merge"))
-        print()
-
-    else:  # LATER
-        print()
-        print_status("No problem! Your build is saved.", "success")
-        print()
-        print("To test the feature:")
-        if staging_path:
-            print(highlight(f"  cd {staging_path}"))
-        else:
-            print(highlight(f"  cd {project_dir}/.worktrees/{spec_name}"))
-        print()
-        print("When you're ready to add it:")
-        print(highlight(f"  python auto-claude/run.py --spec {spec_name} --merge"))
-        print()
-        print("To see what was built:")
-        print(muted(f"  python auto-claude/run.py --spec {spec_name} --review"))
-        print()
-
+# The following functions are now imported from refactored modules above.
+# They are kept here only to avoid breaking the existing code that still needs
+# the complex merge operations below.
+
+# Remaining complex merge operations that reference each other:
+# - merge_existing_build
+# - _try_smart_merge
+# - _try_smart_merge_inner
+# - _check_git_conflicts
+# - _resolve_git_conflicts_with_ai
+# - _create_async_claude_client
+# - _async_ai_call
+# - _merge_file_with_ai_async
+# - _run_parallel_merges
+# - _record_merge_completion
+# - _get_task_intent
+# - _get_recent_merges_context
+# - _merge_file_with_ai
+# - _heuristic_merge
 
 def merge_existing_build(
     project_dir: Path,
@@ -1236,15 +667,22 @@ def _resolve_git_conflicts_with_ai(
                 simple_merges.append((file_path, None))  # None = delete
                 debug(MODULE, f"  {file_path}: deleted (no AI needed)")
             else:
-                # File exists in both - needs AI merge
-                files_needing_ai_merge.append(ParallelMergeTask(
-                    file_path=file_path,
-                    main_content=main_content,
-                    worktree_content=worktree_content,
-                    base_content=base_content,
-                    spec_name=spec_name,
-                ))
-                debug(MODULE, f"  {file_path}: needs AI merge")
+                # File exists in both - check if it's a lock file
+                if _is_lock_file(file_path):
+                    # Lock files should never go through AI - just take worktree version
+                    # User can run package manager install to regenerate if needed
+                    simple_merges.append((file_path, worktree_content))
+                    debug(MODULE, f"  {file_path}: lock file (taking worktree version)")
+                else:
+                    # Regular file - needs AI merge
+                    files_needing_ai_merge.append(ParallelMergeTask(
+                        file_path=file_path,
+                        main_content=main_content,
+                        worktree_content=worktree_content,
+                        base_content=base_content,
+                        spec_name=spec_name,
+                    ))
+                    debug(MODULE, f"  {file_path}: needs AI merge")
 
         except Exception as e:
             print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
@@ -1265,7 +703,11 @@ def _resolve_git_conflicts_with_ai(
                     target_path.write_text(merged_content, encoding="utf-8")
                     subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
                     resolved_files.append(file_path)
-                    print(success(f"    ✓ {file_path} (new file)"))
+                    # Determine the type for display
+                    if _is_lock_file(file_path):
+                        print(success(f"    ✓ {file_path} (lock file - took worktree version)"))
+                    else:
+                        print(success(f"    ✓ {file_path} (new file)"))
                 else:
                     # Delete the file
                     target_path = project_dir / file_path
@@ -1330,14 +772,8 @@ def _resolve_git_conflicts_with_ai(
         if remaining_conflicts:
             print(muted(f"    Failed: {len(remaining_conflicts)}"))
 
-    if remaining_conflicts:
-        return {
-            "success": False,
-            "resolved_files": resolved_files,
-            "remaining_conflicts": remaining_conflicts,
-        }
-
-    # All conflicts resolved - now merge remaining non-conflicting files
+    # ALWAYS process non-conflicting files, even if some conflicts failed
+    # This ensures we get as much of the build as possible
     # (New files were already copied at the start)
     print(muted("  Merging remaining files..."))
 
@@ -1371,17 +807,30 @@ def _resolve_git_conflicts_with_ai(
     if resolved_files:
         _record_merge_completion(project_dir, spec_name, resolved_files)
 
-    return {
-        "success": True,
+    # Build result - partial success if some files failed but we got others
+    result = {
+        "success": len(remaining_conflicts) == 0,
         "resolved_files": resolved_files,
         "stats": {
             "files_merged": len(resolved_files),
-            "conflicts_resolved": len(conflicting_files),
+            "conflicts_resolved": len(conflicting_files) - len(remaining_conflicts),
             "ai_assisted": ai_merged_count,
             "auto_merged": auto_merged_count,
             "parallel_ai_merges": len(files_needing_ai_merge),
         },
     }
+
+    # Add remaining conflicts if any (for UI to show what needs manual attention)
+    if remaining_conflicts:
+        result["remaining_conflicts"] = remaining_conflicts
+        result["partial_success"] = len(resolved_files) > 0
+        print()
+        print(warning(f"  ⚠ {len(remaining_conflicts)} file(s) could not be auto-merged:"))
+        for conflict in remaining_conflicts:
+            print(muted(f"    - {conflict['file']}: {conflict['reason']}"))
+        print(muted("  These files may need manual review."))
+
+    return result
 
 
 def _get_file_content_from_ref(project_dir: Path, ref: str, file_path: str) -> Optional[str]:
@@ -1702,14 +1151,55 @@ async def _merge_file_with_ai_async(
                             resolutions = extract_conflict_resolutions(response, conflicts, language)
                             if resolutions:
                                 merged = reassemble_with_resolutions(merged_content, conflicts, resolutions)
-                                is_valid, _ = _validate_merged_syntax(file_path, merged, project_dir)
+                                is_valid, error_msg = _validate_merged_syntax(file_path, merged, project_dir)
+
+                                # Retry loop: if syntax is invalid, give AI feedback to fix it
+                                retry_count = 0
+                                while not is_valid and retry_count < MAX_SYNTAX_FIX_RETRIES:
+                                    retry_count += 1
+                                    debug(MODULE, f"[PARALLEL] Syntax error in merge, retry {retry_count}/{MAX_SYNTAX_FIX_RETRIES}: {file_path}")
+
+                                    # Build fix prompt with error feedback
+                                    fix_prompt = f"""The merged code you produced has a syntax error:
+
+{error_msg}
+
+Here is your merged code that has the error:
+```{language}
+{merged}
+```
+
+Please fix the syntax error and output the corrected code. Make sure:
+1. All lines are properly separated (no concatenated lines)
+2. All brackets/braces are properly matched
+3. All statements end correctly
+
+Output ONLY the fixed code, no explanations."""
+
+                                    fix_response = await _async_ai_call(
+                                        client,
+                                        "You are an expert code fixer. Fix the syntax error in the code.",
+                                        fix_prompt,
+                                    )
+
+                                    if fix_response:
+                                        fixed = resolver._extract_code_block(fix_response, language)
+                                        if not fixed and resolver._looks_like_code(fix_response, language):
+                                            fixed = fix_response.strip()
+                                        if fixed:
+                                            merged = fixed
+                                            is_valid, error_msg = _validate_merged_syntax(file_path, merged, project_dir)
+
                                 if is_valid:
-                                    debug_success(MODULE, f"[PARALLEL] Conflict-only merge succeeded: {file_path}")
+                                    debug_success(MODULE, f"[PARALLEL] Conflict-only merge succeeded: {file_path}" +
+                                                  (f" (after {retry_count} fix retries)" if retry_count > 0 else ""))
                                     return ParallelMergeResult(
                                         file_path=file_path,
                                         merged_content=merged,
                                         success=True
                                     )
+                                else:
+                                    debug(MODULE, f"[PARALLEL] Conflict-only merge failed validation after {retry_count} retries, falling back to full-file: {file_path}")
 
                 # Case 3: Full-file AI merge (fallback)
                 debug(MODULE, f"[PARALLEL] Full-file merge for: {file_path}")
@@ -1736,21 +1226,62 @@ async def _merge_file_with_ai_async(
                         merged = response.strip()
 
                     if merged:
-                        is_valid, _ = _validate_merged_syntax(file_path, merged, project_dir)
+                        is_valid, error_msg = _validate_merged_syntax(file_path, merged, project_dir)
+
+                        # Retry loop: if syntax is invalid, give AI feedback to fix it
+                        retry_count = 0
+                        while not is_valid and retry_count < MAX_SYNTAX_FIX_RETRIES:
+                            retry_count += 1
+                            debug(MODULE, f"[PARALLEL] Syntax error in full-file merge, retry {retry_count}/{MAX_SYNTAX_FIX_RETRIES}: {file_path}")
+
+                            # Build fix prompt with error feedback
+                            fix_prompt = f"""The merged code you produced has a syntax error:
+
+{error_msg}
+
+Here is your merged code that has the error:
+```{language}
+{merged}
+```
+
+Please fix the syntax error and output the corrected code. Make sure:
+1. All lines are properly separated (no concatenated lines)
+2. All brackets/braces are properly matched
+3. All statements end correctly
+
+Output ONLY the fixed code, no explanations."""
+
+                            fix_response = await _async_ai_call(
+                                client,
+                                "You are an expert code fixer. Fix the syntax error in the code.",
+                                fix_prompt,
+                            )
+
+                            if fix_response:
+                                fixed = resolver._extract_code_block(fix_response, language)
+                                if not fixed and resolver._looks_like_code(fix_response, language):
+                                    fixed = fix_response.strip()
+                                if fixed:
+                                    merged = fixed
+                                    is_valid, error_msg = _validate_merged_syntax(file_path, merged, project_dir)
+
                         if is_valid:
-                            debug_success(MODULE, f"[PARALLEL] Full-file merge succeeded: {file_path}")
+                            debug_success(MODULE, f"[PARALLEL] Full-file merge succeeded: {file_path}" +
+                                          (f" (after {retry_count} fix retries)" if retry_count > 0 else ""))
                             return ParallelMergeResult(
                                 file_path=file_path,
                                 merged_content=merged,
                                 success=True
                             )
+                        else:
+                            debug_error(MODULE, f"[PARALLEL] Full-file merge failed validation after {retry_count} retries: {file_path}")
 
                 # AI couldn't merge
                 return ParallelMergeResult(
                     file_path=file_path,
                     merged_content=None,
                     success=False,
-                    error="AI could not merge file"
+                    error="AI could not merge file - syntax validation failed after retries"
                 )
 
         except Exception as e:

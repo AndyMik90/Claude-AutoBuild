@@ -1,80 +1,40 @@
 """
-Spec Validator
-==============
+Backward compatibility shim for spec_validator module.
 
-Main validator class that orchestrates all validation checkpoints.
+DEPRECATED: This module has been moved to spec.validate_pkg.spec_validator.
+
+Please update your imports:
+    OLD: from validate_spec.spec_validator import SpecValidator
+    NEW: from spec.validate_pkg.spec_validator import SpecValidator
+
+This shim provides compatibility but will be removed in a future version.
 """
 
+import sys
 from pathlib import Path
 
-from .models import ValidationResult
-from .validators import (
-    ContextValidator,
-    ImplementationPlanValidator,
-    PrereqsValidator,
-    SpecDocumentValidator,
-)
+# Lazy import to avoid circular dependencies
+def __getattr__(name):
+    """Lazy import mechanism to avoid circular imports."""
+    if name == "SpecValidator":
+        # Add spec directory to path temporarily to allow direct imports
+        # without triggering spec.__init__
+        spec_dir = Path(__file__).parent.parent / "spec"
+        if str(spec_dir) not in sys.path:
+            sys.path.insert(0, str(spec_dir))
 
+        try:
+            # Import directly from validate_pkg without going through spec package
+            from validate_pkg.spec_validator import SpecValidator
 
-class SpecValidator:
-    """Validates spec outputs at each checkpoint."""
+            # Cache the imported value in this module
+            globals()["SpecValidator"] = SpecValidator
+            return SpecValidator
+        finally:
+            # Clean up path modification
+            if str(spec_dir) in sys.path:
+                sys.path.remove(str(spec_dir))
 
-    def __init__(self, spec_dir: Path):
-        """Initialize the spec validator.
+    raise AttributeError(f"module 'validate_spec.spec_validator' has no attribute '{name}'")
 
-        Args:
-            spec_dir: Path to the spec directory
-        """
-        self.spec_dir = Path(spec_dir)
-
-        # Initialize individual validators
-        self._prereqs_validator = PrereqsValidator(self.spec_dir)
-        self._context_validator = ContextValidator(self.spec_dir)
-        self._spec_document_validator = SpecDocumentValidator(self.spec_dir)
-        self._implementation_plan_validator = ImplementationPlanValidator(self.spec_dir)
-
-    def validate_all(self) -> list[ValidationResult]:
-        """Run all validations.
-
-        Returns:
-            List of validation results for all checkpoints
-        """
-        results = [
-            self.validate_prereqs(),
-            self.validate_context(),
-            self.validate_spec_document(),
-            self.validate_implementation_plan(),
-        ]
-        return results
-
-    def validate_prereqs(self) -> ValidationResult:
-        """Validate prerequisites exist.
-
-        Returns:
-            ValidationResult for prerequisites checkpoint
-        """
-        return self._prereqs_validator.validate()
-
-    def validate_context(self) -> ValidationResult:
-        """Validate context.json exists and has required structure.
-
-        Returns:
-            ValidationResult for context checkpoint
-        """
-        return self._context_validator.validate()
-
-    def validate_spec_document(self) -> ValidationResult:
-        """Validate spec.md exists and has required sections.
-
-        Returns:
-            ValidationResult for spec document checkpoint
-        """
-        return self._spec_document_validator.validate()
-
-    def validate_implementation_plan(self) -> ValidationResult:
-        """Validate implementation_plan.json exists and has valid schema.
-
-        Returns:
-            ValidationResult for implementation plan checkpoint
-        """
-        return self._implementation_plan_validator.validate()
+__all__ = ["SpecValidator"]

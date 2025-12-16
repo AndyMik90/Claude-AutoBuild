@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { InfrastructureStatus } from '../../../shared/types';
+import type { InfrastructureStatus } from '../../shared/types';
 
 export function useInfrastructureStatus(
   graphitiEnabled: boolean | undefined,

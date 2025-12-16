@@ -19,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-from validate_spec import SpecValidator, auto_fix_plan
+from validate_pkg import SpecValidator, auto_fix_plan
 
 
 def main() -> None:

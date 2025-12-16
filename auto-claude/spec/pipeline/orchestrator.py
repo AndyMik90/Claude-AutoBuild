@@ -25,7 +25,7 @@ from ui import (
     print_section,
     print_status,
 )
-from validate_spec.spec_validator import SpecValidator
+from ..validate_pkg.spec_validator import SpecValidator
 
 from .. import complexity, phases, requirements
 from .agent_runner import AgentRunner
@@ -547,3 +547,41 @@ class SpecOrchestrator:
             return False
 
         return True
+
+    # Backward compatibility methods for tests
+    def _generate_spec_name(self, task_description: str) -> str:
+        """Generate a spec name from task description (backward compatibility).
+
+        This method is kept for backward compatibility with existing tests.
+        The functionality has been moved to models.generate_spec_name.
+
+        Args:
+            task_description: The task description
+
+        Returns:
+            Generated spec name
+        """
+        from .models import generate_spec_name
+
+        return generate_spec_name(task_description)
+
+    def _rename_spec_dir_from_requirements(self) -> bool:
+        """Rename spec directory from requirements (backward compatibility).
+
+        This method is kept for backward compatibility with existing tests.
+        The functionality has been moved to models.rename_spec_dir_from_requirements.
+
+        Returns:
+            True if successful or not needed, False on error
+        """
+        result = rename_spec_dir_from_requirements(self.spec_dir)
+        # Update self.spec_dir if it was renamed
+        if result and self.spec_dir.name.endswith("-pending"):
+            # Find the renamed directory
+            parent = self.spec_dir.parent
+            prefix = self.spec_dir.name[:4]  # e.g., "001-"
+            for candidate in parent.iterdir():
+                if candidate.name.startswith(prefix) and "pending" not in candidate.name:
+                    self.spec_dir = candidate
+                    break
+        return result

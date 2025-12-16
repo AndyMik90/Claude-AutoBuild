@@ -8,6 +8,7 @@ Handles session memory storage using dual-layer approach:
 """
 
 import logging
+import sys
 from pathlib import Path
 
 from debug import (
@@ -20,6 +21,9 @@ from debug import (
     is_debug_enabled,
 )
 from graphiti_config import get_graphiti_status, is_graphiti_enabled
+
+# Import from parent memory package
+# Now safe since this module is named memory_manager (not memory)
 from memory import save_session_insights as save_file_based_memory
 
 logger = logging.getLogger(__name__)

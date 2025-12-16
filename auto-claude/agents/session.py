@@ -32,7 +32,7 @@ from ui import (
     print_status,
 )
 
-from .memory import save_session_memory
+from .memory_manager import save_session_memory
 from .utils import (
     find_subtask_in_plan,
     get_commit_count,

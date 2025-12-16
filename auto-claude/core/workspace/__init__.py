@@ -104,6 +104,7 @@ from .finalization import (
 __all__ = [
     # Merge Operations (from workspace.py)
     'merge_existing_build',
+    '_run_parallel_merges',  # Private but used by tests
     # Models
     'WorkspaceMode',
     'WorkspaceChoice',

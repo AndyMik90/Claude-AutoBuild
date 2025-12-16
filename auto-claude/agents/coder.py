@@ -53,7 +53,7 @@ from ui import (
 )
 
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
-from .memory import debug_memory_system_status, get_graphiti_context
+from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
 from .utils import (
     find_phase_for_subtask,

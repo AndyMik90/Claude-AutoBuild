@@ -168,7 +168,7 @@ class TestModuleIntegrity:
 
     def test_no_coordinator_imports(self):
         """Core modules don't import coordinator."""
-        for filename in ["run.py", "agent.py"]:
+        for filename in ["run.py", "core/agent.py"]:
             filepath = Path(__file__).parent.parent / "auto-claude" / filename
             content = filepath.read_text()
 
@@ -181,7 +181,7 @@ class TestModuleIntegrity:
 
     def test_no_task_tool_imports(self):
         """Core modules don't import task_tool."""
-        for filename in ["run.py", "agent.py"]:
+        for filename in ["run.py", "core/agent.py"]:
             filepath = Path(__file__).parent.parent / "auto-claude" / filename
             content = filepath.read_text()
 
@@ -305,23 +305,24 @@ class TestSubtaskTerminology:
 
     def test_implementation_plan_uses_subtask_class(self):
         """Implementation plan uses Subtask class."""
-        impl_plan_path = Path(__file__).parent.parent / "auto-claude" / "implementation_plan.py"
+        impl_plan_path = Path(__file__).parent.parent / "auto-claude" / "implementation_plan" / "main.py"
         content = impl_plan_path.read_text()
 
-        assert "class Subtask" in content, (
-            "implementation_plan.py should define 'class Subtask'"
+        # Check that it re-exports or imports Subtask and SubtaskStatus
+        assert "Subtask" in content, (
+            "implementation_plan/main.py should reference 'Subtask'"
         )
         assert "SubtaskStatus" in content, (
-            "implementation_plan.py should define SubtaskStatus enum"
+            "implementation_plan/main.py should reference SubtaskStatus enum"
         )
 
     def test_progress_uses_subtask_terminology(self):
         """Progress module uses subtask terminology."""
-        progress_path = Path(__file__).parent.parent / "auto-claude" / "progress.py"
+        progress_path = Path(__file__).parent.parent / "auto-claude" / "core" / "progress.py"
         content = progress_path.read_text()
 
         assert "subtask" in content.lower(), (
-            "progress.py should use subtask terminology"
+            "core/progress.py should use subtask terminology"
         )
 
 

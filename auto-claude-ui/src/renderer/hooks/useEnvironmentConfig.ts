@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ProjectEnvConfig } from '../../../shared/types';
+import type { ProjectEnvConfig } from '../../shared/types';
 
 export function useEnvironmentConfig(projectId: string, autoBuildPath: string | null, open: boolean) {
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);

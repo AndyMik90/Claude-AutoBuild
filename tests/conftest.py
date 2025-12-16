@@ -18,6 +18,30 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# =============================================================================
+# PRE-MOCK EXTERNAL SDK MODULES - Must happen BEFORE adding auto-claude to path
+# =============================================================================
+# These SDK modules may not be installed, so we mock them before any imports
+# that might trigger loading code that depends on them.
+
+def _create_sdk_mock():
+    """Create a comprehensive mock for SDK modules."""
+    mock = MagicMock()
+    mock.ClaudeAgentOptions = MagicMock
+    mock.ClaudeSDKClient = MagicMock
+    mock.HookMatcher = MagicMock
+    return mock
+
+# Pre-mock claude_agent_sdk if not installed
+if 'claude_agent_sdk' not in sys.modules:
+    sys.modules['claude_agent_sdk'] = _create_sdk_mock()
+    sys.modules['claude_agent_sdk.types'] = MagicMock()
+
+# Pre-mock claude_code_sdk if not installed
+if 'claude_code_sdk' not in sys.modules:
+    sys.modules['claude_code_sdk'] = _create_sdk_mock()
+    sys.modules['claude_code_sdk.types'] = MagicMock()
+
 # Add auto-claude directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
 
@@ -85,7 +109,7 @@ def pytest_runtest_setup(item):
         'test_qa_report_project_detection': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
         'test_qa_report_manual_plan': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
         'test_qa_report_config': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_loop': {'claude_code_sdk', 'claude_code_sdk.types'},
+        'test_qa_loop': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
         'test_spec_pipeline': {'claude_code_sdk', 'claude_code_sdk.types', 'init', 'client', 'review', 'task_logger', 'ui', 'validate_spec'},
         'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
         'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
@@ -1000,109 +1024,8 @@ except ImportError:
     # Module will be available when tests run
     pass
 
-# Sample React component code
-SAMPLE_REACT_COMPONENT = '''import React from 'react';
-import { useState } from 'react';
-
-function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div>
-      <h1>Hello World</h1>
-      <button onClick={() => setCount(count + 1)}>
-        Count: {count}
-      </button>
-    </div>
-  );
-}
-
-export default App;
-'''
-
-SAMPLE_REACT_WITH_HOOK = '''import React from 'react';
-import { useState } from 'react';
-import { useAuth } from './hooks/useAuth';
-
-function App() {
-  const [count, setCount] = useState(0);
-  const { user } = useAuth();
-
-  return (
-    <div>
-      <h1>Hello World</h1>
-      <button onClick={() => setCount(count + 1)}>
-        Count: {count}
-      </button>
-    </div>
-  );
-}
-
-export default App;
-'''
-
-# Sample Python module code
-SAMPLE_PYTHON_MODULE = '''"""Sample Python module."""
-import os
-from pathlib import Path
-
-def hello():
-    """Say hello."""
-    print("Hello")
-
-def goodbye():
-    """Say goodbye."""
-    print("Goodbye")
-
-class Greeter:
-    """A greeter class."""
-
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}"
-'''
-
-SAMPLE_PYTHON_WITH_NEW_IMPORT = '''"""Sample Python module."""
-import os
-import logging
-from pathlib import Path
-
-def hello():
-    """Say hello."""
-    print("Hello")
-
-def goodbye():
-    """Say goodbye."""
-    print("Goodbye")
-
-class Greeter:
-    """A greeter class."""
-
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}"
-'''
-
-SAMPLE_PYTHON_WITH_NEW_FUNCTION = '''"""Sample Python module."""
-import os
-from pathlib import Path
-
-def hello():
-    """Say hello."""
-    print("Hello")
-
-def goodbye():
-    """Say goodbye."""
-    print("Goodbye")
-
-def new_function():
-    """A new function."""
-    return 42
-
-class Greeter:
-    """A greeter class."""
-
-    def greet(self, name: str) -> str:
-        return f"Hello, {name}"
-'''
+# Sample data constants moved to test_fixtures.py
+# Import from there if needed in test files
 
 
 @pytest.fixture
@@ -1152,3 +1075,36 @@ def mock_ai_resolver():
         code += "return <div>Merged</div>;"
         return code
     return AIResolver(ai_call_fn=mock_ai_call)
+
+
+@pytest.fixture
+def temp_project(temp_git_repo: Path):
+    """
+    Create a temporary project with mixed language files for testing file tracker.
+
+    Creates:
+    - src/App.tsx (React component)
+    - src/utils.py (Python module)
+    """
+    from tests.test_fixtures import SAMPLE_REACT_COMPONENT, SAMPLE_PYTHON_MODULE
+
+    # Create src directory
+    src_dir = temp_git_repo / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create App.tsx
+    app_tsx = src_dir / "App.tsx"
+    app_tsx.write_text(SAMPLE_REACT_COMPONENT)
+
+    # Create utils.py
+    utils_py = src_dir / "utils.py"
+    utils_py.write_text(SAMPLE_PYTHON_MODULE)
+
+    # Commit the files
+    subprocess.run(["git", "add", "."], cwd=temp_git_repo, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Add source files"],
+        cwd=temp_git_repo, capture_output=True
+    )
+
+    return temp_git_repo

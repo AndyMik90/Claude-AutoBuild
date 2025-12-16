@@ -1,19 +1,43 @@
 """
-Spec Validation System
-======================
+Backward compatibility shim for validate_spec package.
 
-Validates spec outputs at each checkpoint to ensure reliability.
-This is the enforcement layer that catches errors before they propagate.
+DEPRECATED: This package has been moved to spec.validate_pkg.
 
-The spec creation process has mandatory checkpoints:
-1. Prerequisites (project_index.json exists)
-2. Context (context.json created with required fields)
-3. Spec document (spec.md with required sections)
-4. Implementation plan (implementation_plan.json with valid schema)
+Please update your imports:
+    OLD: from validate_spec import SpecValidator, ValidationResult, auto_fix_plan
+    NEW: from spec.validate_pkg import SpecValidator, ValidationResult, auto_fix_plan
+
+This shim provides compatibility but will be removed in a future version.
 """
 
-from .auto_fix import auto_fix_plan
-from .models import ValidationResult
-from .spec_validator import SpecValidator
+import sys
+from pathlib import Path
+
+# Lazy import to avoid circular dependencies
+def __getattr__(name):
+    """Lazy import mechanism to avoid circular imports."""
+    if name in ("SpecValidator", "ValidationResult", "auto_fix_plan"):
+        # Add spec directory to path temporarily to allow direct imports
+        # without triggering spec.__init__
+        spec_dir = Path(__file__).parent.parent / "spec"
+        if str(spec_dir) not in sys.path:
+            sys.path.insert(0, str(spec_dir))
+
+        try:
+            # Import directly from validate_pkg without going through spec package
+            from validate_pkg import SpecValidator, ValidationResult, auto_fix_plan
+
+            # Cache the imported values in this module
+            globals()["SpecValidator"] = SpecValidator
+            globals()["ValidationResult"] = ValidationResult
+            globals()["auto_fix_plan"] = auto_fix_plan
+
+            return globals()[name]
+        finally:
+            # Clean up path modification
+            if str(spec_dir) in sys.path:
+                sys.path.remove(str(spec_dir))
+
+    raise AttributeError(f"module 'validate_spec' has no attribute '{name}'")
 
 __all__ = ["SpecValidator", "ValidationResult", "auto_fix_plan"]

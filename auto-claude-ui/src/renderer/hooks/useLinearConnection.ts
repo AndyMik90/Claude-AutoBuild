@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { LinearSyncStatus } from '../../../shared/types';
+import type { LinearSyncStatus } from '../../shared/types';
 
 export function useLinearConnection(
   projectId: string,

@@ -249,7 +249,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                   envConfig={envConfig}
                   settings={settings}
                   onUpdateConfig={updateEnvConfig}
-                  onUpdateSettings={setSettings}
+                  onUpdateSettings={(updates) => setSettings({ ...settings, ...updates })}
                   infrastructureStatus={infrastructureStatus}
                   isCheckingInfrastructure={isCheckingInfrastructure}
                   isStartingFalkorDB={isStartingFalkorDB}

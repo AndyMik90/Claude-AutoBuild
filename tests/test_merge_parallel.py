@@ -98,10 +98,10 @@ class TestParallelMergeDataclasses:
 class TestParallelMergeRunner:
     """Tests for the parallel merge runner."""
 
-    def test_run_parallel_merges_empty_list(self, temp_project):
+    def test_run_parallel_merges_empty_list(self, project_dir):
         """Running with empty task list returns empty results."""
         import asyncio
-        results = asyncio.run(_run_parallel_merges([], temp_project))
+        results = asyncio.run(_run_parallel_merges([], project_dir))
         assert results == []
 
     def test_parallel_merge_task_with_data(self):

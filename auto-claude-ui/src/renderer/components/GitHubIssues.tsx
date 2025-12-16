@@ -75,7 +75,7 @@ export function GitHubIssues({ onOpenSettings }: GitHubIssuesProps) {
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
       <IssueListHeader
-        repoFullName={syncStatus.repoFullName}
+        repoFullName={syncStatus.repoFullName ?? ''}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
         searchQuery={searchQuery}

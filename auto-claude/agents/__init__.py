@@ -21,7 +21,7 @@ from .base import (
 from .coder import run_autonomous_agent
 
 # Memory functions
-from .memory import (
+from .memory_manager import (
     debug_memory_system_status,
     get_graphiti_context,
     save_session_memory,

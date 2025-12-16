@@ -21,21 +21,31 @@ _original_modules = {}
 _mocked_module_names = [
     'claude_code_sdk',
     'claude_code_sdk.types',
+    'claude_agent_sdk',
+    'claude_agent_sdk.types',
 ]
 
 for name in _mocked_module_names:
     if name in sys.modules:
         _original_modules[name] = sys.modules[name]
 
-# Mock claude_code_sdk and its submodules before importing qa_loop
-# The SDK isn't available in the test environment
-mock_sdk = MagicMock()
-mock_sdk.ClaudeSDKClient = MagicMock()
-mock_sdk.ClaudeCodeOptions = MagicMock()
-mock_types = MagicMock()
-mock_types.HookMatcher = MagicMock()
-sys.modules['claude_code_sdk'] = mock_sdk
-sys.modules['claude_code_sdk.types'] = mock_types
+# Mock claude_code_sdk and claude_agent_sdk before importing qa_loop
+# The SDKs aren't available in the test environment
+mock_code_sdk = MagicMock()
+mock_code_sdk.ClaudeSDKClient = MagicMock()
+mock_code_sdk.ClaudeCodeOptions = MagicMock()
+mock_code_types = MagicMock()
+mock_code_types.HookMatcher = MagicMock()
+sys.modules['claude_code_sdk'] = mock_code_sdk
+sys.modules['claude_code_sdk.types'] = mock_code_types
+
+mock_agent_sdk = MagicMock()
+mock_agent_sdk.ClaudeSDKClient = MagicMock()
+mock_agent_sdk.ClaudeCodeOptions = MagicMock()
+mock_agent_types = MagicMock()
+mock_agent_types.HookMatcher = MagicMock()
+sys.modules['claude_agent_sdk'] = mock_agent_sdk
+sys.modules['claude_agent_sdk.types'] = mock_agent_types
 
 from qa_loop import (
     load_implementation_plan,

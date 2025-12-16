@@ -60,17 +60,20 @@ python auto-claude/run.py --spec 001 --qa-status
 
 ### Testing
 ```bash
-# Run all tests
-pytest tests/ -v
+# Install test dependencies (required first time)
+cd auto-claude && uv pip install -r ../tests/requirements-test.txt
+
+# Run all tests (use virtual environment pytest)
+auto-claude/.venv/bin/pytest tests/ -v
 
 # Run single test file
-pytest tests/test_security.py -v
+auto-claude/.venv/bin/pytest tests/test_security.py -v
 
 # Run specific test
-pytest tests/test_security.py::test_bash_command_validation -v
+auto-claude/.venv/bin/pytest tests/test_security.py::test_bash_command_validation -v
 
 # Skip slow tests
-pytest tests/ -m "not slow"
+auto-claude/.venv/bin/pytest tests/ -m "not slow"
 ```
 
 ### Spec Validation

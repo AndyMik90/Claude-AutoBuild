@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { GitHubSyncStatus } from '../../../shared/types';
+import type { GitHubSyncStatus } from '../../shared/types';
 
 export function useGitHubConnection(
   projectId: string,

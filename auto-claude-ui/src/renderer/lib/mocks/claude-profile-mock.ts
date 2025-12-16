@@ -11,9 +11,16 @@ export const claudeProfileMock = {
     }
   }),
 
-  saveClaudeProfile: async (profile: unknown) => ({
+  saveClaudeProfile: async (profile: { id: string; name: string; oauthToken?: string; email?: string; isDefault?: boolean; createdAt?: Date }) => ({
     success: true,
-    data: profile
+    data: {
+      id: profile.id,
+      name: profile.name,
+      oauthToken: profile.oauthToken,
+      email: profile.email,
+      isDefault: profile.isDefault ?? false,
+      createdAt: profile.createdAt ?? new Date(),
+    }
   }),
 
   deleteClaudeProfile: async () => ({ success: true }),

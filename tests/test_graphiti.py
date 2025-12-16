@@ -356,7 +356,7 @@ class TestGraphitiProviders:
 
     def test_create_llm_client_missing_openai_key(self):
         """create_llm_client raises ProviderError when OpenAI key missing."""
-        from graphiti_providers import ProviderError
+        from graphiti_providers import ProviderError, ProviderNotInstalled, create_llm_client
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -364,17 +364,18 @@ class TestGraphitiProviders:
         }, clear=True):
             config = GraphitiConfig.from_env()
 
-            # Only import if graphiti_core is available
+            # Test raises ProviderError for missing API key, or skip if graphiti-core not installed
             try:
-                from graphiti_providers import create_llm_client
-                with pytest.raises(ProviderError, match="OPENAI_API_KEY"):
-                    create_llm_client(config)
-            except ImportError:
+                create_llm_client(config)
+                pytest.fail("Expected ProviderError to be raised for missing OPENAI_API_KEY")
+            except ProviderNotInstalled:
                 pytest.skip("graphiti-core not installed")
+            except ProviderError as e:
+                assert "OPENAI_API_KEY" in str(e)
 
     def test_create_embedder_missing_ollama_model(self):
         """create_embedder raises ProviderError when Ollama model missing."""
-        from graphiti_providers import ProviderError
+        from graphiti_providers import ProviderError, ProviderNotInstalled, create_embedder
 
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
@@ -383,12 +384,14 @@ class TestGraphitiProviders:
         }, clear=True):
             config = GraphitiConfig.from_env()
 
+            # Test raises ProviderError for missing model config, or skip if graphiti-core not installed
             try:
-                from graphiti_providers import create_embedder
-                with pytest.raises(ProviderError, match="OLLAMA_EMBEDDING_MODEL"):
-                    create_embedder(config)
-            except ImportError:
+                create_embedder(config)
+                pytest.fail("Expected ProviderError to be raised for missing OLLAMA_EMBEDDING_MODEL")
+            except ProviderNotInstalled:
                 pytest.skip("graphiti-core not installed")
+            except ProviderError as e:
+                assert "OLLAMA_EMBEDDING_MODEL" in str(e)
 
     def test_embedding_dimensions_lookup(self):
         """get_expected_embedding_dim returns correct dimensions."""

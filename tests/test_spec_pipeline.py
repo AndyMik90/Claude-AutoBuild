@@ -115,7 +115,7 @@ class TestGetSpecsDir:
 
     def test_calls_init_auto_claude_dir(self, temp_dir: Path):
         """Initializes auto-claude directory."""
-        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+        with patch('spec.pipeline.models.init_auto_claude_dir') as mock_init:
             mock_init.return_value = (temp_dir / ".auto-claude", False)
 
             get_specs_dir(temp_dir)

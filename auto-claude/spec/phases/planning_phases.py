@@ -22,7 +22,7 @@ class PlanningPhaseMixin:
 
     async def phase_planning(self) -> PhaseResult:
         """Create the implementation plan."""
-        from validate_spec.auto_fix import auto_fix_plan
+        from ..validate_pkg.auto_fix import auto_fix_plan
 
         plan_file = self.spec_dir / "implementation_plan.json"
 

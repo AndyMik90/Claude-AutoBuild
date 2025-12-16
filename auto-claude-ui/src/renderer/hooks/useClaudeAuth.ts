@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ProjectEnvConfig } from '../../../shared/types';
+import type { ProjectEnvConfig } from '../../shared/types';
 
 type AuthStatus = 'checking' | 'authenticated' | 'not_authenticated' | 'error';
 

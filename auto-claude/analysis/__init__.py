@@ -1,0 +1,36 @@
+"""
+Analysis Module
+===============
+
+Code analysis and project scanning tools.
+"""
+
+# Import from analyzers subpackage (these are the modular analyzers)
+from .analyzers import (
+    ProjectAnalyzer as ModularProjectAnalyzer,
+    ServiceAnalyzer,
+    analyze_project,
+    analyze_service,
+)
+
+# Import from analysis module root (these are other analysis tools)
+from .project_analyzer import ProjectAnalyzer
+from .risk_classifier import RiskClassifier
+from .security_scanner import SecurityScanner
+from .ci_discovery import CIDiscovery
+from .test_discovery import TestDiscovery
+
+# insight_extractor is a module with functions, not a class, so don't import it here
+# Import it directly when needed: from analysis import insight_extractor
+
+__all__ = [
+    "ProjectAnalyzer",
+    "ModularProjectAnalyzer",
+    "ServiceAnalyzer",
+    "analyze_project",
+    "analyze_service",
+    "RiskClassifier",
+    "SecurityScanner",
+    "CIDiscovery",
+    "TestDiscovery",
+]

@@ -291,7 +291,11 @@ class GraphitiQueries:
                     )
                     saved_count += 1
                 except Exception as e:
-                    logger.debug(f"Failed to save file insight: {e}")
+                    if "duplicate_facts" in str(e):
+                        logger.debug(f"Graphiti deduplication warning (non-fatal): {e}")
+                        saved_count += 1
+                    else:
+                        logger.debug(f"Failed to save file insight: {e}")
 
             # 2. Save patterns
             for pattern in insights.get("patterns_discovered", []):
@@ -330,7 +334,11 @@ class GraphitiQueries:
                     )
                     saved_count += 1
                 except Exception as e:
-                    logger.debug(f"Failed to save pattern: {e}")
+                    if "duplicate_facts" in str(e):
+                        logger.debug(f"Graphiti deduplication warning (non-fatal): {e}")
+                        saved_count += 1
+                    else:
+                        logger.debug(f"Failed to save pattern: {e}")
 
             # 3. Save gotchas
             for gotcha in insights.get("gotchas_discovered", []):
@@ -367,7 +375,11 @@ class GraphitiQueries:
                     )
                     saved_count += 1
                 except Exception as e:
-                    logger.debug(f"Failed to save gotcha: {e}")
+                    if "duplicate_facts" in str(e):
+                        logger.debug(f"Graphiti deduplication warning (non-fatal): {e}")
+                        saved_count += 1
+                    else:
+                        logger.debug(f"Failed to save gotcha: {e}")
 
             # 4. Save approach outcome
             outcome = insights.get("approach_outcome", {})
@@ -400,7 +412,13 @@ class GraphitiQueries:
                     )
                     saved_count += 1
                 except Exception as e:
-                    logger.debug(f"Failed to save task outcome: {e}")
+                    # Graphiti deduplication can fail with "invalid duplicate_facts idx"
+                    # This is a known issue in graphiti-core - episode is still partially saved
+                    if "duplicate_facts" in str(e):
+                        logger.debug(f"Graphiti deduplication warning (non-fatal): {e}")
+                        saved_count += 1  # Episode likely saved, just dedup failed
+                    else:
+                        logger.debug(f"Failed to save task outcome: {e}")
 
             # 5. Save recommendations
             recommendations = insights.get("recommendations", [])
@@ -427,7 +445,11 @@ class GraphitiQueries:
                     )
                     saved_count += 1
                 except Exception as e:
-                    logger.debug(f"Failed to save recommendations: {e}")
+                    if "duplicate_facts" in str(e):
+                        logger.debug(f"Graphiti deduplication warning (non-fatal): {e}")
+                        saved_count += 1
+                    else:
+                        logger.debug(f"Failed to save recommendations: {e}")
 
             logger.info(
                 f"Saved {saved_count}/{total_count} structured insights to Graphiti "

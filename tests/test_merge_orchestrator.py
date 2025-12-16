@@ -17,14 +17,20 @@ Covers:
 """
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
+# Add auto-claude directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+# Add tests directory to path for test_fixtures
+sys.path.insert(0, str(Path(__file__).parent))
+
 from merge import MergeOrchestrator
 from merge.orchestrator import TaskMergeRequest
 
-from conftest import (
+from test_fixtures import (
     SAMPLE_PYTHON_MODULE,
     SAMPLE_PYTHON_WITH_NEW_FUNCTION,
     SAMPLE_PYTHON_WITH_NEW_IMPORT,
@@ -38,7 +44,8 @@ class TestOrchestratorInitialization:
         """Orchestrator initializes with all components."""
         orchestrator = MergeOrchestrator(temp_project)
 
-        assert orchestrator.project_dir == temp_project
+        # Use resolve() to handle symlinks on macOS (/var vs /private/var)
+        assert orchestrator.project_dir.resolve() == temp_project.resolve()
         assert orchestrator.analyzer is not None
         assert orchestrator.conflict_detector is not None
         assert orchestrator.auto_merger is not None
@@ -112,20 +119,21 @@ class TestSingleTaskMerge:
     """Integration tests for single task merge."""
 
     def test_full_merge_pipeline_single_task(self, temp_project):
-        """Full pipeline works for single task merge."""
+        """Full pipeline works for single task merge (with git-committed changes)."""
+        import subprocess
+
         orchestrator = MergeOrchestrator(temp_project, dry_run=True)
 
-        # Setup: capture baseline and make changes
+        # Setup: capture baseline
         files = [temp_project / "src" / "utils.py"]
         orchestrator.evolution_tracker.capture_baselines("task-001", files, intent="Add new function")
 
-        # Simulate task making changes
-        orchestrator.evolution_tracker.record_modification(
-            "task-001",
-            "src/utils.py",
-            SAMPLE_PYTHON_MODULE,
-            SAMPLE_PYTHON_WITH_NEW_FUNCTION,
-        )
+        # Create a task branch with actual git changes (the merge pipeline uses git diff main...HEAD)
+        subprocess.run(["git", "checkout", "-b", "auto-claude/task-001"], cwd=temp_project, capture_output=True)
+        utils_file = temp_project / "src" / "utils.py"
+        utils_file.write_text(SAMPLE_PYTHON_WITH_NEW_FUNCTION)
+        subprocess.run(["git", "add", "."], cwd=temp_project, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "Add new function"], cwd=temp_project, capture_output=True)
 
         # Execute merge - provide worktree_path to avoid lookup
         report = orchestrator.merge_task("task-001", worktree_path=temp_project)
@@ -133,6 +141,7 @@ class TestSingleTaskMerge:
         # Verify results
         assert report.success is True
         assert "task-001" in report.tasks_merged
+        # The pipeline should detect and process the modified file
         assert report.stats.files_processed >= 1
 
 

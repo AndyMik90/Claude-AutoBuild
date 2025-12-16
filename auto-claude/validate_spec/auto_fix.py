@@ -1,80 +1,40 @@
 """
-Auto-Fix Utilities
-==================
+Backward compatibility shim for auto_fix module.
 
-Automated fixes for common implementation plan issues.
+DEPRECATED: This module has been moved to spec.validate_pkg.auto_fix.
+
+Please update your imports:
+    OLD: from validate_spec.auto_fix import auto_fix_plan
+    NEW: from spec.validate_pkg.auto_fix import auto_fix_plan
+
+This shim provides compatibility but will be removed in a future version.
 """
 
-import json
+import sys
 from pathlib import Path
 
+# Lazy import to avoid circular dependencies
+def __getattr__(name):
+    """Lazy import mechanism to avoid circular imports."""
+    if name == "auto_fix_plan":
+        # Add spec directory to path temporarily to allow direct imports
+        # without triggering spec.__init__
+        spec_dir = Path(__file__).parent.parent / "spec"
+        if str(spec_dir) not in sys.path:
+            sys.path.insert(0, str(spec_dir))
 
-def auto_fix_plan(spec_dir: Path) -> bool:
-    """Attempt to auto-fix common implementation_plan.json issues.
+        try:
+            # Import directly from validate_pkg without going through spec package
+            from validate_pkg.auto_fix import auto_fix_plan
 
-    Args:
-        spec_dir: Path to the spec directory
+            # Cache the imported value in this module
+            globals()["auto_fix_plan"] = auto_fix_plan
+            return auto_fix_plan
+        finally:
+            # Clean up path modification
+            if str(spec_dir) in sys.path:
+                sys.path.remove(str(spec_dir))
 
-    Returns:
-        True if fixes were applied, False otherwise
-    """
-    plan_file = spec_dir / "implementation_plan.json"
+    raise AttributeError(f"module 'validate_spec.auto_fix' has no attribute '{name}'")
 
-    if not plan_file.exists():
-        return False
-
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
-    except json.JSONDecodeError:
-        return False
-
-    fixed = False
-
-    # Fix missing top-level fields
-    if "feature" not in plan:
-        plan["feature"] = "Unnamed Feature"
-        fixed = True
-
-    if "workflow_type" not in plan:
-        plan["workflow_type"] = "feature"
-        fixed = True
-
-    if "phases" not in plan:
-        plan["phases"] = []
-        fixed = True
-
-    # Fix phases
-    for i, phase in enumerate(plan.get("phases", [])):
-        if "phase" not in phase:
-            phase["phase"] = i + 1
-            fixed = True
-
-        if "name" not in phase:
-            phase["name"] = f"Phase {i + 1}"
-            fixed = True
-
-        if "subtasks" not in phase:
-            phase["subtasks"] = []
-            fixed = True
-
-        # Fix subtasks
-        for j, subtask in enumerate(phase.get("subtasks", [])):
-            if "id" not in subtask:
-                subtask["id"] = f"subtask-{i + 1}-{j + 1}"
-                fixed = True
-
-            if "description" not in subtask:
-                subtask["description"] = "No description"
-                fixed = True
-
-            if "status" not in subtask:
-                subtask["status"] = "pending"
-                fixed = True
-
-    if fixed:
-        with open(plan_file, "w") as f:
-            json.dump(plan, f, indent=2)
-        print(f"Auto-fixed: {plan_file}")
-
-    return fixed
+__all__ = ["auto_fix_plan"]

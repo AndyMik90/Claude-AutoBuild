@@ -5,5 +5,5 @@ export { useClaudeAuth } from './useClaudeAuth';
 export { useLinearConnection } from './useLinearConnection';
 export { useGitHubConnection } from './useGitHubConnection';
 export { useInfrastructureStatus } from './useInfrastructureStatus';
-export { useIpc } from './useIpc';
+export { useIpcListeners } from './useIpc';
 export { useVirtualizedTree } from './useVirtualizedTree';
