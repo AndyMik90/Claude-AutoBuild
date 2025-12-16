@@ -48,9 +48,8 @@ export interface AgentAPI {
   // Roadmap Operations
   getRoadmap: (projectId: string) => Promise<IPCResult<Roadmap | null>>;
   saveRoadmap: (projectId: string, roadmap: Roadmap) => Promise<IPCResult>;
-  generateRoadmap: (projectId: string) => void;
-  refreshRoadmap: (projectId: string) => void;
-  updateFeatureStatus: (
+  generateRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean) => void;
+  refreshRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean) => void;  updateFeatureStatus: (
     projectId: string,
     featureId: string,
     status: RoadmapFeatureStatus
@@ -177,11 +176,10 @@ export const createAgentAPI = (): AgentAPI => ({
   saveRoadmap: (projectId: string, roadmap: Roadmap): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.ROADMAP_SAVE, projectId, roadmap),
 
-  generateRoadmap: (projectId: string): void =>
-    ipcRenderer.send(IPC_CHANNELS.ROADMAP_GENERATE, projectId),
-
-  refreshRoadmap: (projectId: string): void =>
-    ipcRenderer.send(IPC_CHANNELS.ROADMAP_REFRESH, projectId),
+  generateRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean): void =>
+    ipcRenderer.send(IPC_CHANNELS.ROADMAP_GENERATE, projectId, enableCompetitorAnalysis),
+  refreshRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean): void =>
+    ipcRenderer.send(IPC_CHANNELS.ROADMAP_REFRESH, projectId, enableCompetitorAnalysis),
 
   updateFeatureStatus: (
     projectId: string,

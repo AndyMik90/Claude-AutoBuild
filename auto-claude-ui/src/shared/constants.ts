@@ -2,6 +2,8 @@
  * Shared constants for Auto Claude UI
  */
 
+import type { AgentProfile } from './types/settings';
+
 // Task status columns in Kanban board order
 export const TASK_STATUS_COLUMNS = [
   'backlog',
@@ -99,7 +101,9 @@ export const DEFAULT_APP_SETTINGS = {
   },
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken: undefined as string | undefined,
-  globalOpenAIApiKey: undefined as string | undefined
+  globalOpenAIApiKey: undefined as string | undefined,
+  // Selected agent profile - defaults to 'balanced' for good speed/quality balance
+  selectedAgentProfile: 'balanced'
 };
 
 // Default project settings
@@ -420,6 +424,43 @@ export const AVAILABLE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet 4' },
   { value: 'haiku', label: 'Claude Haiku 3.5' }
 ] as const;
+
+// Thinking levels for Claude model (budget token allocation)
+export const THINKING_LEVELS = [
+  { value: 'none', label: 'None', description: 'No extended thinking' },
+  { value: 'low', label: 'Low', description: 'Brief consideration' },
+  { value: 'medium', label: 'Medium', description: 'Moderate analysis' },
+  { value: 'high', label: 'High', description: 'Deep thinking' },
+  { value: 'ultrathink', label: 'Ultra Think', description: 'Maximum reasoning depth' }
+] as const;
+
+// Default agent profiles for preset model/thinking configurations
+export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
+  {
+    id: 'complex',
+    name: 'Complex Tasks',
+    description: 'For intricate, multi-step implementations requiring deep analysis',
+    model: 'opus',
+    thinkingLevel: 'ultrathink',
+    icon: 'Brain'
+  },
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Good balance of speed and quality for most tasks',
+    model: 'sonnet',
+    thinkingLevel: 'medium',
+    icon: 'Scale'
+  },
+  {
+    id: 'quick',
+    name: 'Quick Edits',
+    description: 'Fast iterations for simple changes and quick fixes',
+    model: 'haiku',
+    thinkingLevel: 'low',
+    icon: 'Zap'
+  }
+];
 
 // Memory backends
 export const MEMORY_BACKENDS = [

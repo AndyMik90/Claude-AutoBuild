@@ -4,6 +4,19 @@
 
 import type { NotificationSettings } from './project';
 
+// Thinking level for Claude model (budget token allocation)
+export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+
+// Agent profile for preset model/thinking configurations
+export interface AgentProfile {
+  id: string;
+  name: string;
+  description: string;
+  model: 'haiku' | 'sonnet' | 'opus';
+  thinkingLevel: ThinkingLevel;
+  icon?: string;  // Lucide icon name
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   defaultModel: string;
@@ -18,6 +31,8 @@ export interface AppSettings {
   globalOpenAIApiKey?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
+  // Selected agent profile for preset model/thinking configurations
+  selectedAgentProfile?: string;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

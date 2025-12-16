@@ -355,6 +355,7 @@ export default function App() {
                 <ProgressCircle value={25} size="sm" />
                 <ProgressCircle value={50} size="md" />
                 <ProgressCircle value={75} size="lg" />
+                <ProgressCircle value={100} size="lg" color="var(--color-semantic-success)" />
               </div>
             </Card>
 

@@ -2,6 +2,8 @@
  * Task-related types
  */
 
+import type { ThinkingLevel } from './settings';
+
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
 
 // Reason why a task is in human_review status
@@ -125,6 +127,8 @@ export interface TaskDraft {
   priority: TaskPriority | '';
   complexity: TaskComplexity | '';
   impact: TaskImpact | '';
+  model: ModelType | '';
+  thinkingLevel: ThinkingLevel | '';
   images: ImageAttachment[];
   requireReviewBeforeCoding?: boolean;
   savedAt: Date;
@@ -134,6 +138,9 @@ export interface TaskDraft {
 export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
 export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+// Re-export ThinkingLevel (defined in settings.ts) for convenience
+export type { ThinkingLevel };
+export type ModelType = 'haiku' | 'sonnet' | 'opus';
 export type TaskCategory =
   | 'feature'
   | 'bug_fix'
@@ -187,6 +194,10 @@ export interface TaskMetadata {
 
   // Review settings
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
+
+  // Agent configuration (from agent profile or manual selection)
+  model?: ModelType;  // Claude model to use (haiku, sonnet, opus)
+  thinkingLevel?: ThinkingLevel;  // Thinking budget level (none, low, medium, high, ultrathink)
 
   // Archive status
   archivedAt?: string;  // ISO date when task was archived

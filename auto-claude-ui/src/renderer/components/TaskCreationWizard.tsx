@@ -30,15 +30,19 @@ import {
 } from './ImageUpload';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
   MAX_IMAGES_PER_TASK,
-  ALLOWED_IMAGE_TYPES_DISPLAY
+  ALLOWED_IMAGE_TYPES_DISPLAY,
+  DEFAULT_AGENT_PROFILES,
+  AVAILABLE_MODELS,
+  THINKING_LEVELS
 } from '../../shared/constants';
+import { useSettingsStore } from '../stores/settings-store';
 
 interface TaskCreationWizardProps {
   projectId: string;
@@ -51,6 +55,12 @@ export function TaskCreationWizard({
   open,
   onOpenChange
 }: TaskCreationWizardProps) {
+  // Get selected agent profile from settings
+  const { settings } = useSettingsStore();
+  const selectedProfile = DEFAULT_AGENT_PROFILES.find(
+    p => p.id === settings.selectedAgentProfile
+  ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'balanced')!;
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -63,6 +73,10 @@ export function TaskCreationWizard({
   const [priority, setPriority] = useState<TaskPriority | ''>('');
   const [complexity, setComplexity] = useState<TaskComplexity | ''>('');
   const [impact, setImpact] = useState<TaskImpact | ''>('');
+
+  // Model configuration (initialized from selected agent profile)
+  const [model, setModel] = useState<ModelType | ''>(selectedProfile.model);
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(selectedProfile.thinkingLevel);
 
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>([]);
@@ -77,7 +91,7 @@ export function TaskCreationWizard({
   // Ref for the textarea to handle paste events
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load draft when dialog opens
+  // Load draft when dialog opens, or initialize from selected profile
   useEffect(() => {
     if (open && projectId) {
       const draft = loadDraft(projectId);
@@ -88,6 +102,9 @@ export function TaskCreationWizard({
         setPriority(draft.priority);
         setComplexity(draft.complexity);
         setImpact(draft.impact);
+        // Load model/thinkingLevel from draft if present, otherwise use profile defaults
+        setModel(draft.model || selectedProfile.model);
+        setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
         setImages(draft.images);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setIsDraftRestored(true);
@@ -99,9 +116,13 @@ export function TaskCreationWizard({
         if (draft.images.length > 0) {
           setShowImages(true);
         }
+      } else {
+        // No draft - initialize model/thinkingLevel from selected profile
+        setModel(selectedProfile.model);
+        setThinkingLevel(selectedProfile.thinkingLevel);
       }
     }
-  }, [open, projectId]);
+  }, [open, projectId, selectedProfile.model, selectedProfile.thinkingLevel]);
 
   /**
    * Get current form state as a draft
@@ -114,10 +135,12 @@ export function TaskCreationWizard({
     priority,
     complexity,
     impact,
+    model,
+    thinkingLevel,
     images,
     requireReviewBeforeCoding,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, images, requireReviewBeforeCoding]);
+  }), [projectId, title, description, category, priority, complexity, impact, model, thinkingLevel, images, requireReviewBeforeCoding]);
 
   /**
    * Handle paste event for screenshot support
@@ -218,6 +241,8 @@ export function TaskCreationWizard({
       if (priority) metadata.priority = priority;
       if (complexity) metadata.complexity = complexity;
       if (impact) metadata.impact = impact;
+      if (model) metadata.model = model;
+      if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
       if (images.length > 0) metadata.attachedImages = images;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
 
@@ -246,6 +271,9 @@ export function TaskCreationWizard({
     setPriority('');
     setComplexity('');
     setImpact('');
+    // Reset model/thinkingLevel to selected profile defaults
+    setModel(selectedProfile.model);
+    setThinkingLevel(selectedProfile.thinkingLevel);
     setImages([]);
     setRequireReviewBeforeCoding(false);
     setError(null);
@@ -348,6 +376,58 @@ export function TaskCreationWizard({
             />
             <p className="text-xs text-muted-foreground">
               A short, descriptive title will be generated automatically if left empty.
+            </p>
+          </div>
+
+          {/* Model Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="model" className="text-sm font-medium text-foreground">
+              Model
+            </Label>
+            <Select
+              value={model}
+              onValueChange={(value) => setModel(value as ModelType)}
+              disabled={isCreating}
+            >
+              <SelectTrigger id="model" className="h-9">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {AVAILABLE_MODELS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              The Claude model to use for this task. Defaults to your selected agent profile.
+            </p>
+          </div>
+
+          {/* Thinking Level Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="thinking-level" className="text-sm font-medium text-foreground">
+              Thinking Level
+            </Label>
+            <Select
+              value={thinkingLevel}
+              onValueChange={(value) => setThinkingLevel(value as ThinkingLevel)}
+              disabled={isCreating}
+            >
+              <SelectTrigger id="thinking-level" className="h-9">
+                <SelectValue placeholder="Select thinking level" />
+              </SelectTrigger>
+              <SelectContent>
+                {THINKING_LEVELS.map((level) => (
+                  <SelectItem key={level.value} value={level.value}>
+                    {level.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Extended thinking depth for complex reasoning. Higher levels use more tokens but provide deeper analysis.
             </p>
           </div>
 
