@@ -258,8 +258,8 @@ export async function convertIdeaToTask(
     const metadataPath = path.join(specDir, 'task_metadata.json');
     writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-    // Update idea status
-    idea.status = 'converted';
+    // Update idea status to archived (converted ideas are archived)
+    idea.status = 'archived';
     idea.linked_task_id = specId;
     updateIdeationTimestamp(ideation);
     writeIdeationFile(ideationPath, ideation);

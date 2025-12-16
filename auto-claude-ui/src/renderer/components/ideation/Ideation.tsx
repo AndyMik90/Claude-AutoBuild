@@ -27,6 +27,7 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     activeTab,
     showConfigDialog,
     showDismissed,
+    showArchived,
     showEnvConfigModal,
     showAddMoreDialog,
     typesToAdd,
@@ -34,10 +35,12 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     isCheckingToken,
     summary,
     activeIdeas,
+    selectedIds,
     setSelectedIdea,
     setActiveTab,
     setShowConfigDialog,
     setShowDismissed,
+    setShowArchived,
     setShowEnvConfigModal,
     setShowAddMoreDialog,
     setTypesToAdd,
@@ -46,6 +49,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     handleRefresh,
     handleStop,
     handleDismissAll,
+    handleDeleteSelected,
+    handleSelectAll,
     handleEnvConfigured,
     getAvailableTypesToAdd,
     handleAddMoreIdeas,
@@ -54,6 +59,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     handleGoToTask,
     handleDismiss,
     toggleIdeationType,
+    toggleSelectIdea,
+    clearSelection,
     getIdeasByType
   } = useIdeation(projectId, { onGoToTask });
 
@@ -121,13 +128,19 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
         totalIdeas={summary.totalIdeas}
         ideaCountByType={summary.byType}
         showDismissed={showDismissed}
+        showArchived={showArchived}
+        selectedCount={selectedIds.size}
         onToggleShowDismissed={() => setShowDismissed(!showDismissed)}
+        onToggleShowArchived={() => setShowArchived(!showArchived)}
         onOpenConfig={() => setShowConfigDialog(true)}
         onOpenAddMore={() => {
           setTypesToAdd([]);
           setShowAddMoreDialog(true);
         }}
         onDismissAll={handleDismissAll}
+        onDeleteSelected={handleDeleteSelected}
+        onSelectAll={() => handleSelectAll(activeIdeas)}
+        onClearSelection={clearSelection}
         onRefresh={handleRefresh}
         hasActiveIdeas={activeIdeas.length > 0}
         canAddMore={getAvailableTypesToAdd().length > 0}
@@ -143,10 +156,12 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
                 <IdeaCard
                   key={idea.id}
                   idea={idea}
+                  isSelected={selectedIds.has(idea.id)}
                   onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                   onConvert={handleConvertToTask}
                   onGoToTask={handleGoToTask}
                   onDismiss={handleDismiss}
+                  onToggleSelect={toggleSelectIdea}
                 />
               ))}
               {activeIdeas.length === 0 && (
@@ -158,29 +173,36 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
           </TabsContent>
 
           {/* Type-specific Views */}
-          {ALL_IDEATION_TYPES.map((type) => (
-            <TabsContent key={type} value={type} className="flex-1 overflow-auto p-4">
-              <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {IDEATION_TYPE_DESCRIPTIONS[type]}
-                </p>
-              </div>
-              <div className="grid gap-3">
-                {getIdeasByType(type)
-                  .filter((idea) => showDismissed || idea.status !== 'dismissed')
-                  .map((idea) => (
+          {ALL_IDEATION_TYPES.map((type) => {
+            const typeIdeas = getIdeasByType(type).filter((idea) => {
+              if (!showDismissed && idea.status === 'dismissed') return false;
+              if (!showArchived && idea.status === 'archived') return false;
+              return true;
+            });
+            return (
+              <TabsContent key={type} value={type} className="flex-1 overflow-auto p-4">
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {IDEATION_TYPE_DESCRIPTIONS[type]}
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {typeIdeas.map((idea) => (
                     <IdeaCard
                       key={idea.id}
                       idea={idea}
+                      isSelected={selectedIds.has(idea.id)}
                       onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                       onConvert={handleConvertToTask}
                       onGoToTask={handleGoToTask}
                       onDismiss={handleDismiss}
+                      onToggleSelect={toggleSelectIdea}
                     />
                   ))}
-              </div>
-            </TabsContent>
-          ))}
+                </div>
+              </TabsContent>
+            );
+          })}
         </IdeationFilters>
       </div>
 

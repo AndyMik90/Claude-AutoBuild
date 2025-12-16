@@ -29,7 +29,7 @@ export function ThemeSelector({
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-background-secondary)] hover:bg-[var(--color-border-default)] transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-(--color-background-secondary) hover:bg-(--color-border-default) transition-colors"
         >
           <div
             className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
@@ -37,7 +37,7 @@ export function ThemeSelector({
           />
           <span className="text-body-medium font-medium">{currentTheme.name}</span>
           <ChevronLeft className={cn(
-            "w-4 h-4 text-[var(--color-text-tertiary)] transition-transform",
+            "w-4 h-4 text-(--color-text-tertiary) transition-transform",
             isOpen ? "rotate-90" : "-rotate-90"
           )} />
         </button>
@@ -48,7 +48,7 @@ export function ThemeSelector({
               className="fixed inset-0 z-40"
               onClick={() => setIsOpen(false)}
             />
-            <div className="absolute top-full right-0 mt-2 w-64 p-2 bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-default)] z-50">
+            <div className="absolute top-full right-0 mt-2 w-64 p-2 bg-(--color-surface-card) rounded-lg shadow-lg border border-(--color-border-default) z-50">
               {themes.map((theme) => (
                 <button
                   key={theme.id}
@@ -57,10 +57,10 @@ export function ThemeSelector({
                     setIsOpen(false)
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-[var(--radius-md)] transition-colors text-left",
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left",
                     colorTheme === theme.id
-                      ? "bg-[var(--color-accent-primary-light)]"
-                      : "hover:bg-[var(--color-background-secondary)]"
+                      ? "bg-(--color-accent-primary-light)"
+                      : "hover:bg-(--color-background-secondary)"
                   )}
                 >
                   <div className="flex -space-x-1">
@@ -75,10 +75,10 @@ export function ThemeSelector({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-body-medium font-medium">{theme.name}</p>
-                    <p className="text-body-small text-[var(--color-text-tertiary)] truncate">{theme.description}</p>
+                    <p className="text-body-small text-(--color-text-tertiary) truncate">{theme.description}</p>
                   </div>
                   {colorTheme === theme.id && (
-                    <Check className="w-4 h-4 text-[var(--color-accent-primary)]" />
+                    <Check className="w-4 h-4 text-(--color-accent-primary)" />
                   )}
                 </button>
               ))}
@@ -90,13 +90,13 @@ export function ThemeSelector({
       {/* Light/Dark Toggle */}
       <button
         onClick={onModeToggle}
-        className="p-2 rounded-[var(--radius-lg)] bg-[var(--color-background-secondary)] hover:bg-[var(--color-border-default)] transition-colors"
+        className="p-2 rounded-lg bg-(--color-background-secondary) hover:bg-(--color-border-default) transition-colors"
         aria-label={`Switch to ${mode === 'light' ? 'dark' : 'light'} mode`}
       >
         {mode === 'light' ? (
-          <Moon className="w-5 h-5 text-[var(--color-text-secondary)]" />
+          <Moon className="w-5 h-5 text-(--color-text-secondary)" />
         ) : (
-          <Sun className="w-5 h-5 text-[var(--color-text-secondary)]" />
+          <Sun className="w-5 h-5 text-(--color-text-secondary)" />
         )}
       </button>
     </div>

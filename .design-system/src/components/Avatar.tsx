@@ -28,8 +28,8 @@ export function Avatar({ src, name = 'User', size = 'md', color }: AvatarProps) 
   return (
     <div
       className={cn(
-        'rounded-full flex items-center justify-center font-semibold border-2 border-[var(--color-surface-card)] overflow-hidden',
-        !color && 'bg-[var(--color-border-default)]',
+        'rounded-full flex items-center justify-center font-semibold border-2 border-(--color-surface-card) overflow-hidden',
+        !color && 'bg-(--color-border-default)',
         sizes[size]
       )}
       style={bgStyle}
@@ -37,7 +37,7 @@ export function Avatar({ src, name = 'User', size = 'md', color }: AvatarProps) 
       {src ? (
         <img src={src} alt={name} className="w-full h-full object-cover" />
       ) : (
-        <span className={cn(color ? 'text-white' : 'text-[var(--color-text-primary)]')}>{initials}</span>
+        <span className={cn(color ? 'text-white' : 'text-(--color-text-primary)')}>{initials}</span>
       )}
     </div>
   )
@@ -58,7 +58,7 @@ export function AvatarGroup({ avatars, max = 4 }: AvatarGroupProps) {
         <Avatar key={i} {...avatar} size="sm" />
       ))}
       {remaining > 0 && (
-        <div className="w-8 h-8 rounded-full bg-[var(--color-background-secondary)] flex items-center justify-center text-xs font-medium text-[var(--color-text-secondary)] border-2 border-[var(--color-surface-card)]">
+        <div className="w-8 h-8 rounded-full bg-(--color-background-secondary) flex items-center justify-center text-xs font-medium text-(--color-text-secondary) border-2 border-(--color-surface-card)">
           +{remaining}
         </div>
       )}

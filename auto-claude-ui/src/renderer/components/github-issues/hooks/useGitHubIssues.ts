@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useGitHubStore, loadGitHubIssues, checkGitHubConnection } from '../../../stores/github-store';
 import type { FilterState } from '../types';
 
@@ -16,16 +16,29 @@ export function useGitHubIssues(projectId: string | undefined) {
     getOpenIssuesCount
   } = useGitHubStore();
 
-  // Load issues when project changes
+  // Track if we've checked connection for this mount
+  const hasCheckedRef = useRef(false);
+
+  // Always check connection when component mounts or projectId changes
   useEffect(() => {
     if (projectId) {
+      // Always check connection on mount (in case settings changed)
       checkGitHubConnection(projectId);
+      hasCheckedRef.current = true;
+    }
+  }, [projectId]);
+
+  // Load issues when filter changes or after connection is established
+  useEffect(() => {
+    if (projectId && syncStatus?.connected) {
       loadGitHubIssues(projectId, filterState);
     }
-  }, [projectId, filterState]);
+  }, [projectId, filterState, syncStatus?.connected]);
 
   const handleRefresh = useCallback(() => {
     if (projectId) {
+      // Re-check connection and reload issues
+      checkGitHubConnection(projectId);
       loadGitHubIssues(projectId, filterState);
     }
   }, [projectId, filterState]);

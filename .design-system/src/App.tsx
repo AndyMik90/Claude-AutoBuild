@@ -53,11 +53,11 @@ export default function App() {
     <div className="min-h-screen p-8 transition-colors duration-300">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
-        <Card className="!rounded-[var(--radius-2xl)]">
+        <Card className="rounded-2xl!">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-display-medium">Auto-Build Design System</h1>
-              <p className="text-body-large text-[var(--color-text-secondary)] mt-1">
+              <p className="text-body-large text-(--color-text-secondary) mt-1">
                 A modern, friendly design system for building beautiful interfaces
               </p>
             </div>
@@ -118,8 +118,8 @@ export default function App() {
             <Card>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-heading-large">Color Palette</h2>
-                <p className="text-body-small text-[var(--color-text-tertiary)]">
-                  Currently showing: <strong className="text-[var(--color-text-primary)]">{currentThemeInfo.name}</strong> theme
+                <p className="text-body-small text-(--color-text-tertiary)">
+                  Currently showing: <strong className="text-(--color-text-primary)">{currentThemeInfo.name}</strong> theme
                 </p>
               </div>
 
@@ -128,14 +128,14 @@ export default function App() {
                   <h3 className="text-heading-small mb-3">Background</h3>
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-background-primary)] border border-[var(--color-border-default)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-background-primary) border border-(--color-border-default)" />
                       <p className="text-label-small mt-2">Primary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--bg-primary</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--bg-primary</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-background-secondary)] border border-[var(--color-border-default)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-background-secondary) border border-(--color-border-default)" />
                       <p className="text-label-small mt-2">Secondary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--bg-secondary</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--bg-secondary</p>
                     </div>
                   </div>
                 </div>
@@ -144,19 +144,19 @@ export default function App() {
                   <h3 className="text-heading-small mb-3">Accent</h3>
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-accent-primary)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-accent-primary)" />
                       <p className="text-label-small mt-2">Primary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--accent</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--accent</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-accent-primary-hover)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-accent-primary-hover)" />
                       <p className="text-label-small mt-2">Hover</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--accent-hover</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--accent-hover</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-accent-primary-light)] border border-[var(--color-border-default)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-accent-primary-light) border border-(--color-border-default)" />
                       <p className="text-label-small mt-2">Light</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--accent-light</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--accent-light</p>
                     </div>
                   </div>
                 </div>
@@ -165,24 +165,24 @@ export default function App() {
                   <h3 className="text-heading-small mb-3">Semantic</h3>
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-semantic-success)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-semantic-success)" />
                       <p className="text-label-small mt-2">Success</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--success</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--success</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-semantic-warning)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-semantic-warning)" />
                       <p className="text-label-small mt-2">Warning</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--warning</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--warning</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-semantic-error)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-semantic-error)" />
                       <p className="text-label-small mt-2">Error</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--error</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--error</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-semantic-info)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-semantic-info)" />
                       <p className="text-label-small mt-2">Info</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--info</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--info</p>
                     </div>
                   </div>
                 </div>
@@ -191,29 +191,29 @@ export default function App() {
                   <h3 className="text-heading-small mb-3">Text</h3>
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-text-primary)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-text-primary)" />
                       <p className="text-label-small mt-2">Primary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--text-primary</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--text-primary</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-text-secondary)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-text-secondary)" />
                       <p className="text-label-small mt-2">Secondary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--text-secondary</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--text-secondary</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-20 h-20 rounded-[var(--radius-lg)] bg-[var(--color-text-tertiary)]" />
+                      <div className="w-20 h-20 rounded-lg bg-(--color-text-tertiary)" />
                       <p className="text-label-small mt-2">Tertiary</p>
-                      <p className="text-body-small text-[var(--color-text-tertiary)]">--text-tertiary</p>
+                      <p className="text-body-small text-(--color-text-tertiary)">--text-tertiary</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Theme-specific color values */}
-              <div className="mt-8 p-4 bg-[var(--color-background-secondary)] rounded-[var(--radius-lg)]">
-                <p className="text-body-small text-[var(--color-text-secondary)]">
+              <div className="mt-8 p-4 bg-(--color-background-secondary) rounded-lg">
+                <p className="text-body-small text-(--color-text-secondary)">
                   <strong>Note:</strong> Colors vary by theme and mode. Switch themes using the dropdown above to see different palettes.
-                  For specific hex values, see the <strong>Themes</strong> tab or check <code className="font-mono bg-[var(--color-background-neutral)] px-1 rounded">design.json</code>.
+                  For specific hex values, see the <strong>Themes</strong> tab or check <code className="font-mono bg-(--color-background-neutral) px-1 rounded">design.json</code>.
                 </p>
               </div>
             </Card>
@@ -226,36 +226,36 @@ export default function App() {
               <h2 className="text-heading-large mb-6">Typography Scale</h2>
 
               <div className="space-y-6">
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Display Large • 36px / 700</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Display Large • 36px / 700</p>
                   <p className="text-display-large">The quick brown fox jumps</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Display Medium • 30px / 700</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Display Medium • 30px / 700</p>
                   <p className="text-display-medium">The quick brown fox jumps over</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Heading Large • 24px / 600</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Heading Large • 24px / 600</p>
                   <p className="text-heading-large">The quick brown fox jumps over the lazy dog</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Heading Medium • 20px / 600</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Heading Medium • 20px / 600</p>
                   <p className="text-heading-medium">The quick brown fox jumps over the lazy dog</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Heading Small • 16px / 600</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Heading Small • 16px / 600</p>
                   <p className="text-heading-small">The quick brown fox jumps over the lazy dog</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Body Large • 16px / 400</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Body Large • 16px / 400</p>
                   <p className="text-body-large">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
                 </div>
-                <div className="border-b border-[var(--color-border-default)] pb-4">
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Body Medium • 14px / 400</p>
+                <div className="border-b border-(--color-border-default) pb-4">
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Body Medium • 14px / 400</p>
                   <p className="text-body-medium">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
                 </div>
                 <div>
-                  <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Body Small • 12px / 400</p>
+                  <p className="text-label-small text-(--color-text-tertiary) mb-2">Body Small • 12px / 400</p>
                   <p className="text-body-small">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
                 </div>
               </div>
@@ -392,7 +392,7 @@ export default function App() {
           <div className="space-y-8">
             <Card>
               <h2 className="text-heading-large mb-4">Animations</h2>
-              <p className="text-body-medium text-[var(--color-text-secondary)]">
+              <p className="text-body-medium text-(--color-text-secondary)">
                 Animation demos are available in the original file. Extract them to a separate AnimationsSection component for better organization.
               </p>
             </Card>
@@ -404,26 +404,26 @@ export default function App() {
             <Card>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-[var(--radius-lg)] bg-[var(--color-accent-primary-light)]">
-                    <Sparkles className="w-6 h-6 text-[var(--color-accent-primary)]" />
+                  <div className="p-2 rounded-lg bg-(--color-accent-primary-light)">
+                    <Sparkles className="w-6 h-6 text-(--color-accent-primary)" />
                   </div>
                   <div>
                     <h2 className="text-heading-large">Theme Gallery</h2>
-                    <p className="text-body-medium text-[var(--color-text-secondary)]">
+                    <p className="text-body-medium text-(--color-text-secondary)">
                       {themes.length} color themes × 2 modes = {themes.length * 2} combinations
                     </p>
                   </div>
                 </div>
 
                 {/* Mode Toggle */}
-                <div className="flex items-center gap-3 p-1 bg-[var(--color-background-secondary)] rounded-full">
+                <div className="flex items-center gap-3 p-1 bg-(--color-background-secondary) rounded-full">
                   <button
                     onClick={() => mode === 'dark' && toggleMode()}
                     className={cn(
                       "px-4 py-2 rounded-full text-body-medium font-medium transition-all",
                       mode === 'light'
-                        ? "bg-[var(--color-surface-card)] shadow-sm"
-                        : "text-[var(--color-text-secondary)]"
+                        ? "bg-(--color-surface-card) shadow-sm"
+                        : "text-(--color-text-secondary)"
                     )}
                   >
                     <Sun className="w-4 h-4 inline mr-2" />
@@ -434,8 +434,8 @@ export default function App() {
                     className={cn(
                       "px-4 py-2 rounded-full text-body-medium font-medium transition-all",
                       mode === 'dark'
-                        ? "bg-[var(--color-surface-card)] shadow-sm"
-                        : "text-[var(--color-text-secondary)]"
+                        ? "bg-(--color-surface-card) shadow-sm"
+                        : "text-(--color-text-secondary)"
                     )}
                   >
                     <Moon className="w-4 h-4 inline mr-2" />
@@ -454,10 +454,10 @@ export default function App() {
                     key={theme.id}
                     onClick={() => setColorTheme(theme.id)}
                     className={cn(
-                      "p-6 rounded-[var(--radius-2xl)] text-left transition-all border-2",
+                      "p-6 rounded-2xl text-left transition-all border-2",
                       colorTheme === theme.id
-                        ? "border-[var(--color-accent-primary)] bg-[var(--color-accent-primary-light)]"
-                        : "border-[var(--color-border-default)] bg-[var(--color-surface-card)] hover:border-[var(--color-accent-primary)]/50"
+                        ? "border-(--color-accent-primary) bg-(--color-accent-primary-light)"
+                        : "border-(--color-border-default) bg-(--color-surface-card) hover:border-(--color-accent-primary)/50"
                     )}
                   >
                     <div className="flex items-center gap-2 mb-3">
@@ -471,9 +471,9 @@ export default function App() {
                       />
                     </div>
                     <h3 className="text-heading-small mb-1">{theme.name}</h3>
-                    <p className="text-body-small text-[var(--color-text-tertiary)]">{theme.description}</p>
+                    <p className="text-body-small text-(--color-text-tertiary)">{theme.description}</p>
                     {colorTheme === theme.id && (
-                      <div className="mt-3 inline-flex items-center px-2 py-1 rounded-full bg-[var(--color-accent-primary)] text-white text-label-small">
+                      <div className="mt-3 inline-flex items-center px-2 py-1 rounded-full bg-(--color-accent-primary) text-white text-label-small">
                         Active
                       </div>
                     )}

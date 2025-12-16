@@ -15,18 +15,18 @@ export function CalendarCard() {
   return (
     <Card className="w-[300px]">
       <div className="flex items-center justify-between mb-4">
-        <button className="p-1 hover:bg-[var(--color-background-secondary)] rounded transition-colors">
-          <ChevronLeft className="w-5 h-5 text-[var(--color-text-tertiary)]" />
+        <button className="p-1 hover:bg-(--color-background-secondary) rounded transition-colors">
+          <ChevronLeft className="w-5 h-5 text-(--color-text-tertiary)" />
         </button>
         <h3 className="text-heading-small">February, 2021</h3>
-        <button className="p-1 hover:bg-[var(--color-background-secondary)] rounded transition-colors">
-          <ChevronRight className="w-5 h-5 text-[var(--color-text-tertiary)]" />
+        <button className="p-1 hover:bg-(--color-background-secondary) rounded transition-colors">
+          <ChevronRight className="w-5 h-5 text-(--color-text-tertiary)" />
         </button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center">
         {days.map((day, i) => (
-          <div key={i} className="text-label-small text-[var(--color-text-tertiary)] py-2">
+          <div key={i} className="text-label-small text-(--color-text-tertiary) py-2">
             {day}
           </div>
         ))}
@@ -39,11 +39,11 @@ export function CalendarCard() {
             <button
               key={i}
               className={cn(
-                'w-9 h-9 rounded-[var(--radius-md)] text-body-medium transition-colors',
-                !isCurrentMonth && 'text-[var(--color-text-tertiary)]',
-                isSelected && 'bg-[var(--color-accent-primary)] text-[var(--color-text-inverse)] rounded-full',
-                isToday && !isSelected && 'text-[var(--color-accent-primary)] font-semibold',
-                !isSelected && 'hover:bg-[var(--color-background-secondary)]'
+                'w-9 h-9 rounded-md text-body-medium transition-colors',
+                !isCurrentMonth && 'text-(--color-text-tertiary)',
+                isSelected && 'bg-(--color-accent-primary) text-(--color-text-inverse) rounded-full',
+                isToday && !isSelected && 'text-(--color-accent-primary) font-semibold',
+                !isSelected && 'hover:bg-(--color-background-secondary)'
               )}
             >
               {date}

@@ -21,6 +21,9 @@ import {
   updateIdeaStatus,
   dismissIdea,
   dismissAllIdeas,
+  archiveIdea,
+  deleteIdea,
+  deleteMultipleIdeas,
   startIdeationGeneration,
   refreshIdeationSession,
   stopIdeationGeneration,
@@ -54,6 +57,21 @@ export function registerIdeationHandlers(
   ipcMain.handle(
     IPC_CHANNELS.IDEATION_DISMISS_ALL,
     dismissAllIdeas
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.IDEATION_ARCHIVE,
+    archiveIdea
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.IDEATION_DELETE,
+    deleteIdea
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.IDEATION_DELETE_MULTIPLE,
+    deleteMultipleIdeas
   );
 
   // Generation operations

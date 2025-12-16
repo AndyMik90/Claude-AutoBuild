@@ -103,6 +103,12 @@ export const infrastructureMock = {
 
   dismissAllIdeas: async () => ({ success: true }),
 
+  archiveIdea: async () => ({ success: true }),
+
+  deleteIdea: async () => ({ success: true }),
+
+  deleteMultipleIdeas: async () => ({ success: true }),
+
   onIdeationProgress: () => () => {},
   onIdeationLog: () => () => {},
   onIdeationComplete: () => () => {},

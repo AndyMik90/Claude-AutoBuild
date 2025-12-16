@@ -145,6 +145,9 @@ export const IPC_CHANNELS = {
   IDEATION_CONVERT_TO_TASK: 'ideation:convertToTask',
   IDEATION_DISMISS: 'ideation:dismiss',
   IDEATION_DISMISS_ALL: 'ideation:dismissAll',
+  IDEATION_ARCHIVE: 'ideation:archive',
+  IDEATION_DELETE: 'ideation:delete',
+  IDEATION_DELETE_MULTIPLE: 'ideation:deleteMultiple',
 
   // Ideation events (main -> renderer)
   IDEATION_PROGRESS: 'ideation:progress',

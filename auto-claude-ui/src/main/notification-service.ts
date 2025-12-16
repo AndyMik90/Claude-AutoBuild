@@ -162,3 +162,4 @@ class NotificationService {
 
 // Export singleton instance
 export const notificationService = new NotificationService();
+

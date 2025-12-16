@@ -336,6 +336,9 @@ export interface ElectronAPI {
   convertIdeaToTask: (projectId: string, ideaId: string) => Promise<IPCResult<Task>>;
   dismissIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
   dismissAllIdeas: (projectId: string) => Promise<IPCResult>;
+  archiveIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
+  deleteIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
+  deleteMultipleIdeas: (projectId: string, ideaIds: string[]) => Promise<IPCResult>;
 
   // Ideation event listeners
   onIdeationProgress: (

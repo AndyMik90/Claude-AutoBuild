@@ -56,7 +56,8 @@ export const IDEATION_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   selected: 'bg-primary/10 text-primary',
   converted: 'bg-success/10 text-success',
-  dismissed: 'bg-destructive/10 text-destructive line-through'
+  dismissed: 'bg-destructive/10 text-destructive line-through',
+  archived: 'bg-violet-500/10 text-violet-400'
 };
 
 // ============================================

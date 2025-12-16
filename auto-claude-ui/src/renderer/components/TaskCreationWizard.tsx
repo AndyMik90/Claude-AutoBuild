@@ -456,9 +456,9 @@ export function TaskCreationWizard({
             showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
           )}
         >
-          <div className="flex h-full">
+          <div className="flex h-full min-h-0 overflow-hidden">
             {/* Form content */}
-            <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto">
+            <div className="flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -500,6 +500,7 @@ export function TaskCreationWizard({
               onPaste={handlePaste}
               rows={5}
               disabled={isCreating}
+              className="resize-y min-h-[120px] max-h-[400px]"
             />
             <p className="text-xs text-muted-foreground">
               Tip: Paste screenshots directly with {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'} to add reference images.

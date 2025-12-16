@@ -21,3 +21,4 @@ jobs:
           footer_title: "Auto Claude Changelog"
           footer_timestamp: true
           reduce_headings: true
+

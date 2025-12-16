@@ -8,12 +8,12 @@ export interface BadgeProps {
 
 export function Badge({ children, variant = 'default' }: BadgeProps) {
   const variants = {
-    default: 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]',
-    primary: 'bg-[var(--color-accent-primary-light)] text-[var(--color-accent-primary)]',
-    success: 'bg-[var(--color-semantic-success-light)] text-[var(--color-semantic-success)]',
-    warning: 'bg-[var(--color-semantic-warning-light)] text-[var(--color-semantic-warning)]',
-    error: 'bg-[var(--color-semantic-error-light)] text-[var(--color-semantic-error)]',
-    outline: 'bg-transparent border border-[var(--color-border-default)] text-[var(--color-text-secondary)]'
+    default: 'bg-(--color-background-secondary) text-(--color-text-secondary)',
+    primary: 'bg-(--color-accent-primary-light) text-(--color-accent-primary)',
+    success: 'bg-(--color-semantic-success-light) text-(--color-semantic-success)',
+    warning: 'bg-(--color-semantic-warning-light) text-(--color-semantic-warning)',
+    error: 'bg-(--color-semantic-error-light) text-(--color-semantic-error)',
+    outline: 'bg-transparent border border-(--color-border-default) text-(--color-text-secondary)'
   }
 
   return (

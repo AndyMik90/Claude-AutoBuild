@@ -79,17 +79,17 @@ export function IssueDetail({ issue, onInvestigate, investigationResult }: Issue
         <div className="flex items-center gap-2">
           <Button onClick={onInvestigate} className="flex-1">
             <Sparkles className="h-4 w-4 mr-2" />
-            Investigate & Create Task
+            Create Task
           </Button>
         </div>
 
-        {/* Investigation Result */}
+        {/* Task Created Result */}
         {investigationResult?.success && (
           <Card className="bg-success/5 border-success/30">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-4 w-4" />
-                Investigation Complete
+                Task Created
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-2">

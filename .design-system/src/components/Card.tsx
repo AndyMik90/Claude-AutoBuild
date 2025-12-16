@@ -14,7 +14,7 @@ export function Card({
 }: CardProps) {
   return (
     <div className={cn(
-      'bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] shadow-[var(--shadow-md)]',
+      'bg-(--color-surface-card) rounded-xl shadow-md',
       padding && 'p-6',
       className
     )}>

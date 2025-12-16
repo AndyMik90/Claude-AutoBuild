@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useGitHubStore, investigateGitHubIssue } from '../../../stores/github-store';
+import { loadTasks } from '../../../stores/task-store';
 import type { GitHubIssue } from '../../../../shared/types';
 
 export function useGitHubInvestigation(projectId: string | undefined) {
@@ -27,6 +28,10 @@ export function useGitHubInvestigation(projectId: string | undefined) {
       (eventProjectId, result) => {
         if (eventProjectId === projectId) {
           setInvestigationResult(result);
+          // Refresh the task store so the new task appears on the Kanban board
+          if (result.success && result.taskId) {
+            loadTasks(projectId);
+          }
         }
       }
     );

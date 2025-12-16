@@ -4,23 +4,23 @@ import { Card, Avatar, Badge, Button } from '../components'
 export function NotificationsCard() {
   return (
     <Card className="w-[320px]" padding={false}>
-      <div className="p-4 border-b border-[var(--color-border-default)]">
+      <div className="p-4 border-b border-(--color-border-default)">
         <div className="flex items-center justify-between">
           <h3 className="text-heading-small">Notifications</h3>
           <Badge variant="primary">6</Badge>
         </div>
-        <p className="text-body-small text-[var(--color-text-tertiary)] mt-1">Unread</p>
+        <p className="text-body-small text-(--color-text-tertiary) mt-1">Unread</p>
       </div>
 
-      <div className="divide-y divide-[var(--color-border-default)]">
+      <div className="divide-y divide-(--color-border-default)">
         <div className="p-4 flex gap-3">
           <Avatar size="sm" name="Ashlynn George" />
           <div className="flex-1 min-w-0">
             <p className="text-body-small">
               <span className="font-semibold">Ashlynn George</span>
-              <span className="text-[var(--color-text-tertiary)]"> · 1h</span>
+              <span className="text-(--color-text-tertiary)"> · 1h</span>
             </p>
-            <p className="text-body-small text-[var(--color-text-secondary)]">
+            <p className="text-body-small text-(--color-text-secondary)">
               has invited you to access "Magma project"
             </p>
             <div className="flex gap-2 mt-2">
@@ -32,8 +32,8 @@ export function NotificationsCard() {
               </Button>
             </div>
           </div>
-          <button className="p-1 hover:bg-[var(--color-background-secondary)] rounded self-start transition-colors">
-            <MoreVertical className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+          <button className="p-1 hover:bg-(--color-background-secondary) rounded self-start transition-colors">
+            <MoreVertical className="w-4 h-4 text-(--color-text-tertiary)" />
           </button>
         </div>
 
@@ -42,19 +42,19 @@ export function NotificationsCard() {
           <div className="flex-1">
             <p className="text-body-small">
               <span className="font-semibold">Ashlynn George</span>
-              <span className="text-[var(--color-text-tertiary)]"> · 1h</span>
+              <span className="text-(--color-text-tertiary)"> · 1h</span>
             </p>
-            <p className="text-body-small text-[var(--color-text-secondary)]">
+            <p className="text-body-small text-(--color-text-secondary)">
               changed status of task in "Magma project"
             </p>
           </div>
-          <button className="p-1 hover:bg-[var(--color-background-secondary)] rounded self-start transition-colors">
-            <MoreVertical className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+          <button className="p-1 hover:bg-(--color-background-secondary) rounded self-start transition-colors">
+            <MoreVertical className="w-4 h-4 text-(--color-text-tertiary)" />
           </button>
         </div>
       </div>
 
-      <div className="p-4 flex gap-2 border-t border-[var(--color-border-default)]">
+      <div className="p-4 flex gap-2 border-t border-(--color-border-default)">
         <Button variant="secondary" className="flex-1" pill>Mark all as read</Button>
         <Button variant="primary" className="flex-1" pill>View all</Button>
       </div>

@@ -1,4 +1,4 @@
-import { Lightbulb, Eye, EyeOff, Settings2, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Lightbulb, Eye, EyeOff, Settings2, Plus, Trash2, RefreshCw, Archive, CheckSquare, Square, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -10,10 +10,16 @@ interface IdeationHeaderProps {
   totalIdeas: number;
   ideaCountByType: Record<string, number>;
   showDismissed: boolean;
+  showArchived: boolean;
+  selectedCount: number;
   onToggleShowDismissed: () => void;
+  onToggleShowArchived: () => void;
   onOpenConfig: () => void;
   onOpenAddMore: () => void;
   onDismissAll: () => void;
+  onDeleteSelected: () => void;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
   onRefresh: () => void;
   hasActiveIdeas: boolean;
   canAddMore: boolean;
@@ -23,14 +29,21 @@ export function IdeationHeader({
   totalIdeas,
   ideaCountByType,
   showDismissed,
+  showArchived,
+  selectedCount,
   onToggleShowDismissed,
+  onToggleShowArchived,
   onOpenConfig,
   onOpenAddMore,
   onDismissAll,
+  onDeleteSelected,
+  onSelectAll,
+  onClearSelection,
   onRefresh,
   hasActiveIdeas,
   canAddMore
 }: IdeationHeaderProps) {
+  const hasSelection = selectedCount > 0;
   return (
     <div className="shrink-0 border-b border-border p-4 bg-card/50">
       <div className="flex items-start justify-between">
@@ -45,10 +58,62 @@ export function IdeationHeader({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Selection controls */}
+          {hasSelection ? (
+            <>
+              <Badge variant="secondary" className="mr-1">
+                {selectedCount} selected
+              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={onDeleteSelected}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete selected ideas</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClearSelection}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear selection</TooltipContent>
+              </Tooltip>
+              <div className="w-px h-6 bg-border mx-1" />
+            </>
+          ) : (
+            hasActiveIdeas && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onSelectAll}
+                  >
+                    <CheckSquare className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Select all</TooltipContent>
+              </Tooltip>
+            )
+          )}
+
+          {/* View toggles */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="outline"
+                variant={showDismissed ? 'secondary' : 'outline'}
                 size="icon"
                 onClick={onToggleShowDismissed}
               >
@@ -57,6 +122,20 @@ export function IdeationHeader({
             </TooltipTrigger>
             <TooltipContent>
               {showDismissed ? 'Hide dismissed' : 'Show dismissed'}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showArchived ? 'secondary' : 'outline'}
+                size="icon"
+                onClick={onToggleShowArchived}
+              >
+                <Archive className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {showArchived ? 'Hide archived' : 'Show archived'}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -85,7 +164,7 @@ export function IdeationHeader({
               <TooltipContent>Add more ideation types</TooltipContent>
             </Tooltip>
           )}
-          {hasActiveIdeas && (
+          {hasActiveIdeas && !hasSelection && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

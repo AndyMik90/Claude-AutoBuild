@@ -25,12 +25,12 @@ export function InvestigationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-info" />
-            AI Investigation
+            Create Task from Issue
           </DialogTitle>
           <DialogDescription>
             {selectedIssue && (
               <span>
-                Investigating issue #{selectedIssue.number}: {selectedIssue.title}
+                Issue #{selectedIssue.number}: {selectedIssue.title}
               </span>
             )}
           </DialogDescription>
@@ -39,16 +39,15 @@ export function InvestigationDialog({
         {investigationStatus.phase === 'idle' ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              The AI will analyze this issue, examine relevant code, and create a planned task in your Kanban board.
+              Create a task from this GitHub issue. The task will be added to your Kanban board in the Planned column.
             </p>
             <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <h4 className="text-sm font-medium mb-2">What the AI will do:</h4>
+              <h4 className="text-sm font-medium mb-2">The task will include:</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>- Analyze the issue description and comments</li>
-                <li>- Identify affected files and components</li>
-                <li>- Estimate complexity and effort</li>
-                <li>- Create acceptance criteria</li>
-                <li>- Generate a task spec for implementation</li>
+                <li>• Issue title and description</li>
+                <li>• Link back to the GitHub issue</li>
+                <li>• Labels and metadata from the issue</li>
+                <li>• Ready to start when you move it to In Progress</li>
               </ul>
             </div>
           </div>
@@ -71,7 +70,7 @@ export function InvestigationDialog({
             {investigationStatus.phase === 'complete' && (
               <div className="rounded-lg bg-success/10 border border-success/30 p-3 flex items-center gap-2 text-sm text-success">
                 <CheckCircle2 className="h-4 w-4" />
-                Investigation complete! Task created in Kanban board.
+                Task created! View it in your Kanban board.
               </div>
             )}
           </div>
@@ -85,14 +84,14 @@ export function InvestigationDialog({
               </Button>
               <Button onClick={onStartInvestigation}>
                 <Sparkles className="h-4 w-4 mr-2" />
-                Start Investigation
+                Create Task
               </Button>
             </>
           )}
           {investigationStatus.phase !== 'idle' && investigationStatus.phase !== 'complete' && (
             <Button variant="outline" disabled>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Investigating...
+              Creating...
             </Button>
           )}
           {investigationStatus.phase === 'complete' && (

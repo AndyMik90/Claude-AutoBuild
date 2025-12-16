@@ -7,8 +7,10 @@ import {
   stopIdeation,
   appendIdeation,
   dismissAllIdeasForProject,
+  deleteMultipleIdeasForProject,
   getIdeasByType,
   getActiveIdeas,
+  getArchivedIdeas,
   getIdeationSummary,
   setupIdeationListeners
 } from '../../../stores/ideation-store';
@@ -29,11 +31,16 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const setConfig = useIdeationStore((state) => state.setConfig);
   const logs = useIdeationStore((state) => state.logs);
   const typeStates = useIdeationStore((state) => state.typeStates);
+  const selectedIds = useIdeationStore((state) => state.selectedIds);
+  const toggleSelectIdea = useIdeationStore((state) => state.toggleSelectIdea);
+  const selectAllIdeas = useIdeationStore((state) => state.selectAllIdeas);
+  const clearSelection = useIdeationStore((state) => state.clearSelection);
 
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [showEnvConfigModal, setShowEnvConfigModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | 'append' | null>(null);
   const [showAddMoreDialog, setShowAddMoreDialog] = useState(false);
@@ -149,8 +156,39 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     }
   };
 
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    await deleteMultipleIdeasForProject(projectId, Array.from(selectedIds));
+  };
+
+  const handleSelectAll = useCallback((ideas: Idea[]) => {
+    selectAllIdeas(ideas.map(idea => idea.id));
+  }, [selectAllIdeas]);
+
   const summary = getIdeationSummary(session);
-  const activeIdeas = showDismissed ? session?.ideas || [] : getActiveIdeas(session);
+  const archivedIdeas = getArchivedIdeas(session);
+
+  // Filter ideas based on visibility settings
+  const getFilteredIdeas = useCallback(() => {
+    if (!session) return [];
+    let ideas = session.ideas;
+
+    // Start with base filtering (exclude dismissed and archived by default)
+    if (!showDismissed && !showArchived) {
+      ideas = getActiveIdeas(session);
+    } else if (showDismissed && !showArchived) {
+      // Show dismissed but not archived
+      ideas = ideas.filter(idea => idea.status !== 'archived');
+    } else if (!showDismissed && showArchived) {
+      // Show archived but not dismissed
+      ideas = ideas.filter(idea => idea.status !== 'dismissed');
+    }
+    // If both are true, show all
+
+    return ideas;
+  }, [session, showDismissed, showArchived]);
+
+  const activeIdeas = getFilteredIdeas();
 
   return {
     // State
@@ -163,6 +201,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     activeTab,
     showConfigDialog,
     showDismissed,
+    showArchived,
     showEnvConfigModal,
     showAddMoreDialog,
     typesToAdd,
@@ -170,12 +209,15 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     isCheckingToken,
     summary,
     activeIdeas,
+    archivedIdeas,
+    selectedIds,
 
     // Actions
     setSelectedIdea,
     setActiveTab,
     setShowConfigDialog,
     setShowDismissed,
+    setShowArchived,
     setShowEnvConfigModal,
     setShowAddMoreDialog,
     setTypesToAdd,
@@ -184,6 +226,8 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     handleRefresh,
     handleStop,
     handleDismissAll,
+    handleDeleteSelected,
+    handleSelectAll,
     handleEnvConfigured,
     getAvailableTypesToAdd,
     handleAddMoreIdeas,
@@ -192,6 +236,8 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     handleGoToTask,
     handleDismiss,
     toggleIdeationType,
+    toggleSelectIdea,
+    clearSelection,
 
     // Helper functions
     getIdeasByType: (type: IdeationType) => getIdeasByType(session, type)

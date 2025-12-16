@@ -5,6 +5,7 @@ import {
   initializeProject,
   updateProjectAutoBuild
 } from '../../../stores/project-store';
+import { checkGitHubConnection as checkGitHubConnectionGlobal } from '../../../stores/github-store';
 import type {
   Project,
   ProjectSettings as ProjectSettingsType,
@@ -34,7 +35,7 @@ export interface UseProjectSettingsReturn {
   envError: string | null;
   setEnvError: React.Dispatch<React.SetStateAction<string | null>>;
   isSavingEnv: boolean;
-  updateEnvConfig: (updates: Partial<ProjectEnvConfig>) => void;
+  updateEnvConfig: (updates: Partial<ProjectEnvConfig>) => Promise<void>;
 
   // Password visibility toggles
   showClaudeToken: boolean;
@@ -210,6 +211,7 @@ export function useProjectSettings(
   }, [envConfig?.linearEnabled, envConfig?.linearApiKey, project.id]);
 
   // Check GitHub connection when token/repo changes
+  // Also updates the global GitHub store so other components (like GitHub Issues) see the change
   useEffect(() => {
     const checkGitHubConnection = async () => {
       if (!envConfig?.githubEnabled || !envConfig.githubToken || !envConfig.githubRepo) {
@@ -219,9 +221,11 @@ export function useProjectSettings(
 
       setIsCheckingGitHub(true);
       try {
-        const result = await window.electronAPI.checkGitHubConnection(project.id);
-        if (result.success && result.data) {
-          setGitHubConnectionStatus(result.data);
+        // Use the global store action - it makes the API call AND updates the global store
+        // This ensures the GitHub Issues page sees the updated status
+        const status = await checkGitHubConnectionGlobal(project.id);
+        if (status) {
+          setGitHubConnectionStatus(status);
         }
       } catch {
         setGitHubConnectionStatus({ connected: false, error: 'Failed to check connection' });
@@ -341,9 +345,22 @@ export function useProjectSettings(
     }
   };
 
-  const updateEnvConfig = (updates: Partial<ProjectEnvConfig>) => {
+  const updateEnvConfig = async (updates: Partial<ProjectEnvConfig>) => {
     if (envConfig) {
-      setEnvConfig({ ...envConfig, ...updates });
+      const newConfig = { ...envConfig, ...updates };
+
+      // Save to backend FIRST so disk is updated before effects run
+      try {
+        const result = await window.electronAPI.updateProjectEnv(project.id, newConfig);
+        if (!result.success) {
+          console.error('[useProjectSettings] Failed to auto-save env config:', result.error);
+        }
+      } catch (err) {
+        console.error('[useProjectSettings] Error auto-saving env config:', err);
+      }
+
+      // Then update local state (triggers effects that read from disk)
+      setEnvConfig(newConfig);
     }
   };
 

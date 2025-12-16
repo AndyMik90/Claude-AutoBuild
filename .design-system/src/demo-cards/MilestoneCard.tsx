@@ -10,14 +10,14 @@ export function MilestoneCard() {
 
       <div className="flex items-center gap-6">
         <div>
-          <p className="text-body-small text-[var(--color-text-secondary)]">Due date:</p>
+          <p className="text-body-small text-(--color-text-secondary)">Due date:</p>
           <p className="text-heading-small">March 20th</p>
         </div>
 
         <ProgressCircle value={39} size="lg" />
 
         <div>
-          <p className="text-body-small text-[var(--color-text-secondary)]">Asignees:</p>
+          <p className="text-body-small text-(--color-text-secondary)">Asignees:</p>
           <AvatarGroup
             avatars={[
               { name: 'A' },

@@ -23,6 +23,9 @@ export interface IdeationAPI {
   convertIdeaToTask: (projectId: string, ideaId: string) => Promise<IPCResult<Task>>;
   dismissIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
   dismissAllIdeas: (projectId: string) => Promise<IPCResult>;
+  archiveIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
+  deleteIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
+  deleteMultipleIdeas: (projectId: string, ideaIds: string[]) => Promise<IPCResult>;
 
   // Event Listeners
   onIdeationProgress: (
@@ -76,6 +79,15 @@ export const createIdeationAPI = (): IdeationAPI => ({
 
   dismissAllIdeas: (projectId: string): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.IDEATION_DISMISS_ALL, projectId),
+
+  archiveIdea: (projectId: string, ideaId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.IDEATION_ARCHIVE, projectId, ideaId),
+
+  deleteIdea: (projectId: string, ideaId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.IDEATION_DELETE, projectId, ideaId),
+
+  deleteMultipleIdeas: (projectId: string, ideaIds: string[]): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.IDEATION_DELETE_MULTIPLE, projectId, ideaIds),
 
   // Event Listeners
   onIdeationProgress: (

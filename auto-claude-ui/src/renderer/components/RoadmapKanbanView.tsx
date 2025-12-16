@@ -77,7 +77,7 @@ function DroppablePhaseColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex w-72 shrink-0 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex min-w-80 w-80 shrink-0 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getPhaseStatusColor(phase.status),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -97,7 +97,7 @@ function DroppablePhaseColumn({
           >
             {phase.order}
           </div>
-          <h2 className="font-semibold text-sm text-foreground truncate max-w-[140px]">
+          <h2 className="font-semibold text-sm text-foreground truncate max-w-[180px]">
             {phase.name}
           </h2>
           <span className="column-count-badge">
@@ -330,7 +330,7 @@ export function RoadmapKanbanView({
         <DragOverlay>
           {activeFeature ? (
             <div className="drag-overlay-card">
-              <Card className="p-4 w-72 shadow-2xl">
+              <Card className="p-4 w-80 shadow-2xl">
                 <div className="font-medium">{activeFeature.title}</div>
                 <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                   {activeFeature.description}

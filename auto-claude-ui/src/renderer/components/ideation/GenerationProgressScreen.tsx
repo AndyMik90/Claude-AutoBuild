@@ -191,10 +191,12 @@ export function GenerationProgressScreen({
                     <IdeaCard
                       key={idea.id}
                       idea={idea}
+                      isSelected={false}
                       onClick={() => onSelectIdea(selectedIdea?.id === idea.id ? null : idea)}
                       onConvert={onConvert}
                       onGoToTask={onGoToTask}
                       onDismiss={onDismiss}
+                      onToggleSelect={() => {/* Selection disabled during generation */}}
                     />
                   ))}
 

@@ -1,8 +1,9 @@
-import { ExternalLink, Play, X } from 'lucide-react';
+import { ExternalLink, Play, X, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { Checkbox } from '../ui/checkbox';
 import {
   IDEATION_TYPE_LABELS,
   IDEATION_TYPE_COLORS,
@@ -36,25 +37,45 @@ import {
 
 interface IdeaCardProps {
   idea: Idea;
+  isSelected: boolean;
   onClick: () => void;
   onConvert: (idea: Idea) => void;
   onGoToTask?: (taskId: string) => void;
   onDismiss: (idea: Idea) => void;
+  onToggleSelect: (ideaId: string) => void;
 }
 
-export function IdeaCard({ idea, onClick, onConvert, onGoToTask, onDismiss }: IdeaCardProps) {
+export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onDismiss, onToggleSelect }: IdeaCardProps) {
   const isDismissed = idea.status === 'dismissed';
+  const isArchived = idea.status === 'archived';
   const isConverted = idea.status === 'converted';
+  const isInactive = isDismissed || isArchived;
 
   return (
     <Card
       className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
-        isDismissed ? 'opacity-50' : ''
-      }`}
+        isInactive ? 'opacity-50' : ''
+      } ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
+      <div className="flex items-start gap-3">
+        {/* Selection checkbox */}
+        <div
+          className="pt-0.5"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect(idea.id);
+          }}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect(idea.id)}
+            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          />
+        </div>
+
+        <div className="flex-1 flex items-start justify-between">
+          <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className={IDEATION_TYPE_COLORS[idea.type]}>
               <TypeIcon type={idea.type} />
@@ -96,67 +117,91 @@ export function IdeaCard({ idea, onClick, onConvert, onGoToTask, onDismiss }: Id
               </Badge>
             )}
           </div>
-          <h3 className={`font-medium ${isDismissed ? 'line-through' : ''}`}>
+          <h3 className={`font-medium ${isInactive ? 'line-through' : ''}`}>
             {idea.title}
           </h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{idea.description}</p>
+          </div>
+          {/* Action buttons */}
+          {!isInactive && !isConverted && (
+            <div className="flex items-center gap-1 ml-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onConvert(idea);
+                    }}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Convert to Task</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDismiss(idea);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Dismiss</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+          {/* Archived ideas show link to task */}
+          {isArchived && idea.taskId && onGoToTask && (
+            <div className="flex items-center gap-1 ml-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGoToTask(idea.taskId!);
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Go to Task</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+          {/* Legacy: converted status also shows link to task */}
+          {isConverted && idea.taskId && onGoToTask && (
+            <div className="flex items-center gap-1 ml-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGoToTask(idea.taskId!);
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Go to Task</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
         </div>
-        {!isDismissed && !isConverted && (
-          <div className="flex items-center gap-1 ml-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onConvert(idea);
-                  }}
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Convert to Task</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDismiss(idea);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Dismiss</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-        {isConverted && idea.taskId && onGoToTask && (
-          <div className="flex items-center gap-1 ml-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGoToTask(idea.taskId!);
-                  }}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Go to Task</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
       </div>
     </Card>
   );

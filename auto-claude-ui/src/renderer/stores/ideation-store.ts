@@ -21,6 +21,8 @@ interface IdeationState {
   logs: string[];
   // Track which ideation types are pending, generating, completed, or failed
   typeStates: Record<IdeationType, IdeationTypeState>;
+  // Selection state
+  selectedIds: Set<string>;
 
   // Actions
   setSession: (session: IdeationSession | null) => void;
@@ -30,9 +32,16 @@ interface IdeationState {
   setIdeaTaskId: (ideaId: string, taskId: string) => void;
   dismissIdea: (ideaId: string) => void;
   dismissAllIdeas: () => void;
+  archiveIdea: (ideaId: string) => void;
+  deleteIdea: (ideaId: string) => void;
+  deleteMultipleIdeas: (ideaIds: string[]) => void;
   clearSession: () => void;
   addLog: (log: string) => void;
   clearLogs: () => void;
+  // Selection actions
+  toggleSelectIdea: (ideaId: string) => void;
+  selectAllIdeas: (ideaIds: string[]) => void;
+  clearSelection: () => void;
   // New actions for streaming parallel results
   initializeTypeStates: (types: IdeationType[]) => void;
   setTypeState: (type: IdeationType, state: IdeationTypeState) => void;
@@ -70,6 +79,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
   config: initialConfig,
   logs: [],
   typeStates: { ...initialTypeStates },
+  selectedIds: new Set<string>(),
 
   // Actions
   setSession: (session) => set({ session }),
@@ -104,7 +114,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
       const updatedIdeas = state.session.ideas.map((idea) =>
         idea.id === ideaId
-          ? { ...idea, taskId, status: 'converted' as IdeationStatus }
+          ? { ...idea, taskId, status: 'archived' as IdeationStatus }
           : idea
       );
 
@@ -139,7 +149,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
       if (!state.session) return state;
 
       const updatedIdeas = state.session.ideas.map((idea) =>
-        idea.status !== 'dismissed' && idea.status !== 'converted'
+        idea.status !== 'dismissed' && idea.status !== 'converted' && idea.status !== 'archived'
           ? { ...idea, status: 'dismissed' as IdeationStatus }
           : idea
       );
@@ -153,11 +163,70 @@ export const useIdeationStore = create<IdeationState>((set) => ({
       };
     }),
 
+  archiveIdea: (ideaId) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const updatedIdeas = state.session.ideas.map((idea) =>
+        idea.id === ideaId ? { ...idea, status: 'archived' as IdeationStatus } : idea
+      );
+
+      return {
+        session: {
+          ...state.session,
+          ideas: updatedIdeas,
+          updatedAt: new Date()
+        }
+      };
+    }),
+
+  deleteIdea: (ideaId) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const updatedIdeas = state.session.ideas.filter((idea) => idea.id !== ideaId);
+
+      // Also remove from selection if selected
+      const newSelectedIds = new Set(state.selectedIds);
+      newSelectedIds.delete(ideaId);
+
+      return {
+        session: {
+          ...state.session,
+          ideas: updatedIdeas,
+          updatedAt: new Date()
+        },
+        selectedIds: newSelectedIds
+      };
+    }),
+
+  deleteMultipleIdeas: (ideaIds) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const idsToDelete = new Set(ideaIds);
+      const updatedIdeas = state.session.ideas.filter((idea) => !idsToDelete.has(idea.id));
+
+      // Clear selection for deleted items
+      const newSelectedIds = new Set(state.selectedIds);
+      ideaIds.forEach((id) => newSelectedIds.delete(id));
+
+      return {
+        session: {
+          ...state.session,
+          ideas: updatedIdeas,
+          updatedAt: new Date()
+        },
+        selectedIds: newSelectedIds
+      };
+    }),
+
   clearSession: () =>
     set({
       session: null,
       generationStatus: initialGenerationStatus,
-      typeStates: { ...initialTypeStates }
+      typeStates: { ...initialTypeStates },
+      selectedIds: new Set<string>()
     }),
 
   addLog: (log) =>
@@ -166,6 +235,28 @@ export const useIdeationStore = create<IdeationState>((set) => ({
     })),
 
   clearLogs: () => set({ logs: [] }),
+
+  // Selection actions
+  toggleSelectIdea: (ideaId) =>
+    set((state) => {
+      const newSelectedIds = new Set(state.selectedIds);
+      if (newSelectedIds.has(ideaId)) {
+        newSelectedIds.delete(ideaId);
+      } else {
+        newSelectedIds.add(ideaId);
+      }
+      return { selectedIds: newSelectedIds };
+    }),
+
+  selectAllIdeas: (ideaIds) =>
+    set(() => ({
+      selectedIds: new Set(ideaIds)
+    })),
+
+  clearSelection: () =>
+    set(() => ({
+      selectedIds: new Set<string>()
+    })),
 
   // Initialize type states when starting generation
   initializeTypeStates: (types) =>
@@ -301,6 +392,37 @@ export async function dismissAllIdeasForProject(projectId: string): Promise<bool
   return result.success;
 }
 
+export async function archiveIdeaForProject(projectId: string, ideaId: string): Promise<boolean> {
+  const store = useIdeationStore.getState();
+  const result = await window.electronAPI.archiveIdea(projectId, ideaId);
+  if (result.success) {
+    store.archiveIdea(ideaId);
+    store.addLog('Idea archived');
+  }
+  return result.success;
+}
+
+export async function deleteIdeaForProject(projectId: string, ideaId: string): Promise<boolean> {
+  const store = useIdeationStore.getState();
+  const result = await window.electronAPI.deleteIdea(projectId, ideaId);
+  if (result.success) {
+    store.deleteIdea(ideaId);
+    store.addLog('Idea deleted');
+  }
+  return result.success;
+}
+
+export async function deleteMultipleIdeasForProject(projectId: string, ideaIds: string[]): Promise<boolean> {
+  const store = useIdeationStore.getState();
+  const result = await window.electronAPI.deleteMultipleIdeas(projectId, ideaIds);
+  if (result.success) {
+    store.deleteMultipleIdeas(ideaIds);
+    store.clearSelection();
+    store.addLog(`${ideaIds.length} ideas deleted`);
+  }
+  return result.success;
+}
+
 /**
  * Append new ideation types to existing session without clearing existing ideas.
  * This allows users to add more categories (like security, performance) while keeping
@@ -356,7 +478,12 @@ export function getIdeasByStatus(
 
 export function getActiveIdeas(session: IdeationSession | null): Idea[] {
   if (!session) return [];
-  return session.ideas.filter((idea) => idea.status !== 'dismissed');
+  return session.ideas.filter((idea) => idea.status !== 'dismissed' && idea.status !== 'archived');
+}
+
+export function getArchivedIdeas(session: IdeationSession | null): Idea[] {
+  if (!session) return [];
+  return session.ideas.filter((idea) => idea.status === 'archived');
 }
 
 export function getIdeationSummary(session: IdeationSession | null): IdeationSummary {

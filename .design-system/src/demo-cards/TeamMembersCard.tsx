@@ -11,25 +11,25 @@ export function TeamMembersCard() {
 
   return (
     <Card className="w-[320px]" padding={false}>
-      <div className="divide-y divide-[var(--color-border-default)]">
+      <div className="divide-y divide-(--color-border-default)">
         {members.map((member, i) => (
           <div key={i} className="p-4 flex items-center gap-3">
             <Avatar name={member.name} />
             <div className="flex-1">
               <p className="text-heading-small">{member.name}</p>
-              <p className="text-body-small text-[var(--color-text-secondary)]">{member.role}</p>
+              <p className="text-body-small text-(--color-text-secondary)">{member.role}</p>
             </div>
-            <button className="p-1 hover:bg-[var(--color-background-secondary)] rounded transition-colors">
-              <MoreVertical className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+            <button className="p-1 hover:bg-(--color-background-secondary) rounded transition-colors">
+              <MoreVertical className="w-4 h-4 text-(--color-text-tertiary)" />
             </button>
-            <button className="p-2 bg-[var(--color-semantic-error-light)] text-[var(--color-semantic-error)] rounded-[var(--radius-md)] hover:opacity-80 transition-opacity">
+            <button className="p-2 bg-(--color-semantic-error-light) text-(--color-semantic-error) rounded-md hover:opacity-80 transition-opacity">
               <MessageSquare className="w-4 h-4" />
             </button>
           </div>
         ))}
       </div>
 
-      <div className="p-4 border-t border-[var(--color-border-default)] flex justify-center gap-3">
+      <div className="p-4 border-t border-(--color-border-default) flex justify-center gap-3">
         <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe" className="h-6" />
         <div className="px-3 py-1 bg-[#1A1F71] text-white text-sm font-bold rounded">VISA</div>
         <div className="px-2 py-1 bg-[#003087] text-white text-xs font-bold rounded">PayPal</div>
