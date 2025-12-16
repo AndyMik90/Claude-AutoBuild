@@ -1826,3 +1826,95 @@ CONFIG = {"version": "2.0", "new_key": "value", "merged": True}
         assert '"merged": True' in result
         # No conflict markers
         assert '<<<<<<' not in result
+
+
+# =============================================================================
+# PARALLEL MERGE INFRASTRUCTURE TESTS
+# =============================================================================
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+
+from workspace import ParallelMergeTask, ParallelMergeResult, _run_parallel_merges
+
+
+class TestParallelMergeDataclasses:
+    """Tests for parallel merge data structures."""
+
+    def test_parallel_merge_task_creation(self):
+        """ParallelMergeTask can be created with required fields."""
+        task = ParallelMergeTask(
+            file_path="src/App.tsx",
+            main_content="const main = 1;",
+            worktree_content="const main = 2;",
+            base_content="const main = 0;",
+            spec_name="001-test",
+        )
+
+        assert task.file_path == "src/App.tsx"
+        assert task.main_content == "const main = 1;"
+        assert task.worktree_content == "const main = 2;"
+        assert task.base_content == "const main = 0;"
+        assert task.spec_name == "001-test"
+
+    def test_parallel_merge_result_success(self):
+        """ParallelMergeResult can represent successful merge."""
+        result = ParallelMergeResult(
+            file_path="src/App.tsx",
+            merged_content="const main = 'merged';",
+            success=True,
+            was_auto_merged=False,
+        )
+
+        assert result.success is True
+        assert result.merged_content == "const main = 'merged';"
+        assert result.was_auto_merged is False
+        assert result.error is None
+
+    def test_parallel_merge_result_auto_merged(self):
+        """ParallelMergeResult can indicate auto-merge (no AI)."""
+        result = ParallelMergeResult(
+            file_path="src/utils.py",
+            merged_content="# Auto-merged content",
+            success=True,
+            was_auto_merged=True,
+        )
+
+        assert result.success is True
+        assert result.was_auto_merged is True
+
+    def test_parallel_merge_result_failure(self):
+        """ParallelMergeResult can represent failed merge."""
+        result = ParallelMergeResult(
+            file_path="src/complex.ts",
+            merged_content=None,
+            success=False,
+            error="AI could not resolve conflict",
+        )
+
+        assert result.success is False
+        assert result.merged_content is None
+        assert result.error == "AI could not resolve conflict"
+
+
+class TestParallelMergeRunner:
+    """Tests for the parallel merge runner."""
+
+    def test_run_parallel_merges_empty_list(self, temp_project):
+        """Running with empty task list returns empty results."""
+        import asyncio
+        results = asyncio.run(_run_parallel_merges([], temp_project))
+        assert results == []
+
+    def test_parallel_merge_task_optional_base(self):
+        """ParallelMergeTask works with None base_content."""
+        task = ParallelMergeTask(
+            file_path="src/new-file.tsx",
+            main_content="// main version",
+            worktree_content="// worktree version",
+            base_content=None,  # New file, no common ancestor
+            spec_name="001-new-feature",
+        )
+
+        assert task.base_content is None
+        assert task.file_path == "src/new-file.tsx"

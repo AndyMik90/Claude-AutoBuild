@@ -21,10 +21,12 @@ Terminology mapping (technical -> user-friendly):
 - working directory -> "your project"
 """
 
+import asyncio
 import json
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -1164,6 +1166,8 @@ def _resolve_git_conflicts_with_ai(
 
     resolved_files = []
     remaining_conflicts = []
+    auto_merged_count = 0
+    ai_merged_count = 0
 
     print()
     print_status(f"Resolving {len(conflicting_files)} conflicting file(s) with AI...", "progress")
@@ -1198,9 +1202,14 @@ def _resolve_git_conflicts_with_ai(
             except Exception as e:
                 debug_warning(MODULE, f"Could not copy new file {file_path}: {e}")
 
+    # Categorize conflicting files for processing
+    files_needing_ai_merge: list[ParallelMergeTask] = []
+    simple_merges: list[tuple[str, Optional[str]]] = []  # (file_path, merged_content or None for delete)
+
+    debug(MODULE, "Categorizing conflicting files for parallel processing")
+
     for file_path in conflicting_files:
-        debug(MODULE, f"Processing conflicting file: {file_path}")
-        print(muted(f"  Processing: {file_path}"))
+        debug(MODULE, f"Categorizing conflicting file: {file_path}")
 
         try:
             # Get content from main branch
@@ -1219,69 +1228,107 @@ def _resolve_git_conflicts_with_ai(
                 continue
 
             if main_content is None:
-                # File only exists in worktree - it's a new file
-                merged_content = worktree_content
-                print(muted(f"    New file from worktree"))
+                # File only exists in worktree - it's a new file (no AI needed)
+                simple_merges.append((file_path, worktree_content))
+                debug(MODULE, f"  {file_path}: new file (no AI needed)")
             elif worktree_content is None:
-                # File only exists in main - was deleted in worktree
-                merged_content = None  # Will delete
-                print(muted(f"    File deleted in worktree"))
+                # File only exists in main - was deleted in worktree (no AI needed)
+                simple_merges.append((file_path, None))  # None = delete
+                debug(MODULE, f"  {file_path}: deleted (no AI needed)")
             else:
-                # File exists in both - need to merge
-                merged_content = _merge_file_with_ai(
+                # File exists in both - needs AI merge
+                files_needing_ai_merge.append(ParallelMergeTask(
                     file_path=file_path,
                     main_content=main_content,
                     worktree_content=worktree_content,
                     base_content=base_content,
                     spec_name=spec_name,
-                    orchestrator=orchestrator,
-                    project_dir=project_dir,
-                )
-
-                if merged_content is None:
-                    # AI couldn't merge
-                    remaining_conflicts.append({
-                        "file": file_path,
-                        "reason": "AI could not resolve the conflict",
-                        "severity": "high",
-                    })
-                    continue
-
-            # Write the merged content to the project
-            if merged_content is not None:
-                target_path = project_dir / file_path
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                target_path.write_text(merged_content, encoding="utf-8")
-
-                # Stage the file
-                subprocess.run(
-                    ["git", "add", file_path],
-                    cwd=project_dir,
-                    capture_output=True,
-                )
-
-                resolved_files.append(file_path)
-                print(success(f"    ✓ Merged successfully"))
-            else:
-                # Delete the file
-                target_path = project_dir / file_path
-                if target_path.exists():
-                    target_path.unlink()
-                    subprocess.run(
-                        ["git", "add", file_path],
-                        cwd=project_dir,
-                        capture_output=True,
-                    )
-                resolved_files.append(file_path)
-                print(success(f"    ✓ Deleted as per worktree"))
+                ))
+                debug(MODULE, f"  {file_path}: needs AI merge")
 
         except Exception as e:
-            print(error(f"    ✗ Failed: {e}"))
+            print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
             remaining_conflicts.append({
                 "file": file_path,
                 "reason": str(e),
                 "severity": "high",
             })
+
+    # Process simple merges first (fast, no AI)
+    if simple_merges:
+        print(muted(f"  Processing {len(simple_merges)} simple file(s)..."))
+        for file_path, merged_content in simple_merges:
+            try:
+                if merged_content is not None:
+                    target_path = project_dir / file_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    target_path.write_text(merged_content, encoding="utf-8")
+                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    resolved_files.append(file_path)
+                    print(success(f"    ✓ {file_path} (new file)"))
+                else:
+                    # Delete the file
+                    target_path = project_dir / file_path
+                    if target_path.exists():
+                        target_path.unlink()
+                        subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    resolved_files.append(file_path)
+                    print(success(f"    ✓ {file_path} (deleted)"))
+            except Exception as e:
+                print(error(f"    ✗ {file_path}: {e}"))
+                remaining_conflicts.append({
+                    "file": file_path,
+                    "reason": str(e),
+                    "severity": "high",
+                })
+
+    # Process AI merges in parallel
+    if files_needing_ai_merge:
+        print()
+        print_status(f"Merging {len(files_needing_ai_merge)} file(s) with AI (parallel)...", "progress")
+
+        import time
+        start_time = time.time()
+
+        # Run parallel merges
+        parallel_results = asyncio.run(_run_parallel_merges(
+            tasks=files_needing_ai_merge,
+            project_dir=project_dir,
+            max_concurrent=MAX_PARALLEL_AI_MERGES,
+        ))
+
+        elapsed = time.time() - start_time
+
+        # Process results
+        for result in parallel_results:
+            if result.success:
+                target_path = project_dir / result.file_path
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text(result.merged_content, encoding="utf-8")
+                subprocess.run(["git", "add", result.file_path], cwd=project_dir, capture_output=True)
+                resolved_files.append(result.file_path)
+
+                if result.was_auto_merged:
+                    auto_merged_count += 1
+                    print(success(f"    ✓ {result.file_path} (git auto-merged)"))
+                else:
+                    ai_merged_count += 1
+                    print(success(f"    ✓ {result.file_path} (AI merged)"))
+            else:
+                print(error(f"    ✗ {result.file_path}: {result.error}"))
+                remaining_conflicts.append({
+                    "file": result.file_path,
+                    "reason": result.error or "AI could not resolve the conflict",
+                    "severity": "high",
+                })
+
+        # Print summary
+        print()
+        print(muted(f"  Parallel merge completed in {elapsed:.1f}s"))
+        print(muted(f"    Git auto-merged: {auto_merged_count}"))
+        print(muted(f"    AI merged: {ai_merged_count}"))
+        if remaining_conflicts:
+            print(muted(f"    Failed: {len(remaining_conflicts)}"))
 
     if remaining_conflicts:
         return {
@@ -1330,7 +1377,9 @@ def _resolve_git_conflicts_with_ai(
         "stats": {
             "files_merged": len(resolved_files),
             "conflicts_resolved": len(conflicting_files),
-            "ai_assisted": len(conflicting_files),
+            "ai_assisted": ai_merged_count,
+            "auto_merged": auto_merged_count,
+            "parallel": len(files_needing_ai_merge) > 1,
         },
     }
 
@@ -1377,6 +1426,8 @@ def _get_changed_files_from_branch(
 
 # Constants for merge limits
 MAX_FILE_LINES_FOR_AI = 5000  # Skip AI for files larger than this
+MAX_PARALLEL_AI_MERGES = 5  # Limit concurrent AI merge operations
+
 BINARY_EXTENSIONS = {
     '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.svg',
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -1460,6 +1511,312 @@ class MergeLock:
 class MergeLockError(Exception):
     """Raised when a merge lock cannot be acquired."""
     pass
+
+
+@dataclass
+class ParallelMergeTask:
+    """A file merge task to be executed in parallel."""
+    file_path: str
+    main_content: str
+    worktree_content: str
+    base_content: Optional[str]
+    spec_name: str
+
+
+@dataclass
+class ParallelMergeResult:
+    """Result of a parallel merge task."""
+    file_path: str
+    merged_content: Optional[str]
+    success: bool
+    error: Optional[str] = None
+    was_auto_merged: bool = False  # True if git auto-merged without AI
+
+
+async def _create_async_claude_client():
+    """Create an async Claude client for merge resolution."""
+    import os
+
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if not oauth_token:
+        debug_warning(MODULE, "CLAUDE_CODE_OAUTH_TOKEN not set")
+        return None
+
+    try:
+        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+        client = ClaudeSDKClient(
+            options=ClaudeAgentOptions(
+                model="sonnet",
+                system_prompt="You are an expert code merge assistant. Be concise and precise.",
+                allowed_tools=[],  # No tools needed for merge
+                max_turns=1,
+            )
+        )
+        return client
+    except ImportError:
+        debug_warning(MODULE, "claude_agent_sdk not installed")
+        return None
+
+
+async def _async_ai_call(client, system: str, user: str) -> str:
+    """Make an async AI call using an existing client."""
+    try:
+        await client.query(user)
+
+        response_text = ""
+        async for msg in client.receive_response():
+            msg_type = type(msg).__name__
+            if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                for block in msg.content:
+                    if hasattr(block, "text"):
+                        response_text += block.text
+
+        return response_text
+    except Exception as e:
+        debug_error(MODULE, f"Async AI call failed: {e}")
+        return ""
+
+
+async def _merge_file_with_ai_async(
+    task: ParallelMergeTask,
+    project_dir: Path,
+    semaphore: asyncio.Semaphore,
+) -> ParallelMergeResult:
+    """
+    Async version of file merge with AI.
+
+    Uses a semaphore to limit concurrent AI calls.
+    """
+    from merge.prompts import (
+        build_conflict_only_prompt,
+        parse_conflict_markers,
+        reassemble_with_resolutions,
+        extract_conflict_resolutions,
+        build_simple_merge_prompt,
+    )
+    from merge import AIResolver
+
+    file_path = task.file_path
+    main_content = task.main_content
+    worktree_content = task.worktree_content
+    base_content = task.base_content
+    spec_name = task.spec_name
+
+    debug(MODULE, f"[PARALLEL] Starting async merge for: {file_path}")
+
+    # Quick checks before acquiring semaphore
+    if _is_binary_file(file_path):
+        return ParallelMergeResult(
+            file_path=file_path,
+            merged_content=None,
+            success=False,
+            error="Binary file - skipped"
+        )
+
+    main_lines = main_content.count('\n') if main_content else 0
+    worktree_lines = worktree_content.count('\n') if worktree_content else 0
+    max_lines = max(main_lines, worktree_lines)
+
+    if max_lines > MAX_FILE_LINES_FOR_AI:
+        return ParallelMergeResult(
+            file_path=file_path,
+            merged_content=None,
+            success=False,
+            error=f"File too large ({max_lines} lines)"
+        )
+
+    # Try git merge-file first (doesn't need AI)
+    if base_content:
+        merged_content, has_conflicts = _create_conflict_file_with_git(
+            main_content, worktree_content, base_content, project_dir
+        )
+
+        # Case 1: Git cleanly merged - no AI needed!
+        if merged_content and not has_conflicts:
+            is_valid, error_msg = _validate_merged_syntax(file_path, merged_content, project_dir)
+            if is_valid:
+                debug_success(MODULE, f"[PARALLEL] Git auto-merged (no AI): {file_path}")
+                return ParallelMergeResult(
+                    file_path=file_path,
+                    merged_content=merged_content,
+                    success=True,
+                    was_auto_merged=True
+                )
+    else:
+        merged_content = None
+        has_conflicts = False
+
+    # Acquire semaphore for AI calls
+    async with semaphore:
+        debug(MODULE, f"[PARALLEL] Acquired semaphore for AI merge: {file_path}")
+
+        # Create client for this task
+        client = await _create_async_claude_client()
+        if not client:
+            return ParallelMergeResult(
+                file_path=file_path,
+                merged_content=_heuristic_merge(main_content, worktree_content, base_content),
+                success=True if _heuristic_merge(main_content, worktree_content, base_content) else False,
+                error="AI unavailable, used heuristic"
+            )
+
+        try:
+            async with client:
+                # Determine language
+                resolver = AIResolver()
+                language = resolver._infer_language(file_path)
+
+                # Get task intent
+                task_intent = _get_task_intent(project_dir, spec_name)
+
+                # Case 2: Has conflict markers - use conflict-only AI merge
+                if merged_content and has_conflicts:
+                    conflicts, _ = parse_conflict_markers(merged_content)
+
+                    if conflicts:
+                        total_conflict_lines = sum(
+                            len(c['main_lines'].split('\n')) + len(c['worktree_lines'].split('\n'))
+                            for c in conflicts
+                        )
+                        savings_pct = 100 - (total_conflict_lines * 100 // max(max_lines, 1))
+
+                        debug(MODULE, f"[PARALLEL] Conflict-only merge for {file_path}",
+                              num_conflicts=len(conflicts), savings_pct=savings_pct)
+
+                        prompt = build_conflict_only_prompt(
+                            file_path=file_path,
+                            conflicts=conflicts,
+                            spec_name=spec_name,
+                            language=language,
+                            task_intent=task_intent,
+                        )
+
+                        response = await _async_ai_call(
+                            client,
+                            "You are an expert code merge assistant. Resolve ONLY the specific conflicts shown.",
+                            prompt,
+                        )
+
+                        if response:
+                            resolutions = extract_conflict_resolutions(response, conflicts, language)
+                            if resolutions:
+                                merged = reassemble_with_resolutions(merged_content, conflicts, resolutions)
+                                is_valid, _ = _validate_merged_syntax(file_path, merged, project_dir)
+                                if is_valid:
+                                    debug_success(MODULE, f"[PARALLEL] Conflict-only merge succeeded: {file_path}")
+                                    return ParallelMergeResult(
+                                        file_path=file_path,
+                                        merged_content=merged,
+                                        success=True
+                                    )
+
+                # Case 3: Full-file AI merge (fallback)
+                debug(MODULE, f"[PARALLEL] Full-file merge for: {file_path}")
+
+                prompt = build_simple_merge_prompt(
+                    file_path=file_path,
+                    main_content=main_content,
+                    worktree_content=worktree_content,
+                    base_content=base_content,
+                    spec_name=spec_name,
+                    language=language,
+                    task_intent=task_intent,
+                )
+
+                response = await _async_ai_call(
+                    client,
+                    "You are an expert code merge assistant. Output only the merged code.",
+                    prompt,
+                )
+
+                if response:
+                    merged = resolver._extract_code_block(response, language)
+                    if not merged and resolver._looks_like_code(response, language):
+                        merged = response.strip()
+
+                    if merged:
+                        is_valid, _ = _validate_merged_syntax(file_path, merged, project_dir)
+                        if is_valid:
+                            debug_success(MODULE, f"[PARALLEL] Full-file merge succeeded: {file_path}")
+                            return ParallelMergeResult(
+                                file_path=file_path,
+                                merged_content=merged,
+                                success=True
+                            )
+
+                # AI couldn't merge
+                return ParallelMergeResult(
+                    file_path=file_path,
+                    merged_content=None,
+                    success=False,
+                    error="AI could not merge file"
+                )
+
+        except Exception as e:
+            debug_error(MODULE, f"[PARALLEL] Async merge failed for {file_path}: {e}")
+            return ParallelMergeResult(
+                file_path=file_path,
+                merged_content=_heuristic_merge(main_content, worktree_content, base_content),
+                success=False,
+                error=str(e)
+            )
+
+
+async def _run_parallel_merges(
+    tasks: list[ParallelMergeTask],
+    project_dir: Path,
+    max_concurrent: int = MAX_PARALLEL_AI_MERGES,
+) -> list[ParallelMergeResult]:
+    """
+    Run multiple file merges in parallel.
+
+    Uses asyncio.gather with a semaphore to limit concurrency.
+
+    Args:
+        tasks: List of merge tasks to execute
+        project_dir: Project directory for validation
+        max_concurrent: Maximum concurrent AI calls
+
+    Returns:
+        List of merge results in same order as tasks
+    """
+    if not tasks:
+        return []
+
+    debug(MODULE, f"[PARALLEL] Starting {len(tasks)} parallel merges (max concurrent: {max_concurrent})")
+
+    # Create semaphore to limit concurrent AI calls
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    # Create coroutines for all tasks
+    coroutines = [
+        _merge_file_with_ai_async(task, project_dir, semaphore)
+        for task in tasks
+    ]
+
+    # Run all in parallel
+    results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+    # Convert exceptions to failed results
+    processed_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            processed_results.append(ParallelMergeResult(
+                file_path=tasks[i].file_path,
+                merged_content=None,
+                success=False,
+                error=str(result)
+            ))
+        else:
+            processed_results.append(result)
+
+    # Log summary
+    successful = sum(1 for r in processed_results if r.success)
+    auto_merged = sum(1 for r in processed_results if r.was_auto_merged)
+    debug_success(MODULE, f"[PARALLEL] Completed: {successful}/{len(tasks)} successful, {auto_merged} auto-merged")
+
+    return processed_results
 
 
 def _is_process_running(pid: int) -> bool:
