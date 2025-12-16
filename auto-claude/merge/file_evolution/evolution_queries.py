@@ -148,10 +148,7 @@ class EvolutionQueries:
             List of file paths modified by 2+ tasks
         """
         file_tasks = self.get_files_modified_by_tasks(task_ids, evolutions)
-        return [
-            file_path for file_path, tasks in file_tasks.items()
-            if len(tasks) > 1
-        ]
+        return [file_path for file_path, tasks in file_tasks.items() if len(tasks) > 1]
 
     def get_active_tasks(
         self,
@@ -238,10 +235,7 @@ class EvolutionQueries:
         # Filter snapshots if task_ids specified
         snapshots = evolution.task_snapshots
         if task_ids:
-            snapshots = [
-                ts for ts in snapshots
-                if ts.task_id in task_ids
-            ]
+            snapshots = [ts for ts in snapshots if ts.task_id in task_ids]
 
         return {
             "file_path": rel_path,
@@ -253,7 +247,9 @@ class EvolutionQueries:
                     "task_id": ts.task_id,
                     "intent": ts.task_intent,
                     "started_at": ts.started_at.isoformat(),
-                    "completed_at": ts.completed_at.isoformat() if ts.completed_at else None,
+                    "completed_at": ts.completed_at.isoformat()
+                    if ts.completed_at
+                    else None,
                     "changes": [c.to_dict() for c in ts.semantic_changes],
                     "hash_before": ts.content_hash_before,
                     "hash_after": ts.content_hash_after,
@@ -282,8 +278,7 @@ class EvolutionQueries:
         # Remove task snapshots from evolutions
         for evolution in evolutions.values():
             evolution.task_snapshots = [
-                ts for ts in evolution.task_snapshots
-                if ts.task_id != task_id
+                ts for ts in evolution.task_snapshots if ts.task_id != task_id
             ]
 
         # Remove baseline directory if requested

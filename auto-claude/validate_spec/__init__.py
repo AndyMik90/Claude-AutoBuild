@@ -41,4 +41,5 @@ def __getattr__(name):
 
     raise AttributeError(f"module 'validate_spec' has no attribute '{name}'")
 
+
 __all__ = ["SpecValidator", "ValidationResult", "auto_fix_plan"]

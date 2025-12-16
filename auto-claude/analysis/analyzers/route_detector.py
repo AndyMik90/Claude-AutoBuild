@@ -19,7 +19,7 @@ class RouteDetector(BaseAnalyzer):
     """Detects API routes across multiple web frameworks."""
 
     # Directories to exclude from route detection
-    EXCLUDED_DIRS = {'node_modules', '.venv', 'venv', '__pycache__', '.git'}
+    EXCLUDED_DIRS = {"node_modules", ".venv", "venv", "__pycache__", ".git"}
 
     def __init__(self, path: Path):
         super().__init__(path)
@@ -58,7 +58,9 @@ class RouteDetector(BaseAnalyzer):
     def _detect_fastapi_routes(self) -> list[dict]:
         """Detect FastAPI routes."""
         routes = []
-        files_to_check = [f for f in self.path.glob("**/*.py") if self._should_include_file(f)]
+        files_to_check = [
+            f for f in self.path.glob("**/*.py") if self._should_include_file(f)
+        ]
 
         for file_path in files_to_check:
             try:
@@ -120,7 +122,9 @@ class RouteDetector(BaseAnalyzer):
     def _detect_flask_routes(self) -> list[dict]:
         """Detect Flask routes."""
         routes = []
-        files_to_check = [f for f in self.path.glob("**/*.py") if self._should_include_file(f)]
+        files_to_check = [
+            f for f in self.path.glob("**/*.py") if self._should_include_file(f)
+        ]
 
         for file_path in files_to_check:
             try:
@@ -167,7 +171,9 @@ class RouteDetector(BaseAnalyzer):
     def _detect_django_routes(self) -> list[dict]:
         """Detect Django routes from urls.py files."""
         routes = []
-        url_files = [f for f in self.path.glob("**/urls.py") if self._should_include_file(f)]
+        url_files = [
+            f for f in self.path.glob("**/urls.py") if self._should_include_file(f)
+        ]
 
         for file_path in url_files:
             try:
@@ -201,8 +207,12 @@ class RouteDetector(BaseAnalyzer):
     def _detect_express_routes(self) -> list[dict]:
         """Detect Express/Fastify/Koa routes."""
         routes = []
-        js_files = [f for f in self.path.glob("**/*.js") if self._should_include_file(f)]
-        ts_files = [f for f in self.path.glob("**/*.ts") if self._should_include_file(f)]
+        js_files = [
+            f for f in self.path.glob("**/*.js") if self._should_include_file(f)
+        ]
+        ts_files = [
+            f for f in self.path.glob("**/*.ts") if self._should_include_file(f)
+        ]
         files_to_check = js_files + ts_files
         for file_path in files_to_check:
             try:
@@ -256,7 +266,11 @@ class RouteDetector(BaseAnalyzer):
         app_dir = self.path / "app"
         if app_dir.exists():
             # Find all route.ts/js files
-            route_files = [f for f in app_dir.glob("**/route.{ts,js,tsx,jsx}") if self._should_include_file(f)]
+            route_files = [
+                f
+                for f in app_dir.glob("**/route.{ts,js,tsx,jsx}")
+                if self._should_include_file(f)
+            ]
             for route_file in route_files:
                 # Convert file path to route path
                 # app/api/users/[id]/route.ts -> /api/users/:id
@@ -290,9 +304,13 @@ class RouteDetector(BaseAnalyzer):
         # Next.js Pages Router (pages/api directory)
         pages_api = self.path / "pages" / "api"
         if pages_api.exists():
-            api_files = [f for f in pages_api.glob("**/*.{ts,js,tsx,jsx}") if self._should_include_file(f)]
+            api_files = [
+                f
+                for f in pages_api.glob("**/*.{ts,js,tsx,jsx}")
+                if self._should_include_file(f)
+            ]
             for api_file in api_files:
-                if api_file.name.startswith('_'):
+                if api_file.name.startswith("_"):
                     continue
 
                 # Convert file path to route
@@ -322,7 +340,9 @@ class RouteDetector(BaseAnalyzer):
     def _detect_go_routes(self) -> list[dict]:
         """Detect Go framework routes (Gin, Echo, Chi, Fiber)."""
         routes = []
-        go_files = [f for f in self.path.glob("**/*.go") if self._should_include_file(f)]
+        go_files = [
+            f for f in self.path.glob("**/*.go") if self._should_include_file(f)
+        ]
 
         for file_path in go_files:
             try:
@@ -356,7 +376,9 @@ class RouteDetector(BaseAnalyzer):
     def _detect_rust_routes(self) -> list[dict]:
         """Detect Rust framework routes (Axum, Actix)."""
         routes = []
-        rust_files = [f for f in self.path.glob("**/*.rs") if self._should_include_file(f)]
+        rust_files = [
+            f for f in self.path.glob("**/*.rs") if self._should_include_file(f)
+        ]
 
         for file_path in rust_files:
             try:

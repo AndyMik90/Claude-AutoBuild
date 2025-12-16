@@ -64,9 +64,7 @@ class ChecklistFormatter:
             # Escape pipe characters in content
             desc = issue.description.replace("|", "\\|")
             prev = issue.prevention.replace("|", "\\|")
-            lines.append(
-                f"| {desc} | {issue.likelihood.capitalize()} | {prev} |"
-            )
+            lines.append(f"| {desc} | {issue.likelihood.capitalize()} | {prev} |")
 
         lines.append("")
         return lines

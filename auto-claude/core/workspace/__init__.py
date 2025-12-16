@@ -15,6 +15,7 @@ This package provides:
 
 Public API exported from sub-modules.
 """
+
 import importlib.util
 import sys
 from pathlib import Path
@@ -103,42 +104,42 @@ from .setup import (
 
 __all__ = [
     # Merge Operations (from workspace.py)
-    'merge_existing_build',
+    "merge_existing_build",
     # '_run_parallel_merges',  # TODO: not yet implemented - Private but used by tests
     # Models
-    'WorkspaceMode',
-    'WorkspaceChoice',
-    'ParallelMergeTask',
-    'ParallelMergeResult',
-    'MergeLock',
-    'MergeLockError',
+    "WorkspaceMode",
+    "WorkspaceChoice",
+    "ParallelMergeTask",
+    "ParallelMergeResult",
+    "MergeLock",
+    "MergeLockError",
     # Git Utils
-    'has_uncommitted_changes',
-    'get_current_branch',
-    'get_existing_build_worktree',
-    'get_file_content_from_ref',
-    'get_changed_files_from_branch',
-    'is_process_running',
-    'is_binary_file',
-    'validate_merged_syntax',
-    'create_conflict_file_with_git',
+    "has_uncommitted_changes",
+    "get_current_branch",
+    "get_existing_build_worktree",
+    "get_file_content_from_ref",
+    "get_changed_files_from_branch",
+    "is_process_running",
+    "is_binary_file",
+    "validate_merged_syntax",
+    "create_conflict_file_with_git",
     # Setup
-    'choose_workspace',
-    'copy_spec_to_worktree',
-    'setup_workspace',
-    'ensure_timeline_hook_installed',
-    'initialize_timeline_tracking',
+    "choose_workspace",
+    "copy_spec_to_worktree",
+    "setup_workspace",
+    "ensure_timeline_hook_installed",
+    "initialize_timeline_tracking",
     # Display
-    'show_build_summary',
-    'show_changed_files',
-    'print_merge_success',
-    'print_conflict_info',
+    "show_build_summary",
+    "show_changed_files",
+    "print_merge_success",
+    "print_conflict_info",
     # Finalization
-    'finalize_workspace',
-    'handle_workspace_choice',
-    'review_existing_build',
-    'discard_existing_build',
-    'check_existing_build',
-    'list_all_worktrees',
-    'cleanup_all_worktrees',
+    "finalize_workspace",
+    "handle_workspace_choice",
+    "review_existing_build",
+    "discard_existing_build",
+    "check_existing_build",
+    "list_all_worktrees",
+    "cleanup_all_worktrees",
 ]

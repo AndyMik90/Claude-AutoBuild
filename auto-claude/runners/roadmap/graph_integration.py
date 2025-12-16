@@ -36,13 +36,17 @@ class GraphHintsProvider:
                 hints_file=str(self.hints_file),
             )
             print_status("graph_hints.json already exists", "success")
-            return RoadmapPhaseResult("graph_hints", True, [str(self.hints_file)], [], 0)
+            return RoadmapPhaseResult(
+                "graph_hints", True, [str(self.hints_file)], [], 0
+            )
 
         if not is_graphiti_enabled():
             debug("roadmap_graph", "Graphiti not enabled, creating placeholder")
             print_status("Graphiti not enabled, skipping graph hints", "info")
             self._create_disabled_hints_file()
-            return RoadmapPhaseResult("graph_hints", True, [str(self.hints_file)], [], 0)
+            return RoadmapPhaseResult(
+                "graph_hints", True, [str(self.hints_file)], [], 0
+            )
 
         debug("roadmap_graph", "Querying Graphiti for roadmap insights")
         print_status("Querying Graphiti for roadmap insights...", "progress")
@@ -63,7 +67,9 @@ class GraphHintsProvider:
             else:
                 print_status("No relevant graph hints found", "info")
 
-            return RoadmapPhaseResult("graph_hints", True, [str(self.hints_file)], [], 0)
+            return RoadmapPhaseResult(
+                "graph_hints", True, [str(self.hints_file)], [], 0
+            )
 
         except Exception as e:
             debug_error("roadmap_graph", "Graph query failed", error=str(e))

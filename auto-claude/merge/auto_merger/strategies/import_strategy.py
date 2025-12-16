@@ -31,7 +31,10 @@ class ImportStrategy(MergeStrategyHandler):
             for change in snapshot.semantic_changes:
                 if change.change_type == ChangeType.ADD_IMPORT and change.content_after:
                     imports_to_add.append(change.content_after.strip())
-                elif change.change_type == ChangeType.REMOVE_IMPORT and change.content_before:
+                elif (
+                    change.change_type == ChangeType.REMOVE_IMPORT
+                    and change.content_before
+                ):
                     imports_to_remove.add(change.content_before.strip())
 
         # Find where imports end in the file
@@ -48,7 +51,11 @@ class ImportStrategy(MergeStrategyHandler):
         seen_imports = set()
         new_imports = []
         for imp in imports_to_add:
-            if imp not in existing_imports and imp not in imports_to_remove and imp not in seen_imports:
+            if (
+                imp not in existing_imports
+                and imp not in imports_to_remove
+                and imp not in seen_imports
+            ):
                 new_imports.append(imp)
                 seen_imports.add(imp)
 

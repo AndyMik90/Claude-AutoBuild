@@ -326,9 +326,7 @@ class SpecOrchestrator:
         if linear_state:
             print_status(f"Linear task created: {linear_state.task_id}", "success")
         else:
-            print_status(
-                "Linear task creation failed (continuing without)", "warning"
-            )
+            print_status("Linear task creation failed (continuing without)", "warning")
 
     async def _phase_complexity_assessment_with_requirements(
         self,
@@ -409,9 +407,7 @@ class SpecOrchestrator:
         print_status(f"Complexity override: {comp.value.upper()}", "success")
         return assessment
 
-    async def _run_ai_assessment(
-        self, task_logger
-    ) -> complexity.ComplexityAssessment:
+    async def _run_ai_assessment(self, task_logger) -> complexity.ComplexityAssessment:
         """Run AI-based complexity assessment.
 
         Args:
@@ -581,7 +577,10 @@ class SpecOrchestrator:
             parent = self.spec_dir.parent
             prefix = self.spec_dir.name[:4]  # e.g., "001-"
             for candidate in parent.iterdir():
-                if candidate.name.startswith(prefix) and "pending" not in candidate.name:
+                if (
+                    candidate.name.startswith(prefix)
+                    and "pending" not in candidate.name
+                ):
                     self.spec_dir = candidate
                     break
         return result

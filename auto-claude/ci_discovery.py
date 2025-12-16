@@ -1,4 +1,5 @@
 """Backward compatibility shim - import from analysis.ci_discovery instead."""
+
 from analysis.ci_discovery import (
     HAS_YAML,
     CIConfig,

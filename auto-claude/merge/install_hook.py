@@ -14,7 +14,7 @@ import stat
 import sys
 from pathlib import Path
 
-HOOK_SCRIPT = '''#!/bin/bash
+HOOK_SCRIPT = """#!/bin/bash
 #
 # Git post-commit hook for FileTimelineTracker
 # =============================================
@@ -53,7 +53,7 @@ fi
 
 # Not main branch or in worktree, do nothing
 exit 0
-'''
+"""
 
 
 def find_project_root() -> Path:
@@ -114,7 +114,9 @@ def install_hook(project_path: Path) -> bool:
         print(f"Created new hook at {hook_path}")
 
     # Make executable
-    hook_path.chmod(hook_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    hook_path.chmod(
+        hook_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    )
     print("Hook is now executable")
 
     return True

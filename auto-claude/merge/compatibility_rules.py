@@ -322,7 +322,9 @@ def build_default_rules() -> list[CompatibilityRule]:
     return rules
 
 
-def index_rules(rules: list[CompatibilityRule]) -> dict[tuple[ChangeType, ChangeType], CompatibilityRule]:
+def index_rules(
+    rules: list[CompatibilityRule],
+) -> dict[tuple[ChangeType, ChangeType], CompatibilityRule]:
     """
     Create an index for fast rule lookup.
 

@@ -114,16 +114,20 @@ class AIResolver:
                 continue
 
             relevant_changes = [
-                c for c in snapshot.semantic_changes
-                if c.location == conflict.location or locations_overlap(c.location, conflict.location)
+                c
+                for c in snapshot.semantic_changes
+                if c.location == conflict.location
+                or locations_overlap(c.location, conflict.location)
             ]
 
             if relevant_changes:
-                task_changes.append((
-                    snapshot.task_id,
-                    snapshot.task_intent or "No intent specified",
-                    relevant_changes,
-                ))
+                task_changes.append(
+                    (
+                        snapshot.task_id,
+                        snapshot.task_intent or "No intent specified",
+                        relevant_changes,
+                    )
+                )
 
         # Determine language from file extension
         language = infer_language(conflict.file_path)
@@ -264,9 +268,11 @@ class AIResolver:
                 if len(file_conflicts) == 1:
                     # Single conflict, resolve individually
                     baseline = baseline_codes.get(file_conflicts[0].location, "")
-                    results.append(self.resolve_conflict(
-                        file_conflicts[0], baseline, task_snapshots
-                    ))
+                    results.append(
+                        self.resolve_conflict(
+                            file_conflicts[0], baseline, task_snapshots
+                        )
+                    )
                 else:
                     # Multiple conflicts in same file - batch resolve
                     result = self._resolve_file_batch(
@@ -277,9 +283,9 @@ class AIResolver:
             # Resolve each individually
             for conflict in conflicts:
                 baseline = baseline_codes.get(conflict.location, "")
-                results.append(self.resolve_conflict(
-                    conflict, baseline, task_snapshots
-                ))
+                results.append(
+                    self.resolve_conflict(conflict, baseline, task_snapshots)
+                )
 
         return results
 
@@ -317,7 +323,9 @@ class AIResolver:
             results = []
             for conflict in conflicts:
                 baseline = baseline_codes.get(conflict.location, "")
-                results.append(self.resolve_conflict(conflict, baseline, task_snapshots))
+                results.append(
+                    self.resolve_conflict(conflict, baseline, task_snapshots)
+                )
 
             # Combine results
             merged = results[0]
@@ -354,7 +362,9 @@ class AIResolver:
 
             for conflict in conflicts:
                 # Try to find the resolution for this location
-                code_block = extract_batch_code_blocks(response, conflict.location, language)
+                code_block = extract_batch_code_blocks(
+                    response, conflict.location, language
+                )
 
                 if code_block:
                     resolved.append(conflict)
@@ -364,7 +374,9 @@ class AIResolver:
             # Return combined result
             if resolved:
                 return MergeResult(
-                    decision=MergeDecision.AI_MERGED if not remaining else MergeDecision.NEEDS_HUMAN_REVIEW,
+                    decision=MergeDecision.AI_MERGED
+                    if not remaining
+                    else MergeDecision.NEEDS_HUMAN_REVIEW,
                     file_path=file_path,
                     merged_content=response,  # Full response for manual extraction
                     conflicts_resolved=resolved,

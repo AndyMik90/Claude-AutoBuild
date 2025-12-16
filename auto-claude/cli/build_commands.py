@@ -318,9 +318,7 @@ def _handle_build_interrupt(
     from agent import run_autonomous_agent
 
     # Print paused banner
-    print_paused_banner(
-        spec_dir, spec_dir.name, has_worktree=bool(worktree_manager)
-    )
+    print_paused_banner(spec_dir, spec_dir.name, has_worktree=bool(worktree_manager))
 
     # Update status file
     status_manager = StatusManager(project_dir)

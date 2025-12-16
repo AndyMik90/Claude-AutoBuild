@@ -97,7 +97,9 @@ class EnvironmentDetector(BaseAnalyzer):
                         "sensitive": is_sensitive,
                     }
 
-    def _parse_env_example(self, env_vars: dict[str, Any], required_vars: set[str]) -> None:
+    def _parse_env_example(
+        self, env_vars: dict[str, Any], required_vars: set[str]
+    ) -> None:
         """Parse .env.example to find required variables."""
         example_content = self._read_file(".env.example") or self._read_file(
             ".env.sample"
@@ -156,7 +158,9 @@ class EnvironmentDetector(BaseAnalyzer):
                                 "sensitive": False,
                             }
 
-    def _parse_code_references(self, env_vars: dict[str, Any], optional_vars: set[str]) -> None:
+    def _parse_code_references(
+        self, env_vars: dict[str, Any], optional_vars: set[str]
+    ) -> None:
         """Scan code for os.getenv() / process.env usage to find optional vars."""
         entry_files = [
             "app.py",

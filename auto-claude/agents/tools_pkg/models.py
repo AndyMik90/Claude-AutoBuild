@@ -24,13 +24,13 @@ TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 # Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
 # These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
 ELECTRON_TOOLS = [
-    "mcp__electron__electron_connect",         # Connect to Electron app via DevTools
-    "mcp__electron__electron_screenshot",      # Take screenshot of Electron window
-    "mcp__electron__electron_click",           # Click element in Electron app
-    "mcp__electron__electron_fill",            # Fill input field in Electron app
-    "mcp__electron__electron_evaluate",        # Execute JS in Electron renderer
-    "mcp__electron__electron_get_window_info", # Get window state/bounds
-    "mcp__electron__electron_get_console",     # Get console logs from renderer
+    "mcp__electron__electron_connect",  # Connect to Electron app via DevTools
+    "mcp__electron__electron_screenshot",  # Take screenshot of Electron window
+    "mcp__electron__electron_click",  # Click element in Electron app
+    "mcp__electron__electron_fill",  # Fill input field in Electron app
+    "mcp__electron__electron_evaluate",  # Execute JS in Electron renderer
+    "mcp__electron__electron_get_window_info",  # Get window state/bounds
+    "mcp__electron__electron_get_console",  # Get console logs from renderer
 ]
 
 # Base tools available to all agents

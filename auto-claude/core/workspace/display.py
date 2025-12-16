@@ -6,7 +6,6 @@ Workspace Display
 Functions for displaying workspace information and build summaries.
 """
 
-
 from ui import (
     bold,
     error,
@@ -91,17 +90,25 @@ def print_merge_success(no_commit: bool, stats: dict | None = None) -> None:
         if stats:
             lines.append("What changed:")
             if stats.get("files_added", 0) > 0:
-                lines.append(f"  + {stats['files_added']} file{'s' if stats['files_added'] != 1 else ''} added")
+                lines.append(
+                    f"  + {stats['files_added']} file{'s' if stats['files_added'] != 1 else ''} added"
+                )
             if stats.get("files_modified", 0) > 0:
-                lines.append(f"  ~ {stats['files_modified']} file{'s' if stats['files_modified'] != 1 else ''} modified")
+                lines.append(
+                    f"  ~ {stats['files_modified']} file{'s' if stats['files_modified'] != 1 else ''} modified"
+                )
             if stats.get("files_deleted", 0) > 0:
-                lines.append(f"  - {stats['files_deleted']} file{'s' if stats['files_deleted'] != 1 else ''} deleted")
+                lines.append(
+                    f"  - {stats['files_deleted']} file{'s' if stats['files_deleted'] != 1 else ''} deleted"
+                )
             lines.append("")
 
-        lines.extend([
-            "Your new feature is now part of your project.",
-            "The separate workspace has been cleaned up.",
-        ])
+        lines.extend(
+            [
+                "Your new feature is now part of your project.",
+                "The separate workspace has been cleaned up.",
+            ]
+        )
         content = lines
 
     print()
@@ -118,7 +125,11 @@ def print_conflict_info(result: dict) -> None:
         return
 
     print()
-    print(warning(f"  {len(conflicts)} file{'s' if len(conflicts) != 1 else ''} had conflicts:"))
+    print(
+        warning(
+            f"  {len(conflicts)} file{'s' if len(conflicts) != 1 else ''} had conflicts:"
+        )
+    )
     for conflict_file in conflicts:
         print(f"    {highlight(conflict_file)}")
     print()

@@ -67,7 +67,6 @@ from .timeline_tracker import FileTimelineTracker
 __all__ = [
     # Main service
     "FileTimelineTracker",
-
     # Core data models
     "MainBranchEvent",
     "BranchPoint",
@@ -76,7 +75,6 @@ __all__ = [
     "TaskFileView",
     "FileTimeline",
     "MergeContext",
-
     # Helper components (advanced usage)
     "TimelineGitHelper",
     "TimelinePersistence",

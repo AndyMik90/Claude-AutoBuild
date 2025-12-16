@@ -27,7 +27,10 @@ class AppendFunctionsStrategy(MergeStrategyHandler):
 
         for snapshot in context.task_snapshots:
             for change in snapshot.semantic_changes:
-                if change.change_type == ChangeType.ADD_FUNCTION and change.content_after:
+                if (
+                    change.change_type == ChangeType.ADD_FUNCTION
+                    and change.content_after
+                ):
                     new_functions.append(change.content_after)
 
         # Append at the end (before any module.exports in JS)
@@ -69,7 +72,9 @@ class AppendMethodsStrategy(MergeStrategyHandler):
             for change in snapshot.semantic_changes:
                 if change.change_type == ChangeType.ADD_METHOD and change.content_after:
                     # Extract class name from location
-                    class_name = change.target.split(".")[0] if "." in change.target else None
+                    class_name = (
+                        change.target.split(".")[0] if "." in change.target else None
+                    )
                     if class_name:
                         if class_name not in new_methods:
                             new_methods[class_name] = []
@@ -77,7 +82,9 @@ class AppendMethodsStrategy(MergeStrategyHandler):
 
         # Insert methods into their classes
         for class_name, methods in new_methods.items():
-            content = MergeHelpers.insert_methods_into_class(content, class_name, methods)
+            content = MergeHelpers.insert_methods_into_class(
+                content, class_name, methods
+            )
 
         total_methods = sum(len(m) for m in new_methods.values())
         return MergeResult(

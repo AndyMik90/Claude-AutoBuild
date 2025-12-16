@@ -83,7 +83,9 @@ class HooksThenWrapStrategy(MergeStrategyHandler):
 
             # First add hooks
             if hooks:
-                content = MergeHelpers.insert_hooks_into_function(content, func_name, hooks)
+                content = MergeHelpers.insert_hooks_into_function(
+                    content, func_name, hooks
+                )
 
             # Then apply wraps
             for wrapper_name, wrapper_props in wraps:

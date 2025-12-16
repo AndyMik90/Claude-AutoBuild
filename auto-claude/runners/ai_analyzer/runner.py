@@ -92,9 +92,7 @@ class AIAnalyzerRunner:
         print("  AI-ENHANCED PROJECT ANALYSIS")
         print("=" * 60 + "\n")
 
-    def _get_analyzers_to_run(
-        self, selected_analyzers: list[str] | None
-    ) -> list[str]:
+    def _get_analyzers_to_run(self, selected_analyzers: list[str] | None) -> list[str]:
         """
         Determine which analyzers to run.
 

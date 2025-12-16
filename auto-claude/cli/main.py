@@ -302,14 +302,18 @@ def main() -> None:
     # Handle build management commands
     if args.merge_preview:
         from cli.workspace_commands import handle_merge_preview_command
+
         result = handle_merge_preview_command(project_dir, spec_dir.name)
         # Output as JSON for the UI to parse
         import json
+
         print(json.dumps(result))
         return
 
     if args.merge:
-        success = handle_merge_command(project_dir, spec_dir.name, no_commit=args.no_commit)
+        success = handle_merge_command(
+            project_dir, spec_dir.name, no_commit=args.no_commit
+        )
         if not success:
             sys.exit(1)
         return

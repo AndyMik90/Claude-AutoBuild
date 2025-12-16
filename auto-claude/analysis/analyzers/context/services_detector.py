@@ -152,7 +152,9 @@ class ServicesDetector(BaseAnalyzer):
 
         return all_deps
 
-    def _detect_databases(self, all_deps: set[str], databases: list[dict[str, str]]) -> None:
+    def _detect_databases(
+        self, all_deps: set[str], databases: list[dict[str, str]]
+    ) -> None:
         """Detect database clients."""
         for dep, db_type in self.DATABASE_INDICATORS.items():
             if dep in all_deps:
@@ -164,7 +166,9 @@ class ServicesDetector(BaseAnalyzer):
             if indicator in all_deps:
                 cache.append({"type": indicator})
 
-    def _detect_message_queues(self, all_deps: set[str], queues: list[dict[str, str]]) -> None:
+    def _detect_message_queues(
+        self, all_deps: set[str], queues: list[dict[str, str]]
+    ) -> None:
         """Detect message queue systems."""
         for dep, queue_type in self.QUEUE_INDICATORS.items():
             if dep in all_deps:
@@ -176,25 +180,33 @@ class ServicesDetector(BaseAnalyzer):
             if dep in all_deps:
                 email.append({"provider": email_type, "client": dep})
 
-    def _detect_payments(self, all_deps: set[str], payments: list[dict[str, str]]) -> None:
+    def _detect_payments(
+        self, all_deps: set[str], payments: list[dict[str, str]]
+    ) -> None:
         """Detect payment processors."""
         for dep, payment_type in self.PAYMENT_INDICATORS.items():
             if dep in all_deps:
                 payments.append({"provider": payment_type, "client": dep})
 
-    def _detect_storage(self, all_deps: set[str], storage: list[dict[str, str]]) -> None:
+    def _detect_storage(
+        self, all_deps: set[str], storage: list[dict[str, str]]
+    ) -> None:
         """Detect storage services."""
         for dep, storage_type in self.STORAGE_INDICATORS.items():
             if dep in all_deps:
                 storage.append({"provider": storage_type, "client": dep})
 
-    def _detect_auth_providers(self, all_deps: set[str], auth: list[dict[str, str]]) -> None:
+    def _detect_auth_providers(
+        self, all_deps: set[str], auth: list[dict[str, str]]
+    ) -> None:
         """Detect authentication providers."""
         for dep, auth_type in self.AUTH_INDICATORS.items():
             if dep in all_deps:
                 auth.append({"type": auth_type, "client": dep})
 
-    def _detect_monitoring(self, all_deps: set[str], monitoring: list[dict[str, str]]) -> None:
+    def _detect_monitoring(
+        self, all_deps: set[str], monitoring: list[dict[str, str]]
+    ) -> None:
         """Detect monitoring and observability tools."""
         for dep, monitoring_type in self.MONITORING_INDICATORS.items():
             if dep in all_deps:

@@ -22,7 +22,9 @@ from .paths import get_session_insights_dir
 logger = logging.getLogger(__name__)
 
 
-def save_session_insights(spec_dir: Path, session_num: int, insights: dict[str, Any]) -> None:
+def save_session_insights(
+    spec_dir: Path, session_num: int, insights: dict[str, Any]
+) -> None:
     """
     Save insights from a completed session.
 

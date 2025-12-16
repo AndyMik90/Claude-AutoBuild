@@ -34,9 +34,16 @@ logger = logging.getLogger(__name__)
 try:
     from debug import debug, debug_success, debug_warning
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_success(*args, **kwargs): pass
-    def debug_warning(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_success(*args, **kwargs):
+        pass
+
+    def debug_warning(*args, **kwargs):
+        pass
+
 
 MODULE = "merge.timeline_tracker"
 
@@ -56,8 +63,9 @@ class FileTimelineTracker:
             project_path: Root directory of the project
             storage_path: Directory for timeline storage (default: .auto-claude/)
         """
-        debug(MODULE, "Initializing FileTimelineTracker",
-              project_path=str(project_path))
+        debug(
+            MODULE, "Initializing FileTimelineTracker", project_path=str(project_path)
+        )
 
         self.project_path = Path(project_path).resolve()
         self.storage_path = storage_path or (self.project_path / ".auto-claude")
@@ -72,8 +80,11 @@ class FileTimelineTracker:
         # Load existing timelines
         self._timelines = self.persistence.load_all_timelines()
 
-        debug_success(MODULE, "FileTimelineTracker initialized",
-                     timelines_loaded=len(self._timelines))
+        debug_success(
+            MODULE,
+            "FileTimelineTracker initialized",
+            timelines_loaded=len(self._timelines),
+        )
 
     # =========================================================================
     # EVENT HANDLERS
@@ -103,9 +114,12 @@ class FileTimelineTracker:
             task_intent: Description of what the task intends to do
             task_title: Short title for the task
         """
-        debug(MODULE, f"on_task_start: {task_id}",
-              files_to_modify=files_to_modify,
-              branch_point=branch_point_commit)
+        debug(
+            MODULE,
+            f"on_task_start: {task_id}",
+            files_to_modify=files_to_modify,
+            branch_point=branch_point_commit,
+        )
 
         # Get actual branch point commit if not provided
         if not branch_point_commit:
@@ -118,7 +132,9 @@ class FileTimelineTracker:
             timeline = self._get_or_create_timeline(file_path)
 
             # Get file content at branch point
-            content = self.git.get_file_content_at_commit(file_path, branch_point_commit)
+            content = self.git.get_file_content_at_commit(
+                file_path, branch_point_commit
+            )
             if content is None:
                 # File doesn't exist at this commit - might be created by task
                 content = ""
@@ -137,13 +153,15 @@ class FileTimelineTracker:
                     from_plan=bool(task_intent),
                 ),
                 commits_behind_main=0,
-                status='active',
+                status="active",
             )
 
             timeline.add_task_view(task_view)
             self._persist_timeline(file_path)
 
-        debug_success(MODULE, f"Task {task_id} registered with {len(files_to_modify)} files")
+        debug_success(
+            MODULE, f"Task {task_id} registered with {len(files_to_modify)} files"
+        )
 
     def on_main_branch_commit(self, commit_hash: str) -> None:
         """
@@ -180,17 +198,20 @@ class FileTimelineTracker:
                 commit_hash=commit_hash,
                 timestamp=datetime.now(),
                 content=content,
-                source='human',
-                commit_message=commit_info.get('message', ''),
-                author=commit_info.get('author'),
-                diff_summary=commit_info.get('diff_summary'),
+                source="human",
+                commit_message=commit_info.get("message", ""),
+                author=commit_info.get("author"),
+                diff_summary=commit_info.get("diff_summary"),
             )
 
             timeline.add_main_event(event)
             self._persist_timeline(file_path)
 
-        debug_success(MODULE, f"Processed main commit {commit_hash[:8]}",
-                     files_updated=len(changed_files))
+        debug_success(
+            MODULE,
+            f"Processed main commit {commit_hash[:8]}",
+            files_updated=len(changed_files),
+        )
 
     def on_task_worktree_change(
         self,
@@ -256,7 +277,7 @@ class FileTimelineTracker:
                 continue
 
             # Mark task as merged
-            task_view.status = 'merged'
+            task_view.status = "merged"
             task_view.merged_at = datetime.now()
 
             # Add main branch event for the merge
@@ -266,7 +287,7 @@ class FileTimelineTracker:
                     commit_hash=merge_commit,
                     timestamp=datetime.now(),
                     content=content,
-                    source='merged_task',
+                    source="merged_task",
                     merged_from_task=task_id,
                     commit_message=f"Merged from {task_id}",
                 )
@@ -294,7 +315,7 @@ class FileTimelineTracker:
 
             task_view = timeline.get_task_view(task_id)
             if task_view:
-                task_view.status = 'abandoned'
+                task_view.status = "abandoned"
 
             self._persist_timeline(file_path)
 
@@ -325,16 +346,26 @@ class FileTimelineTracker:
 
         task_view = timeline.get_task_view(task_id)
         if not task_view:
-            debug_warning(MODULE, f"Task {task_id} not found in timeline for {file_path}")
+            debug_warning(
+                MODULE, f"Task {task_id} not found in timeline for {file_path}"
+            )
             return None
 
         # Get main evolution since task branched
-        main_evolution = timeline.get_events_since_commit(task_view.branch_point.commit_hash)
+        main_evolution = timeline.get_events_since_commit(
+            task_view.branch_point.commit_hash
+        )
 
         # Get current main state
         current_main = timeline.get_current_main_state()
-        current_main_content = current_main.content if current_main else task_view.branch_point.content
-        current_main_commit = current_main.commit_hash if current_main else task_view.branch_point.commit_hash
+        current_main_content = (
+            current_main.content if current_main else task_view.branch_point.content
+        )
+        current_main_commit = (
+            current_main.commit_hash
+            if current_main
+            else task_view.branch_point.commit_hash
+        )
 
         # Get task's worktree content
         worktree_content = ""
@@ -348,12 +379,14 @@ class FileTimelineTracker:
         other_tasks = []
         for tv in timeline.get_active_tasks():
             if tv.task_id != task_id:
-                other_tasks.append({
-                    "task_id": tv.task_id,
-                    "intent": tv.task_intent.description,
-                    "branch_point": tv.branch_point.commit_hash,
-                    "commits_behind": tv.commits_behind_main,
-                })
+                other_tasks.append(
+                    {
+                        "task_id": tv.task_id,
+                        "intent": tv.task_intent.description,
+                        "branch_point": tv.branch_point.commit_hash,
+                        "commits_behind": tv.commits_behind_main,
+                    }
+                )
 
         context = MergeContext(
             file_path=file_path,
@@ -369,10 +402,13 @@ class FileTimelineTracker:
             total_pending_tasks=len(other_tasks),
         )
 
-        debug_success(MODULE, "Built merge context",
-                     commits_behind=task_view.commits_behind_main,
-                     main_events=len(main_evolution),
-                     other_tasks=len(other_tasks))
+        debug_success(
+            MODULE,
+            "Built merge context",
+            commits_behind=task_view.commits_behind_main,
+            main_events=len(main_evolution),
+            other_tasks=len(other_tasks),
+        )
 
         return context
 
@@ -420,7 +456,7 @@ class FileTimelineTracker:
         drift = {}
         for file_path, timeline in self._timelines.items():
             task_view = timeline.get_task_view(task_id)
-            if task_view and task_view.status == 'active':
+            if task_view and task_view.status == "active":
                 drift[file_path] = task_view.commits_behind_main
         return drift
 
@@ -532,9 +568,12 @@ class FileTimelineTracker:
                         task_view.commits_behind_main = drift
                     self._persist_timeline(file_path)
 
-            debug_success(MODULE, "Initialized from worktree",
-                         files=len(changed_files),
-                         branch_point=branch_point[:8])
+            debug_success(
+                MODULE,
+                "Initialized from worktree",
+                files=len(changed_files),
+                branch_point=branch_point[:8],
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize from worktree: {e}")

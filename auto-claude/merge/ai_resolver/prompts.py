@@ -14,7 +14,7 @@ from __future__ import annotations
 SYSTEM_PROMPT = "You are an expert code merge assistant. Be concise and precise."
 
 # Main merge prompt template
-MERGE_PROMPT_TEMPLATE = '''You are a code merge assistant. Your task is to merge changes from multiple development tasks into a single coherent result.
+MERGE_PROMPT_TEMPLATE = """You are a code merge assistant. Your task is to merge changes from multiple development tasks into a single coherent result.
 
 CONTEXT:
 {context}
@@ -38,10 +38,10 @@ Return only the merged code block, wrapped in triple backticks with the language
 merged code here
 ```
 
-Merge the code now:'''
+Merge the code now:"""
 
 # Batch merge prompt template for multiple conflicts in the same file
-BATCH_MERGE_PROMPT_TEMPLATE = '''You are a code merge assistant. Your task is to merge changes from multiple development tasks.
+BATCH_MERGE_PROMPT_TEMPLATE = """You are a code merge assistant. Your task is to merge changes from multiple development tasks.
 
 There are {num_conflicts} conflict regions in {file_path}. Resolve each one.
 
@@ -54,7 +54,7 @@ For each conflict region, output the merged code in a separate code block labele
 merged code
 ```
 
-Resolve all conflicts now:'''
+Resolve all conflicts now:"""
 
 
 def format_merge_prompt(context: str, language: str) -> str:

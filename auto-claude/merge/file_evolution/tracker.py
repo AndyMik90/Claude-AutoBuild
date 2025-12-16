@@ -25,8 +25,13 @@ from .storage import EvolutionStorage
 try:
     from debug import debug, debug_success
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_success(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_success(*args, **kwargs):
+        pass
+
 
 logger = logging.getLogger(__name__)
 MODULE = "merge.file_evolution"
@@ -72,8 +77,7 @@ class FileEvolutionTracker:
             storage_dir: Directory for evolution data (default: .auto-claude/)
             semantic_analyzer: Optional pre-configured analyzer
         """
-        debug(MODULE, "Initializing FileEvolutionTracker",
-              project_dir=str(project_dir))
+        debug(MODULE, "Initializing FileEvolutionTracker", project_dir=str(project_dir))
 
         self.project_dir = Path(project_dir).resolve()
         storage_dir = storage_dir or (self.project_dir / ".auto-claude")
@@ -81,8 +85,7 @@ class FileEvolutionTracker:
         # Initialize modular components
         self.storage = EvolutionStorage(self.project_dir, storage_dir)
         self.baseline_capture = BaselineCapture(
-            self.storage,
-            extensions=self.DEFAULT_EXTENSIONS
+            self.storage, extensions=self.DEFAULT_EXTENSIONS
         )
         self.modification_tracker = ModificationTracker(
             self.storage,
@@ -93,8 +96,11 @@ class FileEvolutionTracker:
         # Load existing evolution data
         self._evolutions: dict[str, FileEvolution] = self.storage.load_evolutions()
 
-        debug_success(MODULE, "FileEvolutionTracker initialized",
-                     evolutions_loaded=len(self._evolutions))
+        debug_success(
+            MODULE,
+            "FileEvolutionTracker initialized",
+            evolutions_loaded=len(self._evolutions),
+        )
 
     # Expose storage_dir and baselines_dir for backward compatibility
     @property

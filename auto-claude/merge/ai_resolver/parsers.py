@@ -71,7 +71,9 @@ def looks_like_code(text: str, language: str) -> bool:
         return any(ind in text for ind in lang_indicators)
 
     # Generic code indicators
-    return any(ind in text for ind in ["=", "(", ")", "{", "}", "import", "def", "function"])
+    return any(
+        ind in text for ind in ["=", "(", ")", "{", "}", "import", "def", "function"]
+    )
 
 
 def extract_batch_code_blocks(

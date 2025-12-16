@@ -62,7 +62,9 @@ class StreamingLogCapture:
         if self.current_tool == tool_name:
             self.current_tool = None
 
-    def process_message(self, msg, verbose: bool = False, capture_detail: bool = True) -> None:
+    def process_message(
+        self, msg, verbose: bool = False, capture_detail: bool = True
+    ) -> None:
         """
         Process a message from the Claude SDK stream.
 

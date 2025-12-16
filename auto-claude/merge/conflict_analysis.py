@@ -30,9 +30,16 @@ from .types import (
 try:
     from debug import debug, debug_detailed, debug_verbose
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_detailed(*args, **kwargs): pass
-    def debug_verbose(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_detailed(*args, **kwargs):
+        pass
+
+    def debug_verbose(*args, **kwargs):
+        pass
+
 
 logger = logging.getLogger(__name__)
 MODULE = "merge.conflict_analysis"
@@ -53,8 +60,11 @@ def detect_conflicts(
         List of detected conflict regions
     """
     task_ids = list(task_analyses.keys())
-    debug(MODULE, f"Detecting conflicts between {len(task_analyses)} tasks",
-          tasks=task_ids)
+    debug(
+        MODULE,
+        f"Detecting conflicts between {len(task_analyses)} tasks",
+        tasks=task_ids,
+    )
 
     if len(task_analyses) <= 1:
         debug(MODULE, "No conflicts possible with 0-1 tasks")
@@ -66,9 +76,12 @@ def detect_conflicts(
     location_changes: dict[str, list[tuple[str, SemanticChange]]] = defaultdict(list)
 
     for task_id, analysis in task_analyses.items():
-        debug_detailed(MODULE, f"Processing task {task_id}",
-                      changes_count=len(analysis.changes),
-                      file=analysis.file_path)
+        debug_detailed(
+            MODULE,
+            f"Processing task {task_id}",
+            changes_count=len(analysis.changes),
+            file=analysis.file_path,
+        )
         for change in analysis.changes:
             location_changes[change.location].append((task_id, change))
 
@@ -79,18 +92,24 @@ def detect_conflicts(
         if len(task_changes) <= 1:
             continue  # No conflict at this location
 
-        debug_verbose(MODULE, f"Checking location {location}",
-                     task_changes_count=len(task_changes))
+        debug_verbose(
+            MODULE,
+            f"Checking location {location}",
+            task_changes_count=len(task_changes),
+        )
 
         file_path = next(iter(task_analyses.values())).file_path
         conflict = analyze_location_conflict(
             file_path, location, task_changes, rule_index
         )
         if conflict:
-            debug_detailed(MODULE, f"Conflict detected at {location}",
-                          severity=conflict.severity.value,
-                          can_auto_merge=conflict.can_auto_merge,
-                          tasks=conflict.tasks_involved)
+            debug_detailed(
+                MODULE,
+                f"Conflict detected at {location}",
+                severity=conflict.severity.value,
+                can_auto_merge=conflict.can_auto_merge,
+                tasks=conflict.tasks_involved,
+            )
             conflicts.append(conflict)
 
     # Also check for implicit conflicts (e.g., changes to related code)

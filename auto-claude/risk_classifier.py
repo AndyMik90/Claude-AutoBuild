@@ -1,4 +1,5 @@
 """Backward compatibility shim - import from analysis.risk_classifier instead."""
+
 from analysis.risk_classifier import (
     AssessmentFlags,
     ComplexityAnalysis,

@@ -10,9 +10,7 @@ import sys
 from pathlib import Path
 
 
-def run_script(
-    project_dir: Path, script: str, args: list[str]
-) -> tuple[bool, str]:
+def run_script(project_dir: Path, script: str, args: list[str]) -> tuple[bool, str]:
     """
     Run a Python script and return (success, output).
 

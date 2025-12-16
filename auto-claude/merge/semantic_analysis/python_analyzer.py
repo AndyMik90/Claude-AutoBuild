@@ -100,9 +100,7 @@ def extract_python_elements(
             # Handle decorated functions/classes
             for sub in child.children:
                 if sub.type in {"function_definition", "class_definition"}:
-                    extract_python_elements(
-                        child, elements, get_text, get_line, parent
-                    )
+                    extract_python_elements(child, elements, get_text, get_line, parent)
                     break
 
         # Recurse for other compound statements

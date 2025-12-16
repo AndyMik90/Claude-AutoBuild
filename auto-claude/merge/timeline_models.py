@@ -26,6 +26,7 @@ class MainBranchEvent:
     These events form the "spine" of the file's timeline - the authoritative
     history that all task worktrees diverge from and merge back into.
     """
+
     # Git identification
     commit_hash: str
     timestamp: datetime
@@ -34,7 +35,7 @@ class MainBranchEvent:
     content: str
 
     # Source of change
-    source: Literal['human', 'merged_task']
+    source: Literal["human", "merged_task"]
     merged_from_task: str | None = None  # If source is 'merged_task'
 
     # Intent/reason for change
@@ -73,6 +74,7 @@ class MainBranchEvent:
 @dataclass
 class BranchPoint:
     """The exact point a task branched from main."""
+
     commit_hash: str
     content: str
     timestamp: datetime
@@ -96,6 +98,7 @@ class BranchPoint:
 @dataclass
 class WorktreeState:
     """Current state of a file in a task's worktree."""
+
     content: str
     last_modified: datetime
 
@@ -116,6 +119,7 @@ class WorktreeState:
 @dataclass
 class TaskIntent:
     """What the task intends to do with this file."""
+
     title: str
     description: str
     from_plan: bool = False  # True if extracted from implementation_plan.json
@@ -144,6 +148,7 @@ class TaskFileView:
     This captures everything we need to know about how one task
     sees and modifies one file.
     """
+
     task_id: str
 
     # The exact point this task branched from main
@@ -159,14 +164,16 @@ class TaskFileView:
     commits_behind_main: int = 0
 
     # Lifecycle status
-    status: Literal['active', 'merged', 'abandoned'] = 'active'
+    status: Literal["active", "merged", "abandoned"] = "active"
     merged_at: datetime | None = None
 
     def to_dict(self) -> dict:
         return {
             "task_id": self.task_id,
             "branch_point": self.branch_point.to_dict(),
-            "worktree_state": self.worktree_state.to_dict() if self.worktree_state else None,
+            "worktree_state": self.worktree_state.to_dict()
+            if self.worktree_state
+            else None,
             "task_intent": self.task_intent.to_dict(),
             "commits_behind_main": self.commits_behind_main,
             "status": self.status,
@@ -178,11 +185,17 @@ class TaskFileView:
         return cls(
             task_id=data["task_id"],
             branch_point=BranchPoint.from_dict(data["branch_point"]),
-            worktree_state=WorktreeState.from_dict(data["worktree_state"]) if data.get("worktree_state") else None,
-            task_intent=TaskIntent.from_dict(data["task_intent"]) if data.get("task_intent") else TaskIntent("", ""),
+            worktree_state=WorktreeState.from_dict(data["worktree_state"])
+            if data.get("worktree_state")
+            else None,
+            task_intent=TaskIntent.from_dict(data["task_intent"])
+            if data.get("task_intent")
+            else TaskIntent("", ""),
             commits_behind_main=data.get("commits_behind_main", 0),
             status=data.get("status", "active"),
-            merged_at=datetime.fromisoformat(data["merged_at"]) if data.get("merged_at") else None,
+            merged_at=datetime.fromisoformat(data["merged_at"])
+            if data.get("merged_at")
+            else None,
         )
 
 
@@ -194,6 +207,7 @@ class FileTimeline:
     This is the "file-centric" view - instead of asking "what did Task X change?",
     we ask "what happened to File Y over time, from ALL sources?"
     """
+
     file_path: str
 
     # Main branch evolution - the authoritative history
@@ -213,7 +227,7 @@ class FileTimeline:
 
         # Update commits_behind_main for all active tasks
         for task_view in self.task_views.values():
-            if task_view.status == 'active':
+            if task_view.status == "active":
                 task_view.commits_behind_main += 1
 
     def add_task_view(self, task_view: TaskFileView) -> None:
@@ -227,7 +241,7 @@ class FileTimeline:
 
     def get_active_tasks(self) -> list[TaskFileView]:
         """Get all tasks that are still active (not merged/abandoned)."""
-        return [tv for tv in self.task_views.values() if tv.status == 'active']
+        return [tv for tv in self.task_views.values() if tv.status == "active"]
 
     def get_events_since_commit(self, commit_hash: str) -> list[MainBranchEvent]:
         """Get all main branch events since a given commit."""
@@ -279,6 +293,7 @@ class MergeContext:
     This is the "situational awareness" the AI needs to make intelligent
     merge decisions.
     """
+
     file_path: str
 
     # The task being merged

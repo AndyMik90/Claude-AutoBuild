@@ -53,16 +53,25 @@ class CompetitorAnalyzer:
             )
 
         if not self.discovery_file.exists():
-            print_status("Discovery file not found, skipping competitor analysis", "warning")
-            self._create_error_analysis_file("Discovery file not found - cannot analyze competitors without project context")
+            print_status(
+                "Discovery file not found, skipping competitor analysis", "warning"
+            )
+            self._create_error_analysis_file(
+                "Discovery file not found - cannot analyze competitors without project context"
+            )
             return RoadmapPhaseResult(
-                "competitor_analysis", True, [str(self.analysis_file)], ["Discovery file not found"], 0
+                "competitor_analysis",
+                True,
+                [str(self.analysis_file)],
+                ["Discovery file not found"],
+                0,
             )
 
         errors = []
         for attempt in range(MAX_RETRIES):
             print_status(
-                f"Running competitor analysis agent (attempt {attempt + 1})...", "progress"
+                f"Running competitor analysis agent (attempt {attempt + 1})...",
+                "progress",
             )
 
             context = self._build_context()
@@ -82,7 +91,10 @@ class CompetitorAnalyzer:
                 )
 
         # Graceful degradation: if all retries fail, create empty analysis and continue
-        print_status("Competitor analysis failed, continuing without competitor insights", "warning")
+        print_status(
+            "Competitor analysis failed, continuing without competitor insights",
+            "warning",
+        )
         for err in errors:
             print(f"  {muted('Error:')} {err}")
 
@@ -117,12 +129,11 @@ Output your findings to competitor_analysis.json.
             if "competitors" in data:
                 competitor_count = len(data.get("competitors", []))
                 pain_point_count = sum(
-                    len(c.get("pain_points", []))
-                    for c in data.get("competitors", [])
+                    len(c.get("pain_points", [])) for c in data.get("competitors", [])
                 )
                 print_status(
                     f"Analyzed {competitor_count} competitors, found {pain_point_count} pain points",
-                    "success"
+                    "success",
                 )
                 return RoadmapPhaseResult(
                     "competitor_analysis", True, [str(self.analysis_file)], [], 0
@@ -145,7 +156,7 @@ Output your findings to competitor_analysis.json.
                     "insights_summary": {
                         "top_pain_points": [],
                         "differentiator_opportunities": [],
-                        "market_trends": []
+                        "market_trends": [],
                     },
                     "created_at": datetime.now().isoformat(),
                 },
@@ -163,7 +174,7 @@ Output your findings to competitor_analysis.json.
             "insights_summary": {
                 "top_pain_points": [],
                 "differentiator_opportunities": [],
-                "market_trends": []
+                "market_trends": [],
             },
             "created_at": datetime.now().isoformat(),
         }

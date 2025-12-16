@@ -103,16 +103,20 @@ def _build_main_evolution_section(context: MergeContext) -> str:
 No changes have been made to main branch since this task started.
 """
 
-    lines = [f"MAIN BRANCH EVOLUTION ({len(context.main_evolution)} commits since task branched)"]
+    lines = [
+        f"MAIN BRANCH EVOLUTION ({len(context.main_evolution)} commits since task branched)"
+    ]
     lines.append("─" * 79)
     lines.append("")
 
     for event in context.main_evolution:
         source_label = event.source.upper()
-        if event.source == 'merged_task' and event.merged_from_task:
+        if event.source == "merged_task" and event.merged_from_task:
             source_label = f"MERGED FROM {event.merged_from_task}"
 
-        lines.append(f'COMMIT {event.commit_hash[:12]} [{source_label}]: "{event.commit_message}"')
+        lines.append(
+            f'COMMIT {event.commit_hash[:12]} [{source_label}]: "{event.commit_message}"'
+        )
         lines.append(f"Timestamp: {event.timestamp}")
 
         if event.diff_summary:
@@ -144,7 +148,9 @@ No other tasks are pending for this file.
         branch_point = task.get("branch_point", "unknown")[:12]
         commits_behind = task.get("commits_behind", 0)
 
-        lines.append(f"• {task_id} (branched at {branch_point}, {commits_behind} commits behind)")
+        lines.append(
+            f"• {task_id} (branched at {branch_point}, {commits_behind} commits behind)"
+        )
         lines.append(f'  Intent: "{intent}"')
         lines.append("")
 
@@ -156,7 +162,9 @@ def _build_compatibility_instructions(context: MergeContext) -> str:
     if not context.other_pending_tasks:
         return "- No other tasks pending for this file"
 
-    lines = [f"- {len(context.other_pending_tasks)} other task(s) will merge after this"]
+    lines = [
+        f"- {len(context.other_pending_tasks)} other task(s) will merge after this"
+    ]
     lines.append("   - Structure your merge to accommodate their upcoming changes:")
 
     for task in context.other_pending_tasks:
@@ -188,13 +196,15 @@ def build_simple_merge_prompt(
     if task_intent:
         intent_section = f"""
 === FEATURE BRANCH INTENT ({spec_name}) ===
-Task: {task_intent.get('title', spec_name)}
-Description: {task_intent.get('description', 'No description')}
+Task: {task_intent.get("title", spec_name)}
+Description: {task_intent.get("description", "No description")}
 """
-        if task_intent.get('spec_summary'):
+        if task_intent.get("spec_summary"):
             intent_section += f"Summary: {task_intent['spec_summary']}\n"
 
-    base_section = base_content if base_content else "(File did not exist in common ancestor)"
+    base_section = (
+        base_content if base_content else "(File did not exist in common ancestor)"
+    )
 
     prompt = f'''You are a code merge expert. Merge the following conflicting versions of a file.
 
@@ -259,17 +269,17 @@ def build_conflict_only_prompt(
     intent_section = ""
     if task_intent:
         intent_section = f"""
-FEATURE INTENT: {task_intent.get('title', spec_name)}
-{task_intent.get('description', '')}
+FEATURE INTENT: {task_intent.get("title", spec_name)}
+{task_intent.get("description", "")}
 """
 
     conflict_sections = []
     for i, conflict in enumerate(conflicts, 1):
-        context_before = conflict.get('context_before', '')
-        context_after = conflict.get('context_after', '')
-        main_lines = conflict.get('main_lines', '')
-        worktree_lines = conflict.get('worktree_lines', '')
-        conflict_id = conflict.get('id', f'CONFLICT_{i}')
+        context_before = conflict.get("context_before", "")
+        context_after = conflict.get("context_after", "")
+        main_lines = conflict.get("main_lines", "")
+        worktree_lines = conflict.get("worktree_lines", "")
+        conflict_id = conflict.get("id", f"CONFLICT_{i}")
 
         section = f"""
 --- {conflict_id} ---
@@ -289,7 +299,7 @@ FEATURE BRANCH VERSION ({spec_name}):
 
     all_conflicts = "\n".join(conflict_sections)
 
-    prompt = f'''You are a code merge expert. Resolve the following {len(conflicts)} conflict(s) in {file_path}.
+    prompt = f"""You are a code merge expert. Resolve the following {len(conflicts)} conflict(s) in {file_path}.
 {intent_section}
 FILE: {file_path}
 LANGUAGE: {language}
@@ -305,7 +315,7 @@ MERGE RULES:
 
 For EACH conflict, output the resolved code in this exact format:
 
---- {conflicts[0].get('id', 'CONFLICT_1')} RESOLVED ---
+--- {conflicts[0].get("id", "CONFLICT_1")} RESOLVED ---
 ```{language}
 resolved code here
 ```
@@ -316,7 +326,7 @@ resolved code here
 {"```" if len(conflicts) > 1 else ""}
 
 (continue for each conflict)
-'''
+"""
     return prompt
 
 
@@ -344,43 +354,49 @@ def parse_conflict_markers(content: str) -> tuple[list[dict], list[str]]:
     # content from incoming branch
     # >>>>>>> branch_name or commit_hash
     conflict_pattern = re.compile(
-        r'<<<<<<<[^\n]*\n'  # Start marker
-        r'(.*?)'             # Main/HEAD content (group 1)
-        r'=======\n'         # Separator
-        r'(.*?)'             # Incoming/feature content (group 2)
-        r'>>>>>>>[^\n]*\n?', # End marker
-        re.DOTALL
+        r"<<<<<<<[^\n]*\n"  # Start marker
+        r"(.*?)"  # Main/HEAD content (group 1)
+        r"=======\n"  # Separator
+        r"(.*?)"  # Incoming/feature content (group 2)
+        r">>>>>>>[^\n]*\n?",  # End marker
+        re.DOTALL,
     )
 
     last_end = 0
     for i, match in enumerate(conflict_pattern.finditer(content), 1):
         # Get the clean section before this conflict
-        clean_before = content[last_end:match.start()]
+        clean_before = content[last_end : match.start()]
         clean_sections.append(clean_before)
 
         # Extract context (last 3 lines before conflict)
-        before_lines = clean_before.rstrip().split('\n')
-        context_before = '\n'.join(before_lines[-3:]) if len(before_lines) >= 3 else clean_before.rstrip()
+        before_lines = clean_before.rstrip().split("\n")
+        context_before = (
+            "\n".join(before_lines[-3:])
+            if len(before_lines) >= 3
+            else clean_before.rstrip()
+        )
 
         # Extract the conflict content
-        main_lines = match.group(1).rstrip('\n')
-        worktree_lines = match.group(2).rstrip('\n')
+        main_lines = match.group(1).rstrip("\n")
+        worktree_lines = match.group(2).rstrip("\n")
 
         # Get context after (first 3 lines after conflict)
         after_start = match.end()
-        after_content = content[after_start:after_start + 500]  # Look ahead 500 chars
-        after_lines = after_content.split('\n')[:3]
-        context_after = '\n'.join(after_lines)
+        after_content = content[after_start : after_start + 500]  # Look ahead 500 chars
+        after_lines = after_content.split("\n")[:3]
+        context_after = "\n".join(after_lines)
 
-        conflicts.append({
-            'id': f'CONFLICT_{i}',
-            'start': match.start(),
-            'end': match.end(),
-            'main_lines': main_lines,
-            'worktree_lines': worktree_lines,
-            'context_before': context_before,
-            'context_after': context_after,
-        })
+        conflicts.append(
+            {
+                "id": f"CONFLICT_{i}",
+                "start": match.start(),
+                "end": match.end(),
+                "main_lines": main_lines,
+                "worktree_lines": worktree_lines,
+                "context_before": context_before,
+                "context_after": context_after,
+            }
+        )
 
         last_end = match.end()
 
@@ -408,32 +424,34 @@ def reassemble_with_resolutions(
         Clean file with conflicts resolved
     """
     # Sort conflicts by start position (should already be sorted, but ensure it)
-    sorted_conflicts = sorted(conflicts, key=lambda c: c['start'])
+    sorted_conflicts = sorted(conflicts, key=lambda c: c["start"])
 
     result_parts = []
     last_end = 0
 
     for conflict in sorted_conflicts:
         # Add clean content before this conflict
-        result_parts.append(original_content[last_end:conflict['start']])
+        result_parts.append(original_content[last_end : conflict["start"]])
 
         # Add the resolution (or keep conflict if no resolution)
-        conflict_id = conflict['id']
+        conflict_id = conflict["id"]
         if conflict_id in resolutions:
             result_parts.append(resolutions[conflict_id])
         else:
             # Fallback: prefer feature branch version if no resolution
-            result_parts.append(conflict['worktree_lines'])
+            result_parts.append(conflict["worktree_lines"])
 
-        last_end = conflict['end']
+        last_end = conflict["end"]
 
     # Add remaining content after last conflict
     result_parts.append(original_content[last_end:])
 
-    return ''.join(result_parts)
+    return "".join(result_parts)
 
 
-def extract_conflict_resolutions(response: str, conflicts: list[dict], language: str) -> dict[str, str]:
+def extract_conflict_resolutions(
+    response: str, conflicts: list[dict], language: str
+) -> dict[str, str]:
     """
     Extract resolved code for each conflict from AI response.
 
@@ -452,28 +470,25 @@ def extract_conflict_resolutions(response: str, conflicts: list[dict], language:
     # Pattern to match resolution blocks
     # --- CONFLICT_1 RESOLVED --- or similar variations
     resolution_pattern = re.compile(
-        r'---\s*(CONFLICT_\d+)\s*RESOLVED\s*---\s*\n'
-        r'```(?:\w+)?\n'
-        r'(.*?)'
-        r'```',
-        re.DOTALL | re.IGNORECASE
+        r"---\s*(CONFLICT_\d+)\s*RESOLVED\s*---\s*\n"
+        r"```(?:\w+)?\n"
+        r"(.*?)"
+        r"```",
+        re.DOTALL | re.IGNORECASE,
     )
 
     for match in resolution_pattern.finditer(response):
         conflict_id = match.group(1).upper()
-        resolved_code = match.group(2).rstrip('\n')
+        resolved_code = match.group(2).rstrip("\n")
         resolutions[conflict_id] = resolved_code
 
     # Fallback: if only one conflict and we can find a single code block
     if len(conflicts) == 1 and not resolutions:
-        code_block_pattern = re.compile(
-            r'```(?:\w+)?\n(.*?)```',
-            re.DOTALL
-        )
+        code_block_pattern = re.compile(r"```(?:\w+)?\n(.*?)```", re.DOTALL)
         matches = list(code_block_pattern.finditer(response))
         if matches:
             # Use the first (or only) code block
-            resolutions[conflicts[0]['id']] = matches[0].group(1).rstrip('\n')
+            resolutions[conflicts[0]["id"]] = matches[0].group(1).rstrip("\n")
 
     return resolutions
 
@@ -536,8 +551,6 @@ def optimize_prompt_for_length(
     context.task_worktree_content = _trim_content(
         context.task_worktree_content, "worktree"
     )
-    context.current_main_content = _trim_content(
-        context.current_main_content, "main"
-    )
+    context.current_main_content = _trim_content(context.current_main_content, "main")
 
     return context

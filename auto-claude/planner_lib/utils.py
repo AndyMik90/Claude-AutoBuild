@@ -2,7 +2,6 @@
 Utility functions for implementation planner.
 """
 
-
 from implementation_plan import Verification, VerificationType
 
 from .models import PlannerContext

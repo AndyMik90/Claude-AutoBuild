@@ -210,17 +210,14 @@ def detect_work_type(subtask: dict) -> list[str]:
 
     # API endpoint detection
     if any(
-        kw in description
-        for kw in ["endpoint", "api", "route", "request", "response"]
+        kw in description for kw in ["endpoint", "api", "route", "request", "response"]
     ):
         work_types.append("api_endpoint")
     if any("routes" in f or "api" in f for f in files):
         work_types.append("api_endpoint")
 
     # Database model detection
-    if any(
-        kw in description for kw in ["model", "database", "migration", "schema"]
-    ):
+    if any(kw in description for kw in ["model", "database", "migration", "schema"]):
         work_types.append("database_model")
     if any("models" in f or "migration" in f for f in files):
         work_types.append("database_model")
@@ -239,8 +236,7 @@ def detect_work_type(subtask: dict) -> list[str]:
 
     # Authentication detection
     if any(
-        kw in description
-        for kw in ["auth", "login", "password", "token", "session"]
+        kw in description for kw in ["auth", "login", "password", "token", "session"]
     ):
         work_types.append("authentication")
 

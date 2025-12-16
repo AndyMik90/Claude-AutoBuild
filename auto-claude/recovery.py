@@ -1,4 +1,5 @@
 """Backward compatibility shim - import from services.recovery instead."""
+
 from services.recovery import (
     FailureType,
     RecoveryAction,

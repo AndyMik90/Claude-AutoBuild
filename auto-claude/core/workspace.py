@@ -46,13 +46,28 @@ try:
         is_debug_enabled,
     )
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_detailed(*args, **kwargs): pass
-    def debug_verbose(*args, **kwargs): pass
-    def debug_success(*args, **kwargs): pass
-    def debug_error(*args, **kwargs): pass
-    def debug_warning(*args, **kwargs): pass
-    def is_debug_enabled(): return False
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_detailed(*args, **kwargs):
+        pass
+
+    def debug_verbose(*args, **kwargs):
+        pass
+
+    def debug_success(*args, **kwargs):
+        pass
+
+    def debug_error(*args, **kwargs):
+        pass
+
+    def debug_warning(*args, **kwargs):
+        pass
+
+    def is_debug_enabled():
+        return False
+
 
 # Import merge system
 from core.workspace.display import (
@@ -109,6 +124,7 @@ MODULE = "workspace"
 # - _get_recent_merges_context
 # - _merge_file_with_ai
 # - _heuristic_merge
+
 
 def merge_existing_build(
     project_dir: Path,
@@ -207,7 +223,7 @@ def merge_existing_build(
                     print()
                     print_status(
                         f"{len(remaining)} conflict(s) require manual resolution:",
-                        "warning"
+                        "warning",
                     )
                     _print_conflict_info(smart_result)
 
@@ -291,10 +307,13 @@ def _try_smart_merge_inner(
     no_commit: bool = False,
 ) -> dict | None:
     """Inner implementation of smart merge (called with lock held)."""
-    debug(MODULE, "=== SMART MERGE START ===",
-          spec_name=spec_name,
-          worktree_path=str(worktree_path),
-          no_commit=no_commit)
+    debug(
+        MODULE,
+        "=== SMART MERGE START ===",
+        spec_name=spec_name,
+        worktree_path=str(worktree_path),
+        no_commit=no_commit,
+    )
 
     try:
         print(muted("  Analyzing changes with intent-aware merge..."))
@@ -308,9 +327,12 @@ def _try_smart_merge_inner(
             debug_warning(MODULE, f"Could not capture worktree state: {e}")
 
         # Initialize the orchestrator
-        debug(MODULE, "Initializing MergeOrchestrator",
-              project_dir=str(project_dir),
-              enable_ai=True)
+        debug(
+            MODULE,
+            "Initializing MergeOrchestrator",
+            project_dir=str(project_dir),
+            enable_ai=True,
+        )
         orchestrator = MergeOrchestrator(
             project_dir,
             enable_ai=True,  # Enable AI for ambiguous conflicts
@@ -318,25 +340,38 @@ def _try_smart_merge_inner(
         )
 
         # Refresh evolution data from the worktree
-        debug(MODULE, "Refreshing evolution data from git",
-              spec_name=spec_name)
+        debug(MODULE, "Refreshing evolution data from git", spec_name=spec_name)
         orchestrator.evolution_tracker.refresh_from_git(spec_name, worktree_path)
 
         # Check for git-level conflicts first (branch divergence)
         debug(MODULE, "Checking for git-level conflicts")
         git_conflicts = _check_git_conflicts(project_dir, spec_name)
 
-        debug_detailed(MODULE, "Git conflict check result",
-                      has_conflicts=git_conflicts.get("has_conflicts"),
-                      conflicting_files=git_conflicts.get("conflicting_files", []),
-                      base_branch=git_conflicts.get("base_branch"))
+        debug_detailed(
+            MODULE,
+            "Git conflict check result",
+            has_conflicts=git_conflicts.get("has_conflicts"),
+            conflicting_files=git_conflicts.get("conflicting_files", []),
+            base_branch=git_conflicts.get("base_branch"),
+        )
 
         if git_conflicts.get("has_conflicts"):
-            print(muted(f"  Branch has diverged from {git_conflicts.get('base_branch', 'main')}"))
-            print(muted(f"  Conflicting files: {len(git_conflicts.get('conflicting_files', []))}"))
+            print(
+                muted(
+                    f"  Branch has diverged from {git_conflicts.get('base_branch', 'main')}"
+                )
+            )
+            print(
+                muted(
+                    f"  Conflicting files: {len(git_conflicts.get('conflicting_files', []))}"
+                )
+            )
 
-            debug(MODULE, "Starting AI conflict resolution",
-                  num_conflicts=len(git_conflicts.get("conflicting_files", [])))
+            debug(
+                MODULE,
+                "Starting AI conflict resolution",
+                num_conflicts=len(git_conflicts.get("conflicting_files", [])),
+            )
 
             # Try to resolve git conflicts with AI
             resolution_result = _resolve_git_conflicts_with_ai(
@@ -349,16 +384,24 @@ def _try_smart_merge_inner(
             )
 
             if resolution_result.get("success"):
-                debug_success(MODULE, "AI conflict resolution succeeded",
-                             resolved_files=resolution_result.get("resolved_files", []),
-                             stats=resolution_result.get("stats", {}))
+                debug_success(
+                    MODULE,
+                    "AI conflict resolution succeeded",
+                    resolved_files=resolution_result.get("resolved_files", []),
+                    stats=resolution_result.get("stats", {}),
+                )
                 return resolution_result
             else:
                 # AI couldn't resolve all conflicts
-                debug_error(MODULE, "AI conflict resolution failed",
-                           remaining_conflicts=resolution_result.get("remaining_conflicts", []),
-                           resolved_files=resolution_result.get("resolved_files", []),
-                           error=resolution_result.get("error"))
+                debug_error(
+                    MODULE,
+                    "AI conflict resolution failed",
+                    remaining_conflicts=resolution_result.get(
+                        "remaining_conflicts", []
+                    ),
+                    resolved_files=resolution_result.get("resolved_files", []),
+                    error=resolution_result.get("error"),
+                )
                 return {
                     "success": False,
                     "conflicts": resolution_result.get("remaining_conflicts", []),
@@ -382,10 +425,7 @@ def _try_smart_merge_inner(
             print(muted(f"  Auto-mergeable: {auto_mergeable}/{len(conflicts)}"))
 
             # Check if any conflicts need human review
-            needs_human = [
-                c for c in conflicts
-                if not c.get("can_auto_merge")
-            ]
+            needs_human = [c for c in conflicts if not c.get("can_auto_merge")]
 
             if needs_human:
                 return {
@@ -407,6 +447,7 @@ def _try_smart_merge_inner(
     except Exception as e:
         # If smart merge fails, fall back to git
         import traceback
+
         print(muted(f"  Smart merge error: {e}"))
         traceback.print_exc()
         return None
@@ -479,7 +520,15 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
 
         # Use git merge-tree to check for conflicts WITHOUT touching working directory
         merge_tree_result = subprocess.run(
-            ["git", "merge-tree", "--write-tree", "--no-messages", merge_base, main_commit, spec_commit],
+            [
+                "git",
+                "merge-tree",
+                "--write-tree",
+                "--no-messages",
+                merge_base,
+                main_commit,
+                spec_commit,
+            ],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -493,7 +542,10 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
             output = merge_tree_result.stdout + merge_tree_result.stderr
             for line in output.split("\n"):
                 if "CONFLICT" in line:
-                    match = re.search(r"(?:Merge conflict in|CONFLICT.*?:)\s*(.+?)(?:\s*$|\s+\()", line)
+                    match = re.search(
+                        r"(?:Merge conflict in|CONFLICT.*?:)\s*(.+?)(?:\s*$|\s+\()",
+                        line,
+                    )
                     if match:
                         file_path = match.group(1).strip()
                         if file_path and file_path not in result["conflicting_files"]:
@@ -507,7 +559,11 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                     capture_output=True,
                     text=True,
                 )
-                main_files = set(main_files_result.stdout.strip().split("\n")) if main_files_result.stdout.strip() else set()
+                main_files = (
+                    set(main_files_result.stdout.strip().split("\n"))
+                    if main_files_result.stdout.strip()
+                    else set()
+                )
 
                 spec_files_result = subprocess.run(
                     ["git", "diff", "--name-only", merge_base, spec_commit],
@@ -515,7 +571,11 @@ def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:
                     capture_output=True,
                     text=True,
                 )
-                spec_files = set(spec_files_result.stdout.strip().split("\n")) if spec_files_result.stdout.strip() else set()
+                spec_files = (
+                    set(spec_files_result.stdout.strip().split("\n"))
+                    if spec_files_result.stdout.strip()
+                    else set()
+                )
 
                 # Files modified in both = potential conflicts
                 conflicting = main_files & spec_files
@@ -550,18 +610,24 @@ def _resolve_git_conflicts_with_ai(
         Dict with success, resolved_files, remaining_conflicts
     """
 
-    debug(MODULE, "=== AI CONFLICT RESOLUTION START ===",
-          spec_name=spec_name,
-          num_conflicting_files=len(git_conflicts.get("conflicting_files", [])))
+    debug(
+        MODULE,
+        "=== AI CONFLICT RESOLUTION START ===",
+        spec_name=spec_name,
+        num_conflicting_files=len(git_conflicts.get("conflicting_files", [])),
+    )
 
     conflicting_files = git_conflicts.get("conflicting_files", [])
     base_branch = git_conflicts.get("base_branch", "main")
     spec_branch = git_conflicts.get("spec_branch", f"auto-claude/{spec_name}")
 
-    debug_detailed(MODULE, "Conflict resolution params",
-                  base_branch=base_branch,
-                  spec_branch=spec_branch,
-                  conflicting_files=conflicting_files)
+    debug_detailed(
+        MODULE,
+        "Conflict resolution params",
+        base_branch=base_branch,
+        spec_branch=spec_branch,
+        conflicting_files=conflicting_files,
+    )
 
     resolved_files = []
     remaining_conflicts = []
@@ -569,7 +635,9 @@ def _resolve_git_conflicts_with_ai(
     ai_merged_count = 0
 
     print()
-    print_status(f"Resolving {len(conflicting_files)} conflicting file(s) with AI...", "progress")
+    print_status(
+        f"Resolving {len(conflicting_files)} conflicting file(s) with AI...", "progress"
+    )
 
     # Get merge-base commit
     merge_base_result = subprocess.run(
@@ -578,24 +646,38 @@ def _resolve_git_conflicts_with_ai(
         capture_output=True,
         text=True,
     )
-    merge_base = merge_base_result.stdout.strip() if merge_base_result.returncode == 0 else None
-    debug(MODULE, "Found merge-base commit", merge_base=merge_base[:12] if merge_base else None)
+    merge_base = (
+        merge_base_result.stdout.strip() if merge_base_result.returncode == 0 else None
+    )
+    debug(
+        MODULE,
+        "Found merge-base commit",
+        merge_base=merge_base[:12] if merge_base else None,
+    )
 
     # FIX: Copy NEW files FIRST before resolving conflicts
     # This ensures dependencies exist before files that import them are written
-    changed_files = _get_changed_files_from_branch(project_dir, base_branch, spec_branch)
-    new_files = [(f, s) for f, s in changed_files if s == "A" and f not in conflicting_files]
+    changed_files = _get_changed_files_from_branch(
+        project_dir, base_branch, spec_branch
+    )
+    new_files = [
+        (f, s) for f, s in changed_files if s == "A" and f not in conflicting_files
+    ]
 
     if new_files:
         print(muted(f"  Copying {len(new_files)} new file(s) first (dependencies)..."))
         for file_path, status in new_files:
             try:
-                content = _get_file_content_from_ref(project_dir, spec_branch, file_path)
+                content = _get_file_content_from_ref(
+                    project_dir, spec_branch, file_path
+                )
                 if content is not None:
                     target_path = project_dir / file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(content, encoding="utf-8")
-                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    subprocess.run(
+                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                    )
                     resolved_files.append(file_path)
                     debug(MODULE, f"Copied new file: {file_path}")
             except Exception as e:
@@ -603,7 +685,9 @@ def _resolve_git_conflicts_with_ai(
 
     # Categorize conflicting files for processing
     files_needing_ai_merge: list[ParallelMergeTask] = []
-    simple_merges: list[tuple[str, str | None]] = []  # (file_path, merged_content or None for delete)
+    simple_merges: list[
+        tuple[str, str | None]
+    ] = []  # (file_path, merged_content or None for delete)
 
     debug(MODULE, "Categorizing conflicting files for parallel processing")
 
@@ -612,15 +696,21 @@ def _resolve_git_conflicts_with_ai(
 
         try:
             # Get content from main branch
-            main_content = _get_file_content_from_ref(project_dir, base_branch, file_path)
+            main_content = _get_file_content_from_ref(
+                project_dir, base_branch, file_path
+            )
 
             # Get content from worktree branch
-            worktree_content = _get_file_content_from_ref(project_dir, spec_branch, file_path)
+            worktree_content = _get_file_content_from_ref(
+                project_dir, spec_branch, file_path
+            )
 
             # Get content from merge-base (common ancestor)
             base_content = None
             if merge_base:
-                base_content = _get_file_content_from_ref(project_dir, merge_base, file_path)
+                base_content = _get_file_content_from_ref(
+                    project_dir, merge_base, file_path
+                )
 
             if main_content is None and worktree_content is None:
                 # File doesn't exist in either - skip
@@ -643,22 +733,26 @@ def _resolve_git_conflicts_with_ai(
                     debug(MODULE, f"  {file_path}: lock file (taking worktree version)")
                 else:
                     # Regular file - needs AI merge
-                    files_needing_ai_merge.append(ParallelMergeTask(
-                        file_path=file_path,
-                        main_content=main_content,
-                        worktree_content=worktree_content,
-                        base_content=base_content,
-                        spec_name=spec_name,
-                    ))
+                    files_needing_ai_merge.append(
+                        ParallelMergeTask(
+                            file_path=file_path,
+                            main_content=main_content,
+                            worktree_content=worktree_content,
+                            base_content=base_content,
+                            spec_name=spec_name,
+                        )
+                    )
                     debug(MODULE, f"  {file_path}: needs AI merge")
 
         except Exception as e:
             print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
-            remaining_conflicts.append({
-                "file": file_path,
-                "reason": str(e),
-                "severity": "high",
-            })
+            remaining_conflicts.append(
+                {
+                    "file": file_path,
+                    "reason": str(e),
+                    "severity": "high",
+                }
+            )
 
     # Process simple merges first (fast, no AI)
     if simple_merges:
@@ -669,11 +763,17 @@ def _resolve_git_conflicts_with_ai(
                     target_path = project_dir / file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(merged_content, encoding="utf-8")
-                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    subprocess.run(
+                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                    )
                     resolved_files.append(file_path)
                     # Determine the type for display
                     if _is_lock_file(file_path):
-                        print(success(f"    ✓ {file_path} (lock file - took worktree version)"))
+                        print(
+                            success(
+                                f"    ✓ {file_path} (lock file - took worktree version)"
+                            )
+                        )
                     else:
                         print(success(f"    ✓ {file_path} (new file)"))
                 else:
@@ -681,23 +781,33 @@ def _resolve_git_conflicts_with_ai(
                     target_path = project_dir / file_path
                     if target_path.exists():
                         target_path.unlink()
-                        subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                        subprocess.run(
+                            ["git", "add", file_path],
+                            cwd=project_dir,
+                            capture_output=True,
+                        )
                     resolved_files.append(file_path)
                     print(success(f"    ✓ {file_path} (deleted)"))
             except Exception as e:
                 print(error(f"    ✗ {file_path}: {e}"))
-                remaining_conflicts.append({
-                    "file": file_path,
-                    "reason": str(e),
-                    "severity": "high",
-                })
+                remaining_conflicts.append(
+                    {
+                        "file": file_path,
+                        "reason": str(e),
+                        "severity": "high",
+                    }
+                )
 
     # Process AI merges in parallel
     if files_needing_ai_merge:
         print()
-        print_status(f"Merging {len(files_needing_ai_merge)} file(s) with AI (parallel)...", "progress")
+        print_status(
+            f"Merging {len(files_needing_ai_merge)} file(s) with AI (parallel)...",
+            "progress",
+        )
 
         import time
+
         start_time = time.time()
 
         # Run parallel merges
@@ -717,7 +827,11 @@ def _resolve_git_conflicts_with_ai(
                 target_path = project_dir / result.file_path
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text(result.merged_content, encoding="utf-8")
-                subprocess.run(["git", "add", result.file_path], cwd=project_dir, capture_output=True)
+                subprocess.run(
+                    ["git", "add", result.file_path],
+                    cwd=project_dir,
+                    capture_output=True,
+                )
                 resolved_files.append(result.file_path)
 
                 if result.was_auto_merged:
@@ -728,11 +842,13 @@ def _resolve_git_conflicts_with_ai(
                     print(success(f"    ✓ {result.file_path} (AI merged)"))
             else:
                 print(error(f"    ✗ {result.file_path}: {result.error}"))
-                remaining_conflicts.append({
-                    "file": result.file_path,
-                    "reason": result.error or "AI could not resolve the conflict",
-                    "severity": "high",
-                })
+                remaining_conflicts.append(
+                    {
+                        "file": result.file_path,
+                        "reason": result.error or "AI could not resolve the conflict",
+                        "severity": "high",
+                    }
+                )
 
         # Print summary
         print()
@@ -749,7 +865,8 @@ def _resolve_git_conflicts_with_ai(
 
     # Get list of modified/deleted files (new files already copied at start)
     non_conflicting = [
-        (f, s) for f, s in changed_files
+        (f, s)
+        for f, s in changed_files
         if f not in conflicting_files and s != "A"  # Skip new files, already copied
     ]
 
@@ -760,15 +877,21 @@ def _resolve_git_conflicts_with_ai(
                 target_path = project_dir / file_path
                 if target_path.exists():
                     target_path.unlink()
-                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    subprocess.run(
+                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                    )
             else:
                 # Added or modified - copy from worktree
-                content = _get_file_content_from_ref(project_dir, spec_branch, file_path)
+                content = _get_file_content_from_ref(
+                    project_dir, spec_branch, file_path
+                )
                 if content is not None:
                     target_path = project_dir / file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(content, encoding="utf-8")
-                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    subprocess.run(
+                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                    )
                     resolved_files.append(file_path)
         except Exception as e:
             print(muted(f"    Warning: Could not process {file_path}: {e}"))
@@ -796,7 +919,9 @@ def _resolve_git_conflicts_with_ai(
         result["remaining_conflicts"] = remaining_conflicts
         result["partial_success"] = len(resolved_files) > 0
         print()
-        print(warning(f"  ⚠ {len(remaining_conflicts)} file(s) could not be auto-merged:"))
+        print(
+            warning(f"  ⚠ {len(remaining_conflicts)} file(s) could not be auto-merged:")
+        )
         for conflict in remaining_conflicts:
             print(muted(f"    - {conflict['file']}: {conflict['reason']}"))
         print(muted("  These files may need manual review."))

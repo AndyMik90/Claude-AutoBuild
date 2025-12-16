@@ -48,8 +48,13 @@ from .types import (
 try:
     from debug import debug, debug_success
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_success(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_success(*args, **kwargs):
+        pass
+
 
 logger = logging.getLogger(__name__)
 MODULE = "merge.conflict_detector"
@@ -81,7 +86,9 @@ class ConflictDetector:
         debug(MODULE, "Initializing ConflictDetector")
         self._rules = build_default_rules()
         self._rule_index = index_rules(self._rules)
-        debug_success(MODULE, "ConflictDetector initialized", rule_count=len(self._rules))
+        debug_success(
+            MODULE, "ConflictDetector initialized", rule_count=len(self._rules)
+        )
 
     def add_rule(self, rule: CompatibilityRule) -> None:
         """
@@ -113,15 +120,21 @@ class ConflictDetector:
         # Summary logging
         auto_mergeable = sum(1 for c in conflicts if c.can_auto_merge)
         from .types import ConflictSeverity
+
         critical = sum(1 for c in conflicts if c.severity == ConflictSeverity.CRITICAL)
-        debug_success(MODULE, "Conflict detection complete",
-                     total_conflicts=len(conflicts),
-                     auto_mergeable=auto_mergeable,
-                     critical=critical)
+        debug_success(
+            MODULE,
+            "Conflict detection complete",
+            total_conflicts=len(conflicts),
+            auto_mergeable=auto_mergeable,
+            critical=critical,
+        )
 
         return conflicts
 
-    def get_compatible_pairs(self) -> list[tuple[ChangeType, ChangeType, MergeStrategy]]:
+    def get_compatible_pairs(
+        self,
+    ) -> list[tuple[ChangeType, ChangeType, MergeStrategy]]:
         """
         Get all compatible change type pairs and their strategies.
 
@@ -166,4 +179,5 @@ def analyze_compatibility(
         detector = ConflictDetector()
 
     from .conflict_analysis import analyze_compatibility as analyze_compat_internal
+
     return analyze_compat_internal(change_a, change_b, detector._rule_index)

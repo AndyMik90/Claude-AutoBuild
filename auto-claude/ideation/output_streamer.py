@@ -46,9 +46,7 @@ class OutputStreamer:
         Returns:
             IdeationPhaseResult for the completed phase
         """
-        result = await phase_executor.execute_ideation_type(
-            ideation_type, max_retries
-        )
+        result = await phase_executor.execute_ideation_type(ideation_type, max_retries)
 
         if result.success:
             # Signal that this type is complete - UI can now show these ideas

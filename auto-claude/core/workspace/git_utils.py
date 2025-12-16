@@ -18,26 +18,60 @@ MAX_PARALLEL_AI_MERGES = 5  # Limit concurrent AI merge operations
 # These are auto-generated and should just take the worktree version
 # then regenerate via package manager install
 LOCK_FILES = {
-    'package-lock.json',
-    'pnpm-lock.yaml',
-    'yarn.lock',
-    'bun.lockb',
-    'Pipfile.lock',
-    'poetry.lock',
-    'Cargo.lock',
-    'Gemfile.lock',
-    'composer.lock',
-    'go.sum',
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "bun.lockb",
+    "Pipfile.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "Gemfile.lock",
+    "composer.lock",
+    "go.sum",
 }
 
 BINARY_EXTENSIONS = {
-    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.svg',
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    '.zip', '.tar', '.gz', '.rar', '.7z',
-    '.exe', '.dll', '.so', '.dylib', '.bin',
-    '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv',
-    '.woff', '.woff2', '.ttf', '.otf', '.eot',
-    '.pyc', '.pyo', '.class', '.o', '.obj',
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".bmp",
+    ".svg",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".rar",
+    ".7z",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bin",
+    ".mp3",
+    ".mp4",
+    ".wav",
+    ".avi",
+    ".mov",
+    ".mkv",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".eot",
+    ".pyc",
+    ".pyo",
+    ".class",
+    ".o",
+    ".obj",
 }
 
 # Merge lock timeout in seconds
@@ -88,7 +122,9 @@ def get_existing_build_worktree(project_dir: Path, spec_name: str) -> Path | Non
     return None
 
 
-def get_file_content_from_ref(project_dir: Path, ref: str, file_path: str) -> str | None:
+def get_file_content_from_ref(
+    project_dir: Path, ref: str, file_path: str
+) -> str | None:
     """Get file content from a git ref (branch, commit, etc.)."""
     result = subprocess.run(
         ["git", "show", f"{ref}:{file_path}"],
@@ -127,6 +163,7 @@ def get_changed_files_from_branch(
 def is_process_running(pid: int) -> bool:
     """Check if a process with the given PID is running."""
     import os
+
     try:
         os.kill(pid, 0)
         return True
@@ -149,7 +186,9 @@ def is_lock_file(file_path: str) -> bool:
     return Path(file_path).name in LOCK_FILES
 
 
-def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> tuple[bool, str]:
+def validate_merged_syntax(
+    file_path: str, content: str, project_dir: Path
+) -> tuple[bool, str]:
     """
     Validate the syntax of merged code.
 
@@ -166,11 +205,11 @@ def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> t
     ext = P(file_path).suffix.lower()
 
     # TypeScript/JavaScript validation using esbuild
-    if ext in {'.ts', '.tsx', '.js', '.jsx'}:
+    if ext in {".ts", ".tsx", ".js", ".jsx"}:
         try:
             # Write to temp file in system temp dir (NOT project dir to avoid HMR triggers)
             with tempfile.NamedTemporaryFile(
-                mode='w',
+                mode="w",
                 suffix=ext,
                 delete=False,
                 # Don't set dir= to avoid writing to project directory which triggers HMR
@@ -185,14 +224,16 @@ def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> t
                 # Try to find esbuild in node_modules (works with pnpm, npm, yarn)
                 for search_dir in [project_dir, project_dir.parent]:
                     # pnpm stores it differently
-                    pnpm_esbuild = search_dir / 'node_modules' / '.pnpm'
+                    pnpm_esbuild = search_dir / "node_modules" / ".pnpm"
                     if pnpm_esbuild.exists():
-                        for esbuild_dir in pnpm_esbuild.glob('esbuild@*/node_modules/esbuild/bin/esbuild'):
+                        for esbuild_dir in pnpm_esbuild.glob(
+                            "esbuild@*/node_modules/esbuild/bin/esbuild"
+                        ):
                             if esbuild_dir.exists():
                                 esbuild_cmd = str(esbuild_dir)
                                 break
                     # Standard npm/yarn location
-                    npm_esbuild = search_dir / 'node_modules' / '.bin' / 'esbuild'
+                    npm_esbuild = search_dir / "node_modules" / ".bin" / "esbuild"
                     if npm_esbuild.exists():
                         esbuild_cmd = str(npm_esbuild)
                         break
@@ -201,10 +242,10 @@ def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> t
 
                 # Fall back to npx if not found
                 if not esbuild_cmd:
-                    esbuild_cmd = 'npx'
-                    args = ['npx', 'esbuild', tmp_path, '--log-level=error']
+                    esbuild_cmd = "npx"
+                    args = ["npx", "esbuild", tmp_path, "--log-level=error"]
                 else:
-                    args = [esbuild_cmd, tmp_path, '--log-level=error']
+                    args = [esbuild_cmd, tmp_path, "--log-level=error"]
 
                 # Use esbuild for fast, accurate syntax validation
                 # esbuild infers loader from extension (.tsx, .ts, etc.)
@@ -221,12 +262,15 @@ def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> t
                     # Filter out npm warnings and extract actual errors
                     error_output = result.stderr.strip()
                     error_lines = [
-                        line for line in error_output.split('\n')
-                        if line and not line.startswith('npm warn') and not line.startswith('npm WARN')
+                        line
+                        for line in error_output.split("\n")
+                        if line
+                        and not line.startswith("npm warn")
+                        and not line.startswith("npm WARN")
                     ]
                     if error_lines:
                         # Extract just the error message, not full path
-                        error_msg = '\n'.join(error_lines[:3])
+                        error_msg = "\n".join(error_lines[:3])
                         return False, f"Syntax error: {error_msg}"
 
                 return True, ""
@@ -242,15 +286,15 @@ def validate_merged_syntax(file_path: str, content: str, project_dir: Path) -> t
             return True, ""  # Other errors = skip validation
 
     # Python validation
-    elif ext == '.py':
+    elif ext == ".py":
         try:
-            compile(content, file_path, 'exec')
+            compile(content, file_path, "exec")
             return True, ""
         except SyntaxError as e:
             return False, f"Python syntax error: {e.msg} at line {e.lineno}"
 
     # JSON validation
-    elif ext == '.json':
+    elif ext == ".json":
         try:
             json.loads(content)
             return True, ""
@@ -278,21 +322,27 @@ def create_conflict_file_with_git(
 
     try:
         # Create temp files for three-way merge
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as main_f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".tmp"
+        ) as main_f:
             main_f.write(main_content)
             main_path = main_f.name
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as wt_f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".tmp") as wt_f:
             wt_f.write(worktree_content)
             wt_path = wt_f.name
 
         # Use empty base if not available
         if base_content:
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as base_f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, suffix=".tmp"
+            ) as base_f:
                 base_f.write(base_content)
                 base_path = base_f.name
         else:
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as base_f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, suffix=".tmp"
+            ) as base_f:
                 base_f.write("")
                 base_path = base_f.name
 
@@ -300,7 +350,7 @@ def create_conflict_file_with_git(
             # git merge-file <current> <base> <other>
             # Exit codes: 0 = clean merge, 1 = conflicts, >1 = error
             result = subprocess.run(
-                ['git', 'merge-file', '-p', main_path, base_path, wt_path],
+                ["git", "merge-file", "-p", main_path, base_path, wt_path],
                 cwd=project_dir,
                 capture_output=True,
                 text=True,

@@ -27,15 +27,27 @@ class OrderByDependencyStrategy(MergeStrategyHandler):
         for change in ordered_changes:
             if change.content_after:
                 if change.change_type == ChangeType.ADD_HOOK_CALL:
-                    func_name = change.target.split(".")[-1] if "." in change.target else change.target
+                    func_name = (
+                        change.target.split(".")[-1]
+                        if "." in change.target
+                        else change.target
+                    )
                     hook_call = MergeHelpers.extract_hook_call(change)
                     if hook_call:
-                        content = MergeHelpers.insert_hooks_into_function(content, func_name, [hook_call])
+                        content = MergeHelpers.insert_hooks_into_function(
+                            content, func_name, [hook_call]
+                        )
                 elif change.change_type == ChangeType.WRAP_JSX:
                     wrapper = MergeHelpers.extract_jsx_wrapper(change)
                     if wrapper:
-                        func_name = change.target.split(".")[-1] if "." in change.target else change.target
-                        content = MergeHelpers.wrap_function_return(content, func_name, wrapper[0], wrapper[1])
+                        func_name = (
+                            change.target.split(".")[-1]
+                            if "." in change.target
+                            else change.target
+                        )
+                        content = MergeHelpers.wrap_function_return(
+                            content, func_name, wrapper[0], wrapper[1]
+                        )
 
         return MergeResult(
             decision=MergeDecision.AUTO_MERGED,

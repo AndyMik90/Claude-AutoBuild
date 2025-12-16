@@ -22,8 +22,13 @@ from .storage import EvolutionStorage
 try:
     from debug import debug, debug_success
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_success(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_success(*args, **kwargs):
+        pass
+
 
 logger = logging.getLogger(__name__)
 MODULE = "merge.file_evolution.baseline_capture"
@@ -31,10 +36,25 @@ MODULE = "merge.file_evolution.baseline_capture"
 
 # Default extensions to track for baselines
 DEFAULT_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx",
-    ".json", ".yaml", ".yml", ".toml",
-    ".md", ".txt", ".html", ".css", ".scss",
-    ".go", ".rs", ".java", ".kt", ".swift",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".md",
+    ".txt",
+    ".html",
+    ".css",
+    ".scss",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".swift",
 }
 
 
@@ -142,8 +162,7 @@ class BaselineCapture:
         if files is None:
             files = self.discover_trackable_files()
 
-        debug(MODULE, f"Capturing baselines for {len(files)} files",
-              task_id=task_id)
+        debug(MODULE, f"Capturing baselines for {len(files)} files", task_id=task_id)
 
         for file_path in files:
             rel_path = self.storage.get_relative_path(file_path)
@@ -183,6 +202,7 @@ class BaselineCapture:
             evolution.add_task_snapshot(snapshot)
             captured[rel_path] = evolution
 
-        debug_success(MODULE, f"Captured baselines for {len(captured)} files",
-                     task_id=task_id)
+        debug_success(
+            MODULE, f"Captured baselines for {len(captured)} files", task_id=task_id
+        )
         return captured

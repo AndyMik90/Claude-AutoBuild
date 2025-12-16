@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 try:
     from debug import debug
 except ImportError:
-    def debug(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
 
 MODULE = "merge.timeline_persistence"
 

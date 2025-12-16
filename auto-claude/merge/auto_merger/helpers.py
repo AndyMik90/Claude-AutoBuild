@@ -24,7 +24,11 @@ class MergeHelpers:
             stripped = line.strip()
             if MergeHelpers.is_import_line(stripped, ext):
                 last_import_line = i + 1
-            elif stripped and not stripped.startswith("#") and not stripped.startswith("//"):
+            elif (
+                stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith("//")
+            ):
                 # Non-empty, non-comment line after imports
                 if last_import_line > 0:
                     break
@@ -45,7 +49,9 @@ class MergeHelpers:
         """Extract the hook call from a change."""
         if change.content_after:
             # Look for useXxx() pattern
-            match = re.search(r"(const\s+\{[^}]+\}\s*=\s*)?use\w+\([^)]*\);?", change.content_after)
+            match = re.search(
+                r"(const\s+\{[^}]+\}\s*=\s*)?use\w+\([^)]*\);?", change.content_after
+            )
             if match:
                 return match.group(0)
 
@@ -212,7 +218,4 @@ class MergeHelpers:
             ChangeType.MODIFY_JSX_PROPS: 5,
         }
 
-        return sorted(
-            all_changes,
-            key=lambda c: priority.get(c.change_type, 10)
-        )
+        return sorted(all_changes, key=lambda c: priority.get(c.change_type, 10))

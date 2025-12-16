@@ -32,7 +32,9 @@ class JobsDetector(BaseAnalyzer):
         jobs_info = None
 
         # Try each job system in order
-        jobs_info = self._detect_celery() or self._detect_bullmq() or self._detect_sidekiq()
+        jobs_info = (
+            self._detect_celery() or self._detect_bullmq() or self._detect_sidekiq()
+        )
 
         if jobs_info:
             self.analysis["background_jobs"] = jobs_info

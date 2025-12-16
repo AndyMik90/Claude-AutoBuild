@@ -29,7 +29,9 @@ class ConflictContext:
     file_path: str
     location: str
     baseline_code: str  # The code before any task modified it
-    task_changes: list[tuple[str, str, list[SemanticChange]]]  # (task_id, intent, changes)
+    task_changes: list[
+        tuple[str, str, list[SemanticChange]]
+    ]  # (task_id, intent, changes)
     conflict_description: str
     language: str = "unknown"
 
@@ -60,10 +62,12 @@ class ConflictContext:
                         content = content[:500] + "... (truncated)"
                     lines.append(f"    Code: {content}")
 
-        lines.extend([
-            "",
-            f"CONFLICT: {self.conflict_description}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"CONFLICT: {self.conflict_description}",
+            ]
+        )
 
         return "\n".join(lines)
 

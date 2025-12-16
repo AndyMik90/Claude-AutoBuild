@@ -98,7 +98,10 @@ class MonitoringDetector(BaseAnalyzer):
 
     def _get_apm_tools(self) -> list[str] | None:
         """Get APM tools from existing services analysis."""
-        if "services" not in self.analysis or "monitoring" not in self.analysis["services"]:
+        if (
+            "services" not in self.analysis
+            or "monitoring" not in self.analysis["services"]
+        ):
             return None
 
         return [s["type"] for s in self.analysis["services"]["monitoring"]]

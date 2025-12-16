@@ -25,17 +25,17 @@ if str(_auto_claude_dir) not in sys.path:
     sys.path.insert(0, str(_auto_claude_dir))
 
 # Create a minimal 'core' module if it doesn't exist (to avoid importing core/__init__.py)
-if 'core' not in sys.modules:
-    _core_module = ModuleType('core')
-    _core_module.__file__ = str(_auto_claude_dir / 'core' / '__init__.py')
-    _core_module.__path__ = [str(_auto_claude_dir / 'core')]
-    sys.modules['core'] = _core_module
+if "core" not in sys.modules:
+    _core_module = ModuleType("core")
+    _core_module.__file__ = str(_auto_claude_dir / "core" / "__init__.py")
+    _core_module.__path__ = [str(_auto_claude_dir / "core")]
+    sys.modules["core"] = _core_module
 
 # Now load core.worktree directly
-_worktree_file = _auto_claude_dir / 'core' / 'worktree.py'
-_spec = importlib.util.spec_from_file_location('core.worktree', _worktree_file)
+_worktree_file = _auto_claude_dir / "core" / "worktree.py"
+_spec = importlib.util.spec_from_file_location("core.worktree", _worktree_file)
 _worktree_module = importlib.util.module_from_spec(_spec)
-sys.modules['core.worktree'] = _worktree_module
+sys.modules["core.worktree"] = _worktree_module
 _spec.loader.exec_module(_worktree_module)
 
 # Re-export everything from core.worktree

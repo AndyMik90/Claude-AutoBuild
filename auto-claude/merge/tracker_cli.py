@@ -64,7 +64,9 @@ def cmd_show_timeline(args):
 
     print(f"\n--- Main Branch History ({len(timeline.main_branch_history)} events) ---")
     for i, event in enumerate(timeline.main_branch_history):
-        print(f"  [{i+1}] {event.commit_hash[:8]} ({event.source}): {event.commit_message[:50]}...")
+        print(
+            f"  [{i + 1}] {event.commit_hash[:8]} ({event.source}): {event.commit_message[:50]}..."
+        )
 
     print(f"\n--- Task Views ({len(timeline.task_views)} tasks) ---")
     for task_id, view in timeline.task_views.items():
@@ -120,7 +122,9 @@ def cmd_show_context(args):
 
     print(f"\n--- Main Evolution ({len(context.main_evolution)} events) ---")
     for event in context.main_evolution:
-        print(f"  {event.commit_hash[:8]} ({event.source}): {event.commit_message[:50]}...")
+        print(
+            f"  {event.commit_hash[:8]} ({event.source}): {event.commit_message[:50]}..."
+        )
 
 
 def cmd_list_files(args):
@@ -136,7 +140,9 @@ def cmd_list_files(args):
 
     for file_path in sorted(tracker._timelines.keys()):
         timeline = tracker._timelines[file_path]
-        active_tasks = len([tv for tv in timeline.task_views.values() if tv.status == 'active'])
+        active_tasks = len(
+            [tv for tv in timeline.task_views.values() if tv.status == "active"]
+        )
         main_events = len(timeline.main_branch_history)
         print(f"  {file_path}: {active_tasks} active tasks, {main_events} main events")
 
@@ -171,47 +177,42 @@ def main():
     # notify-commit
     notify_parser = subparsers.add_parser(
         "notify-commit",
-        help="Notify tracker of a new commit (called by git post-commit hook)"
+        help="Notify tracker of a new commit (called by git post-commit hook)",
     )
     notify_parser.add_argument("commit_hash", help="The commit hash")
     notify_parser.set_defaults(func=cmd_notify_commit)
 
     # show-timeline
     timeline_parser = subparsers.add_parser(
-        "show-timeline",
-        help="Show the timeline for a file"
+        "show-timeline", help="Show the timeline for a file"
     )
-    timeline_parser.add_argument("file_path", help="The file path (relative to project)")
+    timeline_parser.add_argument(
+        "file_path", help="The file path (relative to project)"
+    )
     timeline_parser.set_defaults(func=cmd_show_timeline)
 
     # show-drift
     drift_parser = subparsers.add_parser(
-        "show-drift",
-        help="Show commits-behind-main for a task"
+        "show-drift", help="Show commits-behind-main for a task"
     )
     drift_parser.add_argument("task_id", help="The task ID")
     drift_parser.set_defaults(func=cmd_show_drift)
 
     # show-context
     context_parser = subparsers.add_parser(
-        "show-context",
-        help="Show merge context for a task and file"
+        "show-context", help="Show merge context for a task and file"
     )
     context_parser.add_argument("task_id", help="The task ID")
     context_parser.add_argument("file_path", help="The file path")
     context_parser.set_defaults(func=cmd_show_context)
 
     # list-files
-    list_parser = subparsers.add_parser(
-        "list-files",
-        help="List all tracked files"
-    )
+    list_parser = subparsers.add_parser("list-files", help="List all tracked files")
     list_parser.set_defaults(func=cmd_list_files)
 
     # init-from-worktree
     init_parser = subparsers.add_parser(
-        "init-from-worktree",
-        help="Initialize tracking from an existing worktree"
+        "init-from-worktree", help="Initialize tracking from an existing worktree"
     )
     init_parser.add_argument("task_id", help="The task ID")
     init_parser.add_argument("worktree_path", help="Path to the worktree")

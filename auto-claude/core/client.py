@@ -106,13 +106,13 @@ GRAPHITI_MCP_TOOLS = [
 # Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
 # These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
 ELECTRON_TOOLS = [
-    "mcp__electron__electron_connect",         # Connect to Electron app via DevTools
-    "mcp__electron__electron_screenshot",      # Take screenshot of Electron window
-    "mcp__electron__electron_click",           # Click element in Electron app
-    "mcp__electron__electron_fill",            # Fill input field in Electron app
-    "mcp__electron__electron_evaluate",        # Execute JS in Electron renderer
-    "mcp__electron__electron_get_window_info", # Get window state/bounds
-    "mcp__electron__electron_get_console",     # Get console logs from renderer
+    "mcp__electron__electron_connect",  # Connect to Electron app via DevTools
+    "mcp__electron__electron_screenshot",  # Take screenshot of Electron window
+    "mcp__electron__electron_click",  # Click element in Electron app
+    "mcp__electron__electron_fill",  # Fill input field in Electron app
+    "mcp__electron__electron_evaluate",  # Execute JS in Electron renderer
+    "mcp__electron__electron_get_window_info",  # Get window state/bounds
+    "mcp__electron__electron_get_console",  # Get console logs from renderer
 ]
 
 # Built-in tools
@@ -217,7 +217,12 @@ def create_client(
                 # Allow Graphiti MCP tools for knowledge graph memory (if enabled)
                 *(GRAPHITI_MCP_TOOLS if graphiti_mcp_enabled else []),
                 # Allow Electron MCP tools for QA agents only (if enabled)
-                *(ELECTRON_TOOLS if electron_mcp_enabled and agent_type in ("qa_reviewer", "qa_fixer") else []),
+                *(
+                    ELECTRON_TOOLS
+                    if electron_mcp_enabled
+                    and agent_type in ("qa_reviewer", "qa_fixer")
+                    else []
+                ),
             ],
         },
     }
@@ -238,7 +243,9 @@ def create_client(
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
     if electron_mcp_enabled:
-        mcp_servers_list.append(f"electron (desktop automation, port {get_electron_debug_port()})")
+        mcp_servers_list.append(
+            f"electron (desktop automation, port {get_electron_debug_port()})"
+        )
     if auto_claude_tools_enabled:
         mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     print(f"   - MCP servers: {', '.join(mcp_servers_list)}")

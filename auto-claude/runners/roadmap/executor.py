@@ -156,5 +156,7 @@ class AgentExecutor:
                 return True, response_text
 
         except Exception as e:
-            debug_error("roadmap_executor", f"Agent failed: {prompt_file}", error=str(e))
+            debug_error(
+                "roadmap_executor", f"Agent failed: {prompt_file}", error=str(e)
+            )
             return False, str(e)

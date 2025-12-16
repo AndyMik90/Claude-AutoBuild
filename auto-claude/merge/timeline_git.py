@@ -23,9 +23,16 @@ logger = logging.getLogger(__name__)
 try:
     from debug import debug, debug_error, debug_warning
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_error(*args, **kwargs): pass
-    def debug_warning(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_error(*args, **kwargs):
+        pass
+
+    def debug_warning(*args, **kwargs):
+        pass
+
 
 MODULE = "merge.timeline_git"
 
@@ -60,7 +67,9 @@ class TimelineGitHelper:
         except subprocess.CalledProcessError:
             return "unknown"
 
-    def get_file_content_at_commit(self, file_path: str, commit_hash: str) -> str | None:
+    def get_file_content_at_commit(
+        self, file_path: str, commit_hash: str
+    ) -> str | None:
         """
         Get file content at a specific commit.
 
@@ -96,7 +105,14 @@ class TimelineGitHelper:
         """
         try:
             result = subprocess.run(
-                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash],
+                [
+                    "git",
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "-r",
+                    commit_hash,
+                ],
                 cwd=self.project_path,
                 capture_output=True,
                 text=True,
@@ -146,7 +162,11 @@ class TimelineGitHelper:
                 text=True,
             )
             if result.returncode == 0:
-                info["diff_summary"] = result.stdout.strip().split("\n")[-1] if result.stdout.strip() else None
+                info["diff_summary"] = (
+                    result.stdout.strip().split("\n")[-1]
+                    if result.stdout.strip()
+                    else None
+                )
 
         except Exception:
             pass
@@ -165,7 +185,9 @@ class TimelineGitHelper:
             File content as string, or empty string if file doesn't exist
         """
         # Extract spec name from task_id (remove 'task-' prefix if present)
-        spec_name = task_id.replace("task-", "") if task_id.startswith("task-") else task_id
+        spec_name = (
+            task_id.replace("task-", "") if task_id.startswith("task-") else task_id
+        )
 
         worktree_path = self.project_path / ".worktrees" / spec_name / file_path
         if worktree_path.exists():

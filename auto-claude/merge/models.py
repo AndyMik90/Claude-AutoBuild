@@ -94,11 +94,12 @@ class MergeReport:
         """Convert to dictionary for serialization."""
         return {
             "started_at": self.started_at.isoformat(),
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "tasks_merged": self.tasks_merged,
             "file_results": {
-                path: result.to_dict()
-                for path, result in self.file_results.items()
+                path: result.to_dict() for path, result in self.file_results.items()
             },
             "stats": self.stats.to_dict(),
             "success": self.success,

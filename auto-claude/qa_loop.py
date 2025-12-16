@@ -1,4 +1,5 @@
 """Backward compatibility shim - import from qa package instead."""
+
 from qa import (
     ISSUE_SIMILARITY_THRESHOLD,
     # Configuration

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Check for Claude SDK availability
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
@@ -330,7 +331,9 @@ def _format_attempt_history(attempts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def run_insight_extraction(inputs: dict, project_dir: Path | None = None) -> dict | None:
+async def run_insight_extraction(
+    inputs: dict, project_dir: Path | None = None
+) -> dict | None:
     """
     Run the insight extraction using Claude Agent SDK.
 

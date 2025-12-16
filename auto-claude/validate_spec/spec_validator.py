@@ -36,4 +36,6 @@ def __getattr__(name):
             if str(spec_dir) in sys.path:
                 sys.path.remove(str(spec_dir))
 
-    raise AttributeError(f"module 'validate_spec.spec_validator' has no attribute '{name}'")
+    raise AttributeError(
+        f"module 'validate_spec.spec_validator' has no attribute '{name}'"
+    )

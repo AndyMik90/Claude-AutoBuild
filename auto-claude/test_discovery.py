@@ -1,4 +1,5 @@
 """Backward compatibility shim - import from analysis.test_discovery instead."""
+
 from analysis.test_discovery import (
     FRAMEWORK_PATTERNS,
     TestDiscovery,

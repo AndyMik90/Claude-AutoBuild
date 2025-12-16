@@ -183,8 +183,7 @@ class InvestigationPlanGenerator(PlanGenerator):
                         description="Add detailed logging around suspected problem areas",
                         expected_output="Logs capture relevant state changes and events",
                         files_to_modify=[
-                            f.get("path", "")
-                            for f in self.context.files_to_modify[:3]
+                            f.get("path", "") for f in self.context.files_to_modify[:3]
                         ],
                     ),
                     Subtask(
@@ -365,9 +364,7 @@ class RefactorPlanGenerator(PlanGenerator):
         )
 
 
-def get_plan_generator(
-    context: PlannerContext, spec_dir: Path
-) -> PlanGenerator:
+def get_plan_generator(context: PlannerContext, spec_dir: Path) -> PlanGenerator:
     """Factory function to get the appropriate plan generator."""
     if context.workflow_type == WorkflowType.INVESTIGATION:
         return InvestigationPlanGenerator(context, spec_dir)

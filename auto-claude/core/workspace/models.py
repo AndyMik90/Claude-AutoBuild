@@ -30,6 +30,7 @@ class WorkspaceChoice(Enum):
 @dataclass
 class ParallelMergeTask:
     """A file merge task to be executed in parallel."""
+
     file_path: str
     main_content: str
     worktree_content: str
@@ -40,6 +41,7 @@ class ParallelMergeTask:
 @dataclass
 class ParallelMergeResult:
     """Result of a parallel merge task."""
+
     file_path: str
     merged_content: str | None
     success: bool
@@ -49,6 +51,7 @@ class ParallelMergeResult:
 
 class MergeLockError(Exception):
     """Raised when a merge lock cannot be acquired."""
+
     pass
 
 
@@ -100,6 +103,7 @@ class MergeLock:
                         pid = int(self.lock_file.read_text().strip())
                         # Import locally to avoid circular dependency
                         import os as _os
+
                         try:
                             _os.kill(pid, 0)
                             is_running = True

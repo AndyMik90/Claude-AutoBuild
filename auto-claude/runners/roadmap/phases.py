@@ -52,7 +52,9 @@ class ProjectIndexPhase:
 
         # Check if we can copy existing index
         if self.auto_build_index.exists() and not self.project_index.exists():
-            debug("roadmap_phase", "Copying existing project_index.json from auto-claude")
+            debug(
+                "roadmap_phase", "Copying existing project_index.json from auto-claude"
+            )
             shutil.copy(self.auto_build_index, self.project_index)
             print_status("Copied existing project_index.json", "success")
             debug_success("roadmap_phase", "Project index copied successfully")
@@ -111,7 +113,9 @@ class DiscoveryPhase:
         if self.discovery_file.exists() and not self.refresh:
             debug("roadmap_phase", "roadmap_discovery.json already exists, skipping")
             print_status("roadmap_discovery.json already exists", "success")
-            return RoadmapPhaseResult("discovery", True, [str(self.discovery_file)], [], 0)
+            return RoadmapPhaseResult(
+                "discovery", True, [str(self.discovery_file)], [], 0
+            )
 
         errors = []
         for attempt in range(MAX_RETRIES):
@@ -189,9 +193,7 @@ Do NOT ask questions. Make educated inferences and create the file.
                 return None
 
         except json.JSONDecodeError as e:
-            debug_error(
-                "roadmap_phase", "Invalid JSON in discovery file", error=str(e)
-            )
+            debug_error("roadmap_phase", "Invalid JSON in discovery file", error=str(e))
             return None
 
 
@@ -313,7 +315,9 @@ Output the complete roadmap to roadmap.json.
                 )
             else:
                 if missing:
-                    debug_warning("roadmap_phase", f"Missing required fields: {missing}")
+                    debug_warning(
+                        "roadmap_phase", f"Missing required fields: {missing}"
+                    )
                 else:
                     debug_warning(
                         "roadmap_phase",

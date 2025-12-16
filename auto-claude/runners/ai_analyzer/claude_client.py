@@ -40,9 +40,7 @@ class ClaudeAnalysisClient:
     def _validate_oauth_token(self) -> None:
         """Validate that CLAUDE_CODE_OAUTH_TOKEN is set."""
         if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-            raise ValueError(
-                "CLAUDE_CODE_OAUTH_TOKEN not set. Run: claude setup-token"
-            )
+            raise ValueError("CLAUDE_CODE_OAUTH_TOKEN not set. Run: claude setup-token")
 
     async def run_analysis_query(self, prompt: str) -> str:
         """

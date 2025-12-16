@@ -132,7 +132,10 @@ class AutoMerger:
             for change in snapshot.semantic_changes:
                 if change.change_type == ChangeType.ADD_IMPORT and change.content_after:
                     imports_to_add.append(change.content_after.strip())
-                elif change.change_type == ChangeType.REMOVE_IMPORT and change.content_before:
+                elif (
+                    change.change_type == ChangeType.REMOVE_IMPORT
+                    and change.content_before
+                ):
                     imports_to_remove.add(change.content_before.strip())
 
         # Find where imports end in the file
@@ -146,7 +149,8 @@ class AutoMerger:
                 existing_imports.add(stripped)
 
         new_imports = [
-            imp for imp in imports_to_add
+            imp
+            for imp in imports_to_add
             if imp not in existing_imports and imp not in imports_to_remove
         ]
 
@@ -261,7 +265,10 @@ class AutoMerger:
 
         for snapshot in context.task_snapshots:
             for change in snapshot.semantic_changes:
-                if change.change_type == ChangeType.ADD_FUNCTION and change.content_after:
+                if (
+                    change.change_type == ChangeType.ADD_FUNCTION
+                    and change.content_after
+                ):
                     new_functions.append(change.content_after)
 
         # Append at the end (before any module.exports in JS)
@@ -299,7 +306,9 @@ class AutoMerger:
             for change in snapshot.semantic_changes:
                 if change.change_type == ChangeType.ADD_METHOD and change.content_after:
                     # Extract class name from location
-                    class_name = change.target.split(".")[0] if "." in change.target else None
+                    class_name = (
+                        change.target.split(".")[0] if "." in change.target else None
+                    )
                     if class_name:
                         if class_name not in new_methods:
                             new_methods[class_name] = []
@@ -362,15 +371,27 @@ class AutoMerger:
         for change in ordered_changes:
             if change.content_after:
                 if change.change_type == ChangeType.ADD_HOOK_CALL:
-                    func_name = change.target.split(".")[-1] if "." in change.target else change.target
+                    func_name = (
+                        change.target.split(".")[-1]
+                        if "." in change.target
+                        else change.target
+                    )
                     hook_call = self._extract_hook_call(change)
                     if hook_call:
-                        content = self._insert_hooks_into_function(content, func_name, [hook_call])
+                        content = self._insert_hooks_into_function(
+                            content, func_name, [hook_call]
+                        )
                 elif change.change_type == ChangeType.WRAP_JSX:
                     wrapper = self._extract_jsx_wrapper(change)
                     if wrapper:
-                        func_name = change.target.split(".")[-1] if "." in change.target else change.target
-                        content = self._wrap_function_return(content, func_name, wrapper[0], wrapper[1])
+                        func_name = (
+                            change.target.split(".")[-1]
+                            if "." in change.target
+                            else change.target
+                        )
+                        content = self._wrap_function_return(
+                            content, func_name, wrapper[0], wrapper[1]
+                        )
 
         return MergeResult(
             decision=MergeDecision.AUTO_MERGED,
@@ -441,7 +462,11 @@ class AutoMerger:
             stripped = line.strip()
             if self._is_import_line(stripped, ext):
                 last_import_line = i + 1
-            elif stripped and not stripped.startswith("#") and not stripped.startswith("//"):
+            elif (
+                stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith("//")
+            ):
                 # Non-empty, non-comment line after imports
                 if last_import_line > 0:
                     break
@@ -460,7 +485,9 @@ class AutoMerger:
         """Extract the hook call from a change."""
         if change.content_after:
             # Look for useXxx() pattern
-            match = re.search(r"(const\s+\{[^}]+\}\s*=\s*)?use\w+\([^)]*\);?", change.content_after)
+            match = re.search(
+                r"(const\s+\{[^}]+\}\s*=\s*)?use\w+\([^)]*\);?", change.content_after
+            )
             if match:
                 return match.group(0)
 
@@ -624,7 +651,4 @@ class AutoMerger:
             ChangeType.MODIFY_JSX_PROPS: 5,
         }
 
-        return sorted(
-            all_changes,
-            key=lambda c: priority.get(c.change_type, 10)
-        )
+        return sorted(all_changes, key=lambda c: priority.get(c.change_type, 10))

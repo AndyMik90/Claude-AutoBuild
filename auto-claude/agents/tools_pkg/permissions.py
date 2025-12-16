@@ -6,7 +6,6 @@ Manages which tools are allowed for each agent type to prevent context
 pollution and accidental misuse.
 """
 
-
 from .models import (
     BASE_READ_TOOLS,
     BASE_WRITE_TOOLS,

@@ -23,8 +23,13 @@ from .storage import EvolutionStorage
 try:
     from debug import debug, debug_warning
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_warning(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_warning(*args, **kwargs):
+        pass
+
 
 logger = logging.getLogger(__name__)
 MODULE = "merge.file_evolution.modification_tracker"
@@ -101,9 +106,7 @@ class ModificationTracker:
             )
 
         # Analyze semantic changes
-        analysis = self.analyzer.analyze_diff(
-            rel_path, old_content, new_content
-        )
+        analysis = self.analyzer.analyze_diff(rel_path, old_content, new_content)
         semantic_changes = analysis.changes
 
         # Update snapshot
@@ -138,9 +141,12 @@ class ModificationTracker:
             worktree_path: Path to the task's worktree
             evolutions: Current evolution data (will be updated)
         """
-        debug(MODULE, f"refresh_from_git() for task {task_id}",
-              task_id=task_id,
-              worktree_path=str(worktree_path))
+        debug(
+            MODULE,
+            f"refresh_from_git() for task {task_id}",
+            task_id=task_id,
+            worktree_path=str(worktree_path),
+        )
 
         try:
             # Get list of files changed in the worktree
@@ -153,8 +159,13 @@ class ModificationTracker:
             )
             changed_files = [f for f in result.stdout.strip().split("\n") if f]
 
-            debug(MODULE, f"Found {len(changed_files)} changed files",
-                  changed_files=changed_files[:10] if len(changed_files) > 10 else changed_files)
+            debug(
+                MODULE,
+                f"Found {len(changed_files)} changed files",
+                changed_files=changed_files[:10]
+                if len(changed_files) > 10
+                else changed_files,
+            )
 
             for file_path in changed_files:
                 # Get the diff for this file
@@ -197,7 +208,9 @@ class ModificationTracker:
                     raw_diff=diff_result.stdout,
                 )
 
-            logger.info(f"Refreshed {len(changed_files)} files from worktree for task {task_id}")
+            logger.info(
+                f"Refreshed {len(changed_files)} files from worktree for task {task_id}"
+            )
 
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to refresh from git: {e}")

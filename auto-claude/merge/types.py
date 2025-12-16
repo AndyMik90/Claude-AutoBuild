@@ -330,7 +330,9 @@ class ConflictRegion:
             "change_types": [ct.value for ct in self.change_types],
             "severity": self.severity.value,
             "can_auto_merge": self.can_auto_merge,
-            "merge_strategy": self.merge_strategy.value if self.merge_strategy else None,
+            "merge_strategy": self.merge_strategy.value
+            if self.merge_strategy
+            else None,
             "reason": self.reason,
         }
 
@@ -344,7 +346,9 @@ class ConflictRegion:
             change_types=[ChangeType(ct) for ct in data["change_types"]],
             severity=ConflictSeverity(data["severity"]),
             can_auto_merge=data["can_auto_merge"],
-            merge_strategy=MergeStrategy(data["merge_strategy"]) if data.get("merge_strategy") else None,
+            merge_strategy=MergeStrategy(data["merge_strategy"])
+            if data.get("merge_strategy")
+            else None,
             reason=data.get("reason", ""),
         )
 
@@ -383,7 +387,9 @@ class TaskSnapshot:
             "task_id": self.task_id,
             "task_intent": self.task_intent,
             "started_at": self.started_at.isoformat(),
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "content_hash_before": self.content_hash_before,
             "content_hash_after": self.content_hash_after,
             "semantic_changes": [c.to_dict() for c in self.semantic_changes],
@@ -397,10 +403,14 @@ class TaskSnapshot:
             task_id=data["task_id"],
             task_intent=data["task_intent"],
             started_at=datetime.fromisoformat(data["started_at"]),
-            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            completed_at=datetime.fromisoformat(data["completed_at"])
+            if data.get("completed_at")
+            else None,
             content_hash_before=data.get("content_hash_before", ""),
             content_hash_after=data.get("content_hash_after", ""),
-            semantic_changes=[SemanticChange.from_dict(c) for c in data.get("semantic_changes", [])],
+            semantic_changes=[
+                SemanticChange.from_dict(c) for c in data.get("semantic_changes", [])
+            ],
             raw_diff=data.get("raw_diff"),
         )
 
@@ -449,7 +459,9 @@ class FileEvolution:
             baseline_captured_at=datetime.fromisoformat(data["baseline_captured_at"]),
             baseline_content_hash=data["baseline_content_hash"],
             baseline_snapshot_path=data["baseline_snapshot_path"],
-            task_snapshots=[TaskSnapshot.from_dict(ts) for ts in data.get("task_snapshots", [])],
+            task_snapshots=[
+                TaskSnapshot.from_dict(ts) for ts in data.get("task_snapshots", [])
+            ],
         )
 
     def get_task_snapshot(self, task_id: str) -> TaskSnapshot | None:
@@ -463,8 +475,7 @@ class FileEvolution:
         """Add or update a task snapshot."""
         # Remove existing snapshot for this task if present
         self.task_snapshots = [
-            ts for ts in self.task_snapshots
-            if ts.task_id != snapshot.task_id
+            ts for ts in self.task_snapshots if ts.task_id != snapshot.task_id
         ]
         self.task_snapshots.append(snapshot)
         # Keep sorted by start time
@@ -528,12 +539,15 @@ class MergeResult:
     @property
     def needs_human_review(self) -> bool:
         """Check if human review is needed."""
-        return len(self.conflicts_remaining) > 0 or self.decision == MergeDecision.NEEDS_HUMAN_REVIEW
+        return (
+            len(self.conflicts_remaining) > 0
+            or self.decision == MergeDecision.NEEDS_HUMAN_REVIEW
+        )
 
 
 def compute_content_hash(content: str) -> str:
     """Compute a hash of file content for comparison."""
-    return hashlib.sha256(content.encode('utf-8')).hexdigest()[:16]
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
 def sanitize_path_for_storage(file_path: str) -> str:

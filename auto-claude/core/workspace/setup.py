@@ -32,8 +32,13 @@ from .models import WorkspaceMode
 try:
     from debug import debug, debug_warning
 except ImportError:
-    def debug(*args, **kwargs): pass
-    def debug_warning(*args, **kwargs): pass
+
+    def debug(*args, **kwargs):
+        pass
+
+    def debug_warning(*args, **kwargs):
+        pass
+
 
 # Track if we've already tried to install the git hook this session
 _git_hook_check_done = False
@@ -274,6 +279,7 @@ def ensure_timeline_hook_installed(project_dir: Path) -> None:
 
         # Auto-install the hook (silent, non-intrusive)
         from merge.install_hook import install_hook
+
         install_hook(project_dir)
         debug(MODULE, "Auto-installed FileTimelineTracker git hook")
 
@@ -333,9 +339,12 @@ def initialize_timeline_tracking(
                 task_intent=task_intent,
                 task_title=task_title,
             )
-            debug(MODULE, f"Timeline tracking initialized for {spec_name}",
-                  files_tracked=len(files_to_modify),
-                  branch_point=branch_point[:8] if branch_point else None)
+            debug(
+                MODULE,
+                f"Timeline tracking initialized for {spec_name}",
+                files_tracked=len(files_to_modify),
+                branch_point=branch_point[:8] if branch_point else None,
+            )
         else:
             # Initialize retroactively from worktree if no plan
             tracker.initialize_from_worktree(
