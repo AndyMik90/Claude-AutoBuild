@@ -633,19 +633,21 @@ def create_claude_resolver() -> AIResolver:
             )
 
             try:
-                # Use the same pattern as qa/reviewer.py - NO context manager
-                await client.query(user)
+                # Use async context manager to handle connect/disconnect
+                # This is the standard pattern used throughout the codebase
+                async with client:
+                    await client.query(user)
 
-                response_text = ""
-                async for msg in client.receive_response():
-                    msg_type = type(msg).__name__
-                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
-                        for block in msg.content:
-                            if hasattr(block, "text"):
-                                response_text += block.text
+                    response_text = ""
+                    async for msg in client.receive_response():
+                        msg_type = type(msg).__name__
+                        if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                            for block in msg.content:
+                                if hasattr(block, "text"):
+                                    response_text += block.text
 
-                logger.info(f"AI merge response: {len(response_text)} chars")
-                return response_text
+                    logger.info(f"AI merge response: {len(response_text)} chars")
+                    return response_text
 
             except Exception as e:
                 logger.error(f"Claude SDK call failed: {e}")
