@@ -1,5 +1,15 @@
-import { useState, useEffect, useCallback, useRef, type ClipboardEvent } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, File, Folder, FolderTree, FileDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,15 +38,19 @@ import {
   isValidImageMimeType,
   resolveFilename
 } from './ImageUpload';
+import { ReferencedFilesSection } from './ReferencedFilesSection';
+import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
   MAX_IMAGES_PER_TASK,
+  MAX_REFERENCED_FILES,
   ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
   AVAILABLE_MODELS,
@@ -67,6 +81,15 @@ export function TaskCreationWizard({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showImages, setShowImages] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+  const [showFileExplorer, setShowFileExplorer] = useState(false);
+
+  // Get project path from project store
+  const projects = useProjectStore((state) => state.projects);
+  const projectPath = useMemo(() => {
+    const project = projects.find((p) => p.id === projectId);
+    return project?.path ?? null;
+  }, [projects, projectId]);
 
   // Metadata fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -81,6 +104,9 @@ export function TaskCreationWizard({
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>([]);
 
+  // Referenced files from file explorer
+  const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
+
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
@@ -88,8 +114,33 @@ export function TaskCreationWizard({
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
 
+  // Drag-and-drop state for file references
+  const [activeDragData, setActiveDragData] = useState<{
+    path: string;
+    name: string;
+    isDirectory: boolean;
+  } | null>(null);
+
   // Ref for the textarea to handle paste events
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Setup drag sensors with distance constraint to prevent accidental drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    })
+  );
+
+  // Setup drop zone for file references
+  const { setNodeRef: setDropRef, isOver: isOverDropZone } = useDroppable({
+    id: 'file-drop-zone',
+    data: { type: 'file-drop-zone' }
+  });
+
+  // Determine if drop zone is at capacity
+  const isAtMaxFiles = referencedFiles.length >= MAX_REFERENCED_FILES;
 
   // Load draft when dialog opens, or initialize from selected profile
   useEffect(() => {
@@ -106,6 +157,7 @@ export function TaskCreationWizard({
         setModel(draft.model || selectedProfile.model);
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
         setImages(draft.images);
+        setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setIsDraftRestored(true);
 
@@ -115,6 +167,9 @@ export function TaskCreationWizard({
         }
         if (draft.images.length > 0) {
           setShowImages(true);
+        }
+        if (draft.referencedFiles && draft.referencedFiles.length > 0) {
+          setShowFiles(true);
         }
       } else {
         // No draft - initialize model/thinkingLevel from selected profile
@@ -138,10 +193,10 @@ export function TaskCreationWizard({
     model,
     thinkingLevel,
     images,
+    referencedFiles,
     requireReviewBeforeCoding,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, model, thinkingLevel, images, requireReviewBeforeCoding]);
-
+  }), [projectId, title, description, category, priority, complexity, impact, model, thinkingLevel, images, referencedFiles, requireReviewBeforeCoding]);
   /**
    * Handle paste event for screenshot support
    */
@@ -222,6 +277,78 @@ export function TaskCreationWizard({
     }
   }, [images]);
 
+  /**
+   * Handle drag start - capture file data for overlay
+   */
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const data = event.active.data.current as {
+      type: string;
+      path: string;
+      name: string;
+      isDirectory: boolean;
+    } | undefined;
+
+    if (data?.type === 'file') {
+      setActiveDragData({
+        path: data.path,
+        name: data.name,
+        isDirectory: data.isDirectory
+      });
+    }
+  }, []);
+
+  /**
+   * Handle drag end - add file to referencedFiles when dropped on valid target
+   */
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    // Clear drag state
+    setActiveDragData(null);
+
+    // If not dropped on a valid target, do nothing
+    if (!over) return;
+
+    // Only accept drops on the file-drop-zone
+    if (over.id !== 'file-drop-zone') return;
+
+    const data = active.data.current as {
+      type?: string;
+      path?: string;
+      name?: string;
+      isDirectory?: boolean;
+    } | undefined;
+
+    // Only process file drops
+    if (data?.type !== 'file' || !data.path || !data.name) return;
+
+    // Check if we're at the max limit
+    if (referencedFiles.length >= MAX_REFERENCED_FILES) {
+      setError(`Maximum of ${MAX_REFERENCED_FILES} referenced files allowed`);
+      return;
+    }
+
+    // Check for duplicates
+    if (referencedFiles.some(f => f.path === data.path)) {
+      // Silently skip duplicates
+      return;
+    }
+
+    // Add the file to referenced files
+    const newFile: ReferencedFile = {
+      id: crypto.randomUUID(),
+      path: data.path,
+      name: data.name,
+      isDirectory: data.isDirectory ?? false,
+      addedAt: new Date()
+    };
+
+    setReferencedFiles(prev => [...prev, newFile]);
+
+    // Auto-expand the files section when a file is added
+    setShowFiles(true);
+  }, [referencedFiles]);
+
   const handleCreate = async () => {
     if (!description.trim()) {
       setError('Please provide a description');
@@ -244,6 +371,7 @@ export function TaskCreationWizard({
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
       if (images.length > 0) metadata.attachedImages = images;
+      if (referencedFiles.length > 0) metadata.referencedFiles = referencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
 
       // Title is optional - if empty, it will be auto-generated by the backend
@@ -275,10 +403,13 @@ export function TaskCreationWizard({
     setModel(selectedProfile.model);
     setThinkingLevel(selectedProfile.thinkingLevel);
     setImages([]);
+    setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
     setError(null);
     setShowAdvanced(false);
     setShowImages(false);
+    setShowFiles(false);
+    setShowFileExplorer(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
   };
@@ -313,8 +444,21 @@ export function TaskCreationWizard({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent
+          className={cn(
+            "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
+            showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
+          )}
+        >
+          <div className="flex h-full">
+            {/* Form content */}
+            <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -600,6 +744,105 @@ export function TaskCreationWizard({
             </div>
           )}
 
+          {/* Reference Files Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowFiles(!showFiles)}
+            className={cn(
+              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+            )}
+            disabled={isCreating}
+          >
+            <span className="flex items-center gap-2">
+              <FolderTree className="h-4 w-4" />
+              Reference Files (optional)
+              {referencedFiles.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  {referencedFiles.length}
+                </span>
+              )}
+            </span>
+            {showFiles ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* Referenced Files Section - Drop Zone */}
+          {showFiles ? (
+            <div
+              ref={setDropRef}
+              className={cn(
+                "space-y-3 p-4 rounded-lg border bg-muted/30 relative transition-all",
+                isOverDropZone && !isAtMaxFiles && "ring-2 ring-info border-info",
+                isOverDropZone && isAtMaxFiles && "ring-2 ring-warning border-warning",
+                !isOverDropZone && "border-border"
+              )}
+            >
+              {/* Drop zone overlay indicator */}
+              {isOverDropZone && (
+                <div className={cn(
+                  "absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-lg",
+                  isAtMaxFiles ? "bg-warning/10" : "bg-info/10"
+                )}>
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-md",
+                    isAtMaxFiles ? "bg-warning/90 text-warning-foreground" : "bg-info/90 text-info-foreground"
+                  )}>
+                    <FileDown className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files reached` : 'Drop to add reference'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Reference specific files or folders from your project to provide context for the AI.
+              </p>
+              <ReferencedFilesSection
+                files={referencedFiles}
+                onRemove={(id) => setReferencedFiles(prev => prev.filter(f => f.id !== id))}
+                maxFiles={MAX_REFERENCED_FILES}
+                disabled={isCreating}
+              />
+              {referencedFiles.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  No files referenced yet. Drag files from the file explorer to add them.
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Compact drop zone when section is collapsed - only visible during drag */
+            activeDragData && (
+              <div
+                ref={setDropRef}
+                className={cn(
+                  "p-3 rounded-lg border-2 border-dashed flex items-center justify-center gap-2 transition-all animate-in fade-in slide-in-from-top-2 duration-200",
+                  isOverDropZone && !isAtMaxFiles && "border-info bg-info/10",
+                  isOverDropZone && isAtMaxFiles && "border-warning bg-warning/10",
+                  !isOverDropZone && "border-muted-foreground/30 bg-muted/20"
+                )}
+              >
+                <FileDown className={cn(
+                  "h-4 w-4",
+                  isOverDropZone && !isAtMaxFiles && "text-info",
+                  isOverDropZone && isAtMaxFiles && "text-warning",
+                  !isOverDropZone && "text-muted-foreground"
+                )} />
+                <span className={cn(
+                  "text-sm",
+                  isOverDropZone && !isAtMaxFiles && "text-info font-medium",
+                  isOverDropZone && isAtMaxFiles && "text-warning font-medium",
+                  !isOverDropZone && "text-muted-foreground"
+                )}>
+                  {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files reached` : 'Drop file here to add reference'}
+                </span>
+              </div>
+            )
+          )}
+
           {/* Review Requirement Toggle */}
           <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
             <Checkbox
@@ -632,21 +875,65 @@ export function TaskCreationWizard({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isCreating}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreate} disabled={isCreating || !description.trim()}>
-            {isCreating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              'Create Task'
+          <div className="flex items-center gap-2">
+            {/* File Explorer Toggle Button */}
+            {projectPath && (
+              <Button
+                type="button"
+                variant={showFileExplorer ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowFileExplorer(!showFileExplorer)}
+                disabled={isCreating}
+                className="gap-1.5"
+              >
+                <FolderTree className="h-4 w-4" />
+                {showFileExplorer ? 'Hide Files' : 'Browse Files'}
+              </Button>
             )}
-          </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleClose} disabled={isCreating}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isCreating || !description.trim()}>
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Task'
+              )}
+            </Button>
+          </div>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            </div>
+
+            {/* File Explorer Drawer */}
+            {projectPath && (
+              <TaskFileExplorerDrawer
+                isOpen={showFileExplorer}
+                onClose={() => setShowFileExplorer(false)}
+                projectPath={projectPath}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Drag overlay - shows what's being dragged */}
+      <DragOverlay>
+        {activeDragData && (
+          <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg">
+            {activeDragData.isDirectory ? (
+              <Folder className="h-4 w-4 text-warning" />
+            ) : (
+              <File className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-sm">{activeDragData.name}</span>
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }

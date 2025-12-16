@@ -817,6 +817,9 @@ export const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 // Maximum number of images per task
 export const MAX_IMAGES_PER_TASK = 10;
 
+// Maximum number of referenced files per task
+export const MAX_REFERENCED_FILES = 20;
+
 // Allowed image MIME types
 export const ALLOWED_IMAGE_TYPES = [
   'image/png',
