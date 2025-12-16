@@ -38,14 +38,14 @@ import os
 import sys
 from pathlib import Path
 
-# Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add auto-claude to path (parent of runners/)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load .env file
 from dotenv import load_dotenv
 
-env_file = Path(__file__).parent / ".env"
-dev_env_file = Path(__file__).parent.parent / "dev" / "auto-claude" / ".env"
+env_file = Path(__file__).parent.parent / ".env"
+dev_env_file = Path(__file__).parent.parent.parent / "dev" / "auto-claude" / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 elif dev_env_file.exists():
