@@ -150,6 +150,8 @@ def detect_project_type(project_dir: Path) -> str:
             dev_deps = pkg.get("devDependencies", {})
             all_deps = {**deps, **dev_deps}
 
+            if "electron" in all_deps:
+                return "electron"
             if "next" in all_deps:
                 return "nextjs"
             if "react" in all_deps:
@@ -251,6 +253,7 @@ class ValidationStrategyBuilder:
             "angular_spa": self._strategy_for_spa,
             "nextjs": self._strategy_for_fullstack,
             "nodejs": self._strategy_for_nodejs,
+            "electron": self._strategy_for_electron,
             "python_api": self._strategy_for_python_api,
             "python_cli": self._strategy_for_cli,
             "python": self._strategy_for_python,
@@ -764,6 +767,82 @@ class ValidationStrategyBuilder:
             steps=steps,
             test_types_required=["unit"],
             reasoning="Ruby project requires RSpec tests.",
+        )
+
+    def _strategy_for_electron(
+        self, project_dir: Path, risk_level: str
+    ) -> ValidationStrategy:
+        """
+        Validation strategy for Electron desktop applications.
+
+        Focus on main/renderer process tests, E2E testing, and app packaging.
+        """
+        steps = []
+
+        # Unit tests for all non-trivial
+        if risk_level != "trivial":
+            steps.append(
+                ValidationStep(
+                    name="Unit Tests",
+                    command="npm test",
+                    expected_outcome="All tests pass",
+                    step_type="test",
+                    required=True,
+                    blocking=True,
+                )
+            )
+
+        # E2E tests for medium+ risk (Electron apps need GUI testing)
+        if risk_level in ["medium", "high", "critical"]:
+            steps.append(
+                ValidationStep(
+                    name="E2E Tests",
+                    command="npm run test:e2e",
+                    expected_outcome="All E2E tests pass",
+                    step_type="test",
+                    required=True,
+                    blocking=True,
+                )
+            )
+
+        # App build/package verification for medium+ risk
+        if risk_level in ["medium", "high", "critical"]:
+            steps.append(
+                ValidationStep(
+                    name="Build Verification",
+                    command="npm run build",
+                    expected_outcome="App builds without errors",
+                    step_type="test",
+                    required=True,
+                    blocking=True,
+                )
+            )
+
+        # Console error check for high+ risk
+        if risk_level in ["high", "critical"]:
+            steps.append(
+                ValidationStep(
+                    name="Console Error Check",
+                    command="npm run test:console",
+                    expected_outcome="No console errors in main or renderer process",
+                    step_type="test",
+                    required=True,
+                    blocking=True,
+                )
+            )
+
+        # Determine test types
+        test_types = ["unit"]
+        if risk_level in ["medium", "high", "critical"]:
+            test_types.append("integration")
+            test_types.append("e2e")
+
+        return ValidationStrategy(
+            risk_level=risk_level,
+            project_type="electron",
+            steps=steps,
+            test_types_required=test_types,
+            reasoning="Electron app requires unit tests, E2E tests for GUI, and build verification.",
         )
 
     def _strategy_default(

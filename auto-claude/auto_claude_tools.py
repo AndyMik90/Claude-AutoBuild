@@ -30,6 +30,7 @@ Usage:
 """
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -573,6 +574,31 @@ TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
 TOOL_GET_SESSION_CONTEXT = "mcp__auto-claude__get_session_context"
 TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 
+# Electron MCP tools for desktop app automation (when ELECTRON_MCP_ENABLED is set)
+# Uses puppeteer-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
+# Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
+# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
+ELECTRON_TOOLS = [
+    "mcp__electron__electron_connect",         # Connect to Electron app via DevTools
+    "mcp__electron__electron_screenshot",      # Take screenshot of Electron window
+    "mcp__electron__electron_click",           # Click element in Electron app
+    "mcp__electron__electron_fill",            # Fill input field in Electron app
+    "mcp__electron__electron_evaluate",        # Execute JS in Electron renderer
+    "mcp__electron__electron_get_window_info", # Get window state/bounds
+    "mcp__electron__electron_get_console",     # Get console logs from renderer
+]
+
+
+def is_electron_mcp_enabled() -> bool:
+    """
+    Check if Electron MCP server integration is enabled.
+
+    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
+    When enabled, QA agents can use Electron MCP tools to connect to Electron apps
+    via Chrome DevTools Protocol on the configured debug port.
+    """
+    return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
+
 
 def get_allowed_tools(agent_type: str) -> list[str]:
     """
@@ -635,7 +661,14 @@ def get_allowed_tools(agent_type: str) -> list[str]:
         agent_type = "coder"
 
     mapping = tool_mappings[agent_type]
-    return mapping["base"] + mapping["auto_claude"]
+    tools = mapping["base"] + mapping["auto_claude"]
+
+    # Add Electron MCP tools for QA agents only (when enabled)
+    # This prevents context bloat for coder/planner agents who don't need desktop automation
+    if agent_type in ("qa_reviewer", "qa_fixer") and is_electron_mcp_enabled():
+        tools.extend(ELECTRON_TOOLS)
+
+    return tools
 
 
 def is_tools_available() -> bool:

@@ -37,6 +37,22 @@ def get_graphiti_mcp_url() -> str:
     return os.environ.get("GRAPHITI_MCP_URL", "http://localhost:8000/mcp/")
 
 
+def is_electron_mcp_enabled() -> bool:
+    """
+    Check if Electron MCP server integration is enabled.
+
+    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
+    When enabled, QA agents can use Puppeteer MCP tools to connect to Electron apps
+    via Chrome DevTools Protocol on the configured debug port.
+    """
+    return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
+
+
+def get_electron_debug_port() -> int:
+    """Get the Electron remote debugging port (default: 9222)."""
+    return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
+
+
 # Puppeteer MCP tools for browser automation
 PUPPETEER_TOOLS = [
     "mcp__puppeteer__puppeteer_connect_active_tab",
@@ -83,6 +99,20 @@ GRAPHITI_MCP_TOOLS = [
     "mcp__graphiti-memory__add_episode",  # Add data to knowledge graph
     "mcp__graphiti-memory__get_episodes",  # Retrieve recent episodes
     "mcp__graphiti-memory__get_entity_edge",  # Get specific entity/relationship
+]
+
+# Electron MCP tools for desktop app automation (when ELECTRON_MCP_ENABLED is set)
+# Uses puppeteer-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
+# Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
+# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
+ELECTRON_TOOLS = [
+    "mcp__electron__electron_connect",         # Connect to Electron app via DevTools
+    "mcp__electron__electron_screenshot",      # Take screenshot of Electron window
+    "mcp__electron__electron_click",           # Click element in Electron app
+    "mcp__electron__electron_fill",            # Fill input field in Electron app
+    "mcp__electron__electron_evaluate",        # Execute JS in Electron renderer
+    "mcp__electron__electron_get_window_info", # Get window state/bounds
+    "mcp__electron__electron_get_console",     # Get console logs from renderer
 ]
 
 # Built-in tools
@@ -146,6 +176,9 @@ def create_client(
     # Check if Graphiti MCP is enabled
     graphiti_mcp_enabled = is_graphiti_mcp_enabled()
 
+    # Check if Electron MCP is enabled (for QA agents testing Electron apps)
+    electron_mcp_enabled = is_electron_mcp_enabled()
+
     # Add external MCP tools
     allowed_tools_list.extend(PUPPETEER_TOOLS)
     allowed_tools_list.extend(CONTEXT7_TOOLS)
@@ -153,6 +186,10 @@ def create_client(
         allowed_tools_list.extend(LINEAR_TOOLS)
     if graphiti_mcp_enabled:
         allowed_tools_list.extend(GRAPHITI_MCP_TOOLS)
+    # Add Electron MCP tools only for QA agents (qa_reviewer, qa_fixer) when enabled
+    # This prevents context bloat for coder/planner agents who don't need desktop automation
+    if electron_mcp_enabled and agent_type in ("qa_reviewer", "qa_fixer"):
+        allowed_tools_list.extend(ELECTRON_TOOLS)
 
     # Create comprehensive security settings
     # Note: Using relative paths ("./**") restricts access to project directory
@@ -179,6 +216,8 @@ def create_client(
                 *(LINEAR_TOOLS if linear_enabled else []),
                 # Allow Graphiti MCP tools for knowledge graph memory (if enabled)
                 *(GRAPHITI_MCP_TOOLS if graphiti_mcp_enabled else []),
+                # Allow Electron MCP tools for QA agents only (if enabled)
+                *(ELECTRON_TOOLS if electron_mcp_enabled and agent_type in ("qa_reviewer", "qa_fixer") else []),
             ],
         },
     }
@@ -198,6 +237,8 @@ def create_client(
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
+    if electron_mcp_enabled:
+        mcp_servers_list.append(f"electron (desktop automation, port {get_electron_debug_port()})")
     if auto_claude_tools_enabled:
         mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
@@ -223,6 +264,21 @@ def create_client(
         mcp_servers["graphiti-memory"] = {
             "type": "http",
             "url": get_graphiti_mcp_url(),
+        }
+
+    # Add Electron MCP server if enabled
+    # Electron app must be started with --remote-debugging-port=<port> for connection
+    # Uses puppeteer-mcp-server to connect to Electron via Chrome DevTools Protocol
+    if electron_mcp_enabled:
+        electron_port = get_electron_debug_port()
+        mcp_servers["electron"] = {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic/puppeteer-mcp-server",
+                "--debug-port",
+                str(electron_port),
+            ],
         }
 
     # Add custom auto-claude MCP server if available

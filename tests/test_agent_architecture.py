@@ -218,6 +218,88 @@ class TestProjectDocumentation:
         )
 
 
+class TestElectronToolScoping:
+    """Verify Electron MCP tools are scoped to QA agents only."""
+
+    def test_qa_reviewer_has_electron_tools_when_enabled(self, monkeypatch):
+        """QA reviewer gets Electron tools when ELECTRON_MCP_ENABLED=true."""
+        monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
+
+        # Re-import to pick up env change
+        from auto_claude_tools import get_allowed_tools, ELECTRON_TOOLS
+
+        qa_tools = get_allowed_tools("qa_reviewer")
+
+        # At least one Electron tool should be present
+        has_electron = any("electron" in tool.lower() for tool in qa_tools)
+        assert has_electron, (
+            "QA reviewer should have Electron tools when ELECTRON_MCP_ENABLED=true. "
+            f"Got tools: {qa_tools}"
+        )
+
+        # Verify specific tools are included
+        for tool in ELECTRON_TOOLS:
+            assert tool in qa_tools, f"Expected {tool} in qa_reviewer tools"
+
+    def test_qa_fixer_has_electron_tools_when_enabled(self, monkeypatch):
+        """QA fixer gets Electron tools when ELECTRON_MCP_ENABLED=true."""
+        monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
+
+        from auto_claude_tools import get_allowed_tools, ELECTRON_TOOLS
+
+        qa_fixer_tools = get_allowed_tools("qa_fixer")
+
+        has_electron = any("electron" in tool.lower() for tool in qa_fixer_tools)
+        assert has_electron, (
+            "QA fixer should have Electron tools when ELECTRON_MCP_ENABLED=true. "
+            f"Got tools: {qa_fixer_tools}"
+        )
+
+        for tool in ELECTRON_TOOLS:
+            assert tool in qa_fixer_tools, f"Expected {tool} in qa_fixer tools"
+
+    def test_coder_no_electron_tools(self, monkeypatch):
+        """Coder should NOT get Electron tools even when enabled."""
+        monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
+
+        from auto_claude_tools import get_allowed_tools
+
+        coder_tools = get_allowed_tools("coder")
+
+        has_electron = any("electron" in tool.lower() for tool in coder_tools)
+        assert not has_electron, (
+            "Coder should NOT have Electron tools - they are scoped to QA agents only. "
+            "This prevents context token bloat for agents that don't need desktop automation."
+        )
+
+    def test_planner_no_electron_tools(self, monkeypatch):
+        """Planner should NOT get Electron tools even when enabled."""
+        monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
+
+        from auto_claude_tools import get_allowed_tools
+
+        planner_tools = get_allowed_tools("planner")
+
+        has_electron = any("electron" in tool.lower() for tool in planner_tools)
+        assert not has_electron, (
+            "Planner should NOT have Electron tools - they are scoped to QA agents only. "
+            "This prevents context token bloat for agents that don't need desktop automation."
+        )
+
+    def test_no_electron_tools_when_disabled(self, monkeypatch):
+        """No agent gets Electron tools when ELECTRON_MCP_ENABLED is not set."""
+        monkeypatch.delenv("ELECTRON_MCP_ENABLED", raising=False)
+
+        from auto_claude_tools import get_allowed_tools
+
+        for agent_type in ["planner", "coder", "qa_reviewer", "qa_fixer"]:
+            tools = get_allowed_tools(agent_type)
+            has_electron = any("electron" in tool.lower() for tool in tools)
+            assert not has_electron, (
+                f"{agent_type} should NOT have Electron tools when ELECTRON_MCP_ENABLED is not set"
+            )
+
+
 class TestSubtaskTerminology:
     """Verify subtask terminology is used consistently."""
 
@@ -255,6 +337,7 @@ def run_tests():
         TestAgentPrompt,
         TestModuleIntegrity,
         TestProjectDocumentation,
+        TestElectronToolScoping,  # Note: requires pytest (uses monkeypatch)
         TestSubtaskTerminology,
     ]
 

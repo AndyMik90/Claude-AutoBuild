@@ -164,6 +164,123 @@ BROWSER VERIFICATION:
 
 ---
 
+## PHASE 4.5: ELECTRON VALIDATION (If Electron App)
+
+For Electron/desktop applications, use the electron-mcp-server tools to validate the application.
+
+**Prerequisites:**
+- Electron app must be running with `--remote-debugging-port=9222`
+- `ELECTRON_MCP_ENABLED=true` in environment
+
+### 4.5.1: Connect to Electron App
+
+```
+# Use puppeteer to connect to the running Electron app
+Tool: mcp__puppeteer__puppeteer_connect_active_tab
+Input: { "debugPort": 9222 }
+```
+
+**Note:** The Electron app must be started with remote debugging enabled:
+```bash
+./your-electron-app --remote-debugging-port=9222
+```
+
+### 4.5.2: Navigate and Screenshot
+
+```
+# Navigate to specific routes/views within the Electron app
+Tool: mcp__puppeteer__puppeteer_navigate
+Input: { "url": "file:///path/or/route" }
+
+# Take screenshot of current state
+Tool: mcp__puppeteer__puppeteer_screenshot
+Input: { "name": "electron-app-main-view" }
+```
+
+### 4.5.3: Verify UI Elements
+
+```
+# Check for specific elements
+Tool: mcp__puppeteer__puppeteer_evaluate
+Input: { "script": "document.querySelector('[data-testid=\"feature\"]') !== null" }
+
+# Click on elements to test interactions
+Tool: mcp__puppeteer__puppeteer_click
+Input: { "selector": "[data-testid=\"button\"]" }
+
+# Fill form fields
+Tool: mcp__puppeteer__puppeteer_fill
+Input: { "selector": "input[name=\"field\"]", "value": "test value" }
+```
+
+### 4.5.4: Check Console for Errors
+
+```
+# Execute script to capture console errors
+Tool: mcp__puppeteer__puppeteer_evaluate
+Input: { "script": "window.__consoleErrors || []" }
+```
+
+**CRITICAL**: Check for:
+- JavaScript runtime errors
+- Electron IPC communication errors
+- Node.js integration errors (if nodeIntegration is enabled)
+- Failed file system operations
+
+### 4.5.5: Test Electron-Specific Features
+
+Verify features unique to Electron:
+- Window controls (minimize, maximize, close)
+- Native menus and dialogs
+- System tray integration (if applicable)
+- File system access
+- IPC communication between main and renderer processes
+
+### 4.5.6: Document Findings
+
+```
+ELECTRON VALIDATION:
+- App Connection: PASS/FAIL
+  - Debug port accessible: YES/NO
+  - Connected to correct window: YES/NO
+- UI Verification: PASS/FAIL
+  - Screenshots captured: [list]
+  - Visual elements correct: PASS/FAIL
+  - Interactions working: PASS/FAIL
+- Console Errors: [list or "None"]
+- Electron-Specific Features: PASS/FAIL
+  - [Feature]: PASS/FAIL
+- Issues: [list or "None"]
+```
+
+### 4.5.7: Handling Common Issues
+
+**App Not Running:**
+```
+If Electron app is not running or debug port is not accessible:
+1. Document that Electron validation was skipped
+2. Note reason: "App not running with --remote-debugging-port=9222"
+3. Add to QA report as "Manual verification required"
+```
+
+**Multiple Electron Instances:**
+```
+If multiple Electron apps are running:
+1. Use targetUrl parameter to connect to specific app
+Tool: mcp__puppeteer__puppeteer_connect_active_tab
+Input: { "debugPort": 9222, "targetUrl": "file:///path/to/expected/url" }
+```
+
+**Headless Environment (CI/CD):**
+```
+If running in headless environment without display:
+1. Skip interactive Electron validation
+2. Document: "Electron UI validation skipped - headless environment"
+3. Rely on unit/integration tests for validation
+```
+
+---
+
 ## PHASE 5: DATABASE VERIFICATION (If Applicable)
 
 ### 5.1: Check Migrations
@@ -348,6 +465,7 @@ Create a comprehensive QA report:
 | Integration Tests | ✓/✗ | X/Y passing |
 | E2E Tests | ✓/✗ | X/Y passing |
 | Browser Verification | ✓/✗ | [summary] |
+| Electron Validation | ✓/✗ | [summary or "N/A - not Electron"] |
 | Database Verification | ✓/✗ | [summary] |
 | Third-Party API Validation | ✓/✗ | [Context7 verification summary] |
 | Security Review | ✓/✗ | [summary] |
@@ -513,6 +631,7 @@ All acceptance criteria verified:
 - Integration tests: PASS
 - E2E tests: PASS
 - Browser verification: PASS
+- Electron validation: PASS (or N/A)
 - Database verification: PASS
 - Security review: PASS
 - Regression check: PASS

@@ -188,6 +188,55 @@ class TestProjectTypeDetection:
 
         assert detect_project_type(temp_dir) == "nodejs"
 
+    def test_detect_electron_in_dependencies(self, temp_dir):
+        """Test detection of Electron project with electron in dependencies."""
+        package_json = temp_dir / "package.json"
+        package_json.write_text(json.dumps({
+            "name": "my-electron-app",
+            "dependencies": {"electron": "^28.0.0"}
+        }))
+
+        assert detect_project_type(temp_dir) == "electron"
+
+    def test_detect_electron_in_dev_dependencies(self, temp_dir):
+        """Test detection of Electron project with electron in devDependencies."""
+        package_json = temp_dir / "package.json"
+        package_json.write_text(json.dumps({
+            "name": "my-electron-app",
+            "devDependencies": {"electron": "^28.0.0"}
+        }))
+
+        assert detect_project_type(temp_dir) == "electron"
+
+    def test_electron_priority_over_react(self, temp_dir):
+        """Test that Electron is detected over React when both are present."""
+        package_json = temp_dir / "package.json"
+        package_json.write_text(json.dumps({
+            "name": "electron-react-app",
+            "dependencies": {
+                "react": "^18.0.0",
+                "react-dom": "^18.0.0"
+            },
+            "devDependencies": {
+                "electron": "^28.0.0"
+            }
+        }))
+
+        assert detect_project_type(temp_dir) == "electron"
+
+    def test_electron_with_electron_vite(self, temp_dir):
+        """Test detection of Electron project using electron-vite."""
+        package_json = temp_dir / "package.json"
+        package_json.write_text(json.dumps({
+            "name": "electron-vite-app",
+            "devDependencies": {
+                "electron": "^28.0.0",
+                "electron-vite": "^2.0.0"
+            }
+        }))
+
+        assert detect_project_type(temp_dir) == "electron"
+
 
 # =============================================================================
 # VALIDATION STEP TESTS
@@ -404,6 +453,47 @@ class TestStrategyBuilderByProjectType:
         assert strategy.project_type == "unknown"
         step_types = [s.step_type for s in strategy.steps]
         assert "manual" in step_types
+
+    def test_electron_strategy(self, builder, temp_dir):
+        """Test Electron project strategy."""
+        (temp_dir / "package.json").write_text(json.dumps({
+            "devDependencies": {"electron": "^28.0.0"}
+        }))
+
+        strategy = builder.build_strategy(temp_dir, temp_dir, "medium")
+
+        assert strategy.project_type == "electron"
+        assert "unit" in strategy.test_types_required
+        assert "e2e" in strategy.test_types_required
+        # Should have npm test and npm run test:e2e commands
+        commands = [s.command for s in strategy.steps]
+        assert any("npm test" in cmd for cmd in commands)
+        assert any("test:e2e" in cmd for cmd in commands)
+
+    def test_electron_low_risk_strategy(self, builder, temp_dir):
+        """Test Electron project with low risk only has unit tests."""
+        (temp_dir / "package.json").write_text(json.dumps({
+            "dependencies": {"electron": "^28.0.0"}
+        }))
+
+        strategy = builder.build_strategy(temp_dir, temp_dir, "low")
+
+        assert strategy.project_type == "electron"
+        assert "unit" in strategy.test_types_required
+        # Low risk should NOT have e2e tests
+        assert "e2e" not in strategy.test_types_required
+
+    def test_electron_high_risk_has_console_check(self, builder, temp_dir):
+        """Test Electron high risk includes console error check."""
+        (temp_dir / "package.json").write_text(json.dumps({
+            "devDependencies": {"electron": "^28.0.0"}
+        }))
+
+        strategy = builder.build_strategy(temp_dir, temp_dir, "high")
+
+        assert strategy.project_type == "electron"
+        step_names = [s.name.lower() for s in strategy.steps]
+        assert any("console" in name for name in step_names)
 
 
 # =============================================================================

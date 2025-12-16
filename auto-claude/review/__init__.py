@@ -52,14 +52,22 @@ from .reviewer import (
 from .state import (
     REVIEW_STATE_FILE,
     ReviewState,
+    _compute_file_hash,
+    _compute_spec_hash,
     get_review_status_summary,
 )
+
+# Aliases for underscore-prefixed names used in tests
+_extract_section = extract_section
+_truncate_text = truncate_text
 
 __all__ = [
     # State
     "ReviewState",
     "get_review_status_summary",
     "REVIEW_STATE_FILE",
+    "_compute_file_hash",
+    "_compute_spec_hash",
     # Formatters
     "display_spec_summary",
     "display_plan_summary",
@@ -76,4 +84,7 @@ __all__ = [
     "truncate_text",
     "extract_title",
     "extract_checkboxes",
+    # Aliases for tests
+    "_extract_section",
+    "_truncate_text",
 ]
