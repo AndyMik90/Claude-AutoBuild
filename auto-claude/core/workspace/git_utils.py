@@ -24,6 +24,7 @@ LOCK_FILES = {
     "bun.lockb",
     "Pipfile.lock",
     "poetry.lock",
+    "uv.lock",
     "Cargo.lock",
     "Gemfile.lock",
     "composer.lock",

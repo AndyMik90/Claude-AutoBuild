@@ -26,6 +26,8 @@ from workspace import (
     review_existing_build,
 )
 
+from core.workspace.git_utils import is_lock_file
+
 from .utils import print_banner
 
 # Import debug utilities
@@ -432,8 +434,16 @@ def handle_merge_preview_command(project_dir: Path, spec_name: str) -> dict:
                 }
             )
 
-        # Add git conflicts to the list
+        # Add git conflicts to the list (excluding lock files which are handled automatically)
+        lock_files_excluded = []
         for file_path in git_conflicts.get("conflicting_files", []):
+            if is_lock_file(file_path):
+                # Lock files are auto-generated and should not go through AI merge
+                # They will be handled automatically by taking the worktree version
+                lock_files_excluded.append(file_path)
+                debug(MODULE, f"Excluding lock file from conflicts: {file_path}")
+                continue
+
             conflicts.append(
                 {
                     "file": file_path,
@@ -448,20 +458,28 @@ def handle_merge_preview_command(project_dir: Path, spec_name: str) -> dict:
             )
 
         summary = preview.get("summary", {})
-        total_conflicts = summary.get("total_conflicts", 0) + len(
-            git_conflicts.get("conflicting_files", [])
+        # Count only non-lock-file conflicts
+        git_conflict_count = len(git_conflicts.get("conflicting_files", [])) - len(
+            lock_files_excluded
         )
-        conflict_files = summary.get("conflict_files", 0) + len(
-            git_conflicts.get("conflicting_files", [])
-        )
+        total_conflicts = summary.get("total_conflicts", 0) + git_conflict_count
+        conflict_files = summary.get("conflict_files", 0) + git_conflict_count
+
+        # Filter lock files from the git conflicts list for the response
+        non_lock_conflicting_files = [
+            f
+            for f in git_conflicts.get("conflicting_files", [])
+            if not is_lock_file(f)
+        ]
 
         result = {
             "success": True,
             "files": preview.get("files_to_merge", []),
             "conflicts": conflicts,
             "gitConflicts": {
-                "hasConflicts": git_conflicts["has_conflicts"],
-                "conflictingFiles": git_conflicts["conflicting_files"],
+                "hasConflicts": git_conflicts["has_conflicts"]
+                and len(non_lock_conflicting_files) > 0,
+                "conflictingFiles": non_lock_conflicting_files,
                 "needsRebase": git_conflicts["needs_rebase"],
                 "commitsBehind": git_conflicts["commits_behind"],
                 "baseBranch": git_conflicts["base_branch"],
@@ -472,8 +490,11 @@ def handle_merge_preview_command(project_dir: Path, spec_name: str) -> dict:
                 "conflictFiles": conflict_files,
                 "totalConflicts": total_conflicts,
                 "autoMergeable": summary.get("auto_mergeable", 0),
-                "hasGitConflicts": git_conflicts["has_conflicts"],
+                "hasGitConflicts": git_conflicts["has_conflicts"]
+                and len(non_lock_conflicting_files) > 0,
             },
+            # Include lock files info so UI can optionally show them
+            "lockFilesExcluded": lock_files_excluded,
         }
 
         debug_success(
