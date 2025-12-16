@@ -168,9 +168,10 @@ export class AgentManager extends EventEmitter {
   startRoadmapGeneration(
     projectId: string,
     projectPath: string,
-    refresh: boolean = false
+    refresh: boolean = false,
+    enableCompetitorAnalysis: boolean = false
   ): void {
-    this.queueManager.startRoadmapGeneration(projectId, projectPath, refresh);
+    this.queueManager.startRoadmapGeneration(projectId, projectPath, refresh, enableCompetitorAnalysis);
   }
 
   /**

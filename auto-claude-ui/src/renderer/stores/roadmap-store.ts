@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  CompetitorAnalysis,
   Roadmap,
   RoadmapFeature,
   RoadmapFeatureStatus,
@@ -9,10 +10,12 @@ import type {
 interface RoadmapState {
   // Data
   roadmap: Roadmap | null;
+  competitorAnalysis: CompetitorAnalysis | null;
   generationStatus: RoadmapGenerationStatus;
 
   // Actions
   setRoadmap: (roadmap: Roadmap | null) => void;
+  setCompetitorAnalysis: (analysis: CompetitorAnalysis | null) => void;
   setGenerationStatus: (status: RoadmapGenerationStatus) => void;
   updateFeatureStatus: (featureId: string, status: RoadmapFeatureStatus) => void;
   updateFeatureLinkedSpec: (featureId: string, specId: string) => void;
@@ -28,10 +31,13 @@ const initialGenerationStatus: RoadmapGenerationStatus = {
 export const useRoadmapStore = create<RoadmapState>((set) => ({
   // Initial state
   roadmap: null,
+  competitorAnalysis: null,
   generationStatus: initialGenerationStatus,
 
   // Actions
   setRoadmap: (roadmap) => set({ roadmap }),
+
+  setCompetitorAnalysis: (analysis) => set({ competitorAnalysis: analysis }),
 
   setGenerationStatus: (status) => set({ generationStatus: status }),
 
@@ -74,6 +80,7 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
   clearRoadmap: () =>
     set({
       roadmap: null,
+      competitorAnalysis: null,
       generationStatus: initialGenerationStatus
     })
 }));
@@ -88,22 +95,32 @@ export async function loadRoadmap(projectId: string): Promise<void> {
   }
 }
 
-export function generateRoadmap(projectId: string): void {
+export function generateRoadmap(
+  projectId: string,
+  enableCompetitorAnalysis: boolean = false
+): void {
   useRoadmapStore.getState().setGenerationStatus({
     phase: 'analyzing',
     progress: 0,
-    message: 'Starting roadmap generation...'
+    message: enableCompetitorAnalysis
+      ? 'Starting roadmap generation with competitor analysis...'
+      : 'Starting roadmap generation...'
   });
-  window.electronAPI.generateRoadmap(projectId);
+  window.electronAPI.generateRoadmap(projectId, enableCompetitorAnalysis);
 }
 
-export function refreshRoadmap(projectId: string): void {
+export function refreshRoadmap(
+  projectId: string,
+  enableCompetitorAnalysis: boolean = false
+): void {
   useRoadmapStore.getState().setGenerationStatus({
     phase: 'analyzing',
     progress: 0,
-    message: 'Refreshing roadmap...'
+    message: enableCompetitorAnalysis
+      ? 'Refreshing roadmap with competitor analysis...'
+      : 'Refreshing roadmap...'
   });
-  window.electronAPI.refreshRoadmap(projectId);
+  window.electronAPI.refreshRoadmap(projectId, enableCompetitorAnalysis);
 }
 
 // Selectors

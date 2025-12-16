@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata } from '../../shared/types';
+import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata, CompetitorAnalysis } from '../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { projectStore } from '../project-store';
@@ -41,6 +41,65 @@ export function registerRoadmapHandlers(
       try {
         const content = readFileSync(roadmapPath, 'utf-8');
         const rawRoadmap = JSON.parse(content);
+
+        // Load competitor analysis if available (competitor_analysis.json)
+        const competitorAnalysisPath = path.join(
+          project.path,
+          AUTO_BUILD_PATHS.ROADMAP_DIR,
+          AUTO_BUILD_PATHS.COMPETITOR_ANALYSIS
+        );
+        let competitorAnalysis: CompetitorAnalysis | undefined;
+        if (existsSync(competitorAnalysisPath)) {
+          try {
+            const competitorContent = readFileSync(competitorAnalysisPath, 'utf-8');
+            const rawCompetitor = JSON.parse(competitorContent);
+            // Transform snake_case to camelCase for frontend
+            competitorAnalysis = {
+              projectContext: {
+                projectName: rawCompetitor.project_context?.project_name || '',
+                projectType: rawCompetitor.project_context?.project_type || '',
+                targetAudience: rawCompetitor.project_context?.target_audience || ''
+              },
+              competitors: (rawCompetitor.competitors || []).map((c: Record<string, unknown>) => ({
+                id: c.id,
+                name: c.name,
+                url: c.url,
+                description: c.description,
+                relevance: c.relevance || 'medium',
+                painPoints: ((c.pain_points as Array<Record<string, unknown>>) || []).map((p) => ({
+                  id: p.id,
+                  description: p.description,
+                  source: p.source,
+                  severity: p.severity || 'medium',
+                  frequency: p.frequency || '',
+                  opportunity: p.opportunity || ''
+                })),
+                strengths: (c.strengths as string[]) || [],
+                marketPosition: (c.market_position as string) || ''
+              })),
+              marketGaps: (rawCompetitor.market_gaps || []).map((g: Record<string, unknown>) => ({
+                id: g.id,
+                description: g.description,
+                affectedCompetitors: (g.affected_competitors as string[]) || [],
+                opportunitySize: g.opportunity_size || 'medium',
+                suggestedFeature: (g.suggested_feature as string) || ''
+              })),
+              insightsSummary: {
+                topPainPoints: rawCompetitor.insights_summary?.top_pain_points || [],
+                differentiatorOpportunities: rawCompetitor.insights_summary?.differentiator_opportunities || [],
+                marketTrends: rawCompetitor.insights_summary?.market_trends || []
+              },
+              researchMetadata: {
+                searchQueriesUsed: rawCompetitor.research_metadata?.search_queries_used || [],
+                sourcesConsulted: rawCompetitor.research_metadata?.sources_consulted || [],
+                limitations: rawCompetitor.research_metadata?.limitations || []
+              },
+              createdAt: rawCompetitor.metadata?.created_at ? new Date(rawCompetitor.metadata.created_at) : new Date()
+            };
+          } catch {
+            // Ignore competitor analysis parsing errors - it's optional
+          }
+        }
 
         // Transform snake_case to camelCase for frontend
         const roadmap: Roadmap = {
@@ -82,9 +141,11 @@ export function registerRoadmapHandlers(
             status: feature.status || 'idea',
             acceptanceCriteria: feature.acceptance_criteria || [],
             userStories: feature.user_stories || [],
-            linkedSpecId: feature.linked_spec_id
+            linkedSpecId: feature.linked_spec_id,
+            competitorInsightIds: (feature.competitor_insight_ids as string[]) || undefined
           })),
           status: rawRoadmap.status || 'draft',
+          competitorAnalysis,
           createdAt: rawRoadmap.metadata?.created_at ? new Date(rawRoadmap.metadata.created_at) : new Date(),
           updatedAt: rawRoadmap.metadata?.updated_at ? new Date(rawRoadmap.metadata.updated_at) : new Date()
         };
@@ -101,7 +162,7 @@ export function registerRoadmapHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_GENERATE,
-    (_, projectId: string) => {
+    (_, projectId: string, enableCompetitorAnalysis?: boolean) => {
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
@@ -116,7 +177,7 @@ export function registerRoadmapHandlers(
       }
 
       // Start roadmap generation via agent manager
-      agentManager.startRoadmapGeneration(projectId, project.path, false);
+      agentManager.startRoadmapGeneration(projectId, project.path, false, enableCompetitorAnalysis ?? false);
 
       // Send initial progress
       mainWindow.webContents.send(
@@ -133,7 +194,7 @@ export function registerRoadmapHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_REFRESH,
-    (_, projectId: string) => {
+    (_, projectId: string, enableCompetitorAnalysis?: boolean) => {
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
@@ -148,7 +209,7 @@ export function registerRoadmapHandlers(
       }
 
       // Start roadmap regeneration with refresh flag
-      agentManager.startRoadmapGeneration(projectId, project.path, true);
+      agentManager.startRoadmapGeneration(projectId, project.path, true, enableCompetitorAnalysis ?? false);
 
       // Send initial progress
       mainWindow.webContents.send(

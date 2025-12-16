@@ -75,6 +75,7 @@ class RoadmapConfig:
     output_dir: Path
     model: str = "claude-opus-4-5-20251101"
     refresh: bool = False  # Force regeneration even if roadmap exists
+    enable_competitor_analysis: bool = False  # Enable competitor analysis phase
 
 
 class RoadmapOrchestrator:
@@ -86,10 +87,12 @@ class RoadmapOrchestrator:
         output_dir: Path | None = None,
         model: str = "claude-opus-4-5-20251101",
         refresh: bool = False,
+        enable_competitor_analysis: bool = False,
     ):
         self.project_dir = Path(project_dir)
         self.model = model
         self.refresh = refresh
+        self.enable_competitor_analysis = enable_competitor_analysis
 
         # Default output to project's .auto-claude directory (installed instance)
         # Note: auto-claude/ is source code, .auto-claude/ is the installed instance
@@ -319,6 +322,123 @@ class RoadmapOrchestrator:
             return RoadmapPhaseResult(
                 "graph_hints", True, [str(hints_file)], [str(e)], 0
             )
+
+    async def phase_competitor_analysis(self, enable_competitor_analysis: bool = False) -> RoadmapPhaseResult:
+        """Run competitor analysis to research competitors and user feedback (if enabled).
+
+        This is an optional phase - it gracefully degrades if disabled or if analysis fails.
+        Competitor insights enhance roadmap features but are not required.
+        """
+        analysis_file = self.output_dir / "competitor_analysis.json"
+
+        # Check if competitor analysis is enabled
+        if not enable_competitor_analysis:
+            print_status("Competitor analysis not enabled, skipping", "info")
+            # Write a minimal file indicating analysis was skipped
+            with open(analysis_file, "w") as f:
+                json.dump({
+                    "enabled": False,
+                    "reason": "Competitor analysis not enabled by user",
+                    "competitors": [],
+                    "market_gaps": [],
+                    "insights_summary": {
+                        "top_pain_points": [],
+                        "differentiator_opportunities": [],
+                        "market_trends": []
+                    },
+                    "created_at": datetime.now().isoformat(),
+                }, f, indent=2)
+            return RoadmapPhaseResult("competitor_analysis", True, [str(analysis_file)], [], 0)
+
+        # Check if already exists (skip if not refresh)
+        if analysis_file.exists() and not self.refresh:
+            print_status("competitor_analysis.json already exists", "success")
+            return RoadmapPhaseResult("competitor_analysis", True, [str(analysis_file)], [], 0)
+
+        # Check if discovery file exists (required for competitor analysis)
+        discovery_file = self.output_dir / "roadmap_discovery.json"
+        if not discovery_file.exists():
+            print_status("Discovery file not found, skipping competitor analysis", "warning")
+            with open(analysis_file, "w") as f:
+                json.dump({
+                    "enabled": True,
+                    "error": "Discovery file not found - cannot analyze competitors without project context",
+                    "competitors": [],
+                    "market_gaps": [],
+                    "insights_summary": {
+                        "top_pain_points": [],
+                        "differentiator_opportunities": [],
+                        "market_trends": []
+                    },
+                    "created_at": datetime.now().isoformat(),
+                }, f, indent=2)
+            return RoadmapPhaseResult("competitor_analysis", True, [str(analysis_file)], ["Discovery file not found"], 0)
+
+        errors = []
+        for attempt in range(MAX_RETRIES):
+            print_status(f"Running competitor analysis agent (attempt {attempt + 1})...", "progress")
+
+            context = f"""
+**Discovery File**: {discovery_file}
+**Project Index**: {self.output_dir / "project_index.json"}
+**Output File**: {analysis_file}
+
+Research competitors based on the project type and target audience from roadmap_discovery.json.
+Use WebSearch to find competitors and analyze user feedback (reviews, complaints, feature requests).
+Output your findings to competitor_analysis.json.
+"""
+            success, output = await self._run_agent(
+                "competitor_analysis.md",
+                additional_context=context,
+            )
+
+            if success and analysis_file.exists():
+                # Validate JSON structure
+                try:
+                    with open(analysis_file) as f:
+                        data = json.load(f)
+
+                    # Check for required fields (gracefully accept minimal structure)
+                    if "competitors" in data:
+                        competitor_count = len(data.get("competitors", []))
+                        pain_point_count = sum(
+                            len(c.get("pain_points", []))
+                            for c in data.get("competitors", [])
+                        )
+                        print_status(
+                            f"Analyzed {competitor_count} competitors, found {pain_point_count} pain points",
+                            "success"
+                        )
+                        return RoadmapPhaseResult("competitor_analysis", True, [str(analysis_file)], [], attempt)
+                    else:
+                        errors.append("Missing 'competitors' field in competitor_analysis.json")
+                except json.JSONDecodeError as e:
+                    errors.append(f"Invalid JSON: {e}")
+            else:
+                errors.append(f"Attempt {attempt + 1}: Agent did not create competitor analysis file")
+
+        # Graceful degradation: if all retries fail, create empty analysis and continue
+        print_status("Competitor analysis failed, continuing without competitor insights", "warning")
+        for err in errors:
+            print(f"  {muted('Error:')} {err}")
+
+        with open(analysis_file, "w") as f:
+            json.dump({
+                "enabled": True,
+                "error": "Analysis failed after retries",
+                "errors": errors,
+                "competitors": [],
+                "market_gaps": [],
+                "insights_summary": {
+                    "top_pain_points": [],
+                    "differentiator_opportunities": [],
+                    "market_trends": []
+                },
+                "created_at": datetime.now().isoformat(),
+            }, f, indent=2)
+
+        # Return success=True for graceful degradation (don't block roadmap generation)
+        return RoadmapPhaseResult("competitor_analysis", True, [str(analysis_file)], errors, MAX_RETRIES)
 
     async def phase_project_index(self) -> RoadmapPhaseResult:
         """Ensure project index exists."""
@@ -565,7 +685,7 @@ Output the complete roadmap to roadmap.json.
         return RoadmapPhaseResult("features", False, [], errors, MAX_RETRIES)
 
     async def run(self) -> bool:
-        """Run the complete roadmap generation process."""
+        """Run the complete roadmap generation process with optional competitor analysis."""
         debug_section("roadmap_runner", "Starting Roadmap Generation")
         debug(
             "roadmap_runner",
@@ -580,12 +700,12 @@ Output the complete roadmap to roadmap.json.
             box(
                 f"Project: {self.project_dir}\n"
                 f"Output: {self.output_dir}\n"
-                f"Model: {self.model}",
+                f"Model: {self.model}\n"
+                f"Competitor Analysis: {'enabled' if self.enable_competitor_analysis else 'disabled'}",
                 title="ROADMAP GENERATOR",
                 style="heavy",
             )
         )
-
         results = []
 
         # Phase 1: Project Index & Graph Hints (in parallel)
@@ -637,6 +757,14 @@ Output the complete roadmap to roadmap.json.
                 print(f"  {muted('Error:')} {err}")
             return False
         debug_success("roadmap_runner", "Phase 2 complete")
+
+        # Phase 2.5: Competitor Analysis (optional, runs after discovery)
+        print_section("PHASE 2.5: COMPETITOR ANALYSIS", Icons.SEARCH)
+        competitor_result = await self.phase_competitor_analysis(
+            enable_competitor_analysis=self.enable_competitor_analysis
+        )
+        results.append(competitor_result)
+        # Note: competitor_result.success is always True (graceful degradation)
 
         # Phase 3: Feature Generation
         debug("roadmap_runner", "Starting Phase 3: Feature Generation")
@@ -727,6 +855,12 @@ def main():
         action="store_true",
         help="Force regeneration even if roadmap exists",
     )
+    parser.add_argument(
+        "--competitor-analysis",
+        action="store_true",
+        dest="enable_competitor_analysis",
+        help="Enable competitor analysis phase",
+    )
 
     args = parser.parse_args()
 
@@ -759,6 +893,7 @@ def main():
         output_dir=args.output,
         model=args.model,
         refresh=args.refresh,
+        enable_competitor_analysis=args.enable_competitor_analysis,
     )
 
     try:

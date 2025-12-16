@@ -228,6 +228,7 @@ export const IPC_CHANNELS = {
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',
   ROADMAP_GENERATE: 'roadmap:generate',
+  ROADMAP_GENERATE_WITH_COMPETITOR: 'roadmap:generateWithCompetitor',
   ROADMAP_REFRESH: 'roadmap:refresh',
   ROADMAP_UPDATE_FEATURE: 'roadmap:updateFeature',
   ROADMAP_CONVERT_TO_SPEC: 'roadmap:convertToSpec',
@@ -366,6 +367,7 @@ export const AUTO_BUILD_PATHS = {
   REQUIREMENTS: 'requirements.json',
   ROADMAP_FILE: 'roadmap.json',
   ROADMAP_DISCOVERY: 'roadmap_discovery.json',
+  COMPETITOR_ANALYSIS: 'competitor_analysis.json',
   IDEATION_FILE: 'ideation.json',
   IDEATION_CONTEXT: 'ideation_context.json',
   PROJECT_INDEX: '.auto-claude/project_index.json',

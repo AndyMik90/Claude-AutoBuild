@@ -35,7 +35,8 @@ export class AgentQueueManager {
   startRoadmapGeneration(
     projectId: string,
     projectPath: string,
-    refresh: boolean = false
+    refresh: boolean = false,
+    enableCompetitorAnalysis: boolean = false
   ): void {
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
@@ -55,6 +56,11 @@ export class AgentQueueManager {
 
     if (refresh) {
       args.push('--refresh');
+    }
+
+    // Add competitor analysis flag if enabled
+    if (enableCompetitorAnalysis) {
+      args.push('--competitor-analysis');
     }
 
     // Use projectId as taskId for roadmap operations

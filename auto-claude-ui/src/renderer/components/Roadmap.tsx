@@ -15,8 +15,8 @@ import {
   Clock,
   AlertCircle,
   Play,
-  ExternalLink
-} from 'lucide-react';
+  ExternalLink,
+  TrendingUp} from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
@@ -41,7 +41,8 @@ import {
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS
 } from '../../shared/constants';
-import type { RoadmapFeature, RoadmapPhase } from '../../shared/types';
+import { CompetitorAnalysisDialog } from './CompetitorAnalysisDialog';
+import type { RoadmapFeature, RoadmapPhase, CompetitorAnalysis, CompetitorPainPoint } from '../../shared/types';
 
 interface RoadmapProps {
   projectId: string;
@@ -50,10 +51,13 @@ interface RoadmapProps {
 
 export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const roadmap = useRoadmapStore((state) => state.roadmap);
+  const competitorAnalysis = useRoadmapStore((state) => state.competitorAnalysis);
   const generationStatus = useRoadmapStore((state) => state.generationStatus);
   const updateFeatureLinkedSpec = useRoadmapStore((state) => state.updateFeatureLinkedSpec);
   const [selectedFeature, setSelectedFeature] = useState<RoadmapFeature | null>(null);
   const [activeTab, setActiveTab] = useState('phases');
+  const [showCompetitorDialog, setShowCompetitorDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | null>(null);
 
   // Load roadmap on mount
   useEffect(() => {
@@ -61,11 +65,31 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   }, [projectId]);
 
   const handleGenerate = () => {
-    generateRoadmap(projectId);
+    setPendingAction('generate');
+    setShowCompetitorDialog(true);
   };
 
   const handleRefresh = () => {
-    refreshRoadmap(projectId);
+    setPendingAction('refresh');
+    setShowCompetitorDialog(true);
+  };
+
+  const handleCompetitorDialogAccept = () => {
+    if (pendingAction === 'generate') {
+      generateRoadmap(projectId, true);
+    } else if (pendingAction === 'refresh') {
+      refreshRoadmap(projectId, true);
+    }
+    setPendingAction(null);
+  };
+
+  const handleCompetitorDialogDecline = () => {
+    if (pendingAction === 'generate') {
+      generateRoadmap(projectId, false);
+    } else if (pendingAction === 'refresh') {
+      refreshRoadmap(projectId, false);
+    }
+    setPendingAction(null);
   };
 
   const handleConvertToSpec = async (feature: RoadmapFeature) => {
@@ -92,6 +116,23 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
 
   const stats = getFeatureStats(roadmap);
 
+  // Helper function to get competitor insights for a feature
+  const getCompetitorInsightsForFeature = (feature: RoadmapFeature): CompetitorPainPoint[] => {
+    if (!competitorAnalysis || !feature.competitorInsightIds || feature.competitorInsightIds.length === 0) {
+      return [];
+    }
+
+    const insights: CompetitorPainPoint[] = [];
+    for (const competitor of competitorAnalysis.competitors) {
+      for (const painPoint of competitor.painPoints) {
+        if (feature.competitorInsightIds.includes(painPoint.id)) {
+          insights.push(painPoint);
+        }
+      }
+    }
+    return insights;
+  };
+
   // Show generation progress
   if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete') {
     return (
@@ -116,20 +157,28 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   // Show empty state
   if (!roadmap) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Card className="w-full max-w-lg p-8 text-center">
-          <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No Roadmap Yet</h2>
-          <p className="text-muted-foreground mb-6">
-            Generate an AI-powered roadmap that understands your project's target
-            audience and creates a strategic feature plan.
-          </p>
-          <Button onClick={handleGenerate} size="lg">
-            <Sparkles className="h-4 w-4 mr-2" />
-            Generate Roadmap
-          </Button>
-        </Card>
-      </div>
+      <>
+        <div className="flex h-full items-center justify-center">
+          <Card className="w-full max-w-lg p-8 text-center">
+            <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Roadmap Yet</h2>
+            <p className="text-muted-foreground mb-6">
+              Generate an AI-powered roadmap that understands your project's target
+              audience and creates a strategic feature plan.
+            </p>
+            <Button onClick={handleGenerate} size="lg">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Roadmap
+            </Button>
+          </Card>
+        </div>
+        <CompetitorAnalysisDialog
+          open={showCompetitorDialog}
+          onOpenChange={setShowCompetitorDialog}
+          onAccept={handleCompetitorDialogAccept}
+          onDecline={handleCompetitorDialogDecline}
+        />
+      </>
     );
   }
 
@@ -237,7 +286,9 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
                   onClick={() => setSelectedFeature(feature)}
                   onConvertToSpec={handleConvertToSpec}
                   onGoToTask={handleGoToTask}
-                />
+                  hasCompetitorInsight={
+                    !!feature.competitorInsightIds && feature.competitorInsightIds.length > 0
+                  }                />
               ))}
             </div>
           </TabsContent>
@@ -268,13 +319,19 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
                           onClick={() => setSelectedFeature(feature)}
                         >
                           <div className="font-medium text-sm">{feature.title}</div>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Badge variant="outline" className={`text-xs ${ROADMAP_COMPLEXITY_COLORS[feature.complexity]}`}>
                               {feature.complexity}
                             </Badge>
                             <Badge variant="outline" className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}>
                               {feature.impact} impact
                             </Badge>
+                            {feature.competitorInsightIds && feature.competitorInsightIds.length > 0 && (
+                              <Badge variant="outline" className="text-xs text-primary border-primary/50">
+                                <TrendingUp className="h-3 w-3 mr-1" />
+                                Insight
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -294,8 +351,16 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onClose={() => setSelectedFeature(null)}
           onConvertToSpec={handleConvertToSpec}
           onGoToTask={handleGoToTask}
-        />
+          competitorInsights={getCompetitorInsightsForFeature(selectedFeature)}        />
       )}
+
+      {/* Competitor Analysis Permission Dialog */}
+      <CompetitorAnalysisDialog
+        open={showCompetitorDialog}
+        onOpenChange={setShowCompetitorDialog}
+        onAccept={handleCompetitorDialogAccept}
+        onDecline={handleCompetitorDialogDecline}
+      />
     </div>
   );
 }
@@ -388,17 +453,20 @@ function PhaseCard({ phase, features, isFirst, onFeatureSelect, onConvertToSpec,
               className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
               onClick={() => onFeatureSelect(feature)}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Badge
                   variant="outline"
                   className={`text-xs ${ROADMAP_PRIORITY_COLORS[feature.priority]}`}
                 >
                   {feature.priority}
                 </Badge>
-                <span className="text-sm">{feature.title}</span>
+                <span className="text-sm truncate">{feature.title}</span>
+                {feature.competitorInsightIds && feature.competitorInsightIds.length > 0 && (
+                  <TrendingUp className="h-3 w-3 text-primary flex-shrink-0" />
+                )}
               </div>
               {feature.status === 'done' ? (
-                <CheckCircle2 className="h-4 w-4 text-success" />
+                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
               ) : feature.linkedSpecId ? (
                 <Button
                   variant="ghost"
@@ -411,12 +479,11 @@ function PhaseCard({ phase, features, isFirst, onFeatureSelect, onConvertToSpec,
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
                   View Task
-                </Button>
-              ) : (
+                </Button>              ) : (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2"
+                  className="h-6 px-2 flex-shrink-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     onConvertToSpec(feature);
@@ -445,17 +512,17 @@ interface FeatureCardProps {
   onClick: () => void;
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
+  hasCompetitorInsight?: boolean;
 }
 
-function FeatureCard({ feature, onClick, onConvertToSpec, onGoToTask }: FeatureCardProps) {
-  return (
+function FeatureCard({ feature, onClick, onConvertToSpec, onGoToTask, hasCompetitorInsight = false }: FeatureCardProps) {  return (
     <Card
       className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
       onClick={onClick}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge
               variant="outline"
               className={ROADMAP_PRIORITY_COLORS[feature.priority]}
@@ -468,6 +535,19 @@ function FeatureCard({ feature, onClick, onConvertToSpec, onGoToTask }: FeatureC
             <Badge variant="outline" className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}>
               {feature.impact} impact
             </Badge>
+            {hasCompetitorInsight && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-xs text-primary border-primary/50">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Competitor Insight
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  This feature addresses competitor pain points
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
           <h3 className="font-medium">{feature.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{feature.description}</p>
@@ -508,10 +588,10 @@ interface FeatureDetailPanelProps {
   onClose: () => void;
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
+  competitorInsights?: CompetitorPainPoint[];
 }
 
-function FeatureDetailPanel({ feature, onClose, onConvertToSpec, onGoToTask }: FeatureDetailPanelProps) {
-  return (
+function FeatureDetailPanel({ feature, onClose, onConvertToSpec, onGoToTask, competitorInsights = [] }: FeatureDetailPanelProps) {  return (
     <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg flex flex-col z-50">
       {/* Header */}
       <div className="shrink-0 p-4 border-b border-border">
@@ -620,6 +700,43 @@ function FeatureDetailPanel({ feature, onClose, onConvertToSpec, onGoToTask }: F
                 <Badge key={dep} variant="outline" className="text-xs">
                   {dep}
                 </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Competitor Insights */}
+        {competitorInsights.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Addresses Competitor Pain Points
+            </h3>
+            <div className="space-y-2">
+              {competitorInsights.map((insight) => (
+                <div
+                  key={insight.id}
+                  className="p-2 bg-primary/5 border border-primary/20 rounded-md"
+                >
+                  <p className="text-sm text-foreground">{insight.description}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="text-xs">
+                      {insight.source}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        insight.severity === 'high'
+                          ? 'text-red-500 border-red-500/50'
+                          : insight.severity === 'medium'
+                          ? 'text-yellow-500 border-yellow-500/50'
+                          : 'text-green-500 border-green-500/50'
+                      }`}
+                    >
+                      {insight.severity} severity
+                    </Badge>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

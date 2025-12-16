@@ -48,7 +48,9 @@ You MUST create `roadmap_discovery.json` with this EXACT structure:
   "competitive_context": {
     "alternatives": ["Alternative 1", "Alternative 2"],
     "differentiators": ["What makes this unique?"],
-    "market_position": "How does this fit in the market?"
+    "market_position": "How does this fit in the market?",
+    "competitor_pain_points": ["Pain points from competitor users - populated from competitor_analysis.json if available"],
+    "competitor_analysis_available": false
   },
   "constraints": {
     "technical": ["Technical limitations"],
@@ -81,12 +83,16 @@ cat package.json 2>/dev/null | head -50
 cat pyproject.toml 2>/dev/null | head -50
 cat Cargo.toml 2>/dev/null | head -30
 cat go.mod 2>/dev/null | head -30
+
+# Check for competitor analysis (if enabled by user)
+cat competitor_analysis.json 2>/dev/null || echo "No competitor analysis available"
 ```
 
 Understand:
 - What type of project is this?
 - What tech stack is used?
 - What does the README say about the purpose?
+- Is there competitor analysis data available to incorporate?
 
 ---
 
@@ -157,12 +163,9 @@ Determine maturity level:
 
 Based on project type and purpose, infer:
 
-1. **Alternatives** - What existing tools solve similar problems?
-2. **Differentiators** - What makes this approach unique? (from README/docs)
-3. **Market position** - Is this a new category, or improving existing solutions?
+### 4.1: Check for Competitor Analysis Data
 
-Use domain knowledge to identify likely competitors (e.g., for AI coding tools: Cursor, Copilot, Aider, etc.)
-
+If `competitor_analysis.json` exists (created by the Competitor Analysis Agent), incorporate those insights:
 ---
 
 ## PHASE 5: IDENTIFY CONSTRAINTS (AUTONOMOUS)
@@ -214,10 +217,11 @@ Based on all the information gathered, create the discovery file using the Write
     "technical_debt": ["[from code smells, TODOs, FIXMEs]"]
   },
   "competitive_context": {
-    "alternatives": ["[known alternatives in this space]"],
-    "differentiators": ["[what makes this unique]"],
-    "market_position": "[how it fits in the market]"
-  },
+    "alternatives": ["[alternative 1 - from competitor_analysis.json if available, or inferred from domain knowledge]"],
+    "differentiators": ["[differentiator 1 - from competitor_analysis.json insights_summary.differentiator_opportunities if available, or from README/docs]"],
+    "market_position": "[market positioning - incorporate market_gaps from competitor_analysis.json if available, otherwise infer from project type]",
+    "competitor_pain_points": ["[from competitor_analysis.json insights_summary.top_pain_points if available, otherwise empty array]"],
+    "competitor_analysis_available": true  },
   "constraints": {
     "technical": ["[inferred from dependencies/architecture]"],
     "resources": ["[inferred from git contributors]"],
@@ -278,13 +282,14 @@ Next phase: Feature Generation
 ## CRITICAL RULES
 
 1. **ALWAYS create roadmap_discovery.json** - The orchestrator checks for this file. CREATE IT IMMEDIATELY after analysis.
-2. **NEVER ask questions or wait for input** - This runs non-interactively. Make your best inferences.
-3. **Use valid JSON** - No trailing commas, proper quotes
-4. **Include all required fields** - project_name, target_audience, product_vision
-5. **Write to Output Directory** - Use the path provided at the end of the prompt, NOT the project root
-6. **Make educated guesses** - It's better to have reasonable inferences than empty fields
-7. **Be thorough on audience** - Infer from README, code structure, and project type
-
+2. **Use valid JSON** - No trailing commas, proper quotes
+3. **Include all required fields** - project_name, target_audience, product_vision
+4. **Ask before assuming** - Don't guess what the user wants for critical information
+5. **Confirm key information** - Especially target audience and vision
+6. **Be thorough on audience** - This is the most important part for roadmap quality
+7. **Make educated guesses when appropriate** - For technical details and competitive context, reasonable inferences are acceptable
+8. **Write to Output Directory** - Use the path provided at the end of the prompt, NOT the project root
+9. **Incorporate competitor analysis** - If `competitor_analysis.json` exists, use its data to enrich `competitive_context` with real competitor insights and pain points. Set `competitor_analysis_available: true` when data is used
 ---
 
 ## ERROR RECOVERY

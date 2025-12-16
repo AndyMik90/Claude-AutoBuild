@@ -3,6 +3,67 @@
  */
 
 // ============================================
+// Competitor Analysis Types
+// ============================================
+
+export type CompetitorRelevance = 'high' | 'medium' | 'low';
+export type PainPointSeverity = 'high' | 'medium' | 'low';
+export type OpportunitySize = 'high' | 'medium' | 'low';
+
+export interface CompetitorPainPoint {
+  id: string;
+  description: string;
+  source: string;
+  severity: PainPointSeverity;
+  frequency: string;
+  opportunity: string;
+}
+
+export interface Competitor {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+  relevance: CompetitorRelevance;
+  painPoints: CompetitorPainPoint[];
+  strengths: string[];
+  marketPosition: string;
+}
+
+export interface CompetitorMarketGap {
+  id: string;
+  description: string;
+  affectedCompetitors: string[];
+  opportunitySize: OpportunitySize;
+  suggestedFeature: string;
+}
+
+export interface CompetitorInsightsSummary {
+  topPainPoints: string[];
+  differentiatorOpportunities: string[];
+  marketTrends: string[];
+}
+
+export interface CompetitorResearchMetadata {
+  searchQueriesUsed: string[];
+  sourcesConsulted: string[];
+  limitations: string[];
+}
+
+export interface CompetitorAnalysis {
+  projectContext: {
+    projectName: string;
+    projectType: string;
+    targetAudience: string;
+  };
+  competitors: Competitor[];
+  marketGaps: CompetitorMarketGap[];
+  insightsSummary: CompetitorInsightsSummary;
+  researchMetadata: CompetitorResearchMetadata;
+  createdAt: Date;
+}
+
+// ============================================
 // Roadmap Types
 // ============================================
 
@@ -52,6 +113,7 @@ export interface RoadmapFeature {
   acceptanceCriteria: string[];
   userStories: string[];
   linkedSpecId?: string;
+  competitorInsightIds?: string[];
 }
 
 export interface Roadmap {
@@ -64,6 +126,7 @@ export interface Roadmap {
   phases: RoadmapPhase[];
   features: RoadmapFeature[];
   status: RoadmapStatus;
+  competitorAnalysis?: CompetitorAnalysis;
   createdAt: Date;
   updatedAt: Date;
 }
