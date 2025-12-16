@@ -594,40 +594,58 @@ Resolve all conflicts now:'''
         )
 
 
-def create_claude_resolver(
-    api_key: Optional[str] = None,
-) -> AIResolver:
+def create_claude_resolver() -> AIResolver:
     """
-    Create an AIResolver configured to use Claude.
+    Create an AIResolver configured to use Claude via the Claude Agent SDK.
 
-    Args:
-        api_key: Optional API key. If None, reads from ANTHROPIC_API_KEY env var.
+    Uses the same SDK pattern as the rest of the auto-claude framework.
 
     Returns:
         Configured AIResolver
     """
+    import asyncio
     import os
 
+    # Check for OAuth token (required for Claude Agent SDK)
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if not oauth_token:
+        logger.warning("CLAUDE_CODE_OAUTH_TOKEN not set, AI resolution unavailable")
+        return AIResolver()
+
     try:
-        import anthropic
+        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
     except ImportError:
-        logger.warning("anthropic package not installed, AI resolution unavailable")
+        logger.warning("claude_agent_sdk not installed, AI resolution unavailable")
         return AIResolver()
-
-    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        logger.warning("No Anthropic API key found, AI resolution unavailable")
-        return AIResolver()
-
-    client = anthropic.Anthropic(api_key=api_key)
 
     def call_claude(system: str, user: str) -> str:
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",  # Fast and capable
-            max_tokens=4096,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return response.content[0].text
+        """Call Claude using the Agent SDK for merge resolution."""
+
+        async def _run_merge_agent() -> str:
+            client = ClaudeSDKClient(
+                options=ClaudeAgentOptions(
+                    model="claude-sonnet-4-5-20250514",  # Fast and capable
+                    system_prompt=system,
+                    allowed_tools=[],  # No tools needed for merge resolution
+                    max_turns=1,  # Single response
+                )
+            )
+
+            async with client:
+                await client.query(user)
+
+                response_text = ""
+                async for msg in client.receive_response():
+                    msg_type = type(msg).__name__
+                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                        for block in msg.content:
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
+                                response_text += block.text
+
+                return response_text
+
+        # Run the async function synchronously
+        return asyncio.run(_run_merge_agent())
 
     return AIResolver(ai_call_fn=call_claude)
