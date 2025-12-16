@@ -688,6 +688,7 @@ def _resolve_git_conflicts_with_ai(
     simple_merges: list[
         tuple[str, str | None]
     ] = []  # (file_path, merged_content or None for delete)
+    lock_files_excluded: list[str] = []  # Lock files excluded from merge
 
     debug(MODULE, "Categorizing conflicting files for parallel processing")
 
@@ -727,10 +728,11 @@ def _resolve_git_conflicts_with_ai(
             else:
                 # File exists in both - check if it's a lock file
                 if _is_lock_file(file_path):
-                    # Lock files should never go through AI - just take worktree version
-                    # User can run package manager install to regenerate if needed
-                    simple_merges.append((file_path, worktree_content))
-                    debug(MODULE, f"  {file_path}: lock file (taking worktree version)")
+                    # Lock files should be excluded from merge entirely
+                    # They must be regenerated after merge by running the package manager
+                    # (e.g., npm install, pnpm install, uv sync, cargo update)
+                    lock_files_excluded.append(file_path)
+                    debug(MODULE, f"  {file_path}: lock file (excluded - regenerate after merge)")
                 else:
                     # Regular file - needs AI merge
                     files_needing_ai_merge.append(
@@ -767,15 +769,7 @@ def _resolve_git_conflicts_with_ai(
                         ["git", "add", file_path], cwd=project_dir, capture_output=True
                     )
                     resolved_files.append(file_path)
-                    # Determine the type for display
-                    if _is_lock_file(file_path):
-                        print(
-                            success(
-                                f"    ✓ {file_path} (lock file - took worktree version)"
-                            )
-                        )
-                    else:
-                        print(success(f"    ✓ {file_path} (new file)"))
+                    print(success(f"    ✓ {file_path} (new file)"))
                 else:
                     # Delete the file
                     target_path = project_dir / file_path
@@ -911,6 +905,7 @@ def _resolve_git_conflicts_with_ai(
             "ai_assisted": ai_merged_count,
             "auto_merged": auto_merged_count,
             "parallel_ai_merges": len(files_needing_ai_merge),
+            "lock_files_excluded": len(lock_files_excluded),
         },
     }
 
@@ -925,6 +920,17 @@ def _resolve_git_conflicts_with_ai(
         for conflict in remaining_conflicts:
             print(muted(f"    - {conflict['file']}: {conflict['reason']}"))
         print(muted("  These files may need manual review."))
+
+    # Notify about excluded lock files that need regeneration
+    if lock_files_excluded:
+        result["lock_files_excluded"] = lock_files_excluded
+        print()
+        print(muted(f"  ℹ {len(lock_files_excluded)} lock file(s) excluded from merge:"))
+        for lock_file in lock_files_excluded:
+            print(muted(f"    - {lock_file}"))
+        print()
+        print(warning("  Run your package manager to regenerate lock files:"))
+        print(muted("    npm install / pnpm install / yarn / uv sync / cargo update"))
 
     return result
 
