@@ -11,6 +11,7 @@ import { titleGenerator } from '../title-generator';
 import { AgentManager } from '../agent';
 import { PythonEnvManager } from '../python-env-manager';
 import { getEffectiveSourcePath } from '../auto-claude-updater';
+import { getProfileEnv } from '../rate-limit-detector';
 
 
 /**
@@ -1325,11 +1326,19 @@ export function registerTaskHandlers(
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
 
+        // Get profile environment with OAuth token for AI merge resolution
+        const profileEnv = getProfileEnv();
+        debug('Profile env for merge:', {
+          hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+          hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR
+        });
+
         return new Promise((resolve) => {
           const mergeProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
             env: {
               ...process.env,
+              ...profileEnv, // Include active Claude profile OAuth token
               PYTHONUNBUFFERED: '1'
             }
           });
@@ -1770,10 +1779,13 @@ export function registerTaskHandlers(
         const pythonPath = pythonEnvManager.getPythonPath() || 'python3';
         console.log('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
+        // Get profile environment for consistency
+        const previewProfileEnv = getProfileEnv();
+
         return new Promise((resolve) => {
           const previewProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
-            env: { ...process.env, PYTHONUNBUFFERED: '1', DEBUG: 'true' }
+            env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', DEBUG: 'true' }
           });
 
           let stdout = '';
