@@ -1990,12 +1990,17 @@ def _merge_file_with_ai(
                 )
 
                 try:
+                    debug(MODULE, "Calling AI for conflict-only merge")
                     response = resolver.ai_call_fn(
                         "You are an expert code merge assistant. Resolve ONLY the specific conflicts shown. Output the resolved code for each conflict.",
                         prompt,
                     )
 
                     if response:
+                        debug(MODULE, "Conflict-only AI response received",
+                              response_length=len(response),
+                              preview=response[:200] if len(response) > 200 else response)
+
                         # Extract resolutions for each conflict
                         resolutions = extract_conflict_resolutions(response, conflicts, language)
 
@@ -2022,6 +2027,13 @@ def _merge_file_with_ai(
                                     print(muted(f"    Conflict-only merge had syntax issues, trying full-file merge..."))
                             else:
                                 return merged
+                        else:
+                            debug_warning(MODULE, "No resolutions extracted from AI response",
+                                         response_preview=response[:500] if len(response) > 500 else response)
+                            print(muted(f"    Could not extract conflict resolutions from AI response, trying full-file merge..."))
+                    else:
+                        debug_warning(MODULE, "Conflict-only AI returned empty response")
+                        print(muted(f"    AI returned empty response, trying full-file merge..."))
 
                 except Exception as e:
                     debug_warning(MODULE, f"Conflict-only merge failed: {e}, falling back to full-file")
