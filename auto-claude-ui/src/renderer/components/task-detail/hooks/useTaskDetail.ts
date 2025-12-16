@@ -191,9 +191,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         const previewData = JSON.parse(stored);
         console.log('%c[useTaskDetail] Restored merge preview from sessionStorage:', 'color: magenta;', previewData);
         setMergePreview(previewData);
-        if (previewData.conflicts?.length > 0) {
-          setShowConflictDialog(true);
-        }
+        // Don't auto-popup - restored data stays silent
       } catch (e) {
         console.warn('[useTaskDetail] Failed to parse stored merge preview');
         sessionStorage.removeItem(storageKey);
@@ -218,10 +216,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         setMergePreview(previewData);
         // Persist to sessionStorage to survive HMR reloads
         sessionStorage.setItem(`mergePreview-${task.id}`, JSON.stringify(previewData));
-        // Show conflict dialog if there are conflicts that need attention
-        if (previewData.conflicts.length > 0) {
-          setShowConflictDialog(true);
-        }
+        // Don't auto-popup conflict dialog - let user click to see details if curious
       } else {
         console.warn('%c[useTaskDetail] Preview not successful or no preview data:', 'color: orange;', result);
         console.warn('  - success:', result.success);
@@ -235,6 +230,20 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       setIsLoadingPreview(false);
     }
   }, [task.id]);
+
+  // Auto-load merge preview when worktree is ready (eliminates need to click "Check Conflicts")
+  // NOTE: This must be placed AFTER loadMergePreview definition since it depends on that callback
+  useEffect(() => {
+    // Only auto-load if:
+    // 1. Task needs review
+    // 2. Worktree exists
+    // 3. We haven't already loaded the preview
+    // 4. We're not currently loading
+    if (needsReview && worktreeStatus?.exists && !mergePreview && !isLoadingPreview) {
+      console.log('[useTaskDetail] Auto-loading merge preview for task:', task.id);
+      loadMergePreview();
+    }
+  }, [needsReview, worktreeStatus?.exists, mergePreview, isLoadingPreview, task.id, loadMergePreview]);
 
   return {
     // State

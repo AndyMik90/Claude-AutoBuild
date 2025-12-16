@@ -227,28 +227,26 @@ export function TaskReview({
               <Eye className="mr-2 h-4 w-4" />
               View Changes
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                console.log('[TaskReview] Check Conflicts button clicked');
-                onLoadMergePreview();
-              }}
-              disabled={isLoadingPreview}
-              className="flex-1"
-            >
-              {isLoadingPreview ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Check Conflicts
-                </>
-              )}
-            </Button>
+            {/* Refresh conflicts button - conflicts are auto-loaded but user can refresh */}
+            {mergePreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  console.log('[TaskReview] Refresh conflicts clicked');
+                  onLoadMergePreview();
+                }}
+                disabled={isLoadingPreview}
+                className="flex-none"
+                title="Refresh conflict check"
+              >
+                {isLoadingPreview ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             {worktreeStatus.worktreePath && (
               <Button
                 variant="outline"
@@ -260,11 +258,20 @@ export function TaskReview({
                   });
                 }}
                 className="flex-none"
+                title="Open worktree in terminal"
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
             )}
           </div>
+
+          {/* Loading indicator while checking conflicts */}
+          {isLoadingPreview && !mergePreview && (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-3">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking for conflicts...
+            </div>
+          )}
 
           {/* Merge Preview Summary */}
           {mergePreview && (
@@ -643,10 +650,10 @@ export function TaskReview({
                 onShowConflictDialog(false);
                 onMerge();
               }}
-              className="bg-primary"
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
             >
               <GitMerge className="mr-2 h-4 w-4" />
-              {stageOnly ? 'Stage Anyway' : 'Merge Anyway'}
+              {stageOnly ? 'Stage with AI Merge' : 'Merge with AI'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
