@@ -1178,6 +1178,26 @@ def _resolve_git_conflicts_with_ai(
     merge_base = merge_base_result.stdout.strip() if merge_base_result.returncode == 0 else None
     debug(MODULE, "Found merge-base commit", merge_base=merge_base[:12] if merge_base else None)
 
+    # FIX: Copy NEW files FIRST before resolving conflicts
+    # This ensures dependencies exist before files that import them are written
+    changed_files = _get_changed_files_from_branch(project_dir, base_branch, spec_branch)
+    new_files = [(f, s) for f, s in changed_files if s == "A" and f not in conflicting_files]
+
+    if new_files:
+        print(muted(f"  Copying {len(new_files)} new file(s) first (dependencies)..."))
+        for file_path, status in new_files:
+            try:
+                content = _get_file_content_from_ref(project_dir, spec_branch, file_path)
+                if content is not None:
+                    target_path = project_dir / file_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    target_path.write_text(content, encoding="utf-8")
+                    subprocess.run(["git", "add", file_path], cwd=project_dir, capture_output=True)
+                    resolved_files.append(file_path)
+                    debug(MODULE, f"Copied new file: {file_path}")
+            except Exception as e:
+                debug_warning(MODULE, f"Could not copy new file {file_path}: {e}")
+
     for file_path in conflicting_files:
         debug(MODULE, f"Processing conflicting file: {file_path}")
         print(muted(f"  Processing: {file_path}"))
@@ -1270,12 +1290,15 @@ def _resolve_git_conflicts_with_ai(
             "remaining_conflicts": remaining_conflicts,
         }
 
-    # All conflicts resolved - now merge non-conflicting files
+    # All conflicts resolved - now merge remaining non-conflicting files
+    # (New files were already copied at the start)
     print(muted("  Merging remaining files..."))
 
-    # Get list of all changed files in worktree that aren't conflicting
-    changed_files = _get_changed_files_from_branch(project_dir, base_branch, spec_branch)
-    non_conflicting = [f for f in changed_files if f not in conflicting_files]
+    # Get list of modified/deleted files (new files already copied at start)
+    non_conflicting = [
+        (f, s) for f, s in changed_files
+        if f not in conflicting_files and s != "A"  # Skip new files, already copied
+    ]
 
     for file_path, status in non_conflicting:
         try:
@@ -1755,21 +1778,26 @@ def _create_conflict_file_with_git(
     worktree_content: str,
     base_content: Optional[str],
     project_dir: Path,
-) -> Optional[str]:
+) -> tuple[Optional[str], bool]:
     """
     Use git merge-file to create a file with conflict markers.
 
     This produces a file with standard git conflict markers that can be
     parsed to extract only the conflicting regions.
 
-    Returns the merged content with conflict markers, or None if no conflicts.
+    Returns:
+        Tuple of (merged_content, has_conflicts):
+        - (content, True) if there are conflict markers
+        - (content, False) if git cleanly merged (USE THIS RESULT!)
+        - (None, False) if merge failed
     """
     import subprocess
     import tempfile
 
     if not base_content:
         # Without a base, we can't do proper 3-way merge with markers
-        return None
+        debug(MODULE, "git merge-file: no base content available")
+        return None, False
 
     try:
         # Create temp files for git merge-file
@@ -1796,12 +1824,25 @@ def _create_conflict_file_with_git(
                 timeout=30,
             )
 
+            debug(MODULE, "git merge-file result",
+                  return_code=result.returncode,
+                  output_length=len(result.stdout) if result.stdout else 0,
+                  has_conflict_markers='<<<<<<' in result.stdout if result.stdout else False)
+
             # Return code > 0 means conflicts exist
             if result.returncode > 0 and '<<<<<<' in result.stdout:
-                return result.stdout
+                debug(MODULE, "git merge-file: has conflicts")
+                return result.stdout, True
             elif result.returncode == 0:
-                # Clean merge, no conflicts
-                return None
+                # Clean merge, no conflicts - THIS IS STILL USEFUL!
+                debug(MODULE, "git merge-file: clean merge (no conflicts)")
+                return result.stdout, False
+            else:
+                # Some error occurred
+                debug_warning(MODULE, "git merge-file: unexpected result",
+                             return_code=result.returncode,
+                             stderr=result.stderr[:200] if result.stderr else None)
+                return None, False
 
         finally:
             # Cleanup temp files
@@ -1812,7 +1853,7 @@ def _create_conflict_file_with_git(
     except Exception as e:
         debug_warning(MODULE, f"git merge-file failed: {e}")
 
-    return None
+    return None, False
 
 
 def _merge_file_with_ai(
@@ -1895,15 +1936,34 @@ def _merge_file_with_ai(
     if project_dir:
         task_intent = _get_task_intent(project_dir, spec_name)
 
-    # OPTIMIZATION: Try conflict-region-only merge first
-    # This is MUCH faster than sending entire files to AI
+    # OPTIMIZATION: Try git merge-file first
+    # This can either:
+    # 1. Cleanly merge (no AI needed - FASTEST)
+    # 2. Produce conflict markers (only send conflict regions to AI - FAST)
+    # 3. Fail (fall back to full-file AI merge - SLOW)
     if project_dir and base_content:
-        conflict_file = _create_conflict_file_with_git(
+        merged_content, has_conflicts = _create_conflict_file_with_git(
             main_content, worktree_content, base_content, project_dir
         )
 
-        if conflict_file:
-            conflicts, _ = parse_conflict_markers(conflict_file)
+        # Case 1: Git cleanly merged - no AI needed!
+        if merged_content and not has_conflicts:
+            debug_success(MODULE, "Git merge-file cleanly merged (no AI needed)",
+                         file_path=file_path)
+            print(success(f"    ✓ Git auto-merged (no conflicts)"))
+
+            # Validate syntax before returning
+            is_valid, error_msg = _validate_merged_syntax(file_path, merged_content, project_dir)
+            if is_valid:
+                return merged_content
+            else:
+                debug_warning(MODULE, "Git auto-merge produced invalid syntax, falling back to AI",
+                             error=error_msg)
+                print(muted(f"    Git auto-merge had syntax issues, trying AI..."))
+
+        # Case 2: Has conflict markers - use conflict-only AI merge (FAST)
+        if merged_content and has_conflicts:
+            conflicts, _ = parse_conflict_markers(merged_content)
 
             if conflicts:
                 # Calculate how much smaller this approach is
@@ -1945,7 +2005,7 @@ def _merge_file_with_ai(
                                   expected=len(conflicts))
 
                             # Reassemble the file with resolved conflicts
-                            merged = reassemble_with_resolutions(conflict_file, conflicts, resolutions)
+                            merged = reassemble_with_resolutions(merged_content, conflicts, resolutions)
 
                             # Validate syntax
                             if project_dir:
