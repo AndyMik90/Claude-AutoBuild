@@ -156,10 +156,12 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     }
   };
 
-  const handleDeleteSelected = async () => {
-    if (selectedIds.size === 0) return;
-    await deleteMultipleIdeasForProject(projectId, Array.from(selectedIds));
-  };
+  const handleDeleteSelected = useCallback(async () => {
+    // Get fresh selectedIds from store to avoid stale closure
+    const currentSelectedIds = useIdeationStore.getState().selectedIds;
+    if (currentSelectedIds.size === 0) return;
+    await deleteMultipleIdeasForProject(projectId, Array.from(currentSelectedIds));
+  }, [projectId]);
 
   const handleSelectAll = useCallback((ideas: Idea[]) => {
     selectAllIdeas(ideas.map(idea => idea.id));

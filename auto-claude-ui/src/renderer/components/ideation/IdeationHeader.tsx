@@ -64,20 +64,15 @@ export function IdeationHeader({
               <Badge variant="secondary" className="mr-1">
                 {selectedCount} selected
               </Badge>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={onDeleteSelected}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete selected ideas</TooltipContent>
-              </Tooltip>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                onClick={onDeleteSelected}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
