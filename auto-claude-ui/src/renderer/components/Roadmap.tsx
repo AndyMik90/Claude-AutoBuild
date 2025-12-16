@@ -17,8 +17,7 @@ import {
   Play,
   ExternalLink,
   TrendingUp,
-  Plus
-} from 'lucide-react';
+  Plus} from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
@@ -29,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from './ui/tooltip';
+import { RoadmapGenerationProgress } from './RoadmapGenerationProgress';
 import {
   useRoadmapStore,
   loadRoadmap,
@@ -142,19 +142,10 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete') {
     return (
       <div className="flex h-full items-center justify-center">
-        <Card className="w-full max-w-md p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-            <h2 className="text-lg font-semibold">Generating Roadmap</h2>
-          </div>
-          <Progress value={generationStatus.progress} className="mb-3" />
-          <p className="text-sm text-muted-foreground">{generationStatus.message}</p>
-          {generationStatus.error && (
-            <div className="mt-4 p-3 bg-destructive/10 rounded-md text-destructive text-sm">
-              {generationStatus.error}
-            </div>
-          )}
-        </Card>
+        <RoadmapGenerationProgress
+          generationStatus={generationStatus}
+          className="w-full max-w-md"
+        />
       </div>
     );
   }
