@@ -1379,7 +1379,7 @@ def _resolve_git_conflicts_with_ai(
             "conflicts_resolved": len(conflicting_files),
             "ai_assisted": ai_merged_count,
             "auto_merged": auto_merged_count,
-            "parallel": len(files_needing_ai_merge) > 1,
+            "parallel_ai_merges": len(files_needing_ai_merge),
         },
     }
 
