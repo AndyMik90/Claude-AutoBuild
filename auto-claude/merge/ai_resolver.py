@@ -636,12 +636,12 @@ def create_claude_resolver() -> AIResolver:
                 prompt_file = f.name
 
             try:
-                # Read prompt from file and pipe to claude
+                # Run claude in print mode with Opus 4.5 for quality merge resolution
                 result = subprocess.run(
                     [
                         claude_path,
                         "--print",
-                        "--model", "claude-sonnet-4-5-20250514",
+                        "--model", "claude-opus-4-5-20251101",
                         "--max-turns", "1",
                         "--output-format", "text",
                     ],
@@ -653,8 +653,13 @@ def create_claude_resolver() -> AIResolver:
                 )
 
                 if result.returncode != 0:
-                    logger.warning(f"claude CLI returned non-zero: {result.returncode}")
-                    logger.debug(f"stderr: {result.stderr}")
+                    # Print to stderr so it shows in logs
+                    import sys
+                    print(f"claude CLI returned non-zero: {result.returncode}", file=sys.stderr)
+                    if result.stderr:
+                        print(f"claude stderr: {result.stderr[:1000]}", file=sys.stderr)
+                    if result.stdout:
+                        print(f"claude stdout (on error): {result.stdout[:500]}", file=sys.stderr)
                     return ""
 
                 return result.stdout.strip()
