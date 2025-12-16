@@ -41,6 +41,21 @@ from .auto_merger import AutoMerger
 from .file_evolution import FileEvolutionTracker
 from .ai_resolver import AIResolver, create_claude_resolver
 from .orchestrator import MergeOrchestrator
+from .file_timeline import (
+    FileTimelineTracker,
+    FileTimeline,
+    MainBranchEvent,
+    BranchPoint,
+    WorktreeState,
+    TaskIntent,
+    TaskFileView,
+    MergeContext,
+)
+from .prompts import (
+    build_timeline_merge_prompt,
+    build_simple_merge_prompt,
+    optimize_prompt_for_length,
+)
 
 __all__ = [
     # Types
@@ -62,4 +77,17 @@ __all__ = [
     "AIResolver",
     "create_claude_resolver",
     "MergeOrchestrator",
+    # File Timeline (Intent-Aware Merge System)
+    "FileTimelineTracker",
+    "FileTimeline",
+    "MainBranchEvent",
+    "BranchPoint",
+    "WorktreeState",
+    "TaskIntent",
+    "TaskFileView",
+    "MergeContext",
+    # Prompt Templates
+    "build_timeline_merge_prompt",
+    "build_simple_merge_prompt",
+    "optimize_prompt_for_length",
 ]

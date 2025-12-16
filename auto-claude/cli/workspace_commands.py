@@ -132,11 +132,10 @@ def handle_cleanup_worktrees_command(project_dir: Path) -> None:
 
 def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
     """
-    Check for git-level merge conflicts by attempting a dry-run merge.
+    Check for git-level merge conflicts WITHOUT modifying the working directory.
 
-    This detects conflicts that occur when main has diverged from the
-    worktree branch (e.g., other changes were merged to main since
-    the worktree was created).
+    Uses git merge-tree and git diff to detect conflicts in-memory,
+    which avoids triggering Vite HMR or other file watchers.
 
     Args:
         project_dir: Project root directory
@@ -152,7 +151,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
     """
     import subprocess
 
-    debug(MODULE, "Checking for git-level merge conflicts...")
+    debug(MODULE, "Checking for git-level merge conflicts (non-destructive)...")
 
     spec_branch = f"auto-claude/{spec_name}"
     result = {
@@ -175,95 +174,110 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
         if base_result.returncode == 0:
             result["base_branch"] = base_result.stdout.strip()
 
-        # Check how many commits main is ahead of the merge-base
+        # Get the merge base commit
         merge_base_result = subprocess.run(
             ["git", "merge-base", result["base_branch"], spec_branch],
             cwd=project_dir,
             capture_output=True,
             text=True,
         )
-        if merge_base_result.returncode == 0:
-            merge_base = merge_base_result.stdout.strip()
+        if merge_base_result.returncode != 0:
+            debug_warning(MODULE, "Could not find merge base")
+            return result
 
-            # Count commits main is ahead
-            ahead_result = subprocess.run(
-                ["git", "rev-list", "--count", f"{merge_base}..{result['base_branch']}"],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-            )
-            if ahead_result.returncode == 0:
-                commits_behind = int(ahead_result.stdout.strip())
-                result["commits_behind"] = commits_behind
-                if commits_behind > 0:
-                    result["needs_rebase"] = True
-                    debug(MODULE, f"Main is {commits_behind} commits ahead of worktree base")
+        merge_base = merge_base_result.stdout.strip()
 
-        # Try a merge --no-commit --no-ff to see if there would be conflicts
-        # First, save current state
-        stash_result = subprocess.run(
-            ["git", "stash", "push", "-m", "merge-preview-check"],
+        # Count commits main is ahead
+        ahead_result = subprocess.run(
+            ["git", "rev-list", "--count", f"{merge_base}..{result['base_branch']}"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if ahead_result.returncode == 0:
+            commits_behind = int(ahead_result.stdout.strip())
+            result["commits_behind"] = commits_behind
+            if commits_behind > 0:
+                result["needs_rebase"] = True
+                debug(MODULE, f"Main is {commits_behind} commits ahead of worktree base")
+
+        # Get commit hashes for merge-tree
+        main_commit_result = subprocess.run(
+            ["git", "rev-parse", result["base_branch"]],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        spec_commit_result = subprocess.run(
+            ["git", "rev-parse", spec_branch],
             cwd=project_dir,
             capture_output=True,
             text=True,
         )
 
-        try:
-            # Attempt the merge (dry run style)
-            merge_result = subprocess.run(
-                ["git", "merge", "--no-commit", "--no-ff", spec_branch],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-            )
+        if main_commit_result.returncode != 0 or spec_commit_result.returncode != 0:
+            debug_warning(MODULE, "Could not resolve branch commits")
+            return result
 
-            if merge_result.returncode != 0:
-                result["has_conflicts"] = True
-                debug(MODULE, "Git merge would have conflicts")
+        main_commit = main_commit_result.stdout.strip()
+        spec_commit = spec_commit_result.stdout.strip()
 
-                # Parse conflicting files from the output
-                # Look for "CONFLICT (content): Merge conflict in <file>"
-                import re
-                for line in merge_result.stdout.split("\n") + merge_result.stderr.split("\n"):
-                    # Match patterns like "CONFLICT (content): Merge conflict in path/to/file"
-                    match = re.search(r"CONFLICT.*:\s*(?:Merge conflict in\s+)?(.+)", line)
+        # Use git merge-tree to check for conflicts WITHOUT touching working directory
+        # This is a plumbing command that does a 3-way merge in memory
+        merge_tree_result = subprocess.run(
+            ["git", "merge-tree", "--write-tree", "--no-messages", merge_base, main_commit, spec_commit],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        # merge-tree returns exit code 1 if there are conflicts
+        if merge_tree_result.returncode != 0:
+            result["has_conflicts"] = True
+            debug(MODULE, "Git merge-tree detected conflicts")
+
+            # Parse the output for conflicting files
+            # merge-tree --write-tree outputs conflict info to stderr
+            output = merge_tree_result.stdout + merge_tree_result.stderr
+            for line in output.split("\n"):
+                # Look for lines indicating conflicts
+                if "CONFLICT" in line:
+                    # Extract file path from conflict message
+                    import re
+                    match = re.search(r"(?:Merge conflict in|CONFLICT.*?:)\s*(.+?)(?:\s*$|\s+\()", line)
                     if match:
                         file_path = match.group(1).strip()
                         if file_path and file_path not in result["conflicting_files"]:
                             result["conflicting_files"].append(file_path)
 
-                # Also check git status for unmerged files
-                status_result = subprocess.run(
-                    ["git", "diff", "--name-only", "--diff-filter=U"],
+            # Fallback: if we didn't parse conflicts, use diff to find files changed in both branches
+            if not result["conflicting_files"]:
+                # Files changed in main since merge-base
+                main_files_result = subprocess.run(
+                    ["git", "diff", "--name-only", merge_base, main_commit],
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
                 )
-                if status_result.returncode == 0:
-                    for line in status_result.stdout.strip().split("\n"):
-                        if line and line not in result["conflicting_files"]:
-                            result["conflicting_files"].append(line)
+                main_files = set(main_files_result.stdout.strip().split("\n")) if main_files_result.stdout.strip() else set()
 
-                debug(MODULE, f"Conflicting files: {result['conflicting_files']}")
-            else:
-                debug_success(MODULE, "Git merge would succeed without conflicts")
-
-        finally:
-            # Always abort the merge and restore state
-            subprocess.run(
-                ["git", "merge", "--abort"],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-            )
-            # Restore stash if we made one
-            if "No local changes" not in stash_result.stdout:
-                subprocess.run(
-                    ["git", "stash", "pop"],
+                # Files changed in spec branch since merge-base
+                spec_files_result = subprocess.run(
+                    ["git", "diff", "--name-only", merge_base, spec_commit],
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
                 )
+                spec_files = set(spec_files_result.stdout.strip().split("\n")) if spec_files_result.stdout.strip() else set()
+
+                # Files modified in both = potential conflicts
+                conflicting = main_files & spec_files
+                result["conflicting_files"] = list(conflicting)
+                debug(MODULE, f"Found {len(conflicting)} files modified in both branches")
+
+            debug(MODULE, f"Conflicting files: {result['conflicting_files']}")
+        else:
+            debug_success(MODULE, "Git merge-tree: no conflicts detected")
 
     except Exception as e:
         debug_error(MODULE, f"Error checking git conflicts: {e}")

@@ -64,7 +64,11 @@ from merge import (
     MergeDecision,
     ConflictSeverity,
     FileEvolutionTracker,
+    FileTimelineTracker,
 )
+
+# Track if we've already tried to install the git hook this session
+_git_hook_check_done = False
 
 MODULE = "workspace"
 
@@ -291,6 +295,9 @@ def setup_workspace(
     print()
     print_status("Setting up separate workspace...", "progress")
 
+    # Ensure timeline tracking hook is installed (once per session)
+    _ensure_timeline_hook_installed(project_dir)
+
     manager = WorktreeManager(project_dir)
     manager.setup()
 
@@ -308,7 +315,130 @@ def setup_workspace(
     print_status(f"Workspace ready: {worktree_info.path.name}", "success")
     print()
 
+    # Initialize FileTimelineTracker for this task
+    _initialize_timeline_tracking(
+        project_dir=project_dir,
+        spec_name=spec_name,
+        worktree_path=worktree_info.path,
+        source_spec_dir=localized_spec_dir or source_spec_dir,
+    )
+
     return worktree_info.path, manager, localized_spec_dir
+
+
+def _ensure_timeline_hook_installed(project_dir: Path) -> None:
+    """
+    Ensure the FileTimelineTracker git post-commit hook is installed.
+
+    This enables tracking human commits to main branch for drift detection.
+    Called once per session during first workspace setup.
+    """
+    global _git_hook_check_done
+    if _git_hook_check_done:
+        return
+
+    _git_hook_check_done = True
+
+    try:
+        git_dir = project_dir / ".git"
+        if not git_dir.exists():
+            return  # Not a git repo
+
+        # Handle worktrees (where .git is a file, not directory)
+        if git_dir.is_file():
+            content = git_dir.read_text().strip()
+            if content.startswith("gitdir:"):
+                git_dir = Path(content.split(":", 1)[1].strip())
+            else:
+                return
+
+        hook_path = git_dir / "hooks" / "post-commit"
+
+        # Check if hook already installed
+        if hook_path.exists():
+            if "FileTimelineTracker" in hook_path.read_text():
+                debug(MODULE, "FileTimelineTracker hook already installed")
+                return
+
+        # Auto-install the hook (silent, non-intrusive)
+        from merge.install_hook import install_hook
+        install_hook(project_dir)
+        debug(MODULE, "Auto-installed FileTimelineTracker git hook")
+
+    except Exception as e:
+        # Non-fatal - hook installation is optional
+        debug_warning(MODULE, f"Could not auto-install timeline hook: {e}")
+
+
+def _initialize_timeline_tracking(
+    project_dir: Path,
+    spec_name: str,
+    worktree_path: Path,
+    source_spec_dir: Path | None = None,
+) -> None:
+    """
+    Initialize FileTimelineTracker for a new task.
+
+    This registers the task's branch point and the files it intends to modify,
+    enabling intent-aware merge conflict resolution later.
+    """
+    try:
+        tracker = FileTimelineTracker(project_dir)
+
+        # Get task intent from implementation plan
+        task_intent = ""
+        task_title = spec_name
+        files_to_modify = []
+
+        if source_spec_dir:
+            plan_path = source_spec_dir / "implementation_plan.json"
+            if plan_path.exists():
+                import json
+                with open(plan_path) as f:
+                    plan = json.load(f)
+                task_title = plan.get("title", spec_name)
+                task_intent = plan.get("description", "")
+
+                # Extract files from phases/subtasks
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        files_to_modify.extend(subtask.get("files", []))
+
+        # Get the current branch point commit
+        import subprocess
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        branch_point = result.stdout.strip() if result.returncode == 0 else None
+
+        if files_to_modify and branch_point:
+            # Register the task with known files
+            tracker.on_task_start(
+                task_id=spec_name,
+                files_to_modify=list(set(files_to_modify)),  # Dedupe
+                branch_point_commit=branch_point,
+                task_intent=task_intent,
+                task_title=task_title,
+            )
+            debug(MODULE, f"Timeline tracking initialized for {spec_name}",
+                  files_tracked=len(files_to_modify),
+                  branch_point=branch_point[:8] if branch_point else None)
+        else:
+            # Initialize retroactively from worktree if no plan
+            tracker.initialize_from_worktree(
+                task_id=spec_name,
+                worktree_path=worktree_path,
+                task_intent=task_intent,
+                task_title=task_title,
+            )
+
+    except Exception as e:
+        # Non-fatal - timeline tracking is supplementary
+        debug_warning(MODULE, f"Could not initialize timeline tracking: {e}")
+        print(muted(f"  Note: Timeline tracking could not be initialized: {e}"))
 
 
 def show_build_summary(manager: WorktreeManager, spec_name: str) -> None:
@@ -765,6 +895,14 @@ def _try_smart_merge_inner(
 
     try:
         print(muted("  Analyzing changes with intent-aware merge..."))
+
+        # Capture worktree state in FileTimelineTracker before merge
+        try:
+            timeline_tracker = FileTimelineTracker(project_dir)
+            timeline_tracker.capture_worktree_state(spec_name, worktree_path)
+            debug(MODULE, "Captured worktree state for timeline tracking")
+        except Exception as e:
+            debug_warning(MODULE, f"Could not capture worktree state: {e}")
 
         # Initialize the orchestrator
         debug(MODULE, "Initializing MergeOrchestrator",
@@ -1286,9 +1424,10 @@ def _record_merge_completion(
     spec_name: str,
     merged_files: list[str],
     task_intent: str = "",
+    merge_commit: str = "",
 ) -> None:
     """
-    Record completed merge in the Evolution Tracker.
+    Record completed merge in both Evolution Tracker and FileTimelineTracker.
 
     This enables future AI merges to understand the history of file changes,
     creating a knowledge chain for intelligent conflict resolution.
@@ -1298,15 +1437,17 @@ def _record_merge_completion(
         spec_name: The task/spec that was merged
         merged_files: List of file paths that were merged
         task_intent: Description of what the task accomplished
+        merge_commit: The commit hash of the merge (for timeline tracking)
     """
+    # Get intent from implementation plan if not provided
+    if not task_intent:
+        intent_data = _get_task_intent(project_dir, spec_name)
+        if intent_data:
+            task_intent = intent_data.get("description", "") or intent_data.get("title", spec_name)
+
+    # Track in FileEvolutionTracker (legacy system)
     try:
         tracker = FileEvolutionTracker(project_dir)
-
-        # Get intent from implementation plan if not provided
-        if not task_intent:
-            intent_data = _get_task_intent(project_dir, spec_name)
-            if intent_data:
-                task_intent = intent_data.get("description", "") or intent_data.get("title", spec_name)
 
         # Mark the task as completed for all its tracked files
         tracker.mark_task_completed(spec_name)
@@ -1324,11 +1465,38 @@ def _record_merge_completion(
         # Save updates
         tracker._save_evolutions()
 
+        debug(MODULE, f"Recorded merge in FileEvolutionTracker",
+              spec_name=spec_name, files=len(merged_files))
+
+    except Exception as e:
+        debug_warning(MODULE, f"Could not record in FileEvolutionTracker: {e}")
+
+    # Track in FileTimelineTracker (new intent-aware system)
+    try:
+        timeline_tracker = FileTimelineTracker(project_dir)
+
+        # Get merge commit if not provided
+        if not merge_commit:
+            import subprocess
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            merge_commit = result.stdout.strip() if result.returncode == 0 else "unknown"
+
+        # Mark task as merged in timeline tracker
+        timeline_tracker.on_task_merged(spec_name, merge_commit)
+
+        debug(MODULE, f"Recorded merge in FileTimelineTracker",
+              spec_name=spec_name, merge_commit=merge_commit[:8])
         print(muted(f"    Recorded merge completion for {len(merged_files)} files"))
 
     except Exception as e:
         # Non-fatal - this is supplementary tracking
-        print(muted(f"    Could not record merge completion: {e}"))
+        debug_warning(MODULE, f"Could not record in FileTimelineTracker: {e}")
+        print(muted(f"    Note: Could not record merge completion: {e}"))
 
 
 def _get_task_intent(project_dir: Path, spec_name: str) -> Optional[dict]:
@@ -1553,6 +1721,7 @@ def _merge_file_with_ai(
     Use AI to merge a conflicting file.
 
     This enhanced version includes:
+    - FileTimelineTracker context for full situational awareness
     - Task intent from implementation_plan.json
     - Binary file detection
     - File size limits
@@ -1561,6 +1730,7 @@ def _merge_file_with_ai(
     Returns merged content, or None if AI couldn't resolve.
     """
     from merge import create_claude_resolver
+    from merge.prompts import build_timeline_merge_prompt, build_simple_merge_prompt
 
     debug(MODULE, f"AI merge starting for: {file_path}",
           spec_name=spec_name,
@@ -1599,85 +1769,60 @@ def _merge_file_with_ai(
         print(muted(f"    AI not available, trying heuristic merge..."))
         return _heuristic_merge(main_content, worktree_content, base_content)
 
+    # Try to get timeline context for richer merge prompt
+    timeline_context = None
+    if project_dir:
+        try:
+            tracker = FileTimelineTracker(project_dir)
+            timeline_context = tracker.get_merge_context(spec_name, file_path)
+            if timeline_context:
+                debug(MODULE, "Using FileTimelineTracker context",
+                      commits_behind=timeline_context.total_commits_behind,
+                      pending_tasks=timeline_context.total_pending_tasks,
+                      main_events=len(timeline_context.main_evolution))
+        except Exception as e:
+            debug_warning(MODULE, f"Could not get timeline context: {e}")
+
     # Determine language
     language = resolver._infer_language(file_path)
     debug(MODULE, "Detected language", language=language)
 
-    # Quick Win 1: Get task intent for richer context
-    task_intent = None
-    if project_dir:
-        task_intent = _get_task_intent(project_dir, spec_name)
-        if task_intent:
-            debug(MODULE, "Loaded task intent",
-                  title=task_intent.get('title'),
-                  num_subtasks=len(task_intent.get('subtasks', [])))
+    # Build prompt - use timeline context if available, fallback to simple prompt
+    if timeline_context and timeline_context.total_commits_behind > 0:
+        # Use the rich timeline-based prompt with full situational awareness
+        debug(MODULE, "Building timeline-based merge prompt",
+              commits_behind=timeline_context.total_commits_behind,
+              main_events=len(timeline_context.main_evolution),
+              pending_tasks=timeline_context.total_pending_tasks)
+        print(muted(f"    Using timeline context ({timeline_context.total_commits_behind} commits behind, {timeline_context.total_pending_tasks} pending tasks)"))
+        prompt = build_timeline_merge_prompt(timeline_context)
+    else:
+        # Fallback to simple three-way merge prompt
+        debug(MODULE, "Building simple merge prompt (no timeline context)")
 
-    # Build intent context string
-    intent_context = ""
-    if task_intent:
-        intent_context = f"""
-=== FEATURE BRANCH INTENT ({spec_name}) ===
-Task: {task_intent.get('title', spec_name)}
-Description: {task_intent.get('description', 'No description')}
-"""
-        if task_intent.get('spec_summary'):
-            intent_context += f"Summary: {task_intent['spec_summary']}\n"
+        # Get task intent for basic context
+        task_intent = None
+        if project_dir:
+            task_intent = _get_task_intent(project_dir, spec_name)
+            if task_intent:
+                debug(MODULE, "Loaded task intent",
+                      title=task_intent.get('title'),
+                      num_subtasks=len(task_intent.get('subtasks', [])))
 
-        # Add relevant subtasks
-        relevant_subtasks = [
-            st for st in task_intent.get('subtasks', [])
-            if st.get('status') in ('completed', 'in_progress')
-        ]
-        if relevant_subtasks:
-            intent_context += "Completed work:\n"
-            for st in relevant_subtasks[:5]:  # Limit to 5
-                intent_context += f"  - {st.get('title', 'Unknown')}\n"
-
-    # Get context about recent merges to this file (for v2)
-    recent_merges_context = ""
-    if project_dir:
-        recent_merges = _get_recent_merges_context(project_dir, file_path)
-        if recent_merges:
-            recent_merges_context = "\n=== RECENT CHANGES TO THIS FILE ===\n"
-            for merge in recent_merges:
-                recent_merges_context += f"- Task '{merge['task_id']}': {merge['intent']}\n"
-
-    # Build a focused prompt for three-way merge with intent
-    prompt = f'''You are a code merge expert. Merge the following conflicting versions of a file.
-
-FILE: {file_path}
-
-The file was modified in both the main branch and in the "{spec_name}" feature branch.
-Your task is to produce a merged version that incorporates ALL changes from both branches.
-{intent_context}{recent_merges_context}
-=== COMMON ANCESTOR (base) ===
-{base_content if base_content else "(File did not exist in common ancestor)"}
-
-=== MAIN BRANCH VERSION ===
-{main_content}
-
-=== FEATURE BRANCH VERSION ({spec_name}) ===
-{worktree_content}
-
-MERGE RULES:
-1. Keep ALL imports from both versions
-2. Keep ALL new functions/components from both versions
-3. If the same function was modified differently, combine the changes logically
-4. Preserve the intent of BOTH branches - main's changes are important too
-5. If there's a genuine semantic conflict (same thing done differently), prefer the feature branch version but include main's additions
-6. The merged code MUST be syntactically valid {language}
-
-Output ONLY the merged code, wrapped in triple backticks:
-```{language}
-merged code here
-```
-'''
+        prompt = build_simple_merge_prompt(
+            file_path=file_path,
+            main_content=main_content,
+            worktree_content=worktree_content,
+            base_content=base_content,
+            spec_name=spec_name,
+            language=language,
+            task_intent=task_intent,
+        )
 
     try:
         debug(MODULE, "Calling AI for merge",
               file_path=file_path,
-              has_intent_context=bool(intent_context),
-              has_recent_merges=bool(recent_merges_context))
+              has_timeline_context=timeline_context is not None)
 
         response = resolver.ai_call_fn(
             "You are an expert code merge assistant. Output only the merged code. The code MUST be syntactically valid.",

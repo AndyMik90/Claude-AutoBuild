@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# Git post-commit hook for FileTimelineTracker
+# =============================================
+#
+# This hook notifies the FileTimelineTracker when human commits
+# are made to the main branch, enabling drift tracking.
+#
+# Installation:
+#   Copy to .git/hooks/post-commit and make executable
+#   Or use: python -m auto_claude.merge.install_hook
+#
+
+COMMIT_HASH=$(git rev-parse HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Only track commits to main/master branch
+# Skip if we're in a worktree (auto-claude branches)
+if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]]; then
+    # Check if this is the main working directory (not a worktree)
+    # Worktrees have a .git file pointing to the main repo, not a .git directory
+    if [[ -d ".git" ]]; then
+        # Find python executable
+        if command -v python3 &> /dev/null; then
+            PYTHON=python3
+        elif command -v python &> /dev/null; then
+            PYTHON=python
+        else
+            # Python not found, skip silently
+            exit 0
+        fi
+
+        # Try to notify the tracker
+        # Run in background to avoid slowing down commits
+        ($PYTHON -m auto_claude.merge.tracker_cli notify-commit "$COMMIT_HASH" 2>/dev/null &) &
+
+        # Don't let hook failures block commits
+        exit 0
+    fi
+fi
+
+# Not main branch or in worktree, do nothing
+exit 0
