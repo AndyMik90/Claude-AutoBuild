@@ -160,11 +160,32 @@ export function buildChangelogPrompt(
     return parts.join('');
   }).join('\n');
 
+  // Format-specific instructions for tasks mode
+  let formatSpecificInstructions = '';
+  if (request.format === 'github-release') {
+    formatSpecificInstructions = `
+For GitHub Release format:
+
+RELEASE TITLE (CRITICAL):
+- First, analyze all completed tasks to identify the main theme or focus of this release
+- Create a concise, descriptive title (2-5 words) that captures what this release is about
+- Examples of good titles:
+  * "Improved Terminal Experience" (for terminal-related improvements)
+  * "Enhanced Security Features" (for security updates)
+  * "UI/UX Refinements" (for interface changes)
+  * "Agent Performance Boost" (for performance improvements)
+- The version header MUST be: "## ${request.version} - [Your Thematic Title]"
+- Focus on the USER BENEFIT or FUNCTIONAL AREA, not technical implementation details
+- The title should be what the release is "about" in layman's terms
+`;
+  }
+
   return `${audienceInstruction}
 
 Format:
 ${formatInstruction}
 ${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ''}
+${formatSpecificInstructions}
 
 Completed tasks:
 ${taskSummaries}
@@ -223,7 +244,21 @@ export function buildGitPrompt(
   let formatSpecificInstructions = '';
   if (request.format === 'github-release') {
     formatSpecificInstructions = `
-For GitHub Release format, create TWO parts after the version header:
+For GitHub Release format, you MUST follow this structure:
+
+RELEASE TITLE (CRITICAL):
+- First, analyze all commits to identify the main theme or focus of this release
+- Create a concise, descriptive title (2-5 words) that captures what this release is about
+- Examples of good titles:
+  * "Improved Terminal Experience" (for terminal-related improvements)
+  * "Enhanced Security Features" (for security updates)
+  * "Performance Optimizations" (for speed improvements)
+  * "UI/UX Refinements" (for interface changes)
+  * "Agent System Overhaul" (for major architectural changes)
+  * "Build Pipeline Enhancements" (for CI/CD improvements)
+- The version header MUST be: "## ${request.version} - [Your Thematic Title]"
+- Focus on the USER BENEFIT or FUNCTIONAL AREA, not technical implementation details
+- The title should be what the release is "about" in layman's terms
 
 PART 1 - Categorized changes (summarized):
 - Use category sections: New Features, Improvements, Bug Fixes, Documentation, Other Changes
