@@ -81,7 +81,6 @@ export function TaskCreationWizard({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showImages, setShowImages] = useState(false);
-  const [showFiles, setShowFiles] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(false);
 
   // Get project path from project store
@@ -168,9 +167,7 @@ export function TaskCreationWizard({
         if (draft.images.length > 0) {
           setShowImages(true);
         }
-        if (draft.referencedFiles && draft.referencedFiles.length > 0) {
-          setShowFiles(true);
-        }
+        // Note: Referenced Files section is always visible, no need to expand
       } else {
         // No draft - initialize model/thinkingLevel from selected profile
         setModel(selectedProfile.model);
@@ -344,9 +341,7 @@ export function TaskCreationWizard({
     };
 
     setReferencedFiles(prev => [...prev, newFile]);
-
-    // Auto-expand the files section when a file is added
-    setShowFiles(true);
+    // Note: Referenced Files section is always visible, no need to expand
   }, [referencedFiles]);
 
   const handleCreate = async () => {
@@ -408,7 +403,6 @@ export function TaskCreationWizard({
     setError(null);
     setShowAdvanced(false);
     setShowImages(false);
-    setShowFiles(false);
     setShowFileExplorer(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
