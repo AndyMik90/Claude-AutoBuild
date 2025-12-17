@@ -64,39 +64,27 @@ export function SortableFeatureCard({
       {...listeners}
     >
       <Card
-        className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+        className="p-3 hover:bg-muted/50 cursor-pointer transition-colors"
         onClick={onClick}
       >
-        <div className="flex items-start justify-between">
+        {/* Header - Title with priority badge and action button */}
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <div className="flex items-center gap-1.5 mb-1">
               <Badge
                 variant="outline"
-                className={ROADMAP_PRIORITY_COLORS[feature.priority]}
+                className={cn('text-[10px] px-1.5 py-0', ROADMAP_PRIORITY_COLORS[feature.priority])}
               >
                 {ROADMAP_PRIORITY_LABELS[feature.priority]}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={`text-xs ${ROADMAP_COMPLEXITY_COLORS[feature.complexity]}`}
-              >
-                {feature.complexity}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}
-              >
-                {feature.impact} impact
               </Badge>
               {hasCompetitorInsight && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
                       variant="outline"
-                      className="text-xs text-primary border-primary/50"
+                      className="text-[10px] px-1.5 py-0 text-primary border-primary/50"
                     >
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      Competitor Insight
+                      <TrendingUp className="h-2.5 w-2.5" />
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -105,39 +93,61 @@ export function SortableFeatureCard({
                 </Tooltip>
               )}
             </div>
-            <h3 className="font-medium truncate">{feature.title}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {feature.description}
-            </p>
+            <h3 className="font-medium text-sm leading-snug line-clamp-2">{feature.title}</h3>
           </div>
-          {feature.linkedSpecId ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onGoToTask?.(feature.linkedSpecId!);
-              }}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              Go to Task
-            </Button>
-          ) : (
-            feature.status !== 'done' &&
-            onConvertToSpec && (
+          <div className="shrink-0">
+            {feature.linkedSpecId ? (
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 px-2"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onConvertToSpec(feature);
+                  onGoToTask?.(feature.linkedSpecId!);
                 }}
               >
-                <Play className="h-3 w-3 mr-1" />
-                Build
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Task
               </Button>
-            )
-          )}
+            ) : (
+              feature.status !== 'done' &&
+              onConvertToSpec && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConvertToSpec(feature);
+                  }}
+                >
+                  <Play className="h-3 w-3 mr-1" />
+                  Build
+                </Button>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Description */}
+        <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
+          {feature.description}
+        </p>
+
+        {/* Metadata badges - compact row */}
+        <div className="mt-2 flex items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn('text-[10px] px-1.5 py-0', ROADMAP_COMPLEXITY_COLORS[feature.complexity])}
+          >
+            {feature.complexity}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn('text-[10px] px-1.5 py-0', ROADMAP_IMPACT_COLORS[feature.impact])}
+          >
+            {feature.impact}
+          </Badge>
         </div>
       </Card>
     </div>
