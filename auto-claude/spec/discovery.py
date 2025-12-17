@@ -33,8 +33,8 @@ def run_discovery_script(
     if spec_index.exists():
         return True, "project_index.json already exists"
 
-    # Run analyzer
-    script_path = project_dir / "auto-claude" / "analyzer.py"
+    # Run analyzer - use framework-relative path instead of project_dir
+    script_path = Path(__file__).parent.parent / "analyzer.py"
     if not script_path.exists():
         return False, f"Script not found: {script_path}"
 
