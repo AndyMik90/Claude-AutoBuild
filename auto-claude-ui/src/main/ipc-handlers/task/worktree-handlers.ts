@@ -224,10 +224,9 @@ export function registerWorktreeHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
     async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
-      // Enable debug logging via DEBUG_MERGE or DEBUG environment variables
-      const DEBUG_MERGE = process.env.DEBUG_MERGE === 'true' || process.env.DEBUG === 'true';
+      // Always log merge operations for debugging
       const debug = (...args: unknown[]) => {
-        if (DEBUG_MERGE) console.log('[MERGE DEBUG]', ...args);
+        console.log('[MERGE DEBUG]', ...args);
       };
 
       try {
@@ -274,15 +273,13 @@ export function registerWorktreeHandlers(
         debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
 
         // Get git status before merge
-        if (DEBUG_MERGE) {
-          try {
-            const gitStatusBefore = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
-            debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
-            const gitBranch = execSync('git branch --show-current', { cwd: project.path, encoding: 'utf-8' }).trim();
-            debug('Current branch:', gitBranch);
-          } catch (e) {
-            debug('Failed to get git status before:', e);
-          }
+        try {
+          const gitStatusBefore = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
+          debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
+          const gitBranch = execSync('git branch --show-current', { cwd: project.path, encoding: 'utf-8' }).trim();
+          debug('Current branch:', gitBranch);
+        } catch (e) {
+          debug('Failed to get git status before:', e);
         }
 
         const args = [
@@ -309,17 +306,64 @@ export function registerWorktreeHandlers(
         });
 
         return new Promise((resolve) => {
+          const MERGE_TIMEOUT_MS = 120000; // 2 minutes timeout for merge operations
+          let timeoutId: NodeJS.Timeout | null = null;
+          let resolved = false;
+
           const mergeProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
             env: {
               ...process.env,
               ...profileEnv, // Include active Claude profile OAuth token
               PYTHONUNBUFFERED: '1'
-            }
+            },
+            stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
           });
 
           let stdout = '';
           let stderr = '';
+
+          // Set up timeout to kill hung processes
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              debug('TIMEOUT: Merge process exceeded', MERGE_TIMEOUT_MS, 'ms, killing...');
+              resolved = true;
+              mergeProcess.kill('SIGTERM');
+              // Give it a moment to clean up, then force kill
+              setTimeout(() => {
+                try {
+                  mergeProcess.kill('SIGKILL');
+                } catch {
+                  // Process may already be dead
+                }
+              }, 5000);
+
+              // Check if merge might have succeeded before the hang
+              // Look for success indicators in the output
+              const mayHaveSucceeded = stdout.includes('staged') ||
+                                       stdout.includes('Successfully merged') ||
+                                       stdout.includes('Changes from');
+
+              if (mayHaveSucceeded) {
+                debug('TIMEOUT: Process hung but merge may have succeeded based on output');
+                const isStageOnly = options?.noCommit === true;
+                resolve({
+                  success: true,
+                  data: {
+                    success: true,
+                    message: 'Changes staged (process timed out but merge appeared successful)',
+                    staged: isStageOnly,
+                    projectPath: isStageOnly ? project.path : undefined
+                  }
+                });
+              } else {
+                resolve({
+                  success: false,
+                  error: 'Merge process timed out. Check git status to see if merge completed.'
+                });
+              }
+            }
+          }, MERGE_TIMEOUT_MS);
 
           mergeProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString();
@@ -333,21 +377,24 @@ export function registerWorktreeHandlers(
             debug('STDERR:', chunk);
           });
 
-          mergeProcess.on('close', (code: number) => {
-            debug('Process exited with code:', code);
+          // Handler for when process exits
+          const handleProcessExit = (code: number | null, signal: string | null = null) => {
+            if (resolved) return; // Prevent double-resolution
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+
+            debug('Process exited with code:', code, 'signal:', signal);
             debug('Full stdout:', stdout);
             debug('Full stderr:', stderr);
 
             // Get git status after merge
-            if (DEBUG_MERGE) {
-              try {
-                const gitStatusAfter = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
-                debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
-                const gitDiffStaged = execSync('git diff --staged --stat', { cwd: project.path, encoding: 'utf-8' });
-                debug('Staged changes:\n', gitDiffStaged || '(none)');
-              } catch (e) {
-                debug('Failed to get git status after:', e);
-              }
+            try {
+              const gitStatusAfter = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
+              debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
+              const gitDiffStaged = execSync('git diff --staged --stat', { cwd: project.path, encoding: 'utf-8' });
+              debug('Staged changes:\n', gitDiffStaged || '(none)');
+            } catch (e) {
+              debug('Failed to get git status after:', e);
             }
 
             if (code === 0) {
@@ -412,9 +459,22 @@ export function registerWorktreeHandlers(
                 }
               });
             }
+          };
+
+          mergeProcess.on('close', (code: number | null, signal: string | null) => {
+            handleProcessExit(code, signal);
+          });
+
+          // Also listen to 'exit' event in case 'close' doesn't fire
+          mergeProcess.on('exit', (code: number | null, signal: string | null) => {
+            // Give close event a chance to fire first with complete output
+            setTimeout(() => handleProcessExit(code, signal), 100);
           });
 
           mergeProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.error('[MERGE] Process spawn error:', err);
             resolve({
               success: false,
@@ -463,6 +523,27 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
         console.log('[IPC] Found task:', task.specId, 'project:', project.name);
+
+        // Check for uncommitted changes in the main project
+        let hasUncommittedChanges = false;
+        let uncommittedFiles: string[] = [];
+        try {
+          const gitStatus = execSync('git status --porcelain', {
+            cwd: project.path,
+            encoding: 'utf-8'
+          }).trim();
+
+          if (gitStatus) {
+            // Parse the status output to get file names
+            uncommittedFiles = gitStatus.split('\n')
+              .filter(line => line.trim())
+              .map(line => line.substring(3).trim()); // Remove status prefix (e.g., "M  ", " M ", "?? ")
+            hasUncommittedChanges = uncommittedFiles.length > 0;
+            console.log('[IPC] Uncommitted changes detected:', uncommittedFiles.length, 'files');
+          }
+        } catch (e) {
+          console.error('[IPC] Failed to check git status:', e);
+        }
 
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
@@ -527,7 +608,13 @@ export function registerWorktreeHandlers(
                         autoMergeable: 0,
                         hasGitConflicts: false
                       },
-                      gitConflicts: result.gitConflicts || null
+                      gitConflicts: result.gitConflicts || null,
+                      // Include uncommitted changes info for the frontend
+                      uncommittedChanges: hasUncommittedChanges ? {
+                        hasChanges: true,
+                        files: uncommittedFiles,
+                        count: uncommittedFiles.length
+                      } : null
                     }
                   }
                 });

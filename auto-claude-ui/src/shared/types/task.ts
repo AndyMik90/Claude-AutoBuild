@@ -352,6 +352,12 @@ export interface WorktreeMergeResult {
     conflicts: MergeConflict[];
     summary: MergeStats;
     gitConflicts?: GitConflictInfo;
+    // Uncommitted changes in the main project that could block merge
+    uncommittedChanges?: {
+      hasChanges: boolean;
+      files: string[];
+      count: number;
+    } | null;
   };
 }
 

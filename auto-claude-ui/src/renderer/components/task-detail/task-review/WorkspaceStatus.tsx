@@ -8,7 +8,8 @@ import {
   GitMerge,
   FolderX,
   Loader2,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { MergePreviewSummary } from './MergePreviewSummary';
@@ -19,7 +20,7 @@ interface WorkspaceStatusProps {
   worktreeStatus: WorktreeStatus;
   workspaceError: string | null;
   stageOnly: boolean;
-  mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo } | null;
+  mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
@@ -51,6 +52,8 @@ export function WorkspaceStatus({
   onMerge
 }: WorkspaceStatusProps) {
   const hasGitConflicts = mergePreview?.gitConflicts?.hasConflicts;
+  const hasUncommittedChanges = mergePreview?.uncommittedChanges?.hasChanges;
+  const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
 
   return (
     <div className="review-section-highlight">
@@ -96,6 +99,39 @@ export function WorkspaceStatus({
       {workspaceError && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-3">
           <p className="text-sm text-destructive">{workspaceError}</p>
+        </div>
+      )}
+
+      {/* Uncommitted Changes Warning */}
+      {hasUncommittedChanges && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-warning">
+                Uncommitted Changes Detected
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your main project has {uncommittedCount} uncommitted {uncommittedCount === 1 ? 'change' : 'changes'}.
+                Please commit or stash them before staging to avoid conflicts.
+              </p>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.electronAPI.createTerminal({
+                      id: `stash-${task.id}`,
+                      cwd: worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || undefined
+                    });
+                  }}
+                  className="text-xs h-7"
+                >
+                  Open Terminal to Stash
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
