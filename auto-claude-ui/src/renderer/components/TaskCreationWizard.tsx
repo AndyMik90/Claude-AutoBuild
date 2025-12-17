@@ -455,6 +455,7 @@ export function TaskCreationWizard({
             "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
             showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
           )}
+          hideCloseButton={showFileExplorer}
         >
           <div className="flex h-full min-h-0 overflow-hidden">
             {/* Form content */}
