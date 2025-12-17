@@ -3,6 +3,7 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { useTerminalStore } from '../../stores/terminal-store';
+import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseXtermOptions {
   terminalId: string;
@@ -70,13 +71,12 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
 
-    // Replay buffered output if this is a remount
-    const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === terminalId);
-    if (terminalState?.outputBuffer && !terminalState.isClaudeMode) {
-      xterm.write(terminalState.outputBuffer);
-      useTerminalStore.getState().clearOutputBuffer(terminalId);
-    } else if (terminalState?.isClaudeMode) {
-      useTerminalStore.getState().clearOutputBuffer(terminalId);
+    // Replay buffered output if this is a remount or restored session
+    const bufferedOutput = terminalBufferManager.get(terminalId);
+    if (bufferedOutput && bufferedOutput.length > 0) {
+      xterm.write(bufferedOutput);
+      // Clear buffer after replay to avoid duplicate output
+      terminalBufferManager.clear(terminalId);
     }
 
     // Handle terminal input

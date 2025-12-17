@@ -42,9 +42,12 @@ function setupTestDirs(): void {
   // Create VERSION file (required by getAutoBuildSourcePath)
   writeFileSync(path.join(AUTO_CLAUDE_SOURCE, 'VERSION'), '1.0.0');
 
-  // Create mock spec_runner.py
+  // Create runners subdirectory (where spec_runner.py lives after restructure)
+  mkdirSync(path.join(AUTO_CLAUDE_SOURCE, 'runners'), { recursive: true });
+
+  // Create mock spec_runner.py in runners/ subdirectory
   writeFileSync(
-    path.join(AUTO_CLAUDE_SOURCE, 'spec_runner.py'),
+    path.join(AUTO_CLAUDE_SOURCE, 'runners', 'spec_runner.py'),
     '# Mock spec runner\nprint("Starting spec creation")'
   );
   // Create mock run.py

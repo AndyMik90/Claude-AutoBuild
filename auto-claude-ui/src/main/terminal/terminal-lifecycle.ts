@@ -15,6 +15,7 @@ import type {
   WindowGetter,
   TerminalOperationResult
 } from './types';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 /**
  * Options for terminal restoration
@@ -40,10 +41,10 @@ export async function createTerminal(
 ): Promise<TerminalOperationResult> {
   const { id, cwd, cols = 80, rows = 24, projectPath } = options;
 
-  console.log('[TerminalLifecycle] Creating terminal:', { id, cwd, cols, rows, projectPath });
+  debugLog('[TerminalLifecycle] Creating terminal:', { id, cwd, cols, rows, projectPath });
 
   if (terminals.has(id)) {
-    console.log('[TerminalLifecycle] Terminal already exists, returning success:', id);
+    debugLog('[TerminalLifecycle] Terminal already exists, returning success:', id);
     return { success: true };
   }
 
@@ -51,7 +52,7 @@ export async function createTerminal(
     const profileEnv = PtyManager.getActiveProfileEnv();
 
     if (profileEnv.CLAUDE_CODE_OAUTH_TOKEN) {
-      console.log('[TerminalLifecycle] Injecting OAuth token from active profile');
+      debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
     }
 
     const ptyProcess = PtyManager.spawnPtyProcess(
@@ -61,7 +62,7 @@ export async function createTerminal(
       profileEnv
     );
 
-    console.log('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
+    debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
 
     const terminalCwd = cwd || os.homedir();
     const terminal: TerminalProcess = {
@@ -88,10 +89,10 @@ export async function createTerminal(
       SessionHandler.persistSession(terminal);
     }
 
-    console.log('[TerminalLifecycle] Terminal created successfully:', id);
+    debugLog('[TerminalLifecycle] Terminal created successfully:', id);
     return { success: true };
   } catch (error) {
-    console.error('[TerminalLifecycle] Error creating terminal:', error);
+    debugError('[TerminalLifecycle] Error creating terminal:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create terminal',
@@ -111,7 +112,7 @@ export async function restoreTerminal(
   cols = 80,
   rows = 24
 ): Promise<TerminalOperationResult> {
-  console.log('[TerminalLifecycle] Restoring terminal session:', session.id, 'Claude mode:', session.isClaudeMode);
+  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id, 'Claude mode:', session.isClaudeMode);
 
   const result = await createTerminal(
     {
@@ -137,34 +138,17 @@ export async function restoreTerminal(
 
   terminal.title = session.title;
 
-  if (session.isClaudeMode && options.resumeClaudeSession) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
+  // Restore Claude mode state without sending resume commands
+  // The PTY daemon keeps processes alive, so we just need to reconnect to the existing session
+  if (session.isClaudeMode) {
     terminal.isClaudeMode = true;
     terminal.claudeSessionId = session.claudeSessionId;
 
-    const projectDir = session.cwd || session.projectPath;
-    const startTime = Date.now();
-    const clearCmd = process.platform === 'win32' ? 'cls' : 'clear';
-
-    let resumeCommand: string;
-    if (session.claudeSessionId) {
-      resumeCommand = `${clearCmd} && cd "${projectDir}" && claude --resume "${session.claudeSessionId}"`;
-      console.log('[TerminalLifecycle] Resuming Claude with session ID:', session.claudeSessionId, 'in', projectDir);
-    } else {
-      resumeCommand = `${clearCmd} && cd "${projectDir}" && claude --resume`;
-      console.log('[TerminalLifecycle] Opening Claude session picker in', projectDir);
-    }
-
-    terminal.pty.write(`${resumeCommand}\r`);
+    debugLog('[TerminalLifecycle] Restored Claude mode state for session:', session.id, 'sessionId:', session.claudeSessionId);
 
     const win = getWindow();
     if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, 'Claude');
-    }
-
-    if (!session.claudeSessionId && projectDir) {
-      options.captureSessionId(session.id, projectDir, startTime);
+      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
     }
   }
 
@@ -238,12 +222,14 @@ export async function destroyAllTerminals(
 
 /**
  * Handle terminal exit event
+ * Note: We don't remove sessions here because terminal exit might be due to app shutdown.
+ * Sessions are only removed when explicitly destroyed by user action via destroyTerminal().
  */
 function handleTerminalExit(
   terminal: TerminalProcess,
   terminals: Map<string, TerminalProcess>
 ): void {
-  SessionHandler.removePersistedSession(terminal);
+  // Don't remove session - let it persist for restoration
 }
 
 /**

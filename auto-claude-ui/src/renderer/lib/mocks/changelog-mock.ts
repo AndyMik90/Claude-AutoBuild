@@ -61,6 +61,14 @@ export const changelogMock = {
     }
   }),
 
+  suggestChangelogVersionFromCommits: async () => ({
+    success: true,
+    data: {
+      version: '1.0.0',
+      reason: 'Based on commit analysis'
+    }
+  }),
+
   getChangelogBranches: async () => ({
     success: true,
     data: []

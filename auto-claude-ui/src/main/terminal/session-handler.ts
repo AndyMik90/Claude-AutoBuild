@@ -9,6 +9,7 @@ import * as os from 'os';
 import type { TerminalProcess, WindowGetter, SessionCaptureResult } from './types';
 import { getTerminalSessionStore, type TerminalSession } from '../terminal-session-store';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 /**
  * Get the Claude project slug from a project path.
@@ -27,7 +28,7 @@ export function findMostRecentClaudeSession(projectPath: string): string | null 
 
   try {
     if (!fs.existsSync(claudeProjectDir)) {
-      console.log('[SessionHandler] Claude project directory not found:', claudeProjectDir);
+      debugLog('[SessionHandler] Claude project directory not found:', claudeProjectDir);
       return null;
     }
 
@@ -41,15 +42,15 @@ export function findMostRecentClaudeSession(projectPath: string): string | null 
       .sort((a, b) => b.mtime - a.mtime);
 
     if (files.length === 0) {
-      console.log('[SessionHandler] No Claude session files found in:', claudeProjectDir);
+      debugLog('[SessionHandler] No Claude session files found in:', claudeProjectDir);
       return null;
     }
 
     const sessionId = files[0].name.replace('.jsonl', '');
-    console.log('[SessionHandler] Found most recent Claude session:', sessionId);
+    debugLog('[SessionHandler] Found most recent Claude session:', sessionId);
     return sessionId;
   } catch (error) {
-    console.error('[SessionHandler] Error finding Claude session:', error);
+    debugError('[SessionHandler] Error finding Claude session:', error);
     return null;
   }
 }
@@ -82,7 +83,7 @@ export function findClaudeSessionAfter(projectPath: string, afterTimestamp: numb
 
     return files[0].name.replace('.jsonl', '');
   } catch (error) {
-    console.error('[SessionHandler] Error finding Claude session:', error);
+    debugError('[SessionHandler] Error finding Claude session:', error);
     return null;
   }
 }
@@ -210,7 +211,7 @@ export function captureClaudeSessionId(
 
     if (sessionId) {
       terminal.claudeSessionId = sessionId;
-      console.log('[SessionHandler] Captured Claude session ID from directory:', sessionId);
+      debugLog('[SessionHandler] Captured Claude session ID from directory:', sessionId);
 
       if (terminal.projectPath) {
         updateClaudeSessionId(terminal.projectPath, terminalId, sessionId);
@@ -223,7 +224,7 @@ export function captureClaudeSessionId(
     } else if (attempts < maxAttempts) {
       setTimeout(checkForSession, 1000);
     } else {
-      console.log('[SessionHandler] Could not capture Claude session ID after', maxAttempts, 'attempts');
+      debugLog('[SessionHandler] Could not capture Claude session ID after', maxAttempts, 'attempts');
     }
   };
 

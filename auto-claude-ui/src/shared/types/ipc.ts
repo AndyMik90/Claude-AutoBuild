@@ -165,6 +165,7 @@ export interface ElectronAPI {
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<SessionDateInfo[]>>;
   getTerminalSessionsForDate: (date: string, projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
+  saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
 
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -404,6 +405,10 @@ export interface ElectronAPI {
   suggestChangelogVersion: (
     projectId: string,
     taskIds: string[]
+  ) => Promise<IPCResult<{ version: string; reason: string }>>;
+  suggestChangelogVersionFromCommits: (
+    projectId: string,
+    commits: import('./changelog').GitCommit[]
   ) => Promise<IPCResult<{ version: string; reason: string }>>;
 
   // Changelog git operations (for git-based changelog generation)

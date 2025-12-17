@@ -69,6 +69,8 @@ export const terminalMock = {
     }
   }),
 
+  saveTerminalBuffer: async () => {},
+
   // Terminal Event Listeners (no-op in browser)
   onTerminalOutput: () => () => {},
   onTerminalExit: () => () => {},

@@ -98,7 +98,7 @@ export class VersionSuggester {
    */
   private buildPrompt(commits: GitCommit[], currentVersion: string): string {
     const commitSummary = commits
-      .map((c, i) => `${i + 1}. ${c.shortHash} - ${c.message}`)
+      .map((c, i) => `${i + 1}. ${c.hash} - ${c.subject}`)
       .join('\n');
 
     return `You are a semantic versioning expert analyzing git commits to suggest the appropriate version bump.

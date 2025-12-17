@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
 import type { TerminalSession } from '../../shared/types';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
+import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export type TerminalStatus = 'idle' | 'running' | 'claude-active' | 'exited';
 
@@ -225,7 +226,7 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
 
   // Don't restore if we already have terminals (user might have opened some manually)
   if (store.terminals.length > 0) {
-    console.log('[TerminalStore] Terminals already exist, skipping session restore');
+    debugLog('[TerminalStore] Terminals already exist, skipping session restore');
     return;
   }
 
@@ -242,6 +243,6 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
 
     store.setHasRestoredSessions(true);
   } catch (error) {
-    console.error('[TerminalStore] Error restoring sessions:', error);
+    debugError('[TerminalStore] Error restoring sessions:', error);
   }
 }
