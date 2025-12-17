@@ -746,32 +746,6 @@ export function TaskCreationWizard({
             </div>
           )}
 
-          {/* Reference Files Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowFiles(!showFiles)}
-            className={cn(
-              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
-            )}
-            disabled={isCreating}
-          >
-            <span className="flex items-center gap-2">
-              <FolderTree className="h-4 w-4" />
-              Reference Files (optional)
-              {referencedFiles.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                  {referencedFiles.length}
-                </span>
-              )}
-            </span>
-            {showFiles ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
           {/* Referenced Files Section - Drop Zone */}
           {showFiles ? (
             <div
