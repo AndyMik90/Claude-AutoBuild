@@ -458,8 +458,18 @@ export function TaskCreationWizard({
           hideCloseButton={showFileExplorer}
         >
           <div className="flex h-full min-h-0 overflow-hidden">
-            {/* Form content */}
-            <div className="flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto">
+            {/* Form content - Drop zone wrapper */}
+            <div
+              ref={setDropRef}
+              className={cn(
+                "flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto transition-all duration-200",
+                // Visual feedback when dragging files over the drop zone
+                activeDragData && isOverDropZone && !isAtMaxFiles && "ring-2 ring-inset ring-info bg-info/5",
+                activeDragData && isOverDropZone && isAtMaxFiles && "ring-2 ring-inset ring-warning bg-warning/5",
+                // Subtle indication when dragging but not over this zone
+                activeDragData && !isOverDropZone && "ring-1 ring-inset ring-muted-foreground/20"
+              )}
+            >
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -746,19 +756,18 @@ export function TaskCreationWizard({
             </div>
           )}
 
-          {/* Referenced Files Section - Drop Zone */}
-          {showFiles ? (
+          {/* Referenced Files Section */}
+          {showFiles && (
             <div
-              ref={setDropRef}
               className={cn(
                 "space-y-3 p-4 rounded-lg border bg-muted/30 relative transition-all",
-                isOverDropZone && !isAtMaxFiles && "ring-2 ring-info border-info",
-                isOverDropZone && isAtMaxFiles && "ring-2 ring-warning border-warning",
-                !isOverDropZone && "border-border"
+                activeDragData && isOverDropZone && !isAtMaxFiles && "ring-2 ring-info border-info",
+                activeDragData && isOverDropZone && isAtMaxFiles && "ring-2 ring-warning border-warning",
+                !activeDragData || !isOverDropZone ? "border-border" : ""
               )}
             >
-              {/* Drop zone overlay indicator */}
-              {isOverDropZone && (
+              {/* Drop zone overlay indicator - shows when dragging over the modal */}
+              {activeDragData && isOverDropZone && (
                 <div className={cn(
                   "absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-lg",
                   isAtMaxFiles ? "bg-warning/10" : "bg-info/10"
@@ -789,34 +798,6 @@ export function TaskCreationWizard({
                 </p>
               )}
             </div>
-          ) : (
-            /* Compact drop zone when section is collapsed - only visible during drag */
-            activeDragData && (
-              <div
-                ref={setDropRef}
-                className={cn(
-                  "p-3 rounded-lg border-2 border-dashed flex items-center justify-center gap-2 transition-all animate-in fade-in slide-in-from-top-2 duration-200",
-                  isOverDropZone && !isAtMaxFiles && "border-info bg-info/10",
-                  isOverDropZone && isAtMaxFiles && "border-warning bg-warning/10",
-                  !isOverDropZone && "border-muted-foreground/30 bg-muted/20"
-                )}
-              >
-                <FileDown className={cn(
-                  "h-4 w-4",
-                  isOverDropZone && !isAtMaxFiles && "text-info",
-                  isOverDropZone && isAtMaxFiles && "text-warning",
-                  !isOverDropZone && "text-muted-foreground"
-                )} />
-                <span className={cn(
-                  "text-sm",
-                  isOverDropZone && !isAtMaxFiles && "text-info font-medium",
-                  isOverDropZone && isAtMaxFiles && "text-warning font-medium",
-                  !isOverDropZone && "text-muted-foreground"
-                )}>
-                  {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files reached` : 'Drop file here to add reference'}
-                </span>
-              </div>
-            )
           )}
 
           {/* Review Requirement Toggle */}
