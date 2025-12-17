@@ -1,0 +1,71 @@
+{
+  "feature": "fix-overlapping-close-button-styling",
+  "workflow_type": "simple",
+  "total_phases": 1,
+  "recommended_workers": 1,
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Implementation",
+      "description": "Add hideCloseButton prop to DialogContent and use it in TaskCreationWizard",
+      "depends_on": [],
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Add hideCloseButton prop to DialogContent component that conditionally renders the close button",
+          "service": "auto-claude-ui",
+          "status": "completed",
+          "files_to_create": [],
+          "files_to_modify": [
+            "auto-claude-ui/src/renderer/components/ui/dialog.tsx"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "run": "Check that DialogContent accepts hideCloseButton prop"
+          },
+          "notes": "Added hideCloseButton prop to DialogContent component. The prop conditionally renders the close button - when true, the close button is hidden. Committed as f7dbcd6.",
+          "updated_at": "2025-12-17T08:50:18.050095+00:00"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Pass hideCloseButton={showFileExplorer} to DialogContent in TaskCreationWizard to hide modal close button when drawer is open",
+          "service": "auto-claude-ui",
+          "status": "completed",
+          "files_to_create": [],
+          "files_to_modify": [
+            "auto-claude-ui/src/renderer/components/TaskCreationWizard.tsx"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "run": "Open modal, toggle file explorer, verify no overlapping close buttons"
+          },
+          "notes": "Added hideCloseButton={showFileExplorer} prop to DialogContent in TaskCreationWizard. This hides the modal's close button when the file explorer drawer is open, preventing visual overlap with the drawer's close button.",
+          "updated_at": "2025-12-17T08:51:55.621380+00:00"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "created_at": "2025-12-17T08:44:21.675Z",
+    "complexity": "simple",
+    "estimated_sessions": 1
+  },
+  "status": "qa_approved",
+  "planStatus": "complete",
+  "updated_at": "2025-12-17T08:48:03.401Z",
+  "last_updated": "2025-12-17T09:55:00.000000+00:00",
+  "qa_signoff": {
+    "status": "approved",
+    "timestamp": "2025-12-17T09:55:00.000000+00:00",
+    "qa_session": 1,
+    "report_file": "qa_report.md",
+    "tests_passed": {
+      "unit": "280/280",
+      "integration": "N/A",
+      "e2e": "N/A"
+    },
+    "verified_by": "qa_agent"
+  }
+}
