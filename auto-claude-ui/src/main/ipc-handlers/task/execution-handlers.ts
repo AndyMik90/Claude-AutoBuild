@@ -216,6 +216,16 @@ export function registerTaskExecutionHandlers(
       taskId: string,
       status: TaskStatus
     ): Promise<IPCResult> => {
+      // Validate status transition - 'done' can only be set through merge handler
+      // This prevents AI agents from bypassing the human review workflow
+      if (status === 'done') {
+        console.warn(`[TASK_UPDATE_STATUS] Blocked attempt to set status 'done' directly for task ${taskId}. Use merge workflow instead.`);
+        return {
+          success: false,
+          error: "Cannot set status to 'done' directly. Complete the human review and merge the worktree changes instead."
+        };
+      }
+
       // Find task and project
       const { task, project } = findTaskAndProject(taskId);
 
@@ -242,8 +252,8 @@ export function registerTaskExecutionHandlers(
           // Store the exact UI status - project-store.ts will map it back
           plan.status = status;
           // Also store mapped version for Python compatibility
-          plan.planStatus = status === 'done' ? 'completed'
-            : status === 'in_progress' ? 'in_progress'
+          // Note: 'done' is blocked at the start of this handler - only set via merge workflow
+          plan.planStatus = status === 'in_progress' ? 'in_progress'
             : status === 'ai_review' ? 'review'
             : status === 'human_review' ? 'review'
             : 'pending';
@@ -252,14 +262,14 @@ export function registerTaskExecutionHandlers(
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
         } else {
           // If no implementation plan exists yet, create a basic one
+          // Note: 'done' status is blocked at the start of this handler
           const plan = {
             feature: task.title,
             description: task.description || '',
             created_at: task.createdAt.toISOString(),
             updated_at: new Date().toISOString(),
             status: status, // Store exact UI status for persistence
-            planStatus: status === 'done' ? 'completed'
-              : status === 'in_progress' ? 'in_progress'
+            planStatus: status === 'in_progress' ? 'in_progress'
               : status === 'ai_review' ? 'review'
               : status === 'human_review' ? 'review'
               : 'pending',
