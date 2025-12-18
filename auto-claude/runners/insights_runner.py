@@ -133,7 +133,7 @@ async def run_with_sdk(
     message: str,
     history: list,
     model: str = "claude-sonnet-4-5-20250929",
-    thinking_level: str = "medium"
+    thinking_level: str = "medium",
 ) -> None:
     """Run the chat using Claude SDK with streaming."""
     if not SDK_AVAILABLE:
@@ -334,13 +334,13 @@ def main():
     parser.add_argument(
         "--model",
         default="claude-sonnet-4-5-20250929",
-        help="Claude model ID (default: claude-sonnet-4-5-20250929)"
+        help="Claude model ID (default: claude-sonnet-4-5-20250929)",
     )
     parser.add_argument(
         "--thinking-level",
         default="medium",
         choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended reasoning (default: medium)"
+        help="Thinking level for extended reasoning (default: medium)",
     )
     args = parser.parse_args()
 

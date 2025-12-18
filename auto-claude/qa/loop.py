@@ -164,7 +164,7 @@ async def run_qa_validation_loop(
         iteration_duration = time_module.time() - iteration_start
         debug(
             "qa_loop",
-            f"QA reviewer session completed",
+            "QA reviewer session completed",
             status=status,
             duration_seconds=f"{iteration_duration:.1f}",
             response_length=len(response),

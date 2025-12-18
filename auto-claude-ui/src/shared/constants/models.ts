@@ -18,8 +18,8 @@ export const AVAILABLE_MODELS = [
 // Maps model shorthand to actual Claude model IDs
 export const MODEL_ID_MAP: Record<string, string> = {
   opus: 'claude-opus-4-5-20251101',
-  sonnet: 'claude-sonnet-4-5-20250929',
-  haiku: 'claude-haiku-4-5-20250929'
+  sonnet: 'claude-sonnet-4-5-20241022',
+  haiku: 'claude-haiku-4-5-20241022'
 } as const;
 
 // Maps thinking levels to budget tokens (null = no extended thinking)

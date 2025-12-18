@@ -78,6 +78,11 @@ export const insightsMock = {
     return { success: true };
   },
 
+  updateInsightsModelConfig: async (_projectId: string, _sessionId: string, _modelConfig: unknown) => {
+    console.warn('[Browser Mock] updateInsightsModelConfig called');
+    return { success: true };
+  },
+
   sendInsightsMessage: () => {
     console.warn('[Browser Mock] sendInsightsMessage called');
   },

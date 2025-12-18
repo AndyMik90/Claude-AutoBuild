@@ -5,6 +5,7 @@ import { SettingsAPI, createSettingsAPI } from './settings-api';
 import { FileAPI, createFileAPI } from './file-api';
 import { AgentAPI, createAgentAPI } from './agent-api';
 import { IdeationAPI, createIdeationAPI } from './modules/ideation-api';
+import { InsightsAPI, createInsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 
 export interface ElectronAPI extends
@@ -15,6 +16,7 @@ export interface ElectronAPI extends
   FileAPI,
   AgentAPI,
   IdeationAPI,
+  InsightsAPI,
   AppUpdateAPI {}
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -25,6 +27,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createFileAPI(),
   ...createAgentAPI(),
   ...createIdeationAPI(),
+  ...createInsightsAPI(),
   ...createAppUpdateAPI()
 });
 
@@ -37,6 +40,7 @@ export {
   createFileAPI,
   createAgentAPI,
   createIdeationAPI,
+  createInsightsAPI,
   createAppUpdateAPI
 };
 
@@ -48,5 +52,6 @@ export type {
   FileAPI,
   AgentAPI,
   IdeationAPI,
+  InsightsAPI,
   AppUpdateAPI
 };

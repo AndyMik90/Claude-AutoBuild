@@ -85,7 +85,9 @@ async def run_qa_agent_session(
 
     # Load QA prompt
     prompt = load_qa_reviewer_prompt()
-    debug_detailed("qa_reviewer", "Loaded QA reviewer prompt", prompt_length=len(prompt))
+    debug_detailed(
+        "qa_reviewer", "Loaded QA reviewer prompt", prompt_length=len(prompt)
+    )
 
     # Add session context - use full path so agent can find files
     prompt += f"\n\n---\n\n**QA Session**: {qa_session}\n"
@@ -246,7 +248,9 @@ async def run_qa_agent_session(
             return "rejected", response_text
         else:
             # Agent didn't update the status properly
-            debug_error("qa_reviewer", "QA agent did not update implementation_plan.json")
+            debug_error(
+                "qa_reviewer", "QA agent did not update implementation_plan.json"
+            )
             return "error", "QA agent did not update implementation_plan.json"
 
     except Exception as e:

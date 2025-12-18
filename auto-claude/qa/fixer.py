@@ -238,7 +238,9 @@ async def run_qa_fixer_session(
             message_count=message_count,
             tool_count=tool_count,
             response_length=len(response_text),
-            ready_for_revalidation=status.get("ready_for_qa_revalidation") if status else False,
+            ready_for_revalidation=status.get("ready_for_qa_revalidation")
+            if status
+            else False,
         )
         if status and status.get("ready_for_qa_revalidation"):
             debug_success("qa_fixer", "Fixes applied, ready for QA revalidation")

@@ -86,7 +86,8 @@ import type {
   InsightsSession,
   InsightsSessionSummary,
   InsightsChatStatus,
-  InsightsStreamChunk
+  InsightsStreamChunk,
+  InsightsModelConfig
 } from './insights';
 import type {
   Roadmap,
@@ -461,7 +462,7 @@ export interface ElectronAPI {
 
   // Insights operations
   getInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession | null>>;
-  sendInsightsMessage: (projectId: string, message: string) => void;
+  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig) => void;
   clearInsightsSession: (projectId: string) => Promise<IPCResult>;
   createTaskFromInsights: (
     projectId: string,
@@ -474,6 +475,7 @@ export interface ElectronAPI {
   switchInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult<InsightsSession | null>>;
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
+  updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
 
   // Insights event listeners
   onInsightsStreamChunk: (

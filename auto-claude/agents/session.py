@@ -412,7 +412,9 @@ async def run_agent_session(
                             "session",
                             f"Tool call #{tool_count}: {tool_name}",
                             tool_input=tool_input,
-                            full_input=str(block.input)[:500] if hasattr(block, "input") else None,
+                            full_input=str(block.input)[:500]
+                            if hasattr(block, "input")
+                            else None,
                         )
 
                         # Log tool start (handles printing too)
