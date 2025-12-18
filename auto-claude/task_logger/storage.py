@@ -3,7 +3,9 @@ Storage functionality for task logs.
 """
 
 import json
+import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,12 +67,25 @@ class LogStorage:
         }
 
     def save(self) -> None:
-        """Save logs to file."""
+        """Save logs to file atomically to prevent corruption from concurrent reads."""
         self._data["updated_at"] = self._timestamp()
         try:
             self.spec_dir.mkdir(parents=True, exist_ok=True)
-            with open(self.log_file, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
+            # Write to temp file first, then atomic rename to prevent corruption
+            # when the UI reads mid-write
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.spec_dir, prefix=".task_logs_", suffix=".tmp"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, indent=2, ensure_ascii=False)
+                # Atomic rename (on POSIX systems, rename is atomic)
+                os.replace(tmp_path, self.log_file)
+            except Exception:
+                # Clean up temp file on failure
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                raise
         except OSError as e:
             print(f"Warning: Failed to save task logs: {e}", file=sys.stderr)
 

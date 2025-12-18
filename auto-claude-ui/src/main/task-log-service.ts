@@ -32,6 +32,7 @@ export class TaskLogService extends EventEmitter {
 
   /**
    * Load task logs from a single spec directory
+   * Returns cached logs if the file is corrupted (e.g., mid-write by Python backend)
    */
   loadLogsFromPath(specDir: string): TaskLogs | null {
     const logFile = path.join(specDir, 'task_logs.json');
@@ -45,6 +46,13 @@ export class TaskLogService extends EventEmitter {
       const logs = JSON.parse(content) as TaskLogs;
       return logs;
     } catch (error) {
+      // JSON parse error - file may be mid-write, return cached version if available
+      const cached = this.logCache.get(specDir);
+      if (cached) {
+        // Silently return cached version - this is expected during concurrent access
+        return cached;
+      }
+      // Only log if we have no cached fallback
       console.error(`[TaskLogService] Failed to load logs from ${logFile}:`, error);
       return null;
     }
