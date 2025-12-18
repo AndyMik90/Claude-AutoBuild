@@ -216,7 +216,8 @@ export class AgentQueueManager {
       process: childProcess,
       startedAt: new Date(),
       projectPath, // Store project path for loading session on completion
-      spawnId
+      spawnId,
+      queueProcessType: 'ideation'
     });
 
     // Track progress through output
@@ -450,7 +451,8 @@ export class AgentQueueManager {
       process: childProcess,
       startedAt: new Date(),
       projectPath, // Store project path for loading roadmap on completion
-      spawnId
+      spawnId,
+      queueProcessType: 'roadmap'
     });
 
     // Track progress through output
@@ -583,16 +585,17 @@ export class AgentQueueManager {
   stopIdeation(projectId: string): boolean {
     debugLog('[Agent Queue] Stop ideation requested:', { projectId });
 
-    const wasRunning = this.state.hasProcess(projectId);
-    debugLog('[Agent Queue] Process running?', { projectId, wasRunning });
+    const processInfo = this.state.getProcess(projectId);
+    const isIdeation = processInfo?.queueProcessType === 'ideation';
+    debugLog('[Agent Queue] Process running?', { projectId, isIdeation, processType: processInfo?.queueProcessType });
 
-    if (wasRunning) {
+    if (isIdeation) {
       debugLog('[Agent Queue] Killing ideation process:', projectId);
       this.processManager.killProcess(projectId);
       this.emitter.emit('ideation-stopped', projectId);
       return true;
     }
-    debugLog('[Agent Queue] No running process found for:', projectId);
+    debugLog('[Agent Queue] No running ideation process found for:', projectId);
     return false;
   }
 
@@ -600,7 +603,8 @@ export class AgentQueueManager {
    * Check if ideation is running for a project
    */
   isIdeationRunning(projectId: string): boolean {
-    return this.state.hasProcess(projectId);
+    const processInfo = this.state.getProcess(projectId);
+    return processInfo?.queueProcessType === 'ideation';
   }
 
   /**
@@ -609,10 +613,11 @@ export class AgentQueueManager {
   stopRoadmap(projectId: string): boolean {
     debugLog('[Agent Queue] Stop roadmap requested:', { projectId });
 
-    const wasRunning = this.state.hasProcess(projectId);
-    debugLog('[Agent Queue] Roadmap process running?', { projectId, wasRunning });
+    const processInfo = this.state.getProcess(projectId);
+    const isRoadmap = processInfo?.queueProcessType === 'roadmap';
+    debugLog('[Agent Queue] Roadmap process running?', { projectId, isRoadmap, processType: processInfo?.queueProcessType });
 
-    if (wasRunning) {
+    if (isRoadmap) {
       debugLog('[Agent Queue] Killing roadmap process:', projectId);
       this.processManager.killProcess(projectId);
       this.emitter.emit('roadmap-stopped', projectId);
@@ -626,6 +631,7 @@ export class AgentQueueManager {
    * Check if roadmap is running for a project
    */
   isRoadmapRunning(projectId: string): boolean {
-    return this.state.hasProcess(projectId);
+    const processInfo = this.state.getProcess(projectId);
+    return processInfo?.queueProcessType === 'roadmap';
   }
 }

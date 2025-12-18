@@ -4,12 +4,15 @@ import { ChildProcess } from 'child_process';
  * Agent-specific types for process and state management
  */
 
+export type QueueProcessType = 'ideation' | 'roadmap';
+
 export interface AgentProcess {
   taskId: string;
   process: ChildProcess;
   startedAt: Date;
   projectPath?: string; // For ideation processes to load session on completion
   spawnId: number; // Unique ID to identify this specific spawn
+  queueProcessType?: QueueProcessType; // Type of queue process (ideation or roadmap)
 }
 
 export interface ExecutionProgressData {
