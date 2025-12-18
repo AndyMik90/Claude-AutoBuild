@@ -113,13 +113,13 @@ def _create_linear_client() -> ClaudeSDKClient:
     Create a minimal Claude client with only Linear MCP tools.
     Used for focused mini-agent calls.
     """
-    from core.auth import get_sdk_env_vars, require_auth_token
+    from core.auth import (
+        ensure_claude_code_oauth_token,
+        get_sdk_env_vars,
+        require_auth_token,
+    )
 
     require_auth_token()  # Raises ValueError if no token found
-
-    # Ensure SDK can find the token
-    from core.auth import ensure_claude_code_oauth_token
-
     ensure_claude_code_oauth_token()
 
     linear_api_key = get_linear_api_key()
@@ -127,8 +127,6 @@ def _create_linear_client() -> ClaudeSDKClient:
         raise ValueError("LINEAR_API_KEY not set")
 
     sdk_env = get_sdk_env_vars()
-    if not linear_api_key:
-        raise ValueError("LINEAR_API_KEY not set")
 
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
