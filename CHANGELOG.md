@@ -1,3 +1,81 @@
+## 2.4.0 - Enhanced Cross-Platform Experience with OAuth & Auto-Updates
+
+### ✨ New Features
+
+- Claude account OAuth implementation on onboarding for seamless token setup
+
+- Integrated release workflow with AI-powered version suggestion capabilities
+
+- Auto-upgrading functionality supporting Windows, Linux, and macOS with automatic app updates
+
+- Git repository initialization on app startup with project addition checks
+
+- Debug logging for app updater to track update processes
+
+- Auto-open settings to updates section when app update is ready
+
+### 🛠️ Improvements
+
+- Major Windows and Linux compatibility enhancements for cross-platform reliability
+
+- Enhanced task status handling to support 'done' status in limbo state with worktree existence checks
+
+- Better handling of lock files from worktrees upon merging
+
+- Improved README documentation and build process
+
+- Refined visual drop zone feedback for more subtle user experience
+
+- Removed showFiles auto-expand on draft restore for better UX consistency
+
+- Created always-visible referenced files section in task creation wizard
+
+- Removed Reference Files toggle button for streamlined interface
+
+- Worktree manual deletion enforcement for early access safety (prevents accidental work loss)
+
+### 🐛 Bug Fixes
+
+- Corrected git status parsing in merge preview functionality
+
+- Fixed ESLint warnings and failing tests
+
+- Fixed Windows/Linux Python handling for cross-platform compatibility
+
+- Fixed Windows/Linux source path detection
+
+- Refined TaskReview component conditional rendering for proper staged task display
+
+---
+
+## What's Changed
+
+- docs: cleanup docs by @AndyMik90 in 8e891df
+- fix: correct git status parsing in merge preview by @AndyMik90 in c721dc2
+- refactor: Update TaskReview component to refine conditional rendering for staged tasks by @AndyMik90 in 1a2b7a1
+- feat: Enhance task status handling to allow 'done' status in limbo state by @AndyMik90 in a20b8cf
+- improvement: Worktree needs to be manually deleted for early access safety by @AndyMik90 in 0ed6afb
+- feat: Claude account OAuth implementation on onboarding by @AndyMik90 in 914a09d
+- fix: Better handling of lock files from worktrees upon merging by @AndyMik90 in e44202a
+- feat: GitHub OAuth integration upon onboarding by @AndyMik90 in 4249644
+- chore: lock update by @AndyMik90 in b0fc497
+- improvement: Improved README and build process by @AndyMik90 in 462edcd
+- fix: ESLint warnings and failing tests by @AndyMik90 in affbc48
+- feat: Major Windows and Linux compatibility enhancements with auto-upgrade by @AndyMik90 in d7fd1a2
+- feat: Add debug logging to app updater by @AndyMik90 in 96dd04d
+- feat: Auto-open settings to updates section when app update is ready by @AndyMik90 in 1d0566f
+- feat: Add integrated release workflow with AI version suggestion by @AndyMik90 in 7f3cd59
+- fix: Windows/Linux Python handling by @AndyMik90 in 0ef0e15
+- feat: Implement Electron app auto-updater by @AndyMik90 in efc112a
+- fix: Windows/Linux source path detection by @AndyMik90 in d33a0aa
+- refactor: Refine visual drop zone feedback to be more subtle by @AndyMik90 in 6cff442
+- refactor: Remove showFiles auto-expand on draft restore by @AndyMik90 in 12bf69d
+- feat: Create always-visible referenced files section by @AndyMik90 in 3818b46
+- feat: Add drop zone wrapper around main modal content by @AndyMik90 in 219b66d
+- feat: Remove Reference Files toggle button by @AndyMik90 in 4e63e85
+- docs: Update README with git initialization and folder structure by @AndyMik90 in 2fa3c51
+- chore: Version bump to 2.3.2 by @AndyMik90 in 59b091a
+
 ## 2.3.2 - UI Polish & Build Improvements
 
 ### 🛠️ Improvements
