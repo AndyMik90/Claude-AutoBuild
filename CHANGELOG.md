@@ -1,3 +1,99 @@
+## 2.5.0 - Roadmap Intelligence & Workflow Refinements
+
+### ✨ New Features
+
+- Interactive competitor analysis viewer for roadmap planning with real-time data visualization
+
+- GitHub issue label mapping to task categories for improved organization and tracking
+
+- GitHub issue comment selection in task creation workflow for better context integration
+
+- TaskCreationWizard enhanced with drag-and-drop support for file references and inline @mentions
+
+- Roadmap generation now includes stop functionality and comprehensive debug logging
+
+### 🛠️ Improvements
+
+- Refined visual drop zone feedback in file reference system for more subtle user guidance
+
+- Remove auto-expand behavior for referenced files on draft restore to improve UX
+
+- Always-visible referenced files section in TaskCreationWizard for better discoverability
+
+- Drop zone wrapper added around main modal content area for improved drag-and-drop ergonomics
+
+- Stuck task detection now enabled for ai_review status to better track blocked work
+
+- Enhanced React component stability with proper key usage in RoadmapHeader and PhaseProgressIndicator
+
+### 🐛 Bug Fixes
+
+- Corrected CompetitorAnalysisViewer type definitions for proper TypeScript compliance
+
+- Fixed multiple CodeRabbit review feedback items for improved code quality
+
+- Resolved React key warnings in PhaseProgressIndicator component
+
+- Fixed git status parsing in merge preview for accurate worktree state detection
+
+- Corrected path resolution in runners for proper module imports and .env loading
+
+- Resolved CI lint and TypeScript errors across codebase
+
+- Fixed HTTP error handling and path resolution issues in core modules
+
+- Corrected worktree test to match intended branch detection behavior
+
+- Refined TaskReview component conditional rendering for proper staged task display
+
+---
+
+## What's Changed
+
+- feat: add interactive competitor analysis viewer for roadmap by @AndyMik90 in 7ff326d
+
+- fix: correct CompetitorAnalysisViewer to match type definitions by @AndyMik90 in 4f1766b
+
+- fix: address multiple CodeRabbit review feedback items by @AndyMik90 in 48f7c3c
+
+- fix: use stable React keys instead of array indices in RoadmapHeader by @AndyMik90 in 892e01d
+
+- fix: additional fixes for http error handling and path resolution by @AndyMik90 in 54501cb
+
+- fix: update worktree test to match intended branch detection behavior by @AndyMik90 in f1d578f
+
+- fix: resolve CI lint and TypeScript errors by @AndyMik90 in 2e3a5d9
+
+- feat: enhance roadmap generation with stop functionality and debug logging by @AndyMik90 in a6dad42
+
+- fix: correct path resolution in runners for module imports and .env loading by @AndyMik90 in 3d24f8f
+
+- fix: resolve React key warning in PhaseProgressIndicator by @AndyMik90 in 9106038
+
+- fix: enable stuck task detection for ai_review status by @AndyMik90 in 895ed9f
+
+- feat: map GitHub issue labels to task categories by @AndyMik90 in cbe14fd
+
+- feat: add GitHub issue comment selection and fix auto-start bug by @AndyMik90 in 4c1dd89
+
+- feat: enhance TaskCreationWizard with drag-and-drop support for file references and inline @mentions by @AndyMik90 in d93eefe
+
+- cleanup docs by @AndyMik90 in 8e891df
+
+- fix: correct git status parsing in merge preview by @AndyMik90 in c721dc2
+
+- Update TaskReview component to refine conditional rendering for staged tasks, ensuring proper display when staging is unsuccessful by @AndyMik90 in 1a2b7a1
+
+- auto-claude: subtask-2-3 - Refine visual drop zone feedback to be more subtle by @AndyMik90 in 6cff442
+
+- auto-claude: subtask-2-1 - Remove showFiles auto-expand on draft restore by @AndyMik90 in 12bf69d
+
+- auto-claude: subtask-1-3 - Create an always-visible referenced files section by @AndyMik90 in 3818b46
+
+- auto-claude: subtask-1-2 - Add drop zone wrapper around main modal content area by @AndyMik90 in 219b66d
+
+- auto-claude: subtask-1-1 - Remove Reference Files toggle button by @AndyMik90 in 4e63e85
+
 ## 2.4.0 - Enhanced Cross-Platform Experience with OAuth & Auto-Updates
 
 ### ✨ New Features
