@@ -7,6 +7,11 @@ Handles the execution of AI agents for the spec creation pipeline.
 
 from pathlib import Path
 
+# Configure safe encoding before any output (fixes Windows encoding errors)
+from ui.capabilities import configure_safe_encoding
+
+configure_safe_encoding()
+
 from client import create_client
 from task_logger import (
     LogEntryType,

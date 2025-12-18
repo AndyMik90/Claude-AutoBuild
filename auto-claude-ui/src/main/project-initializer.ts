@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 /**
  * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
@@ -13,6 +14,137 @@ function debug(message: string, data?: Record<string, unknown>): void {
     } else {
       console.log(`[ProjectInitializer] ${message}`);
     }
+  }
+}
+
+/**
+ * Git status information for a project
+ */
+export interface GitStatus {
+  isGitRepo: boolean;
+  hasCommits: boolean;
+  currentBranch: string | null;
+  error?: string;
+}
+
+/**
+ * Check if a directory is a git repository and has at least one commit
+ */
+export function checkGitStatus(projectPath: string): GitStatus {
+  try {
+    // Check if it's a git repository
+    execSync('git rev-parse --git-dir', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+  } catch {
+    return {
+      isGitRepo: false,
+      hasCommits: false,
+      currentBranch: null,
+      error: 'Not a git repository. Please run "git init" to initialize git.'
+    };
+  }
+
+  // Check if there are any commits
+  let hasCommits = false;
+  try {
+    execSync('git rev-parse HEAD', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    hasCommits = true;
+  } catch {
+    // No commits yet
+    hasCommits = false;
+  }
+
+  // Get current branch
+  let currentBranch: string | null = null;
+  try {
+    currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+  } catch {
+    // Branch detection failed
+  }
+
+  if (!hasCommits) {
+    return {
+      isGitRepo: true,
+      hasCommits: false,
+      currentBranch,
+      error: 'Git repository has no commits. Please make an initial commit first.'
+    };
+  }
+
+  return {
+    isGitRepo: true,
+    hasCommits: true,
+    currentBranch
+  };
+}
+
+/**
+ * Initialize git in a project directory and create an initial commit.
+ * This is a user-friendly way to set up git for non-technical users.
+ */
+export function initializeGit(projectPath: string): InitializationResult {
+  debug('initializeGit called', { projectPath });
+
+  // Check current git status
+  const status = checkGitStatus(projectPath);
+
+  try {
+    // Step 1: Initialize git if needed
+    if (!status.isGitRepo) {
+      debug('Initializing git repository');
+      execSync('git init', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+    }
+
+    // Step 2: Check if there are files to commit
+    const statusOutput = execSync('git status --porcelain', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    // Step 3: If there are untracked/modified files, add and commit them
+    if (statusOutput || !status.hasCommits) {
+      debug('Adding files and creating initial commit');
+
+      // Add all files
+      execSync('git add -A', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      // Create initial commit
+      execSync('git commit -m "Initial commit" --allow-empty', {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+    }
+
+    debug('Git initialization complete');
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error during git initialization';
+    debug('Git initialization failed', { error: errorMessage });
+    return {
+      success: false,
+      error: errorMessage
+    };
   }
 }
 
@@ -130,6 +262,10 @@ export function isInitialized(projectPath: string): boolean {
  *
  * Creates .auto-claude/ with data directories (specs, ideation, insights, roadmap).
  * The framework code runs from the source repo - only data is stored here.
+ *
+ * Requires:
+ * - Project directory must exist
+ * - Project must be a git repository with at least one commit
  */
 export function initializeProject(projectPath: string): InitializationResult {
   debug('initializeProject called', { projectPath });
@@ -140,6 +276,16 @@ export function initializeProject(projectPath: string): InitializationResult {
     return {
       success: false,
       error: `Project directory not found: ${projectPath}`
+    };
+  }
+
+  // Check git status - Auto Claude requires git for worktree-based builds
+  const gitStatus = checkGitStatus(projectPath);
+  if (!gitStatus.isGitRepo || !gitStatus.hasCommits) {
+    debug('Git check failed', { gitStatus });
+    return {
+      success: false,
+      error: gitStatus.error || 'Git repository required. Auto Claude uses git worktrees for isolated builds.'
     };
   }
 

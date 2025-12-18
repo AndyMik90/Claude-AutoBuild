@@ -79,11 +79,15 @@ class WorktreeManager:
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode == 0:
                 return env_branch
             else:
-                print(f"Warning: DEFAULT_BRANCH '{env_branch}' not found, auto-detecting...")
+                print(
+                    f"Warning: DEFAULT_BRANCH '{env_branch}' not found, auto-detecting..."
+                )
 
         # 2. Auto-detect main/master
         for branch in ["main", "master"]:
@@ -92,15 +96,17 @@ class WorktreeManager:
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode == 0:
                 return branch
 
         # 3. Fall back to current branch with warning
         current = self._get_current_branch()
-        print(f"Warning: Could not find 'main' or 'master' branch.")
+        print("Warning: Could not find 'main' or 'master' branch.")
         print(f"Warning: Using current branch '{current}' as base for worktree.")
-        print(f"Tip: Set DEFAULT_BRANCH=your-branch in .env to avoid this.")
+        print("Tip: Set DEFAULT_BRANCH=your-branch in .env to avoid this.")
         return current
 
     def _get_current_branch(self) -> str:
@@ -110,6 +116,8 @@ class WorktreeManager:
             cwd=self.project_dir,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode != 0:
             raise WorktreeError(f"Failed to get current branch: {result.stderr}")
@@ -124,6 +132,8 @@ class WorktreeManager:
             cwd=cwd or self.project_dir,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
     def _unstage_gitignored_files(self) -> None:
@@ -153,6 +163,8 @@ class WorktreeManager:
             input="\n".join(staged_files),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         if result.stdout.strip():

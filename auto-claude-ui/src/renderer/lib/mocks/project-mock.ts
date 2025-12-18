@@ -84,5 +84,19 @@ export const projectMock = {
   detectMainBranch: async () => ({
     success: true,
     data: 'main'
+  }),
+
+  checkGitStatus: async () => ({
+    success: true,
+    data: {
+      isGitRepo: true,
+      hasCommits: true,
+      currentBranch: 'main'
+    }
+  }),
+
+  initializeGit: async () => ({
+    success: true,
+    data: { success: true }
   })
 };

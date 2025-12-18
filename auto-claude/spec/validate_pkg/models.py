@@ -30,16 +30,16 @@ class ValidationResult:
         if self.errors:
             lines.append("\nErrors:")
             for err in self.errors:
-                lines.append(f"  ✗ {err}")
+                lines.append(f"  [X] {err}")
 
         if self.warnings:
             lines.append("\nWarnings:")
             for warn in self.warnings:
-                lines.append(f"  ⚠ {warn}")
+                lines.append(f"  [!] {warn}")
 
         if self.fixes and not self.valid:
             lines.append("\nSuggested Fixes:")
             for fix in self.fixes:
-                lines.append(f"  → {fix}")
+                lines.append(f"  -> {fix}")
 
         return "\n".join(lines)

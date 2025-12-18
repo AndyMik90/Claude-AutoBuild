@@ -9,13 +9,16 @@ import type {
   ProjectSettings,
   IPCResult,
   InitializationResult,
-  AutoBuildVersionInfo
+  AutoBuildVersionInfo,
+  GitStatus
 } from '../../shared/types';
 import { projectStore } from '../project-store';
 import {
   initializeProject,
   isInitialized,
-  hasLocalSource
+  hasLocalSource,
+  checkGitStatus,
+  initializeGit
 } from '../project-initializer';
 import { PythonEnvManager, type PythonEnvStatus } from '../python-env-manager';
 import { AgentManager } from '../agent';
@@ -497,6 +500,44 @@ export function registerProjectHandlers(
         }
         const mainBranch = detectMainBranch(projectPath);
         return { success: true, data: mainBranch };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Check git status for a project (is it a repo? has commits?)
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CHECK_STATUS,
+    async (_, projectPath: string): Promise<IPCResult<GitStatus>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const gitStatus = checkGitStatus(projectPath);
+        return { success: true, data: gitStatus };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Initialize git in a project (run git init and create initial commit)
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_INITIALIZE,
+    async (_, projectPath: string): Promise<IPCResult<InitializationResult>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const result = initializeGit(projectPath);
+        return { success: result.success, data: result, error: result.error };
       } catch (error) {
         return {
           success: false,

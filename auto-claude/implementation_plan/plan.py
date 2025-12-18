@@ -105,8 +105,8 @@ class ImplementationPlan:
         self.update_status_from_subtasks()
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
 
     def update_status_from_subtasks(self):
         """Update overall status and planStatus based on subtask completion state.
@@ -169,7 +169,7 @@ class ImplementationPlan:
     @classmethod
     def load(cls, path: Path) -> "ImplementationPlan":
         """Load plan from JSON file."""
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
     def get_available_phases(self) -> list[Phase]:

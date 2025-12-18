@@ -315,7 +315,9 @@ export function registerWorktreeHandlers(
             env: {
               ...process.env,
               ...profileEnv, // Include active Claude profile OAuth token
-              PYTHONUNBUFFERED: '1'
+              PYTHONUNBUFFERED: '1',
+              PYTHONIOENCODING: 'utf-8',
+              PYTHONUTF8: '1'
             },
             stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
           });
@@ -568,7 +570,7 @@ export function registerWorktreeHandlers(
         return new Promise((resolve) => {
           const previewProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
-            env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', DEBUG: 'true' }
+            env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', DEBUG: 'true' }
           });
 
           let stdout = '';

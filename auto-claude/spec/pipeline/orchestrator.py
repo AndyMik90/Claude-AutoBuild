@@ -457,9 +457,11 @@ class SpecOrchestrator:
         print_key_value("Reasoning", assessment.reasoning)
 
         if assessment.needs_research:
-            print(f"  {muted('→ Research phase enabled')}")
+            print(f"  {muted(icon(Icons.ARROW_RIGHT) + ' Research phase enabled')}")
         if assessment.needs_self_critique:
-            print(f"  {muted('→ Self-critique phase enabled')}")
+            print(
+                f"  {muted(icon(Icons.ARROW_RIGHT) + ' Self-critique phase enabled')}"
+            )
 
     def _print_phases_to_run(self) -> None:
         """Print the list of phases that will be executed."""

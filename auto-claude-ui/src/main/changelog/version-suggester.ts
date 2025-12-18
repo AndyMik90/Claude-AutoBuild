@@ -237,7 +237,9 @@ except Exception as e:
       ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
       USER: process.env.USER || process.env.USERNAME || 'user',
       PATH: [process.env.PATH || '', ...pathAdditions].filter(Boolean).join(path.delimiter),
-      PYTHONUNBUFFERED: '1'
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUTF8: '1'
     };
 
     return spawnEnv;

@@ -15,7 +15,8 @@ import type {
   ClaudeAuthResult,
   InfrastructureStatus,
   GraphitiValidationResult,
-  GraphitiConnectionTestResult
+  GraphitiConnectionTestResult,
+  GitStatus
 } from '../../shared/types';
 
 export interface ProjectAPI {
@@ -72,6 +73,8 @@ export interface ProjectAPI {
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
+  checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
+  initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 }
 
 export const createProjectAPI = (): ProjectAPI => ({
@@ -180,5 +183,11 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.GIT_GET_CURRENT_BRANCH, projectPath),
 
   detectMainBranch: (projectPath: string): Promise<IPCResult<string | null>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GIT_DETECT_MAIN_BRANCH, projectPath)
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_DETECT_MAIN_BRANCH, projectPath),
+
+  checkGitStatus: (projectPath: string): Promise<IPCResult<GitStatus>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_CHECK_STATUS, projectPath),
+
+  initializeGit: (projectPath: string): Promise<IPCResult<InitializationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_INITIALIZE, projectPath)
 });

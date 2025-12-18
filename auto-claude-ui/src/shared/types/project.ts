@@ -305,6 +305,13 @@ export interface InitializationResult {
   error?: string;
 }
 
+export interface GitStatus {
+  isGitRepo: boolean;
+  hasCommits: boolean;
+  currentBranch: string | null;
+  error?: string;
+}
+
 export interface CreateProjectFolderResult {
   path: string;
   name: string;

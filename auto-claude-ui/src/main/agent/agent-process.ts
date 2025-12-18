@@ -176,7 +176,8 @@ export class AgentProcessManager {
         ...extraEnv,
         ...profileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1', // Ensure real-time output
-        PYTHONIOENCODING: 'utf-8' // Ensure UTF-8 encoding on Windows
+        PYTHONIOENCODING: 'utf-8', // Ensure UTF-8 encoding on Windows
+        PYTHONUTF8: '1' // Force Python UTF-8 mode on Windows (Python 3.7+)
       }
     });
 
@@ -241,17 +242,17 @@ export class AgentProcessManager {
       }
     };
 
-    // Handle stdout
+    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       console.log('[spawnProcess] stdout:', log.substring(0, 200));
       this.emitter.emit('log', taskId, log);
       processLog(log);
     });
 
-    // Handle stderr
+    // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       console.log('[spawnProcess] stderr:', log.substring(0, 200));
       // Some Python output goes to stderr (like progress bars)
       // so we treat it as log, not error

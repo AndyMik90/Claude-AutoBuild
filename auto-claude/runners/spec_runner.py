@@ -34,9 +34,39 @@ Usage:
 """
 
 import asyncio
+import io
 import os
 import sys
 from pathlib import Path
+
+# Configure safe encoding on Windows BEFORE any imports that might print
+# This handles both TTY and piped output (e.g., from Electron)
+if sys.platform == "win32":
+    for _stream_name in ("stdout", "stderr"):
+        _stream = getattr(sys, _stream_name)
+        # Method 1: Try reconfigure (works for TTY)
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+                continue
+            except (AttributeError, io.UnsupportedOperation, OSError):
+                pass
+        # Method 2: Wrap with TextIOWrapper for piped output
+        try:
+            if hasattr(_stream, "buffer"):
+                _new_stream = io.TextIOWrapper(
+                    _stream.buffer,
+                    encoding="utf-8",
+                    errors="replace",
+                    line_buffering=True,
+                )
+                setattr(sys, _stream_name, _new_stream)
+        except (AttributeError, io.UnsupportedOperation, OSError):
+            pass
+    # Clean up temporary variables
+    del _stream_name, _stream
+    if "_new_stream" in dir():
+        del _new_stream
 
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -230,7 +260,9 @@ Examples:
                 print(
                     f"  {muted('Or re-run spec_runner with --auto-approve to skip review:')}"
                 )
-                example_cmd = 'python auto-claude/spec_runner.py --task "..." --auto-approve'
+                example_cmd = (
+                    'python auto-claude/spec_runner.py --task "..." --auto-approve'
+                )
                 print(f"  {highlight(example_cmd)}")
                 sys.exit(1)
 

@@ -5,13 +5,21 @@ import { resolve } from 'path';
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({
-      exclude: []
+      // Bundle these packages into the main process (they won't be in node_modules in packaged app)
+      exclude: [
+        'uuid',
+        'chokidar',
+        'ioredis',
+        'electron-updater',
+        '@electron-toolkit/utils'
+      ]
     })],
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         },
+        // Only node-pty needs to be external (native module rebuilt by electron-builder)
         external: ['node-pty']
       }
     }

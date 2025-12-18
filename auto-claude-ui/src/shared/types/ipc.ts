@@ -18,7 +18,8 @@ import type {
   ProjectEnvConfig,
   InfrastructureStatus,
   GraphitiValidationResult,
-  GraphitiConnectionTestResult
+  GraphitiConnectionTestResult,
+  GitStatus
 } from './project';
 import type {
   Task,
@@ -500,6 +501,8 @@ export interface ElectronAPI {
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
+  checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
+  initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 }
 
 declare global {

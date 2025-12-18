@@ -59,7 +59,7 @@
     "ioredis": "^5.8.2",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
-    "node-pty": "^1.0.0",
+    "node-pty": "^1.1.0-beta42",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
@@ -127,7 +127,18 @@
       "buildResources": "resources"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/node-pty",
+        "to": "node_modules/node-pty"
+      },
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
@@ -138,7 +149,7 @@
       ]
     },
     "win": {
-      "icon": "resources/icon-256.png",
+      "icon": "resources/icon.ico",
       "target": [
         "nsis",
         "zip"

@@ -156,7 +156,9 @@ export class AgentQueueManager {
         ...process.env,
         ...combinedEnv,
         ...profileEnv,
-        PYTHONUNBUFFERED: '1'
+        PYTHONUNBUFFERED: '1',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1'
       }
     });
 
@@ -193,9 +195,9 @@ export class AgentQueueManager {
     const completedTypes = new Set<string>();
     const totalTypes = 7; // Default all types
 
-    // Handle stdout
+    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       // Collect output for rate limit detection (keep last 10KB)
       allOutput = (allOutput + log).slice(-10000);
 
@@ -242,9 +244,9 @@ export class AgentQueueManager {
       });
     });
 
-    // Handle stderr - also emit as logs
+    // Handle stderr - also emit as logs, explicitly decode as UTF-8
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       // Collect stderr for rate limit detection too
       allOutput = (allOutput + log).slice(-10000);
       console.error('[Ideation STDERR]', log);
@@ -354,7 +356,9 @@ export class AgentQueueManager {
         ...process.env,
         ...combinedEnv,
         ...profileEnv,
-        PYTHONUNBUFFERED: '1'
+        PYTHONUNBUFFERED: '1',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1'
       }
     });
 
@@ -384,9 +388,9 @@ export class AgentQueueManager {
       }
     };
 
-    // Handle stdout
+    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       // Collect output for rate limit detection (keep last 10KB)
       allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
 
@@ -406,9 +410,9 @@ export class AgentQueueManager {
       });
     });
 
-    // Handle stderr
+    // Handle stderr - explicitly decode as UTF-8
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString();
+      const log = data.toString('utf8');
       // Collect stderr for rate limit detection too
       allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
       console.error('[Roadmap STDERR]', log);

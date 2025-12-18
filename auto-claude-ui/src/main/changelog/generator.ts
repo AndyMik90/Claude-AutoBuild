@@ -277,7 +277,9 @@ export class ChangelogGenerator extends EventEmitter {
       USER: process.env.USER || process.env.USERNAME || 'user',
       // Add common binary locations to PATH for claude CLI
       PATH: [process.env.PATH || '', ...pathAdditions].filter(Boolean).join(path.delimiter),
-      PYTHONUNBUFFERED: '1'
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUTF8: '1'
     };
 
     this.debug('Spawn environment', {

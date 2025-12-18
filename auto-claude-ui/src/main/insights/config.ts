@@ -105,7 +105,8 @@ export class InsightsConfig {
       ...autoBuildEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8'
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUTF8: '1'
     };
   }
 }

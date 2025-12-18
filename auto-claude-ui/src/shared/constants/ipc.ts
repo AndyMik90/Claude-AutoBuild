@@ -258,6 +258,8 @@ export const IPC_CHANNELS = {
   GIT_GET_BRANCHES: 'git:getBranches',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
+  GIT_CHECK_STATUS: 'git:checkStatus',
+  GIT_INITIALIZE: 'git:initialize',
 
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',

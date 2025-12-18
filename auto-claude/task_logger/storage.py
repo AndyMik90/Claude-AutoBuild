@@ -30,7 +30,7 @@ class LogStorage:
         """Load existing logs or create new structure."""
         if self.log_file.exists():
             try:
-                with open(self.log_file) as f:
+                with open(self.log_file, encoding="utf-8") as f:
                     return json.load(f)
             except (OSError, json.JSONDecodeError):
                 pass
@@ -69,8 +69,8 @@ class LogStorage:
         self._data["updated_at"] = self._timestamp()
         try:
             self.spec_dir.mkdir(parents=True, exist_ok=True)
-            with open(self.log_file, "w") as f:
-                json.dump(self._data, f, indent=2)
+            with open(self.log_file, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, indent=2, ensure_ascii=False)
         except OSError as e:
             print(f"Warning: Failed to save task logs: {e}", file=sys.stderr)
 
@@ -159,7 +159,7 @@ def load_task_logs(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        with open(log_file) as f:
+        with open(log_file, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return None

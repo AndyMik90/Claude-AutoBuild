@@ -137,7 +137,8 @@ export class TerminalNameGenerator extends EventEmitter {
           ...autoBuildEnv,
           ...profileEnv, // Include active Claude profile config
           PYTHONUNBUFFERED: '1',
-          PYTHONIOENCODING: 'utf-8'
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUTF8: '1'
         }
       });
 

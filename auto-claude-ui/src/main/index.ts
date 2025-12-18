@@ -22,7 +22,7 @@ function getIconPath(): string {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
   } else if (process.platform === 'win32') {
-    iconName = 'icon-256.png';
+    iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
   }

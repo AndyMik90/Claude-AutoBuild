@@ -21,6 +21,7 @@ from .capabilities import (
     FANCY_UI,
     INTERACTIVE,
     UNICODE,
+    configure_safe_encoding,
     supports_color,
     supports_interactive,
     supports_unicode,
@@ -57,6 +58,7 @@ _INTERACTIVE = INTERACTIVE
 
 __all__ = [
     # Capabilities
+    "configure_safe_encoding",
     "supports_unicode",
     "supports_color",
     "supports_interactive",

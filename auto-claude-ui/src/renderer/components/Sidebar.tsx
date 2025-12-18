@@ -55,8 +55,9 @@ import {
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import { AddProjectModal } from './AddProjectModal';
+import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
-import type { Project, AutoBuildVersionInfo } from '../../shared/types';
+import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'agent-profiles';
 
@@ -104,6 +105,8 @@ export function Sidebar({
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [showGitSetupModal, setShowGitSetupModal] = useState(false);
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [versionInfo, setVersionInfo] = useState<AutoBuildVersionInfo | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -159,6 +162,29 @@ export function Sidebar({
     checkUpdates();
   }, [selectedProjectId, settings.autoUpdateAutoBuild]);
 
+  // Check git status when project changes
+  useEffect(() => {
+    const checkGit = async () => {
+      if (selectedProject) {
+        try {
+          const result = await window.electronAPI.checkGitStatus(selectedProject.path);
+          if (result.success && result.data) {
+            setGitStatus(result.data);
+            // Show git setup modal if project is not a git repo or has no commits
+            if (!result.data.isGitRepo || !result.data.hasCommits) {
+              setShowGitSetupModal(true);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check git status:', error);
+        }
+      } else {
+        setGitStatus(null);
+      }
+    };
+    checkGit();
+  }, [selectedProject]);
+
   const handleAddProject = () => {
     setShowAddProjectModal(true);
   };
@@ -208,6 +234,20 @@ export function Sidebar({
   const handleSkipUpdate = () => {
     setShowUpdateDialog(false);
     setVersionInfo(null);
+  };
+
+  const handleGitInitialized = async () => {
+    // Refresh git status after initialization
+    if (selectedProject) {
+      try {
+        const result = await window.electronAPI.checkGitStatus(selectedProject.path);
+        if (result.success && result.data) {
+          setGitStatus(result.data);
+        }
+      } catch (error) {
+        console.error('Failed to refresh git status:', error);
+      }
+    }
   };
 
   const handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
@@ -517,6 +557,15 @@ export function Sidebar({
         open={showAddProjectModal}
         onOpenChange={setShowAddProjectModal}
         onProjectAdded={handleProjectAdded}
+      />
+
+      {/* Git Setup Modal */}
+      <GitSetupModal
+        open={showGitSetupModal}
+        onOpenChange={setShowGitSetupModal}
+        project={selectedProject || null}
+        gitStatus={gitStatus}
+        onGitInitialized={handleGitInitialized}
       />
     </TooltipProvider>
   );
