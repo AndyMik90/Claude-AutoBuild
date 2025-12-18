@@ -48,7 +48,7 @@ const initialStatus: InsightsChatStatus = {
   message: ''
 };
 
-export const useInsightsStore = create<InsightsState>((set, get) => ({
+export const useInsightsStore = create<InsightsState>((set, _get) => ({
   // Initial state
   session: null,
   sessions: [],

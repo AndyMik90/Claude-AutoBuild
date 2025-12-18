@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Project, ProjectSettings, AutoBuildVersionInfo, ProjectEnvConfig } from '../../shared/types';
+import type { Project, ProjectSettings, AutoBuildVersionInfo } from '../../shared/types';
 import { checkProjectVersion } from '../stores/project-store';
 
 export function useProjectSettings(project: Project, open: boolean) {

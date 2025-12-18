@@ -65,7 +65,7 @@ function ProjectSettingsContentInner({
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
 }) {
   const hook = useProjectSettings(project, isOpen);
-  
+
   // Keep a stable ref to the hook for the parent
   const hookRef = useRef(hook);
   hookRef.current = hook;
@@ -90,8 +90,8 @@ function ProjectSettingsContentInner({
     setShowFalkorPassword,
     showGitHubToken,
     setShowGitHubToken,
-    expandedSections,
-    toggleSection,
+    expandedSections: _expandedSections,
+    toggleSection: _toggleSection,
     gitHubConnectionStatus,
     isCheckingGitHub,
     isCheckingClaudeAuth,
@@ -162,7 +162,7 @@ function ProjectSettingsContentInner({
         open={showLinearImportModal}
         onOpenChange={setShowLinearImportModal}
         onImportComplete={(result) => {
-          console.log('Import complete:', result);
+          console.warn('Import complete:', result);
         }}
       />
     </>

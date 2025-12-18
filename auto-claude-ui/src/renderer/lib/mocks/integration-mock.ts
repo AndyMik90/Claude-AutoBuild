@@ -114,7 +114,7 @@ export const integrationMock = {
   }),
 
   investigateGitHubIssue: () => {
-    console.log('[Browser Mock] investigateGitHubIssue called');
+    console.warn('[Browser Mock] investigateGitHubIssue called');
   },
 
   importGitHubIssues: async () => ({

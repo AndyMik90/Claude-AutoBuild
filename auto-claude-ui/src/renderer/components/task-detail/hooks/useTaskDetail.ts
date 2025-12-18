@@ -199,7 +199,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     if (stored) {
       try {
         const previewData = JSON.parse(stored);
-        console.log('%c[useTaskDetail] Restored merge preview from sessionStorage:', 'color: magenta;', previewData);
+        console.warn('%c[useTaskDetail] Restored merge preview from sessionStorage:', 'color: magenta;', previewData);
         setMergePreview(previewData);
         // Don't auto-popup - restored data stays silent
       } catch {
@@ -211,18 +211,18 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
   // Load merge preview (conflict detection)
   const loadMergePreview = useCallback(async () => {
-    console.log('%c[useTaskDetail] loadMergePreview called for task:', 'color: cyan; font-weight: bold;', task.id);
+    console.warn('%c[useTaskDetail] loadMergePreview called for task:', 'color: cyan; font-weight: bold;', task.id);
     setIsLoadingPreview(true);
     try {
-      console.log('[useTaskDetail] Calling mergeWorktreePreview...');
+      console.warn('[useTaskDetail] Calling mergeWorktreePreview...');
       const result = await window.electronAPI.mergeWorktreePreview(task.id);
-      console.log('%c[useTaskDetail] mergeWorktreePreview result:', 'color: lime; font-weight: bold;', JSON.stringify(result, null, 2));
+      console.warn('%c[useTaskDetail] mergeWorktreePreview result:', 'color: lime; font-weight: bold;', JSON.stringify(result, null, 2));
       if (result.success && result.data?.preview) {
         const previewData = result.data.preview;
-        console.log('%c[useTaskDetail] Setting merge preview:', 'color: lime; font-weight: bold;', previewData);
-        console.log('  - files:', previewData.files);
-        console.log('  - conflicts:', previewData.conflicts);
-        console.log('  - summary:', previewData.summary);
+        console.warn('%c[useTaskDetail] Setting merge preview:', 'color: lime; font-weight: bold;', previewData);
+        console.warn('  - files:', previewData.files);
+        console.warn('  - conflicts:', previewData.conflicts);
+        console.warn('  - summary:', previewData.summary);
         setMergePreview(previewData);
         // Persist to sessionStorage to survive HMR reloads
         sessionStorage.setItem(`mergePreview-${task.id}`, JSON.stringify(previewData));
@@ -236,7 +236,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     } catch (err) {
       console.error('%c[useTaskDetail] Failed to load merge preview:', 'color: red; font-weight: bold;', err);
     } finally {
-      console.log('[useTaskDetail] Setting isLoadingPreview to false');
+      console.warn('[useTaskDetail] Setting isLoadingPreview to false');
       setIsLoadingPreview(false);
     }
   }, [task.id]);
@@ -250,7 +250,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     // 3. We haven't already loaded the preview
     // 4. We're not currently loading
     if (needsReview && worktreeStatus?.exists && !mergePreview && !isLoadingPreview) {
-      console.log('[useTaskDetail] Auto-loading merge preview for task:', task.id);
+      console.warn('[useTaskDetail] Auto-loading merge preview for task:', task.id);
       loadMergePreview();
     }
   }, [needsReview, worktreeStatus?.exists, mergePreview, isLoadingPreview, task.id, loadMergePreview]);

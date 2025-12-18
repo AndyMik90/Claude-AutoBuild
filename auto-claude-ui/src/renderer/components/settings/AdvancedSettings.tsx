@@ -29,7 +29,7 @@ import type {
  */
 function ReleaseNotesRenderer({ markdown }: { markdown: string }) {
   const html = useMemo(() => {
-    let result = markdown
+    const result = markdown
       // Escape HTML
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -48,12 +48,12 @@ function ReleaseNotesRenderer({ markdown }: { markdown: string }) {
       // Line breaks for remaining lines
       .replace(/\n\n/g, '<div class="h-2"></div>')
       .replace(/\n/g, '<br/>');
-    
+
     return result;
   }, [markdown]);
 
   return (
-    <div 
+    <div
       className="text-sm text-muted-foreground leading-relaxed"
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -79,7 +79,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
 
   // Electron app update state
   const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
-  const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [_isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
   const [isDownloadingAppUpdate, setIsDownloadingAppUpdate] = useState(false);
   const [appDownloadProgress, setAppDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isAppUpdateDownloaded, setIsAppUpdateDownloaded] = useState(false);
@@ -329,7 +329,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                         <ReleaseNotesRenderer markdown={sourceUpdateCheck.releaseNotes} />
                       </div>
                     )}
-                    
+
                     {sourceUpdateCheck.releaseUrl && (
                       <button
                         onClick={() => window.electronAPI.openExternal(sourceUpdateCheck.releaseUrl!)}

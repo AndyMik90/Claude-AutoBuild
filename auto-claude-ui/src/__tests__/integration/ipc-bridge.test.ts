@@ -3,7 +3,6 @@
  * Tests IPC messages flow between main and renderer
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EventEmitter } from 'events';
 
 // Mock ipcRenderer for renderer-side tests
 const mockIpcRenderer = {
@@ -285,7 +284,8 @@ describe('IPC Bridge Integration', () => {
         const getAppVersion = electronAPI['getAppVersion'] as () => Promise<unknown>;
         await getAppVersion();
 
-        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('app:version');
+        // getAppVersion now uses the app-update channel (from AppUpdateAPI which is spread last)
+        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('app-update:get-version');
       });
     });
   });

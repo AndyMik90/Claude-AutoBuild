@@ -6,9 +6,6 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import {
-  AgentManagerEvents,
-  ExecutionProgressData,
-  ProcessType,
   SpecCreationMetadata,
   TaskExecutionOptions,
   IdeationConfig
@@ -44,8 +41,7 @@ export class AgentManager extends EventEmitter {
     this.queueManager = new AgentQueueManager(this.state, this.events, this.processManager, this);
 
     // Listen for auto-swap restart events
-    this.on('auto-swap-restart-task', (taskId: string, newProfileId: string) => {
-      console.log('[AgentManager] Auto-swap restart:', taskId, newProfileId);
+    this.on('auto-swap-restart-task', (taskId: string, _newProfileId: string) => {
       this.restartTask(taskId);
     });
 
@@ -64,14 +60,12 @@ export class AgentManager extends EventEmitter {
         // If task completed successfully, always clean up
         if (code === 0) {
           this.taskExecutionContext.delete(taskId);
-          console.log('[AgentManager] Cleaned up context for completed task:', taskId);
           return;
         }
 
         // If task failed and hit max retries, clean up
         if (context.swapCount >= 2) {
           this.taskExecutionContext.delete(taskId);
-          console.log('[AgentManager] Cleaned up context for max-retry task:', taskId);
         }
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
@@ -142,21 +136,16 @@ export class AgentManager extends EventEmitter {
     specId: string,
     options: TaskExecutionOptions = {}
   ): void {
-    console.log('[AgentManager] startTaskExecution called for:', taskId, specId);
-
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
 
     if (!autoBuildSource) {
-      console.log('[AgentManager] ERROR: Auto-build source path not found');
       this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
       return;
     }
 
     const runPath = path.join(autoBuildSource, 'run.py');
-    console.log('[AgentManager] runPath:', runPath);
 
     if (!existsSync(runPath)) {
-      console.log('[AgentManager] ERROR: Run script not found at:', runPath);
       this.emit('error', taskId, `Run script not found at: ${runPath}`);
       return;
     }
@@ -183,7 +172,6 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
-    console.log('[AgentManager] Spawning process with args:', args);
     this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
 
@@ -329,7 +317,6 @@ export class AgentManager extends EventEmitter {
     }
 
     context.swapCount++;
-    console.log('[AgentManager] Restarting task:', taskId, 'swap count:', context.swapCount);
 
     // Kill current process
     this.killTask(taskId);

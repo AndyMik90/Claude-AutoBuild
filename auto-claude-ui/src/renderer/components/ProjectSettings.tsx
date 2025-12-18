@@ -53,7 +53,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
     updateEnvConfig,
     isLoadingEnv,
     envError,
-    setEnvError,
+    setEnvError: _setEnvError,
     isSavingEnv,
   } = useEnvironmentConfig(project.id, project.autoBuildPath, open);
 
@@ -313,7 +313,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
         onOpenChange={setShowLinearImportModal}
         onImportComplete={(result) => {
           // Optionally refresh or notify
-          console.log('Import complete:', result);
+          console.warn('Import complete:', result);
         }}
       />
     </Dialog>

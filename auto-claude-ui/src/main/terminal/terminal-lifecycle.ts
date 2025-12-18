@@ -9,7 +9,6 @@ import { IPC_CHANNELS } from '../../shared/constants';
 import type { TerminalSession } from '../terminal-session-store';
 import * as PtyManager from './pty-manager';
 import * as SessionHandler from './session-handler';
-import * as TerminalEventHandler from './terminal-event-handler';
 import type {
   TerminalProcess,
   WindowGetter,
@@ -226,8 +225,8 @@ export async function destroyAllTerminals(
  * Sessions are only removed when explicitly destroyed by user action via destroyTerminal().
  */
 function handleTerminalExit(
-  terminal: TerminalProcess,
-  terminals: Map<string, TerminalProcess>
+  _terminal: TerminalProcess,
+  _terminals: Map<string, TerminalProcess>
 ): void {
   // Don't remove session - let it persist for restoration
 }

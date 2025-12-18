@@ -22,7 +22,7 @@ export class UsageMonitor extends EventEmitter {
 
   private constructor() {
     super();
-    console.log('[UsageMonitor] Initialized');
+    console.warn('[UsageMonitor] Initialized');
   }
 
   static getInstance(): UsageMonitor {
@@ -40,17 +40,17 @@ export class UsageMonitor extends EventEmitter {
     const settings = profileManager.getAutoSwitchSettings();
 
     if (!settings.enabled || !settings.proactiveSwapEnabled) {
-      console.log('[UsageMonitor] Proactive monitoring disabled');
+      console.warn('[UsageMonitor] Proactive monitoring disabled');
       return;
     }
 
     if (this.intervalId) {
-      console.log('[UsageMonitor] Already running');
+      console.warn('[UsageMonitor] Already running');
       return;
     }
 
     const interval = settings.usageCheckInterval || 30000;
-    console.log('[UsageMonitor] Starting with interval:', interval, 'ms');
+    console.warn('[UsageMonitor] Starting with interval:', interval, 'ms');
 
     // Check immediately
     this.checkUsageAndSwap();
@@ -68,7 +68,7 @@ export class UsageMonitor extends EventEmitter {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[UsageMonitor] Stopped');
+      console.warn('[UsageMonitor] Stopped');
     }
   }
 
@@ -94,14 +94,14 @@ export class UsageMonitor extends EventEmitter {
       const activeProfile = profileManager.getActiveProfile();
 
       if (!activeProfile) {
-        console.log('[UsageMonitor] No active profile');
+        console.warn('[UsageMonitor] No active profile');
         return;
       }
 
       // Fetch current usage (hybrid approach)
       const usage = await this.fetchUsage(activeProfile.id, activeProfile.oauthToken);
       if (!usage) {
-        console.log('[UsageMonitor] Failed to fetch usage');
+        console.warn('[UsageMonitor] Failed to fetch usage');
         return;
       }
 
@@ -116,7 +116,7 @@ export class UsageMonitor extends EventEmitter {
       const weeklyExceeded = usage.weeklyPercent >= settings.weeklyThreshold;
 
       if (sessionExceeded || weeklyExceeded) {
-        console.log('[UsageMonitor] Threshold exceeded:', {
+        console.warn('[UsageMonitor] Threshold exceeded:', {
           sessionPercent: usage.sessionPercent,
           sessionThreshold: settings.sessionThreshold,
           weeklyPercent: usage.weeklyPercent,
@@ -154,12 +154,12 @@ export class UsageMonitor extends EventEmitter {
     if (this.useApiMethod && oauthToken) {
       const apiUsage = await this.fetchUsageViaAPI(oauthToken, profileId, profile.name);
       if (apiUsage) {
-        console.log('[UsageMonitor] Successfully fetched via API');
+        console.warn('[UsageMonitor] Successfully fetched via API');
         return apiUsage;
       }
 
       // API failed - switch to CLI method for future calls
-      console.log('[UsageMonitor] API method failed, falling back to CLI');
+      console.warn('[UsageMonitor] API method failed, falling back to CLI');
       this.useApiMethod = false;
     }
 
@@ -191,7 +191,12 @@ export class UsageMonitor extends EventEmitter {
         return null;
       }
 
-      const data: any = await response.json();
+      const data = await response.json() as {
+        five_hour_utilization?: number;
+        seven_day_utilization?: number;
+        five_hour_reset_at?: string;
+        seven_day_reset_at?: string;
+      };
 
       // Expected response format:
       // {
@@ -232,7 +237,7 @@ export class UsageMonitor extends EventEmitter {
     // CLI-based usage fetching is not implemented yet.
     // The API method should handle most cases. If we need CLI fallback,
     // we would need to spawn a Claude process with /usage command and parse the output.
-    console.log('[UsageMonitor] CLI fallback not implemented, API method should be used');
+    console.warn('[UsageMonitor] CLI fallback not implemented, API method should be used');
     return null;
   }
 
@@ -256,7 +261,7 @@ export class UsageMonitor extends EventEmitter {
       const diffDays = Math.floor(diffHours / 24);
       const remainingHours = diffHours % 24;
       return `${diffDays}d ${remainingHours}h`;
-    } catch (error) {
+    } catch (_error) {
       return isoTimestamp;
     }
   }
@@ -272,7 +277,7 @@ export class UsageMonitor extends EventEmitter {
     const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
     if (!bestProfile) {
-      console.log('[UsageMonitor] No alternative profile for proactive swap');
+      console.warn('[UsageMonitor] No alternative profile for proactive swap');
       this.emit('proactive-swap-failed', {
         reason: 'no_alternative',
         currentProfile: currentProfileId
@@ -280,7 +285,7 @@ export class UsageMonitor extends EventEmitter {
       return;
     }
 
-    console.log('[UsageMonitor] Proactive swap:', {
+    console.warn('[UsageMonitor] Proactive swap:', {
       from: currentProfileId,
       to: bestProfile.id,
       reason: limitType

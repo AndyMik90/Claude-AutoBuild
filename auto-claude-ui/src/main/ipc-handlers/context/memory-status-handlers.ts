@@ -109,7 +109,7 @@ export function buildMemoryStatus(
  * Register memory status handlers
  */
 export function registerMemoryStatusHandlers(
-  getMainWindow: () => BrowserWindow | null
+  _getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.handle(
     IPC_CHANNELS.CONTEXT_MEMORY_STATUS,

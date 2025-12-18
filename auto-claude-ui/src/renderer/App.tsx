@@ -118,7 +118,7 @@ export function App() {
   useEffect(() => {
     // When an update is downloaded and ready to install, open settings to updates section
     const cleanupDownloaded = window.electronAPI.onAppUpdateDownloaded(() => {
-      console.log('[App] Update downloaded, opening settings to updates section');
+      console.warn('[App] Update downloaded, opening settings to updates section');
       setSettingsInitialSection('updates');
       setIsSettingsDialogOpen(true);
     });
@@ -206,7 +206,7 @@ export function App() {
         setSelectedTask(updatedTask);
       }
     }
-  }, [tasks, selectedTask?.id, selectedTask?.specId]);
+  }, [tasks, selectedTask?.id, selectedTask?.specId, selectedTask]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);

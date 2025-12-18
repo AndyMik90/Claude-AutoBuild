@@ -6,7 +6,6 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import * as OutputParser from './output-parser';
@@ -39,14 +38,14 @@ export function handleRateLimit(
   }
 
   lastNotifiedRateLimitReset.set(terminal.id, resetTime);
-  console.log('[ClaudeIntegration] Rate limit detected, reset:', resetTime);
+  console.warn('[ClaudeIntegration] Rate limit detected, reset:', resetTime);
 
   const profileManager = getClaudeProfileManager();
   const currentProfileId = terminal.claudeProfileId || 'default';
 
   try {
     const rateLimitEvent = profileManager.recordRateLimitEvent(currentProfileId, resetTime);
-    console.log('[ClaudeIntegration] Recorded rate limit event:', rateLimitEvent.type);
+    console.warn('[ClaudeIntegration] Recorded rate limit event:', rateLimitEvent.type);
   } catch (err) {
     console.error('[ClaudeIntegration] Failed to record rate limit event:', err);
   }
@@ -68,9 +67,9 @@ export function handleRateLimit(
   }
 
   if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestProfile) {
-    console.log('[ClaudeIntegration] Auto-switching to profile:', bestProfile.name);
-    switchProfileCallback(terminal.id, bestProfile.id).then(result => {
-      console.log('[ClaudeIntegration] Auto-switch completed');
+    console.warn('[ClaudeIntegration] Auto-switching to profile:', bestProfile.name);
+    switchProfileCallback(terminal.id, bestProfile.id).then(_result => {
+      console.warn('[ClaudeIntegration] Auto-switch completed');
     }).catch(err => {
       console.error('[ClaudeIntegration] Auto-switch failed:', err);
     });
@@ -90,7 +89,7 @@ export function handleOAuthToken(
     return;
   }
 
-  console.log('[ClaudeIntegration] OAuth token detected, length:', token.length);
+  console.warn('[ClaudeIntegration] OAuth token detected, length:', token.length);
 
   const email = OutputParser.extractEmail(terminal.outputBuffer);
   const profileIdMatch = terminal.id.match(/claude-login-(profile-\d+)-/);
@@ -101,7 +100,7 @@ export function handleOAuthToken(
     const success = profileManager.setProfileToken(profileId, token, email || undefined);
 
     if (success) {
-      console.log('[ClaudeIntegration] OAuth token auto-saved to profile:', profileId);
+      console.warn('[ClaudeIntegration] OAuth token auto-saved to profile:', profileId);
 
       const win = getWindow();
       if (win) {
@@ -117,7 +116,7 @@ export function handleOAuthToken(
       console.error('[ClaudeIntegration] Failed to save OAuth token to profile:', profileId);
     }
   } else {
-    console.log('[ClaudeIntegration] OAuth token detected but not in a profile login terminal');
+    console.warn('[ClaudeIntegration] OAuth token detected but not in a profile login terminal');
     const win = getWindow();
     if (win) {
       win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
@@ -140,7 +139,7 @@ export function handleClaudeSessionId(
   getWindow: WindowGetter
 ): void {
   terminal.claudeSessionId = sessionId;
-  console.log('[ClaudeIntegration] Captured Claude session ID:', sessionId);
+  console.warn('[ClaudeIntegration] Captured Claude session ID:', sessionId);
 
   if (terminal.projectPath) {
     SessionHandler.updateClaudeSessionId(terminal.projectPath, terminal.id, sessionId);
@@ -187,17 +186,17 @@ export function invokeClaude(
       fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN="${token}"\n`, { mode: 0o600 });
 
       terminal.pty.write(`${cwdCommand}source "${tempFile}" && rm -f "${tempFile}" && claude\r`);
-      console.log('[ClaudeIntegration] Switching to Claude profile:', activeProfile.name, '(via secure temp file)');
+      console.warn('[ClaudeIntegration] Switching to Claude profile:', activeProfile.name, '(via secure temp file)');
       return;
     } else if (activeProfile.configDir) {
       terminal.pty.write(`${cwdCommand}CLAUDE_CONFIG_DIR="${activeProfile.configDir}" claude\r`);
-      console.log('[ClaudeIntegration] Using Claude profile:', activeProfile.name, 'config:', activeProfile.configDir);
+      console.warn('[ClaudeIntegration] Using Claude profile:', activeProfile.name, 'config:', activeProfile.configDir);
       return;
     }
   }
 
   if (activeProfile && !activeProfile.isDefault) {
-    console.log('[ClaudeIntegration] Using Claude profile:', activeProfile.name, '(from terminal environment)');
+    console.warn('[ClaudeIntegration] Using Claude profile:', activeProfile.name, '(from terminal environment)');
   }
 
   terminal.pty.write(`${cwdCommand}claude\r`);
@@ -265,7 +264,7 @@ export async function switchClaudeProfile(
     return { success: false, error: 'Profile not found' };
   }
 
-  console.log('[ClaudeIntegration] Switching to Claude profile:', profile.name);
+  console.warn('[ClaudeIntegration] Switching to Claude profile:', profile.name);
 
   if (terminal.isClaudeMode) {
     terminal.pty.write('\x03');

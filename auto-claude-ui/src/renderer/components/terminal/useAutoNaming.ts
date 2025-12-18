@@ -31,7 +31,7 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
         updateTerminal(terminalId, { title: result.data });
       }
     } catch (error) {
-      console.debug('[Terminal] Auto-naming failed:', error);
+      console.warn('[Terminal] Auto-naming failed:', error);
     }
   }, [autoNameTerminals, terminal?.isClaudeMode, terminal?.cwd, cwd, terminalId, updateTerminal]);
 

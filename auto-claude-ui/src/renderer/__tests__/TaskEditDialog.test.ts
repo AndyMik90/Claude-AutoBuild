@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useTaskStore, persistUpdateTask } from '../stores/task-store';
-import type { Task, TaskStatus, ElectronAPI } from '../../shared/types';
+import type { Task, TaskStatus } from '../../shared/types';
 
 // Helper to create test tasks
 function createTestTask(overrides: Partial<Task> = {}): Task {

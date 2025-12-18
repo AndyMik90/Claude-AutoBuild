@@ -49,7 +49,7 @@ class SessionPersistence {
     const sessions = this.loadSessions();
     this.isInitialized = true;
 
-    console.log(`[SessionPersistence] Initialized with ${sessions.length} sessions`);
+    console.warn(`[SessionPersistence] Initialized with ${sessions.length} sessions`);
     return this.getRecoveryInfo();
   }
 
@@ -90,7 +90,7 @@ class SessionPersistence {
 
       validSessions.forEach((s) => this.sessions.set(s.id, s));
 
-      console.log(
+      console.warn(
         `[SessionPersistence] Loaded ${validSessions.length} valid sessions, cleaned ${staleSessions.length} stale sessions`
       );
       return validSessions;
@@ -188,7 +188,7 @@ class SessionPersistence {
       fs.writeFileSync(bufferPath, serializedBuffer, 'utf8');
       session.bufferFile = bufferFile;
       this.saveSession(session);
-      console.debug(`[SessionPersistence] Saved buffer for session ${sessionId} (${serializedBuffer.length} bytes)`);
+      console.warn(`[SessionPersistence] Saved buffer for session ${sessionId} (${serializedBuffer.length} bytes)`);
     } catch (error) {
       console.error(`[SessionPersistence] Failed to save buffer for ${sessionId}:`, error);
     }
@@ -223,7 +223,7 @@ class SessionPersistence {
     if (fs.existsSync(bufferPath)) {
       try {
         fs.unlinkSync(bufferPath);
-        console.debug(`[SessionPersistence] Deleted buffer file: ${bufferFile}`);
+        console.warn(`[SessionPersistence] Deleted buffer file: ${bufferFile}`);
       } catch (error) {
         console.error(`[SessionPersistence] Failed to delete buffer file ${bufferFile}:`, error);
       }
@@ -266,7 +266,7 @@ class SessionPersistence {
 
     try {
       fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2), 'utf8');
-      console.debug(`[SessionPersistence] Saved ${data.sessions.length} sessions to disk`);
+      console.warn(`[SessionPersistence] Saved ${data.sessions.length} sessions to disk`);
     } catch (error) {
       console.error('[SessionPersistence] Failed to save sessions:', error);
     }
@@ -296,7 +296,7 @@ class SessionPersistence {
       }
 
       if (cleanedCount > 0) {
-        console.log(`[SessionPersistence] Cleaned up ${cleanedCount} orphaned buffer files`);
+        console.warn(`[SessionPersistence] Cleaned up ${cleanedCount} orphaned buffer files`);
       }
     } catch (error) {
       console.error('[SessionPersistence] Failed to cleanup orphaned buffers:', error);
@@ -309,7 +309,7 @@ export const sessionPersistence = new SessionPersistence();
 
 // Hook into app lifecycle
 app.on('before-quit', () => {
-  console.log('[SessionPersistence] App quitting, saving sessions...');
+  console.warn('[SessionPersistence] App quitting, saving sessions...');
   sessionPersistence.saveNow();
 });
 

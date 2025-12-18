@@ -5,7 +5,7 @@
 
 import * as pty from 'node-pty';
 import * as os from 'os';
-import type { TerminalProcess, WindowGetter, TerminalOperationResult } from './types';
+import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 
@@ -24,7 +24,7 @@ export function spawnPtyProcess(
 
   const shellArgs = process.platform === 'win32' ? [] : ['-l'];
 
-  console.log('[PtyManager] Spawning shell:', shell, shellArgs);
+  console.warn('[PtyManager] Spawning shell:', shell, shellArgs);
 
   return pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
@@ -69,7 +69,7 @@ export function setupPtyHandlers(
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
-    console.log('[PtyManager] Terminal exited:', id, 'code:', exitCode);
+    console.warn('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
     const win = getWindow();
     if (win) {

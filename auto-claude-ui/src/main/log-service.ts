@@ -17,7 +17,7 @@ export interface LogEntry {
 
 /**
  * Service for persisting and retrieving task execution logs
- * 
+ *
  * Log files are stored in {specDir}/logs/ with format:
  * - session-{ISO-timestamp}.log - Raw log output per execution session
  * - latest.log - Copy of most recent session's logs
@@ -26,7 +26,7 @@ export class LogService {
   private activeSessions: Map<string, { sessionId: string; logPath: string; startedAt: Date }> = new Map();
   private logBuffers: Map<string, string[]> = new Map();
   private flushIntervals: Map<string, NodeJS.Timeout> = new Map();
-  
+
   // Flush logs to disk every 2 seconds to balance performance vs data safety
   private readonly FLUSH_INTERVAL_MS = 2000;
   // Maximum log file size before rotation (10MB)
@@ -39,7 +39,7 @@ export class LogService {
    */
   startSession(taskId: string, specDir: string): string {
     const logsDir = path.join(specDir, 'logs');
-    
+
     // Ensure logs directory exists
     if (!existsSync(logsDir)) {
       mkdirSync(logsDir, { recursive: true });
@@ -60,7 +60,7 @@ export class LogService {
       '='.repeat(80),
       ''
     ].join('\n');
-    
+
     writeFileSync(logFile, header);
 
     // Track active session
@@ -82,7 +82,7 @@ export class LogService {
     // Clean up old sessions
     this.cleanupOldSessions(logsDir);
 
-    console.log(`[LogService] Started session ${sessionId} for task ${taskId}`);
+    console.warn(`[LogService] Started session ${sessionId} for task ${taskId}`);
     return sessionId;
   }
 
@@ -120,7 +120,7 @@ export class LogService {
   private flushBuffer(taskId: string): void {
     const session = this.activeSessions.get(taskId);
     const buffer = this.logBuffers.get(taskId);
-    
+
     if (!session || !buffer || buffer.length === 0) {
       return;
     }
@@ -150,7 +150,7 @@ export class LogService {
     const now = new Date();
     const duration = now.getTime() - session.startedAt.getTime();
     const durationStr = this.formatDuration(duration);
-    
+
     const footer = [
       '',
       '='.repeat(80),
@@ -181,7 +181,7 @@ export class LogService {
     this.activeSessions.delete(taskId);
     this.logBuffers.delete(taskId);
 
-    console.log(`[LogService] Ended session for task ${taskId}, exit code: ${exitCode}`);
+    console.warn(`[LogService] Ended session for task ${taskId}, exit code: ${exitCode}`);
   }
 
   /**
@@ -189,7 +189,7 @@ export class LogService {
    */
   getSessions(specDir: string): LogSession[] {
     const logsDir = path.join(specDir, 'logs');
-    
+
     if (!existsSync(logsDir)) {
       return [];
     }
@@ -203,7 +203,7 @@ export class LogService {
       const filePath = path.join(logsDir, file);
       const stats = statSync(filePath);
       const sessionId = file.replace('session-', '').replace('.log', '');
-      
+
       // Parse session ID back to date
       const dateStr = sessionId.replace(/-/g, (match, offset) => {
         // Replace first 2 dashes with actual dashes, rest with colons
@@ -211,7 +211,7 @@ export class LogService {
         if (offset === 10) return 'T';
         return ':';
       }).replace(/-(\d{3})Z$/, '.$1Z');
-      
+
       const startedAt = new Date(dateStr);
 
       // Count lines (approximate)
@@ -233,7 +233,7 @@ export class LogService {
    */
   loadSessionLogs(specDir: string, sessionId?: string): string {
     const logsDir = path.join(specDir, 'logs');
-    
+
     if (!existsSync(logsDir)) {
       return '';
     }
@@ -289,17 +289,17 @@ export class LogService {
 
       // Keep MAX_SESSIONS_TO_KEEP, delete the rest
       const toDelete = files.slice(this.MAX_SESSIONS_TO_KEEP);
-      
+
       for (const file of toDelete) {
         const filePath = path.join(logsDir, file);
         try {
           require('fs').unlinkSync(filePath);
-          console.log(`[LogService] Deleted old log session: ${file}`);
-        } catch (e) {
+          console.warn(`[LogService] Deleted old log session: ${file}`);
+        } catch (_e) {
           // Ignore deletion errors
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   }
@@ -339,4 +339,3 @@ export class LogService {
 
 // Singleton instance
 export const logService = new LogService();
-

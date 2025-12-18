@@ -57,7 +57,7 @@ export function useTerminalEvents({
     const cleanup = window.electronAPI.onTerminalClaudeSession((id, sessionId) => {
       if (id === terminalId) {
         useTerminalStore.getState().setClaudeSessionId(terminalId, sessionId);
-        console.log('[Terminal] Captured Claude session ID:', sessionId);
+        console.warn('[Terminal] Captured Claude session ID:', sessionId);
         onClaudeSession?.(sessionId);
       }
     });

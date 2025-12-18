@@ -4,25 +4,25 @@
 
 export const terminalMock = {
   createTerminal: async () => {
-    console.log('[Browser Mock] createTerminal called');
+    console.warn('[Browser Mock] createTerminal called');
     return { success: true };
   },
 
   destroyTerminal: async () => {
-    console.log('[Browser Mock] destroyTerminal called');
+    console.warn('[Browser Mock] destroyTerminal called');
     return { success: true };
   },
 
   sendTerminalInput: () => {
-    console.log('[Browser Mock] sendTerminalInput called');
+    console.warn('[Browser Mock] sendTerminalInput called');
   },
 
   resizeTerminal: () => {
-    console.log('[Browser Mock] resizeTerminal called');
+    console.warn('[Browser Mock] resizeTerminal called');
   },
 
   invokeClaudeInTerminal: () => {
-    console.log('[Browser Mock] invokeClaudeInTerminal called');
+    console.warn('[Browser Mock] invokeClaudeInTerminal called');
   },
 
   generateTerminalName: async () => ({
@@ -47,7 +47,7 @@ export const terminalMock = {
   clearTerminalSessions: async () => ({ success: true }),
 
   resumeClaudeInTerminal: () => {
-    console.log('[Browser Mock] resumeClaudeInTerminal called');
+    console.warn('[Browser Mock] resumeClaudeInTerminal called');
   },
 
   getTerminalSessionDates: async () => ({

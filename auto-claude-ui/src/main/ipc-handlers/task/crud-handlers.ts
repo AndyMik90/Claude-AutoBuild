@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata, Project } from '../../../shared/types';
+import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
 import { projectStore } from '../../project-store';
@@ -18,9 +18,9 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST,
     async (_, projectId: string): Promise<IPCResult<Task[]>> => {
-      console.log('[IPC] TASK_LIST called with projectId:', projectId);
+      console.warn('[IPC] TASK_LIST called with projectId:', projectId);
       const tasks = projectStore.getTasks(projectId);
-      console.log('[IPC] TASK_LIST returning', tasks.length, 'tasks');
+      console.warn('[IPC] TASK_LIST returning', tasks.length, 'tasks');
       return { success: true, data: tasks };
     }
   );
@@ -45,17 +45,17 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       // Auto-generate title if empty using Claude AI
       let finalTitle = title;
       if (!title || !title.trim()) {
-        console.log('[TASK_CREATE] Title is empty, generating with Claude AI...');
+        console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
         try {
           const generatedTitle = await titleGenerator.generateTitle(description);
           if (generatedTitle) {
             finalTitle = generatedTitle;
-            console.log('[TASK_CREATE] Generated title:', finalTitle);
+            console.warn('[TASK_CREATE] Generated title:', finalTitle);
           } else {
             // Fallback: create title from first line of description
             finalTitle = description.split('\n')[0].substring(0, 60);
             if (finalTitle.length === 60) finalTitle += '...';
-            console.log('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+            console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
           }
         } catch (err) {
           console.error('[TASK_CREATE] Title generation error:', err);
@@ -226,7 +226,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       try {
         if (existsSync(specDir)) {
           await rm(specDir, { recursive: true, force: true });
-          console.log(`[TASK_DELETE] Deleted spec directory: ${specDir}`);
+          console.warn(`[TASK_DELETE] Deleted spec directory: ${specDir}`);
         }
         return { success: true };
       } catch (error) {
@@ -269,17 +269,17 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         if (updates.title !== undefined && !updates.title.trim()) {
           // Get description to use for title generation
           const descriptionToUse = updates.description ?? task.description;
-          console.log('[TASK_UPDATE] Title is empty, generating with Claude AI...');
+          console.warn('[TASK_UPDATE] Title is empty, generating with Claude AI...');
           try {
             const generatedTitle = await titleGenerator.generateTitle(descriptionToUse);
             if (generatedTitle) {
               finalTitle = generatedTitle;
-              console.log('[TASK_UPDATE] Generated title:', finalTitle);
+              console.warn('[TASK_UPDATE] Generated title:', finalTitle);
             } else {
               // Fallback: create title from first line of description
               finalTitle = descriptionToUse.split('\n')[0].substring(0, 60);
               if (finalTitle.length === 60) finalTitle += '...';
-              console.log('[TASK_UPDATE] AI generation failed, using fallback:', finalTitle);
+              console.warn('[TASK_UPDATE] AI generation failed, using fallback:', finalTitle);
             }
           } catch (err) {
             console.error('[TASK_UPDATE] Title generation error:', err);

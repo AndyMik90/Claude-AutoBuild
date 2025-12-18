@@ -2,10 +2,7 @@ import { EventEmitter } from 'events';
 import type {
   InsightsSession,
   InsightsSessionSummary,
-  InsightsChatMessage,
-  InsightsChatStatus,
-  InsightsStreamChunk,
-  InsightsToolUsage
+  InsightsChatMessage
 } from '../shared/types';
 import { InsightsConfig } from './insights/config';
 import { InsightsPaths } from './insights/paths';

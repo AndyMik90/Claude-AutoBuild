@@ -10,9 +10,9 @@ const DEBUG = process.env.AUTO_CLAUDE_DEBUG === 'true' || process.env.AUTO_CLAUD
 function debug(message: string, data?: Record<string, unknown>): void {
   if (DEBUG) {
     if (data) {
-      console.log(`[ProjectInitializer] ${message}`, JSON.stringify(data, null, 2));
+      console.warn(`[ProjectInitializer] ${message}`, JSON.stringify(data, null, 2));
     } else {
-      console.log(`[ProjectInitializer] ${message}`);
+      console.warn(`[ProjectInitializer] ${message}`);
     }
   }
 }

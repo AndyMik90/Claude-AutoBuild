@@ -5,8 +5,17 @@ import type {
   TerminalCreateOptions,
   RateLimitInfo,
   ClaudeProfile,
-  ClaudeProfileSettings
+  ClaudeProfileSettings,
+  ClaudeUsageSnapshot
 } from '../../shared/types';
+
+/** Type for proactive swap notification events */
+interface ProactiveSwapNotification {
+  fromProfile: { id: string; name: string };
+  toProfile: { id: string; name: string };
+  reason: string;
+  usageSnapshot: ClaudeUsageSnapshot;
+}
 
 export interface TerminalAPI {
   // Terminal Operations
@@ -67,7 +76,7 @@ export interface TerminalAPI {
   // Usage Monitoring (Proactive Account Switching)
   requestUsageUpdate: () => Promise<IPCResult<import('../../shared/types').ClaudeUsageSnapshot | null>>;
   onUsageUpdated: (callback: (usage: import('../../shared/types').ClaudeUsageSnapshot) => void) => () => void;
-  onProactiveSwapNotification: (callback: (notification: any) => void) => () => void;
+  onProactiveSwapNotification: (callback: (notification: ProactiveSwapNotification) => void) => () => void;
 }
 
 export const createTerminalAPI = (): TerminalAPI => ({
@@ -294,9 +303,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
   },
 
   onProactiveSwapNotification: (
-    callback: (notification: any) => void
+    callback: (notification: ProactiveSwapNotification) => void
   ): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, notification: any): void => {
+    const handler = (_event: Electron.IpcRendererEvent, notification: ProactiveSwapNotification): void => {
       callback(notification);
     };
     ipcRenderer.on(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, handler);

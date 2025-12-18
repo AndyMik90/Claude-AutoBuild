@@ -9,7 +9,7 @@
  * To run: npx playwright test --config=e2e/playwright.config.ts
  */
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
-import { mkdirSync, rmSync, existsSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 
 // Test data directory
@@ -269,13 +269,13 @@ test.describe('E2E Flow Verification (Mock-based)', () => {
       'implementation_plan.json'
     );
 
-    const plan = JSON.parse(require('fs').readFileSync(planPath, 'utf-8'));
+    const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
     plan.phases[0].chunks[0].status = 'in_progress';
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
 
     // Verify update
-    const updatedPlan = JSON.parse(require('fs').readFileSync(planPath, 'utf-8'));
+    const updatedPlan = JSON.parse(readFileSync(planPath, 'utf-8'));
     expect(updatedPlan.phases[0].chunks[0].status).toBe('in_progress');
 
     cleanupTestEnvironment();
@@ -298,7 +298,7 @@ test.describe('E2E Flow Verification (Mock-based)', () => {
 
     expect(existsSync(qaReportPath)).toBe(true);
 
-    const content = require('fs').readFileSync(qaReportPath, 'utf-8');
+    const content = readFileSync(qaReportPath, 'utf-8');
     expect(content).toContain('APPROVED');
 
     cleanupTestEnvironment();
@@ -324,7 +324,7 @@ test.describe('E2E Flow Verification (Mock-based)', () => {
 
     expect(existsSync(fixRequestPath)).toBe(true);
 
-    const content = require('fs').readFileSync(fixRequestPath, 'utf-8');
+    const content = readFileSync(fixRequestPath, 'utf-8');
     expect(content).toContain('REJECTED');
     expect(content).toContain('Needs more tests');
 

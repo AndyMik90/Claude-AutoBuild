@@ -17,7 +17,7 @@ export function AutoBuildIntegration({
   isCheckingVersion,
   isUpdating,
   onInitialize,
-  onUpdate,
+  onUpdate: _onUpdate,
 }: AutoBuildIntegrationProps) {
   return (
     <section className="space-y-4">

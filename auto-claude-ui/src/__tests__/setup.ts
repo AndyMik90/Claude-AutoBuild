@@ -12,7 +12,7 @@ export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 beforeEach(() => {
   // Use a unique subdirectory per test to avoid race conditions in parallel tests
   const testId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const testDir = path.join(TEST_DATA_DIR, testId);
+  const _testDir = path.join(TEST_DATA_DIR, testId);
 
   try {
     if (existsSync(TEST_DATA_DIR)) {

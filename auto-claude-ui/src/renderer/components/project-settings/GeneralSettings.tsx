@@ -42,7 +42,7 @@ export function GeneralSettings({
   isCheckingVersion,
   isUpdating,
   handleInitialize,
-  handleUpdate
+  handleUpdate: _handleUpdate
 }: GeneralSettingsProps) {
   return (
     <>

@@ -2,7 +2,7 @@
  * Unit tests for RoadmapGenerationProgress component
  * Tests phase rendering, configuration, error display, and animation logic
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { RoadmapGenerationStatus } from '../../../shared/types/roadmap';
 
 // Helper to create test generation status
@@ -426,7 +426,7 @@ describe('RoadmapGenerationProgress', () => {
       const currentPhase = 'complete';
 
       // All step phases should show as complete when phase is 'complete'
-      stepPhases.forEach(phase => {
+      stepPhases.forEach(_phase => {
         // The getPhaseState function returns 'complete' for all phases when currentPhase is 'complete'
         expect(currentPhase === 'complete').toBe(true);
       });

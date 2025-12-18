@@ -5,7 +5,6 @@ import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapG
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { projectStore } from '../project-store';
-import { fileWatcher } from '../file-watcher';
 import { AgentManager } from '../agent';
 
 

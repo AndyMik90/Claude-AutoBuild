@@ -8,7 +8,7 @@ import { app } from 'electron';
 import { GITHUB_CONFIG, PRESERVE_FILES } from './config';
 import { downloadFile, fetchJson } from './http-client';
 import { parseVersionFromTag } from './version-manager';
-import { getUpdateCachePath, getUpdateTargetPath, getBundledSourcePath } from './path-resolver';
+import { getUpdateCachePath, getUpdateTargetPath } from './path-resolver';
 import { extractTarball, copyDirectoryRecursive, preserveFiles, restoreFiles, cleanTargetDirectory } from './file-operations';
 import { getCachedRelease, setCachedRelease, clearCachedRelease } from './update-checker';
 import { GitHubRelease, AutoBuildUpdateResult, UpdateProgressCallback, UpdateMetadata } from './types';

@@ -15,7 +15,20 @@ const SOCKET_PATH =
     ? `\\\\.\\pipe\\auto-claude-pty-${process.getuid?.() || 'default'}`
     : `/tmp/auto-claude-pty-${process.getuid?.() || 'default'}.sock`;
 
-type ResponseHandler = (response: any) => void;
+interface DaemonResponseData {
+  exitCode?: number;
+  signal?: number;
+}
+
+interface DaemonResponse {
+  requestId?: string;
+  type: string;
+  id?: string;
+  data?: string | DaemonResponseData;
+  error?: string;
+}
+
+type ResponseHandler = (response: DaemonResponse) => void;
 
 interface PtyConfig {
   shell: string;
@@ -62,13 +75,13 @@ class PtyDaemonClient {
     try {
       // Try to connect to existing daemon
       await this.tryConnect();
-      console.log('[PtyDaemonClient] Connected to existing daemon');
+      console.warn('[PtyDaemonClient] Connected to existing daemon');
     } catch {
       // Spawn daemon and connect
-      console.log('[PtyDaemonClient] Spawning new daemon...');
+      console.warn('[PtyDaemonClient] Spawning new daemon...');
       await this.spawnDaemon();
       await this.tryConnect();
-      console.log('[PtyDaemonClient] Connected to new daemon');
+      console.warn('[PtyDaemonClient] Connected to new daemon');
     } finally {
       this.isConnecting = false;
       this.reconnectAttempts = 0;
@@ -119,7 +132,7 @@ class PtyDaemonClient {
       // Unref so parent can exit independently
       this.daemonProcess.unref();
 
-      console.log(`[PtyDaemonClient] Spawned daemon process (PID: ${this.daemonProcess.pid})`);
+      console.warn(`[PtyDaemonClient] Spawned daemon process (PID: ${this.daemonProcess.pid})`);
 
       // Wait for daemon to start listening
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -154,7 +167,7 @@ class PtyDaemonClient {
     });
 
     this.socket.on('close', () => {
-      console.log('[PtyDaemonClient] Disconnected from daemon');
+      console.warn('[PtyDaemonClient] Disconnected from daemon');
       this.socket = null;
       if (!this.isShuttingDown) {
         this.attemptReconnect();
@@ -169,7 +182,7 @@ class PtyDaemonClient {
   /**
    * Handle response from daemon
    */
-  private handleResponse(response: any): void {
+  private handleResponse(response: DaemonResponse): void {
     // Handle request-response pattern
     if (response.requestId) {
       const handler = this.pendingRequests.get(response.requestId);
@@ -183,7 +196,7 @@ class PtyDaemonClient {
     // Handle streaming data
     if (response.type === 'data' && response.id) {
       const handler = this.dataHandlers.get(response.id);
-      if (handler) {
+      if (handler && typeof response.data === 'string') {
         handler(response.data);
       }
       return;
@@ -192,8 +205,9 @@ class PtyDaemonClient {
     // Handle exit events
     if (response.type === 'exit' && response.id) {
       const handler = this.exitHandlers.get(response.id);
-      if (handler) {
-        handler(response.data.exitCode, response.data.signal);
+      if (handler && typeof response.data === 'object' && response.data !== null) {
+        const exitData = response.data as DaemonResponseData;
+        handler(exitData.exitCode ?? 0, exitData.signal);
       }
       return;
     }
@@ -213,7 +227,7 @@ class PtyDaemonClient {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
 
-    console.log(
+    console.warn(
       `[PtyDaemonClient] Reconnect attempt ${this.reconnectAttempts} in ${delay}ms...`
     );
 
@@ -227,7 +241,7 @@ class PtyDaemonClient {
   /**
    * Send a request and wait for response
    */
-  private async request<T>(msg: any): Promise<T> {
+  private async request<T>(msg: Record<string, unknown>): Promise<T> {
     await this.connect();
 
     if (!this.socket) {
@@ -258,7 +272,7 @@ class PtyDaemonClient {
   /**
    * Send a message without expecting a response
    */
-  private send(msg: any): void {
+  private send(msg: Record<string, unknown>): void {
     if (!this.socket) {
       console.warn('[PtyDaemonClient] Cannot send - not connected');
       return;

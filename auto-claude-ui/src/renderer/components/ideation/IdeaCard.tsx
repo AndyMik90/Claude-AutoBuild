@@ -1,4 +1,4 @@
-import { ExternalLink, Play, X, Check } from 'lucide-react';
+import { ExternalLink, Play, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
@@ -13,7 +13,6 @@ import {
   SECURITY_SEVERITY_COLORS,
   UIUX_CATEGORY_LABELS,
   DOCUMENTATION_CATEGORY_LABELS,
-  SECURITY_CATEGORY_LABELS,
   CODE_QUALITY_SEVERITY_COLORS
 } from '../../../shared/constants';
 import type {

@@ -14,9 +14,9 @@ const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'developm
 function debugLog(message: string, data?: unknown): void {
   if (DEBUG) {
     if (data !== undefined) {
-      console.log(`[GitHub OAuth] ${message}`, data);
+      console.warn(`[GitHub OAuth] ${message}`, data);
     } else {
-      console.log(`[GitHub OAuth] ${message}`);
+      console.warn(`[GitHub OAuth] ${message}`);
     }
   }
 }

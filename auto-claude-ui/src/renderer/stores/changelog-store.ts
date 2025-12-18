@@ -6,9 +6,7 @@ import type {
   ChangelogAudience,
   ChangelogEmojiLevel,
   ChangelogGenerationProgress,
-  ChangelogGenerationResult,
   ExistingChangelog,
-  Task,
   ChangelogSourceMode,
   GitBranchInfo,
   GitTagInfo,
@@ -550,7 +548,7 @@ export function copyChangelogToClipboard(): boolean {
   try {
     navigator.clipboard.writeText(store.generatedChangelog);
     return true;
-  } catch (error) {
+  } catch (_error) {
     store.setError('Failed to copy to clipboard');
     return false;
   }

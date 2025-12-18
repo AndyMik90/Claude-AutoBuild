@@ -5,7 +5,7 @@ import type { IPCResult, ProjectEnvConfig, ClaudeAuthResult, AppSettings } from 
 import path from 'path';
 import { app } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { execSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
 
@@ -14,7 +14,7 @@ import { parseEnvFile } from './utils';
  * Register all env-related IPC handlers
  */
 export function registerEnvHandlers(
-  getMainWindow: () => BrowserWindow | null
+  _getMainWindow: () => BrowserWindow | null
 ): void {
   // ============================================
   // Environment Configuration Operations
@@ -85,7 +85,7 @@ export function registerEnvHandlers(
     }
 
     // Generate content with sections
-    let content = `# Auto Claude Framework Environment Variables
+    const content = `# Auto Claude Framework Environment Variables
 # Managed by Auto Claude UI
 
 # Claude Code OAuth Token (REQUIRED)
@@ -304,15 +304,15 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
             shell: true
           });
 
-          let stdout = '';
-          let stderr = '';
+          let _stdout = '';
+          let _stderr = '';
 
           proc.stdout?.on('data', (data: Buffer) => {
-            stdout += data.toString();
+            _stdout += data.toString();
           });
 
           proc.stderr?.on('data', (data: Buffer) => {
-            stderr += data.toString();
+            _stderr += data.toString();
           });
 
           proc.on('close', (code: number | null) => {

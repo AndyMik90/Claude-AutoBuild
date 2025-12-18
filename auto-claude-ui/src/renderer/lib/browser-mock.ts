@@ -13,7 +13,6 @@ import {
   workspaceMock,
   terminalMock,
   claudeProfileMock,
-  roadmapMock,
   contextMock,
   integrationMock,
   changelogMock,
@@ -59,16 +58,16 @@ const browserMockAPI: ElectronAPI = {
   }),
 
   generateRoadmap: () => {
-    console.log('[Browser Mock] generateRoadmap called');
+    console.warn('[Browser Mock] generateRoadmap called');
   },
 
   refreshRoadmap: () => {
-    console.log('[Browser Mock] refreshRoadmap called');
+    console.warn('[Browser Mock] refreshRoadmap called');
   },
 
   updateFeatureStatus: async () => ({ success: true }),
 
-  convertFeatureToSpec: async (projectId: string, featureId: string) => ({
+  convertFeatureToSpec: async (projectId: string, _featureId: string) => ({
     success: true,
     data: {
       id: `task-${Date.now()}`,
@@ -109,7 +108,7 @@ const browserMockAPI: ElectronAPI = {
  */
 export function initBrowserMock(): void {
   if (!isElectron) {
-    console.log('%c[Browser Mock] Initializing mock electronAPI for browser preview', 'color: #f0ad4e; font-weight: bold;');
+    console.warn('%c[Browser Mock] Initializing mock electronAPI for browser preview', 'color: #f0ad4e; font-weight: bold;');
     (window as Window & { electronAPI: ElectronAPI }).electronAPI = browserMockAPI;
   }
 }

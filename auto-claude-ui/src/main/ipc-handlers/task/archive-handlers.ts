@@ -18,12 +18,12 @@ export function registerTaskArchiveHandlers(): void {
       taskIds: string[],
       version?: string
     ): Promise<IPCResult<boolean>> => {
-      console.log('[IPC] TASK_ARCHIVE called with projectId:', projectId, 'taskIds:', taskIds);
+      console.warn('[IPC] TASK_ARCHIVE called with projectId:', projectId, 'taskIds:', taskIds);
 
       const result = projectStore.archiveTasks(projectId, taskIds, version);
 
       if (result) {
-        console.log('[IPC] TASK_ARCHIVE success');
+        console.warn('[IPC] TASK_ARCHIVE success');
         return { success: true, data: true };
       } else {
         console.error('[IPC] TASK_ARCHIVE failed');
@@ -38,12 +38,12 @@ export function registerTaskArchiveHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.TASK_UNARCHIVE,
     async (_, projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> => {
-      console.log('[IPC] TASK_UNARCHIVE called with projectId:', projectId, 'taskIds:', taskIds);
+      console.warn('[IPC] TASK_UNARCHIVE called with projectId:', projectId, 'taskIds:', taskIds);
 
       const result = projectStore.unarchiveTasks(projectId, taskIds);
 
       if (result) {
-        console.log('[IPC] TASK_UNARCHIVE success');
+        console.warn('[IPC] TASK_UNARCHIVE success');
         return { success: true, data: true };
       } else {
         console.error('[IPC] TASK_UNARCHIVE failed');

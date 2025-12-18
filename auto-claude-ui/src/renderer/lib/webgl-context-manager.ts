@@ -25,7 +25,7 @@ class WebGLContextManager {
     // Use conservative max based on browser detection
     this.MAX_CONTEXTS = Math.min(getMaxWebGLContexts(), 8);
 
-    console.log(
+    console.warn(
       `[WebGLContextManager] Initialized - Supported: ${this.isSupported}, Max contexts: ${this.MAX_CONTEXTS}`
     );
   }
@@ -42,7 +42,7 @@ class WebGLContextManager {
    */
   register(terminalId: string, xterm: Terminal): void {
     this.terminals.set(terminalId, xterm);
-    console.debug(`[WebGLContextManager] Registered terminal ${terminalId}`);
+    console.warn(`[WebGLContextManager] Registered terminal ${terminalId}`);
   }
 
   /**
@@ -53,7 +53,7 @@ class WebGLContextManager {
     this.terminals.delete(terminalId);
     // Remove from LRU queue
     this.contextQueue = this.contextQueue.filter((id) => id !== terminalId);
-    console.debug(`[WebGLContextManager] Unregistered terminal ${terminalId}`);
+    console.warn(`[WebGLContextManager] Unregistered terminal ${terminalId}`);
   }
 
   /**
@@ -82,7 +82,7 @@ class WebGLContextManager {
     if (this.activeContexts.size >= this.MAX_CONTEXTS) {
       const oldest = this.contextQueue.shift();
       if (oldest) {
-        console.log(
+        console.warn(
           `[WebGLContextManager] Evicting oldest context: ${oldest} (at limit ${this.MAX_CONTEXTS})`
         );
         this.release(oldest);
@@ -104,7 +104,7 @@ class WebGLContextManager {
       this.activeContexts.set(terminalId, addon);
       this.contextQueue.push(terminalId);
 
-      console.log(
+      console.warn(
         `[WebGLContextManager] Acquired context for ${terminalId} (active: ${this.activeContexts.size}/${this.MAX_CONTEXTS})`
       );
       return true;
@@ -125,11 +125,11 @@ class WebGLContextManager {
 
     try {
       addon.dispose();
-      console.log(
+      console.warn(
         `[WebGLContextManager] Released context for ${terminalId} (active: ${this.activeContexts.size - 1}/${this.MAX_CONTEXTS})`
       );
     } catch (error) {
-      console.debug(`[WebGLContextManager] Error disposing context for ${terminalId}:`, error);
+      console.warn(`[WebGLContextManager] Error disposing context for ${terminalId}:`, error);
       // Context may already be lost, continue cleanup
     }
 
@@ -168,7 +168,7 @@ class WebGLContextManager {
    * Force release all contexts (for debugging or emergency cleanup)
    */
   releaseAll(): void {
-    console.log('[WebGLContextManager] Releasing all contexts');
+    console.warn('[WebGLContextManager] Releasing all contexts');
     const terminalIds = Array.from(this.activeContexts.keys());
     for (const id of terminalIds) {
       this.release(id);
@@ -181,5 +181,5 @@ export const webglContextManager = WebGLContextManager.getInstance();
 
 // For debugging in browser console
 if (typeof window !== 'undefined') {
-  (window as any).__webglContextManager = webglContextManager;
+  (window as Window & { __webglContextManager?: WebGLContextManager }).__webglContextManager = webglContextManager;
 }

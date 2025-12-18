@@ -43,7 +43,7 @@ class BufferPersistence {
     // Start periodic saves
     const saveInterval = setInterval(() => {
       this.saveBuffer(terminalId).catch((error) => {
-        console.debug(`[BufferPersistence] Auto-save failed for ${terminalId}:`, error);
+        console.warn(`[BufferPersistence] Auto-save failed for ${terminalId}:`, error);
       });
     }, SAVE_INTERVAL_MS);
 
@@ -58,7 +58,7 @@ class BufferPersistence {
 
     this.terminals.set(terminalId, managed);
 
-    console.debug(`[BufferPersistence] Registered terminal ${terminalId}`);
+    console.warn(`[BufferPersistence] Registered terminal ${terminalId}`);
 
     return serializeAddon;
   }
@@ -77,7 +77,7 @@ class BufferPersistence {
     this.terminals.delete(terminalId);
     this.isSaving.delete(terminalId);
 
-    console.debug(`[BufferPersistence] Unregistered terminal ${terminalId}`);
+    console.warn(`[BufferPersistence] Unregistered terminal ${terminalId}`);
   }
 
   /**
@@ -118,7 +118,7 @@ class BufferPersistence {
       // Update last saved size
       managed.lastSavedSize = currentSize;
 
-      console.debug(
+      console.warn(
         `[BufferPersistence] Saved buffer for ${terminalId} (${currentSize} bytes)`
       );
     } catch (error) {
@@ -140,7 +140,7 @@ class BufferPersistence {
       const serialized = managed.serializeAddon.serialize();
       await window.electronAPI.saveTerminalBuffer(terminalId, serialized);
       managed.lastSavedSize = serialized.length;
-      console.debug(`[BufferPersistence] Immediate save for ${terminalId} complete`);
+      console.warn(`[BufferPersistence] Immediate save for ${terminalId} complete`);
     } catch (error) {
       console.error(`[BufferPersistence] Failed to immediately save ${terminalId}:`, error);
       throw error;
@@ -151,7 +151,7 @@ class BufferPersistence {
    * Save all registered terminals
    */
   async saveAll(): Promise<void> {
-    console.log(`[BufferPersistence] Saving all buffers (${this.terminals.size} terminals)`);
+    console.warn(`[BufferPersistence] Saving all buffers (${this.terminals.size} terminals)`);
 
     const saves = Array.from(this.terminals.keys()).map((id) =>
       this.saveNow(id).catch((error) => {
@@ -160,7 +160,7 @@ class BufferPersistence {
     );
 
     await Promise.all(saves);
-    console.log('[BufferPersistence] All buffers saved');
+    console.warn('[BufferPersistence] All buffers saved');
   }
 
   /**
@@ -196,7 +196,7 @@ class BufferPersistence {
    * Cleanup all terminals
    */
   cleanup(): void {
-    console.log('[BufferPersistence] Cleaning up all terminals');
+    console.warn('[BufferPersistence] Cleaning up all terminals');
     Array.from(this.terminals.keys()).forEach((id) => this.unregister(id));
   }
 }
@@ -206,7 +206,7 @@ export const bufferPersistence = new BufferPersistence();
 
 // Save all buffers before page unload
 window.addEventListener('beforeunload', () => {
-  console.log('[BufferPersistence] Page unloading, saving all buffers...');
+  console.warn('[BufferPersistence] Page unloading, saving all buffers...');
   // Use synchronous save via IPC if available, otherwise fire and forget
   bufferPersistence.saveAll().catch((error) => {
     console.error('[BufferPersistence] Failed to save all buffers on unload:', error);

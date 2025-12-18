@@ -11,6 +11,34 @@ import path from 'path';
 const TEST_DIR = '/tmp/ipc-handlers-test';
 const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
 
+// Mock electron-updater before importing
+vi.mock('electron-updater', () => ({
+  autoUpdater: {
+    autoDownload: true,
+    autoInstallOnAppQuit: true,
+    on: vi.fn(),
+    checkForUpdates: vi.fn(() => Promise.resolve(null)),
+    downloadUpdate: vi.fn(() => Promise.resolve()),
+    quitAndInstall: vi.fn()
+  }
+}));
+
+// Mock @electron-toolkit/utils before importing
+vi.mock('@electron-toolkit/utils', () => ({
+  is: {
+    dev: true,
+    windows: process.platform === 'win32',
+    macos: process.platform === 'darwin',
+    linux: process.platform === 'linux'
+  },
+  electronApp: {
+    setAppUserModelId: vi.fn()
+  },
+  optimizer: {
+    watchWindowShortcuts: vi.fn()
+  }
+}));
+
 // Mock modules before importing
 vi.mock('electron', () => {
   const mockIpcMain = new (class extends EventEmitter {

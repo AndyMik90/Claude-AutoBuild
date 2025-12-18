@@ -43,9 +43,7 @@ import {
 } from './ui/select';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import {
-  ROADMAP_PRIORITY_LABELS,
-  ROADMAP_COMPLEXITY_COLORS,
-  ROADMAP_IMPACT_COLORS
+  ROADMAP_PRIORITY_LABELS
 } from '../../shared/constants';
 import type {
   RoadmapPhase,

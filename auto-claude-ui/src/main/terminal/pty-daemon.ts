@@ -56,14 +56,14 @@ interface DaemonMessage {
     | 'get-buffer'
     | 'ping';
   id?: string;
-  data?: any;
+  data?: unknown;
   requestId?: string;
 }
 
 interface DaemonResponse {
   type: 'created' | 'list' | 'buffer' | 'data' | 'exit' | 'error' | 'pong';
   id?: string;
-  data?: any;
+  data?: unknown;
   requestId?: string;
   error?: string;
 }
@@ -102,9 +102,9 @@ class PtyDaemon {
       this.handleConnection(socket);
     });
 
-    this.server.on('error', (err) => {
+    this.server.on('error', (err: NodeJS.ErrnoException) => {
       console.error('[PTY Daemon] Server error:', err);
-      if ((err as any).code === 'EADDRINUSE') {
+      if (err.code === 'EADDRINUSE') {
         console.error('[PTY Daemon] Address in use - another daemon may be running');
         process.exit(1);
       }
@@ -172,20 +172,22 @@ class PtyDaemon {
           break;
 
         case 'create': {
-          const id = this.createPty(msg.data);
+          const id = this.createPty(msg.data as PtyConfig);
           this.send(socket, { type: 'created', id, requestId: msg.requestId });
           break;
         }
 
         case 'write':
           if (!msg.id) throw new Error('Missing PTY id');
-          this.writeToPty(msg.id, msg.data);
+          this.writeToPty(msg.id, msg.data as string);
           break;
 
-        case 'resize':
+        case 'resize': {
           if (!msg.id) throw new Error('Missing PTY id');
-          this.resizePty(msg.id, msg.data.cols, msg.data.rows);
+          const resizeData = msg.data as { cols: number; rows: number };
+          this.resizePty(msg.id, resizeData.cols, resizeData.rows);
           break;
+        }
 
         case 'kill':
           if (!msg.id) throw new Error('Missing PTY id');
@@ -221,7 +223,7 @@ class PtyDaemon {
         }
 
         default:
-          throw new Error(`Unknown message type: ${(msg as any).type}`);
+          throw new Error(`Unknown message type: ${(msg as DaemonMessage).type}`);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -428,7 +430,7 @@ class PtyDaemon {
       socket.write(JSON.stringify(response) + '\n');
     } catch {
       // Socket may be closed, ignore
-      console.debug('[PTY Daemon] Failed to send response (socket closed?)');
+      console.warn('[PTY Daemon] Failed to send response (socket closed?)');
     }
   }
 

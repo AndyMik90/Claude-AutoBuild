@@ -23,7 +23,7 @@ interface TaskDetailPanelProps {
 
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const state = useTaskDetail({ task });
-  const progress = calculateProgress(task.subtasks);
+  const _progress = calculateProgress(task.subtasks);
 
   // Event Handlers
   const handleStartStop = () => {
@@ -68,35 +68,35 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   };
 
   const handleMerge = async () => {
-    console.log('[TaskDetailPanel] handleMerge called, stageOnly:', state.stageOnly);
+    console.warn('[TaskDetailPanel] handleMerge called, stageOnly:', state.stageOnly);
     state.setIsMerging(true);
     state.setWorkspaceError(null);
     try {
-      console.log('[TaskDetailPanel] Calling mergeWorktree...');
+      console.warn('[TaskDetailPanel] Calling mergeWorktree...');
       const result = await window.electronAPI.mergeWorktree(task.id, { noCommit: state.stageOnly });
-      console.log('[TaskDetailPanel] mergeWorktree result:', JSON.stringify(result, null, 2));
+      console.warn('[TaskDetailPanel] mergeWorktree result:', JSON.stringify(result, null, 2));
       if (result.success && result.data?.success) {
         // For stage-only: don't close the panel, show success message
         // For full merge: close the panel
         if (state.stageOnly && result.data.staged) {
           // Changes are staged in main project - show success but keep panel open
-          console.log('[TaskDetailPanel] Stage-only success, showing success message');
+          console.warn('[TaskDetailPanel] Stage-only success, showing success message');
           state.setWorkspaceError(null);
           state.setStagedSuccess(result.data.message || 'Changes staged in main project');
           state.setStagedProjectPath(result.data.projectPath);
         } else {
-          console.log('[TaskDetailPanel] Full merge success, closing panel');
+          console.warn('[TaskDetailPanel] Full merge success, closing panel');
           onClose();
         }
       } else {
-        console.log('[TaskDetailPanel] Merge failed:', result.data?.message || result.error);
+        console.warn('[TaskDetailPanel] Merge failed:', result.data?.message || result.error);
         state.setWorkspaceError(result.data?.message || result.error || 'Failed to merge changes');
       }
     } catch (error) {
       console.error('[TaskDetailPanel] handleMerge exception:', error);
       state.setWorkspaceError(error instanceof Error ? error.message : 'Unknown error during merge');
     } finally {
-      console.log('[TaskDetailPanel] Setting isMerging to false');
+      console.warn('[TaskDetailPanel] Setting isMerging to false');
       state.setIsMerging(false);
     }
   };

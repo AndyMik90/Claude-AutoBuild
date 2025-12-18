@@ -160,7 +160,7 @@ function buildTaskMetadata(idea: RawIdea): TaskMetadata {
 function createSpecFiles(
   specDir: string,
   idea: RawIdea,
-  taskDescription: string
+  _taskDescription: string
 ): void {
   // Create the spec directory
   mkdirSync(specDir, { recursive: true });

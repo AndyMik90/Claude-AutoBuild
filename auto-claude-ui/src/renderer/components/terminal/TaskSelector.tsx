@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
 import { ListTodo, Plus, X, ChevronDown, Loader2 } from 'lucide-react';
-import type { Task, ExecutionPhase } from '../../../shared/types';
+import type { Task } from '../../../shared/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +20,7 @@ interface TaskSelectorProps {
 }
 
 export function TaskSelector({
-  terminalId,
+  terminalId: _terminalId,
   backlogTasks,
   associatedTask,
   onTaskSelect,

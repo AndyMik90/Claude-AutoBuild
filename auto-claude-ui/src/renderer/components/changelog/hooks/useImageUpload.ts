@@ -58,7 +58,7 @@ export function useImageUpload({ projectId, content, onContentChange }: UseImage
       } else {
         setImageError(result.error || 'Failed to save image');
       }
-    } catch (err) {
+    } catch (_err) {
       setImageError('Failed to process image');
     }
   }, [projectId, insertImageAtCursor]);

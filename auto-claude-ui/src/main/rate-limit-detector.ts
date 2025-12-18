@@ -144,7 +144,7 @@ export function getProfileEnv(profileId?: string): Record<string, string> {
     ? profileManager.getProfile(profileId)
     : profileManager.getActiveProfile();
 
-  console.log('[getProfileEnv] Active profile:', {
+  console.warn('[getProfileEnv] Active profile:', {
     profileId: profile?.id,
     profileName: profile?.name,
     email: profile?.email,
@@ -154,19 +154,19 @@ export function getProfileEnv(profileId?: string): Record<string, string> {
   });
 
   if (!profile) {
-    console.log('[getProfileEnv] No profile found, using defaults');
+    console.warn('[getProfileEnv] No profile found, using defaults');
     return {};
   }
 
   // Prefer OAuth token (instant switching, no browser auth needed)
   // Use profile manager to get decrypted token
   if (profile.oauthToken) {
-    const decryptedToken = profileId 
+    const decryptedToken = profileId
       ? profileManager.getProfileToken(profileId)
       : profileManager.getActiveProfileToken();
-    
+
     if (decryptedToken) {
-      console.log('[getProfileEnv] Using OAuth token for profile:', profile.name);
+      console.warn('[getProfileEnv] Using OAuth token for profile:', profile.name);
       return {
         CLAUDE_CODE_OAUTH_TOKEN: decryptedToken
       };
@@ -177,20 +177,20 @@ export function getProfileEnv(profileId?: string): Record<string, string> {
 
   // Fallback: If default profile, no env vars needed
   if (profile.isDefault) {
-    console.log('[getProfileEnv] Using default profile (no env vars)');
+    console.warn('[getProfileEnv] Using default profile (no env vars)');
     return {};
   }
 
   // Fallback: Use configDir for profiles without OAuth token (legacy)
   if (profile.configDir) {
-    console.log('[getProfileEnv] Using configDir fallback for profile:', profile.name);
+    console.warn('[getProfileEnv] Using configDir fallback for profile:', profile.name);
     console.warn('[getProfileEnv] WARNING: Profile has no OAuth token. Run "claude setup-token" and save the token to enable instant switching.');
     return {
       CLAUDE_CONFIG_DIR: profile.configDir
     };
   }
 
-  console.log('[getProfileEnv] Profile has no auth method configured');
+  console.warn('[getProfileEnv] Profile has no auth method configured');
   return {};
 }
 

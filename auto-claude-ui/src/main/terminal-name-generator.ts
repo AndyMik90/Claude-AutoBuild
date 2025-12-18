@@ -12,7 +12,7 @@ const DEBUG = process.env.AUTO_CLAUDE_DEBUG === 'true' || process.env.AUTO_CLAUD
 
 function debug(...args: unknown[]): void {
   if (DEBUG) {
-    console.log('[TerminalNameGenerator]', ...args);
+    console.warn('[TerminalNameGenerator]', ...args);
   }
 }
 

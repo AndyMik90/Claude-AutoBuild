@@ -36,7 +36,7 @@ export function fetchJson<T>(url: string): Promise<T> {
       response.on('end', () => {
         try {
           resolve(JSON.parse(data) as T);
-        } catch (e) {
+        } catch (_e) {
           reject(new Error('Failed to parse JSON response'));
         }
       });

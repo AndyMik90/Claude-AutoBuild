@@ -161,5 +161,5 @@ export const terminalBufferManager = TerminalBufferManager.getInstance();
 
 // For debugging in browser console
 if (typeof window !== 'undefined') {
-  (window as any).__terminalBufferManager = terminalBufferManager;
+  (window as Window & { __terminalBufferManager?: TerminalBufferManager }).__terminalBufferManager = terminalBufferManager;
 }

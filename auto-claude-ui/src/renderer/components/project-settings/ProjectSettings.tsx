@@ -189,7 +189,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
         open={showLinearImportModal}
         onOpenChange={setShowLinearImportModal}
         onImportComplete={(result) => {
-          console.log('Import complete:', result);
+          console.warn('Import complete:', result);
         }}
       />
     </Dialog>

@@ -158,7 +158,7 @@ export async function checkFalkorDBStatus(port: number = FALKORDB_DEFAULT_PORT):
 /**
  * Check if FalkorDB is responding to connections
  */
-async function checkFalkorDBHealth(port: number): Promise<boolean> {
+async function checkFalkorDBHealth(_port: number): Promise<boolean> {
   try {
     // Try to ping FalkorDB using redis-cli (FalkorDB uses Redis protocol)
     // Since we may not have redis-cli, we'll check if the port is listening
@@ -482,10 +482,10 @@ export async function validateOpenAIApiKey(
         timeout: 15000,
       };
 
-      const req = https.request(options, (res: any) => {
+      const req = https.request(options, (res: { statusCode: number; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
         let data = '';
 
-        res.on('data', (chunk: any) => {
+        res.on('data', (chunk: Buffer) => {
           data += chunk;
         });
 
@@ -533,7 +533,7 @@ export async function validateOpenAIApiKey(
         });
       });
 
-      req.on('error', (error: any) => {
+      req.on('error', (error: Error) => {
         resolve({
           success: false,
           message: `Connection error: ${error.message}`,

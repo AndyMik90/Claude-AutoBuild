@@ -100,7 +100,7 @@ export class TerminalSessionStore {
 
         // Migrate from v1 to v2 structure
         if (data.version === 1 && data.sessions) {
-          console.log('[TerminalSessionStore] Migrating from v1 to v2 structure');
+          console.warn('[TerminalSessionStore] Migrating from v1 to v2 structure');
           const today = getDateString();
           const migratedData: SessionData = {
             version: STORE_VERSION,
@@ -115,7 +115,7 @@ export class TerminalSessionStore {
           return data as SessionData;
         }
 
-        console.log('[TerminalSessionStore] Version mismatch, resetting sessions');
+        console.warn('[TerminalSessionStore] Version mismatch, resetting sessions');
         return { version: STORE_VERSION, sessionsByDate: {} };
       }
     } catch (error) {
@@ -155,7 +155,7 @@ export class TerminalSessionStore {
     }
 
     if (removedCount > 0) {
-      console.log(`[TerminalSessionStore] Cleaned up sessions from ${removedCount} old dates`);
+      console.warn(`[TerminalSessionStore] Cleaned up sessions from ${removedCount} old dates`);
       this.save();
     }
   }
@@ -225,7 +225,7 @@ export class TerminalSessionStore {
 
     if (dates.length > 0) {
       const mostRecentDate = dates[0];
-      console.log(`[TerminalSessionStore] No sessions today, using sessions from ${mostRecentDate}`);
+      console.warn(`[TerminalSessionStore] No sessions today, using sessions from ${mostRecentDate}`);
       return this.data.sessionsByDate[mostRecentDate][projectPath] || [];
     }
 
@@ -361,7 +361,7 @@ export class TerminalSessionStore {
       session.claudeSessionId = claudeSessionId;
       session.isClaudeMode = true;
       this.save();
-      console.log('[TerminalSessionStore] Saved Claude session ID:', claudeSessionId, 'for terminal:', terminalId);
+      console.warn('[TerminalSessionStore] Saved Claude session ID:', claudeSessionId, 'for terminal:', terminalId);
     }
   }
 

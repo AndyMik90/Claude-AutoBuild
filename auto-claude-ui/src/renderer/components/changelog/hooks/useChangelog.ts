@@ -118,19 +118,7 @@ export function useChangelog() {
     if (selectedProjectId && (sourceMode === 'git-history' || sourceMode === 'branch-diff')) {
       loadCommitsPreview(selectedProjectId);
     }
-  }, [
-    selectedProjectId,
-    sourceMode,
-    gitHistoryType,
-    gitHistoryCount,
-    gitHistorySinceDate,
-    gitHistoryFromTag,
-    gitHistoryToTag,
-    gitHistorySinceVersion,
-    includeMergeCommits,
-    baseBranch,
-    compareBranch
-  ]);
+  }, [selectedProjectId, sourceMode]);
 
   // Set up event listeners for generation
   useEffect(() => {
@@ -180,7 +168,7 @@ export function useChangelog() {
       cleanupComplete();
       cleanupError();
     };
-  }, [selectedProjectId]);
+  }, [selectedProjectId, setError, setGenerationProgress, setIsGenerating, updateGeneratedChangelog]);
 
   const handleGenerate = () => {
     if (selectedProjectId) {

@@ -12,7 +12,7 @@ export type IpcListenerCleanup = () => void;
  * @param callback - The callback function to execute when event is received
  * @returns Cleanup function to remove the listener
  */
-export function createIpcListener<T extends any[]>(
+export function createIpcListener<T extends unknown[]>(
   channel: string,
   callback: (...args: T) => void
 ): IpcListenerCleanup {
@@ -32,7 +32,7 @@ export function createIpcListener<T extends any[]>(
  * @param args - Arguments to pass to the IPC handler
  * @returns Promise with the typed result
  */
-export function invokeIpc<T>(channel: string, ...args: any[]): Promise<T> {
+export function invokeIpc<T>(channel: string, ...args: unknown[]): Promise<T> {
   return ipcRenderer.invoke(channel, ...args);
 }
 
@@ -42,6 +42,6 @@ export function invokeIpc<T>(channel: string, ...args: any[]): Promise<T> {
  * @param channel - The IPC channel to send to
  * @param args - Arguments to pass to the IPC handler
  */
-export function sendIpc(channel: string, ...args: any[]): void {
+export function sendIpc(channel: string, ...args: unknown[]): void {
   ipcRenderer.send(channel, ...args);
 }

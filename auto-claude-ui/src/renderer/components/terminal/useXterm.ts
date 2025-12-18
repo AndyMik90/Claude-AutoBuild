@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { useTerminalStore } from '../../stores/terminal-store';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseXtermOptions {

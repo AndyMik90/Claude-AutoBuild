@@ -11,7 +11,6 @@ import {
   Plus,
   Minus,
   ChevronRight,
-  Terminal,
   Check,
   X
 } from 'lucide-react';
@@ -28,13 +27,6 @@ import {
   DialogTitle
 } from './ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -46,7 +38,7 @@ import {
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
-import type { WorktreeListItem, WorktreeMergeResult, WorktreeDiscardResult } from '../../shared/types';
+import type { WorktreeListItem, WorktreeMergeResult } from '../../shared/types';
 
 interface WorktreesProps {
   projectId: string;

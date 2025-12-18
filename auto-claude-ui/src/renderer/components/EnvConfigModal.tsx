@@ -44,7 +44,7 @@ export function EnvConfigModal({
 }: EnvConfigModalProps) {
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, _setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

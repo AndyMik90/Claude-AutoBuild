@@ -19,7 +19,7 @@ import {
  * Register all app-update-related IPC handlers
  */
 export function registerAppUpdateHandlers(): void {
-  console.log('[IPC] Registering app update handlers');
+  console.warn('[IPC] Registering app update handlers');
 
   // ============================================
   // App Update Operations
@@ -102,5 +102,5 @@ export function registerAppUpdateHandlers(): void {
     }
   );
 
-  console.log('[IPC] App update handlers registered successfully');
+  console.warn('[IPC] App update handlers registered successfully');
 }

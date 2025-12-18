@@ -21,10 +21,10 @@ export function registerTaskExecutionHandlers(
   ipcMain.on(
     IPC_CHANNELS.TASK_START,
     (_, taskId: string, _options?: TaskStartOptions) => {
-      console.log('[TASK_START] Received request for taskId:', taskId);
+      console.warn('[TASK_START] Received request for taskId:', taskId);
       const mainWindow = getMainWindow();
       if (!mainWindow) {
-        console.log('[TASK_START] No main window found');
+        console.warn('[TASK_START] No main window found');
         return;
       }
 
@@ -32,7 +32,7 @@ export function registerTaskExecutionHandlers(
       const { task, project } = findTaskAndProject(taskId);
 
       if (!task || !project) {
-        console.log('[TASK_START] Task or project not found for taskId:', taskId);
+        console.warn('[TASK_START] Task or project not found for taskId:', taskId);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
@@ -44,7 +44,7 @@ export function registerTaskExecutionHandlers(
       // Check git status - Auto Claude requires git for worktree-based builds
       const gitStatus = checkGitStatus(project.path);
       if (!gitStatus.isGitRepo) {
-        console.log('[TASK_START] Project is not a git repository:', project.path);
+        console.warn('[TASK_START] Project is not a git repository:', project.path);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
@@ -53,7 +53,7 @@ export function registerTaskExecutionHandlers(
         return;
       }
       if (!gitStatus.hasCommits) {
-        console.log('[TASK_START] Git repository has no commits:', project.path);
+        console.warn('[TASK_START] Git repository has no commits:', project.path);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
@@ -62,7 +62,7 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      console.log('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
+      console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
 
       // Start file watcher for this task
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -82,7 +82,7 @@ export function registerTaskExecutionHandlers(
       const needsSpecCreation = !hasSpec;
       const needsImplementation = hasSpec && task.subtasks.length === 0;
 
-      console.log('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
+      console.warn('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
       // Get base branch from project settings for worktree creation
       const baseBranch = project.settings?.mainBranch;
@@ -90,7 +90,7 @@ export function registerTaskExecutionHandlers(
       if (needsSpecCreation) {
         // No spec file - need to run spec_runner.py to create the spec
         const taskDescription = task.description || task.title;
-        console.log('[TASK_START] Starting spec creation for:', task.specId, 'in:', specDir);
+        console.warn('[TASK_START] Starting spec creation for:', task.specId, 'in:', specDir);
 
         // Start spec creation process - pass the existing spec directory
         // so spec_runner uses it instead of creating a new one
@@ -105,7 +105,7 @@ export function registerTaskExecutionHandlers(
           // Use default description
         }
 
-        console.log('[TASK_START] Starting task execution (no subtasks) for:', task.specId);
+        console.warn('[TASK_START] Starting task execution (no subtasks) for:', task.specId);
         // Start task execution which will create the implementation plan
         // Note: No parallel mode for planning phase - parallel only makes sense with multiple subtasks
         agentManager.startTaskExecution(
@@ -121,7 +121,7 @@ export function registerTaskExecutionHandlers(
       } else {
         // Task has subtasks, start normal execution
         // Note: Parallel execution is handled internally by the agent, not via CLI flags
-        console.log('[TASK_START] Starting task execution (has subtasks) for:', task.specId);
+        console.warn('[TASK_START] Starting task execution (has subtasks) for:', task.specId);
 
         agentManager.startTaskExecution(
           taskId,
@@ -313,7 +313,7 @@ export function registerTaskExecutionHandlers(
           // Check git status before auto-starting
           const gitStatusCheck = checkGitStatus(project.path);
           if (!gitStatusCheck.isGitRepo || !gitStatusCheck.hasCommits) {
-            console.log('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
+            console.warn('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
             if (mainWindow) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
@@ -324,7 +324,7 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: gitStatusCheck.error || 'Git repository required' };
           }
 
-          console.log('[TASK_UPDATE_STATUS] Auto-starting task:', taskId);
+          console.warn('[TASK_UPDATE_STATUS] Auto-starting task:', taskId);
 
           // Start file watcher for this task
           fileWatcher.watch(taskId, specDir);
@@ -335,16 +335,16 @@ export function registerTaskExecutionHandlers(
           const needsSpecCreation = !hasSpec;
           const needsImplementation = hasSpec && task.subtasks.length === 0;
 
-          console.log('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
+          console.warn('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
           if (needsSpecCreation) {
             // No spec file - need to run spec_runner.py to create the spec
             const taskDescription = task.description || task.title;
-            console.log('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
+            console.warn('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
             agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
           } else if (needsImplementation) {
             // Spec exists but no subtasks - run run.py to create implementation plan and execute
-            console.log('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
+            console.warn('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -357,7 +357,7 @@ export function registerTaskExecutionHandlers(
           } else {
             // Task has subtasks, start normal execution
             // Note: Parallel execution is handled internally by the agent
-            console.log('[TASK_UPDATE_STATUS] Starting task execution (has subtasks) for:', task.specId);
+            console.warn('[TASK_UPDATE_STATUS] Starting task execution (has subtasks) for:', task.specId);
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -538,7 +538,7 @@ export function registerTaskExecutionHandlers(
           // Check git status before auto-restarting
           const gitStatusForRestart = checkGitStatus(project.path);
           if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
-            console.log('[Recovery] Git check failed, cannot auto-restart task');
+            console.warn('[Recovery] Git check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without git
             return {
               success: true,
@@ -577,11 +577,11 @@ export function registerTaskExecutionHandlers(
             if (needsSpecCreation) {
               // No spec file - need to run spec_runner.py to create the spec
               const taskDescription = task.description || task.title;
-              console.log(`[Recovery] Starting spec creation for: ${task.specId}`);
+              console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
               agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata);
             } else {
               // Spec exists - run task execution
-              console.log(`[Recovery] Starting task execution for: ${task.specId}`);
+              console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
               agentManager.startTaskExecution(
                 taskId,
                 project.path,
@@ -594,7 +594,7 @@ export function registerTaskExecutionHandlers(
             }
 
             autoRestarted = true;
-            console.log(`[Recovery] Auto-restarted task ${taskId}`);
+            console.warn(`[Recovery] Auto-restarted task ${taskId}`);
           } catch (restartError) {
             console.error('Failed to auto-restart task after recovery:', restartError);
             // Recovery succeeded but restart failed - still report success

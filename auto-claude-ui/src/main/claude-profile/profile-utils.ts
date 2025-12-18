@@ -117,7 +117,7 @@ export function hasValidToken(profile: ClaudeProfile): boolean {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     if (new Date(profile.tokenCreatedAt) < oneYearAgo) {
-      console.log('[ProfileUtils] Token expired for profile:', profile.name);
+      console.warn('[ProfileUtils] Token expired for profile:', profile.name);
       return false;
     }
   }

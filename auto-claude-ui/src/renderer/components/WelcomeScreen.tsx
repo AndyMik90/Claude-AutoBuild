@@ -83,7 +83,7 @@ export function WelcomeScreen({
             <Separator />
             <ScrollArea className="max-h-[320px]">
               <div className="p-2">
-                {recentProjects.map((project, index) => (
+                {recentProjects.map((project, _index) => (
                   <button
                     key={project.id}
                     onClick={() => onSelectProject(project.id)}

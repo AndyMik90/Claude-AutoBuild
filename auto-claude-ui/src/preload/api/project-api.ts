@@ -6,11 +6,6 @@ import type {
   IPCResult,
   InitializationResult,
   AutoBuildVersionInfo,
-  ProjectContextData,
-  ProjectIndex,
-  GraphitiMemoryStatus,
-  ContextSearchResult,
-  MemoryEpisode,
   ProjectEnvConfig,
   ClaudeAuthResult,
   InfrastructureStatus,
@@ -33,11 +28,11 @@ export interface ProjectAPI {
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
 
   // Context Operations
-  getProjectContext: (projectId: string) => Promise<any>;
-  refreshProjectIndex: (projectId: string) => Promise<any>;
-  getMemoryStatus: (projectId: string) => Promise<any>;
-  searchMemories: (projectId: string, query: string) => Promise<any>;
-  getRecentMemories: (projectId: string, limit?: number) => Promise<any>;
+  getProjectContext: (projectId: string) => Promise<IPCResult<unknown>>;
+  refreshProjectIndex: (projectId: string) => Promise<IPCResult<unknown>>;
+  getMemoryStatus: (projectId: string) => Promise<IPCResult<unknown>>;
+  searchMemories: (projectId: string, query: string) => Promise<IPCResult<unknown>>;
+  getRecentMemories: (projectId: string, limit?: number) => Promise<IPCResult<unknown>>;
 
   // Environment Configuration
   getProjectEnv: (projectId: string) => Promise<IPCResult<ProjectEnvConfig>>;

@@ -151,7 +151,7 @@ export function WorkspaceStatus({
             variant="outline"
             size="sm"
             onClick={() => {
-              console.log('[WorkspaceStatus] Refresh conflicts clicked');
+              console.warn('[WorkspaceStatus] Refresh conflicts clicked');
               onLoadMergePreview();
             }}
             disabled={isLoadingPreview}

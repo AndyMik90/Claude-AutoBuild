@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
@@ -226,11 +226,11 @@ export function registerWorktreeHandlers(
     async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
       // Always log merge operations for debugging
       const debug = (...args: unknown[]) => {
-        console.log('[MERGE DEBUG]', ...args);
+        console.warn('[MERGE DEBUG]', ...args);
       };
 
       try {
-        console.log('[MERGE] Handler called with taskId:', taskId, 'options:', options);
+        console.warn('[MERGE] Handler called with taskId:', taskId, 'options:', options);
         debug('Starting merge for taskId:', taskId, 'options:', options);
 
         // Ensure Python environment is ready
@@ -501,11 +501,11 @@ export function registerWorktreeHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE_PREVIEW,
     async (_, taskId: string): Promise<IPCResult<WorktreeMergeResult>> => {
-      console.log('[IPC] TASK_WORKTREE_MERGE_PREVIEW called with taskId:', taskId);
+      console.warn('[IPC] TASK_WORKTREE_MERGE_PREVIEW called with taskId:', taskId);
       try {
         // Ensure Python environment is ready
         if (!pythonEnvManager.isEnvReady()) {
-          console.log('[IPC] Python environment not ready, initializing...');
+          console.warn('[IPC] Python environment not ready, initializing...');
           const autoBuildSource = getEffectiveSourcePath();
           if (autoBuildSource) {
             const status = await pythonEnvManager.initialize(autoBuildSource);
@@ -524,7 +524,7 @@ export function registerWorktreeHandlers(
           console.error('[IPC] Task not found:', taskId);
           return { success: false, error: 'Task not found' };
         }
-        console.log('[IPC] Found task:', task.specId, 'project:', project.name);
+        console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
 
         // Check for uncommitted changes in the main project
         let hasUncommittedChanges = false;
@@ -541,7 +541,7 @@ export function registerWorktreeHandlers(
               .filter(line => line.trim())
               .map(line => line.substring(3).trim()); // Remove status prefix (e.g., "M  ", " M ", "?? ")
             hasUncommittedChanges = uncommittedFiles.length > 0;
-            console.log('[IPC] Uncommitted changes detected:', uncommittedFiles.length, 'files');
+            console.warn('[IPC] Uncommitted changes detected:', uncommittedFiles.length, 'files');
           }
         } catch (e) {
           console.error('[IPC] Failed to check git status:', e);
@@ -562,7 +562,7 @@ export function registerWorktreeHandlers(
         ];
 
         const pythonPath = pythonEnvManager.getPythonPath() || 'python3';
-        console.log('[IPC] Running merge preview:', pythonPath, args.join(' '));
+        console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency
         const previewProfileEnv = getProfileEnv();
@@ -579,22 +579,22 @@ export function registerWorktreeHandlers(
           previewProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString();
             stdout += chunk;
-            console.log('[IPC] merge-preview stdout:', chunk);
+            console.warn('[IPC] merge-preview stdout:', chunk);
           });
 
           previewProcess.stderr.on('data', (data: Buffer) => {
             const chunk = data.toString();
             stderr += chunk;
-            console.log('[IPC] merge-preview stderr:', chunk);
+            console.warn('[IPC] merge-preview stderr:', chunk);
           });
 
           previewProcess.on('close', (code: number) => {
-            console.log('[IPC] merge-preview process exited with code:', code);
+            console.warn('[IPC] merge-preview process exited with code:', code);
             if (code === 0) {
               try {
                 // Parse JSON output from Python
                 const result = JSON.parse(stdout.trim());
-                console.log('[IPC] merge-preview result:', JSON.stringify(result, null, 2));
+                console.warn('[IPC] merge-preview result:', JSON.stringify(result, null, 2));
                 resolve({
                   success: true,
                   data: {

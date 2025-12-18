@@ -1,10 +1,9 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
-import type { IPCResult, LinearIssue, LinearTeam, LinearProject, LinearImportResult, LinearSyncStatus, Project, Task, TaskMetadata } from '../../shared/types';
+import type { IPCResult, LinearIssue, LinearTeam, LinearProject, LinearImportResult, LinearSyncStatus, Project, TaskMetadata } from '../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
-import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
 
@@ -16,7 +15,7 @@ import { AgentManager } from '../agent';
  */
 export function registerLinearHandlers(
   agentManager: AgentManager,
-  getMainWindow: () => BrowserWindow | null
+  _getMainWindow: () => BrowserWindow | null
 ): void {
   // ============================================
   // Linear Integration Operations
@@ -115,7 +114,8 @@ export function registerLinearHandlers(
 
         if (data.teams.nodes.length > 0) {
           teamName = data.teams.nodes[0].name;
-          const countQuery = `
+          // Note: These queries are kept as documentation for future API reference
+          const _countQuery = `
             query($teamId: String!) {
               team(id: $teamId) {
                 issues {
@@ -125,7 +125,7 @@ export function registerLinearHandlers(
             }
           `;
           // Get approximate count
-          const issuesQuery = `
+          const _issuesQuery = `
             query($teamId: String!) {
               issues(filter: { team: { id: { eq: $teamId } } }, first: 0) {
                 pageInfo {
@@ -134,6 +134,8 @@ export function registerLinearHandlers(
               }
             }
           `;
+          void _countQuery;
+          void _issuesQuery;
 
           // Simple count estimation - get first 250 issues
           const countData = await linearGraphQL(apiKey, `

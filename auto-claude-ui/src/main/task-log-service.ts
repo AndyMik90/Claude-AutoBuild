@@ -1,5 +1,5 @@
 import path from 'path';
-import { existsSync, readFileSync, watchFile, unwatchFile, FSWatcher } from 'fs';
+import { existsSync, readFileSync, watchFile } from 'fs';
 import { EventEmitter } from 'events';
 import type { TaskLogs, TaskLogPhase, TaskLogStreamChunk, TaskPhaseLog } from '../shared/types';
 
@@ -189,7 +189,7 @@ export class TaskLogService extends EventEmitter {
     if (existsSync(mainLogFile)) {
       try {
         lastMainContent = readFileSync(mainLogFile, 'utf-8');
-      } catch (e) {
+      } catch (_e) {
         // Ignore parse errors on initial load
       }
     }
@@ -200,7 +200,7 @@ export class TaskLogService extends EventEmitter {
       if (existsSync(worktreeLogFile)) {
         try {
           lastWorktreeContent = readFileSync(worktreeLogFile, 'utf-8');
-        } catch (e) {
+        } catch (_e) {
           // Ignore parse errors on initial load
         }
       }
@@ -225,7 +225,7 @@ export class TaskLogService extends EventEmitter {
             lastMainContent = currentContent;
             mainChanged = true;
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore read/parse errors
         }
       }
@@ -240,7 +240,7 @@ export class TaskLogService extends EventEmitter {
               lastWorktreeContent = currentContent;
               worktreeChanged = true;
             }
-          } catch (error) {
+          } catch (_error) {
             // Ignore read/parse errors
           }
         }
@@ -262,7 +262,7 @@ export class TaskLogService extends EventEmitter {
     }, this.POLL_INTERVAL_MS);
 
     this.pollIntervals.set(specId, pollInterval);
-    console.log(`[TaskLogService] Started watching ${specId} (main: ${specDir}${worktreeSpecDir ? `, worktree: ${worktreeSpecDir}` : ''})`);
+    console.warn(`[TaskLogService] Started watching ${specId} (main: ${specDir}${worktreeSpecDir ? `, worktree: ${worktreeSpecDir}` : ''})`);
   }
 
   /**
@@ -274,7 +274,7 @@ export class TaskLogService extends EventEmitter {
       clearInterval(interval);
       this.pollIntervals.delete(specId);
       this.watchedPaths.delete(specId);
-      console.log(`[TaskLogService] Stopped watching ${specId}`);
+      console.warn(`[TaskLogService] Stopped watching ${specId}`);
     }
   }
 

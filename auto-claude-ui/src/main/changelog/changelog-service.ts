@@ -119,7 +119,7 @@ export class ChangelogService extends EventEmitter {
    */
   private debug(...args: unknown[]): void {
     if (this.isDebugEnabled()) {
-      console.log('[ChangelogService]', ...args);
+      console.warn('[ChangelogService]', ...args);
     }
   }
 

@@ -260,7 +260,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
   // Initialize type states when starting generation
   initializeTypeStates: (types) =>
-    set((state) => {
+    set((_state) => {
       const newTypeStates = { ...initialTypeStates };
       // Set all enabled types to 'generating'
       types.forEach((type) => {

@@ -1,7 +1,7 @@
 /**
  * Playwright configuration for Electron E2E tests
  */
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',

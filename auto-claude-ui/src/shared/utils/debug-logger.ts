@@ -12,7 +12,7 @@ const isDebugEnabled = (): boolean => {
 
 export const debugLog = (...args: unknown[]): void => {
   if (isDebugEnabled()) {
-    console.log(...args);
+    console.warn(...args);
   }
 };
 

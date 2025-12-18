@@ -155,7 +155,7 @@ export function searchFileBasedMemories(
  * Register memory data handlers
  */
 export function registerMemoryDataHandlers(
-  getMainWindow: () => BrowserWindow | null
+  _getMainWindow: () => BrowserWindow | null
 ): void {
   // Get all memories
   ipcMain.handle(

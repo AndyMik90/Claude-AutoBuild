@@ -64,7 +64,7 @@ export const insightsMock = {
     const index = mockInsightsSessions.findIndex(s => s.id === sessionId);
     if (index !== -1) {
       mockInsightsSessions.splice(index, 1);
-      console.log('[Browser Mock] Session deleted:', sessionId);
+      console.warn('[Browser Mock] Session deleted:', sessionId);
     }
     return { success: true };
   },
@@ -73,13 +73,13 @@ export const insightsMock = {
     const session = mockInsightsSessions.find(s => s.id === sessionId);
     if (session) {
       session.title = newTitle;
-      console.log('[Browser Mock] Session renamed:', sessionId, 'to', newTitle);
+      console.warn('[Browser Mock] Session renamed:', sessionId, 'to', newTitle);
     }
     return { success: true };
   },
 
   sendInsightsMessage: () => {
-    console.log('[Browser Mock] sendInsightsMessage called');
+    console.warn('[Browser Mock] sendInsightsMessage called');
   },
 
   clearInsightsSession: async () => ({ success: true }),

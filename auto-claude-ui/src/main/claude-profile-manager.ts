@@ -240,7 +240,7 @@ export class ClaudeProfileManager {
 
     profile.name = newName.trim();
     this.save();
-    console.log('[ClaudeProfileManager] Renamed profile:', profileId, 'to:', newName);
+    console.warn('[ClaudeProfileManager] Renamed profile:', profileId, 'to:', newName);
     return true;
   }
 
@@ -317,7 +317,7 @@ export class ClaudeProfileManager {
     this.save();
 
     const isEncrypted = profile.oauthToken.startsWith('enc:');
-    console.log('[ClaudeProfileManager] Set OAuth token for profile:', profile.name, {
+    console.warn('[ClaudeProfileManager] Set OAuth token for profile:', profile.name, {
       email: email || '(not captured)',
       encrypted: isEncrypted,
       tokenLength: token.length
@@ -350,14 +350,14 @@ export class ClaudeProfileManager {
       const decryptedToken = decryptToken(profile.oauthToken);
       if (decryptedToken) {
         env.CLAUDE_CODE_OAUTH_TOKEN = decryptedToken;
-        console.log('[ClaudeProfileManager] Using OAuth token for profile:', profile.name);
+        console.warn('[ClaudeProfileManager] Using OAuth token for profile:', profile.name);
       } else {
         console.warn('[ClaudeProfileManager] Failed to decrypt token for profile:', profile.name);
       }
     } else if (profile?.configDir && !profile.isDefault) {
       // Fallback to configDir for backward compatibility
       env.CLAUDE_CONFIG_DIR = profile.configDir;
-      console.log('[ClaudeProfileManager] Using configDir for profile:', profile.name);
+      console.warn('[ClaudeProfileManager] Using configDir for profile:', profile.name);
     }
 
     return env;
@@ -376,7 +376,7 @@ export class ClaudeProfileManager {
     profile.usage = usage;
     this.save();
 
-    console.log('[ClaudeProfileManager] Updated usage for', profile.name, ':', usage);
+    console.warn('[ClaudeProfileManager] Updated usage for', profile.name, ':', usage);
     return usage;
   }
 
@@ -392,7 +392,7 @@ export class ClaudeProfileManager {
     const event = recordRateLimitEventImpl(profile, resetTimeStr);
     this.save();
 
-    console.log('[ClaudeProfileManager] Recorded rate limit event for', profile.name, ':', event);
+    console.warn('[ClaudeProfileManager] Recorded rate limit event for', profile.name, ':', event);
     return event;
   }
 

@@ -9,7 +9,7 @@ import type { PhaseCardProps } from './types';
 export function PhaseCard({
   phase,
   features,
-  isFirst,
+  isFirst: _isFirst,
   onFeatureSelect,
   onConvertToSpec,
   onGoToTask,

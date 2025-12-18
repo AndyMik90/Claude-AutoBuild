@@ -93,10 +93,10 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
       const sessionsResult = await window.electronAPI.getTerminalSessionsForDate(date, projectPath);
       const sessionsToRestore = sessionsResult.success ? sessionsResult.data || [] : [];
 
-      console.log(`[TerminalGrid] Found ${sessionsToRestore.length} sessions to restore from ${date}`);
+      console.warn(`[TerminalGrid] Found ${sessionsToRestore.length} sessions to restore from ${date}`);
 
       if (sessionsToRestore.length === 0) {
-        console.log('[TerminalGrid] No sessions found for this date');
+        console.warn('[TerminalGrid] No sessions found for this date');
         setIsRestoring(false);
         return;
       }
@@ -119,7 +119,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
       );
 
       if (result.success && result.data) {
-        console.log(`[TerminalGrid] Main process restored ${result.data.restored} sessions from ${date}`);
+        console.warn(`[TerminalGrid] Main process restored ${result.data.restored} sessions from ${date}`);
 
         // Add each successfully restored session to the renderer's terminal store
         for (const sessionResult of result.data.sessions) {
@@ -127,7 +127,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
             // Find the full session data
             const fullSession = sessionsToRestore.find(s => s.id === sessionResult.id);
             if (fullSession) {
-              console.log(`[TerminalGrid] Adding restored terminal to store: ${fullSession.id}`);
+              console.warn(`[TerminalGrid] Adding restored terminal to store: ${fullSession.id}`);
               addRestoredTerminal(fullSession);
             }
           }
@@ -162,6 +162,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
     isDirectory: boolean;
   } | null>(null);
 
+  const handleCloseTerminal = useCallback((id: string) => {
+    window.electronAPI.destroyTerminal(id);
+    removeTerminal(id);
+  }, [removeTerminal]);
+
   // Handle keyboard shortcut for new terminal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,12 +186,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addTerminal, canAddTerminal, projectPath, activeTerminalId]);
-
-  const handleCloseTerminal = useCallback((id: string) => {
-    window.electronAPI.destroyTerminal(id);
-    removeTerminal(id);
-  }, [removeTerminal]);
+  }, [addTerminal, canAddTerminal, projectPath, activeTerminalId, handleCloseTerminal]);
 
   const handleAddTerminal = useCallback(() => {
     if (canAddTerminal()) {

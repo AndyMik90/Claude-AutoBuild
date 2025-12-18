@@ -86,12 +86,12 @@ export function getBestAvailableProfile(
   // Return the best candidate if it has a positive score
   const best = scoredProfiles[0];
   if (best && best.score > 0) {
-    console.log('[ProfileScorer] Best available profile:', best.profile.name, 'score:', best.score);
+    console.warn('[ProfileScorer] Best available profile:', best.profile.name, 'score:', best.score);
     return best.profile;
   }
 
   // All profiles are rate-limited or have issues
-  console.log('[ProfileScorer] No good profile available, all are rate-limited or have issues');
+  console.warn('[ProfileScorer] No good profile available, all are rate-limited or have issues');
   return null;
 }
 
@@ -143,7 +143,7 @@ export function shouldProactivelySwitch(
  * Get profiles sorted by availability (best first)
  */
 export function getProfilesSortedByAvailability(profiles: ClaudeProfile[]): ClaudeProfile[] {
-  const now = new Date();
+  const _now = new Date();
 
   return [...profiles].sort((a, b) => {
     // Not rate-limited profiles first

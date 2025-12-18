@@ -13,7 +13,7 @@ import { parseGitLogOutput } from './parser';
  */
 function debug(enabled: boolean, ...args: unknown[]): void {
   if (enabled) {
-    console.log('[GitIntegration]', ...args);
+    console.warn('[GitIntegration]', ...args);
   }
 }
 

@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import type { TerminalProcess, WindowGetter, SessionCaptureResult } from './types';
+import type { TerminalProcess, WindowGetter } from './types';
 import { getTerminalSessionStore, type TerminalSession } from '../terminal-session-store';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
@@ -115,7 +115,7 @@ export function persistSession(terminal: TerminalProcess): void {
  * Persist all active sessions
  */
 export function persistAllSessions(terminals: Map<string, TerminalProcess>): void {
-  const store = getTerminalSessionStore();
+  const _store = getTerminalSessionStore();
 
   terminals.forEach((terminal) => {
     if (terminal.projectPath) {

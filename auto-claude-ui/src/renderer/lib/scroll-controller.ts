@@ -23,7 +23,7 @@ export class ScrollController {
     this.xterm = xterm;
 
     // Access internal core (Tabby does this too - it's safe)
-    const core = (xterm as any)._core;
+    const core = (xterm as unknown as { _core: { scrollToBottom: () => void } })._core;
     if (!core) {
       console.warn('[ScrollController] Cannot access xterm core - scroll locking disabled');
       return;
@@ -50,7 +50,7 @@ export class ScrollController {
 
     xterm.onScroll(this.scrollListener);
 
-    console.debug('[ScrollController] Attached and intercepted scrollToBottom');
+    console.warn('[ScrollController] Attached and intercepted scrollToBottom');
   }
 
   /**
@@ -58,7 +58,7 @@ export class ScrollController {
    */
   detach(): void {
     if (this.xterm && this.originalScrollToBottom) {
-      const core = (this.xterm as any)._core;
+      const core = (this.xterm as unknown as { _core: { scrollToBottom: () => void } })._core;
       if (core && this.originalScrollToBottom) {
         core.scrollToBottom = this.originalScrollToBottom;
       }
@@ -69,7 +69,7 @@ export class ScrollController {
     this.scrollListener = null;
     this.userScrolledUp = false;
 
-    console.debug('[ScrollController] Detached');
+    console.warn('[ScrollController] Detached');
   }
 
   /**

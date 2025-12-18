@@ -145,13 +145,13 @@ export class ProjectStore {
 
       // Check if the project path still exists
       if (!existsSync(project.path)) {
-        console.log(`[ProjectStore] Project path no longer exists: ${project.path}`);
+        console.warn(`[ProjectStore] Project path no longer exists: ${project.path}`);
         continue; // Don't reset - let user handle this case
       }
 
       // Check if .auto-claude folder still exists
       if (!isInitialized(project.path)) {
-        console.log(`[ProjectStore] .auto-claude folder missing for project "${project.name}" at ${project.path}`);
+        console.warn(`[ProjectStore] .auto-claude folder missing for project "${project.name}" at ${project.path}`);
         project.autoBuildPath = '';
         project.updatedAt = new Date();
         resetProjectIds.push(project.id);
@@ -161,7 +161,7 @@ export class ProjectStore {
 
     if (hasChanges) {
       this.save();
-      console.log(`[ProjectStore] Reset ${resetProjectIds.length} project(s) due to missing .auto-claude folder`);
+      console.warn(`[ProjectStore] Reset ${resetProjectIds.length} project(s) due to missing .auto-claude folder`);
     }
 
     return resetProjectIds;
@@ -194,18 +194,18 @@ export class ProjectStore {
    * Get tasks for a project by scanning specs directory
    */
   getTasks(projectId: string): Task[] {
-    console.log('[ProjectStore] getTasks called with projectId:', projectId);
+    console.warn('[ProjectStore] getTasks called with projectId:', projectId);
     const project = this.getProject(projectId);
     if (!project) {
-      console.log('[ProjectStore] Project not found for id:', projectId);
+      console.warn('[ProjectStore] Project not found for id:', projectId);
       return [];
     }
-    console.log('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
+    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
 
     // Get specs directory path
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
     const specsDir = path.join(project.path, specsBaseDir);
-    console.log('[ProjectStore] specsDir:', specsDir, 'exists:', existsSync(specsDir));
+    console.warn('[ProjectStore] specsDir:', specsDir, 'exists:', existsSync(specsDir));
     if (!existsSync(specsDir)) return [];
 
     const tasks: Task[] = [];
@@ -312,7 +312,7 @@ export class ProjectStore {
       }
     }
 
-    console.log('[ProjectStore] Returning', tasks.length, 'tasks out of', specDirs.filter(d => d.isDirectory() && d.name !== '.gitkeep').length, 'spec directories');
+    console.warn('[ProjectStore] Returning', tasks.length, 'tasks out of', specDirs.filter(d => d.isDirectory() && d.name !== '.gitkeep').length, 'spec directories');
     return tasks;
   }
 

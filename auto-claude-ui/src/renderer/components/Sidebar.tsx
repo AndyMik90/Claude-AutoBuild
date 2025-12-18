@@ -108,7 +108,7 @@ export function Sidebar({
   const [showGitSetupModal, setShowGitSetupModal] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
-  const [versionInfo, setVersionInfo] = useState<AutoBuildVersionInfo | null>(null);
+  const [_versionInfo, setVersionInfo] = useState<AutoBuildVersionInfo | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -216,7 +216,7 @@ export function Sidebar({
     setPendingProject(null);
   };
 
-  const handleUpdate = async () => {
+  const _handleUpdate = async () => {
     if (!selectedProjectId) return;
 
     setIsInitializing(true);
@@ -231,7 +231,7 @@ export function Sidebar({
     }
   };
 
-  const handleSkipUpdate = () => {
+  const _handleSkipUpdate = () => {
     setShowUpdateDialog(false);
     setVersionInfo(null);
   };
@@ -250,7 +250,7 @@ export function Sidebar({
     }
   };
 
-  const handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
+  const _handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     await removeProject(projectId);

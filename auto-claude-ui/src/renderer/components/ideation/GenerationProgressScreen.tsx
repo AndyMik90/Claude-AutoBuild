@@ -66,7 +66,7 @@ export function GenerationProgressScreen({
   };
 
   // Count how many types are still generating
-  const generatingCount = enabledTypes.filter((t) => typeStates[t] === 'generating').length;
+  const _generatingCount = enabledTypes.filter((t) => typeStates[t] === 'generating').length;
   const completedCount = enabledTypes.filter((t) => typeStates[t] === 'completed').length;
 
   return (

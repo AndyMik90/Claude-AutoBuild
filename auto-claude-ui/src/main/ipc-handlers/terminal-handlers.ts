@@ -208,7 +208,7 @@ export function registerTerminalHandlers(
           const { mkdirSync, existsSync } = await import('fs');
           if (!existsSync(profile.configDir)) {
             mkdirSync(profile.configDir, { recursive: true });
-            console.log('[IPC] Created config directory:', profile.configDir);
+            console.warn('[IPC] Created config directory:', profile.configDir);
           }
         }
 
@@ -217,7 +217,7 @@ export function registerTerminalHandlers(
         const terminalId = `claude-login-${profileId}-${Date.now()}`;
         const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
 
-        console.log('[IPC] Initializing Claude profile:', {
+        console.warn('[IPC] Initializing Claude profile:', {
           profileId,
           profileName: profile.name,
           configDir: profile.configDir,
@@ -240,7 +240,7 @@ export function registerTerminalHandlers(
           loginCommand = 'claude setup-token';
         }
 
-        console.log('[IPC] Sending login command to terminal:', loginCommand);
+        console.warn('[IPC] Sending login command to terminal:', loginCommand);
 
         // Write the login command to the terminal
         terminalManager.write(terminalId, `${loginCommand}\r`);
@@ -255,12 +255,12 @@ export function registerTerminalHandlers(
           });
         }
 
-        return { 
-          success: true, 
-          data: { 
+        return {
+          success: true,
+          data: {
             terminalId,
             message: `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
-          } 
+          }
         };
       } catch (error) {
         console.error('[IPC] Failed to initialize Claude profile:', error);
@@ -569,5 +569,5 @@ export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow): voi
     mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, notification);
   });
 
-  console.log('[terminal-handlers] Usage monitor event forwarding initialized');
+  console.warn('[terminal-handlers] Usage monitor event forwarding initialized');
 }

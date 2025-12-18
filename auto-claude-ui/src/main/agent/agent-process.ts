@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
@@ -100,14 +100,11 @@ export class AgentProcessManager {
   loadAutoBuildEnv(): Record<string, string> {
     const autoBuildSource = this.getAutoBuildSourcePath();
     if (!autoBuildSource) {
-      console.log('[loadAutoBuildEnv] No auto-build source path found');
       return {};
     }
 
     const envPath = path.join(autoBuildSource, '.env');
-    console.log('[loadAutoBuildEnv] Looking for .env at:', envPath);
     if (!existsSync(envPath)) {
-      console.log('[loadAutoBuildEnv] .env file does not exist');
       return {};
     }
 
@@ -161,11 +158,6 @@ export class AgentProcessManager {
     // Generate unique spawn ID for this process instance
     const spawnId = this.state.generateSpawnId();
 
-    console.log('[spawnProcess] Spawning with pythonPath:', this.pythonPath);
-    console.log('[spawnProcess] cwd:', cwd);
-    console.log('[spawnProcess] processType:', processType);
-    console.log('[spawnProcess] spawnId:', spawnId);
-
     // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
     const profileEnv = getProfileEnv();
 
@@ -180,8 +172,6 @@ export class AgentProcessManager {
         PYTHONUTF8: '1' // Force Python UTF-8 mode on Windows (Python 3.7+)
       }
     });
-
-    console.log('[spawnProcess] Process spawned, pid:', childProcess.pid);
 
     this.state.addProcess(taskId, {
       taskId,
@@ -245,7 +235,6 @@ export class AgentProcessManager {
     // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString('utf8');
-      console.log('[spawnProcess] stdout:', log.substring(0, 200));
       this.emitter.emit('log', taskId, log);
       processLog(log);
     });
@@ -253,7 +242,6 @@ export class AgentProcessManager {
     // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stderr?.on('data', (data: Buffer) => {
       const log = data.toString('utf8');
-      console.log('[spawnProcess] stderr:', log.substring(0, 200));
       // Some Python output goes to stderr (like progress bars)
       // so we treat it as log, not error
       this.emitter.emit('log', taskId, log);
@@ -262,13 +250,11 @@ export class AgentProcessManager {
 
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
-      console.log('[spawnProcess] Process exited with code:', code, 'spawnId:', spawnId);
       this.state.deleteProcess(taskId);
 
       // Check if this specific spawn was killed (vs exited naturally)
       // If killed, don't emit exit event to prevent race condition with new process
       if (this.state.wasSpawnKilled(spawnId)) {
-        console.log('[spawnProcess] Process was killed, skipping exit event for spawnId:', spawnId);
         this.state.clearKilledSpawn(spawnId);
         return;
       }
@@ -277,26 +263,15 @@ export class AgentProcessManager {
       if (code !== 0) {
         const rateLimitDetection = detectRateLimit(allOutput);
         if (rateLimitDetection.isRateLimited) {
-          console.log('[spawnProcess] Rate limit detected in task output:', {
-            taskId,
-            resetTime: rateLimitDetection.resetTime,
-            limitType: rateLimitDetection.limitType,
-            suggestedProfile: rateLimitDetection.suggestedProfile?.name
-          });
-
           // Check if auto-swap is enabled
           const profileManager = getClaudeProfileManager();
           const autoSwitchSettings = profileManager.getAutoSwitchSettings();
 
           if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit) {
-            console.log('[spawnProcess] Reactive auto-swap enabled');
-
             const currentProfileId = rateLimitDetection.profileId;
             const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
             if (bestProfile) {
-              console.log('[spawnProcess] Reactive swap to:', bestProfile.name);
-
               // Switch active profile
               profileManager.setActiveProfile(bestProfile.id);
 
@@ -342,7 +317,7 @@ export class AgentProcessManager {
 
     // Handle process error
     childProcess.on('error', (err: Error) => {
-      console.log('[spawnProcess] Process error:', err.message);
+      console.error('[AgentProcess] Process error:', err.message);
       this.state.deleteProcess(taskId);
 
       this.emitter.emit('execution-progress', taskId, {

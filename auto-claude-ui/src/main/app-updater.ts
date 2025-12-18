@@ -33,10 +33,10 @@ autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
 // Enable more verbose logging in debug mode
 if (DEBUG_UPDATER) {
   autoUpdater.logger = {
-    info: (msg: string) => console.log('[app-updater:debug]', msg),
+    info: (msg: string) => console.warn('[app-updater:debug]', msg),
     warn: (msg: string) => console.warn('[app-updater:debug]', msg),
     error: (msg: string) => console.error('[app-updater:debug]', msg),
-    debug: (msg: string) => console.log('[app-updater:debug]', msg)
+    debug: (msg: string) => console.warn('[app-updater:debug]', msg)
   };
 }
 
@@ -54,13 +54,13 @@ export function initializeAppUpdater(window: BrowserWindow): void {
   mainWindow = window;
 
   // Log updater configuration
-  console.log('[app-updater] ========================================');
-  console.log('[app-updater] Initializing app auto-updater');
-  console.log('[app-updater] App packaged:', app.isPackaged);
-  console.log('[app-updater] Current version:', autoUpdater.currentVersion.version);
-  console.log('[app-updater] Auto-download enabled:', autoUpdater.autoDownload);
-  console.log('[app-updater] Debug mode:', DEBUG_UPDATER);
-  console.log('[app-updater] ========================================');
+  console.warn('[app-updater] ========================================');
+  console.warn('[app-updater] Initializing app auto-updater');
+  console.warn('[app-updater] App packaged:', app.isPackaged);
+  console.warn('[app-updater] Current version:', autoUpdater.currentVersion.version);
+  console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload);
+  console.warn('[app-updater] Debug mode:', DEBUG_UPDATER);
+  console.warn('[app-updater] ========================================');
 
   // ============================================
   // Event Handlers
@@ -68,7 +68,7 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // Update available - new version found
   autoUpdater.on('update-available', (info) => {
-    console.log('[app-updater] Update available:', info.version);
+    console.warn('[app-updater] Update available:', info.version);
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_AVAILABLE, {
         version: info.version,
@@ -80,7 +80,7 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[app-updater] Update downloaded:', info.version);
+    console.warn('[app-updater] Update downloaded:', info.version);
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_DOWNLOADED, {
         version: info.version,
@@ -92,7 +92,7 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // Download progress
   autoUpdater.on('download-progress', (progress) => {
-    console.log(`[app-updater] Download progress: ${progress.percent.toFixed(2)}%`);
+    console.warn(`[app-updater] Download progress: ${progress.percent.toFixed(2)}%`);
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_PROGRESS, {
         percent: progress.percent,
@@ -116,16 +116,16 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // No update available
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[app-updater] ✓ No updates available - you are on the latest version');
-    console.log('[app-updater]   Current version:', info.version);
+    console.warn('[app-updater] No updates available - you are on the latest version');
+    console.warn('[app-updater]   Current version:', info.version);
     if (DEBUG_UPDATER) {
-      console.log('[app-updater:debug] Full info:', JSON.stringify(info, null, 2));
+      console.warn('[app-updater:debug] Full info:', JSON.stringify(info, null, 2));
     }
   });
 
   // Checking for updates
   autoUpdater.on('checking-for-update', () => {
-    console.log('[app-updater] 🔍 Checking for updates...');
+    console.warn('[app-updater] Checking for updates...');
   });
 
   // ============================================
@@ -134,10 +134,10 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // Check for updates 3 seconds after launch
   const INITIAL_DELAY = 3000;
-  console.log(`[app-updater] Will check for updates in ${INITIAL_DELAY / 1000} seconds...`);
+  console.warn(`[app-updater] Will check for updates in ${INITIAL_DELAY / 1000} seconds...`);
 
   setTimeout(() => {
-    console.log('[app-updater] 🚀 Performing initial update check');
+    console.warn('[app-updater] Performing initial update check');
     autoUpdater.checkForUpdates().catch((error) => {
       console.error('[app-updater] ❌ Initial update check failed:', error.message);
       if (DEBUG_UPDATER) {
@@ -148,10 +148,10 @@ export function initializeAppUpdater(window: BrowserWindow): void {
 
   // Check for updates every 4 hours
   const FOUR_HOURS = 4 * 60 * 60 * 1000;
-  console.log(`[app-updater] Periodic checks scheduled every ${FOUR_HOURS / 1000 / 60 / 60} hours`);
+  console.warn(`[app-updater] Periodic checks scheduled every ${FOUR_HOURS / 1000 / 60 / 60} hours`);
 
   setInterval(() => {
-    console.log('[app-updater] 🔄 Performing periodic update check');
+    console.warn('[app-updater] Performing periodic update check');
     autoUpdater.checkForUpdates().catch((error) => {
       console.error('[app-updater] ❌ Periodic update check failed:', error.message);
       if (DEBUG_UPDATER) {
@@ -160,7 +160,7 @@ export function initializeAppUpdater(window: BrowserWindow): void {
     });
   }, FOUR_HOURS);
 
-  console.log('[app-updater] ✓ Auto-updater initialized successfully');
+  console.warn('[app-updater] Auto-updater initialized successfully');
 }
 
 /**
@@ -169,7 +169,7 @@ export function initializeAppUpdater(window: BrowserWindow): void {
  */
 export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
   try {
-    console.log('[app-updater] Manual update check requested');
+    console.warn('[app-updater] Manual update check requested');
     const result = await autoUpdater.checkForUpdates();
 
     if (!result) {
@@ -199,7 +199,7 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
  */
 export async function downloadUpdate(): Promise<void> {
   try {
-    console.log('[app-updater] Manual update download requested');
+    console.warn('[app-updater] Manual update download requested');
     await autoUpdater.downloadUpdate();
   } catch (error) {
     console.error('[app-updater] Manual update download failed:', error);
@@ -212,7 +212,7 @@ export async function downloadUpdate(): Promise<void> {
  * Called from IPC handler when user confirms installation
  */
 export function quitAndInstall(): void {
-  console.log('[app-updater] Quitting and installing update');
+  console.warn('[app-updater] Quitting and installing update');
   autoUpdater.quitAndInstall(false, true);
 }
 

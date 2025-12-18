@@ -1,5 +1,5 @@
 import { spawn, execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 
@@ -147,7 +147,7 @@ export class PythonEnvManager extends EventEmitter {
     }
 
     this.emit('status', 'Creating Python virtual environment...');
-    console.log('[PythonEnvManager] Creating venv with:', systemPython);
+    console.warn('[PythonEnvManager] Creating venv with:', systemPython);
 
     return new Promise((resolve) => {
       const venvPath = path.join(this.autoBuildSourcePath!, '.venv');
@@ -163,7 +163,7 @@ export class PythonEnvManager extends EventEmitter {
 
       proc.on('close', (code) => {
         if (code === 0) {
-          console.log('[PythonEnvManager] Venv created successfully');
+          console.warn('[PythonEnvManager] Venv created successfully');
           resolve(true);
         } else {
           console.error('[PythonEnvManager] Failed to create venv:', stderr);
@@ -200,7 +200,7 @@ export class PythonEnvManager extends EventEmitter {
     }
 
     this.emit('status', 'Installing Python dependencies (this may take a minute)...');
-    console.log('[PythonEnvManager] Installing dependencies from:', requirementsPath);
+    console.warn('[PythonEnvManager] Installing dependencies from:', requirementsPath);
 
     return new Promise((resolve) => {
       const proc = spawn(venvPip, ['install', '-r', requirementsPath], {
@@ -228,7 +228,7 @@ export class PythonEnvManager extends EventEmitter {
 
       proc.on('close', (code) => {
         if (code === 0) {
-          console.log('[PythonEnvManager] Dependencies installed successfully');
+          console.warn('[PythonEnvManager] Dependencies installed successfully');
           this.emit('status', 'Dependencies installed successfully');
           resolve(true);
         } else {
@@ -264,12 +264,12 @@ export class PythonEnvManager extends EventEmitter {
     this.isInitializing = true;
     this.autoBuildSourcePath = autoBuildSourcePath;
 
-    console.log('[PythonEnvManager] Initializing with path:', autoBuildSourcePath);
+    console.warn('[PythonEnvManager] Initializing with path:', autoBuildSourcePath);
 
     try {
       // Check if venv exists
       if (!this.venvExists()) {
-        console.log('[PythonEnvManager] Venv not found, creating...');
+        console.warn('[PythonEnvManager] Venv not found, creating...');
         const created = await this.createVenv();
         if (!created) {
           this.isInitializing = false;
@@ -282,13 +282,13 @@ export class PythonEnvManager extends EventEmitter {
           };
         }
       } else {
-        console.log('[PythonEnvManager] Venv already exists');
+        console.warn('[PythonEnvManager] Venv already exists');
       }
 
       // Check if deps are installed
       const depsInstalled = await this.checkDepsInstalled();
       if (!depsInstalled) {
-        console.log('[PythonEnvManager] Dependencies not installed, installing...');
+        console.warn('[PythonEnvManager] Dependencies not installed, installing...');
         const installed = await this.installDeps();
         if (!installed) {
           this.isInitializing = false;
@@ -301,7 +301,7 @@ export class PythonEnvManager extends EventEmitter {
           };
         }
       } else {
-        console.log('[PythonEnvManager] Dependencies already installed');
+        console.warn('[PythonEnvManager] Dependencies already installed');
       }
 
       this.pythonPath = this.getVenvPythonPath();
@@ -309,7 +309,7 @@ export class PythonEnvManager extends EventEmitter {
       this.isInitializing = false;
 
       this.emit('ready', this.pythonPath);
-      console.log('[PythonEnvManager] Ready with Python path:', this.pythonPath);
+      console.warn('[PythonEnvManager] Ready with Python path:', this.pythonPath);
 
       return {
         ready: true,
@@ -362,4 +362,3 @@ export class PythonEnvManager extends EventEmitter {
 
 // Singleton instance
 export const pythonEnvManager = new PythonEnvManager();
-

@@ -48,7 +48,7 @@ export function Terminal({
   // Initialize xterm with command tracking
   const {
     terminalRef,
-    xtermRef,
+    xtermRef: _xtermRef,
     write,
     writeln,
     focus,

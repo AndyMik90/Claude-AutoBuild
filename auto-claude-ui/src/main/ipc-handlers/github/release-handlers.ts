@@ -237,7 +237,7 @@ export function registerSuggestVersion(): void {
             commitCount: commits.length
           }
         };
-      } catch (error) {
+      } catch (_error) {
         // Fallback to patch bump on error
         const currentVersion = getCurrentVersion(project.path);
         const [major, minor, patch] = currentVersion.split('.').map(Number);

@@ -83,7 +83,6 @@ import type {
   IdeationStatus,
   IdeationGenerationStatus,
   Idea,
-  IdeationType,
   InsightsSession,
   InsightsSessionSummary,
   InsightsChatStatus,

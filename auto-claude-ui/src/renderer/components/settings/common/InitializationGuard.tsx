@@ -14,7 +14,7 @@ interface InitializationGuardProps {
 export function InitializationGuard({
   initialized,
   title,
-  description,
+  description: _description,
   children
 }: InitializationGuardProps) {
   if (!initialized) {

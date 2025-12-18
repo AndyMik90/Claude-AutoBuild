@@ -2,7 +2,7 @@
  * Hook for loading Linear issues for a selected team/project
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { LinearIssue } from '../types';
 
 export function useLinearIssues(
@@ -14,6 +14,10 @@ export function useLinearIssues(
   const [issues, setIssues] = useState<LinearIssue[]>([]);
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use ref to store the callback to avoid unnecessary re-renders
+  const onIssuesChangeRef = useRef(onIssuesChange);
+  onIssuesChangeRef.current = onIssuesChange;
 
   useEffect(() => {
     const loadIssues = async () => {
@@ -33,7 +37,7 @@ export function useLinearIssues(
         );
         if (result.success && result.data) {
           setIssues(result.data);
-          onIssuesChange?.();
+          onIssuesChangeRef.current?.();
         } else {
           setError(result.error || 'Failed to load issues');
         }

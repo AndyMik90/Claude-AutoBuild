@@ -14,9 +14,9 @@ const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG === 't
 function debugLog(message: string, data?: unknown) {
   if (DEBUG) {
     if (data !== undefined) {
-      console.log(`[GitHubIntegration] ${message}`, data);
+      console.warn(`[GitHubIntegration] ${message}`, data);
     } else {
-      console.log(`[GitHubIntegration] ${message}`);
+      console.warn(`[GitHubIntegration] ${message}`);
     }
   }
 }
@@ -43,8 +43,8 @@ interface GitHubIntegrationProps {
 export function GitHubIntegration({
   envConfig,
   updateEnvConfig,
-  showGitHubToken,
-  setShowGitHubToken,
+  showGitHubToken: _showGitHubToken,
+  setShowGitHubToken: _setShowGitHubToken,
   gitHubConnectionStatus,
   isCheckingGitHub
 }: GitHubIntegrationProps) {

@@ -75,7 +75,7 @@ export function copyDirectoryRecursive(
     const destPath = path.join(dest, entry.name);
 
     // Skip certain files/directories
-    if (SKIP_FILES.includes(entry.name as any)) {
+    if (SKIP_FILES.includes(entry.name as (typeof SKIP_FILES)[number])) {
       continue;
     }
 

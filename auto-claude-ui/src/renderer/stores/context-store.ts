@@ -169,7 +169,7 @@ export async function searchMemories(
     } else {
       store.setSearchResults([]);
     }
-  } catch (error) {
+  } catch (_error) {
     store.setSearchResults([]);
   } finally {
     store.setSearchLoading(false);
@@ -191,7 +191,7 @@ export async function loadRecentMemories(
     if (result.success && result.data) {
       store.setRecentMemories(result.data);
     }
-  } catch (error) {
+  } catch (_error) {
     // Silently fail - memories are optional
   } finally {
     store.setMemoriesLoading(false);

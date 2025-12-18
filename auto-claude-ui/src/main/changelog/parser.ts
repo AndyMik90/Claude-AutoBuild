@@ -9,7 +9,7 @@ export function extractSpecOverview(spec: string): string {
   // Handle both Unix (\n) and Windows (\r\n) line endings
   const lines = spec.split(/\r?\n/);
   let inOverview = false;
-  let overview: string[] = [];
+  const overview: string[] = [];
 
   for (const line of lines) {
     // Start capturing at Overview heading

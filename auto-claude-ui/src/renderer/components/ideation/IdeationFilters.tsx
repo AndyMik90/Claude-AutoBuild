@@ -1,6 +1,5 @@
 import { Zap, Palette, BookOpen, Shield, Gauge } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import type { IdeationType } from '../../../shared/types';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
 interface IdeationFiltersProps {
   activeTab: string;

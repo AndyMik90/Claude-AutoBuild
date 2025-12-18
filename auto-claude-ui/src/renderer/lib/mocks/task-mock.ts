@@ -46,11 +46,11 @@ export const taskMock = {
   }),
 
   startTask: () => {
-    console.log('[Browser Mock] startTask called');
+    console.warn('[Browser Mock] startTask called');
   },
 
   stopTask: () => {
-    console.log('[Browser Mock] stopTask called');
+    console.warn('[Browser Mock] stopTask called');
   },
 
   submitReview: async () => ({ success: true }),

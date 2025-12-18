@@ -51,12 +51,12 @@ const detectAutoBuildSourcePath = (): string | null => {
   const debug = process.env.AUTO_CLAUDE_DEBUG === '1' || process.env.AUTO_CLAUDE_DEBUG === 'true';
 
   if (debug) {
-    console.log('[detectAutoBuildSourcePath] Platform:', process.platform);
-    console.log('[detectAutoBuildSourcePath] Is dev:', is.dev);
-    console.log('[detectAutoBuildSourcePath] __dirname:', __dirname);
-    console.log('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
-    console.log('[detectAutoBuildSourcePath] process.cwd():', process.cwd());
-    console.log('[detectAutoBuildSourcePath] Checking paths:', possiblePaths);
+    console.warn('[detectAutoBuildSourcePath] Platform:', process.platform);
+    console.warn('[detectAutoBuildSourcePath] Is dev:', is.dev);
+    console.warn('[detectAutoBuildSourcePath] __dirname:', __dirname);
+    console.warn('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
+    console.warn('[detectAutoBuildSourcePath] process.cwd():', process.cwd());
+    console.warn('[detectAutoBuildSourcePath] Checking paths:', possiblePaths);
   }
 
   for (const p of possiblePaths) {
@@ -65,11 +65,11 @@ const detectAutoBuildSourcePath = (): string | null => {
     const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
-      console.log(`[detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
+      console.warn(`[detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
     }
 
     if (exists) {
-      console.log(`[detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
+      console.warn(`[detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
       return p;
     }
   }

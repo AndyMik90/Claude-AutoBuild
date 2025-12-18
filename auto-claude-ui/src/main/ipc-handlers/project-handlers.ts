@@ -140,12 +140,12 @@ const detectAutoBuildSourcePath = (): string | null => {
   const debug = process.env.AUTO_CLAUDE_DEBUG === '1' || process.env.AUTO_CLAUDE_DEBUG === 'true';
 
   if (debug) {
-    console.log('[project-handlers:detectAutoBuildSourcePath] Platform:', process.platform);
-    console.log('[project-handlers:detectAutoBuildSourcePath] Is dev:', is.dev);
-    console.log('[project-handlers:detectAutoBuildSourcePath] __dirname:', __dirname);
-    console.log('[project-handlers:detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
-    console.log('[project-handlers:detectAutoBuildSourcePath] process.cwd():', process.cwd());
-    console.log('[project-handlers:detectAutoBuildSourcePath] Checking paths:', possiblePaths);
+    console.warn('[project-handlers:detectAutoBuildSourcePath] Platform:', process.platform);
+    console.warn('[project-handlers:detectAutoBuildSourcePath] Is dev:', is.dev);
+    console.warn('[project-handlers:detectAutoBuildSourcePath] __dirname:', __dirname);
+    console.warn('[project-handlers:detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
+    console.warn('[project-handlers:detectAutoBuildSourcePath] process.cwd():', process.cwd());
+    console.warn('[project-handlers:detectAutoBuildSourcePath] Checking paths:', possiblePaths);
   }
 
   for (const p of possiblePaths) {
@@ -154,11 +154,11 @@ const detectAutoBuildSourcePath = (): string | null => {
     const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
-      console.log(`[project-handlers:detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
+      console.warn(`[project-handlers:detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
     }
 
     if (exists) {
-      console.log(`[project-handlers:detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
+      console.warn(`[project-handlers:detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
       return p;
     }
   }
@@ -197,7 +197,7 @@ const configureServicesWithPython = (
   autoBuildPath: string,
   agentManager: AgentManager
 ): void => {
-  console.log('[IPC] Configuring services with Python:', pythonPath);
+  console.warn('[IPC] Configuring services with Python:', pythonPath);
   agentManager.configure(pythonPath, autoBuildPath);
   changelogService.configure(pythonPath, autoBuildPath);
   insightsService.configure(pythonPath, autoBuildPath);
@@ -213,7 +213,7 @@ const initializePythonEnvironment = async (
 ): Promise<PythonEnvStatus> => {
   const autoBuildSource = getAutoBuildSourcePath();
   if (!autoBuildSource) {
-    console.log('[IPC] Auto-build source not found, skipping Python env init');
+    console.warn('[IPC] Auto-build source not found, skipping Python env init');
     return {
       ready: false,
       pythonPath: null,
@@ -223,7 +223,7 @@ const initializePythonEnvironment = async (
     };
   }
 
-  console.log('[IPC] Initializing Python environment...');
+  console.warn('[IPC] Initializing Python environment...');
   const status = await pythonEnvManager.initialize(autoBuildSource);
 
   if (status.ready && status.pythonPath) {
@@ -280,11 +280,11 @@ export function registerProjectHandlers(
       // If a folder was deleted, reset autoBuildPath so UI prompts for reinitialization
       const resetIds = projectStore.validateProjects();
       if (resetIds.length > 0) {
-        console.log('[IPC] PROJECT_LIST: Detected missing .auto-claude folders for', resetIds.length, 'project(s)');
+        console.warn('[IPC] PROJECT_LIST: Detected missing .auto-claude folders for', resetIds.length, 'project(s)');
       }
 
       const projects = projectStore.getProjects();
-      console.log('[IPC] PROJECT_LIST returning', projects.length, 'projects');
+      console.warn('[IPC] PROJECT_LIST returning', projects.length, 'projects');
       return { success: true, data: projects };
     }
   );
@@ -332,7 +332,7 @@ export function registerProjectHandlers(
 
   // Initialize Python environment on startup (non-blocking)
   initializePythonEnvironment(pythonEnvManager, agentManager).then((status) => {
-    console.log('[IPC] Python environment initialized:', status);
+    console.warn('[IPC] Python environment initialized:', status);
   });
 
   // IPC handler to get Python environment status

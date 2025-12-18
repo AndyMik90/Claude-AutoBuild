@@ -83,11 +83,11 @@ export const infrastructureMock = {
   }),
 
   generateIdeation: () => {
-    console.log('[Browser Mock] generateIdeation called');
+    console.warn('[Browser Mock] generateIdeation called');
   },
 
   refreshIdeation: () => {
-    console.log('[Browser Mock] refreshIdeation called');
+    console.warn('[Browser Mock] refreshIdeation called');
   },
 
   stopIdeation: async () => ({ success: true }),
@@ -129,7 +129,7 @@ export const infrastructureMock = {
   }),
 
   downloadAutoBuildSourceUpdate: () => {
-    console.log('[Browser Mock] downloadAutoBuildSourceUpdate called');
+    console.warn('[Browser Mock] downloadAutoBuildSourceUpdate called');
   },
 
   getAutoBuildSourceVersion: async () => ({
@@ -141,7 +141,7 @@ export const infrastructureMock = {
 
   // Shell Operations
   openExternal: async (url: string) => {
-    console.log('[Browser Mock] openExternal:', url);
+    console.warn('[Browser Mock] openExternal:', url);
     window.open(url, '_blank');
   }
 };

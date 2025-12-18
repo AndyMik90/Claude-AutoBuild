@@ -1,8 +1,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir } from '../../shared/constants';
 import type {
   IPCResult,

@@ -137,23 +137,23 @@ app.whenReady().then(() => {
     // Start the usage monitor
     const usageMonitor = getUsageMonitor();
     usageMonitor.start();
-    console.log('[main] Usage monitor initialized and started');
+    console.warn('[main] Usage monitor initialized and started');
 
     // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
     const forceUpdater = process.env.DEBUG_UPDATER === 'true';
     if (app.isPackaged || forceUpdater) {
       initializeAppUpdater(mainWindow);
-      console.log('[main] App auto-updater initialized');
+      console.warn('[main] App auto-updater initialized');
       if (forceUpdater && !app.isPackaged) {
-        console.log('[main] ⚠️  Updater forced in dev mode via DEBUG_UPDATER=true');
-        console.log('[main] ⚠️  Note: Updates won\'t actually work in dev mode');
+        console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
+        console.warn('[main] Note: Updates won\'t actually work in dev mode');
       }
     } else {
-      console.log('[main] ========================================');
-      console.log('[main] App auto-updater DISABLED (development mode)');
-      console.log('[main] To test updater logging, set DEBUG_UPDATER=true');
-      console.log('[main] Note: Actual updates only work in packaged builds');
-      console.log('[main] ========================================');
+      console.warn('[main] ========================================');
+      console.warn('[main] App auto-updater DISABLED (development mode)');
+      console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
+      console.warn('[main] Note: Actual updates only work in packaged builds');
+      console.warn('[main] ========================================');
     }
   }
 
@@ -177,7 +177,7 @@ app.on('before-quit', async () => {
   // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
-  console.log('[main] Usage monitor stopped');
+  console.warn('[main] Usage monitor stopped');
 
   // Kill all running agent processes
   if (agentManager) {

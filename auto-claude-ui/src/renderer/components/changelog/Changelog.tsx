@@ -16,7 +16,7 @@ export function Changelog() {
     sourceMode,
     branches,
     tags,
-    currentBranch,
+    currentBranch: _currentBranch,
     defaultBranch,
     previewCommits,
     isLoadingGitData,

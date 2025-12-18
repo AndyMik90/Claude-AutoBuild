@@ -98,7 +98,7 @@ export function setupIpcHandlers(
   // App auto-update handlers
   registerAppUpdateHandlers();
 
-  console.log('[IPC] All handler modules registered successfully');
+  console.warn('[IPC] All handler modules registered successfully');
 }
 
 // Re-export all individual registration functions for potential custom usage

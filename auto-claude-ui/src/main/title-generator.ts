@@ -12,7 +12,7 @@ const DEBUG = process.env.AUTO_CLAUDE_DEBUG === 'true' || process.env.AUTO_CLAUD
 
 function debug(...args: unknown[]): void {
   if (DEBUG) {
-    console.log('[TitleGenerator]', ...args);
+    console.warn('[TitleGenerator]', ...args);
   }
 }
 
@@ -144,7 +144,7 @@ export class TitleGenerator extends EventEmitter {
       let output = '';
       let errorOutput = '';
       const timeout = setTimeout(() => {
-        console.log('[TitleGenerator] Title generation timed out after 60s');
+        console.warn('[TitleGenerator] Title generation timed out after 60s');
         childProcess.kill();
         resolve(null);
       }, 60000); // 60 second timeout for SDK initialization + API call
@@ -169,7 +169,7 @@ export class TitleGenerator extends EventEmitter {
           const combinedOutput = `${output}\n${errorOutput}`;
           const rateLimitDetection = detectRateLimit(combinedOutput);
           if (rateLimitDetection.isRateLimited) {
-            console.log('[TitleGenerator] Rate limit detected:', {
+            console.warn('[TitleGenerator] Rate limit detected:', {
               resetTime: rateLimitDetection.resetTime,
               limitType: rateLimitDetection.limitType,
               suggestedProfile: rateLimitDetection.suggestedProfile?.name
@@ -180,7 +180,7 @@ export class TitleGenerator extends EventEmitter {
           }
 
           // Always log failures to help diagnose issues
-          console.log('[TitleGenerator] Title generation failed', {
+          console.warn('[TitleGenerator] Title generation failed', {
             code,
             errorOutput: errorOutput.substring(0, 500),
             output: output.substring(0, 200),
@@ -192,7 +192,7 @@ export class TitleGenerator extends EventEmitter {
 
       childProcess.on('error', (err) => {
         clearTimeout(timeout);
-        console.log('[TitleGenerator] Process error:', err.message);
+        console.warn('[TitleGenerator] Process error:', err.message);
         resolve(null);
       });
     });

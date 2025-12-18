@@ -22,9 +22,9 @@ const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG === 't
 function debugLog(message: string, data?: unknown) {
   if (DEBUG) {
     if (data !== undefined) {
-      console.log(`[GitHubOAuth] ${message}`, data);
+      console.warn(`[GitHubOAuth] ${message}`, data);
     } else {
-      console.log(`[GitHubOAuth] ${message}`);
+      console.warn(`[GitHubOAuth] ${message}`);
     }
   }
 }
@@ -36,7 +36,7 @@ function debugLog(message: string, data?: unknown) {
 export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const [status, setStatus] = useState<'checking' | 'need-install' | 'need-auth' | 'authenticating' | 'success' | 'error'>('checking');
   const [error, setError] = useState<string | null>(null);
-  const [cliInstalled, setCliInstalled] = useState(false);
+  const [_cliInstalled, setCliInstalled] = useState(false);
   const [cliVersion, setCliVersion] = useState<string | undefined>();
   const [username, setUsername] = useState<string | undefined>();
 
@@ -52,6 +52,7 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     hasCheckedRef.current = true;
     debugLog('Component mounted, checking GitHub status...');
     checkGitHubStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run once on mount, checkGitHubStatus is intentionally excluded
   }, []);
 
   const checkGitHubStatus = async () => {

@@ -9,11 +9,11 @@ export const roadmapMock = {
   }),
 
   generateRoadmap: () => {
-    console.log('[Browser Mock] generateRoadmap called');
+    console.warn('[Browser Mock] generateRoadmap called');
   },
 
   refreshRoadmap: () => {
-    console.log('[Browser Mock] refreshRoadmap called');
+    console.warn('[Browser Mock] refreshRoadmap called');
   },
 
   updateFeatureStatus: async () => ({ success: true }),

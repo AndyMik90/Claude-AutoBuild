@@ -12,8 +12,7 @@ import { Button } from './ui/button';
 interface SwapNotification {
   fromProfile: string;
   toProfile: string;
-  reason: 'proactive' | 'reactive';
-  limitType: 'session' | 'weekly';
+  reason: string;
   timestamp: Date;
 }
 
@@ -22,12 +21,11 @@ export function ProactiveSwapListener() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onProactiveSwapNotification((data: any) => {
+    const unsubscribe = window.electronAPI.onProactiveSwapNotification((data) => {
       const notif: SwapNotification = {
-        fromProfile: data.fromProfile,
-        toProfile: data.toProfile,
+        fromProfile: data.fromProfile.name,
+        toProfile: data.toProfile.name,
         reason: data.reason,
-        limitType: data.limitType,
         timestamp: new Date()
       };
 
@@ -69,7 +67,7 @@ export function ProactiveSwapListener() {
               <strong>{notification.toProfile}</strong>
               <br />
               <span className="text-[10px]">
-                ({notification.limitType} usage threshold reached)
+                ({notification.reason} swap)
               </span>
             </p>
           </div>

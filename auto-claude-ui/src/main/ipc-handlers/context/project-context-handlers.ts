@@ -13,10 +13,7 @@ import type {
 import { projectStore } from '../../project-store';
 import { getFalkorDBService } from '../../falkordb-service';
 import {
-  getAutoBuildSourcePath,
-  loadProjectEnvVars,
-  isGraphitiEnabled,
-  getGraphitiConnectionDetails
+  getAutoBuildSourcePath
 } from './utils';
 import {
   loadGraphitiStateFromSpecs,
@@ -83,7 +80,7 @@ async function loadRecentMemories(
  * Register project context handlers
  */
 export function registerProjectContextHandlers(
-  getMainWindow: () => BrowserWindow | null
+  _getMainWindow: () => BrowserWindow | null
 ): void {
   // Get full project context
   ipcMain.handle(

@@ -251,7 +251,7 @@ export class InsightsExecutor extends EventEmitter {
   private handleRateLimit(projectId: string, output: string): void {
     const rateLimitDetection = detectRateLimit(output);
     if (rateLimitDetection.isRateLimited) {
-      console.log('[Insights] Rate limit detected:', {
+      console.warn('[Insights] Rate limit detected:', {
         projectId,
         resetTime: rateLimitDetection.resetTime,
         limitType: rateLimitDetection.limitType,

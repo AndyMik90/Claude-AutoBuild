@@ -27,7 +27,7 @@ export const changelogMock = {
   }),
 
   generateChangelog: () => {
-    console.log('[Browser Mock] generateChangelog called');
+    console.warn('[Browser Mock] generateChangelog called');
   },
 
   saveChangelog: async () => ({
@@ -128,7 +128,7 @@ export const changelogMock = {
   }),
 
   createRelease: () => {
-    console.log('[Browser Mock] createRelease called');
+    console.warn('[Browser Mock] createRelease called');
   },
 
   onReleaseProgress: () => () => {},

@@ -1,16 +1,13 @@
-import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
 import type {
-  IPCResult,
   SDKRateLimitInfo,
   Task,
   TaskStatus,
   Project,
-  ImplementationPlan,
-  ExecutionProgress
+  ImplementationPlan
 } from '../../shared/types';
 import { AgentManager } from '../agent';
 import type { ProcessType, ExecutionProgressData } from '../agent';
@@ -82,7 +79,7 @@ export function registerAgenteventsHandlers(
       } else if (processType === 'spec-creation') {
         // Pure spec creation (shouldn't happen with current flow, but handle it)
         // Stay in backlog/planning
-        console.log(`[Task ${taskId}] Spec creation completed with code ${code}`);
+        console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
         return;
       } else {
         // Unknown process type
@@ -130,7 +127,7 @@ export function registerAgenteventsHandlers(
               plan.planStatus = 'review';
               plan.updated_at = new Date().toISOString();
               writeFileSync(planPath, JSON.stringify(plan, null, 2));
-              console.log(`[Task ${taskId}] Persisted status '${newStatus}' to implementation_plan.json`);
+              console.warn(`[Task ${taskId}] Persisted status '${newStatus}' to implementation_plan.json`);
             }
           }
         }
@@ -141,7 +138,7 @@ export function registerAgenteventsHandlers(
       // Send notifications based on task completion status
       if (task && project) {
         const taskTitle = task.title || task.specId;
-        
+
         if (code === 0) {
           // Task completed successfully - ready for review
           notificationService.notifyReviewNeeded(taskTitle, project.id, taskId);

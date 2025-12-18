@@ -34,7 +34,7 @@ export class ChangelogGenerator extends EventEmitter {
 
   private debug(...args: unknown[]): void {
     if (this.debugEnabled) {
-      console.log('[ChangelogGenerator]', ...args);
+      console.warn('[ChangelogGenerator]', ...args);
     }
   }
 

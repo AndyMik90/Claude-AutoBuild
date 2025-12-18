@@ -182,14 +182,10 @@ export class AgentQueueManager {
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.length > 0) {
-          console.log('[Ideation]', trimmed);
           this.emitter.emit('ideation-log', projectId, trimmed);
         }
       }
     };
-
-    console.log('[Ideation] Starting ideation process with args:', args);
-    console.log('[Ideation] CWD:', cwd);
 
     // Track completed types for progress calculation
     const completedTypes = new Set<string>();
@@ -209,7 +205,6 @@ export class AgentQueueManager {
       if (typeCompleteMatch) {
         const [, ideationType, ideasCount] = typeCompleteMatch;
         completedTypes.add(ideationType);
-        console.log(`[Ideation] Type complete: ${ideationType} with ${ideasCount} ideas`);
 
         // Emit event for UI to load this type's ideas immediately
         this.emitter.emit('ideation-type-complete', projectId, ideationType, parseInt(ideasCount, 10));
@@ -219,7 +214,6 @@ export class AgentQueueManager {
       if (typeFailedMatch) {
         const [, ideationType] = typeFailedMatch;
         completedTypes.add(ideationType);
-        console.log(`[Ideation] Type failed: ${ideationType}`);
         this.emitter.emit('ideation-type-failed', projectId, ideationType);
       }
 
@@ -260,8 +254,6 @@ export class AgentQueueManager {
 
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
-      console.log('[Ideation] Process exited with code:', code);
-
       // Get the stored project path before deleting from map
       const processInfo = this.state.getProcess(projectId);
       const storedProjectPath = processInfo?.projectPath;
@@ -297,7 +289,6 @@ export class AgentQueueManager {
             if (existsSync(ideationFilePath)) {
               const content = readFileSync(ideationFilePath, 'utf-8');
               const session = JSON.parse(content);
-              console.log('[Ideation] Emitting ideation-complete with session data');
               this.emitter.emit('ideation-complete', projectId, session);
             } else {
               console.warn('[Ideation] ideation.json not found at:', ideationFilePath);
@@ -346,10 +337,6 @@ export class AgentQueueManager {
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
-    console.log('[Roadmap] Starting roadmap process with args:', args);
-    console.log('[Roadmap] CWD:', cwd);
-    console.log('[Roadmap] Python path:', pythonPath);
-
     const childProcess = spawn(pythonPath, args, {
       cwd,
       env: {
@@ -382,7 +369,6 @@ export class AgentQueueManager {
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.length > 0) {
-          console.log('[Roadmap]', trimmed);
           this.emitter.emit('roadmap-log', projectId, trimmed);
         }
       }
@@ -426,8 +412,6 @@ export class AgentQueueManager {
 
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
-      console.log('[Roadmap] Process exited with code:', code);
-
       // Get the stored project path before deleting from map
       const processInfo = this.state.getProcess(projectId);
       const storedProjectPath = processInfo?.projectPath;
@@ -445,7 +429,6 @@ export class AgentQueueManager {
       }
 
       if (code === 0) {
-        console.log('[Roadmap] Roadmap generation completed successfully');
         this.emitter.emit('roadmap-progress', projectId, {
           phase: 'complete',
           progress: 100,
@@ -464,7 +447,6 @@ export class AgentQueueManager {
             if (existsSync(roadmapFilePath)) {
               const content = readFileSync(roadmapFilePath, 'utf-8');
               const roadmap = JSON.parse(content);
-              console.log('[Roadmap] Emitting roadmap-complete with roadmap data');
               this.emitter.emit('roadmap-complete', projectId, roadmap);
             } else {
               console.warn('[Roadmap] roadmap.json not found at:', roadmapFilePath);
@@ -474,7 +456,6 @@ export class AgentQueueManager {
           }
         }
       } else {
-        console.error('[Roadmap] Roadmap generation failed with exit code:', code);
         this.emitter.emit('roadmap-error', projectId, `Roadmap generation failed with exit code ${code}`);
       }
     });

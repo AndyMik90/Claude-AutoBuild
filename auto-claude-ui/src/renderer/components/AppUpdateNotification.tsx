@@ -3,8 +3,7 @@ import {
   Download,
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
-  ExternalLink
+  AlertCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
@@ -18,7 +17,6 @@ import {
 } from './ui/dialog';
 import type {
   AppUpdateAvailableEvent,
-  AppUpdateDownloadedEvent,
   AppUpdateProgress
 } from '../../shared/types';
 
@@ -87,7 +85,7 @@ export function AppUpdateNotification() {
 
   // Listen for update downloaded event
   useEffect(() => {
-    const cleanup = window.electronAPI.onAppUpdateDownloaded((info) => {
+    const cleanup = window.electronAPI.onAppUpdateDownloaded((_info) => {
       setIsDownloading(false);
       setIsDownloaded(true);
       setDownloadProgress(null);

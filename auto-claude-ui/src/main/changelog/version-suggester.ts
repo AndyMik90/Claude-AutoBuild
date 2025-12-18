@@ -28,7 +28,7 @@ export class VersionSuggester {
 
   private debug(...args: unknown[]): void {
     if (this.debugEnabled) {
-      console.log('[VersionSuggester]', ...args);
+      console.warn('[VersionSuggester]', ...args);
     }
   }
 
@@ -51,7 +51,7 @@ export class VersionSuggester {
     // Build environment
     const spawnEnv = this.buildSpawnEnvironment();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const childProcess = spawn(this.pythonPath, ['-c', script], {
         cwd: this.autoBuildSourcePath,
         env: spawnEnv
