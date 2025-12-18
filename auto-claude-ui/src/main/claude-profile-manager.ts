@@ -452,6 +452,34 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Check if a profile has valid authentication for starting tasks.
+   * A profile is considered authenticated if:
+   * 1) It has a valid OAuth token (not expired), OR
+   * 2) It has an authenticated configDir (credential files exist)
+   *
+   * @param profileId - Optional profile ID to check. If not provided, checks active profile.
+   * @returns true if the profile can authenticate, false otherwise
+   */
+  hasValidAuth(profileId?: string): boolean {
+    const profile = profileId ? this.getProfile(profileId) : this.getActiveProfile();
+    if (!profile) {
+      return false;
+    }
+
+    // Check 1: Profile has a valid OAuth token
+    if (hasValidToken(profile)) {
+      return true;
+    }
+
+    // Check 2 & 3: Profile has authenticated configDir (works for both default and non-default)
+    if (this.isProfileAuthenticated(profile)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Get environment variables for invoking Claude with a specific profile
    */
   getProfileEnv(profileId: string): Record<string, string> {
