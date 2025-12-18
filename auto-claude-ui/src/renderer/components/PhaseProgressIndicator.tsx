@@ -155,7 +155,7 @@ export function PhaseProgressIndicator({
         <div className="flex flex-wrap gap-1.5 mt-2">
           {subtasks.slice(0, 10).map((subtask, index) => (
             <motion.div
-              key={subtask.id}
+              key={subtask.id || `subtask-${index}`}
               className={cn(
                 'h-2 w-2 rounded-full',
                 subtask.status === 'completed' && 'bg-success',
@@ -185,7 +185,7 @@ export function PhaseProgressIndicator({
             />
           ))}
           {totalSubtasks > 10 && (
-            <span className="text-[10px] text-muted-foreground font-medium ml-0.5">
+            <span key="overflow-count" className="text-[10px] text-muted-foreground font-medium ml-0.5">
               +{totalSubtasks - 10}
             </span>
           )}
