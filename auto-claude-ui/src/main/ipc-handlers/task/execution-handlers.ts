@@ -278,6 +278,37 @@ export function registerTaskExecutionHandlers(
         }
       }
 
+      // Validate status transition - 'human_review' requires actual work to have been done
+      // This prevents tasks from being incorrectly marked as ready for review when execution failed
+      if (status === 'human_review') {
+        const specsBaseDirForValidation = getSpecsDir(project.autoBuildPath);
+        const specDirForValidation = path.join(
+          project.path,
+          specsBaseDirForValidation,
+          task.specId
+        );
+        const specFilePath = path.join(specDirForValidation, AUTO_BUILD_PATHS.SPEC_FILE);
+
+        // Check if spec.md exists and has meaningful content (at least 100 chars)
+        const MIN_SPEC_CONTENT_LENGTH = 100;
+        let specContent = '';
+        try {
+          if (existsSync(specFilePath)) {
+            specContent = readFileSync(specFilePath, 'utf-8');
+          }
+        } catch {
+          // Ignore read errors - treat as empty spec
+        }
+
+        if (!specContent || specContent.length < MIN_SPEC_CONTENT_LENGTH) {
+          console.warn(`[TASK_UPDATE_STATUS] Blocked attempt to set status 'human_review' for task ${taskId}. No spec has been created yet.`);
+          return {
+            success: false,
+            error: "Cannot move to human review - no spec has been created yet. The task must complete processing before review."
+          };
+        }
+      }
+
       // Get the spec directory
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
