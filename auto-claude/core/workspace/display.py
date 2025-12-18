@@ -75,12 +75,20 @@ def print_merge_success(no_commit: bool, stats: dict | None = None) -> None:
     from ui import Icons, box, icon
 
     if no_commit:
-        content = [
+        lines = [
             success(f"{icon(Icons.SUCCESS)} CHANGES ADDED TO YOUR PROJECT"),
             "",
             "The new code is in your working directory.",
             "Review the changes, then commit when ready.",
         ]
+
+        # Add note about lock files if any were excluded
+        if stats and stats.get("lock_files_excluded", 0) > 0:
+            lines.append("")
+            lines.append("Note: Lock files kept from main.")
+            lines.append("Regenerate: npm install / pip install / cargo update")
+
+        content = lines
     else:
         lines = [
             success(f"{icon(Icons.SUCCESS)} FEATURE ADDED TO YOUR PROJECT!"),

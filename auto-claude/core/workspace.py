@@ -192,9 +192,12 @@ def merge_existing_build(
             # Smart merge handled it (success or identified conflicts)
             if smart_result.get("success"):
                 # Check if smart merge resolved git conflicts directly
-                if smart_result.get("stats", {}).get("ai_assisted"):
-                    # AI resolved git conflicts - changes are already staged
-                    _print_merge_success(no_commit, smart_result.get("stats"))
+                stats = smart_result.get("stats", {})
+                had_conflicts = stats.get("conflicts_resolved", 0) > 0
+
+                if had_conflicts:
+                    # Git conflicts were resolved (via AI or lock file exclusion) - changes are already staged
+                    _print_merge_success(no_commit, stats)
 
                     # Cleanup the worktree since merge is done
                     try:
@@ -209,7 +212,7 @@ def merge_existing_build(
                         spec_name, delete_after=True, no_commit=no_commit
                     )
                     if success_result:
-                        _print_merge_success(no_commit, smart_result.get("stats"))
+                        _print_merge_success(no_commit, stats)
                         return True
             elif smart_result.get("git_conflicts"):
                 # Had git conflicts that AI couldn't fully resolve
@@ -740,10 +743,13 @@ def _resolve_git_conflicts_with_ai(
                     # Lock files should be excluded from merge entirely
                     # They must be regenerated after merge by running the package manager
                     # (e.g., npm install, pnpm install, uv sync, cargo update)
+                    #
+                    # Strategy: Take main branch version and let user regenerate
                     lock_files_excluded.append(file_path)
+                    simple_merges.append((file_path, main_content))
                     debug(
                         MODULE,
-                        f"  {file_path}: lock file (excluded - regenerate after merge)",
+                        f"  {file_path}: lock file (excluded - will use main version)",
                     )
                 else:
                     # Regular file - needs AI merge
