@@ -30,11 +30,27 @@ class TestWorktreeManagerInitialization:
         assert manager.worktrees_dir == temp_git_repo / ".worktrees"
         assert manager.base_branch is not None
 
-    def test_init_detects_current_branch(self, temp_git_repo: Path):
-        """Manager correctly detects the current branch."""
+    def test_init_prefers_main_over_current_branch(self, temp_git_repo: Path):
+        """Manager prefers main/master over current branch when detecting base branch."""
         # Create and switch to a new branch
         subprocess.run(
             ["git", "checkout", "-b", "feature-branch"],
+            cwd=temp_git_repo, capture_output=True
+        )
+
+        # Even though we're on feature-branch, manager should prefer main
+        manager = WorktreeManager(temp_git_repo)
+        assert manager.base_branch == "main"
+
+    def test_init_falls_back_to_current_branch(self, temp_git_repo: Path):
+        """Manager falls back to current branch when main/master don't exist."""
+        # Delete main branch to force fallback
+        subprocess.run(
+            ["git", "checkout", "-b", "feature-branch"],
+            cwd=temp_git_repo, capture_output=True
+        )
+        subprocess.run(
+            ["git", "branch", "-D", "main"],
             cwd=temp_git_repo, capture_output=True
         )
 
