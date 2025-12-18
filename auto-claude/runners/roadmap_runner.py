@@ -18,12 +18,12 @@ import sys
 from pathlib import Path
 
 # Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load .env file
+# Load .env file from auto-claude/ directory
 from dotenv import load_dotenv
 
-env_file = Path(__file__).parent / ".env"
+env_file = Path(__file__).parent.parent / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 

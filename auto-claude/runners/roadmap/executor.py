@@ -14,7 +14,8 @@ class ScriptExecutor:
 
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
-        self.scripts_base_dir = Path(__file__).parent.parent
+        # Go up from roadmap/ -> runners/ -> auto-claude/
+        self.scripts_base_dir = Path(__file__).parent.parent.parent
 
     def run_script(self, script: str, args: list[str]) -> tuple[bool, str]:
         """Run a Python script and return (success, output)."""
@@ -76,7 +77,8 @@ class AgentExecutor:
         self.output_dir = output_dir
         self.model = model
         self.create_client = create_client_func
-        self.prompts_dir = Path(__file__).parent.parent / "prompts"
+        # Go up from roadmap/ -> runners/ -> auto-claude/prompts/
+        self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
     async def run_agent(
         self,
