@@ -38,7 +38,7 @@ function useReducedMotion(): boolean {
 interface RoadmapGenerationProgressProps {
   generationStatus: RoadmapGenerationStatus;
   className?: string;
-  onStop?: () => void;
+  onStop?: () => void | Promise<void>;
 }
 
 // Type for generation phases (excluding idle)

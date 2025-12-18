@@ -27,13 +27,19 @@ export function fetchJson<T>(url: string): Promise<T> {
       }
 
       if (response.statusCode !== 200) {
-        // Collect response body for error details
+        // Collect response body for error details (limit to 10KB)
+        const maxErrorSize = 10 * 1024;
         let errorData = '';
-        response.on('data', chunk => errorData += chunk);
+        response.on('data', chunk => {
+          if (errorData.length < maxErrorSize) {
+            errorData += chunk.toString().slice(0, maxErrorSize - errorData.length);
+          }
+        });
         response.on('end', () => {
           const errorMsg = `HTTP ${response.statusCode}: ${errorData || response.statusMessage || 'No error details'}`;
           reject(new Error(errorMsg));
         });
+        response.on('error', reject);
         return;
       }
 
@@ -86,13 +92,19 @@ export function downloadFile(
 
       if (response.statusCode !== 200) {
         file.close();
-        // Collect response body for error details
+        // Collect response body for error details (limit to 10KB)
+        const maxErrorSize = 10 * 1024;
         let errorData = '';
-        response.on('data', chunk => errorData += chunk);
+        response.on('data', chunk => {
+          if (errorData.length < maxErrorSize) {
+            errorData += chunk.toString().slice(0, maxErrorSize - errorData.length);
+          }
+        });
         response.on('end', () => {
           const errorMsg = `HTTP ${response.statusCode}: ${errorData || response.statusMessage || 'No error details'}`;
           reject(new Error(errorMsg));
         });
+        response.on('error', reject);
         return;
       }
 

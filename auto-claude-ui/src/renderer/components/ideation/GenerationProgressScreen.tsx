@@ -33,7 +33,7 @@ interface GenerationProgressScreenProps {
   onConvert: (idea: Idea) => void;
   onGoToTask?: (taskId: string) => void;
   onDismiss: (idea: Idea) => void;
-  onStop: () => void;
+  onStop: () => void | Promise<void>;
 }
 
 export function GenerationProgressScreen({
