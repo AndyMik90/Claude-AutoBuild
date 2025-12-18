@@ -7,18 +7,24 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
-  Copy
+  Plus,
+  Trash2,
+  Star,
+  Check,
+  Pencil,
+  X,
+  LogIn,
+  ChevronDown,
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '../ui/tooltip';
+import { cn } from '../../lib/utils';
+import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
+import type { ClaudeProfile } from '../../../shared/types';
 
 interface OAuthStepProps {
   onNext: () => void;
@@ -28,91 +34,239 @@ interface OAuthStepProps {
 
 /**
  * OAuth step component for the onboarding wizard.
- * Guides users through Claude OAuth token configuration,
- * reusing patterns from EnvConfigModal.
+ * Guides users through Claude profile management and OAuth authentication,
+ * reusing patterns from IntegrationSettings.tsx.
  */
 export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
-  const [token, setToken] = useState('');
-  const [showToken, setShowToken] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  // Claude Profiles state
+  const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [isAddingProfile, setIsAddingProfile] = useState(false);
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingProfileName, setEditingProfileName] = useState('');
+  const [authenticatingProfileId, setAuthenticatingProfileId] = useState<string | null>(null);
+
+  // Manual token entry state
+  const [expandedTokenProfileId, setExpandedTokenProfileId] = useState<string | null>(null);
+  const [manualToken, setManualToken] = useState('');
+  const [manualTokenEmail, setManualTokenEmail] = useState('');
+  const [showManualToken, setShowManualToken] = useState(false);
+  const [savingTokenProfileId, setSavingTokenProfileId] = useState<string | null>(null);
+
+  // Error state
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [sourcePath, setSourcePath] = useState<string | null>(null);
-  const [hasExistingToken, setHasExistingToken] = useState(false);
 
-  // Check current token status on mount
-  useEffect(() => {
-    const checkToken = async () => {
-      setIsChecking(true);
-      setError(null);
+  // Derived state: check if at least one profile is authenticated
+  const hasAuthenticatedProfile = claudeProfiles.some(
+    (profile) => profile.oauthToken || (profile.isDefault && profile.configDir)
+  );
 
-      try {
-        const result = await window.electronAPI.checkSourceToken();
-        if (result.success && result.data) {
-          setSourcePath(result.data.sourcePath || null);
-          setHasExistingToken(result.data.hasToken);
-
-          if (result.data.hasToken) {
-            // Token exists, show success state
-            setSuccess(true);
-          }
-        } else {
-          setError(result.error || 'Failed to check token status');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkToken();
-  }, []);
-
-  const handleSave = async () => {
-    if (!token.trim()) {
-      setError('Please enter a token');
-      return;
-    }
-
-    setIsSaving(true);
+  // Reusable function to load Claude profiles
+  const loadClaudeProfiles = async () => {
+    setIsLoadingProfiles(true);
     setError(null);
-
     try {
-      const result = await window.electronAPI.updateSourceEnv({
-        claudeOAuthToken: token.trim()
-      });
-
-      if (result.success) {
-        setSuccess(true);
-        setHasExistingToken(true);
-        setToken(''); // Clear the input
-      } else {
-        setError(result.error || 'Failed to save token');
+      const result = await window.electronAPI.getClaudeProfiles();
+      if (result.success && result.data) {
+        setClaudeProfiles(result.data.profiles);
+        setActiveProfileId(result.data.activeProfileId);
+        // Also update the global store
+        await loadGlobalClaudeProfiles();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Failed to load profiles');
     } finally {
-      setIsSaving(false);
+      setIsLoadingProfiles(false);
     }
   };
 
-  const handleCopyCommand = () => {
-    navigator.clipboard.writeText('claude setup-token');
+  // Load Claude profiles on mount
+  useEffect(() => {
+    loadClaudeProfiles();
+  }, []);
+
+  // Listen for OAuth authentication completion
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onTerminalOAuthToken(async (info) => {
+      if (info.success && info.profileId) {
+        // Reload profiles to show updated state
+        await loadClaudeProfiles();
+        // Show simple success notification
+        alert(`✅ Profile authenticated successfully!\n\n${info.email ? `Account: ${info.email}` : 'Authentication complete.'}\n\nYou can now use this profile.`);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Profile management handlers - following patterns from IntegrationSettings.tsx
+  const handleAddProfile = async () => {
+    if (!newProfileName.trim()) return;
+
+    setIsAddingProfile(true);
+    setError(null);
+    try {
+      const profileName = newProfileName.trim();
+      const profileSlug = profileName.toLowerCase().replace(/\s+/g, '-');
+
+      const result = await window.electronAPI.saveClaudeProfile({
+        id: `profile-${Date.now()}`,
+        name: profileName,
+        configDir: `~/.claude-profiles/${profileSlug}`,
+        isDefault: false,
+        createdAt: new Date()
+      });
+
+      if (result.success && result.data) {
+        // Initialize the profile (starts OAuth flow)
+        const initResult = await window.electronAPI.initializeClaudeProfile(result.data.id);
+
+        if (initResult.success) {
+          await loadClaudeProfiles();
+          setNewProfileName('');
+
+          alert(
+            `Authenticating "${profileName}"...\n\n` +
+            `A browser window will open for you to log in with your Claude account.\n\n` +
+            `The authentication will be saved automatically once complete.`
+          );
+        } else {
+          await loadClaudeProfiles();
+          alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add profile');
+      alert('Failed to add profile. Please try again.');
+    } finally {
+      setIsAddingProfile(false);
+    }
   };
 
-  const handleOpenDocs = () => {
-    window.open('https://docs.anthropic.com/en/docs/claude-code', '_blank');
+  const handleDeleteProfile = async (profileId: string) => {
+    setDeletingProfileId(profileId);
+    setError(null);
+    try {
+      const result = await window.electronAPI.deleteClaudeProfile(profileId);
+      if (result.success) {
+        await loadClaudeProfiles();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete profile');
+    } finally {
+      setDeletingProfileId(null);
+    }
+  };
+
+  const startEditingProfile = (profile: ClaudeProfile) => {
+    setEditingProfileId(profile.id);
+    setEditingProfileName(profile.name);
+  };
+
+  const cancelEditingProfile = () => {
+    setEditingProfileId(null);
+    setEditingProfileName('');
+  };
+
+  const handleRenameProfile = async () => {
+    if (!editingProfileId || !editingProfileName.trim()) return;
+
+    setError(null);
+    try {
+      const result = await window.electronAPI.renameClaudeProfile(editingProfileId, editingProfileName.trim());
+      if (result.success) {
+        await loadClaudeProfiles();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename profile');
+    } finally {
+      setEditingProfileId(null);
+      setEditingProfileName('');
+    }
+  };
+
+  const handleSetActiveProfile = async (profileId: string) => {
+    setError(null);
+    try {
+      const result = await window.electronAPI.setActiveClaudeProfile(profileId);
+      if (result.success) {
+        setActiveProfileId(profileId);
+        await loadGlobalClaudeProfiles();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set active profile');
+    }
+  };
+
+  const handleAuthenticateProfile = async (profileId: string) => {
+    setAuthenticatingProfileId(profileId);
+    setError(null);
+    try {
+      const initResult = await window.electronAPI.initializeClaudeProfile(profileId);
+      if (initResult.success) {
+        alert(
+          `Authenticating profile...\n\n` +
+          `A browser window will open for you to log in with your Claude account.\n\n` +
+          `The authentication will be saved automatically once complete.`
+        );
+      } else {
+        alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to authenticate profile');
+      alert('Failed to start authentication. Please try again.');
+    } finally {
+      setAuthenticatingProfileId(null);
+    }
+  };
+
+  const toggleTokenEntry = (profileId: string) => {
+    if (expandedTokenProfileId === profileId) {
+      setExpandedTokenProfileId(null);
+      setManualToken('');
+      setManualTokenEmail('');
+      setShowManualToken(false);
+    } else {
+      setExpandedTokenProfileId(profileId);
+      setManualToken('');
+      setManualTokenEmail('');
+      setShowManualToken(false);
+    }
+  };
+
+  const handleSaveManualToken = async (profileId: string) => {
+    if (!manualToken.trim()) return;
+
+    setSavingTokenProfileId(profileId);
+    setError(null);
+    try {
+      const result = await window.electronAPI.setClaudeProfileToken(
+        profileId,
+        manualToken.trim(),
+        manualTokenEmail.trim() || undefined
+      );
+      if (result.success) {
+        await loadClaudeProfiles();
+        setExpandedTokenProfileId(null);
+        setManualToken('');
+        setManualTokenEmail('');
+        setShowManualToken(false);
+      } else {
+        alert(`Failed to save token: ${result.error || 'Please try again.'}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save token');
+      alert('Failed to save token. Please try again.');
+    } finally {
+      setSavingTokenProfileId(null);
+    }
   };
 
   const handleContinue = () => {
     onNext();
-  };
-
-  const handleReconfigure = () => {
-    setSuccess(false);
-    setError(null);
   };
 
   return (
@@ -122,60 +276,26 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Key className="h-7 w-7" />
+              <Users className="h-7 w-7" />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Configure Claude Authentication
           </h1>
           <p className="mt-2 text-muted-foreground">
-            A Claude Code OAuth token is required to use AI features
+            Add your Claude accounts to enable AI features
           </p>
         </div>
 
         {/* Loading state */}
-        {isChecking && (
+        {isLoadingProfiles && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
 
-        {/* Success state - differentiate between existing token and newly configured */}
-        {!isChecking && success && (
-          <div className="space-y-6">
-            <Card className="border border-success/30 bg-success/10">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-success">
-                      {hasExistingToken && !token
-                        ? 'Token already configured'
-                        : 'Token configured successfully'}
-                    </h3>
-                    <p className="mt-1 text-sm text-success/80">
-                      {hasExistingToken && !token
-                        ? 'Your Claude OAuth token is already set up. You can continue to the next step or reconfigure if needed.'
-                        : "You're all set to use AI features like Ideation, Roadmap generation, and autonomous code generation."}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="text-center text-sm text-muted-foreground">
-              <button
-                onClick={handleReconfigure}
-                className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
-              >
-                {hasExistingToken && !token ? 'Reconfigure token' : 'Configure a different token'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Configuration form */}
-        {!isChecking && !success && (
+        {/* Profile management UI - placeholder for subtask-1-4 */}
+        {!isLoadingProfiles && (
           <div className="space-y-6">
             {/* Error banner */}
             {error && (
@@ -189,119 +309,298 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
               </Card>
             )}
 
-            {/* Info about getting a token */}
+            {/* Info card */}
             <Card className="border border-info/30 bg-info/10">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
                   <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
-                  <div className="flex-1 space-y-3">
-                    <p className="text-sm font-medium text-foreground">
-                      How to get a Claude Code OAuth token:
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">
+                      Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.
                     </p>
-                    <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                      <li>Install Claude Code CLI if you haven't already</li>
-                      <li>
-                        Run{' '}
-                        <code className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">
-                          claude setup-token
-                        </code>
-                        {' '}
-                        <button
-                          onClick={handleCopyCommand}
-                          className="inline-flex items-center text-info hover:text-info/80"
-                        >
-                          <Copy className="h-3 w-3 ml-1" />
-                        </button>
-                      </li>
-                      <li>Copy the token and paste it below</li>
-                    </ol>
-                    <button
-                      onClick={handleOpenDocs}
-                      className="text-sm text-info hover:text-info/80 flex items-center gap-1"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      View documentation
-                    </button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Token input */}
-            <div className="space-y-3">
-              <Label htmlFor="token" className="text-sm font-medium text-foreground">
-                Claude Code OAuth Token
-              </Label>
-              <div className="relative">
-                <Input
-                  id="token"
-                  type={showToken ? 'text' : 'password'}
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  placeholder="sk-ant-oat01-..."
-                  className="pr-10 font-mono text-sm"
-                  disabled={isSaving}
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setShowToken(!showToken)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showToken ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
+            {/* Profile list */}
+            <div className="rounded-lg bg-muted/30 border border-border p-4">
+              {claudeProfiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
+                  <p className="text-sm text-muted-foreground">No accounts configured yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {claudeProfiles.map((profile) => (
+                    <div
+                      key={profile.id}
+                      className={cn(
+                        "rounded-lg border transition-colors",
+                        profile.id === activeProfileId
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-background"
                       )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {showToken ? 'Hide token' : 'Show token'}
-                  </TooltipContent>
-                </Tooltip>
+                    >
+                      <div className={cn(
+                        "flex items-center justify-between p-3",
+                        expandedTokenProfileId !== profile.id && "hover:bg-muted/50"
+                      )}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
+                            profile.id === activeProfileId
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          )}>
+                            {(editingProfileId === profile.id ? editingProfileName : profile.name).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            {editingProfileId === profile.id ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={editingProfileName}
+                                  onChange={(e) => setEditingProfileName(e.target.value)}
+                                  className="h-7 text-sm w-40"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleRenameProfile();
+                                    if (e.key === 'Escape') cancelEditingProfile();
+                                  }}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={handleRenameProfile}
+                                  className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={cancelEditingProfile}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium text-foreground">{profile.name}</span>
+                                  {profile.isDefault && (
+                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Default</span>
+                                  )}
+                                  {profile.id === activeProfileId && (
+                                    <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Star className="h-3 w-3" />
+                                      Active
+                                    </span>
+                                  )}
+                                  {(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
+                                    <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
+                                      <Check className="h-3 w-3" />
+                                      Authenticated
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
+                                      Needs Auth
+                                    </span>
+                                  )}
+                                </div>
+                                {profile.email && (
+                                  <span className="text-xs text-muted-foreground">{profile.email}</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {editingProfileId !== profile.id && (
+                          <div className="flex items-center gap-1">
+                            {/* Authenticate button - show if not authenticated */}
+                            {!profile.oauthToken && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAuthenticateProfile(profile.id)}
+                                disabled={authenticatingProfileId === profile.id}
+                                className="gap-1 h-7 text-xs"
+                              >
+                                {authenticatingProfileId === profile.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <LogIn className="h-3 w-3" />
+                                )}
+                                Authenticate
+                              </Button>
+                            )}
+                            {profile.id !== activeProfileId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSetActiveProfile(profile.id)}
+                                className="gap-1 h-7 text-xs"
+                              >
+                                <Check className="h-3 w-3" />
+                                Set Active
+                              </Button>
+                            )}
+                            {/* Toggle token entry button */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleTokenEntry(profile.id)}
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              title={expandedTokenProfileId === profile.id ? "Hide token entry" : "Enter token manually"}
+                            >
+                              {expandedTokenProfileId === profile.id ? (
+                                <ChevronDown className="h-3 w-3" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => startEditingProfile(profile)}
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              title="Rename profile"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            {!profile.isDefault && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteProfile(profile.id)}
+                                disabled={deletingProfileId === profile.id}
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete profile"
+                              >
+                                {deletingProfileId === profile.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expanded token entry section */}
+                      {expandedTokenProfileId === profile.id && (
+                        <div className="px-3 pb-3 pt-0 border-t border-border/50 mt-0">
+                          <div className="bg-muted/30 rounded-lg p-3 mt-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                Manual Token Entry
+                              </Label>
+                              <span className="text-xs text-muted-foreground">
+                                Run <code className="px-1 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code> to get your token
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <Input
+                                  type={showManualToken ? 'text' : 'password'}
+                                  placeholder="sk-ant-oat01-..."
+                                  value={manualToken}
+                                  onChange={(e) => setManualToken(e.target.value)}
+                                  className="pr-10 font-mono text-xs h-8"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowManualToken(!showManualToken)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                  {showManualToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                </button>
+                              </div>
+
+                              <Input
+                                type="email"
+                                placeholder="Email (optional, for display)"
+                                value={manualTokenEmail}
+                                onChange={(e) => setManualTokenEmail(e.target.value)}
+                                className="text-xs h-8"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleTokenEntry(profile.id)}
+                                className="h-7 text-xs"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveManualToken(profile.id)}
+                                disabled={!manualToken.trim() || savingTokenProfileId === profile.id}
+                                className="h-7 text-xs gap-1"
+                              >
+                                {savingTokenProfileId === profile.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Check className="h-3 w-3" />
+                                )}
+                                Save Token
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new account input */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Account name (e.g., Work, Personal)"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  className="flex-1 h-8 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newProfileName.trim()) {
+                      handleAddProfile();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddProfile}
+                  disabled={!newProfileName.trim() || isAddingProfile}
+                  size="sm"
+                  className="gap-1 shrink-0"
+                >
+                  {isAddingProfile ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                  Add
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                The token will be saved to{' '}
-                <code className="px-1 py-0.5 bg-muted rounded font-mono">
-                  {sourcePath ? `${sourcePath}/.env` : 'auto-claude/.env'}
-                </code>
-              </p>
             </div>
 
-            {/* Existing token info */}
-            {hasExistingToken && (
-              <Card className="border border-border bg-muted/30">
+            {/* Success state when profiles are authenticated */}
+            {hasAuthenticatedProfile && (
+              <Card className="border border-success/30 bg-success/10">
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">
-                    A token is already configured. Enter a new token above to replace it,
-                    or continue to the next step.
-                  </p>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                    <p className="text-sm text-success">
+                      You have at least one authenticated Claude account. You can continue to the next step.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             )}
-
-            {/* Save button */}
-            <div className="flex justify-center pt-2">
-              <Button
-                size="lg"
-                onClick={handleSave}
-                disabled={!token.trim() || isSaving}
-                className="gap-2 px-8"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Key className="h-4 w-4" />
-                    Save Token
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
         )}
 
@@ -324,7 +623,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
             </Button>
             <Button
               onClick={handleContinue}
-              disabled={!success && !hasExistingToken}
+              disabled={!hasAuthenticatedProfile}
             >
               Continue
             </Button>
