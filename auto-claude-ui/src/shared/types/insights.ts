@@ -154,6 +154,16 @@ export interface IdeationSummary {
 // Insights Chat Types
 // ============================================
 
+import type { ThinkingLevel } from './settings';
+import type { ModelType } from './task';
+
+// Model configuration for insights sessions
+export interface InsightsModelConfig {
+  profileId: string;           // 'complex' | 'balanced' | 'quick' | 'custom'
+  model: ModelType;            // 'haiku' | 'sonnet' | 'opus'
+  thinkingLevel: ThinkingLevel;
+}
+
 export type InsightsChatRole = 'user' | 'assistant';
 
 // Tool usage record for showing what tools the AI used
@@ -183,6 +193,7 @@ export interface InsightsSession {
   projectId: string;
   title?: string; // Auto-generated from first message or user-set
   messages: InsightsChatMessage[];
+  modelConfig?: InsightsModelConfig; // Per-session model configuration
   createdAt: Date;
   updatedAt: Date;
 }
@@ -193,6 +204,7 @@ export interface InsightsSessionSummary {
   projectId: string;
   title: string;
   messageCount: number;
+  modelConfig?: InsightsModelConfig; // For displaying model indicator in sidebar
   createdAt: Date;
   updatedAt: Date;
 }

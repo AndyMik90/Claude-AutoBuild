@@ -3,7 +3,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
-import type { IPCResult, InsightsSession, InsightsSessionSummary, Task, TaskMetadata } from '../../shared/types';
+import type { IPCResult, InsightsSession, InsightsSessionSummary, InsightsModelConfig, Task, TaskMetadata } from '../../shared/types';
 import { projectStore } from '../project-store';
 import { insightsService } from '../insights-service';
 
@@ -32,7 +32,7 @@ export function registerInsightsHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.INSIGHTS_SEND_MESSAGE,
-    async (_, projectId: string, message: string) => {
+    async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         const mainWindow = getMainWindow();
@@ -44,7 +44,7 @@ export function registerInsightsHandlers(
 
       // Note: Python environment initialization should be handled by insightsService
       // or added here with proper dependency injection if needed
-      insightsService.sendMessage(projectId, project.path, message);
+      insightsService.sendMessage(projectId, project.path, message, modelConfig);
     }
   );
 
@@ -240,5 +240,58 @@ export function registerInsightsHandlers(
       return { success: false, error: 'Failed to rename session' };
     }
   );
+
+  // Update model configuration for a session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_UPDATE_MODEL_CONFIG,
+    async (_, projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const success = insightsService.updateSessionModelConfig(project.path, sessionId, modelConfig);
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to update model configuration' };
+    }
+  );
+
+  // ============================================
+  // Insights Event Forwarding (Service -> Renderer)
+  // ============================================
+
+  // Forward streaming chunks to renderer
+  insightsService.on('stream-chunk', (projectId: string, chunk: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, projectId, chunk);
+    }
+  });
+
+  // Forward status updates to renderer
+  insightsService.on('status', (projectId: string, status: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STATUS, projectId, status);
+    }
+  });
+
+  // Forward errors to renderer
+  insightsService.on('error', (projectId: string, error: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
+    }
+  });
+
+  // Forward SDK rate limit events to renderer
+  insightsService.on('sdk-rate-limit', (rateLimitInfo: unknown) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
+    }
+  });
 
 }

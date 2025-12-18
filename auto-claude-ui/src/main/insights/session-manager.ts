@@ -1,4 +1,4 @@
-import type { InsightsSession, InsightsSessionSummary } from '../../shared/types';
+import type { InsightsSession, InsightsSessionSummary, InsightsModelConfig } from '../../shared/types';
 import { SessionStorage } from './session-storage';
 import { InsightsPaths } from './paths';
 
@@ -116,6 +116,30 @@ export class SessionManager {
     session.title = newTitle;
     session.updatedAt = new Date();
     this.storage.saveSession(projectPath, session);
+    return true;
+  }
+
+  /**
+   * Update model configuration for a session
+   */
+  updateSessionModelConfig(projectPath: string, sessionId: string, modelConfig: InsightsModelConfig): boolean {
+    const session = this.storage.loadSessionById(projectPath, sessionId);
+    if (!session) return false;
+
+    session.modelConfig = modelConfig;
+    session.updatedAt = new Date();
+    this.storage.saveSession(projectPath, session);
+
+    // Update cache if this session is cached
+    for (const [projectId, cachedSession] of this.sessions) {
+      if (cachedSession.id === sessionId) {
+        cachedSession.modelConfig = modelConfig;
+        cachedSession.updatedAt = new Date();
+        this.sessions.set(projectId, cachedSession);
+        break;
+      }
+    }
+
     return true;
   }
 

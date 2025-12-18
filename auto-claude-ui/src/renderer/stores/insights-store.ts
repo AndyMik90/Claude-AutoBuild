@@ -6,6 +6,7 @@ import type {
   InsightsChatStatus,
   InsightsStreamChunk,
   InsightsToolUsage,
+  InsightsModelConfig,
   TaskMetadata,
   Task
 } from '../../shared/types';
@@ -221,8 +222,9 @@ export async function loadInsightsSession(projectId: string): Promise<void> {
   await loadInsightsSessions(projectId);
 }
 
-export function sendMessage(projectId: string, message: string): void {
+export function sendMessage(projectId: string, message: string, modelConfig?: InsightsModelConfig): void {
   const store = useInsightsStore.getState();
+  const session = store.session;
 
   // Add user message to session
   const userMessage: InsightsChatMessage = {
@@ -242,8 +244,11 @@ export function sendMessage(projectId: string, message: string): void {
     message: 'Processing your message...'
   });
 
+  // Use provided modelConfig, or fall back to session's config
+  const configToUse = modelConfig || session?.modelConfig;
+
   // Send to main process
-  window.electronAPI.sendInsightsMessage(projectId, message);
+  window.electronAPI.sendInsightsMessage(projectId, message, configToUse);
 }
 
 export async function clearSession(projectId: string): Promise<void> {
@@ -289,6 +294,25 @@ export async function deleteSession(projectId: string, sessionId: string): Promi
 export async function renameSession(projectId: string, sessionId: string, newTitle: string): Promise<boolean> {
   const result = await window.electronAPI.renameInsightsSession(projectId, sessionId, newTitle);
   if (result.success) {
+    // Reload sessions list to reflect the change
+    await loadInsightsSessions(projectId);
+    return true;
+  }
+  return false;
+}
+
+export async function updateModelConfig(projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<boolean> {
+  const result = await window.electronAPI.updateInsightsModelConfig(projectId, sessionId, modelConfig);
+  if (result.success) {
+    // Update local session state
+    const store = useInsightsStore.getState();
+    if (store.session?.id === sessionId) {
+      store.setSession({
+        ...store.session,
+        modelConfig,
+        updatedAt: new Date()
+      });
+    }
     // Reload sessions list to reflect the change
     await loadInsightsSessions(projectId);
     return true;

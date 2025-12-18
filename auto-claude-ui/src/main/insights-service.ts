@@ -2,7 +2,8 @@ import { EventEmitter } from 'events';
 import type {
   InsightsSession,
   InsightsSessionSummary,
-  InsightsChatMessage
+  InsightsChatMessage,
+  InsightsModelConfig
 } from '../shared/types';
 import { InsightsConfig } from './insights/config';
 import { InsightsPaths } from './insights/paths';
@@ -111,7 +112,12 @@ export class InsightsService extends EventEmitter {
   /**
    * Send a message and get AI response
    */
-  async sendMessage(projectId: string, projectPath: string, message: string): Promise<void> {
+  async sendMessage(
+    projectId: string,
+    projectPath: string,
+    message: string,
+    modelConfig?: InsightsModelConfig
+  ): Promise<void> {
     // Cancel any existing session
     this.executor.cancelSession(projectId);
 
@@ -150,13 +156,17 @@ export class InsightsService extends EventEmitter {
       content: m.content
     }));
 
+    // Use provided modelConfig or fall back to session's config
+    const configToUse = modelConfig || session.modelConfig;
+
     try {
       // Execute insights query
       const result = await this.executor.execute(
         projectId,
         projectPath,
         message,
-        conversationHistory
+        conversationHistory,
+        configToUse
       );
 
       // Add assistant message to session
@@ -176,6 +186,13 @@ export class InsightsService extends EventEmitter {
       // Error already emitted by executor
       console.error('[InsightsService] Error executing insights:', error);
     }
+  }
+
+  /**
+   * Update model configuration for a session
+   */
+  updateSessionModelConfig(projectPath: string, sessionId: string, modelConfig: InsightsModelConfig): boolean {
+    return this.sessionManager.updateSessionModelConfig(projectPath, sessionId, modelConfig);
   }
 }
 

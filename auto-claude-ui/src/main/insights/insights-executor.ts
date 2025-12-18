@@ -6,8 +6,10 @@ import type {
   InsightsChatMessage,
   InsightsChatStatus,
   InsightsStreamChunk,
-  InsightsToolUsage
+  InsightsToolUsage,
+  InsightsModelConfig
 } from '../../shared/types';
+import { MODEL_ID_MAP } from '../../shared/constants';
 import { InsightsConfig } from './config';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
 
@@ -59,7 +61,8 @@ export class InsightsExecutor extends EventEmitter {
     projectId: string,
     projectPath: string,
     message: string,
-    conversationHistory: Array<{ role: string; content: string }>
+    conversationHistory: Array<{ role: string; content: string }>,
+    modelConfig?: InsightsModelConfig
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -69,7 +72,7 @@ export class InsightsExecutor extends EventEmitter {
       throw new Error('Auto Claude source not found');
     }
 
-    const runnerPath = path.join(autoBuildSource, 'insights_runner.py');
+    const runnerPath = path.join(autoBuildSource, 'runners', 'insights_runner.py');
     if (!existsSync(runnerPath)) {
       throw new Error('insights_runner.py not found in auto-claude directory');
     }
@@ -83,13 +86,23 @@ export class InsightsExecutor extends EventEmitter {
     // Get process environment
     const processEnv = this.config.getProcessEnv();
 
-    // Spawn Python process
-    const proc = spawn(this.config.getPythonPath(), [
+    // Build command arguments
+    const args = [
       runnerPath,
       '--project-dir', projectPath,
       '--message', message,
       '--history', JSON.stringify(conversationHistory)
-    ], {
+    ];
+
+    // Add model config if provided
+    if (modelConfig) {
+      const modelId = MODEL_ID_MAP[modelConfig.model] || MODEL_ID_MAP['sonnet'];
+      args.push('--model', modelId);
+      args.push('--thinking-level', modelConfig.thinkingLevel);
+    }
+
+    // Spawn Python process
+    const proc = spawn(this.config.getPythonPath(), args, {
       cwd: autoBuildSource,
       env: processEnv
     });

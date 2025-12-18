@@ -15,6 +15,22 @@ export const AVAILABLE_MODELS = [
   { value: 'haiku', label: 'Claude Haiku 4.5' }
 ] as const;
 
+// Maps model shorthand to actual Claude model IDs
+export const MODEL_ID_MAP: Record<string, string> = {
+  opus: 'claude-opus-4-5-20251101',
+  sonnet: 'claude-sonnet-4-5-20250929',
+  haiku: 'claude-haiku-4-5-20250929'
+} as const;
+
+// Maps thinking levels to budget tokens (null = no extended thinking)
+export const THINKING_BUDGET_MAP: Record<string, number | null> = {
+  none: null,
+  low: 1024,
+  medium: 4096,
+  high: 16384,
+  ultrathink: 65536
+} as const;
+
 // ============================================
 // Thinking Levels
 // ============================================

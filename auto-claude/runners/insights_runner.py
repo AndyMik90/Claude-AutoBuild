@@ -128,7 +128,13 @@ Be conversational and helpful. Focus on providing actionable insights and clear 
 Keep responses concise but informative."""
 
 
-async def run_with_sdk(project_dir: str, message: str, history: list) -> None:
+async def run_with_sdk(
+    project_dir: str,
+    message: str,
+    history: list,
+    model: str = "claude-sonnet-4-5-20250929",
+    thinking_level: str = "medium"
+) -> None:
     """Run the chat using Claude SDK with streaming."""
     if not SDK_AVAILABLE:
         print("Claude SDK not available, falling back to simple mode", file=sys.stderr)
@@ -163,11 +169,18 @@ async def run_with_sdk(project_dir: str, message: str, history: list) -> None:
 
 Current question: {message}"""
 
+    debug(
+        "insights_runner",
+        "Using model configuration",
+        model=model,
+        thinking_level=thinking_level,
+    )
+
     try:
         # Create Claude SDK client with appropriate settings for insights
         client = ClaudeSDKClient(
             options=ClaudeAgentOptions(
-                model="claude-opus-4-5-20251101",  # Opus 4.5 for quality analysis
+                model=model,  # Use configured model
                 system_prompt=system_prompt,
                 allowed_tools=[
                     "Read",
@@ -318,18 +331,33 @@ def main():
     parser.add_argument("--project-dir", required=True, help="Project directory path")
     parser.add_argument("--message", required=True, help="User message")
     parser.add_argument("--history", default="[]", help="JSON conversation history")
+    parser.add_argument(
+        "--model",
+        default="claude-sonnet-4-5-20250929",
+        help="Claude model ID (default: claude-sonnet-4-5-20250929)"
+    )
+    parser.add_argument(
+        "--thinking-level",
+        default="medium",
+        choices=["none", "low", "medium", "high", "ultrathink"],
+        help="Thinking level for extended reasoning (default: medium)"
+    )
     args = parser.parse_args()
 
     debug_section("insights_runner", "Starting Insights Chat")
 
     project_dir = args.project_dir
     user_message = args.message
+    model = args.model
+    thinking_level = args.thinking_level
 
     debug(
         "insights_runner",
         "Arguments",
         project_dir=project_dir,
         message_length=len(user_message),
+        model=model,
+        thinking_level=thinking_level,
     )
 
     try:
@@ -341,7 +369,7 @@ def main():
 
     # Run the async SDK function
     debug("insights_runner", "Running SDK query")
-    asyncio.run(run_with_sdk(project_dir, user_message, history))
+    asyncio.run(run_with_sdk(project_dir, user_message, history, model, thinking_level))
     debug_success("insights_runner", "Query completed")
 
 

@@ -29,12 +29,14 @@ import {
   switchSession,
   deleteSession,
   renameSession,
+  updateModelConfig,
   createTaskFromSuggestion,
   setupInsightsListeners
 } from '../stores/insights-store';
 import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
-import type { InsightsChatMessage } from '../../shared/types';
+import { InsightsModelSelector } from './InsightsModelSelector';
+import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -141,6 +143,13 @@ export function Insights({ projectId }: InsightsProps) {
     }
   };
 
+  const handleModelConfigChange = async (config: InsightsModelConfig) => {
+    // If we have a session, persist the config
+    if (session?.id) {
+      await updateModelConfig(projectId, session.id, config);
+    }
+  };
+
   const isLoading = status.phase === 'thinking' || status.phase === 'streaming';
   const messages = session?.messages || [];
 
@@ -187,14 +196,21 @@ export function Insights({ projectId }: InsightsProps) {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNewSession}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Chat
-          </Button>
+          <div className="flex items-center gap-2">
+            <InsightsModelSelector
+              currentConfig={session?.modelConfig}
+              onConfigChange={handleModelConfigChange}
+              disabled={isLoading}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNewSession}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
         </div>
 
       {/* Messages */}
