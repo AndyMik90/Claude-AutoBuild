@@ -2,6 +2,7 @@ import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   Project,
@@ -99,29 +100,67 @@ function detectMainBranch(projectPath: string): string | null {
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
 /**
- * Auto-detect the auto-claude source path relative to the app location
- * In dev: auto-claude-ui/../auto-claude
- * In prod: Could be bundled or configured
+ * Auto-detect the auto-claude source path relative to the app location.
+ * Works across platforms (macOS, Windows, Linux) in both dev and production modes.
  */
 const detectAutoBuildSourcePath = (): string | null => {
-  // Try relative to app directory (works in dev and if repo structure is maintained)
-  // __dirname in main process points to out/main in dev
-  const possiblePaths = [
-    // Dev mode: from out/main -> ../../../auto-claude (sibling to auto-claude-ui)
-    path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-    // Alternative: from app root (useful in some packaged scenarios)
-    path.resolve(app.getAppPath(), '..', 'auto-claude'),
-    // If running from repo root
-    path.resolve(process.cwd(), 'auto-claude'),
-    // Try one more level up (in case of different build output structure)
-    path.resolve(__dirname, '..', '..', 'auto-claude')
-  ];
+  const possiblePaths: string[] = [];
+
+  // Development mode paths
+  if (is.dev) {
+    // In dev, __dirname is typically auto-claude-ui/out/main
+    // We need to go up to the project root to find auto-claude/
+    possiblePaths.push(
+      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // From out/main up 3 levels
+      path.resolve(__dirname, '..', '..', 'auto-claude'),        // From out/main up 2 levels
+      path.resolve(process.cwd(), 'auto-claude'),                // From cwd (project root)
+      path.resolve(process.cwd(), '..', 'auto-claude')           // From cwd parent (if running from auto-claude-ui/)
+    );
+  } else {
+    // Production mode paths (packaged app)
+    // On Windows/Linux/macOS, the app might be installed anywhere
+    // We check common locations relative to the app bundle
+    const appPath = app.getAppPath();
+    possiblePaths.push(
+      path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
+      path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
+      path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
+      path.resolve(process.resourcesPath, '..', 'auto-claude'), // Relative to resources
+      path.resolve(process.resourcesPath, '..', '..', 'auto-claude')
+    );
+  }
+
+  // Add process.cwd() as last resort on all platforms
+  possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
+
+  // Enable debug logging with AUTO_CLAUDE_DEBUG=1
+  const debug = process.env.AUTO_CLAUDE_DEBUG === '1' || process.env.AUTO_CLAUDE_DEBUG === 'true';
+
+  if (debug) {
+    console.log('[project-handlers:detectAutoBuildSourcePath] Platform:', process.platform);
+    console.log('[project-handlers:detectAutoBuildSourcePath] Is dev:', is.dev);
+    console.log('[project-handlers:detectAutoBuildSourcePath] __dirname:', __dirname);
+    console.log('[project-handlers:detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
+    console.log('[project-handlers:detectAutoBuildSourcePath] process.cwd():', process.cwd());
+    console.log('[project-handlers:detectAutoBuildSourcePath] Checking paths:', possiblePaths);
+  }
 
   for (const p of possiblePaths) {
-    if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+    const versionPath = path.join(p, 'VERSION');
+    const exists = existsSync(p) && existsSync(versionPath);
+
+    if (debug) {
+      console.log(`[project-handlers:detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
+    }
+
+    if (exists) {
+      console.log(`[project-handlers:detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
       return p;
     }
   }
+
+  console.warn('[project-handlers:detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path.');
+  console.warn('[project-handlers:detectAutoBuildSourcePath] Set AUTO_CLAUDE_DEBUG=1 environment variable for detailed path checking.');
   return null;
 };
 

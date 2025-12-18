@@ -2,6 +2,7 @@ import { ipcMain, dialog, app, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
+import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import type {
   AppSettings,
@@ -13,21 +14,67 @@ import type { BrowserWindow } from 'electron';
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
 /**
- * Auto-detect the auto-claude source path relative to the app location
+ * Auto-detect the auto-claude source path relative to the app location.
+ * Works across platforms (macOS, Windows, Linux) in both dev and production modes.
  */
 const detectAutoBuildSourcePath = (): string | null => {
-  const possiblePaths = [
-    path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-    path.resolve(app.getAppPath(), '..', 'auto-claude'),
-    path.resolve(process.cwd(), 'auto-claude'),
-    path.resolve(__dirname, '..', '..', 'auto-claude')
-  ];
+  const possiblePaths: string[] = [];
+
+  // Development mode paths
+  if (is.dev) {
+    // In dev, __dirname is typically auto-claude-ui/out/main
+    // We need to go up to the project root to find auto-claude/
+    possiblePaths.push(
+      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // From out/main up 3 levels
+      path.resolve(__dirname, '..', '..', 'auto-claude'),        // From out/main up 2 levels
+      path.resolve(process.cwd(), 'auto-claude'),                // From cwd (project root)
+      path.resolve(process.cwd(), '..', 'auto-claude')           // From cwd parent (if running from auto-claude-ui/)
+    );
+  } else {
+    // Production mode paths (packaged app)
+    // On Windows/Linux/macOS, the app might be installed anywhere
+    // We check common locations relative to the app bundle
+    const appPath = app.getAppPath();
+    possiblePaths.push(
+      path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
+      path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
+      path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
+      path.resolve(process.resourcesPath, '..', 'auto-claude'), // Relative to resources
+      path.resolve(process.resourcesPath, '..', '..', 'auto-claude')
+    );
+  }
+
+  // Add process.cwd() as last resort on all platforms
+  possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
+
+  // Enable debug logging with AUTO_CLAUDE_DEBUG=1
+  const debug = process.env.AUTO_CLAUDE_DEBUG === '1' || process.env.AUTO_CLAUDE_DEBUG === 'true';
+
+  if (debug) {
+    console.log('[detectAutoBuildSourcePath] Platform:', process.platform);
+    console.log('[detectAutoBuildSourcePath] Is dev:', is.dev);
+    console.log('[detectAutoBuildSourcePath] __dirname:', __dirname);
+    console.log('[detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
+    console.log('[detectAutoBuildSourcePath] process.cwd():', process.cwd());
+    console.log('[detectAutoBuildSourcePath] Checking paths:', possiblePaths);
+  }
 
   for (const p of possiblePaths) {
-    if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+    const versionPath = path.join(p, 'VERSION');
+    const exists = existsSync(p) && existsSync(versionPath);
+
+    if (debug) {
+      console.log(`[detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
+    }
+
+    if (exists) {
+      console.log(`[detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
       return p;
     }
   }
+
+  console.warn('[detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path. Please configure manually in settings.');
+  console.warn('[detectAutoBuildSourcePath] Set AUTO_CLAUDE_DEBUG=1 environment variable for detailed path checking.');
   return null;
 };
 
