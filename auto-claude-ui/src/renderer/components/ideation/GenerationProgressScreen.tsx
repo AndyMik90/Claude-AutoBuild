@@ -51,6 +51,23 @@ export function GenerationProgressScreen({
 }: GenerationProgressScreenProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [showLogs, setShowLogs] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+
+  /**
+   * Handle stop button click with error handling and double-click prevention
+   */
+  const handleStopClick = async () => {
+    if (isStopping) return;
+    
+    setIsStopping(true);
+    try {
+      await onStop();
+    } catch (err) {
+      console.error('Failed to stop generation:', err);
+    } finally {
+      setIsStopping(false);
+    }
+  };
 
   // Auto-scroll to bottom when logs update
   useEffect(() => {
@@ -98,10 +115,11 @@ export function GenerationProgressScreen({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={onStop}
+                  onClick={handleStopClick}
+                  disabled={isStopping}
                 >
                   <Square className="h-4 w-4 mr-1" />
-                  Stop
+                  {isStopping ? 'Stopping...' : 'Stop'}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Stop generation</TooltipContent>

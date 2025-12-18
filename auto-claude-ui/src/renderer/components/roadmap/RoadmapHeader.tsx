@@ -28,8 +28,8 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
                 <TooltipContent className="max-w-md">
                   <div className="space-y-2">
                     <div className="font-semibold">Analyzed {competitorAnalysis.competitors.length} competitors:</div>
-                    {competitorAnalysis.competitors.map((comp: { name: string; painPoints: unknown[] }, idx: number) => (
-                      <div key={idx} className="text-sm">
+                    {competitorAnalysis.competitors.map((comp) => (
+                      <div key={comp.id} className="text-sm">
                         <div className="font-medium">• {comp.name}</div>
                         <div className="text-muted-foreground ml-3">{comp.painPoints.length} pain points identified</div>
                       </div>
@@ -79,8 +79,8 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
             <TooltipContent className="max-w-md">
               <div className="space-y-1">
                 <div className="font-semibold mb-2">Secondary Personas:</div>
-                {roadmap.targetAudience.secondary.map((persona, idx) => (
-                  <div key={idx} className="text-sm">• {persona}</div>
+                {roadmap.targetAudience.secondary.map((persona) => (
+                  <div key={persona} className="text-sm">• {persona}</div>
                 ))}
               </div>
             </TooltipContent>

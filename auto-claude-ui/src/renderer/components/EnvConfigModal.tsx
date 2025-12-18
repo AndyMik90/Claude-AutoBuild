@@ -30,6 +30,7 @@ import {
   TooltipTrigger
 } from './ui/tooltip';
 import { cn } from '../lib/utils';
+import type { ClaudeProfile } from '../../shared/types';
 
 interface EnvConfigModalProps {
   open: boolean;
@@ -101,7 +102,7 @@ export function EnvConfigModal({
         // Handle Claude profiles
         if (profilesResult.success && profilesResult.data) {
           const authenticatedProfiles = profilesResult.data.profiles.filter(
-            (p: any) => p.oauthToken || (p.isDefault && p.configDir)
+            (p: ClaudeProfile) => p.oauthToken || (p.isDefault && p.configDir)
           );
           setClaudeProfiles(authenticatedProfiles);
 

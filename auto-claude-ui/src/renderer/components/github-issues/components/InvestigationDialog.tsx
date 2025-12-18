@@ -35,16 +35,21 @@ export function InvestigationDialog({
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [selectedCommentIds, setSelectedCommentIds] = useState<number[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [fetchCommentsError, setFetchCommentsError] = useState<string | null>(null);
 
   // Fetch comments when dialog opens
   useEffect(() => {
     if (open && selectedIssue && projectId) {
+      let isMounted = true;
+      
       setLoadingComments(true);
       setComments([]);
       setSelectedCommentIds([]);
+      setFetchCommentsError(null);
 
       window.electronAPI.getIssueComments(projectId, selectedIssue.number)
         .then((result: { success: boolean; data?: GitHubComment[] }) => {
+          if (!isMounted) return;
           if (result.success && result.data) {
             setComments(result.data);
             // By default, select all comments
@@ -52,11 +57,21 @@ export function InvestigationDialog({
           }
         })
         .catch((err: unknown) => {
+          if (!isMounted) return;
           console.error('Failed to fetch comments:', err);
+          setFetchCommentsError(
+            err instanceof Error ? err.message : 'Failed to load comments'
+          );
         })
         .finally(() => {
-          setLoadingComments(false);
+          if (isMounted) {
+            setLoadingComments(false);
+          }
         });
+
+      return () => {
+        isMounted = false;
+      };
     }
   }, [open, selectedIssue, projectId]);
 
@@ -107,6 +122,11 @@ export function InvestigationDialog({
             {loadingComments ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : fetchCommentsError ? (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-4">
+                <p className="text-sm text-destructive font-medium">Failed to load comments</p>
+                <p className="text-xs text-destructive/80 mt-1">{fetchCommentsError}</p>
               </div>
             ) : comments.length > 0 ? (
               <div className="space-y-2 flex-1 min-h-0 flex flex-col">
