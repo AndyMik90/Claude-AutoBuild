@@ -111,7 +111,7 @@ export function TaskReview({
           onStageOnlyChange={onStageOnlyChange}
           onMerge={onMerge}
         />
-      ) : task.stagedInMainProject ? (
+      ) : task.stagedInMainProject && !stagedSuccess ? (
         <StagedInProjectMessage
           task={task}
           projectPath={stagedProjectPath}
