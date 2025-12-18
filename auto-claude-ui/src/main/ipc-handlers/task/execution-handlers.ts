@@ -238,21 +238,31 @@ export function registerTaskExecutionHandlers(
       taskId: string,
       status: TaskStatus
     ): Promise<IPCResult> => {
-      // Validate status transition - 'done' can only be set through merge handler
-      // This prevents AI agents from bypassing the human review workflow
-      if (status === 'done') {
-        console.warn(`[TASK_UPDATE_STATUS] Blocked attempt to set status 'done' directly for task ${taskId}. Use merge workflow instead.`);
-        return {
-          success: false,
-          error: "Cannot set status to 'done' directly. Complete the human review and merge the worktree changes instead."
-        };
-      }
-
-      // Find task and project
+      // Find task and project first (needed for worktree check)
       const { task, project } = findTaskAndProject(taskId);
 
       if (!task || !project) {
         return { success: false, error: 'Task not found' };
+      }
+
+      // Validate status transition - 'done' can only be set through merge handler
+      // UNLESS there's no worktree (limbo state - already merged/discarded or failed)
+      if (status === 'done') {
+        // Check if worktree exists
+        const worktreePath = path.join(project.path, '.worktrees', taskId);
+        const hasWorktree = existsSync(worktreePath);
+
+        if (hasWorktree) {
+          // Worktree exists - must use merge workflow
+          console.warn(`[TASK_UPDATE_STATUS] Blocked attempt to set status 'done' directly for task ${taskId}. Use merge workflow instead.`);
+          return {
+            success: false,
+            error: "Cannot set status to 'done' directly. Complete the human review and merge the worktree changes instead."
+          };
+        } else {
+          // No worktree - allow marking as done (limbo state recovery)
+          console.log(`[TASK_UPDATE_STATUS] Allowing status 'done' for task ${taskId} (no worktree found - limbo state)`);
+        }
       }
 
       // Get the spec directory
@@ -274,17 +284,16 @@ export function registerTaskExecutionHandlers(
           // Store the exact UI status - project-store.ts will map it back
           plan.status = status;
           // Also store mapped version for Python compatibility
-          // Note: 'done' is blocked at the start of this handler - only set via merge workflow
           plan.planStatus = status === 'in_progress' ? 'in_progress'
             : status === 'ai_review' ? 'review'
             : status === 'human_review' ? 'review'
+            : status === 'done' ? 'completed'
             : 'pending';
           plan.updated_at = new Date().toISOString();
 
           writeFileSync(planPath, JSON.stringify(plan, null, 2));
         } else {
           // If no implementation plan exists yet, create a basic one
-          // Note: 'done' status is blocked at the start of this handler
           const plan = {
             feature: task.title,
             description: task.description || '',
@@ -294,6 +303,7 @@ export function registerTaskExecutionHandlers(
             planStatus: status === 'in_progress' ? 'in_progress'
               : status === 'ai_review' ? 'review'
               : status === 'human_review' ? 'review'
+              : status === 'done' ? 'completed'
               : 'pending',
             phases: []
           };
