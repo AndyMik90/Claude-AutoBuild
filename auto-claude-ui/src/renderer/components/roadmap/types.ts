@@ -1,4 +1,4 @@
-import type { RoadmapFeature, RoadmapPhase, Roadmap, CompetitorPainPoint } from '../../../shared/types';
+import type { RoadmapFeature, RoadmapPhase, Roadmap, CompetitorPainPoint, CompetitorAnalysis } from '../../../shared/types';
 
 export interface RoadmapProps {
   projectId: string;

@@ -195,14 +195,15 @@ export class AgentQueueManager {
     };
 
     // Debug: Show OAuth token source
-    const tokenSource = profileEnv.CLAUDE_CODE_OAUTH_TOKEN
+    const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
-      : (combinedEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'auto-claude/.env' : 'not found');
-    const hasToken = !!finalEnv.CLAUDE_CODE_OAUTH_TOKEN;
+      : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
+    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    const hasToken = !!oauthToken;
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
       hasToken,
-      tokenPreview: hasToken ? finalEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 20) + '...' : 'none'
+      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
     const childProcess = spawn(pythonPath, args, {
@@ -428,14 +429,15 @@ export class AgentQueueManager {
     };
 
     // Debug: Show OAuth token source
-    const tokenSource = profileEnv.CLAUDE_CODE_OAUTH_TOKEN
+    const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
-      : (combinedEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'auto-claude/.env' : 'not found');
-    const hasToken = !!finalEnv.CLAUDE_CODE_OAUTH_TOKEN;
+      : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
+    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    const hasToken = !!oauthToken;
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
       hasToken,
-      tokenPreview: hasToken ? finalEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 20) + '...' : 'none'
+      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
     const childProcess = spawn(pythonPath, args, {

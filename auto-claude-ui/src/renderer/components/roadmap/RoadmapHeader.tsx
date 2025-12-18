@@ -28,7 +28,7 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
                 <TooltipContent className="max-w-md">
                   <div className="space-y-2">
                     <div className="font-semibold">Analyzed {competitorAnalysis.competitors.length} competitors:</div>
-                    {competitorAnalysis.competitors.map((comp, idx) => (
+                    {competitorAnalysis.competitors.map((comp: { name: string; painPoints: unknown[] }, idx: number) => (
                       <div key={idx} className="text-sm">
                         <div className="font-medium">• {comp.name}</div>
                         <div className="text-muted-foreground ml-3">{comp.painPoints.length} pain points identified</div>

@@ -541,7 +541,7 @@ export function registerWorktreeHandlers(
             uncommittedFiles = gitStatus
               .split('\n')
               .filter(line => line.trim())
-              .map(line => line.substring(3)); // Skip 2 status chars + 1 space
+              .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
 
             hasUncommittedChanges = uncommittedFiles.length > 0;
           }

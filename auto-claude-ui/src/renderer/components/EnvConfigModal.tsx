@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from './ui/tooltip';
+import { cn } from '../lib/utils';
 
 interface EnvConfigModalProps {
   open: boolean;
@@ -36,6 +37,7 @@ interface EnvConfigModalProps {
   onConfigured?: () => void;
   title?: string;
   description?: string;
+  projectId?: string;
 }
 
 export function EnvConfigModal({
@@ -43,7 +45,8 @@ export function EnvConfigModal({
   onOpenChange,
   onConfigured,
   title = 'Claude Authentication Required',
-  description = 'A Claude Code OAuth token is required to use AI features like Ideation and Roadmap generation.'
+  description = 'A Claude Code OAuth token is required to use AI features like Ideation and Roadmap generation.',
+  projectId
 }: EnvConfigModalProps) {
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
@@ -123,28 +126,18 @@ export function EnvConfigModal({
     if (!open) return;
 
     const cleanup = window.electronAPI.onTerminalOAuthToken(async (info) => {
-      if (info.success && info.token) {
-        // Save the OAuth token
-        try {
-          const result = await window.electronAPI.updateSourceEnv({
-            claudeOAuthToken: info.token
-          });
+      if (info.success) {
+        // Token is auto-saved to the profile by the main process
+        // Just update UI state to reflect authentication success
+        setSuccess(true);
+        setHasExistingToken(true);
+        setIsAuthenticating(false);
 
-          if (result.success) {
-            setSuccess(true);
-            setHasExistingToken(true);
-            setIsAuthenticating(false);
-
-            // Notify parent
-            setTimeout(() => {
-              onConfigured?.();
-              onOpenChange(false);
-            }, 1500);
-          }
-        } catch (err) {
-          setError('Failed to save authentication token');
-          setIsAuthenticating(false);
-        }
+        // Notify parent
+        setTimeout(() => {
+          onConfigured?.();
+          onOpenChange(false);
+        }, 1500);
       }
     });
 
@@ -191,12 +184,17 @@ export function EnvConfigModal({
   };
 
   const handleAuthenticateWithBrowser = async () => {
+    if (!projectId) {
+      setError('No project selected. Please select a project first.');
+      return;
+    }
+
     setIsAuthenticating(true);
     setError(null);
 
     try {
       // Invoke the Claude setup-token flow in terminal
-      const result = await window.electronAPI.invokeClaudeSetup();
+      const result = await window.electronAPI.invokeClaudeSetup(projectId);
 
       if (!result.success) {
         setError(result.error || 'Failed to start authentication');

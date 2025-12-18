@@ -117,6 +117,11 @@ export const integrationMock = {
     console.warn('[Browser Mock] investigateGitHubIssue called');
   },
 
+  getIssueComments: async () => ({
+    success: true,
+    data: []
+  }),
+
   importGitHubIssues: async () => ({
     success: false,
     error: 'Not available in browser mock'

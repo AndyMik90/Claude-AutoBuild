@@ -70,7 +70,7 @@ export function downloadFile(
 
     const headers = {
       'User-Agent': 'Auto-Claude-UI',
-      'Accept': 'application/vnd.github+json'
+      'Accept': 'application/octet-stream'
     };
 
     const request = https.get(url, { headers }, (response) => {

@@ -74,7 +74,7 @@ def print_merge_success(
     no_commit: bool,
     stats: dict | None = None,
     spec_name: str | None = None,
-    keep_worktree: bool = False
+    keep_worktree: bool = False,
 ) -> None:
     """Print a success message after merge."""
     from ui import Icons, box, icon
@@ -131,7 +131,9 @@ def print_merge_success(
                 ]
             )
             if spec_name:
-                lines.append(f"  python auto-claude/run.py --spec {spec_name} --discard")
+                lines.append(
+                    f"  python auto-claude/run.py --spec {spec_name} --discard"
+                )
         else:
             lines.extend(
                 [

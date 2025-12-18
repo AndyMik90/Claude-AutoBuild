@@ -12,12 +12,14 @@ from dataclasses import dataclass
 try:
     import termios
     import tty
+
     _HAS_TERMIOS = True
 except ImportError:
     _HAS_TERMIOS = False
 
 try:
     import msvcrt
+
     _HAS_MSVCRT = True
 except ImportError:
     _HAS_MSVCRT = False
@@ -45,18 +47,18 @@ def _getch() -> str:
         # Windows implementation
         ch = msvcrt.getch()
         # Handle special keys (arrow keys return two bytes)
-        if ch in (b'\x00', b'\xe0'):
+        if ch in (b"\x00", b"\xe0"):
             ch2 = msvcrt.getch()
-            if ch2 == b'H':
+            if ch2 == b"H":
                 return "UP"
-            elif ch2 == b'P':
+            elif ch2 == b"P":
                 return "DOWN"
-            elif ch2 == b'M':
+            elif ch2 == b"M":
                 return "RIGHT"
-            elif ch2 == b'K':
+            elif ch2 == b"K":
                 return "LEFT"
             return ""
-        return ch.decode('utf-8', errors='replace')
+        return ch.decode("utf-8", errors="replace")
     elif _HAS_TERMIOS:
         # Unix implementation
         fd = sys.stdin.fileno()

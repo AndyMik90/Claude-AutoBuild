@@ -197,7 +197,9 @@ def merge_existing_build(
 
                 if had_conflicts:
                     # Git conflicts were resolved (via AI or lock file exclusion) - changes are already staged
-                    _print_merge_success(no_commit, stats, spec_name=spec_name, keep_worktree=True)
+                    _print_merge_success(
+                        no_commit, stats, spec_name=spec_name, keep_worktree=True
+                    )
 
                     # Don't auto-delete worktree - let user test and manually cleanup
                     # User can delete with: python auto-claude/run.py --spec <name> --discard
@@ -210,7 +212,9 @@ def merge_existing_build(
                         spec_name, delete_after=False, no_commit=no_commit
                     )
                     if success_result:
-                        _print_merge_success(no_commit, stats, spec_name=spec_name, keep_worktree=True)
+                        _print_merge_success(
+                            no_commit, stats, spec_name=spec_name, keep_worktree=True
+                        )
                         return True
             elif smart_result.get("git_conflicts"):
                 # Had git conflicts that AI couldn't fully resolve

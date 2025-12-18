@@ -83,10 +83,13 @@ const browserMockAPI: ElectronAPI = {
     }
   }),
 
+  stopRoadmap: async () => ({ success: true }),
+
   // Roadmap Event Listeners
   onRoadmapProgress: () => () => {},
   onRoadmapComplete: () => () => {},
   onRoadmapError: () => () => {},
+  onRoadmapStopped: () => () => {},
   // Context Operations
   ...contextMock,
 

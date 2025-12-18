@@ -44,14 +44,14 @@ export function InvestigationDialog({
       setSelectedCommentIds([]);
 
       window.electronAPI.getIssueComments(projectId, selectedIssue.number)
-        .then((result) => {
+        .then((result: { success: boolean; data?: GitHubComment[] }) => {
           if (result.success && result.data) {
             setComments(result.data);
             // By default, select all comments
-            setSelectedCommentIds(result.data.map(c => c.id));
+            setSelectedCommentIds(result.data.map((c: GitHubComment) => c.id));
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error('Failed to fetch comments:', err);
         })
         .finally(() => {
