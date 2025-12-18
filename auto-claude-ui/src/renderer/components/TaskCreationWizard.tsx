@@ -81,7 +81,6 @@ export function TaskCreationWizard({
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showImages, setShowImages] = useState(false);
-  const [showFiles, setShowFiles] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(false);
 
   // Get project path from project store
@@ -171,9 +170,7 @@ export function TaskCreationWizard({
         if (draft.images.length > 0) {
           setShowImages(true);
         }
-        if (draft.referencedFiles && draft.referencedFiles.length > 0) {
-          setShowFiles(true);
-        }
+        // Note: Referenced Files section is always visible, no need to expand
       } else {
         // No draft - initialize model/thinkingLevel from selected profile
         setModel(selectedProfile.model);
@@ -446,9 +443,7 @@ export function TaskCreationWizard({
     };
 
     setReferencedFiles(prev => [...prev, newFile]);
-
-    // Auto-expand the files section when a file is added
-    setShowFiles(true);
+    // Note: Referenced Files section is always visible, no need to expand
   }, [referencedFiles]);
 
   const handleCreate = async () => {
@@ -510,7 +505,6 @@ export function TaskCreationWizard({
     setError(null);
     setShowAdvanced(false);
     setShowImages(false);
-    setShowFiles(false);
     setShowFileExplorer(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
@@ -560,8 +554,15 @@ export function TaskCreationWizard({
           hideCloseButton={showFileExplorer}
         >
           <div className="flex h-full min-h-0 overflow-hidden">
-            {/* Form content */}
-            <div className="flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto">
+            {/* Form content - Drop zone wrapper */}
+            <div
+              ref={setDropRef}
+              className={cn(
+                "flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto transition-colors duration-150 ease-out",
+                // Subtle background tint when dragging files - keeps modal usable
+                activeDragData && "bg-muted/20"
+              )}
+            >
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -854,104 +855,70 @@ export function TaskCreationWizard({
             </div>
           )}
 
-          {/* Reference Files Toggle */}
-          <button
-            type="button"
-            onClick={() => setShowFiles(!showFiles)}
+          {/* Referenced Files Section - Always visible */}
+          <div
             className={cn(
-              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
-              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+              "space-y-3 p-4 rounded-lg border bg-muted/30 relative transition-all duration-150 ease-out",
+              // Default state
+              !activeDragData && "border-border",
+              // Subtle dashed border when dragging but not over drop zone
+              activeDragData && !isOverDropZone && "border-dashed border-muted-foreground/40",
+              // Highlighted when dragging over - can accept files
+              activeDragData && isOverDropZone && !isAtMaxFiles && "border-info border-solid bg-info/5 shadow-sm",
+              // Warning when at max capacity
+              activeDragData && isOverDropZone && isAtMaxFiles && "border-warning border-solid bg-warning/5"
             )}
-            disabled={isCreating}
           >
-            <span className="flex items-center gap-2">
-              <FolderTree className="h-4 w-4" />
-              Reference Files (optional)
+            {/* Drop zone indicator - only shows when dragging over the section */}
+            {activeDragData && isOverDropZone && (
+              <div className={cn(
+                "absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-lg transition-opacity duration-100",
+                isAtMaxFiles ? "bg-warning/5" : "bg-info/5"
+              )}>
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs",
+                  isAtMaxFiles
+                    ? "bg-warning/80 text-warning-foreground"
+                    : "bg-info/80 text-info-foreground"
+                )}>
+                  <FileDown className="h-3.5 w-3.5" />
+                  <span className="font-medium">
+                    {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files` : 'Drop to add'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <FolderTree className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Referenced Files</span>
               {referencedFiles.length > 0 && (
                 <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                  {referencedFiles.length}
+                  {referencedFiles.length}/{MAX_REFERENCED_FILES}
                 </span>
-              )}
-            </span>
-            {showFiles ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {/* Referenced Files Section - Drop Zone */}
-          {showFiles ? (
-            <div
-              ref={setDropRef}
-              className={cn(
-                "space-y-3 p-4 rounded-lg border bg-muted/30 relative transition-all",
-                isOverDropZone && !isAtMaxFiles && "ring-2 ring-info border-info",
-                isOverDropZone && isAtMaxFiles && "ring-2 ring-warning border-warning",
-                !isOverDropZone && "border-border"
-              )}
-            >
-              {/* Drop zone overlay indicator */}
-              {isOverDropZone && (
-                <div className={cn(
-                  "absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-lg",
-                  isAtMaxFiles ? "bg-warning/10" : "bg-info/10"
-                )}>
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md",
-                    isAtMaxFiles ? "bg-warning/90 text-warning-foreground" : "bg-info/90 text-info-foreground"
-                  )}>
-                    <FileDown className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files reached` : 'Drop to add reference'}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Reference specific files or folders from your project to provide context for the AI.
-              </p>
-              <ReferencedFilesSection
-                files={referencedFiles}
-                onRemove={(id) => setReferencedFiles(prev => prev.filter(f => f.id !== id))}
-                maxFiles={MAX_REFERENCED_FILES}
-                disabled={isCreating}
-              />
-              {referencedFiles.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">
-                  No files referenced yet. Drag files from the file explorer to add them.
-                </p>
               )}
             </div>
-          ) : (
-            /* Compact drop zone when section is collapsed - only visible during drag */
-            activeDragData && (
-              <div
-                ref={setDropRef}
-                className={cn(
-                  "p-3 rounded-lg border-2 border-dashed flex items-center justify-center gap-2 transition-all animate-in fade-in slide-in-from-top-2 duration-200",
-                  isOverDropZone && !isAtMaxFiles && "border-info bg-info/10",
-                  isOverDropZone && isAtMaxFiles && "border-warning bg-warning/10",
-                  !isOverDropZone && "border-muted-foreground/30 bg-muted/20"
-                )}
-              >
-                <FileDown className={cn(
-                  "h-4 w-4",
-                  isOverDropZone && !isAtMaxFiles && "text-info",
-                  isOverDropZone && isAtMaxFiles && "text-warning",
-                  !isOverDropZone && "text-muted-foreground"
-                )} />
-                <span className={cn(
-                  "text-sm",
-                  isOverDropZone && !isAtMaxFiles && "text-info font-medium",
-                  isOverDropZone && isAtMaxFiles && "text-warning font-medium",
-                  !isOverDropZone && "text-muted-foreground"
-                )}>
-                  {isAtMaxFiles ? `Max ${MAX_REFERENCED_FILES} files reached` : 'Drop file here to add reference'}
-                </span>
-              </div>
-            )
-          )}
+
+            {/* Empty state hint */}
+            {referencedFiles.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Drag files from the file explorer to add references, or use the "Browse Files" button below.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  These files will provide context for the AI when working on your task.
+                </p>
+                <ReferencedFilesSection
+                  files={referencedFiles}
+                  onRemove={(id) => setReferencedFiles(prev => prev.filter(f => f.id !== id))}
+                  maxFiles={MAX_REFERENCED_FILES}
+                  disabled={isCreating}
+                />
+              </>
+            )}
+          </div>
 
           {/* Review Requirement Toggle */}
           <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
