@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 
@@ -300,6 +300,17 @@ export class AgentProcessManager {
             taskId
           });
           this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+        } else {
+          // Not rate limited - check for authentication failure
+          const authFailureDetection = detectAuthFailure(allOutput);
+          if (authFailureDetection.isAuthFailure) {
+            this.emitter.emit('auth-failure', taskId, {
+              profileId: authFailureDetection.profileId,
+              failureType: authFailureDetection.failureType,
+              message: authFailureDetection.message,
+              originalError: authFailureDetection.originalError
+            });
+          }
         }
       }
 
