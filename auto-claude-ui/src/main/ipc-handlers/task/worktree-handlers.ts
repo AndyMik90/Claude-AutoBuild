@@ -533,15 +533,17 @@ export function registerWorktreeHandlers(
           const gitStatus = execSync('git status --porcelain', {
             cwd: project.path,
             encoding: 'utf-8'
-          }).trim();
+          });
 
-          if (gitStatus) {
+          if (gitStatus && gitStatus.trim()) {
             // Parse the status output to get file names
-            uncommittedFiles = gitStatus.split('\n')
+            // Format: XY filename (where X and Y are status chars, then space, then filename)
+            uncommittedFiles = gitStatus
+              .split('\n')
               .filter(line => line.trim())
-              .map(line => line.substring(3).trim()); // Remove status prefix (e.g., "M  ", " M ", "?? ")
+              .map(line => line.substring(3)); // Skip 2 status chars + 1 space
+
             hasUncommittedChanges = uncommittedFiles.length > 0;
-            console.warn('[IPC] Uncommitted changes detected:', uncommittedFiles.length, 'files');
           }
         } catch (e) {
           console.error('[IPC] Failed to check git status:', e);
