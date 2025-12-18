@@ -114,6 +114,18 @@ pnpm run build && pnpm run start
 # or: npm run build && npm run start
 ```
 
+<details>
+<summary><b>Windows users:</b> If installation fails with node-gyp errors, click here</summary>
+
+Auto Claude automatically downloads prebuilt binaries for Windows. If prebuilts aren't available for your Electron version yet, you'll need Visual Studio Build Tools:
+
+1. Download [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Select "Desktop development with C++" workload
+3. In "Individual Components", add "MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs"
+4. Restart terminal and run `npm install` again
+
+</details>
+
 ### Step 4: Start Building
 
 1. Add your project in the UI

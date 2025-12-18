@@ -6,7 +6,7 @@
   "author": "Auto Claude Team",
   "license": "AGPL-3.0",
   "scripts": {
-    "postinstall": "electron-rebuild",
+    "postinstall": "node scripts/postinstall.js",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron .",
