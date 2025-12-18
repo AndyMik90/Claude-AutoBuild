@@ -45,7 +45,8 @@ export class InsightsConfig {
     ];
 
     for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+      // Use requirements.txt as marker - it always exists in auto-claude source
+      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
         return p;
       }
     }
@@ -103,7 +104,8 @@ export class InsightsConfig {
       ...process.env as Record<string, string>,
       ...autoBuildEnv,
       ...profileEnv,
-      PYTHONUNBUFFERED: '1'
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8'
     };
   }
 }

@@ -146,8 +146,9 @@ const detectAutoBuildSourcePath = (): string | null => {
   }
 
   for (const p of possiblePaths) {
-    const versionPath = path.join(p, 'VERSION');
-    const exists = existsSync(p) && existsSync(versionPath);
+    // Use requirements.txt as marker - it always exists in auto-claude source
+    const markerPath = path.join(p, 'requirements.txt');
+    const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
       console.log(`[project-handlers:detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);

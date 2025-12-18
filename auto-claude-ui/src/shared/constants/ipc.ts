@@ -269,5 +269,14 @@ export const IPC_CHANNELS = {
   APP_UPDATE_AVAILABLE: 'app-update:available',
   APP_UPDATE_DOWNLOADED: 'app-update:downloaded',
   APP_UPDATE_PROGRESS: 'app-update:progress',
-  APP_UPDATE_ERROR: 'app-update:error'
+  APP_UPDATE_ERROR: 'app-update:error',
+
+  // Release operations
+  RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
+  RELEASE_CREATE: 'release:create',
+  RELEASE_PREFLIGHT: 'release:preflight',
+  RELEASE_GET_VERSIONS: 'release:getVersions',
+
+  // Release events (main -> renderer)
+  RELEASE_PROGRESS: 'release:progress'
 } as const;

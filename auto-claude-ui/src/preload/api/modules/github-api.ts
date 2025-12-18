@@ -6,7 +6,8 @@ import type {
   GitHubImportResult,
   GitHubInvestigationStatus,
   GitHubInvestigationResult,
-  IPCResult
+  IPCResult,
+  VersionSuggestion
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -27,6 +28,9 @@ export interface GitHubAPI {
     releaseNotes: string,
     options?: { draft?: boolean; prerelease?: boolean }
   ) => Promise<IPCResult<{ url: string }>>;
+
+  /** AI-powered version suggestion based on commits since last release */
+  suggestReleaseVersion: (projectId: string) => Promise<IPCResult<VersionSuggestion>>;
 
   // OAuth operations (gh CLI)
   checkGitHubCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
@@ -78,6 +82,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
     options?: { draft?: boolean; prerelease?: boolean }
   ): Promise<IPCResult<{ url: string }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_CREATE_RELEASE, projectId, version, releaseNotes, options),
+
+  suggestReleaseVersion: (projectId: string): Promise<IPCResult<VersionSuggestion>> =>
+    invokeIpc(IPC_CHANNELS.RELEASE_SUGGEST_VERSION, projectId),
 
   // OAuth operations (gh CLI)
   checkGitHubCli: (): Promise<IPCResult<{ installed: boolean; version?: string }>> =>

@@ -39,8 +39,8 @@ function setupTestDirs(): void {
   // Create auto-claude source directory that getAutoBuildSourcePath looks for
   mkdirSync(AUTO_CLAUDE_SOURCE, { recursive: true });
 
-  // Create VERSION file (required by getAutoBuildSourcePath)
-  writeFileSync(path.join(AUTO_CLAUDE_SOURCE, 'VERSION'), '1.0.0');
+  // Create requirements.txt file (used as marker by getAutoBuildSourcePath)
+  writeFileSync(path.join(AUTO_CLAUDE_SOURCE, 'requirements.txt'), '# Mock requirements');
 
   // Create runners subdirectory (where spec_runner.py lives after restructure)
   mkdirSync(path.join(AUTO_CLAUDE_SOURCE, 'runners'), { recursive: true });

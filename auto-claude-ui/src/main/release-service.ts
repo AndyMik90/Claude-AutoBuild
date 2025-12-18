@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 import type {
   ReleaseableVersion,
@@ -17,7 +17,7 @@ import { DEFAULT_CHANGELOG_PATH } from '../shared/constants';
 
 /**
  * Service for creating GitHub releases with worktree-aware pre-flight checks.
- * 
+ *
  * Key feature: Worktree checks are SCOPED to tasks in the release version.
  * If a worktree exists for a task NOT in this release, it won't block the release.
  */
@@ -32,7 +32,7 @@ export class ReleaseService extends EventEmitter {
    */
   parseChangelogVersions(projectPath: string): ReleaseableVersion[] {
     const changelogPath = path.join(projectPath, DEFAULT_CHANGELOG_PATH);
-    
+
     if (!existsSync(changelogPath)) {
       return [];
     }
@@ -49,7 +49,7 @@ export class ReleaseService extends EventEmitter {
       const version = match[1];
       const date = match[2] || '';
       const startIndex = match.index! + match[0].length;
-      
+
       // Content is until next version header or end of file
       const endIndex = i < matches.length - 1 ? matches[i + 1].index! : content.length;
       const versionContent = content.slice(startIndex, endIndex).trim();
@@ -98,17 +98,17 @@ export class ReleaseService extends EventEmitter {
     tasks: Task[]
   ): Promise<ReleaseableVersion[]> {
     const versions = this.parseChangelogVersions(projectPath);
-    
+
     // Populate task spec IDs for each version
     for (const version of versions) {
       const { specIds } = this.getTasksForVersion(projectPath, version.version, tasks);
       version.taskSpecIds = specIds;
-      
+
       // Check if already released on GitHub
       try {
         const tagExists = this.checkTagExists(projectPath, version.tagName);
         version.isReleased = tagExists;
-        
+
         if (tagExists) {
           // Try to get release URL
           version.releaseUrl = this.getGitHubReleaseUrl(projectPath, version.tagName);
@@ -129,11 +129,11 @@ export class ReleaseService extends EventEmitter {
     try {
       // Check local tags
       execSync(`git tag -l "${tagName}"`, { cwd: projectPath, encoding: 'utf-8' });
-      const localTags = execSync(`git tag -l "${tagName}"`, { 
-        cwd: projectPath, 
-        encoding: 'utf-8' 
+      const localTags = execSync(`git tag -l "${tagName}"`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
       }).trim();
-      
+
       if (localTags) return true;
 
       // Check remote tags
@@ -147,7 +147,7 @@ export class ReleaseService extends EventEmitter {
           cwd: projectPath,
           encoding: 'utf-8'
         }).trim();
-        
+
         return !!remoteTags;
       } catch {
         return false;
@@ -166,7 +166,7 @@ export class ReleaseService extends EventEmitter {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
-      
+
       return result || undefined;
     } catch {
       return undefined;
@@ -175,7 +175,7 @@ export class ReleaseService extends EventEmitter {
 
   /**
    * Run pre-flight checks for a specific version.
-   * 
+   *
    * IMPORTANT: Worktree checks are scoped to tasks in this version only.
    * Worktrees for other tasks (future releases) won't block this release.
    */
@@ -186,7 +186,7 @@ export class ReleaseService extends EventEmitter {
   ): Promise<ReleasePreflightStatus> {
     const tagName = `v${version}`;
     const { specIds } = this.getTasksForVersion(projectPath, version, tasks);
-    
+
     const status: ReleasePreflightStatus = {
       canRelease: false,
       checks: {
@@ -303,7 +303,7 @@ export class ReleaseService extends EventEmitter {
     if (unmergedWorktrees.length === 0) {
       status.checks.worktreesMerged = {
         passed: true,
-        message: specIds.length > 0 
+        message: specIds.length > 0
           ? `All ${specIds.length} feature(s) in this release are merged`
           : 'No features to check (version may have been manually added)',
         unmergedWorktrees: []
@@ -314,7 +314,7 @@ export class ReleaseService extends EventEmitter {
         message: `${unmergedWorktrees.length} feature(s) have unmerged worktrees`,
         unmergedWorktrees
       };
-      
+
       for (const wt of unmergedWorktrees) {
         status.blockers.push(
           `Feature "${wt.taskTitle}" (${wt.specId}) has unmerged changes in worktree`
@@ -330,7 +330,7 @@ export class ReleaseService extends EventEmitter {
 
   /**
    * Check worktrees ONLY for tasks that are part of this release version.
-   * 
+   *
    * This is the key function that scopes worktree checks to the release:
    * - If a task is in the release AND has an unmerged worktree → BLOCK
    * - If a task is NOT in the release but has a worktree → IGNORE (it's for a future release)
@@ -344,7 +344,7 @@ export class ReleaseService extends EventEmitter {
 
     // Get worktrees directory
     const worktreesDir = path.join(projectPath, '.worktrees', 'auto-claude');
-    
+
     if (!existsSync(worktreesDir)) {
       // No worktrees exist at all - all clear
       return [];
@@ -364,7 +364,7 @@ export class ReleaseService extends EventEmitter {
     for (const specId of releaseSpecIds) {
       // Find the worktree folder for this spec
       // Spec IDs are like "001-feature-name", worktree folders match
-      const worktreeFolder = worktreeFolders.find(folder => 
+      const worktreeFolder = worktreeFolders.find(folder =>
         folder === specId || folder.startsWith(`${specId}-`)
       );
 
@@ -374,7 +374,7 @@ export class ReleaseService extends EventEmitter {
       }
 
       const worktreePath = path.join(worktreesDir, worktreeFolder);
-      
+
       // Get the task info for better error messages
       const task = tasks.find(t => t.specId === specId);
       const taskTitle = task?.title || specId;
@@ -442,7 +442,7 @@ export class ReleaseService extends EventEmitter {
           cwd: worktreePath,
           encoding: 'utf-8'
         }).trim();
-        
+
         return !hasChanges;
       }
 
@@ -454,7 +454,167 @@ export class ReleaseService extends EventEmitter {
   }
 
   /**
-   * Create a GitHub release.
+   * Bump version in package.json with safe git workflow.
+   * Preserves user's current work by stashing, switching to main, then restoring.
+   */
+  async bumpVersion(
+    projectPath: string,
+    version: string,
+    mainBranch: string,
+    projectId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    // Save current state
+    let originalBranch: string;
+    let hadChanges = false;
+    let stashCreated = false;
+
+    try {
+      originalBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      }).trim();
+    } catch {
+      return { success: false, error: 'Failed to get current git branch' };
+    }
+
+    // Check for uncommitted changes
+    const gitStatus = execSync('git status --porcelain', {
+      cwd: projectPath,
+      encoding: 'utf-8'
+    }).trim();
+    hadChanges = !!gitStatus;
+
+    try {
+      // Stash any changes (staged or unstaged)
+      if (hadChanges) {
+        this.emitProgress(projectId, {
+          stage: 'bumping_version',
+          progress: 5,
+          message: 'Stashing current changes...'
+        });
+
+        execSync('git stash push -m "auto-claude-release-temp"', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        });
+        stashCreated = true;
+      }
+
+      // Checkout main branch
+      this.emitProgress(projectId, {
+        stage: 'bumping_version',
+        progress: 10,
+        message: `Switching to ${mainBranch}...`
+      });
+
+      if (originalBranch !== mainBranch) {
+        execSync(`git checkout "${mainBranch}"`, {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        });
+      }
+
+      // Pull latest from origin
+      this.emitProgress(projectId, {
+        stage: 'bumping_version',
+        progress: 15,
+        message: `Pulling latest from origin/${mainBranch}...`
+      });
+
+      try {
+        execSync(`git pull origin "${mainBranch}"`, {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        });
+      } catch {
+        // Pull might fail if no upstream, continue anyway
+      }
+
+      // Update package.json
+      this.emitProgress(projectId, {
+        stage: 'bumping_version',
+        progress: 20,
+        message: `Updating package.json to ${version}...`
+      });
+
+      const pkgPath = path.join(projectPath, 'package.json');
+      if (!existsSync(pkgPath)) {
+        throw new Error('package.json not found in project root');
+      }
+
+      const pkgContent = readFileSync(pkgPath, 'utf-8');
+      const pkg = JSON.parse(pkgContent);
+      pkg.version = version;
+
+      // Preserve formatting (detect indent)
+      const indent = pkgContent.match(/^(\s+)/m)?.[1] || '  ';
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, indent) + '\n');
+
+      // Stage and commit only package.json
+      this.emitProgress(projectId, {
+        stage: 'bumping_version',
+        progress: 25,
+        message: 'Committing version bump...'
+      });
+
+      execSync('git add package.json', {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      execSync(`git commit -m "chore: release v${version}"`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      // Push to origin
+      this.emitProgress(projectId, {
+        stage: 'bumping_version',
+        progress: 30,
+        message: `Pushing to origin/${mainBranch}...`
+      });
+
+      execSync(`git push origin "${mainBranch}"`, {
+        cwd: projectPath,
+        encoding: 'utf-8'
+      });
+
+      return { success: true };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
+
+    } finally {
+      // Always restore user's original state
+      try {
+        if (originalBranch !== mainBranch) {
+          execSync(`git checkout "${originalBranch}"`, {
+            cwd: projectPath,
+            encoding: 'utf-8'
+          });
+        }
+      } catch {
+        // Log but don't fail - user might need to manually switch back
+        console.warn('[ReleaseService] Failed to restore original branch');
+      }
+
+      if (stashCreated) {
+        try {
+          execSync('git stash pop', {
+            cwd: projectPath,
+            encoding: 'utf-8'
+          });
+        } catch {
+          // Stash conflict - warn user
+          console.warn('[ReleaseService] Failed to pop stash - user may need to run "git stash pop" manually');
+        }
+      }
+    }
+  }
+
+  /**
+   * Create a GitHub release with optional version bump.
    */
   async createRelease(
     projectPath: string,
@@ -462,12 +622,36 @@ export class ReleaseService extends EventEmitter {
   ): Promise<CreateReleaseResult> {
     const tagName = `v${request.version}`;
     const title = request.title || tagName;
+    const shouldBumpVersion = request.bumpVersion !== false; // Default to true
 
     try {
+      // Stage 0: Bump version in package.json (if enabled)
+      if (shouldBumpVersion && request.mainBranch) {
+        const bumpResult = await this.bumpVersion(
+          projectPath,
+          request.version,
+          request.mainBranch,
+          request.projectId
+        );
+
+        if (!bumpResult.success) {
+          this.emitProgress(request.projectId, {
+            stage: 'error',
+            progress: 0,
+            message: `Version bump failed: ${bumpResult.error}`,
+            error: bumpResult.error
+          });
+          return {
+            success: false,
+            error: `Version bump failed: ${bumpResult.error}`
+          };
+        }
+      }
+
       // Stage 1: Create local tag
       this.emitProgress(request.projectId, {
         stage: 'tagging',
-        progress: 25,
+        progress: 40,
         message: `Creating tag ${tagName}...`
       });
 
@@ -479,7 +663,7 @@ export class ReleaseService extends EventEmitter {
       // Stage 2: Push tag to remote
       this.emitProgress(request.projectId, {
         stage: 'pushing',
-        progress: 50,
+        progress: 60,
         message: `Pushing tag ${tagName} to origin...`
       });
 
@@ -491,7 +675,7 @@ export class ReleaseService extends EventEmitter {
       // Stage 3: Create GitHub release
       this.emitProgress(request.projectId, {
         stage: 'creating_release',
-        progress: 75,
+        progress: 80,
         message: 'Creating GitHub release...'
       });
 
@@ -567,7 +751,7 @@ export class ReleaseService extends EventEmitter {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Try to clean up the tag if it was created but release failed
       try {
         execSync(`git tag -d "${tagName}" 2>/dev/null || true`, {
@@ -602,4 +786,3 @@ export class ReleaseService extends EventEmitter {
 
 // Export singleton instance
 export const releaseService = new ReleaseService();
-

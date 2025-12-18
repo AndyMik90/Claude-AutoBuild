@@ -150,7 +150,8 @@ export class ChangelogService extends EventEmitter {
     ];
 
     for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+      // Use requirements.txt as marker - it always exists in auto-claude source
+      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
         return p;
       }
     }

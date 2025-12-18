@@ -55,7 +55,8 @@ export class TerminalNameGenerator extends EventEmitter {
     ];
 
     for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+      // Use requirements.txt as marker - it always exists in auto-claude source
+      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
         return p;
       }
     }
@@ -135,7 +136,8 @@ export class TerminalNameGenerator extends EventEmitter {
           ...process.env,
           ...autoBuildEnv,
           ...profileEnv, // Include active Claude profile config
-          PYTHONUNBUFFERED: '1'
+          PYTHONUNBUFFERED: '1',
+          PYTHONIOENCODING: 'utf-8'
         }
       });
 

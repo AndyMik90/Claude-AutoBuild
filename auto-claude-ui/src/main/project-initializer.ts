@@ -101,8 +101,9 @@ export interface InitializationResult {
  */
 export function hasLocalSource(projectPath: string): boolean {
   const localSourcePath = path.join(projectPath, 'auto-claude');
-  const versionFile = path.join(localSourcePath, 'VERSION');
-  return existsSync(localSourcePath) && existsSync(versionFile);
+  // Use requirements.txt as marker - it always exists in auto-claude source
+  const markerFile = path.join(localSourcePath, 'requirements.txt');
+  return existsSync(localSourcePath) && existsSync(markerFile);
 }
 
 /**

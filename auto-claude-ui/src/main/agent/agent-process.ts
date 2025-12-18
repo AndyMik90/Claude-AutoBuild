@@ -65,7 +65,8 @@ export class AgentProcessManager {
     ];
 
     for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
+      // Use requirements.txt as marker - it always exists in auto-claude source
+      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
         return p;
       }
     }
@@ -174,7 +175,8 @@ export class AgentProcessManager {
         ...process.env,
         ...extraEnv,
         ...profileEnv, // Include active Claude profile config
-        PYTHONUNBUFFERED: '1' // Ensure real-time output
+        PYTHONUNBUFFERED: '1', // Ensure real-time output
+        PYTHONIOENCODING: 'utf-8' // Ensure UTF-8 encoding on Windows
       }
     });
 

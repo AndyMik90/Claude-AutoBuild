@@ -183,6 +183,10 @@ export interface CreateReleaseRequest {
   body: string;
   draft?: boolean;
   prerelease?: boolean;
+  /** Main branch to push version bump to (uses project setting if not specified) */
+  mainBranch?: string;
+  /** Whether to bump version in package.json before release (default: true) */
+  bumpVersion?: boolean;
 }
 
 export interface CreateReleaseResult {
@@ -193,8 +197,19 @@ export interface CreateReleaseResult {
 }
 
 export interface ReleaseProgress {
-  stage: 'checking' | 'tagging' | 'pushing' | 'creating_release' | 'complete' | 'error';
+  stage: 'bumping_version' | 'checking' | 'tagging' | 'pushing' | 'creating_release' | 'complete' | 'error';
   progress: number;
   message: string;
   error?: string;
+}
+
+/**
+ * AI-powered version suggestion result
+ */
+export interface VersionSuggestion {
+  suggestedVersion: string;
+  currentVersion: string;
+  bumpType: 'major' | 'minor' | 'patch';
+  reason: string;
+  commitCount: number;
 }
