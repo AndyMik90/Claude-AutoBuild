@@ -66,7 +66,7 @@ export function registerInvestigateIssue(
 ): void {
   ipcMain.on(
     IPC_CHANNELS.GITHUB_INVESTIGATE_ISSUE,
-    async (_, projectId: string, issueNumber: number) => {
+    async (_, projectId: string, issueNumber: number, selectedCommentIds?: number[]) => {
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
@@ -104,10 +104,15 @@ export function registerInvestigateIssue(
         };
 
         // Fetch issue comments for more context
-        const comments = await githubFetch(
+        const allComments = await githubFetch(
           config.token,
           `/repos/${config.repo}/issues/${issueNumber}/comments`
         ) as GitHubAPIComment[];
+
+        // Filter comments based on selection (if provided)
+        const comments = selectedCommentIds && selectedCommentIds.length > 0
+          ? allComments.filter(c => selectedCommentIds.includes(c.id))
+          : allComments;
 
         // Build context for the AI investigation
         const labels = issue.labels.map(l => l.name);
@@ -144,14 +149,9 @@ export function registerInvestigateIssue(
           issue.html_url
         );
 
-        // Start spec creation with the existing spec directory
-        agentManager.startSpecCreation(
-          specData.specId,
-          project.path,
-          specData.taskDescription,
-          specData.specDir,
-          specData.metadata
-        );
+        // NOTE: We intentionally do NOT call agentManager.startSpecCreation() here
+        // This allows the task to stay in "backlog" status until the user manually starts it
+        // Previously, calling startSpecCreation would auto-start the task immediately
 
         // Phase 3: Creating task
         sendProgress(mainWindow, projectId, {

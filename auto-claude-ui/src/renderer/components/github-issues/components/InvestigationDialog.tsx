@@ -1,6 +1,9 @@
-import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, Loader2, CheckCircle2, MessageCircle } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
+import { Checkbox } from '../../ui/checkbox';
+import { ScrollArea } from '../../ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +13,15 @@ import {
   DialogTitle
 } from '../../ui/dialog';
 import type { InvestigationDialogProps } from '../types';
+import { formatDate } from '../utils';
+
+interface GitHubComment {
+  id: number;
+  body: string;
+  user: { login: string; avatar_url?: string };
+  created_at: string;
+  updated_at: string;
+}
 
 export function InvestigationDialog({
   open,
@@ -17,11 +29,60 @@ export function InvestigationDialog({
   selectedIssue,
   investigationStatus,
   onStartInvestigation,
-  onClose
+  onClose,
+  projectId
 }: InvestigationDialogProps) {
+  const [comments, setComments] = useState<GitHubComment[]>([]);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<number[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  // Fetch comments when dialog opens
+  useEffect(() => {
+    if (open && selectedIssue && projectId) {
+      setLoadingComments(true);
+      setComments([]);
+      setSelectedCommentIds([]);
+
+      window.electronAPI.getIssueComments(projectId, selectedIssue.number)
+        .then((result) => {
+          if (result.success && result.data) {
+            setComments(result.data);
+            // By default, select all comments
+            setSelectedCommentIds(result.data.map(c => c.id));
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch comments:', err);
+        })
+        .finally(() => {
+          setLoadingComments(false);
+        });
+    }
+  }, [open, selectedIssue, projectId]);
+
+  const toggleComment = (commentId: number) => {
+    setSelectedCommentIds(prev =>
+      prev.includes(commentId)
+        ? prev.filter(id => id !== commentId)
+        : [...prev, commentId]
+    );
+  };
+
+  const toggleAllComments = () => {
+    if (selectedCommentIds.length === comments.length) {
+      setSelectedCommentIds([]);
+    } else {
+      setSelectedCommentIds(comments.map(c => c.id));
+    }
+  };
+
+  const handleStartInvestigation = () => {
+    onStartInvestigation(selectedCommentIds);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-info" />
@@ -37,19 +98,71 @@ export function InvestigationDialog({
         </DialogHeader>
 
         {investigationStatus.phase === 'idle' ? (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 min-h-0 flex flex-col">
             <p className="text-sm text-muted-foreground">
-              Create a task from this GitHub issue. The task will be added to your Kanban board in the Planned column.
+              Create a task from this GitHub issue. The task will be added to your Kanban board in the Backlog column.
             </p>
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <h4 className="text-sm font-medium mb-2">The task will include:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Issue title and description</li>
-                <li>• Link back to the GitHub issue</li>
-                <li>• Labels and metadata from the issue</li>
-                <li>• Ready to start when you move it to In Progress</li>
-              </ul>
-            </div>
+
+            {/* Comments section */}
+            {loadingComments ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : comments.length > 0 ? (
+              <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Select Comments to Include ({selectedCommentIds.length}/{comments.length})
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAllComments}
+                    className="text-xs"
+                  >
+                    {selectedCommentIds.length === comments.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
+                <ScrollArea className="flex-1 min-h-0 border rounded-md">
+                  <div className="p-2 space-y-2">
+                    {comments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => toggleComment(comment.id)}
+                      >
+                        <Checkbox
+                          checked={selectedCommentIds.includes(comment.id)}
+                          onCheckedChange={() => toggleComment(comment.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-medium">{comment.user.login}</span>
+                            <span>•</span>
+                            <span>{formatDate(comment.created_at)}</span>
+                          </div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap break-words line-clamp-3">
+                            {comment.body}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <h4 className="text-sm font-medium mb-2">The task will include:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Issue title and description</li>
+                  <li>• Link back to the GitHub issue</li>
+                  <li>• Labels and metadata from the issue</li>
+                  <li>• No comments (this issue has no comments)</li>
+                </ul>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -82,7 +195,7 @@ export function InvestigationDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={onStartInvestigation}>
+              <Button onClick={handleStartInvestigation}>
                 <Sparkles className="h-4 w-4 mr-2" />
                 Create Task
               </Button>

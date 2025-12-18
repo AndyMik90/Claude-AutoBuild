@@ -7,7 +7,7 @@ import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch } from './utils';
-import type { GitHubAPIIssue } from './types';
+import type { GitHubAPIIssue, GitHubAPIComment } from './types';
 
 /**
  * Transform GitHub API issue to application format
@@ -117,9 +117,44 @@ export function registerGetIssue(): void {
 }
 
 /**
+ * Get comments for a specific issue
+ */
+export function registerGetIssueComments(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_GET_ISSUE_COMMENTS,
+    async (_, projectId: string, issueNumber: number): Promise<IPCResult<GitHubAPIComment[]>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const config = getGitHubConfig(project);
+      if (!config) {
+        return { success: false, error: 'No GitHub token or repository configured' };
+      }
+
+      try {
+        const comments = await githubFetch(
+          config.token,
+          `/repos/${config.repo}/issues/${issueNumber}/comments`
+        ) as GitHubAPIComment[];
+
+        return { success: true, data: comments };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch issue comments'
+        };
+      }
+    }
+  );
+}
+
+/**
  * Register all issue-related handlers
  */
 export function registerIssueHandlers(): void {
   registerGetIssues();
   registerGetIssue();
+  registerGetIssueComments();
 }

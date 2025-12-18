@@ -38,8 +38,11 @@ export interface GitHubAPIRepository {
 }
 
 export interface GitHubAPIComment {
+  id: number;
   body: string;
-  user: { login: string };
+  user: { login: string; avatar_url?: string };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ReleaseOptions {

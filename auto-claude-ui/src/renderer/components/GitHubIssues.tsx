@@ -48,9 +48,9 @@ export function GitHubIssues({ onOpenSettings }: GitHubIssuesProps) {
     setShowInvestigateDialog(true);
   }, []);
 
-  const handleStartInvestigation = useCallback(() => {
+  const handleStartInvestigation = useCallback((selectedCommentIds: number[]) => {
     if (selectedIssueForInvestigation) {
-      startInvestigation(selectedIssueForInvestigation);
+      startInvestigation(selectedIssueForInvestigation, selectedCommentIds);
     }
   }, [selectedIssueForInvestigation, startInvestigation]);
 
@@ -125,6 +125,7 @@ export function GitHubIssues({ onOpenSettings }: GitHubIssuesProps) {
         investigationStatus={investigationStatus}
         onStartInvestigation={handleStartInvestigation}
         onClose={handleCloseDialog}
+        projectId={selectedProject?.id}
       />
     </div>
   );

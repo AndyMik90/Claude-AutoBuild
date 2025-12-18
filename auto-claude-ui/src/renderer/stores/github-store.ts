@@ -147,7 +147,7 @@ export async function checkGitHubConnection(projectId: string): Promise<GitHubSy
   }
 }
 
-export function investigateGitHubIssue(projectId: string, issueNumber: number): void {
+export function investigateGitHubIssue(projectId: string, issueNumber: number, selectedCommentIds?: number[]): void {
   const store = useGitHubStore.getState();
   store.setInvestigationStatus({
     phase: 'fetching',
@@ -157,7 +157,7 @@ export function investigateGitHubIssue(projectId: string, issueNumber: number): 
   });
   store.setInvestigationResult(null);
 
-  window.electronAPI.investigateGitHubIssue(projectId, issueNumber);
+  window.electronAPI.investigateGitHubIssue(projectId, issueNumber, selectedCommentIds);
 }
 
 export async function importGitHubIssues(

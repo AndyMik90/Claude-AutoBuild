@@ -56,9 +56,9 @@ export function useGitHubInvestigation(projectId: string | undefined) {
     };
   }, [projectId, setInvestigationStatus, setInvestigationResult, setError]);
 
-  const startInvestigation = useCallback((issue: GitHubIssue) => {
+  const startInvestigation = useCallback((issue: GitHubIssue, selectedCommentIds: number[]) => {
     if (projectId) {
-      investigateGitHubIssue(projectId, issue.number);
+      investigateGitHubIssue(projectId, issue.number, selectedCommentIds);
     }
   }, [projectId]);
 

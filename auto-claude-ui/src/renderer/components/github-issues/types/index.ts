@@ -29,8 +29,9 @@ export interface InvestigationDialogProps {
     message: string;
     error?: string;
   };
-  onStartInvestigation: () => void;
+  onStartInvestigation: (selectedCommentIds: number[]) => void;
   onClose: () => void;
+  projectId?: string;
 }
 
 export interface IssueListHeaderProps {
