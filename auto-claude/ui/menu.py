@@ -6,9 +6,21 @@ Interactive selection menus with keyboard navigation.
 """
 
 import sys
-import termios
-import tty
 from dataclasses import dataclass
+
+# Platform-specific imports for raw character input
+try:
+    import termios
+    import tty
+    _HAS_TERMIOS = True
+except ImportError:
+    _HAS_TERMIOS = False
+
+try:
+    import msvcrt
+    _HAS_MSVCRT = True
+except ImportError:
+    _HAS_MSVCRT = False
 
 from .boxes import box, divider
 from .capabilities import INTERACTIVE
@@ -29,27 +41,48 @@ class MenuOption:
 
 def _getch() -> str:
     """Read a single character from stdin without echo."""
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
-        # Handle escape sequences (arrow keys)
-        if ch == "\x1b":
-            ch2 = sys.stdin.read(1)
-            if ch2 == "[":
-                ch3 = sys.stdin.read(1)
-                if ch3 == "A":
-                    return "UP"
-                elif ch3 == "B":
-                    return "DOWN"
-                elif ch3 == "C":
-                    return "RIGHT"
-                elif ch3 == "D":
-                    return "LEFT"
-        return ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    if _HAS_MSVCRT:
+        # Windows implementation
+        ch = msvcrt.getch()
+        # Handle special keys (arrow keys return two bytes)
+        if ch in (b'\x00', b'\xe0'):
+            ch2 = msvcrt.getch()
+            if ch2 == b'H':
+                return "UP"
+            elif ch2 == b'P':
+                return "DOWN"
+            elif ch2 == b'M':
+                return "RIGHT"
+            elif ch2 == b'K':
+                return "LEFT"
+            return ""
+        return ch.decode('utf-8', errors='replace')
+    elif _HAS_TERMIOS:
+        # Unix implementation
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            # Handle escape sequences (arrow keys)
+            if ch == "\x1b":
+                ch2 = sys.stdin.read(1)
+                if ch2 == "[":
+                    ch3 = sys.stdin.read(1)
+                    if ch3 == "A":
+                        return "UP"
+                    elif ch3 == "B":
+                        return "DOWN"
+                    elif ch3 == "C":
+                        return "RIGHT"
+                    elif ch3 == "D":
+                        return "LEFT"
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    else:
+        # No raw input available, raise to trigger fallback
+        raise RuntimeError("No raw input method available")
 
 
 def select_menu(

@@ -230,9 +230,8 @@ Examples:
                 print(
                     f"  {muted('Or re-run spec_runner with --auto-approve to skip review:')}"
                 )
-                print(
-                    f"  {highlight('python auto-claude/spec_runner.py --task "..." --auto-approve')}"
-                )
+                example_cmd = 'python auto-claude/spec_runner.py --task "..." --auto-approve'
+                print(f"  {highlight(example_cmd)}")
                 sys.exit(1)
 
             print()
