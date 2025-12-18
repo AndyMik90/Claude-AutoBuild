@@ -55,6 +55,7 @@ import type {
   ClaudeUsageSnapshot
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from './settings';
+import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -386,6 +387,22 @@ export interface ElectronAPI {
   // Auto Claude source update event listeners
   onAutoBuildSourceUpdateProgress: (
     callback: (progress: AutoBuildSourceUpdateProgress) => void
+  ) => () => void;
+
+  // Electron app update operations
+  checkAppUpdate: () => Promise<IPCResult<AppUpdateInfo | null>>;
+  downloadAppUpdate: () => Promise<IPCResult>;
+  installAppUpdate: () => void;
+
+  // Electron app update event listeners
+  onAppUpdateAvailable: (
+    callback: (info: AppUpdateAvailableEvent) => void
+  ) => () => void;
+  onAppUpdateDownloaded: (
+    callback: (info: AppUpdateDownloadedEvent) => void
+  ) => () => void;
+  onAppUpdateProgress: (
+    callback: (progress: AppUpdateProgress) => void
   ) => () => void;
 
   // Shell operations

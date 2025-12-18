@@ -114,6 +114,20 @@ export function App() {
     };
   }, []);
 
+  // Listen for app updates - auto-open settings to 'updates' section when update is ready
+  useEffect(() => {
+    // When an update is downloaded and ready to install, open settings to updates section
+    const cleanupDownloaded = window.electronAPI.onAppUpdateDownloaded(() => {
+      console.log('[App] Update downloaded, opening settings to updates section');
+      setSettingsInitialSection('updates');
+      setIsSettingsDialogOpen(true);
+    });
+
+    return () => {
+      cleanupDownloaded();
+    };
+  }, []);
+
   // Check if selected project needs initialization (e.g., .auto-claude folder was deleted)
   useEffect(() => {
     if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {

@@ -14,5 +14,15 @@ export const settingsMock = {
   saveSettings: async () => ({ success: true }),
 
   // App Info
-  getAppVersion: async () => '0.1.0-browser'
+  getAppVersion: async () => '0.1.0-browser',
+
+  // App Update Operations (mock - no updates in browser mode)
+  checkAppUpdate: async () => ({ success: true, data: null }),
+  downloadAppUpdate: async () => ({ success: true }),
+  installAppUpdate: () => { console.log('[browser-mock] installAppUpdate called'); },
+
+  // App Update Event Listeners (no-op in browser mode)
+  onAppUpdateAvailable: () => () => {},
+  onAppUpdateDownloaded: () => () => {},
+  onAppUpdateProgress: () => () => {}
 };

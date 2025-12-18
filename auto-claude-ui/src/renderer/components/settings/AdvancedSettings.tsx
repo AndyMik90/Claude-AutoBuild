@@ -5,7 +5,9 @@ import {
   AlertCircle,
   CloudDownload,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -13,7 +15,13 @@ import { Switch } from '../ui/switch';
 import { Progress } from '../ui/progress';
 import { cn } from '../../lib/utils';
 import { SettingsSection } from './SettingsSection';
-import type { AppSettings, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from '../../../shared/types';
+import type {
+  AppSettings,
+  AutoBuildSourceUpdateCheck,
+  AutoBuildSourceUpdateProgress,
+  AppUpdateAvailableEvent,
+  AppUpdateProgress
+} from '../../../shared/types';
 
 /**
  * Simple markdown renderer for release notes
@@ -69,14 +77,22 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<AutoBuildSourceUpdateProgress | null>(null);
 
+  // Electron app update state
+  const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
+  const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [isDownloadingAppUpdate, setIsDownloadingAppUpdate] = useState(false);
+  const [appDownloadProgress, setAppDownloadProgress] = useState<AppUpdateProgress | null>(null);
+  const [isAppUpdateDownloaded, setIsAppUpdateDownloaded] = useState(false);
+
   // Check for updates on mount
   useEffect(() => {
     if (section === 'updates') {
       checkForSourceUpdates();
+      checkForAppUpdates();
     }
   }, [section]);
 
-  // Listen for download progress
+  // Listen for source download progress
   useEffect(() => {
     const cleanup = window.electronAPI.onAutoBuildSourceUpdateProgress((progress) => {
       setDownloadProgress(progress);
@@ -90,6 +106,62 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
 
     return cleanup;
   }, []);
+
+  // Listen for app update events
+  useEffect(() => {
+    const cleanupAvailable = window.electronAPI.onAppUpdateAvailable((info) => {
+      setAppUpdateInfo(info);
+      setIsCheckingAppUpdate(false);
+    });
+
+    const cleanupDownloaded = window.electronAPI.onAppUpdateDownloaded((info) => {
+      setAppUpdateInfo(info);
+      setIsDownloadingAppUpdate(false);
+      setIsAppUpdateDownloaded(true);
+      setAppDownloadProgress(null);
+    });
+
+    const cleanupProgress = window.electronAPI.onAppUpdateProgress((progress) => {
+      setAppDownloadProgress(progress);
+    });
+
+    return () => {
+      cleanupAvailable();
+      cleanupDownloaded();
+      cleanupProgress();
+    };
+  }, []);
+
+  const checkForAppUpdates = async () => {
+    setIsCheckingAppUpdate(true);
+    try {
+      const result = await window.electronAPI.checkAppUpdate();
+      if (result.success && result.data) {
+        setAppUpdateInfo(result.data);
+      } else {
+        // No update available
+        setAppUpdateInfo(null);
+      }
+    } catch (err) {
+      console.error('Failed to check for app updates:', err);
+    } finally {
+      setIsCheckingAppUpdate(false);
+    }
+  };
+
+  const handleDownloadAppUpdate = async () => {
+    setIsDownloadingAppUpdate(true);
+    try {
+      await window.electronAPI.downloadAppUpdate();
+    } catch (err) {
+      console.error('Failed to download app update:', err);
+      setIsDownloadingAppUpdate(false);
+    }
+  };
+
+  const handleInstallAppUpdate = () => {
+    window.electronAPI.installAppUpdate();
+  };
 
   const checkForSourceUpdates = async () => {
     setIsCheckingSourceUpdate(true);
@@ -118,6 +190,97 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
         description="Manage Auto Claude updates"
       >
         <div className="space-y-6">
+          {/* Electron App Update Section */}
+          {(appUpdateInfo || isAppUpdateDownloaded) && (
+            <div className="rounded-lg border-2 border-info/50 bg-info/5 p-5 space-y-4">
+              <div className="flex items-center gap-2 text-info">
+                <Sparkles className="h-5 w-5" />
+                <h3 className="font-semibold">App Update Ready</h3>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                    New Version
+                  </p>
+                  <p className="text-base font-medium text-foreground">
+                    {appUpdateInfo?.version || 'Unknown'}
+                  </p>
+                  {appUpdateInfo?.releaseDate && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Released {new Date(appUpdateInfo.releaseDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                {isAppUpdateDownloaded ? (
+                  <CheckCircle2 className="h-6 w-6 text-success" />
+                ) : isDownloadingAppUpdate ? (
+                  <RefreshCw className="h-6 w-6 animate-spin text-info" />
+                ) : (
+                  <Download className="h-6 w-6 text-info" />
+                )}
+              </div>
+
+              {/* Release Notes */}
+              {appUpdateInfo?.releaseNotes && (
+                <div className="bg-background rounded-lg p-4 max-h-48 overflow-y-auto border border-border/50">
+                  <ReleaseNotesRenderer markdown={appUpdateInfo.releaseNotes} />
+                </div>
+              )}
+
+              {/* Download Progress */}
+              {isDownloadingAppUpdate && appDownloadProgress && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Downloading...</span>
+                    <span className="text-foreground font-medium">
+                      {Math.round(appDownloadProgress.percent)}%
+                    </span>
+                  </div>
+                  <Progress value={appDownloadProgress.percent} className="h-2" />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {(appDownloadProgress.transferred / 1024 / 1024).toFixed(2)} MB / {(appDownloadProgress.total / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              )}
+
+              {/* Downloaded Success */}
+              {isAppUpdateDownloaded && (
+                <div className="flex items-center gap-3 text-sm text-success bg-success/10 border border-success/30 rounded-lg p-3">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  <span>Update downloaded! Click Install to restart and apply the update.</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {isAppUpdateDownloaded ? (
+                  <Button onClick={handleInstallAppUpdate}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Install and Restart
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleDownloadAppUpdate}
+                    disabled={isDownloadingAppUpdate}
+                  >
+                    {isDownloadingAppUpdate ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Update
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Unified Version Display with Update Check */}
           <div className="rounded-lg border border-border bg-muted/50 p-5 space-y-4">
             <div className="flex items-center justify-between">
