@@ -38,14 +38,28 @@ interface GraphitiConfig {
   falkorDbUri: string;
   llmProvider: GraphitiProviderType;
   apiKey: string;
+  ollamaBaseUrl: string;  // For Ollama provider (no API key needed)
 }
 
 // Provider display info
-const PROVIDER_INFO: Record<GraphitiProviderType, { name: string; placeholder: string; link: string }> = {
-  openai: { name: 'OpenAI', placeholder: 'sk-...', link: 'https://platform.openai.com/api-keys' },
-  anthropic: { name: 'Anthropic', placeholder: 'sk-ant-...', link: 'https://console.anthropic.com/settings/keys' },
-  google: { name: 'Google (Gemini)', placeholder: 'AIza...', link: 'https://aistudio.google.com/apikey' },
-  groq: { name: 'Groq', placeholder: 'gsk_...', link: 'https://console.groq.com/keys' },
+const PROVIDER_INFO: Record<GraphitiProviderType, {
+  name: string;
+  placeholder: string;
+  link: string;
+  requiresApiKey: boolean;
+  description?: string;
+}> = {
+  openai: { name: 'OpenAI', placeholder: 'sk-...', link: 'https://platform.openai.com/api-keys', requiresApiKey: true },
+  anthropic: { name: 'Anthropic', placeholder: 'sk-ant-...', link: 'https://console.anthropic.com/settings/keys', requiresApiKey: true },
+  google: { name: 'Google (Gemini)', placeholder: 'AIza...', link: 'https://aistudio.google.com/apikey', requiresApiKey: true },
+  groq: { name: 'Groq', placeholder: 'gsk_...', link: 'https://console.groq.com/keys', requiresApiKey: true },
+  ollama: {
+    name: 'Ollama',
+    placeholder: 'http://localhost:11434',
+    link: 'https://ollama.ai',
+    requiresApiKey: false,
+    description: 'Local LLM - no API key required'
+  },
 };
 
 // Helper to get the saved API key for a provider from settings
@@ -55,8 +69,14 @@ function getApiKeyForProvider(provider: GraphitiProviderType, settings: Record<s
     case 'anthropic': return (settings.globalAnthropicApiKey as string) || '';
     case 'google': return (settings.globalGoogleApiKey as string) || '';
     case 'groq': return (settings.globalGroqApiKey as string) || '';
+    case 'ollama': return '';  // Ollama doesn't need an API key
     default: return '';
   }
+}
+
+// Helper to get the saved Ollama base URL from settings
+function getOllamaBaseUrl(settings: Record<string, unknown>): string {
+  return (settings.ollamaBaseUrl as string) || 'http://localhost:11434';
 }
 
 interface ValidationStatus {
@@ -77,7 +97,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     enabled: false,
     falkorDbUri: 'bolt://localhost:6379',  // Standard FalkorDB port, will be auto-detected from Docker
     llmProvider: savedProvider,
-    apiKey: getApiKeyForProvider(savedProvider, settings as Record<string, unknown>)
+    apiKey: getApiKeyForProvider(savedProvider, settings as Record<string, unknown>),
+    ollamaBaseUrl: getOllamaBaseUrl(settings as Record<string, unknown>)
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -128,17 +149,30 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   };
 
   const handleProviderChange = (provider: GraphitiProviderType) => {
-    // Load saved API key for the selected provider
+    // Load saved API key or base URL for the selected provider
     const savedKey = getApiKeyForProvider(provider, settings as Record<string, unknown>);
-    setConfig(prev => ({ ...prev, llmProvider: provider, apiKey: savedKey }));
+    const savedOllamaUrl = getOllamaBaseUrl(settings as Record<string, unknown>);
+    setConfig(prev => ({
+      ...prev,
+      llmProvider: provider,
+      apiKey: savedKey,
+      ollamaBaseUrl: savedOllamaUrl
+    }));
     setValidationStatus(prev => ({ ...prev, llm: null }));
     setError(null);
   };
 
   const handleTestConnection = async () => {
     const providerName = PROVIDER_INFO[config.llmProvider].name;
-    if (!config.apiKey.trim()) {
+    const providerInfo = PROVIDER_INFO[config.llmProvider];
+
+    // Validate input based on provider type
+    if (providerInfo.requiresApiKey && !config.apiKey.trim()) {
       setError(`Please enter a ${providerName} API key to test the connection`);
+      return;
+    }
+    if (config.llmProvider === 'ollama' && !config.ollamaBaseUrl.trim()) {
+      setError('Please enter the Ollama server URL to test the connection');
       return;
     }
 
@@ -149,9 +183,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     try {
       // For now, we still use the OpenAI test endpoint, but pass the provider info
       // TODO: Add provider-specific validation endpoints
+      // For Ollama, pass the base URL instead of API key
+      const testCredential = config.llmProvider === 'ollama'
+        ? config.ollamaBaseUrl.trim()
+        : config.apiKey.trim();
       const result = await window.electronAPI.testGraphitiConnection(
         config.falkorDbUri,
-        config.apiKey.trim()
+        testCredential
       );
 
       if (result?.success && result?.data) {
@@ -198,8 +236,15 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     }
 
     const providerName = PROVIDER_INFO[config.llmProvider].name;
-    if (!config.apiKey.trim()) {
+    const providerInfo = PROVIDER_INFO[config.llmProvider];
+
+    // Validate input based on provider type
+    if (providerInfo.requiresApiKey && !config.apiKey.trim()) {
       setError(`${providerName} API key is required for Graphiti`);
+      return;
+    }
+    if (config.llmProvider === 'ollama' && !config.ollamaBaseUrl.trim()) {
+      setError('Ollama server URL is required for Graphiti');
       return;
     }
 
@@ -212,7 +257,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         graphitiLlmProvider: config.llmProvider,
       };
 
-      // Save the API key for the selected provider
+      // Save the API key or base URL for the selected provider
       if (config.llmProvider === 'openai') {
         settingsUpdate.globalOpenAIApiKey = config.apiKey.trim();
       } else if (config.llmProvider === 'anthropic') {
@@ -221,6 +266,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         settingsUpdate.globalGoogleApiKey = config.apiKey.trim();
       } else if (config.llmProvider === 'groq') {
         settingsUpdate.globalGroqApiKey = config.apiKey.trim();
+      } else if (config.llmProvider === 'ollama') {
+        settingsUpdate.ollamaBaseUrl = config.ollamaBaseUrl.trim();
       }
 
       const result = await window.electronAPI.saveSettings(settingsUpdate);
@@ -236,6 +283,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
           storeUpdate.globalGoogleApiKey = config.apiKey.trim();
         } else if (config.llmProvider === 'groq') {
           storeUpdate.globalGroqApiKey = config.apiKey.trim();
+        } else if (config.llmProvider === 'ollama') {
+          storeUpdate.ollamaBaseUrl = config.ollamaBaseUrl.trim();
         }
         updateSettings(storeUpdate);
         // Proceed to next step immediately after successful save
@@ -404,7 +453,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                             Enable Graphiti Memory
                           </Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Requires FalkorDB (Docker) and an LLM API key
+                            Requires FalkorDB (Docker) and an LLM provider (API key or local Ollama)
                           </p>
                         </div>
                       </div>
@@ -439,6 +488,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
                           <SelectItem value="google">Google (Gemini)</SelectItem>
                           <SelectItem value="groq">Groq (Llama)</SelectItem>
+                          <SelectItem value="ollama">Ollama (Local)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -482,76 +532,124 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       </p>
                     </div>
 
-                    {/* Dynamic API Key based on provider */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="api-key" className="text-sm font-medium text-foreground">
-                          {PROVIDER_INFO[config.llmProvider].name} API Key
-                        </Label>
-                        {validationStatus.llm && (
-                          <div className="flex items-center gap-1.5">
-                            {validationStatus.llm.success ? (
-                              <CheckCircle2 className="h-4 w-4 text-success" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            )}
-                            <span className={`text-xs ${validationStatus.llm.success ? 'text-success' : 'text-destructive'}`}>
-                              {validationStatus.llm.success ? 'Valid' : 'Invalid'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="relative">
+                    {/* Dynamic credential field based on provider */}
+                    {config.llmProvider === 'ollama' ? (
+                      /* Ollama Base URL field */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="ollama-url" className="text-sm font-medium text-foreground">
+                            Ollama Server URL
+                          </Label>
+                          {validationStatus.llm && (
+                            <div className="flex items-center gap-1.5">
+                              {validationStatus.llm.success ? (
+                                <CheckCircle2 className="h-4 w-4 text-success" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className={`text-xs ${validationStatus.llm.success ? 'text-success' : 'text-destructive'}`}>
+                                {validationStatus.llm.success ? 'Connected' : 'Failed'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <Input
-                          id="api-key"
-                          type={showApiKey ? 'text' : 'password'}
-                          value={config.apiKey}
+                          id="ollama-url"
+                          type="text"
+                          value={config.ollamaBaseUrl}
                           onChange={(e) => {
-                            setConfig(prev => ({ ...prev, apiKey: e.target.value }));
+                            setConfig(prev => ({ ...prev, ollamaBaseUrl: e.target.value }));
                             setValidationStatus(prev => ({ ...prev, llm: null }));
                           }}
-                          placeholder={PROVIDER_INFO[config.llmProvider].placeholder}
-                          className="pr-10 font-mono text-sm"
+                          placeholder="http://localhost:11434"
+                          className="font-mono text-sm"
                           disabled={isSaving || isValidating}
                         />
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => setShowApiKey(!showApiKey)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              {showApiKey ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {showApiKey ? 'Hide API key' : 'Show API key'}
-                          </TooltipContent>
-                        </Tooltip>
+                        <p className="text-xs text-muted-foreground">
+                          No API key required. Make sure{' '}
+                          <a
+                            href="https://ollama.ai"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary/80"
+                          >
+                            Ollama
+                          </a>
+                          {' '}is running locally.
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Required for graph operations. Get your key from{' '}
-                        <a
-                          href={PROVIDER_INFO[config.llmProvider].link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:text-primary/80"
-                        >
-                          {PROVIDER_INFO[config.llmProvider].name}
-                        </a>
-                      </p>
-                    </div>
+                    ) : (
+                      /* API Key field for other providers */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="api-key" className="text-sm font-medium text-foreground">
+                            {PROVIDER_INFO[config.llmProvider].name} API Key
+                          </Label>
+                          {validationStatus.llm && (
+                            <div className="flex items-center gap-1.5">
+                              {validationStatus.llm.success ? (
+                                <CheckCircle2 className="h-4 w-4 text-success" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className={`text-xs ${validationStatus.llm.success ? 'text-success' : 'text-destructive'}`}>
+                                {validationStatus.llm.success ? 'Valid' : 'Invalid'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id="api-key"
+                            type={showApiKey ? 'text' : 'password'}
+                            value={config.apiKey}
+                            onChange={(e) => {
+                              setConfig(prev => ({ ...prev, apiKey: e.target.value }));
+                              setValidationStatus(prev => ({ ...prev, llm: null }));
+                            }}
+                            placeholder={PROVIDER_INFO[config.llmProvider].placeholder}
+                            className="pr-10 font-mono text-sm"
+                            disabled={isSaving || isValidating}
+                          />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => setShowApiKey(!showApiKey)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              >
+                                {showApiKey ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {showApiKey ? 'Hide API key' : 'Show API key'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Required for graph operations. Get your key from{' '}
+                          <a
+                            href={PROVIDER_INFO[config.llmProvider].link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary/80"
+                          >
+                            {PROVIDER_INFO[config.llmProvider].name}
+                          </a>
+                        </p>
+                      </div>
+                    )}
 
                     {/* Test Connection Button */}
                     <div className="pt-2">
                       <Button
                         variant="outline"
                         onClick={handleTestConnection}
-                        disabled={!config.apiKey.trim() || isValidating || isSaving}
+                        disabled={(config.llmProvider === 'ollama' ? !config.ollamaBaseUrl.trim() : !config.apiKey.trim()) || isValidating || isSaving}
                         className="w-full"
                       >
                         {isValidating ? (
@@ -571,9 +669,14 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           All connections validated successfully!
                         </p>
                       )}
-                      {config.llmProvider !== 'openai' && (
+                      {config.llmProvider !== 'openai' && config.llmProvider !== 'ollama' && (
                         <p className="text-xs text-muted-foreground text-center mt-2">
                           Note: API key validation currently only fully supports OpenAI. Your {PROVIDER_INFO[config.llmProvider].name} key will be saved and used at runtime.
+                        </p>
+                      )}
+                      {config.llmProvider === 'ollama' && (
+                        <p className="text-xs text-muted-foreground text-center mt-2">
+                          Note: Ollama connection will be tested by checking if the server is reachable.
                         </p>
                       )}
                     </div>
@@ -603,7 +706,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             </Button>
             <Button
               onClick={handleContinue}
-              disabled={isCheckingDocker || (config.enabled && !config.apiKey.trim() && !success) || isSaving || isValidating}
+              disabled={isCheckingDocker || (config.enabled && !success && (config.llmProvider === 'ollama' ? !config.ollamaBaseUrl.trim() : !config.apiKey.trim())) || isSaving || isValidating}
             >
               {isSaving ? (
                 <>
