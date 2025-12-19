@@ -1,4 +1,4 @@
-import type * as pty from 'node-pty';
+import type * as pty from '@lydell/node-pty';
 import type { BrowserWindow } from 'electron';
 
 /**

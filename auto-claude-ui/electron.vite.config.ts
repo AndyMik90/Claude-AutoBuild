@@ -20,7 +20,7 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts')
         },
         // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['node-pty']
+        external: ['@lydell/node-pty']
       }
     }
   },

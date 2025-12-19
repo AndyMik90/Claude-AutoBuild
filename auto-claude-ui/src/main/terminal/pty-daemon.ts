@@ -10,7 +10,7 @@
 
 import * as net from 'net';
 import * as fs from 'fs';
-import * as pty from 'node-pty';
+import * as pty from '@lydell/node-pty';
 
 const SOCKET_PATH =
   process.platform === 'win32'
