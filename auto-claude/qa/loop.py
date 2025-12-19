@@ -128,7 +128,7 @@ async def run_qa_validation_loop(
         print("\n📝 Human feedback detected. Running QA Fixer first...")
 
         # Get model for fixer
-        qa_model = get_phase_model(spec_dir, "qa", "sonnet")
+        qa_model = get_phase_model(spec_dir, "qa", model)
         fixer_thinking_budget = get_thinking_budget("medium")
 
         fix_client = create_client(
