@@ -91,7 +91,12 @@ def handle_qa_command(
     if not validate_environment(spec_dir):
         sys.exit(1)
 
-    if not should_run_qa(spec_dir):
+    # Check if there's pending human feedback that needs to be processed
+    # Human feedback takes priority over "already approved" status
+    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    has_human_feedback = fix_request_file.exists()
+
+    if not should_run_qa(spec_dir) and not has_human_feedback:
         if is_qa_approved(spec_dir):
             print("\n✅ Build already approved by QA.")
         else:
@@ -99,6 +104,9 @@ def handle_qa_command(
             print(f"\n❌ Build not complete ({completed}/{total} subtasks).")
             print("Complete all subtasks before running QA validation.")
         return
+
+    if has_human_feedback:
+        print("\n📝 Human feedback detected - processing fix request...")
 
     try:
         approved = asyncio.run(
