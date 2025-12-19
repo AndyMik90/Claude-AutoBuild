@@ -4,7 +4,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { execSync, spawn } from 'child_process';
+import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 
@@ -19,6 +19,18 @@ function debugLog(message: string, data?: unknown): void {
       console.warn(`[GitHub OAuth] ${message}`);
     }
   }
+}
+
+// Regex pattern to validate GitHub repository format (owner/repo)
+// Allows alphanumeric characters, hyphens, underscores, and periods
+const GITHUB_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+/**
+ * Validate that a repository string matches the expected owner/repo format
+ * Prevents command injection by rejecting strings with shell metacharacters
+ */
+function isValidGitHubRepo(repo: string): boolean {
+  return GITHUB_REPO_PATTERN.test(repo);
 }
 
 /**
@@ -354,11 +366,24 @@ export function registerGetGitHubBranches(): void {
     IPC_CHANNELS.GITHUB_GET_BRANCHES,
     async (_event: Electron.IpcMainInvokeEvent, repo: string, _token: string): Promise<IPCResult<string[]>> => {
       debugLog('getGitHubBranches handler called', { repo });
+      
+      // Validate repo format to prevent command injection
+      if (!isValidGitHubRepo(repo)) {
+        debugLog('Invalid repo format rejected:', repo);
+        return {
+          success: false,
+          error: 'Invalid repository format. Expected: owner/repo'
+        };
+      }
+      
       try {
         // Use gh CLI to list branches (uses authenticated session)
-        debugLog(`Running: gh api repos/${repo}/branches --jq '.[].name'`);
-        const output = execSync(
-          `gh api repos/${repo}/branches --paginate --jq '.[].name'`,
+        // Use execFileSync with separate arguments to avoid shell injection
+        const apiEndpoint = `repos/${repo}/branches`;
+        debugLog(`Running: gh api ${apiEndpoint} --paginate --jq '.[].name'`);
+        const output = execFileSync(
+          'gh',
+          ['api', apiEndpoint, '--paginate', '--jq', '.[].name'],
           {
             encoding: 'utf-8',
             stdio: 'pipe'
