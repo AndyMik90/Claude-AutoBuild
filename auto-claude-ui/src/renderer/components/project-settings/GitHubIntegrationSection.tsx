@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Github, RefreshCw, KeyRound } from 'lucide-react';
+import { Github, RefreshCw, KeyRound, Info } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { StatusBadge } from './StatusBadge';
 import { PasswordInput } from './PasswordInput';
@@ -19,6 +19,7 @@ interface GitHubIntegrationSectionProps {
   onUpdateConfig: (updates: Partial<ProjectEnvConfig>) => void;
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
+  projectName?: string;
 }
 
 export function GitHubIntegrationSection({
@@ -28,6 +29,7 @@ export function GitHubIntegrationSection({
   onUpdateConfig,
   gitHubConnectionStatus,
   isCheckingGitHub,
+  projectName,
 }: GitHubIntegrationSectionProps) {
   const [showOAuthFlow, setShowOAuthFlow] = useState(false);
 
@@ -48,6 +50,22 @@ export function GitHubIntegrationSection({
       onToggle={onToggle}
       badge={badge}
     >
+      {/* Project-Specific Configuration Notice */}
+      {projectName && (
+        <div className="rounded-lg border border-info/30 bg-info/5 p-3 mb-4">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Project-Specific Configuration</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                This GitHub repository is configured only for <span className="font-semibold text-foreground">{projectName}</span>.
+                Each project can have its own GitHub repository.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label className="font-normal text-foreground">Enable GitHub Issues</Label>

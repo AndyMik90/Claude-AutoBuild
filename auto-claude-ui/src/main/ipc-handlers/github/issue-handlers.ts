@@ -6,7 +6,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitHubConfig, githubFetch } from './utils';
+import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import type { GitHubAPIIssue, GitHubAPIComment } from './types';
 
 /**
@@ -57,16 +57,32 @@ export function registerGetIssues(): void {
       }
 
       try {
+        const normalizedRepo = normalizeRepoReference(config.repo);
+        if (!normalizedRepo) {
+          return {
+            success: false,
+            error: 'Invalid repository format. Use owner/repo or GitHub URL.'
+          };
+        }
+
         const issues = await githubFetch(
           config.token,
-          `/repos/${config.repo}/issues?state=${state}&per_page=100&sort=updated`
-        ) as GitHubAPIIssue[];
+          `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&sort=updated`
+        );
+
+        // Ensure issues is an array
+        if (!Array.isArray(issues)) {
+          return {
+            success: false,
+            error: 'Unexpected response format from GitHub API'
+          };
+        }
 
         // Filter out pull requests
-        const issuesOnly = issues.filter(issue => !issue.pull_request);
+        const issuesOnly = issues.filter((issue: GitHubAPIIssue) => !issue.pull_request);
 
-        const result: GitHubIssue[] = issuesOnly.map(issue =>
-          transformIssue(issue, config.repo)
+        const result: GitHubIssue[] = issuesOnly.map((issue: GitHubAPIIssue) =>
+          transformIssue(issue, normalizedRepo)
         );
 
         return { success: true, data: result };
@@ -98,12 +114,20 @@ export function registerGetIssue(): void {
       }
 
       try {
+        const normalizedRepo = normalizeRepoReference(config.repo);
+        if (!normalizedRepo) {
+          return {
+            success: false,
+            error: 'Invalid repository format. Use owner/repo or GitHub URL.'
+          };
+        }
+
         const issue = await githubFetch(
           config.token,
-          `/repos/${config.repo}/issues/${issueNumber}`
+          `/repos/${normalizedRepo}/issues/${issueNumber}`
         ) as GitHubAPIIssue;
 
-        const result = transformIssue(issue, config.repo);
+        const result = transformIssue(issue, normalizedRepo);
 
         return { success: true, data: result };
       } catch (error) {
@@ -134,9 +158,17 @@ export function registerGetIssueComments(): void {
       }
 
       try {
+        const normalizedRepo = normalizeRepoReference(config.repo);
+        if (!normalizedRepo) {
+          return {
+            success: false,
+            error: 'Invalid repository format. Use owner/repo or GitHub URL.'
+          };
+        }
+
         const comments = await githubFetch(
           config.token,
-          `/repos/${config.repo}/issues/${issueNumber}/comments`
+          `/repos/${normalizedRepo}/issues/${issueNumber}/comments`
         ) as GitHubAPIComment[];
 
         return { success: true, data: comments };

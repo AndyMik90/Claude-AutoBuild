@@ -55,6 +55,32 @@ export function getGitHubConfig(project: Project): GitHubConfig | null {
 }
 
 /**
+ * Normalize a GitHub repository reference to owner/repo format
+ * Handles:
+ * - owner/repo (already normalized)
+ * - https://github.com/owner/repo
+ * - https://github.com/owner/repo.git
+ * - git@github.com:owner/repo.git
+ */
+export function normalizeRepoReference(repo: string): string {
+  if (!repo) return '';
+
+  // Remove trailing .git if present
+  let normalized = repo.replace(/\.git$/, '');
+
+  // Handle full GitHub URLs
+  if (normalized.startsWith('https://github.com/')) {
+    normalized = normalized.replace('https://github.com/', '');
+  } else if (normalized.startsWith('http://github.com/')) {
+    normalized = normalized.replace('http://github.com/', '');
+  } else if (normalized.startsWith('git@github.com:')) {
+    normalized = normalized.replace('git@github.com:', '');
+  }
+
+  return normalized.trim();
+}
+
+/**
  * Make a request to the GitHub API
  */
 export async function githubFetch(
