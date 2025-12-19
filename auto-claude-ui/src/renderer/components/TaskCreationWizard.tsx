@@ -172,7 +172,7 @@ export function TaskCreationWizard({
         setComplexity(draft.complexity);
         setImpact(draft.impact);
         // Load model/thinkingLevel/profileId from draft if present, otherwise use profile defaults
-        setProfileId(draft.profileId || settings.selectedAgentProfile || 'balanced');
+        setProfileId(draft.profileId || settings.selectedAgentProfile || 'auto');
         setModel(draft.model || selectedProfile.model);
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
         setPhaseModels(draft.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
@@ -192,7 +192,7 @@ export function TaskCreationWizard({
         // Note: Referenced Files section is always visible, no need to expand
       } else {
         // No draft - initialize from selected profile
-        setProfileId(settings.selectedAgentProfile || 'balanced');
+        setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
@@ -587,7 +587,7 @@ export function TaskCreationWizard({
     setComplexity('');
     setImpact('');
     // Reset to selected profile defaults
-    setProfileId(settings.selectedAgentProfile || 'balanced');
+    setProfileId(settings.selectedAgentProfile || 'auto');
     setModel(selectedProfile.model);
     setThinkingLevel(selectedProfile.thinkingLevel);
     setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
