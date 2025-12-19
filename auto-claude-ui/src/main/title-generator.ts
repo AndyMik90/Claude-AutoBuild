@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { findPythonCommand } from './python-detector';
+import { findPythonCommand, parsePythonCommand } from './python-detector';
 
 /**
  * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
@@ -131,7 +131,9 @@ export class TitleGenerator extends EventEmitter {
     const profileEnv = getProfileEnv();
 
     return new Promise((resolve) => {
-      const childProcess = spawn(this.pythonPath, ['-c', script], {
+      // Parse Python command to handle space-separated commands like "py -3"
+      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
         env: {
           ...process.env,

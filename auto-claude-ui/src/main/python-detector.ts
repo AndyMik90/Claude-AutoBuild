@@ -24,10 +24,6 @@ export function findPythonCommand(): string | null {
       }).toString();
 
       if (version.includes('Python 3')) {
-        // For "py -3", return just "py" since we'll add the -3 flag separately if needed
-        if (cmd === 'py -3') {
-          return 'py';
-        }
         return cmd;
       }
     } catch {
@@ -48,4 +44,18 @@ export function findPythonCommand(): string | null {
  */
 export function getDefaultPythonCommand(): string {
   return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+/**
+ * Parse a Python command string into command and base arguments.
+ * Handles space-separated commands like "py -3".
+ *
+ * @param pythonPath - The Python command string (e.g., "python3", "py -3")
+ * @returns Tuple of [command, baseArgs] ready for use with spawn()
+ */
+export function parsePythonCommand(pythonPath: string): [string, string[]] {
+  const parts = pythonPath.split(' ');
+  const command = parts[0];
+  const baseArgs = parts.slice(1);
+  return [command, baseArgs];
 }

@@ -8,6 +8,7 @@ import { AgentProcessManager } from './agent-process';
 import { IdeationConfig } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { parsePythonCommand } from '../python-detector';
 
 /**
  * Queue management for ideation and roadmap generation
@@ -206,7 +207,9 @@ export class AgentQueueManager {
       tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
-    const childProcess = spawn(pythonPath, args, {
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv
     });
@@ -441,7 +444,9 @@ export class AgentQueueManager {
       tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
-    const childProcess = spawn(pythonPath, args, {
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: finalEnv
     });

@@ -9,7 +9,7 @@ import { PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
-import { findPythonCommand } from '../../python-detector';
+import { findPythonCommand, parsePythonCommand } from '../../python-detector';
 
 /**
  * Register worktree management handlers
@@ -311,7 +311,9 @@ export function registerWorktreeHandlers(
           let timeoutId: NodeJS.Timeout | null = null;
           let resolved = false;
 
-          const mergeProcess = spawn(pythonPath, args, {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: {
               ...process.env,
@@ -630,7 +632,9 @@ export function registerWorktreeHandlers(
         const previewProfileEnv = getProfileEnv();
 
         return new Promise((resolve) => {
-          const previewProcess = spawn(pythonPath, args, {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', DEBUG: 'true' }
           });
