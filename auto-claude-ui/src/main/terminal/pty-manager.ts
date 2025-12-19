@@ -3,7 +3,7 @@
  * Handles low-level PTY process creation and lifecycle
  */
 
-import * as pty from 'node-pty';
+import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
