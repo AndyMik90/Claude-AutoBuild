@@ -26,6 +26,7 @@ import {
 } from '../ui/tooltip';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { GraphitiProviderType } from '../../../shared/types';
+import type { AppSettings } from '../../../shared/types/settings';
 
 interface GraphitiStepProps {
   onNext: () => void;
@@ -63,20 +64,20 @@ const PROVIDER_INFO: Record<GraphitiProviderType, {
 };
 
 // Helper to get the saved API key for a provider from settings
-function getApiKeyForProvider(provider: GraphitiProviderType, settings: Record<string, unknown>): string {
+function getApiKeyForProvider(provider: GraphitiProviderType, settings: AppSettings): string {
   switch (provider) {
-    case 'openai': return (settings.globalOpenAIApiKey as string) || '';
-    case 'anthropic': return (settings.globalAnthropicApiKey as string) || '';
-    case 'google': return (settings.globalGoogleApiKey as string) || '';
-    case 'groq': return (settings.globalGroqApiKey as string) || '';
+    case 'openai': return settings.globalOpenAIApiKey || '';
+    case 'anthropic': return settings.globalAnthropicApiKey || '';
+    case 'google': return settings.globalGoogleApiKey || '';
+    case 'groq': return settings.globalGroqApiKey || '';
     case 'ollama': return '';  // Ollama doesn't need an API key
     default: return '';
   }
 }
 
 // Helper to get the saved Ollama base URL from settings
-function getOllamaBaseUrl(settings: Record<string, unknown>): string {
-  return (settings.ollamaBaseUrl as string) || 'http://localhost:11434';
+function getOllamaBaseUrl(settings: AppSettings): string {
+  return settings.ollamaBaseUrl || 'http://localhost:11434';
 }
 
 interface ValidationStatus {
@@ -92,13 +93,13 @@ interface ValidationStatus {
 export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   // Load saved provider preference, defaulting to 'openai'
-  const savedProvider = ((settings as Record<string, unknown>).graphitiLlmProvider as GraphitiProviderType) || 'openai';
+  const savedProvider = settings.graphitiLlmProvider || 'openai';
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: false,
     falkorDbUri: 'bolt://localhost:6379',  // Standard FalkorDB port, will be auto-detected from Docker
     llmProvider: savedProvider,
-    apiKey: getApiKeyForProvider(savedProvider, settings as Record<string, unknown>),
-    ollamaBaseUrl: getOllamaBaseUrl(settings as Record<string, unknown>)
+    apiKey: getApiKeyForProvider(savedProvider, settings),
+    ollamaBaseUrl: getOllamaBaseUrl(settings)
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,8 +151,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
   const handleProviderChange = (provider: GraphitiProviderType) => {
     // Load saved API key or base URL for the selected provider
-    const savedKey = getApiKeyForProvider(provider, settings as Record<string, unknown>);
-    const savedOllamaUrl = getOllamaBaseUrl(settings as Record<string, unknown>);
+    const savedKey = getApiKeyForProvider(provider, settings);
+    const savedOllamaUrl = getOllamaBaseUrl(settings);
     setConfig(prev => ({
       ...prev,
       llmProvider: provider,
