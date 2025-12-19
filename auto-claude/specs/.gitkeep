@@ -1,7 +1,0 @@
-# This directory contains all spec folders
-# Each spec is stored in a numbered folder like:
-#   001-initial-app/
-#   002-user-auth/
-#   003-payment-integration/
-#
-# Create a new spec with: claude /spec
