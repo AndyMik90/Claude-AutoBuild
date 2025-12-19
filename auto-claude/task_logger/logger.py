@@ -100,7 +100,11 @@ class TaskLogger:
             debug_error(module, message, **kwargs)
         elif entry_type == LogEntryType.SUCCESS:
             debug_success(module, message, **kwargs)
-        elif entry_type in (LogEntryType.INFO, LogEntryType.PHASE_START, LogEntryType.PHASE_END):
+        elif entry_type in (
+            LogEntryType.INFO,
+            LogEntryType.PHASE_START,
+            LogEntryType.PHASE_END,
+        ):
             debug_info(module, message, **kwargs)
         elif entry_type in (LogEntryType.TOOL_START, LogEntryType.TOOL_END):
             debug(module, message, level=2, **kwargs)
@@ -196,7 +200,9 @@ class TaskLogger:
         )
 
         # Add phase end entry
-        phase_message = message or f"{'Completed' if success else 'Failed'} {phase_key} phase"
+        phase_message = (
+            message or f"{'Completed' if success else 'Failed'} {phase_key} phase"
+        )
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_END.value,
@@ -375,7 +381,9 @@ class TaskLogger:
         )
 
         # Debug log (when DEBUG=true)
-        self._debug_log(f"Starting {subphase}", LogEntryType.INFO, phase_key, subphase=subphase)
+        self._debug_log(
+            f"Starting {subphase}", LogEntryType.INFO, phase_key, subphase=subphase
+        )
 
         if print_to_console:
             print(f"\n--- {subphase} ---", flush=True)

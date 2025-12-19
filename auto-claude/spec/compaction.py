@@ -10,7 +10,6 @@ summarized and passed as context to subsequent phases.
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
 from core.auth import get_sdk_env_vars, require_auth_token
 
 
@@ -107,12 +106,14 @@ def format_phase_summaries(summaries: dict[str, str]) -> str:
 
     formatted_parts = ["## Context from Previous Phases\n"]
     for phase_name, summary in summaries.items():
-        formatted_parts.append(f"### {phase_name.replace('_', ' ').title()}\n{summary}\n")
+        formatted_parts.append(
+            f"### {phase_name.replace('_', ' ').title()}\n{summary}\n"
+        )
 
     return "\n".join(formatted_parts)
 
 
-async def gather_phase_outputs(spec_dir: Path, phase_name: str) -> str:
+def gather_phase_outputs(spec_dir: Path, phase_name: str) -> str:
     """
     Gather output files from a completed phase for summarization.
 

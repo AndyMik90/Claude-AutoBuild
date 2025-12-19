@@ -203,7 +203,7 @@ class TestSpecOrchestratorInit:
 
             orchestrator = SpecOrchestrator(project_dir=temp_dir)
 
-            assert orchestrator.model == "claude-opus-4-5-20251101"
+            assert orchestrator.model == "claude-sonnet-4-5-20250929"
 
     def test_init_custom_model(self, temp_dir: Path):
         """Uses custom model."""

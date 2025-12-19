@@ -102,9 +102,11 @@ def handle_build_command(
     print(f"Spec: {spec_dir.name}")
     # Show phase-specific models if they differ
     if planning_model != coding_model or coding_model != qa_model:
-        print(f"Models: Planning={planning_model.split('-')[1] if '-' in planning_model else planning_model}, "
-              f"Coding={coding_model.split('-')[1] if '-' in coding_model else coding_model}, "
-              f"QA={qa_model.split('-')[1] if '-' in qa_model else qa_model}")
+        print(
+            f"Models: Planning={planning_model.split('-')[1] if '-' in planning_model else planning_model}, "
+            f"Coding={coding_model.split('-')[1] if '-' in coding_model else coding_model}, "
+            f"QA={qa_model.split('-')[1] if '-' in qa_model else qa_model}"
+        )
     else:
         print(f"Model: {planning_model}")
 

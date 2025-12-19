@@ -28,7 +28,11 @@ from ui import (
 )
 
 from .. import complexity, phases, requirements
-from ..compaction import format_phase_summaries, gather_phase_outputs, summarize_phase_output
+from ..compaction import (
+    format_phase_summaries,
+    gather_phase_outputs,
+    summarize_phase_output,
+)
 from ..validate_pkg.spec_validator import SpecValidator
 from .agent_runner import AgentRunner
 from .models import (
@@ -162,7 +166,7 @@ class SpecOrchestrator:
         """
         try:
             # Gather outputs from this phase
-            phase_output = await gather_phase_outputs(self.spec_dir, phase_name)
+            phase_output = gather_phase_outputs(self.spec_dir, phase_name)
             if not phase_output:
                 return
 

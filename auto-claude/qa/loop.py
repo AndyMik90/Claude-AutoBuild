@@ -11,7 +11,6 @@ from pathlib import Path
 
 from core.client import create_client
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
-from phase_config import get_phase_model, get_thinking_budget
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -20,6 +19,7 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
+from phase_config import get_phase_model, get_thinking_budget
 from progress import count_subtasks, is_build_complete
 from task_logger import (
     LogPhase,
@@ -154,7 +154,9 @@ async def run_qa_validation_loop(
 
         # Run QA reviewer with phase-specific model and high thinking budget
         qa_model = get_phase_model(spec_dir, "qa", model)
-        qa_thinking_budget = get_thinking_budget("high")  # 10,000 tokens for thorough review
+        qa_thinking_budget = get_thinking_budget(
+            "high"
+        )  # 10,000 tokens for thorough review
         debug(
             "qa_loop",
             "Creating client for QA reviewer session...",
@@ -293,7 +295,9 @@ async def run_qa_validation_loop(
                 break
 
             # Run fixer with medium thinking budget
-            fixer_thinking_budget = get_thinking_budget("medium")  # 5,000 tokens for focused fixes
+            fixer_thinking_budget = get_thinking_budget(
+                "medium"
+            )  # 5,000 tokens for focused fixes
             debug(
                 "qa_loop",
                 "Starting QA fixer session...",

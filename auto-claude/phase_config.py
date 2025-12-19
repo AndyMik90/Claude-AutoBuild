@@ -18,13 +18,13 @@ MODEL_ID_MAP: dict[str, str] = {
 }
 
 # Thinking level to budget tokens mapping (None = no extended thinking)
-# Values calibrated for Claude Opus 4.5 extended thinking
+# Values must match auto-claude-ui/src/shared/constants/models.ts THINKING_BUDGET_MAP
 THINKING_BUDGET_MAP: dict[str, int | None] = {
     "none": None,
     "low": 1024,
-    "medium": 5000,      # Balanced thinking for light phases
-    "high": 10000,       # Deep thinking for QA review
-    "ultrathink": 16000, # Maximum thinking for spec creation
+    "medium": 4096,  # Moderate analysis
+    "high": 16384,  # Deep thinking for QA review
+    "ultrathink": 65536,  # Maximum reasoning depth
 }
 
 # Spec runner phase-specific thinking levels
@@ -78,6 +78,7 @@ class PhaseThinkingConfig(TypedDict, total=False):
 
 class TaskMetadataConfig(TypedDict, total=False):
     """Structure of model-related fields in task_metadata.json"""
+
     isAutoProfile: bool
     phaseModels: PhaseModelConfig
     phaseThinking: PhaseThinkingConfig
