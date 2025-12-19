@@ -238,6 +238,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                   onUpdateConfig={updateEnvConfig}
                   gitHubConnectionStatus={gitHubConnectionStatus}
                   isCheckingGitHub={isCheckingGitHub}
+                  projectName={project.name}
                 />
 
                 <Separator />
