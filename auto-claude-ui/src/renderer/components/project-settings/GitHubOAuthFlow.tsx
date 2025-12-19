@@ -6,7 +6,9 @@ import {
   AlertCircle,
   Info,
   ExternalLink,
-  Terminal
+  Terminal,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -39,6 +41,12 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const [_cliInstalled, setCliInstalled] = useState(false);
   const [cliVersion, setCliVersion] = useState<string | undefined>();
   const [username, setUsername] = useState<string | undefined>();
+
+  // Device flow state for displaying code and auth URL
+  const [deviceCode, setDeviceCode] = useState<string | null>(null);
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [browserOpened, setBrowserOpened] = useState<boolean>(false);
+  const [codeCopied, setCodeCopied] = useState<boolean>(false);
 
   // Check gh CLI installation and authentication status on mount
   // Use a ref to prevent double-execution in React Strict Mode
@@ -138,10 +146,30 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     setStatus('authenticating');
     setError(null);
 
+    // Reset device flow state
+    setDeviceCode(null);
+    setAuthUrl(null);
+    setBrowserOpened(false);
+    setCodeCopied(false);
+
     try {
       debugLog('Calling startGitHubAuth...');
       const result = await window.electronAPI.startGitHubAuth();
       debugLog('startGitHubAuth result:', result);
+
+      // Capture device flow info if available
+      if (result.data?.deviceCode) {
+        debugLog('Device code received:', result.data.deviceCode);
+        setDeviceCode(result.data.deviceCode);
+      }
+      if (result.data?.authUrl) {
+        debugLog('Auth URL received:', result.data.authUrl);
+        setAuthUrl(result.data.authUrl);
+      }
+      if (result.data?.browserOpened !== undefined) {
+        debugLog('Browser opened status:', result.data.browserOpened);
+        setBrowserOpened(result.data.browserOpened);
+      }
 
       if (result.success && result.data?.success) {
         debugLog('Auth successful, fetching token...');
@@ -149,7 +177,13 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
         await fetchAndNotifyToken();
       } else {
         debugLog('Auth failed:', result.error);
-        setError(result.error || 'Authentication failed');
+        // Include fallback URL info in error message if available
+        const errorMessage = result.error || 'Authentication failed';
+        setError(errorMessage);
+        // Keep authUrl from response for fallback display
+        if (result.data?.fallbackUrl) {
+          setAuthUrl(result.data.fallbackUrl);
+        }
         setStatus('error');
       }
     } catch (err) {
@@ -167,6 +201,26 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const handleRetry = () => {
     debugLog('Retry clicked');
     checkGitHubStatus();
+  };
+
+  const handleCopyDeviceCode = async () => {
+    if (!deviceCode) return;
+    debugLog('Copying device code to clipboard');
+    try {
+      await navigator.clipboard.writeText(deviceCode);
+      setCodeCopied(true);
+      // Reset the copied state after 2 seconds
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch (err) {
+      debugLog('Failed to copy device code:', err);
+    }
+  };
+
+  const handleOpenAuthUrl = () => {
+    if (authUrl) {
+      debugLog('Opening auth URL manually:', authUrl);
+      window.open(authUrl, '_blank');
+    }
   };
 
   debugLog('Rendering with status:', status);
@@ -263,21 +317,81 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
 
       {/* Authenticating */}
       {status === 'authenticating' && (
-        <Card className="border border-info/30 bg-info/10">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <Loader2 className="h-6 w-6 animate-spin text-info shrink-0" />
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-foreground">
-                  Authenticating...
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Please complete the authentication in your browser. This window will update automatically.
-                </p>
+        <div className="space-y-4">
+          <Card className="border border-info/30 bg-info/10">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <Loader2 className="h-6 w-6 animate-spin text-info shrink-0" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-foreground">
+                    Authenticating...
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {browserOpened
+                      ? 'Please complete the authentication in your browser. This window will update automatically.'
+                      : 'Waiting for authentication flow to start...'}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Device Code Display */}
+          {deviceCode && (
+            <Card className="border border-primary/30 bg-primary/5">
+              <CardContent className="p-6">
+                <div className="text-center space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">
+                      Your one-time code
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <code className="text-3xl font-mono font-bold tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-lg">
+                        {deviceCode}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyDeviceCode}
+                        className="shrink-0"
+                      >
+                        {codeCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1 text-success" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>
+                      {browserOpened
+                        ? 'Enter this code in your browser to complete authentication.'
+                        : 'Copy this code, then open the link below to authenticate.'}
+                    </p>
+                    {!browserOpened && authUrl && (
+                      <Button
+                        variant="link"
+                        onClick={handleOpenAuthUrl}
+                        className="text-info hover:text-info/80 p-0 h-auto gap-1"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open {authUrl}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Success */}
