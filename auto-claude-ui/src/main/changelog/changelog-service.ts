@@ -27,13 +27,15 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
+import { findPythonCommand } from '../python-detector';
 
 /**
  * Main changelog service - orchestrates all changelog operations
  * Delegates to specialized modules for specific concerns
  */
 export class ChangelogService extends EventEmitter {
-  private pythonPath: string = 'python3';
+  // Auto-detect Python command on initialization
+  private pythonPath: string = findPythonCommand() || 'python';
   private claudePath: string = 'claude';
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;

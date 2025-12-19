@@ -2,13 +2,15 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
+import { findPythonCommand } from '../python-detector';
 
 /**
  * Configuration manager for insights service
  * Handles path detection and environment variable loading
  */
 export class InsightsConfig {
-  private pythonPath: string = 'python3';
+  // Auto-detect Python command on initialization
+  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   /**
