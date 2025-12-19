@@ -4,6 +4,7 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
+import { findPythonCommand } from './python-detector';
 
 /**
  * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
@@ -20,7 +21,8 @@ function debug(...args: unknown[]): void {
  * Service for generating task titles from descriptions using Claude AI
  */
 export class TitleGenerator extends EventEmitter {
-  private pythonPath: string = 'python3';
+  // Auto-detect Python command on initialization
+  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor() {
