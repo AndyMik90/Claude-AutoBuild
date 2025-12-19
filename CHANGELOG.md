@@ -1,3 +1,73 @@
+## 2.5.5 - Enhanced Agent Reliability & Build Workflow
+
+### ✨ New Features
+
+- Required GitHub setup flow after Auto Claude initialization to ensure proper configuration
+- Atomic log saving mechanism to prevent log file corruption during concurrent operations
+- Per-session model and thinking level selection in insights management
+- Multi-auth token support and ANTHROPIC_BASE_URL passthrough for flexible authentication
+- Comprehensive DEBUG logging at Claude SDK invocation points for improved troubleshooting
+- Auto-download of prebuilt node-pty binaries for Windows environments
+- Enhanced merge workflow with current branch detection for accurate change previews
+- Phase configuration module and enhanced agent profiles for improved flexibility
+- Stage-only merge handling with comprehensive verification checks
+- Authentication failure detection system with patterns and validation checks across agent pipeline
+
+### 🛠️ Improvements
+
+- Changed default agent profile from 'balanced' to 'auto' for more adaptive behavior
+- Better GitHub issue tracking and improved user experience in issue management
+- Improved merge preview accuracy using git diff counts for file statistics
+- Preserved roadmap generation state when switching between projects
+- Enhanced agent profiles with phase configuration support
+
+### 🐛 Bug Fixes
+
+- Resolved CI test failures and improved merge preview reliability
+- Fixed CI failures related to linting, formatting, and tests
+- Prevented dialog skip during project initialization flow
+- Updated model IDs for Sonnet and Haiku to match current Claude versions
+- Fixed branch namespace conflict detection to prevent worktree creation failures
+- Removed duplicate LINEAR_API_KEY checks and consolidated imports
+- Python 3.10+ version requirement enforced with proper version checking
+- Prevented command injection vulnerabilities in GitHub API calls
+
+### 🔧 Other Changes
+
+- Code cleanup and test fixture updates
+- Removed redundant auto-claude/specs directory structure
+- Untracked .auto-claude directory to respect gitignore rules
+
+---
+
+## What's Changed
+
+- fix: resolve CI test failures and improve merge preview by @AndyMik90 in de2eccd
+- chore: code cleanup and test fixture updates by @AndyMik90 in 948db57
+- refactor: change default agent profile from 'balanced' to 'auto' by @AndyMik90 in f98a13e
+- security: prevent command injection in GitHub API calls by @AndyMik90 in 24ff491
+- fix: resolve CI failures (lint, format, test) by @AndyMik90 in a8f2d0b
+- fix: use git diff count for totalFiles in merge preview by @AndyMik90 in 46d2536
+- feat: enhance stage-only merge handling with verification checks by @AndyMik90 in 7153558
+- feat: introduce phase configuration module and enhance agent profiles by @AndyMik90 in 2672528
+- fix: preserve roadmap generation state when switching projects by @AndyMik90 in 569e921
+- feat: add required GitHub setup flow after Auto Claude initialization by @AndyMik90 in 03ccce5
+- chore: remove redundant auto-claude/specs directory by @AndyMik90 in 64d5170
+- chore: untrack .auto-claude directory (should be gitignored) by @AndyMik90 in 0710c13
+- fix: prevent dialog skip during project initialization by @AndyMik90 in 56cedec
+- feat: enhance merge workflow by detecting current branch by @AndyMik90 in c0c8067
+- fix: update model IDs for Sonnet and Haiku by @AndyMik90 in 059315d
+- feat: add comprehensive DEBUG logging and fix lint errors by @AndyMik90 in 99cf21e
+- feat: implement atomic log saving to prevent corruption by @AndyMik90 in da5e26b
+- feat: add better github issue tracking and UX by @AndyMik90 in c957eaa
+- feat: add comprehensive DEBUG logging to Claude SDK invocation points by @AndyMik90 in 73d01c0
+- feat: auto-download prebuilt node-pty binaries for Windows by @AndyMik90 in 41a507f
+- feat(insights): add per-session model and thinking level selection by @AndyMik90 in e02aa59
+- fix: require Python 3.10+ and add version check by @AndyMik90 in 9a5ca8c
+- fix: detect branch namespace conflict blocking worktree creation by @AndyMik90 in 63a1d3c
+- fix: remove duplicate LINEAR_API_KEY check and consolidate imports by @Jacob in 7d351e3
+- feat: add multi-auth token support and ANTHROPIC_BASE_URL passthrough by @Jacob in 9dea155
+
 ## 2.5.0 - Roadmap Intelligence & Workflow Refinements
 
 ### ✨ New Features
