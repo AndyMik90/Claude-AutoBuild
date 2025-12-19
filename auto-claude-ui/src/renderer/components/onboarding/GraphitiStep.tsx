@@ -48,6 +48,17 @@ const PROVIDER_INFO: Record<GraphitiProviderType, { name: string; placeholder: s
   groq: { name: 'Groq', placeholder: 'gsk_...', link: 'https://console.groq.com/keys' },
 };
 
+// Helper to get the saved API key for a provider from settings
+function getApiKeyForProvider(provider: GraphitiProviderType, settings: Record<string, unknown>): string {
+  switch (provider) {
+    case 'openai': return (settings.globalOpenAIApiKey as string) || '';
+    case 'anthropic': return (settings.globalAnthropicApiKey as string) || '';
+    case 'google': return (settings.globalGoogleApiKey as string) || '';
+    case 'groq': return (settings.globalGroqApiKey as string) || '';
+    default: return '';
+  }
+}
+
 interface ValidationStatus {
   falkordb: { tested: boolean; success: boolean; message: string } | null;
   llm: { tested: boolean; success: boolean; message: string } | null;
@@ -60,11 +71,13 @@ interface ValidationStatus {
  */
 export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
+  // Load saved provider preference, defaulting to 'openai'
+  const savedProvider = ((settings as Record<string, unknown>).graphitiLlmProvider as GraphitiProviderType) || 'openai';
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: false,
     falkorDbUri: 'bolt://localhost:6379',  // Standard FalkorDB port, will be auto-detected from Docker
-    llmProvider: 'openai',
-    apiKey: settings.globalOpenAIApiKey || ''
+    llmProvider: savedProvider,
+    apiKey: getApiKeyForProvider(savedProvider, settings as Record<string, unknown>)
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -115,7 +128,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   };
 
   const handleProviderChange = (provider: GraphitiProviderType) => {
-    setConfig(prev => ({ ...prev, llmProvider: provider, apiKey: '' }));
+    // Load saved API key for the selected provider
+    const savedKey = getApiKeyForProvider(provider, settings as Record<string, unknown>);
+    setConfig(prev => ({ ...prev, llmProvider: provider, apiKey: savedKey }));
     setValidationStatus(prev => ({ ...prev, llm: null }));
     setError(null);
   };
@@ -211,10 +226,18 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       const result = await window.electronAPI.saveSettings(settingsUpdate);
 
       if (result?.success) {
-        // Update local settings store
+        // Update local settings store for all providers
+        const storeUpdate: Record<string, string> = {};
         if (config.llmProvider === 'openai') {
-          updateSettings({ globalOpenAIApiKey: config.apiKey.trim() });
+          storeUpdate.globalOpenAIApiKey = config.apiKey.trim();
+        } else if (config.llmProvider === 'anthropic') {
+          storeUpdate.globalAnthropicApiKey = config.apiKey.trim();
+        } else if (config.llmProvider === 'google') {
+          storeUpdate.globalGoogleApiKey = config.apiKey.trim();
+        } else if (config.llmProvider === 'groq') {
+          storeUpdate.globalGroqApiKey = config.apiKey.trim();
         }
+        updateSettings(storeUpdate);
         // Proceed to next step immediately after successful save
         onNext();
       } else {
@@ -546,6 +569,11 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       {validationStatus.falkordb?.success && validationStatus.llm?.success && (
                         <p className="text-xs text-success text-center mt-2">
                           All connections validated successfully!
+                        </p>
+                      )}
+                      {config.llmProvider !== 'openai' && (
+                        <p className="text-xs text-muted-foreground text-center mt-2">
+                          Note: API key validation currently only fully supports OpenAI. Your {PROVIDER_INFO[config.llmProvider].name} key will be saved and used at runtime.
                         </p>
                       )}
                     </div>
