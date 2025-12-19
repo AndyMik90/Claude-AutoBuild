@@ -3,14 +3,13 @@ import {
   DndContext,
   DragOverlay,
   useDroppable,
-  pointerWithin,
   type DragEndEvent,
   type DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors
 } from '@dnd-kit/core';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, File, Folder, FolderTree, FileDown } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, File, Folder, FolderTree, FileDown, GitBranch } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +40,7 @@ import {
 } from './ImageUpload';
 import { ReferencedFilesSection } from './ReferencedFilesSection';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
+import { DraggableFileList } from './DraggableFileList';
 import { AgentProfileSelector } from './AgentProfileSelector';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
@@ -85,6 +85,15 @@ export function TaskCreationWizard({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(false);
+  const [showGitOptions, setShowGitOptions] = useState(false);
+
+  // Git options state
+  // Use a special value to represent "use project default" since Radix UI Select doesn't allow empty string values
+  const PROJECT_DEFAULT_BRANCH = '__project_default__';
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
+  const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
   // Get project path from project store
   const projects = useProjectStore((state) => state.projects);
@@ -158,6 +167,17 @@ export function TaskCreationWizard({
     data: { type: 'description-drop-zone' }
   });
 
+  // Debug: Log drop zone state changes
+  useEffect(() => {
+    if (activeDragData) {
+      console.log('[DnD] Drop zone states:', {
+        isOverDropZone,
+        isOverTextarea,
+        activeDragData
+      });
+    }
+  }, [isOverDropZone, isOverTextarea, activeDragData]);
+
   // Determine if drop zone is at capacity
   const isAtMaxFiles = referencedFiles.length >= MAX_REFERENCED_FILES;
 
@@ -201,6 +221,51 @@ export function TaskCreationWizard({
       }
     }
   }, [open, projectId, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel]);
+
+  // Fetch branches and project default branch when dialog opens
+  useEffect(() => {
+    if (open && projectPath) {
+      fetchBranches();
+      fetchProjectDefaultBranch();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, projectPath]);
+
+  const fetchBranches = async () => {
+    if (!projectPath) return;
+
+    setIsLoadingBranches(true);
+    try {
+      const result = await window.electronAPI.getGitBranches(projectPath);
+      if (result.success && result.data) {
+        setBranches(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch branches:', err);
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
+
+  const fetchProjectDefaultBranch = async () => {
+    if (!projectId) return;
+
+    try {
+      // Get env config to check if there's a configured default branch
+      const result = await window.electronAPI.getProjectEnv(projectId);
+      if (result.success && result.data?.defaultBranch) {
+        setProjectDefaultBranch(result.data.defaultBranch);
+      } else if (projectPath) {
+        // Fall back to auto-detect
+        const detectResult = await window.electronAPI.detectMainBranch(projectPath);
+        if (detectResult.success && detectResult.data) {
+          setProjectDefaultBranch(detectResult.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch project default branch:', err);
+    }
+  };
 
   /**
    * Get current form state as a draft
@@ -406,6 +471,11 @@ export function TaskCreationWizard({
    * Handle drag start - capture file data for overlay
    */
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    console.log('[DnD] Drag started:', {
+      activeId: event.active.id,
+      activeData: event.active.data.current
+    });
+
     const data = event.active.data.current as {
       type: string;
       path: string;
@@ -414,6 +484,7 @@ export function TaskCreationWizard({
     } | undefined;
 
     if (data?.type === 'file') {
+      console.log('[DnD] Setting active drag data:', data);
       setActiveDragData({
         path: data.path,
         name: data.name,
@@ -428,11 +499,20 @@ export function TaskCreationWizard({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
+    console.log('[DnD] Drag ended:', {
+      activeId: active.id,
+      overId: over?.id,
+      overData: over?.data.current
+    });
+
     // Clear drag state
     setActiveDragData(null);
 
     // If not dropped on a valid target, do nothing
-    if (!over) return;
+    if (!over) {
+      console.log('[DnD] No drop target detected');
+      return;
+    }
 
     const data = active.data.current as {
       type?: string;
@@ -441,8 +521,13 @@ export function TaskCreationWizard({
       isDirectory?: boolean;
     } | undefined;
 
+    console.log('[DnD] Active data:', data);
+
     // Only process file drops
-    if (data?.type !== 'file' || !data.path || !data.name) return;
+    if (data?.type !== 'file' || !data.path || !data.name) {
+      console.log('[DnD] Not a file drop, ignoring');
+      return;
+    }
 
     // Handle drop on description textarea - insert inline @mention
     if (over.id === 'description-drop-zone') {
@@ -561,6 +646,8 @@ export function TaskCreationWizard({
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
+      // Only include baseBranch if it's not the project default placeholder
+      if (baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH) metadata.baseBranch = baseBranch;
 
       // Title is optional - if empty, it will be auto-generated by the backend
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
@@ -596,10 +683,12 @@ export function TaskCreationWizard({
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
+    setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setError(null);
     setShowAdvanced(false);
     setShowImages(false);
     setShowFileExplorer(false);
+    setShowGitOptions(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
   };
@@ -634,19 +723,25 @@ export function TaskCreationWizard({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent
-          className={cn(
-            "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
-            showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
-          )}
-          hideCloseButton={showFileExplorer}
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className={cn(
+          "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
+          showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
+        )}
+        hideCloseButton={showFileExplorer}
+      >
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragMove={(event) => {
+            console.log('[DnD] Drag move:', {
+              overId: event.over?.id,
+              delta: event.delta,
+              collisions: event.collisions?.map(c => c.id)
+            });
+          }}
         >
           <div className="flex h-full min-h-0 overflow-hidden">
             {/* Form content - Drop zone wrapper */}
@@ -777,6 +872,14 @@ export function TaskCreationWizard({
               Tip: Drag files from the explorer to insert @references, or paste screenshots with {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'}.
             </p>
           </div>
+
+          {/* TEST: Inline file browser for debugging drag-and-drop */}
+          {projectPath && (
+            <div className="border border-dashed border-warning rounded-lg p-2">
+              <p className="text-xs text-warning mb-2 font-medium">TEST: Drag files from here to Description above</p>
+              <DraggableFileList rootPath={projectPath} maxHeight={150} />
+            </div>
+          )}
 
           {/* Title (Optional - Auto-generated if empty) */}
           <div className="space-y-2">
@@ -1038,6 +1141,65 @@ export function TaskCreationWizard({
             </div>
           </div>
 
+          {/* Git Options Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowGitOptions(!showGitOptions)}
+            className={cn(
+              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+            )}
+            disabled={isCreating}
+          >
+            <span className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4" />
+              Git Options (optional)
+              {baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  {baseBranch}
+                </span>
+              )}
+            </span>
+            {showGitOptions ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* Git Options */}
+          {showGitOptions && (
+            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+              <div className="space-y-2">
+                <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
+                  Base Branch (optional)
+                </Label>
+                <Select
+                  value={baseBranch}
+                  onValueChange={setBaseBranch}
+                  disabled={isCreating || isLoadingBranches}
+                >
+                  <SelectTrigger id="base-branch" className="h-9">
+                    <SelectValue placeholder={`Use project default${projectDefaultBranch ? ` (${projectDefaultBranch})` : ''}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PROJECT_DEFAULT_BRANCH}>
+                      Use project default{projectDefaultBranch ? ` (${projectDefaultBranch})` : ''}
+                    </SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch} value={branch}>
+                        {branch}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Override the branch this task&apos;s worktree will be created from. Leave empty to use the project&apos;s configured default branch.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
@@ -1091,22 +1253,22 @@ export function TaskCreationWizard({
               />
             )}
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Drag overlay - shows what's being dragged */}
-      <DragOverlay>
-        {activeDragData && (
-          <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg">
-            {activeDragData.isDirectory ? (
-              <Folder className="h-4 w-4 text-warning" />
-            ) : (
-              <File className="h-4 w-4 text-muted-foreground" />
+          {/* Drag overlay - shows what's being dragged */}
+          <DragOverlay dropAnimation={null}>
+            {activeDragData && (
+              <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg pointer-events-none z-[9999]">
+                {activeDragData.isDirectory ? (
+                  <Folder className="h-4 w-4 text-warning" />
+                ) : (
+                  <File className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm">{activeDragData.name}</span>
+              </div>
             )}
-            <span className="text-sm">{activeDragData.name}</span>
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+          </DragOverlay>
+        </DndContext>
+      </DialogContent>
+    </Dialog>
   );
 }
