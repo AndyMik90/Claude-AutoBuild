@@ -81,6 +81,21 @@ auto-claude/.venv/bin/pytest tests/ -m "not slow"
 python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --checkpoint all
 ```
 
+### Releases
+```bash
+# Automated version bump and release (recommended)
+node scripts/bump-version.js patch   # 2.5.5 -> 2.5.6
+node scripts/bump-version.js minor   # 2.5.5 -> 2.6.0
+node scripts/bump-version.js major   # 2.5.5 -> 3.0.0
+node scripts/bump-version.js 2.6.0   # Set specific version
+
+# Then push to trigger GitHub release workflows
+git push origin main
+git push origin v2.6.0
+```
+
+See [RELEASE.md](RELEASE.md) for detailed release process documentation.
+
 ## Architecture
 
 ### Core Pipeline
