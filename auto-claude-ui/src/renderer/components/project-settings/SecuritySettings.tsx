@@ -164,7 +164,7 @@ export function SecuritySettings({
                     updateEnvConfig({
                       graphitiProviderConfig: {
                         ...currentConfig,
-                        llmProvider: value as 'openai' | 'anthropic' | 'azure_openai' | 'ollama',
+                        llmProvider: value as 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq',
                       }
                     });
                   }}
@@ -198,7 +198,7 @@ export function SecuritySettings({
                     updateEnvConfig({
                       graphitiProviderConfig: {
                         ...currentConfig,
-                        embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama',
+                        embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'huggingface',
                       }
                     });
                   }}

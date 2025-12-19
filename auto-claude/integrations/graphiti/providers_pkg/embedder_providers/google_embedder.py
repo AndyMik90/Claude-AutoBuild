@@ -75,17 +75,17 @@ class GoogleEmbedder:
             text = str(input_data)
 
         # Run the synchronous API call in a thread pool
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             None,
             lambda: self._genai.embed_content(
                 model=f"models/{self.model}",
                 content=text,
-                task_type="retrieval_document"
-            )
+                task_type="retrieval_document",
+            ),
         )
 
-        return result['embedding']
+        return result["embedding"]
 
     async def create_batch(self, input_data_list: list[str]) -> list[list[float]]:
         """
@@ -100,29 +100,29 @@ class GoogleEmbedder:
         import asyncio
 
         # Google's API supports batch embedding
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         # Process in batches to avoid rate limits
         batch_size = 100
         all_embeddings = []
 
         for i in range(0, len(input_data_list), batch_size):
-            batch = input_data_list[i:i + batch_size]
+            batch = input_data_list[i : i + batch_size]
 
             result = await loop.run_in_executor(
                 None,
                 lambda b=batch: self._genai.embed_content(
                     model=f"models/{self.model}",
                     content=b,
-                    task_type="retrieval_document"
-                )
+                    task_type="retrieval_document",
+                ),
             )
 
             # Handle single vs batch response
-            if isinstance(result['embedding'][0], list):
-                all_embeddings.extend(result['embedding'])
+            if isinstance(result["embedding"][0], list):
+                all_embeddings.extend(result["embedding"])
             else:
-                all_embeddings.append(result['embedding'])
+                all_embeddings.append(result["embedding"])
 
         return all_embeddings
 
@@ -146,7 +146,4 @@ def create_google_embedder(config: "GraphitiConfig") -> Any:
 
     model = config.google_embedding_model or DEFAULT_GOOGLE_EMBEDDING_MODEL
 
-    return GoogleEmbedder(
-        api_key=config.google_api_key,
-        model=model
-    )
+    return GoogleEmbedder(api_key=config.google_api_key, model=model)

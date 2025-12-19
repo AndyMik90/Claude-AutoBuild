@@ -199,7 +199,9 @@ class GraphitiConfig:
         # Google AI settings
         google_api_key = os.environ.get("GOOGLE_API_KEY", "")
         google_llm_model = os.environ.get("GOOGLE_LLM_MODEL", "gemini-2.0-flash")
-        google_embedding_model = os.environ.get("GOOGLE_EMBEDDING_MODEL", "text-embedding-004")
+        google_embedding_model = os.environ.get(
+            "GOOGLE_EMBEDDING_MODEL", "text-embedding-004"
+        )
 
         # Ollama settings
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
@@ -541,6 +543,11 @@ def get_available_providers() -> dict:
     # Check Voyage
     if config.voyage_api_key:
         available_embedder.append("voyage")
+
+    # Check Google AI
+    if config.google_api_key:
+        available_llm.append("google")
+        available_embedder.append("google")
 
     # Check Ollama
     if config.ollama_llm_model:

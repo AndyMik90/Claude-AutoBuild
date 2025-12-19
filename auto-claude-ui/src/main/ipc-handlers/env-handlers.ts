@@ -317,6 +317,45 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
         config.enableFancyUi = false;
       }
 
+      // Populate graphitiProviderConfig from .env file
+      const llmProvider = vars['GRAPHITI_LLM_PROVIDER'];
+      const embeddingProvider = vars['GRAPHITI_EMBEDDER_PROVIDER'];
+      if (llmProvider || embeddingProvider || vars['ANTHROPIC_API_KEY'] || vars['AZURE_OPENAI_API_KEY'] ||
+          vars['VOYAGE_API_KEY'] || vars['GOOGLE_API_KEY'] || vars['OLLAMA_BASE_URL']) {
+        config.graphitiProviderConfig = {
+          llmProvider: (llmProvider as 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq') || 'openai',
+          embeddingProvider: (embeddingProvider as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'huggingface') || 'openai',
+          // OpenAI
+          openaiApiKey: vars['OPENAI_API_KEY'],
+          openaiModel: vars['OPENAI_MODEL'],
+          openaiEmbeddingModel: vars['OPENAI_EMBEDDING_MODEL'],
+          // Anthropic
+          anthropicApiKey: vars['ANTHROPIC_API_KEY'],
+          anthropicModel: vars['GRAPHITI_ANTHROPIC_MODEL'],
+          // Azure OpenAI
+          azureOpenaiApiKey: vars['AZURE_OPENAI_API_KEY'],
+          azureOpenaiBaseUrl: vars['AZURE_OPENAI_BASE_URL'],
+          azureOpenaiLlmDeployment: vars['AZURE_OPENAI_LLM_DEPLOYMENT'],
+          azureOpenaiEmbeddingDeployment: vars['AZURE_OPENAI_EMBEDDING_DEPLOYMENT'],
+          // Voyage
+          voyageApiKey: vars['VOYAGE_API_KEY'],
+          voyageEmbeddingModel: vars['VOYAGE_EMBEDDING_MODEL'],
+          // Google
+          googleApiKey: vars['GOOGLE_API_KEY'],
+          googleLlmModel: vars['GOOGLE_LLM_MODEL'],
+          googleEmbeddingModel: vars['GOOGLE_EMBEDDING_MODEL'],
+          // Ollama
+          ollamaBaseUrl: vars['OLLAMA_BASE_URL'],
+          ollamaLlmModel: vars['OLLAMA_LLM_MODEL'],
+          ollamaEmbeddingModel: vars['OLLAMA_EMBEDDING_MODEL'],
+          ollamaEmbeddingDim: vars['OLLAMA_EMBEDDING_DIM'] ? parseInt(vars['OLLAMA_EMBEDDING_DIM'], 10) : undefined,
+          // FalkorDB
+          falkorDbHost: vars['GRAPHITI_FALKORDB_HOST'],
+          falkorDbPort: vars['GRAPHITI_FALKORDB_PORT'] ? parseInt(vars['GRAPHITI_FALKORDB_PORT'], 10) : undefined,
+          falkorDbPassword: vars['GRAPHITI_FALKORDB_PASSWORD'],
+        };
+      }
+
       return { success: true, data: config };
     }
   );

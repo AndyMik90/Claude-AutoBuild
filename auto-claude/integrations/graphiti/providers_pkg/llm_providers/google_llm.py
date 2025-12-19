@@ -89,14 +89,13 @@ class GoogleLLMClient:
         # Create model with system instruction if provided
         if system_instruction:
             model = self._genai.GenerativeModel(
-                self.model,
-                system_instruction=system_instruction
+                self.model, system_instruction=system_instruction
             )
         else:
             model = self._model
 
         # Generate response
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         if response_model:
             # For structured output, use JSON mode
@@ -107,13 +106,13 @@ class GoogleLLMClient:
             response = await loop.run_in_executor(
                 None,
                 lambda: model.generate_content(
-                    google_messages,
-                    generation_config=generation_config
-                )
+                    google_messages, generation_config=generation_config
+                ),
             )
 
             # Parse JSON response into the model
             import json
+
             try:
                 data = json.loads(response.text)
                 return response_model(**data)
@@ -122,8 +121,7 @@ class GoogleLLMClient:
                 return response.text
         else:
             response = await loop.run_in_executor(
-                None,
-                lambda: model.generate_content(google_messages)
+                None, lambda: model.generate_content(google_messages)
             )
 
             return response.text
@@ -169,7 +167,4 @@ def create_google_llm_client(config: "GraphitiConfig") -> Any:
 
     model = config.google_llm_model or DEFAULT_GOOGLE_LLM_MODEL
 
-    return GoogleLLMClient(
-        api_key=config.google_api_key,
-        model=model
-    )
+    return GoogleLLMClient(api_key=config.google_api_key, model=model)

@@ -146,7 +146,7 @@ export function MemoryBackendSection({
               onValueChange={(value) => onUpdateConfig({
                 graphitiProviderConfig: {
                   ...envConfig.graphitiProviderConfig,
-                  llmProvider: value as 'openai' | 'anthropic' | 'azure_openai' | 'ollama',
+                  llmProvider: value as 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq',
                   embeddingProvider: envConfig.graphitiProviderConfig?.embeddingProvider || 'openai',
                 }
               })}
@@ -176,7 +176,7 @@ export function MemoryBackendSection({
                 graphitiProviderConfig: {
                   ...envConfig.graphitiProviderConfig,
                   llmProvider: envConfig.graphitiProviderConfig?.llmProvider || 'openai',
-                  embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama',
+                  embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'huggingface',
                 }
               })}
             >
