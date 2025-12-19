@@ -92,6 +92,7 @@ elif dev_env_file.exists():
     load_dotenv(dev_env_file)
 
 from debug import debug, debug_error, debug_section, debug_success
+from phase_config import get_phase_config, resolve_model_id
 from review import ReviewState
 from spec import SpecOrchestrator
 from ui import Icons, highlight, icon, muted, print_section, print_status
@@ -161,8 +162,15 @@ Examples:
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-opus-4-5-20251101",
-        help="Model to use for agent phases",
+        default="sonnet",
+        help="Model to use for agent phases (haiku, sonnet, opus, or full model ID)",
+    )
+    parser.add_argument(
+        "--thinking-level",
+        type=str,
+        default="medium",
+        choices=["none", "low", "medium", "high", "ultrathink"],
+        help="Thinking level for extended thinking (none, low, medium, high, ultrathink)",
     )
     parser.add_argument(
         "--no-ai-assessment",
@@ -234,12 +242,16 @@ Examples:
             f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now go to .auto-claude/specs/\n"
         )
 
+    # Resolve model shorthand to full model ID
+    resolved_model = resolve_model_id(args.model)
+
     debug(
         "spec_runner",
         "Creating spec orchestrator",
         project_dir=str(project_dir),
         task_description=task_description[:200] if task_description else None,
-        model=args.model,
+        model=resolved_model,
+        thinking_level=args.thinking_level,
         complexity_override=args.complexity,
         use_ai_assessment=not args.no_ai_assessment,
         interactive=args.interactive or not task_description,
@@ -251,7 +263,8 @@ Examples:
         task_description=task_description,
         spec_name=args.continue_spec,
         spec_dir=args.spec_dir,
-        model=args.model,
+        model=resolved_model,
+        thinking_level=args.thinking_level,
         complexity_override=args.complexity,
         use_ai_assessment=not args.no_ai_assessment,
         dev_mode=args.dev,
@@ -321,9 +334,9 @@ Examples:
             if args.dev:
                 run_cmd.append("--dev")
 
-            # Pass through model if not default
-            if args.model != "claude-opus-4-5-20251101":
-                run_cmd.extend(["--model", args.model])
+            # Note: Model configuration for subsequent phases (planning, coding, qa)
+            # is read from task_metadata.json by run.py, so we don't pass it here.
+            # This allows per-phase configuration when using Auto profile.
 
             debug(
                 "spec_runner",

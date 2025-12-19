@@ -5,6 +5,8 @@ Main TaskLogger class for logging task execution.
 from datetime import datetime, timezone
 from pathlib import Path
 
+from core.debug import debug, debug_error, debug_info, debug_success, is_debug_enabled
+
 from .models import LogEntry, LogEntryType, LogPhase
 from .storage import LogStorage
 from .streaming import emit_marker
@@ -62,6 +64,49 @@ class TaskLogger:
         """Add an entry to the current phase."""
         self.storage.add_entry(entry)
 
+    def _debug_log(
+        self,
+        content: str,
+        entry_type: LogEntryType = LogEntryType.TEXT,
+        phase: str | None = None,
+        tool_name: str | None = None,
+        **kwargs,
+    ) -> None:
+        """
+        Output a log entry to the terminal via the debug logging system.
+
+        Only outputs when DEBUG=true is set in the environment.
+
+        Args:
+            content: The message content
+            entry_type: Type of entry for formatting
+            phase: Current phase name
+            tool_name: Tool name if this is a tool log
+            **kwargs: Additional key-value pairs for debug output
+        """
+        if not is_debug_enabled():
+            return
+
+        module = "task_logger"
+        prefix = f"[{phase or 'unknown'}]" if phase else ""
+
+        if tool_name:
+            prefix = f"{prefix}[{tool_name}]"
+
+        message = f"{prefix} {content}" if prefix else content
+
+        # Route to appropriate debug function based on entry type
+        if entry_type == LogEntryType.ERROR:
+            debug_error(module, message, **kwargs)
+        elif entry_type == LogEntryType.SUCCESS:
+            debug_success(module, message, **kwargs)
+        elif entry_type in (LogEntryType.INFO, LogEntryType.PHASE_START, LogEntryType.PHASE_END):
+            debug_info(module, message, **kwargs)
+        elif entry_type in (LogEntryType.TOOL_START, LogEntryType.TOOL_END):
+            debug(module, message, level=2, **kwargs)
+        else:
+            debug(module, message, **kwargs)
+
     def set_session(self, session: int) -> None:
         """Set the current session number."""
         self.current_session = session
@@ -110,14 +155,18 @@ class TaskLogger:
         self._emit("PHASE_START", {"phase": phase_key, "timestamp": self._timestamp()})
 
         # Add phase start entry
+        phase_message = message or f"Starting {phase_key} phase"
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_START.value,
-            content=message or f"Starting {phase_key} phase",
+            content=phase_message,
             phase=phase_key,
             session=self.current_session,
         )
         self._add_entry(entry)
+
+        # Debug log (when DEBUG=true)
+        self._debug_log(phase_message, LogEntryType.PHASE_START, phase_key)
 
         # Also print the message
         if message:
@@ -147,15 +196,19 @@ class TaskLogger:
         )
 
         # Add phase end entry
+        phase_message = message or f"{'Completed' if success else 'Failed'} {phase_key} phase"
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_END.value,
-            content=message
-            or f"{'Completed' if success else 'Failed'} {phase_key} phase",
+            content=phase_message,
             phase=phase_key,
             session=self.current_session,
         )
         self._add_entry(entry)
+
+        # Debug log (when DEBUG=true)
+        entry_type = LogEntryType.SUCCESS if success else LogEntryType.ERROR
+        self._debug_log(phase_message, entry_type, phase_key)
 
         if message:
             print(message, flush=True)
@@ -204,6 +257,9 @@ class TaskLogger:
                 "timestamp": self._timestamp(),
             },
         )
+
+        # Debug log (when DEBUG=true)
+        self._debug_log(content, entry_type, phase_key, subtask=self.current_subtask)
 
         # Also print to console (unless caller handles printing)
         if print_to_console:
@@ -272,6 +328,16 @@ class TaskLogger:
             },
         )
 
+        # Debug log (when DEBUG=true) - include detail for verbose mode
+        self._debug_log(
+            content,
+            entry_type,
+            phase_key,
+            subtask=self.current_subtask,
+            subphase=subphase,
+            detail=detail[:500] + "..." if len(detail) > 500 else detail,
+        )
+
         if print_to_console:
             print(content, flush=True)
 
@@ -307,6 +373,9 @@ class TaskLogger:
             "SUBPHASE_START",
             {"subphase": subphase, "phase": phase_key, "timestamp": self._timestamp()},
         )
+
+        # Debug log (when DEBUG=true)
+        self._debug_log(f"Starting {subphase}", LogEntryType.INFO, phase_key, subphase=subphase)
 
         if print_to_console:
             print(f"\n--- {subphase} ---", flush=True)
@@ -350,6 +419,14 @@ class TaskLogger:
         self._emit(
             "TOOL_START",
             {"name": tool_name, "input": display_input, "phase": phase_key},
+        )
+
+        # Debug log (when DEBUG=true)
+        self._debug_log(
+            display_input or "started",
+            LogEntryType.TOOL_START,
+            phase_key,
+            tool_name=tool_name,
         )
 
         if print_to_console:
@@ -417,6 +494,18 @@ class TaskLogger:
                 "phase": phase_key,
                 "has_detail": detail is not None,
             },
+        )
+
+        # Debug log (when DEBUG=true)
+        debug_kwargs = {"status": status}
+        if display_result:
+            debug_kwargs["result"] = display_result
+        self._debug_log(
+            content,
+            LogEntryType.SUCCESS if success else LogEntryType.ERROR,
+            phase_key,
+            tool_name=tool_name,
+            **debug_kwargs,
         )
 
         if print_to_console:

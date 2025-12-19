@@ -50,6 +50,7 @@ Create:
             success, output = await self.run_agent_fn(
                 "spec_quick.md",
                 additional_context=context_str,
+                phase_name="quick_spec",
             )
 
             if success and spec_file.exists():
@@ -85,7 +86,10 @@ Create:
                 f"Running spec writer (attempt {attempt + 1})...", "progress"
             )
 
-            success, output = await self.run_agent_fn("spec_writer.md")
+            success, output = await self.run_agent_fn(
+                "spec_writer.md",
+                phase_name="spec_writing",
+            )
 
             if success and spec_file.exists():
                 result = self.spec_validator.validate_spec_document()
@@ -162,6 +166,7 @@ Output critique_report.json with:
             success, output = await self.run_agent_fn(
                 "spec_critic.md",
                 additional_context=context_str,
+                phase_name="self_critique",
             )
 
             if success:

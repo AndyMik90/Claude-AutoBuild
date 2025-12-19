@@ -54,17 +54,23 @@ import {
   isValidImageMimeType,
   resolveFilename
 } from './ImageUpload';
+import { AgentProfileSelector } from './AgentProfileSelector';
 import { persistUpdateTask } from '../stores/task-store';
 import { cn } from '../lib/utils';
-import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact } from '../../shared/types';
+import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
   MAX_IMAGES_PER_TASK,
-  ALLOWED_IMAGE_TYPES_DISPLAY
+  ALLOWED_IMAGE_TYPES_DISPLAY,
+  DEFAULT_AGENT_PROFILES,
+  DEFAULT_PHASE_MODELS,
+  DEFAULT_PHASE_THINKING
 } from '../../shared/constants';
+import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
+import { useSettingsStore } from '../stores/settings-store';
 
 /**
  * Props for the TaskEditDialog component
@@ -81,6 +87,12 @@ interface TaskEditDialogProps {
 }
 
 export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDialogProps) {
+  // Get selected agent profile from settings for defaults
+  const { settings } = useSettingsStore();
+  const selectedProfile = DEFAULT_AGENT_PROFILES.find(
+    p => p.id === settings.selectedAgentProfile
+  ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
+
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [isSaving, setIsSaving] = useState(false);
@@ -94,6 +106,36 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [priority, setPriority] = useState<TaskPriority | ''>(task.metadata?.priority || '');
   const [complexity, setComplexity] = useState<TaskComplexity | ''>(task.metadata?.complexity || '');
   const [impact, setImpact] = useState<TaskImpact | ''>(task.metadata?.impact || '');
+
+  // Agent profile / model configuration
+  const [profileId, setProfileId] = useState<string>(() => {
+    // Check if task uses Auto profile
+    if (task.metadata?.isAutoProfile) {
+      return 'auto';
+    }
+    // Determine profile ID from task metadata or default to 'auto'
+    const taskModel = task.metadata?.model;
+    const taskThinking = task.metadata?.thinkingLevel;
+    if (taskModel && taskThinking) {
+      // Check if it matches a known profile
+      const matchingProfile = DEFAULT_AGENT_PROFILES.find(
+        p => p.model === taskModel && p.thinkingLevel === taskThinking && !p.isAutoProfile
+      );
+      return matchingProfile?.id || 'custom';
+    }
+    return settings.selectedAgentProfile || 'auto';
+  });
+  const [model, setModel] = useState<ModelType | ''>(task.metadata?.model || selectedProfile.model);
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(
+    task.metadata?.thinkingLevel || selectedProfile.thinkingLevel
+  );
+  // Auto profile - per-phase configuration
+  const [phaseModels, setPhaseModels] = useState<PhaseModelConfig | undefined>(
+    task.metadata?.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
+  );
+  const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
+    task.metadata?.phaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
+  );
 
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>(task.metadata?.attachedImages || []);
@@ -118,6 +160,35 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       setPriority(task.metadata?.priority || '');
       setComplexity(task.metadata?.complexity || '');
       setImpact(task.metadata?.impact || '');
+
+      // Reset model configuration
+      const taskModel = task.metadata?.model;
+      const taskThinking = task.metadata?.thinkingLevel;
+      const isAutoProfile = task.metadata?.isAutoProfile;
+
+      if (isAutoProfile) {
+        setProfileId('auto');
+        setModel(taskModel || selectedProfile.model);
+        setThinkingLevel(taskThinking || selectedProfile.thinkingLevel);
+        setPhaseModels(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
+      } else if (taskModel && taskThinking) {
+        const matchingProfile = DEFAULT_AGENT_PROFILES.find(
+          p => p.model === taskModel && p.thinkingLevel === taskThinking && !p.isAutoProfile
+        );
+        setProfileId(matchingProfile?.id || 'custom');
+        setModel(taskModel);
+        setThinkingLevel(taskThinking);
+        setPhaseModels(DEFAULT_PHASE_MODELS);
+        setPhaseThinking(DEFAULT_PHASE_THINKING);
+      } else {
+        setProfileId(settings.selectedAgentProfile || 'auto');
+        setModel(selectedProfile.model);
+        setThinkingLevel(selectedProfile.thinkingLevel);
+        setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+      }
+
       setImages(task.metadata?.attachedImages || []);
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
       setError(null);
@@ -130,7 +201,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       setShowImages((task.metadata?.attachedImages || []).length > 0);
       setPasteSuccess(false);
     }
-  }, [open, task]);
+  }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel]);
 
   /**
    * Handle paste event for screenshot support
@@ -328,6 +399,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       priority !== (task.metadata?.priority || '') ||
       complexity !== (task.metadata?.complexity || '') ||
       impact !== (task.metadata?.impact || '') ||
+      model !== (task.metadata?.model || '') ||
+      thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []);
 
@@ -346,6 +419,17 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     if (priority) metadataUpdates.priority = priority;
     if (complexity) metadataUpdates.complexity = complexity;
     if (impact) metadataUpdates.impact = impact;
+    if (model) metadataUpdates.model = model as ModelType;
+    if (thinkingLevel) metadataUpdates.thinkingLevel = thinkingLevel as ThinkingLevel;
+    // Auto profile - per-phase configuration
+    if (profileId === 'auto') {
+      metadataUpdates.isAutoProfile = true;
+      if (phaseModels) metadataUpdates.phaseModels = phaseModels;
+      if (phaseThinking) metadataUpdates.phaseThinking = phaseThinking;
+    } else {
+      // Clear auto profile fields if switching away from auto
+      metadataUpdates.isAutoProfile = false;
+    }
     if (images.length > 0) metadataUpdates.attachedImages = images;
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
 
@@ -428,6 +512,25 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               A short, descriptive title will be generated automatically if left empty.
             </p>
           </div>
+
+          {/* Agent Profile Selection */}
+          <AgentProfileSelector
+            profileId={profileId}
+            model={model}
+            thinkingLevel={thinkingLevel}
+            phaseModels={phaseModels}
+            phaseThinking={phaseThinking}
+            onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
+              setProfileId(newProfileId);
+              setModel(newModel);
+              setThinkingLevel(newThinkingLevel);
+            }}
+            onModelChange={setModel}
+            onThinkingLevelChange={setThinkingLevel}
+            onPhaseModelsChange={setPhaseModels}
+            onPhaseThinkingChange={setPhaseThinking}
+            disabled={isSaving}
+          />
 
           {/* Paste Success Indicator */}
           {pasteSuccess && (

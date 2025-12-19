@@ -73,7 +73,10 @@ class PlanningPhaseMixin:
                 f"Running planner agent (attempt {attempt + 1})...", "progress"
             )
 
-            success, output = await self.run_agent_fn("planner.md")
+            success, output = await self.run_agent_fn(
+                "planner.md",
+                phase_name="planning",
+            )
 
             if success and plan_file.exists():
                 result = self.spec_validator.validate_implementation_plan()
@@ -161,6 +164,7 @@ Read the failed files, understand the errors, and fix them.
                 success, output = await self.run_agent_fn(
                     "validation_fixer.md",
                     additional_context=context_str,
+                    phase_name="validation",
                 )
 
                 if not success:

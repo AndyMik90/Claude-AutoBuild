@@ -8,7 +8,7 @@ Handles follow-up planner sessions for adding new subtasks to completed specs.
 import logging
 from pathlib import Path
 
-from client import create_client
+from core.client import create_client
 from task_logger import (
     LogPhase,
     get_task_logger,

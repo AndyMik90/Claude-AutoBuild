@@ -12,7 +12,7 @@ from ui.capabilities import configure_safe_encoding
 
 configure_safe_encoding()
 
-from client import create_client
+from core.client import create_client
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from task_logger import (
     LogEntryType,
@@ -49,6 +49,8 @@ class AgentRunner:
         prompt_file: str,
         additional_context: str = "",
         interactive: bool = False,
+        thinking_budget: int | None = None,
+        prior_phase_summaries: str | None = None,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -56,6 +58,8 @@ class AgentRunner:
             prompt_file: The prompt file to use (relative to prompts directory)
             additional_context: Additional context to add to the prompt
             interactive: Whether to run in interactive mode
+            thinking_budget: Token budget for extended thinking (None = disabled)
+            prior_phase_summaries: Summaries from previous phases for context
 
         Returns:
             Tuple of (success, response_text)
@@ -88,6 +92,15 @@ class AgentRunner:
         prompt += f"\n\n---\n\n**Spec Directory**: {self.spec_dir}\n"
         prompt += f"**Project Directory**: {self.project_dir}\n"
 
+        # Add summaries from previous phases (compaction)
+        if prior_phase_summaries:
+            prompt += f"\n{prior_phase_summaries}\n"
+            debug_detailed(
+                "agent_runner",
+                "Added prior phase summaries",
+                summaries_length=len(prior_phase_summaries),
+            )
+
         if additional_context:
             prompt += f"\n{additional_context}\n"
             debug_detailed(
@@ -96,9 +109,18 @@ class AgentRunner:
                 context_length=len(additional_context),
             )
 
-        # Create client
-        debug("agent_runner", "Creating Claude SDK client...")
-        client = create_client(self.project_dir, self.spec_dir, self.model)
+        # Create client with thinking budget
+        debug(
+            "agent_runner",
+            "Creating Claude SDK client...",
+            thinking_budget=thinking_budget,
+        )
+        client = create_client(
+            self.project_dir,
+            self.spec_dir,
+            self.model,
+            max_thinking_tokens=thinking_budget,
+        )
 
         current_tool = None
         message_count = 0

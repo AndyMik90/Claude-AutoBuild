@@ -48,6 +48,23 @@ export interface TaskExecutionOptions {
 
 export interface SpecCreationMetadata {
   requireReviewBeforeCoding?: boolean;
+  // Auto profile - phase-based model and thinking configuration
+  isAutoProfile?: boolean;
+  phaseModels?: {
+    spec: 'haiku' | 'sonnet' | 'opus';
+    planning: 'haiku' | 'sonnet' | 'opus';
+    coding: 'haiku' | 'sonnet' | 'opus';
+    qa: 'haiku' | 'sonnet' | 'opus';
+  };
+  phaseThinking?: {
+    spec: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+    planning: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+    coding: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+    qa: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+  };
+  // Non-auto profile - single model and thinking level
+  model?: 'haiku' | 'sonnet' | 'opus';
+  thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 }
 
 export interface IdeationProgressData {

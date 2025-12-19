@@ -68,7 +68,7 @@ def handle_build_command(
     Args:
         project_dir: Project root directory
         spec_dir: Spec directory path
-        model: Model to use
+        model: Model to use (used as default; may be overridden by task_metadata.json)
         max_iterations: Maximum number of iterations (None for unlimited)
         verbose: Enable verbose output
         force_isolated: Force isolated workspace mode
@@ -86,14 +86,27 @@ def handle_build_command(
         debug_section,
         debug_success,
     )
+    from phase_config import get_phase_model
     from qa_loop import run_qa_validation_loop, should_run_qa
 
     from .utils import print_banner, validate_environment
 
+    # Get the resolved model for the planning phase (first phase of build)
+    # This respects task_metadata.json phase configuration from the UI
+    planning_model = get_phase_model(spec_dir, "planning", model)
+    coding_model = get_phase_model(spec_dir, "coding", model)
+    qa_model = get_phase_model(spec_dir, "qa", model)
+
     print_banner()
     print(f"\nProject directory: {project_dir}")
     print(f"Spec: {spec_dir.name}")
-    print(f"Model: {model}")
+    # Show phase-specific models if they differ
+    if planning_model != coding_model or coding_model != qa_model:
+        print(f"Models: Planning={planning_model.split('-')[1] if '-' in planning_model else planning_model}, "
+              f"Coding={coding_model.split('-')[1] if '-' in coding_model else coding_model}, "
+              f"QA={qa_model.split('-')[1] if '-' in qa_model else qa_model}")
+    else:
+        print(f"Model: {planning_model}")
 
     if max_iterations:
         print(f"Max iterations: {max_iterations}")

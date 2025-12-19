@@ -132,6 +132,7 @@ def create_client(
     spec_dir: Path,
     model: str,
     agent_type: str = "coder",
+    max_thinking_tokens: int | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -142,6 +143,11 @@ def create_client(
         model: Claude model to use
         agent_type: Type of agent - 'planner', 'coder', 'qa_reviewer', or 'qa_fixer'
                    This determines which custom auto-claude tools are available.
+        max_thinking_tokens: Token budget for extended thinking (None = disabled)
+                            - ultrathink: 16000 (spec creation)
+                            - high: 10000 (QA review)
+                            - medium: 5000 (planning, validation)
+                            - None: disabled (coding)
 
     Returns:
         Configured ClaudeSDKClient
@@ -237,6 +243,10 @@ def create_client(
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     print("   - Bash commands restricted to allowlist")
+    if max_thinking_tokens:
+        print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
+    else:
+        print("   - Extended thinking: disabled")
 
     mcp_servers_list = ["puppeteer (browser automation)", "context7 (documentation)"]
     if linear_enabled:
@@ -320,5 +330,6 @@ def create_client(
             cwd=str(project_dir.resolve()),
             settings=str(settings_file.resolve()),
             env=sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
+            max_thinking_tokens=max_thinking_tokens,  # Extended thinking budget
         )
     )

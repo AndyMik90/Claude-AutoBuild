@@ -14,12 +14,15 @@ import {
   Search,
   FolderSearch,
   Wrench,
-  Info
+  Info,
+  Brain,
+  Cpu
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/collapsible';
 import { cn } from '../../lib/utils';
-import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry } from '../../../shared/types';
+import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry, TaskMetadata } from '../../../shared/types';
+import type { PhaseModelConfig, PhaseThinkingConfig, ThinkingLevel, ModelTypeShort } from '../../../shared/types/settings';
 
 interface TaskLogsProps {
   task: Task;
@@ -50,6 +53,60 @@ const PHASE_COLORS: Record<TaskLogPhase, string> = {
   coding: 'text-info bg-info/10 border-info/30',
   validation: 'text-purple-500 bg-purple-500/10 border-purple-500/30'
 };
+
+// Map log phases to config phase keys
+// Note: 'planning' log phase covers both spec creation and implementation planning
+const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = {
+  planning: 'spec',  // Planning log phase primarily shows spec creation
+  coding: 'coding',
+  validation: 'qa'
+};
+
+// Short labels for models
+const MODEL_SHORT_LABELS: Record<ModelTypeShort, string> = {
+  opus: 'Opus',
+  sonnet: 'Sonnet',
+  haiku: 'Haiku'
+};
+
+// Short labels for thinking levels
+const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {
+  none: 'None',
+  low: 'Low',
+  medium: 'Med',
+  high: 'High',
+  ultrathink: 'Ultra'
+};
+
+// Helper to get model and thinking info for a log phase
+function getPhaseConfig(
+  metadata: TaskMetadata | undefined,
+  logPhase: TaskLogPhase
+): { model: string; thinking: string } | null {
+  if (!metadata) return null;
+
+  const configPhase = LOG_PHASE_TO_CONFIG_PHASE[logPhase];
+
+  // Auto profile with per-phase config
+  if (metadata.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
+    const model = metadata.phaseModels[configPhase];
+    const thinking = metadata.phaseThinking[configPhase];
+    return {
+      model: MODEL_SHORT_LABELS[model] || model,
+      thinking: THINKING_SHORT_LABELS[thinking] || thinking
+    };
+  }
+
+  // Non-auto profile with single model/thinking
+  if (metadata.model && metadata.thinkingLevel) {
+    return {
+      model: MODEL_SHORT_LABELS[metadata.model] || metadata.model,
+      thinking: THINKING_SHORT_LABELS[metadata.thinkingLevel] || metadata.thinkingLevel
+    };
+  }
+
+  return null;
+}
 
 export function TaskLogs({
   task,
@@ -84,6 +141,7 @@ export function TaskLogs({
                 isExpanded={expandedPhases.has(phase)}
                 onToggle={() => onTogglePhase(phase)}
                 isTaskStuck={isStuck}
+                phaseConfig={getPhaseConfig(task.metadata, phase)}
               />
             ))}
             <div ref={logsEndRef} />
@@ -113,9 +171,10 @@ interface PhaseLogSectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   isTaskStuck?: boolean;
+  phaseConfig?: { model: string; thinking: string } | null;
 }
 
-function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck }: PhaseLogSectionProps) {
+function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, phaseConfig }: PhaseLogSectionProps) {
   const Icon = PHASE_ICONS[phase];
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
@@ -190,7 +249,23 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck }:
               </span>
             )}
           </div>
-          {getStatusBadge()}
+          <div className="flex items-center gap-2">
+            {/* Model and thinking level indicator */}
+            {phaseConfig && (
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-0.5" title={`Model: ${phaseConfig.model}`}>
+                  <Cpu className="h-3 w-3" />
+                  <span>{phaseConfig.model}</span>
+                </div>
+                <span className="text-muted-foreground/50">|</span>
+                <div className="flex items-center gap-0.5" title={`Thinking: ${phaseConfig.thinking}`}>
+                  <Brain className="h-3 w-3" />
+                  <span>{phaseConfig.thinking}</span>
+                </div>
+              </div>
+            )}
+            {getStatusBadge()}
+          </div>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>

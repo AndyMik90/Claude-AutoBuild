@@ -40,10 +40,12 @@ import {
 } from './ImageUpload';
 import { ReferencedFilesSection } from './ReferencedFilesSection';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
+import { AgentProfileSelector } from './AgentProfileSelector';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   TASK_CATEGORY_LABELS,
   TASK_PRIORITY_LABELS,
@@ -53,8 +55,8 @@ import {
   MAX_REFERENCED_FILES,
   ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
-  AVAILABLE_MODELS,
-  THINKING_LEVELS
+  DEFAULT_PHASE_MODELS,
+  DEFAULT_PHASE_THINKING
 } from '../../shared/constants';
 import { useSettingsStore } from '../stores/settings-store';
 
@@ -73,7 +75,7 @@ export function TaskCreationWizard({
   const { settings } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
-  ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'balanced')!;
+  ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -97,8 +99,16 @@ export function TaskCreationWizard({
   const [impact, setImpact] = useState<TaskImpact | ''>('');
 
   // Model configuration (initialized from selected agent profile)
+  const [profileId, setProfileId] = useState<string>(settings.selectedAgentProfile || 'auto');
   const [model, setModel] = useState<ModelType | ''>(selectedProfile.model);
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(selectedProfile.thinkingLevel);
+  // Auto profile - per-phase configuration
+  const [phaseModels, setPhaseModels] = useState<PhaseModelConfig | undefined>(
+    selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
+  );
+  const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
+    selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
+  );
 
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>([]);
@@ -161,9 +171,12 @@ export function TaskCreationWizard({
         setPriority(draft.priority);
         setComplexity(draft.complexity);
         setImpact(draft.impact);
-        // Load model/thinkingLevel from draft if present, otherwise use profile defaults
+        // Load model/thinkingLevel/profileId from draft if present, otherwise use profile defaults
+        setProfileId(draft.profileId || settings.selectedAgentProfile || 'balanced');
         setModel(draft.model || selectedProfile.model);
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
+        setPhaseModels(draft.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(draft.phaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
@@ -178,12 +191,15 @@ export function TaskCreationWizard({
         }
         // Note: Referenced Files section is always visible, no need to expand
       } else {
-        // No draft - initialize model/thinkingLevel from selected profile
+        // No draft - initialize from selected profile
+        setProfileId(settings.selectedAgentProfile || 'balanced');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
+        setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
       }
     }
-  }, [open, projectId, selectedProfile.model, selectedProfile.thinkingLevel]);
+  }, [open, projectId, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel]);
 
   /**
    * Get current form state as a draft
@@ -196,13 +212,16 @@ export function TaskCreationWizard({
     priority,
     complexity,
     impact,
+    profileId,
     model,
     thinkingLevel,
+    phaseModels,
+    phaseThinking,
     images,
     referencedFiles,
     requireReviewBeforeCoding,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, model, thinkingLevel, images, referencedFiles, requireReviewBeforeCoding]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding]);
   /**
    * Handle paste event for screenshot support
    */
@@ -532,6 +551,12 @@ export function TaskCreationWizard({
       if (impact) metadata.impact = impact;
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
+      // Auto profile - per-phase configuration
+      if (profileId === 'auto') {
+        metadata.isAutoProfile = true;
+        if (phaseModels) metadata.phaseModels = phaseModels;
+        if (phaseThinking) metadata.phaseThinking = phaseThinking;
+      }
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
@@ -561,9 +586,12 @@ export function TaskCreationWizard({
     setPriority('');
     setComplexity('');
     setImpact('');
-    // Reset model/thinkingLevel to selected profile defaults
+    // Reset to selected profile defaults
+    setProfileId(settings.selectedAgentProfile || 'balanced');
     setModel(selectedProfile.model);
     setThinkingLevel(selectedProfile.thinkingLevel);
+    setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+    setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
@@ -765,57 +793,24 @@ export function TaskCreationWizard({
             </p>
           </div>
 
-          {/* Model Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="model" className="text-sm font-medium text-foreground">
-              Model
-            </Label>
-            <Select
-              value={model}
-              onValueChange={(value) => setModel(value as ModelType)}
-              disabled={isCreating}
-            >
-              <SelectTrigger id="model" className="h-9">
-                <SelectValue placeholder="Select model" />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_MODELS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              The Claude model to use for this task. Defaults to your selected agent profile.
-            </p>
-          </div>
-
-          {/* Thinking Level Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="thinking-level" className="text-sm font-medium text-foreground">
-              Thinking Level
-            </Label>
-            <Select
-              value={thinkingLevel}
-              onValueChange={(value) => setThinkingLevel(value as ThinkingLevel)}
-              disabled={isCreating}
-            >
-              <SelectTrigger id="thinking-level" className="h-9">
-                <SelectValue placeholder="Select thinking level" />
-              </SelectTrigger>
-              <SelectContent>
-                {THINKING_LEVELS.map((level) => (
-                  <SelectItem key={level.value} value={level.value}>
-                    {level.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Extended thinking depth for complex reasoning. Higher levels use more tokens but provide deeper analysis.
-            </p>
-          </div>
+          {/* Agent Profile Selection */}
+          <AgentProfileSelector
+            profileId={profileId}
+            model={model}
+            thinkingLevel={thinkingLevel}
+            phaseModels={phaseModels}
+            phaseThinking={phaseThinking}
+            onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
+              setProfileId(newProfileId);
+              setModel(newModel);
+              setThinkingLevel(newThinkingLevel);
+            }}
+            onModelChange={setModel}
+            onThinkingLevelChange={setThinkingLevel}
+            onPhaseModelsChange={setPhaseModels}
+            onPhaseThinkingChange={setPhaseThinking}
+            disabled={isCreating}
+          />
 
           {/* Paste Success Indicator */}
           {pasteSuccess && (

@@ -48,69 +48,93 @@ export function useIpcListeners(): void {
     );
 
     // Roadmap event listeners
-    const setGenerationStatus = useRoadmapStore.getState().setGenerationStatus;
-    const setRoadmap = useRoadmapStore.getState().setRoadmap;
+    // Helper to check if event is for the currently viewed project
+    const isCurrentProject = (eventProjectId: string): boolean => {
+      const currentProjectId = useRoadmapStore.getState().currentProjectId;
+      return currentProjectId === eventProjectId;
+    };
 
     const cleanupRoadmapProgress = window.electronAPI.onRoadmapProgress(
-      (_projectId: string, status: RoadmapGenerationStatus) => {
+      (projectId: string, status: RoadmapGenerationStatus) => {
         // Debug logging
         if (window.DEBUG) {
           console.log('[Roadmap] Progress update:', {
-            projectId: _projectId,
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
             phase: status.phase,
             progress: status.progress,
             message: status.message
           });
         }
-        setGenerationStatus(status);
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus(status);
+        }
       }
     );
 
     const cleanupRoadmapComplete = window.electronAPI.onRoadmapComplete(
-      (_projectId: string, roadmap: Roadmap) => {
+      (projectId: string, roadmap: Roadmap) => {
         // Debug logging
         if (window.DEBUG) {
           console.log('[Roadmap] Generation complete:', {
-            projectId: _projectId,
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
             featuresCount: roadmap.features?.length || 0,
             phasesCount: roadmap.phases?.length || 0
           });
         }
-        setRoadmap(roadmap);
-        setGenerationStatus({
-          phase: 'complete',
-          progress: 100,
-          message: 'Roadmap ready'
-        });
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setRoadmap(roadmap);
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'complete',
+            progress: 100,
+            message: 'Roadmap ready'
+          });
+        }
       }
     );
 
     const cleanupRoadmapError = window.electronAPI.onRoadmapError(
-      (_projectId: string, error: string) => {
+      (projectId: string, error: string) => {
         // Debug logging
         if (window.DEBUG) {
-          console.error('[Roadmap] Error received:', { projectId: _projectId, error });
+          console.error('[Roadmap] Error received:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId,
+            error
+          });
         }
-        setGenerationStatus({
-          phase: 'error',
-          progress: 0,
-          message: 'Generation failed',
-          error
-        });
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'error',
+            progress: 0,
+            message: 'Generation failed',
+            error
+          });
+        }
       }
     );
 
     const cleanupRoadmapStopped = window.electronAPI.onRoadmapStopped(
-      (_projectId: string) => {
+      (projectId: string) => {
         // Debug logging
         if (window.DEBUG) {
-          console.log('[Roadmap] Generation stopped:', { projectId: _projectId });
+          console.log('[Roadmap] Generation stopped:', {
+            projectId,
+            currentProjectId: useRoadmapStore.getState().currentProjectId
+          });
         }
-        setGenerationStatus({
-          phase: 'idle',
-          progress: 0,
-          message: 'Generation stopped'
-        });
+        // Only update if this is for the currently viewed project
+        if (isCurrentProject(projectId)) {
+          useRoadmapStore.getState().setGenerationStatus({
+            phase: 'idle',
+            progress: 0,
+            message: 'Generation stopped'
+          });
+        }
       }
     );
 

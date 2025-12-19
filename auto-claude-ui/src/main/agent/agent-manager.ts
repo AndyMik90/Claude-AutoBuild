@@ -128,6 +128,20 @@ export class AgentManager extends EventEmitter {
       args.push('--auto-approve');
     }
 
+    // Pass model and thinking level configuration
+    // For auto profile, use phase-specific config; otherwise use single model/thinking
+    if (metadata?.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
+      // Pass the spec phase model and thinking level to spec_runner
+      args.push('--model', metadata.phaseModels.spec);
+      args.push('--thinking-level', metadata.phaseThinking.spec);
+    } else if (metadata?.model) {
+      // Non-auto profile: use single model and thinking level
+      args.push('--model', metadata.model);
+      if (metadata.thinkingLevel) {
+        args.push('--thinking-level', metadata.thinkingLevel);
+      }
+    }
+
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata);
 
@@ -183,6 +197,8 @@ export class AgentManager extends EventEmitter {
 
     // Note: --parallel was removed from run.py CLI - parallel execution is handled internally by the agent
     // The options.parallel and options.workers are kept for future use or logging purposes
+    // Note: Model configuration is read from task_metadata.json by the Python scripts,
+    // which allows per-phase configuration for planner, coder, and QA phases
 
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);

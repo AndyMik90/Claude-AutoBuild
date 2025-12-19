@@ -9,8 +9,9 @@ approval or max iterations.
 import time as time_module
 from pathlib import Path
 
-from client import create_client
+from core.client import create_client
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
+from phase_config import get_phase_model, get_thinking_budget
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -151,9 +152,22 @@ async def run_qa_validation_loop(
 
         print(f"\n--- QA Iteration {qa_iteration}/{MAX_QA_ITERATIONS} ---")
 
-        # Run QA reviewer
-        debug("qa_loop", "Creating client for QA reviewer session...")
-        client = create_client(project_dir, spec_dir, model)
+        # Run QA reviewer with phase-specific model and high thinking budget
+        qa_model = get_phase_model(spec_dir, "qa", model)
+        qa_thinking_budget = get_thinking_budget("high")  # 10,000 tokens for thorough review
+        debug(
+            "qa_loop",
+            "Creating client for QA reviewer session...",
+            model=qa_model,
+            thinking_budget=qa_thinking_budget,
+        )
+        client = create_client(
+            project_dir,
+            spec_dir,
+            qa_model,
+            agent_type="qa_reviewer",
+            max_thinking_tokens=qa_thinking_budget,
+        )
 
         async with client:
             debug("qa_loop", "Running QA reviewer agent session...")
@@ -278,11 +292,23 @@ async def run_qa_validation_loop(
                 print("Escalating to human review.")
                 break
 
-            # Run fixer
-            debug("qa_loop", "Starting QA fixer session...")
+            # Run fixer with medium thinking budget
+            fixer_thinking_budget = get_thinking_budget("medium")  # 5,000 tokens for focused fixes
+            debug(
+                "qa_loop",
+                "Starting QA fixer session...",
+                model=qa_model,
+                thinking_budget=fixer_thinking_budget,
+            )
             print("\nRunning QA Fixer Agent...")
 
-            fix_client = create_client(project_dir, spec_dir, model)
+            fix_client = create_client(
+                project_dir,
+                spec_dir,
+                qa_model,
+                agent_type="qa_fixer",
+                max_thinking_tokens=fixer_thinking_budget,
+            )
 
             async with fix_client:
                 fix_status, fix_response = await run_qa_fixer_session(

@@ -9,6 +9,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from phase_config import get_spec_phase_thinking_budget
 from review import run_review_checkpoint
 from task_logger import (
     LogEntryType,
@@ -27,6 +28,7 @@ from ui import (
 )
 
 from .. import complexity, phases, requirements
+from ..compaction import format_phase_summaries, gather_phase_outputs, summarize_phase_output
 from ..validate_pkg.spec_validator import SpecValidator
 from .agent_runner import AgentRunner
 from .models import (
@@ -48,7 +50,8 @@ class SpecOrchestrator:
         spec_name: str | None = None,
         spec_dir: Path
         | None = None,  # Use existing spec directory (for UI integration)
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "claude-sonnet-4-5-20250929",
+        thinking_level: str = "medium",  # Thinking level for extended thinking
         complexity_override: str | None = None,  # Force a specific complexity
         use_ai_assessment: bool = True,  # Use AI for complexity assessment (vs heuristics)
         dev_mode: bool = False,  # Dev mode: specs in gitignored folder, code changes to auto-claude/
@@ -61,6 +64,7 @@ class SpecOrchestrator:
             spec_name: Optional spec name (for existing specs)
             spec_dir: Optional existing spec directory (for UI integration)
             model: The model to use for agent execution
+            thinking_level: Thinking level (none, low, medium, high, ultrathink)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
             dev_mode: Deprecated, kept for API compatibility
@@ -68,6 +72,7 @@ class SpecOrchestrator:
         self.project_dir = Path(project_dir)
         self.task_description = task_description
         self.model = model
+        self.thinking_level = thinking_level
         self.complexity_override = complexity_override
         self.use_ai_assessment = use_ai_assessment
         self.dev_mode = dev_mode
@@ -96,6 +101,10 @@ class SpecOrchestrator:
         # Agent runner (initialized when needed)
         self._agent_runner: AgentRunner | None = None
 
+        # Phase summaries for conversation compaction
+        # Stores summaries from completed phases to provide context to subsequent phases
+        self._phase_summaries: dict[str, str] = {}
+
     def _get_agent_runner(self) -> AgentRunner:
         """Get or create the agent runner.
 
@@ -114,6 +123,7 @@ class SpecOrchestrator:
         prompt_file: str,
         additional_context: str = "",
         interactive: bool = False,
+        phase_name: str | None = None,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -121,12 +131,55 @@ class SpecOrchestrator:
             prompt_file: The prompt file to use
             additional_context: Additional context to add
             interactive: Whether to run in interactive mode
+            phase_name: Name of the phase (for thinking budget lookup)
 
         Returns:
             Tuple of (success, response_text)
         """
         runner = self._get_agent_runner()
-        return await runner.run_agent(prompt_file, additional_context, interactive)
+
+        # Get thinking budget for this phase
+        thinking_budget = None
+        if phase_name:
+            thinking_budget = get_spec_phase_thinking_budget(phase_name)
+
+        # Format prior phase summaries for context
+        prior_summaries = format_phase_summaries(self._phase_summaries)
+
+        return await runner.run_agent(
+            prompt_file,
+            additional_context,
+            interactive,
+            thinking_budget=thinking_budget,
+            prior_phase_summaries=prior_summaries if prior_summaries else None,
+        )
+
+    async def _store_phase_summary(self, phase_name: str) -> None:
+        """Summarize and store phase output for subsequent phases.
+
+        Args:
+            phase_name: Name of the completed phase
+        """
+        try:
+            # Gather outputs from this phase
+            phase_output = await gather_phase_outputs(self.spec_dir, phase_name)
+            if not phase_output:
+                return
+
+            # Summarize the output
+            summary = await summarize_phase_output(
+                phase_name,
+                phase_output,
+                model="claude-sonnet-4-5-20250929",  # Use Sonnet for efficiency
+                target_words=500,
+            )
+
+            if summary:
+                self._phase_summaries[phase_name] = summary
+
+        except Exception as e:
+            # Don't fail the pipeline if summarization fails
+            print_status(f"Phase summarization skipped: {e}", "warning")
 
     async def run(self, interactive: bool = True, auto_approve: bool = False) -> bool:
         """Run the spec creation process with dynamic phase selection.
@@ -199,6 +252,8 @@ class SpecOrchestrator:
                 LogPhase.PLANNING, success=False, message="Discovery failed"
             )
             return False
+        # Store summary for subsequent phases (compaction)
+        await self._store_phase_summary("discovery")
 
         # === PHASE 2: REQUIREMENTS GATHERING ===
         result = await run_phase(
@@ -213,6 +268,8 @@ class SpecOrchestrator:
                 message="Requirements gathering failed",
             )
             return False
+        # Store summary for subsequent phases (compaction)
+        await self._store_phase_summary("requirements")
 
         # Rename spec folder with better name from requirements
         rename_spec_dir_from_requirements(self.spec_dir)
@@ -274,6 +331,10 @@ class SpecOrchestrator:
             result = await run_phase(phase_name, all_phases[phase_name])
             results.append(result)
             phases_executed.append(phase_name)
+
+            # Store summary for subsequent phases (compaction)
+            if result.success:
+                await self._store_phase_summary(phase_name)
 
             if not result.success:
                 print()
