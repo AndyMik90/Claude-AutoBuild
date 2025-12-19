@@ -106,7 +106,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: false,
-    falkorDbUri: 'bolt://localhost:6379',
+    falkorDbUri: 'bolt://localhost:6380',
     llmProvider: 'openai',
     embeddingProvider: 'openai',
     openaiApiKey: settings.globalOpenAIApiKey || '',
@@ -186,6 +186,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     if (llmProvider === 'azure_openai' || embeddingProvider === 'azure_openai') {
       if (!config.azureOpenaiApiKey.trim()) return 'Azure OpenAI API key';
       if (!config.azureOpenaiBaseUrl.trim()) return 'Azure OpenAI Base URL';
+      if (llmProvider === 'azure_openai' && !config.azureOpenaiLlmDeployment.trim()) {
+        return 'Azure OpenAI LLM deployment name';
+      }
+      if (embeddingProvider === 'azure_openai' && !config.azureOpenaiEmbeddingDeployment.trim()) {
+        return 'Azure OpenAI embedding deployment name';
+      }
     }
     if (embeddingProvider === 'voyage') {
       if (!config.voyageApiKey.trim()) return 'Voyage API key';

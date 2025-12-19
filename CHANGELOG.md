@@ -1,3 +1,58 @@
+## 2.6.0 - Multi-Provider Graphiti Support & Platform Fixes
+
+### ✨ New Features
+
+- **Google AI Provider for Graphiti**: Full Google AI (Gemini) support for both LLM and embeddings in the Memory Layer
+  - Add GoogleLLMClient with gemini-2.0-flash default model
+  - Add GoogleEmbedder with text-embedding-004 default model
+  - UI integration for Google API key configuration with link to Google AI Studio
+- **Ollama LLM Provider in UI**: Add Ollama as an LLM provider option in Graphiti onboarding wizard
+  - Ollama runs locally and doesn't require an API key
+  - Configure Base URL instead of API key for local inference
+- **LLM Provider Selection UI**: Add provider selection dropdown to Graphiti setup wizard for flexible backend configuration
+- **Per-Project GitHub Configuration**: UI clarity improvements for per-project GitHub org/repo settings
+
+### 🛠️ Improvements
+
+- Enhanced Graphiti provider factory to support Google AI alongside existing providers
+- Updated env-handlers to properly populate graphitiProviderConfig from .env files
+- Improved type definitions with proper Graphiti provider config properties in AppSettings
+- Better API key loading when switching between providers in settings
+
+### 🐛 Bug Fixes
+
+- **node-pty Migration**: Replaced node-pty with @lydell/node-pty for prebuilt Windows binaries
+  - Updated all imports to use @lydell/node-pty directly
+  - Fixed "Cannot find module 'node-pty'" startup error
+- **GitHub Organization Support**: Fixed repository support for GitHub organization accounts
+  - Add defensive array validation for GitHub issues API response
+- **Asyncio Deprecation**: Fixed asyncio deprecation warning by using get_running_loop() instead of get_event_loop()
+- Applied ruff formatting and fixed import sorting (I001) in Google provider files
+
+### 🔧 Other Changes
+
+- Added google-generativeai dependency to requirements.txt
+- Updated provider validation to include Google/Groq/HuggingFace type assertions
+
+---
+
+## What's Changed
+
+- fix(graphiti): address CodeRabbit review comments by @adryserage in 679b8cd
+- fix(lint): sort imports in Google provider files by @adryserage in 1a38a06
+- feat(graphiti): add Google AI as LLM and embedding provider by @adryserage in fe69106
+- fix: GitHub organization repository support by @mojaray2k in 873cafa
+- feat(ui): add LLM provider selection to Graphiti onboarding by @adryserage in 4750869
+- fix(types): add missing AppSettings properties for Graphiti providers by @adryserage in 6680ed4
+- feat(ui): add Ollama as LLM provider option for Graphiti by @adryserage in a3eee92
+- fix(ui): address PR review feedback for Graphiti provider selection by @adryserage in b8a419a
+- fix(deps): update imports to use @lydell/node-pty directly by @adryserage in 2b61ebb
+- fix(deps): replace node-pty with @lydell/node-pty for prebuilt binaries by @adryserage in e1aee6a
+- fix: add UI clarity for per-project GitHub configuration by @mojaray2k in c9745b6
+- fix: add defensive array validation for GitHub issues API response by @mojaray2k in b3636a5
+
+---
+
 ## 2.5.5 - Enhanced Agent Reliability & Build Workflow
 
 ### ✨ New Features

@@ -151,7 +151,7 @@ ${existingVars['ENABLE_FANCY_UI'] !== undefined ? `ENABLE_FANCY_UI=${existingVar
 
 # =============================================================================
 # GRAPHITI MEMORY INTEGRATION (OPTIONAL)
-# Multi-provider support: OpenAI, Anthropic, Azure OpenAI, Ollama, Voyage
+# Multi-provider support: OpenAI, Anthropic, Google AI, Azure OpenAI, Ollama, Voyage
 # =============================================================================
 ${existingVars['GRAPHITI_ENABLED'] ? `GRAPHITI_ENABLED=${existingVars['GRAPHITI_ENABLED']}` : '# GRAPHITI_ENABLED=false'}
 

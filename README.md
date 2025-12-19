@@ -248,12 +248,13 @@ The Memory Layer is a **hybrid RAG system** combining graph nodes with semantic 
 **Architecture:**
 - **Backend**: FalkorDB (graph database) via Docker
 - **Library**: Graphiti for knowledge graph operations
-- **Providers**: OpenAI, Anthropic, Azure OpenAI, or Ollama (local/offline)
+- **Providers**: OpenAI, Anthropic, Azure OpenAI, Google AI, or Ollama (local/offline)
 
 | Setup | LLM | Embeddings | Notes |
 |-------|-----|------------|-------|
 | **OpenAI** | OpenAI | OpenAI | Simplest - single API key |
 | **Anthropic + Voyage** | Anthropic | Voyage AI | High quality |
+| **Google AI** | Gemini | Google | Single API key, fast inference |
 | **Ollama** | Ollama | Ollama | Fully offline |
 | **Azure** | Azure OpenAI | Azure OpenAI | Enterprise |
 
@@ -309,11 +310,12 @@ The `.auto-claude/` directory is gitignored and project-specific - you'll have o
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
 | `GRAPHITI_ENABLED` | Recommended | Set to `true` to enable Memory Layer |
-| `GRAPHITI_LLM_PROVIDER` | For Memory | LLM provider: openai, anthropic, azure_openai, ollama |
-| `GRAPHITI_EMBEDDER_PROVIDER` | For Memory | Embedder: openai, voyage, azure_openai, ollama |
+| `GRAPHITI_LLM_PROVIDER` | For Memory | LLM provider: openai, anthropic, azure_openai, ollama, google |
+| `GRAPHITI_EMBEDDER_PROVIDER` | For Memory | Embedder: openai, voyage, azure_openai, ollama, google |
 | `OPENAI_API_KEY` | For OpenAI | Required for OpenAI provider |
 | `ANTHROPIC_API_KEY` | For Anthropic | Required for Anthropic LLM |
 | `VOYAGE_API_KEY` | For Voyage | Required for Voyage embeddings |
+| `GOOGLE_API_KEY` | For Google | Required for Google AI (Gemini) provider |
 
 See `auto-claude/.env.example` for complete configuration options.
 

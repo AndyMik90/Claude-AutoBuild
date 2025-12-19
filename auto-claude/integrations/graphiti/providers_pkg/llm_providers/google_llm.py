@@ -6,9 +6,12 @@ Google Gemini LLM client implementation for Graphiti.
 Uses the google-generativeai SDK.
 """
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..exceptions import ProviderError, ProviderNotInstalled
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from graphiti_config import GraphitiConfig
@@ -116,8 +119,11 @@ class GoogleLLMClient:
             try:
                 data = json.loads(response.text)
                 return response_model(**data)
-            except (json.JSONDecodeError, Exception):
-                # If parsing fails, return raw text
+            except json.JSONDecodeError:
+                # If JSON parsing fails, return raw text
+                logger.warning(
+                    "Failed to parse JSON response from Google AI, returning raw text"
+                )
                 return response.text
         else:
             response = await loop.run_in_executor(
@@ -135,16 +141,22 @@ class GoogleLLMClient:
         """
         Generate a response with tool calling support.
 
+        Note: Tool calling is not yet implemented for Google AI provider.
+        This method will log a warning and fall back to regular generation.
+
         Args:
             messages: List of message dicts
             tools: List of tool definitions
             **kwargs: Additional arguments
 
         Returns:
-            Generated response with potential tool calls
+            Generated response (without tool calls)
         """
-        # For now, fall back to regular generation
-        # Tool calling can be added later if needed
+        if tools:
+            logger.warning(
+                "Google AI provider does not yet support tool calling. "
+                "Tools will be ignored and regular generation will be used."
+            )
         return await self.generate_response(messages, **kwargs)
 
 
