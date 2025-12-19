@@ -120,7 +120,11 @@ async def run_qa_validation_loop(
 
     # If there's human feedback, we need to run the fixer first before re-validating
     if has_human_feedback:
-        debug("qa_loop", "Human feedback detected - will run fixer first", fix_request_file=str(fix_request_file))
+        debug(
+            "qa_loop",
+            "Human feedback detected - will run fixer first",
+            fix_request_file=str(fix_request_file),
+        )
         print("\n📝 Human feedback detected. Running QA Fixer first...")
 
         # Get model for fixer
@@ -137,7 +141,10 @@ async def run_qa_validation_loop(
 
         async with fix_client:
             fix_status, fix_response = await run_qa_fixer_session(
-                fix_client, spec_dir, 0, False  # iteration 0 for human feedback
+                fix_client,
+                spec_dir,
+                0,
+                False,  # iteration 0 for human feedback
             )
 
         if fix_status == "error":

@@ -286,6 +286,7 @@ export function registerWorktreeHandlers(
             return {
               success: true,
               data: {
+                success: true,
                 merged: false,
                 message: `Changes already staged (${stagedFiles.length} files). Review with git diff --staged.`,
                 staged: true,
