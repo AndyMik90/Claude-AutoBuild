@@ -8,10 +8,10 @@ Uses the google-generativeai SDK.
 
 from typing import TYPE_CHECKING, Any
 
+from ..exceptions import ProviderError, ProviderNotInstalled
+
 if TYPE_CHECKING:
     from graphiti_config import GraphitiConfig
-
-from ..exceptions import ProviderError, ProviderNotInstalled
 
 
 # Default model for Google LLM
