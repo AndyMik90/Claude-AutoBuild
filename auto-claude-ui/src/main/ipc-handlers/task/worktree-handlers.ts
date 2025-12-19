@@ -402,12 +402,75 @@ export function registerWorktreeHandlers(
             if (code === 0) {
               const isStageOnly = options?.noCommit === true;
 
-              // For stage-only: keep in human_review so user commits manually
-              // For full merge: mark as done
-              const newStatus = isStageOnly ? 'human_review' : 'done';
-              const planStatus = isStageOnly ? 'review' : 'completed';
+              // Verify changes were actually staged when stage-only mode is requested
+              // This prevents false positives when merge was already committed previously
+              let hasActualStagedChanges = false;
+              let mergeAlreadyCommitted = false;
 
-              debug('Merge successful. isStageOnly:', isStageOnly, 'newStatus:', newStatus);
+              if (isStageOnly) {
+                try {
+                  const gitDiffStaged = execSync('git diff --staged --stat', { cwd: project.path, encoding: 'utf-8' });
+                  hasActualStagedChanges = gitDiffStaged.trim().length > 0;
+                  debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
+
+                  if (!hasActualStagedChanges) {
+                    // Check if worktree branch was already merged (merge commit exists)
+                    const specBranch = `auto-claude/${task.specId}`;
+                    try {
+                      // Check if current branch contains all commits from spec branch
+                      const mergeBaseResult = execSync(
+                        `git merge-base --is-ancestor ${specBranch} HEAD 2>/dev/null && echo "merged" || echo "not-merged"`,
+                        { cwd: project.path, encoding: 'utf-8' }
+                      ).trim();
+                      mergeAlreadyCommitted = mergeBaseResult === 'merged';
+                      debug('Merge already committed check:', mergeAlreadyCommitted);
+                    } catch {
+                      // Branch may not exist or other error - assume not merged
+                      debug('Could not check merge status, assuming not merged');
+                    }
+                  }
+                } catch (e) {
+                  debug('Failed to verify staged changes:', e);
+                }
+              }
+
+              // Determine actual status based on verification
+              let newStatus: string;
+              let planStatus: string;
+              let message: string;
+              let staged: boolean;
+
+              if (isStageOnly && !hasActualStagedChanges && mergeAlreadyCommitted) {
+                // Stage-only was requested but merge was already committed previously
+                // Mark as done since changes are already in the branch
+                newStatus = 'done';
+                planStatus = 'completed';
+                message = 'Changes were already merged and committed. Task marked as done.';
+                staged = false;
+                debug('Stage-only requested but merge already committed. Marking as done.');
+              } else if (isStageOnly && !hasActualStagedChanges) {
+                // Stage-only was requested but no changes to stage (and not committed)
+                // This could mean nothing to merge or an error - keep in human_review for investigation
+                newStatus = 'human_review';
+                planStatus = 'review';
+                message = 'No changes to stage. The worktree may have no differences from the current branch.';
+                staged = false;
+                debug('Stage-only requested but no changes to stage.');
+              } else if (isStageOnly) {
+                // Stage-only with actual staged changes - expected success case
+                newStatus = 'human_review';
+                planStatus = 'review';
+                message = 'Changes staged in main project. Review with git status and commit when ready.';
+                staged = true;
+              } else {
+                // Full merge (not stage-only)
+                newStatus = 'done';
+                planStatus = 'completed';
+                message = 'Changes merged successfully';
+                staged = false;
+              }
+
+              debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
 
               // Persist the status change to implementation_plan.json
               const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
@@ -419,7 +482,7 @@ export function registerWorktreeHandlers(
                   plan.status = newStatus;
                   plan.planStatus = planStatus;
                   plan.updated_at = new Date().toISOString();
-                  if (isStageOnly) {
+                  if (staged) {
                     plan.stagedAt = new Date().toISOString();
                     plan.stagedInMainProject = true;
                   }
@@ -434,17 +497,13 @@ export function registerWorktreeHandlers(
                 mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, newStatus);
               }
 
-              const message = isStageOnly
-                ? 'Changes staged in main project. Review with git status and commit when ready.'
-                : 'Changes merged successfully';
-
               resolve({
                 success: true,
                 data: {
                   success: true,
                   message,
-                  staged: isStageOnly,
-                  projectPath: isStageOnly ? project.path : undefined
+                  staged,
+                  projectPath: staged ? project.path : undefined
                 }
               });
             } else {
