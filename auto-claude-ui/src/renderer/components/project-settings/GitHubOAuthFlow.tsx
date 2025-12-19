@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Github,
   Loader2,
@@ -8,7 +8,8 @@ import {
   ExternalLink,
   Terminal,
   Copy,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -31,6 +32,10 @@ function debugLog(message: string, data?: unknown) {
   }
 }
 
+// Authentication timeout in milliseconds (5 minutes)
+// GitHub device codes typically expire after 15 minutes, but 5 minutes is a reasonable UX timeout
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
 /**
  * GitHub OAuth flow component using gh CLI
  * Guides users through authenticating with GitHub using the gh CLI
@@ -48,10 +53,32 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const [browserOpened, setBrowserOpened] = useState<boolean>(false);
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [urlCopied, setUrlCopied] = useState<boolean>(false);
+  const [isTimeout, setIsTimeout] = useState<boolean>(false);
+
+  // Ref to track authentication timeout
+  const authTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check gh CLI installation and authentication status on mount
   // Use a ref to prevent double-execution in React Strict Mode
   const hasCheckedRef = useRef(false);
+
+  // Clear the authentication timeout
+  const clearAuthTimeout = useCallback(() => {
+    if (authTimeoutRef.current) {
+      debugLog('Clearing auth timeout');
+      clearTimeout(authTimeoutRef.current);
+      authTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Handle authentication timeout
+  const handleAuthTimeout = useCallback(() => {
+    debugLog('Authentication timeout triggered after 5 minutes');
+    setIsTimeout(true);
+    setError('Authentication timed out. The authentication window was open for too long. Please try again.');
+    setStatus('error');
+    authTimeoutRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (hasCheckedRef.current) {
@@ -61,8 +88,13 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     hasCheckedRef.current = true;
     debugLog('Component mounted, checking GitHub status...');
     checkGitHubStatus();
+
+    // Cleanup timeout on unmount
+    return () => {
+      clearAuthTimeout();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run once on mount, checkGitHubStatus is intentionally excluded
-  }, []);
+  }, [clearAuthTimeout]);
 
   const checkGitHubStatus = async () => {
     debugLog('checkGitHubStatus() called');
@@ -153,11 +185,20 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     setBrowserOpened(false);
     setCodeCopied(false);
     setUrlCopied(false);
+    setIsTimeout(false);
+
+    // Clear any existing timeout and start a new one
+    clearAuthTimeout();
+    debugLog(`Starting auth timeout (${AUTH_TIMEOUT_MS / 1000 / 60} minutes)`);
+    authTimeoutRef.current = setTimeout(handleAuthTimeout, AUTH_TIMEOUT_MS);
 
     try {
       debugLog('Calling startGitHubAuth...');
       const result = await window.electronAPI.startGitHubAuth();
       debugLog('startGitHubAuth result:', result);
+
+      // Clear timeout since we got a response
+      clearAuthTimeout();
 
       // Capture device flow info if available
       if (result.data?.deviceCode) {
@@ -189,6 +230,8 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
         setStatus('error');
       }
     } catch (err) {
+      // Clear timeout on error
+      clearAuthTimeout();
       debugLog('Error in handleStartAuth:', err);
       setError(err instanceof Error ? err.message : 'Authentication failed');
       setStatus('error');
@@ -418,15 +461,19 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       {/* Error */}
       {status === 'error' && error && (
         <div className="space-y-4">
-          <Card className="border border-destructive/30 bg-destructive/10">
+          <Card className={`border ${isTimeout ? 'border-warning/30 bg-warning/10' : 'border-destructive/30 bg-destructive/10'}`}>
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                {isTimeout ? (
+                  <Clock className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                )}
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-destructive">
-                    Authentication Failed
+                  <h3 className={`text-lg font-medium ${isTimeout ? 'text-warning' : 'text-destructive'}`}>
+                    {isTimeout ? 'Authentication Timed Out' : 'Authentication Failed'}
                   </h3>
-                  <p className="text-sm text-destructive/80 mt-1">{error}</p>
+                  <p className={`text-sm mt-1 ${isTimeout ? 'text-warning/80' : 'text-destructive/80'}`}>{error}</p>
                 </div>
               </div>
             </CardContent>
