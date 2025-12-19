@@ -68,12 +68,20 @@ export function registerGetIssues(): void {
         const issues = await githubFetch(
           config.token,
           `/repos/${normalizedRepo}/issues?state=${state}&per_page=100&sort=updated`
-        ) as GitHubAPIIssue[];
+        );
+
+        // Ensure issues is an array
+        if (!Array.isArray(issues)) {
+          return {
+            success: false,
+            error: 'Unexpected response format from GitHub API'
+          };
+        }
 
         // Filter out pull requests
-        const issuesOnly = issues.filter(issue => !issue.pull_request);
+        const issuesOnly = issues.filter((issue: GitHubAPIIssue) => !issue.pull_request);
 
-        const result: GitHubIssue[] = issuesOnly.map(issue =>
+        const result: GitHubIssue[] = issuesOnly.map((issue: GitHubAPIIssue) =>
           transformIssue(issue, normalizedRepo)
         );
 
