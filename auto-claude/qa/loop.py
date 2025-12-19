@@ -108,11 +108,59 @@ async def run_qa_validation_loop(
         print(f"   Progress: {completed}/{total} subtasks completed")
         return False
 
-    # Check if already approved
-    if is_qa_approved(spec_dir):
+    # Check if there's pending human feedback that needs to be processed
+    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    has_human_feedback = fix_request_file.exists()
+
+    # Check if already approved - but if there's human feedback, we need to process it first
+    if is_qa_approved(spec_dir) and not has_human_feedback:
         debug_success("qa_loop", "Build already approved by QA")
         print("\n✅ Build already approved by QA.")
         return True
+
+    # If there's human feedback, we need to run the fixer first before re-validating
+    if has_human_feedback:
+        debug(
+            "qa_loop",
+            "Human feedback detected - will run fixer first",
+            fix_request_file=str(fix_request_file),
+        )
+        print("\n📝 Human feedback detected. Running QA Fixer first...")
+
+        # Get model for fixer
+        qa_model = get_phase_model(spec_dir, "qa", model)
+        fixer_thinking_budget = get_thinking_budget("medium")
+
+        fix_client = create_client(
+            project_dir,
+            spec_dir,
+            qa_model,
+            agent_type="qa_fixer",
+            max_thinking_tokens=fixer_thinking_budget,
+        )
+
+        async with fix_client:
+            fix_status, fix_response = await run_qa_fixer_session(
+                fix_client,
+                spec_dir,
+                0,
+                False,  # iteration 0 for human feedback
+            )
+
+        if fix_status == "error":
+            debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
+            print(f"\n❌ Fixer encountered error: {fix_response}")
+            return False
+
+        debug_success("qa_loop", "Human feedback fixes applied")
+        print("\n✅ Fixes applied based on human feedback. Running QA validation...")
+
+        # Remove the fix request file after processing
+        try:
+            fix_request_file.unlink()
+            debug("qa_loop", "Removed processed QA_FIX_REQUEST.md")
+        except OSError:
+            pass  # Ignore if file removal fails
 
     # Check for no-test projects
     if is_no_test_project(spec_dir, project_dir):

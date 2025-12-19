@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
@@ -271,6 +271,31 @@ export function registerWorktreeHandlers(
         // Check worktree exists before merge
         const worktreePath = path.join(project.path, '.worktrees', task.specId);
         debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
+
+        // Check if changes are already staged (for stage-only mode)
+        if (options?.noCommit) {
+          const stagedResult = spawnSync('git', ['diff', '--staged', '--name-only'], {
+            cwd: project.path,
+            encoding: 'utf-8'
+          });
+
+          if (stagedResult.status === 0 && stagedResult.stdout?.trim()) {
+            const stagedFiles = stagedResult.stdout.trim().split('\n');
+            debug('Changes already staged:', stagedFiles.length, 'files');
+            // Return success - changes are already staged
+            return {
+              success: true,
+              data: {
+                success: true,
+                merged: false,
+                message: `Changes already staged (${stagedFiles.length} files). Review with git diff --staged.`,
+                staged: true,
+                alreadyStaged: true,
+                projectPath: project.path
+              }
+            };
+          }
+        }
 
         // Get git status before merge
         try {
