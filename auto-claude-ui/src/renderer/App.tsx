@@ -69,6 +69,8 @@ export function App() {
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [initSuccess, setInitSuccess] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
 
   // GitHub setup state (shown after Auto Claude init)
@@ -141,6 +143,8 @@ export function App() {
     if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {
       // Project exists but isn't initialized - show init dialog
       setPendingProject(selectedProject);
+      setInitError(null); // Clear any previous errors
+      setInitSuccess(false); // Reset success flag
       setShowInitDialog(true);
     }
   }, [selectedProject, skippedInitProjectId, isInitializing]);
@@ -232,6 +236,8 @@ export function App() {
         if (project && !project.autoBuildPath) {
           // Project doesn't have Auto Claude initialized, show init dialog
           setPendingProject(project);
+          setInitError(null); // Clear any previous errors
+          setInitSuccess(false); // Reset success flag
           setShowInitDialog(true);
         }
       }
@@ -244,24 +250,45 @@ export function App() {
     if (!pendingProject) return;
 
     const projectId = pendingProject.id;
+    console.log('[InitDialog] Starting initialization for project:', projectId);
     setIsInitializing(true);
+    setInitSuccess(false);
+    setInitError(null); // Clear any previous errors
     try {
       const result = await initializeProject(projectId);
+      console.log('[InitDialog] Initialization result:', result);
+
       if (result?.success) {
+        console.log('[InitDialog] Initialization successful, closing dialog');
         // Get the updated project from store
         const updatedProject = useProjectStore.getState().projects.find(p => p.id === projectId);
+        console.log('[InitDialog] Updated project:', updatedProject);
 
-        // Clear init dialog state
-        setPendingProject(null);
+        // Mark as successful to prevent onOpenChange from treating this as a skip
+        setInitSuccess(true);
+        setIsInitializing(false);
+
+        // Now close the dialog
         setShowInitDialog(false);
+        setPendingProject(null);
 
         // Show GitHub setup modal
         if (updatedProject) {
           setGitHubSetupProject(updatedProject);
           setShowGitHubSetup(true);
         }
+      } else {
+        // Initialization failed - show error but keep dialog open
+        console.log('[InitDialog] Initialization failed, showing error');
+        const errorMessage = result?.error || 'Failed to initialize Auto Claude. Please try again.';
+        setInitError(errorMessage);
+        setIsInitializing(false);
       }
-    } finally {
+    } catch (error) {
+      // Unexpected error occurred
+      console.error('[InitDialog] Unexpected error during initialization:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setInitError(errorMessage);
       setIsInitializing(false);
     }
   };
@@ -302,11 +329,14 @@ export function App() {
   };
 
   const handleSkipInit = () => {
+    console.log('[InitDialog] User skipped initialization');
     if (pendingProject) {
       setSkippedInitProjectId(pendingProject.id);
     }
     setShowInitDialog(false);
     setPendingProject(null);
+    setInitError(null); // Clear any error when skipping
+    setInitSuccess(false); // Reset success flag
   };
 
   const handleGoToTask = (taskId: string) => {
@@ -471,9 +501,10 @@ export function App() {
 
         {/* Initialize Auto Claude Dialog */}
         <Dialog open={showInitDialog} onOpenChange={(open) => {
+          console.log('[InitDialog] onOpenChange called', { open, pendingProject: !!pendingProject, isInitializing, initSuccess });
           // Only trigger skip if user manually closed the dialog
-          // Don't trigger if pendingProject is null (successful init) or if initializing
-          if (!open && pendingProject && !isInitializing) {
+          // Don't trigger if: successful init, no pending project, or currently initializing
+          if (!open && pendingProject && !isInitializing && !initSuccess) {
             handleSkipInit();
           }
         }}>
@@ -504,6 +535,19 @@ export function App() {
                       <p className="font-medium text-warning">Source path not configured</p>
                       <p className="text-muted-foreground mt-1">
                         Please set the Auto Claude source path in App Settings before initializing.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {initError && (
+                <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-destructive">Initialization Failed</p>
+                      <p className="text-muted-foreground mt-1">
+                        {initError}
                       </p>
                     </div>
                   </div>
