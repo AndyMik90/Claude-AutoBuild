@@ -186,8 +186,8 @@ export interface GraphitiConnectionTestResult {
 }
 
 // Graphiti Provider Types (Memory System V2)
-export type GraphitiProviderType = 'openai' | 'anthropic' | 'google' | 'groq';
-export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'google' | 'huggingface';
+export type GraphitiProviderType = 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
+export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'google' | 'huggingface' | 'ollama';
 
 export interface GraphitiProviderConfig {
   // LLM Provider
@@ -204,6 +204,12 @@ export interface GraphitiProviderConfig {
   googleApiKey?: string;
   groqApiKey?: string;
   voyageApiKey?: string;
+
+  // Ollama-specific config (local LLM, no API key required)
+  ollamaBaseUrl?: string;  // Default: http://localhost:11434
+  ollamaLlmModel?: string;
+  ollamaEmbeddingModel?: string;
+  ollamaEmbeddingDim?: number;
 
   // FalkorDB connection (required for all providers)
   falkorDbHost?: string;

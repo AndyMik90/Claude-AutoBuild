@@ -54,6 +54,12 @@ export interface AppSettings {
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken?: string;
   globalOpenAIApiKey?: string;
+  globalAnthropicApiKey?: string;
+  globalGoogleApiKey?: string;
+  globalGroqApiKey?: string;
+  // Graphiti LLM provider settings
+  graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
+  ollamaBaseUrl?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations
