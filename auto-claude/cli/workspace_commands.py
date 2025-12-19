@@ -31,6 +31,54 @@ from workspace import (
 from .utils import print_banner
 
 
+def _detect_default_branch(project_dir: Path) -> str:
+    """
+    Detect the default branch for the repository.
+
+    This matches the logic in WorktreeManager._detect_base_branch() to ensure
+    we compare against the same branch that worktrees are created from.
+
+    Priority order:
+    1. DEFAULT_BRANCH environment variable
+    2. Auto-detect main/master (if they exist)
+    3. Fall back to "main" as final default
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        The detected default branch name
+    """
+    import os
+
+    # 1. Check for DEFAULT_BRANCH env var
+    env_branch = os.getenv("DEFAULT_BRANCH")
+    if env_branch:
+        # Verify the branch exists
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", env_branch],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return env_branch
+
+    # 2. Auto-detect main/master
+    for branch in ["main", "master"]:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", branch],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return branch
+
+    # 3. Fall back to "main" as final default
+    return "main"
+
+
 def _get_changed_files_from_git(
     worktree_path: Path, base_branch: str = "main"
 ) -> list[str]:
@@ -54,7 +102,13 @@ def _get_changed_files_from_git(
         )
         files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         return files
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        # Log the failure before trying fallback
+        debug_warning(
+            "workspace_commands",
+            f"git diff (three-dot) failed: returncode={e.returncode}, "
+            f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
+        )
         # Fallback: try without the three-dot notation
         try:
             result = subprocess.run(
@@ -66,7 +120,13 @@ def _get_changed_files_from_git(
             )
             files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
             return files
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            # Log the failure before returning empty list
+            debug_warning(
+                "workspace_commands",
+                f"git diff (two-arg) failed: returncode={e.returncode}, "
+                f"stderr={e.stderr.strip() if e.stderr else 'N/A'}",
+            )
             return []
 
 
@@ -423,13 +483,14 @@ def handle_merge_preview_command(project_dir: Path, spec_name: str) -> dict:
         git_conflicts = _check_git_merge_conflicts(project_dir, spec_name)
 
         # Get actual changed files from git diff (this is the authoritative count)
-        # Always compare against 'main' since worktrees are created from main
-        # The git_conflicts base_branch might be the current branch (e.g., version/2.5.5)
-        # which would give an incorrect diff
-        all_changed_files = _get_changed_files_from_git(worktree_path, "main")
+        # Detect the default branch (main/master) that worktrees are created from
+        # Note: git_conflicts["base_branch"] is the current project branch, not the
+        # worktree base, so we detect the default branch separately
+        default_branch = _detect_default_branch(project_dir)
+        all_changed_files = _get_changed_files_from_git(worktree_path, default_branch)
         debug(
             MODULE,
-            f"Git diff shows {len(all_changed_files)} changed files",
+            f"Git diff against '{default_branch}' shows {len(all_changed_files)} changed files",
             changed_files=all_changed_files[:10],  # Log first 10
         )
 

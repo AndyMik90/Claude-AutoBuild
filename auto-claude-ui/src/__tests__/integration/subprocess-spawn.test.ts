@@ -29,6 +29,14 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(() => mockProcess)
 }));
 
+// Mock claude-profile-manager to bypass auth checks in tests
+vi.mock('../../main/claude-profile-manager', () => ({
+  getClaudeProfileManager: () => ({
+    hasValidAuth: () => true,
+    getActiveProfile: () => ({ profileId: 'default', profileName: 'Default' })
+  })
+}));
+
 // Auto-claude source path (for getAutoBuildSourcePath to find)
 const AUTO_CLAUDE_SOURCE = path.join(TEST_DIR, 'auto-claude-source');
 
