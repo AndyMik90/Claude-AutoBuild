@@ -278,6 +278,9 @@ export interface ProjectEnvConfig {
   githubRepo?: string; // Format: owner/repo
   githubAutoSync?: boolean; // Auto-sync issues on project load
 
+  // Git/Worktree Settings
+  defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
+
   // Graphiti Memory Integration (V2 - Multi-provider support)
   graphitiEnabled: boolean;
   graphitiProviderConfig?: GraphitiProviderConfig;  // New V2 provider configuration

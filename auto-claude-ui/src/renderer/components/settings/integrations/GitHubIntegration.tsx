@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown } from 'lucide-react';
+import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
@@ -34,6 +34,7 @@ interface GitHubIntegrationProps {
   setShowGitHubToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
+  projectPath?: string; // Project path for fetching git branches
 }
 
 /**
@@ -46,7 +47,8 @@ export function GitHubIntegration({
   showGitHubToken: _showGitHubToken,
   setShowGitHubToken: _setShowGitHubToken,
   gitHubConnectionStatus,
-  isCheckingGitHub
+  isCheckingGitHub,
+  projectPath
 }: GitHubIntegrationProps) {
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
   const [oauthUsername, setOauthUsername] = useState<string | null>(null);
@@ -54,8 +56,14 @@ export function GitHubIntegration({
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [reposError, setReposError] = useState<string | null>(null);
 
+  // Branch selection state
+  const [branches, setBranches] = useState<string[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
+
   debugLog('Render - authMode:', authMode);
-  debugLog('Render - envConfig:', envConfig ? { githubEnabled: envConfig.githubEnabled, hasToken: !!envConfig.githubToken } : null);
+  debugLog('Render - projectPath:', projectPath);
+  debugLog('Render - envConfig:', envConfig ? { githubEnabled: envConfig.githubEnabled, hasToken: !!envConfig.githubToken, defaultBranch: envConfig.defaultBranch } : null);
 
   // Fetch repos when entering oauth-success mode
   useEffect(() => {
@@ -63,6 +71,60 @@ export function GitHubIntegration({
       fetchUserRepos();
     }
   }, [authMode]);
+
+  // Fetch branches when GitHub is enabled and project path is available
+  useEffect(() => {
+    debugLog('useEffect[branches] - githubEnabled:', envConfig?.githubEnabled, 'projectPath:', projectPath);
+    if (envConfig?.githubEnabled && projectPath) {
+      debugLog('useEffect[branches] - Triggering fetchBranches');
+      fetchBranches();
+    } else {
+      debugLog('useEffect[branches] - Skipping fetchBranches (conditions not met)');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envConfig?.githubEnabled, projectPath]);
+
+  const fetchBranches = async () => {
+    if (!projectPath) {
+      debugLog('fetchBranches: No projectPath, skipping');
+      return;
+    }
+
+    debugLog('fetchBranches: Starting with projectPath:', projectPath);
+    setIsLoadingBranches(true);
+    setBranchesError(null);
+
+    try {
+      debugLog('fetchBranches: Calling getGitBranches...');
+      const result = await window.electronAPI.getGitBranches(projectPath);
+      debugLog('fetchBranches: getGitBranches result:', { success: result.success, dataType: typeof result.data, dataLength: Array.isArray(result.data) ? result.data.length : 'N/A', error: result.error });
+
+      // result.data is the array directly (not { branches: [] })
+      if (result.success && result.data) {
+        setBranches(result.data);
+        debugLog('fetchBranches: Loaded branches:', result.data.length);
+
+        // Auto-detect default branch if not set
+        if (!envConfig?.defaultBranch) {
+          debugLog('fetchBranches: No defaultBranch set, auto-detecting...');
+          const detectResult = await window.electronAPI.detectMainBranch(projectPath);
+          debugLog('fetchBranches: detectMainBranch result:', detectResult);
+          if (detectResult.success && detectResult.data) {
+            debugLog('fetchBranches: Auto-detected default branch:', detectResult.data);
+            updateEnvConfig({ defaultBranch: detectResult.data });
+          }
+        }
+      } else {
+        debugLog('fetchBranches: Failed -', result.error || 'No data returned');
+        setBranchesError(result.error || 'Failed to load branches');
+      }
+    } catch (err) {
+      debugLog('fetchBranches: Exception:', err);
+      setBranchesError(err instanceof Error ? err.message : 'Failed to load branches');
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
 
   const fetchUserRepos = async () => {
     debugLog('Fetching user repositories...');
@@ -245,6 +307,20 @@ export function GitHubIntegration({
           )}
 
           {gitHubConnectionStatus?.connected && <IssuesAvailableInfo />}
+
+          <Separator />
+
+          {/* Default Branch Selector */}
+          {projectPath && (
+            <BranchSelector
+              branches={branches}
+              selectedBranch={envConfig.defaultBranch || ''}
+              isLoading={isLoadingBranches}
+              error={branchesError}
+              onSelect={(branch) => updateEnvConfig({ defaultBranch: branch })}
+              onRefresh={fetchBranches}
+            />
+          )}
 
           <Separator />
 
@@ -497,6 +573,150 @@ function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
         </p>
       </div>
       <Switch checked={enabled} onCheckedChange={onToggle} />
+    </div>
+  );
+}
+
+interface BranchSelectorProps {
+  branches: string[];
+  selectedBranch: string;
+  isLoading: boolean;
+  error: string | null;
+  onSelect: (branch: string) => void;
+  onRefresh: () => void;
+}
+
+function BranchSelector({
+  branches,
+  selectedBranch,
+  isLoading,
+  error,
+  onSelect,
+  onRefresh
+}: BranchSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  const filteredBranches = branches.filter(branch =>
+    branch.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-info" />
+            <Label className="text-sm font-medium text-foreground">Default Branch</Label>
+          </div>
+          <p className="text-xs text-muted-foreground pl-6">
+            Base branch for creating task worktrees
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="h-7 px-2"
+        >
+          <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-destructive pl-6">
+          <AlertCircle className="h-3 w-3" />
+          {error}
+        </div>
+      )}
+
+      <div className="relative pl-6">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={isLoading}
+          className="w-full flex items-center justify-between px-3 py-2 text-sm border border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+        >
+          {isLoading ? (
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading branches...
+            </span>
+          ) : selectedBranch ? (
+            <span className="flex items-center gap-2">
+              <GitBranch className="h-3 w-3 text-muted-foreground" />
+              {selectedBranch}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Auto-detect (main/master)</span>
+          )}
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && !isLoading && (
+          <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-hidden">
+            {/* Search filter */}
+            <div className="p-2 border-b border-border">
+              <Input
+                placeholder="Search branches..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="h-8 text-sm"
+                autoFocus
+              />
+            </div>
+
+            {/* Auto-detect option */}
+            <button
+              type="button"
+              onClick={() => {
+                onSelect('');
+                setIsOpen(false);
+                setFilter('');
+              }}
+              className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
+                !selectedBranch ? 'bg-accent' : ''
+              }`}
+            >
+              <span className="text-sm text-muted-foreground italic">Auto-detect (main/master)</span>
+            </button>
+
+            {/* Branch list */}
+            <div className="max-h-40 overflow-y-auto border-t border-border">
+              {filteredBranches.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  {filter ? 'No matching branches' : 'No branches found'}
+                </div>
+              ) : (
+                filteredBranches.map((branch) => (
+                  <button
+                    key={branch}
+                    type="button"
+                    onClick={() => {
+                      onSelect(branch);
+                      setIsOpen(false);
+                      setFilter('');
+                    }}
+                    className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
+                      branch === selectedBranch ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <GitBranch className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm">{branch}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedBranch && (
+        <p className="text-xs text-muted-foreground pl-6">
+          All new tasks will branch from <code className="px-1 bg-muted rounded">{selectedBranch}</code>
+        </p>
+      )}
     </div>
   );
 }

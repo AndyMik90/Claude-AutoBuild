@@ -1,15 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent, type DragEvent } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  useDroppable,
-  type DragEndEvent,
-  type DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors
-} from '@dnd-kit/core';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, File, Folder, FolderTree, FileDown, GitBranch } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +30,6 @@ import {
 } from './ImageUpload';
 import { ReferencedFilesSection } from './ReferencedFilesSection';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
-import { DraggableFileList } from './DraggableFileList';
 import { AgentProfileSelector } from './AgentProfileSelector';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
@@ -133,53 +122,11 @@ export function TaskCreationWizard({
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
 
-  // Drag-and-drop state for file references
-  const [activeDragData, setActiveDragData] = useState<{
-    path: string;
-    name: string;
-    isDirectory: boolean;
-  } | null>(null);
-
   // Ref for the textarea to handle paste events
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   // Drag-and-drop state for images over textarea
   const [isDragOverTextarea, setIsDragOverTextarea] = useState(false);
-
-  // Setup drag sensors with distance constraint to prevent accidental drags
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px movement required before drag starts
-      },
-    })
-  );
-
-  // Setup drop zone for file references (entire form)
-  const { setNodeRef: setDropRef, isOver: isOverDropZone } = useDroppable({
-    id: 'file-drop-zone',
-    data: { type: 'file-drop-zone' }
-  });
-
-  // Setup drop zone for description textarea (inline @mentions)
-  const { setNodeRef: setTextareaDropRef, isOver: isOverTextarea } = useDroppable({
-    id: 'description-drop-zone',
-    data: { type: 'description-drop-zone' }
-  });
-
-  // Debug: Log drop zone state changes
-  useEffect(() => {
-    if (activeDragData) {
-      console.log('[DnD] Drop zone states:', {
-        isOverDropZone,
-        isOverTextarea,
-        activeDragData
-      });
-    }
-  }, [isOverDropZone, isOverTextarea, activeDragData]);
-
-  // Determine if drop zone is at capacity
-  const isAtMaxFiles = referencedFiles.length >= MAX_REFERENCED_FILES;
 
   // Load draft when dialog opens, or initialize from selected profile
   useEffect(() => {
@@ -387,7 +334,7 @@ export function TaskCreationWizard({
   }, []);
 
   /**
-   * Handle drop on textarea for image files
+   * Handle drop on textarea for file references and images
    */
   const handleTextareaDrop = useCallback(
     async (e: DragEvent<HTMLTextAreaElement>) => {
@@ -397,6 +344,40 @@ export function TaskCreationWizard({
 
       if (isCreating) return;
 
+      // First, check for file reference drops (from the file explorer)
+      const jsonData = e.dataTransfer?.getData('application/json');
+      if (jsonData) {
+        try {
+          const data = JSON.parse(jsonData);
+          if (data.type === 'file-reference' && data.name) {
+            // Insert @mention at cursor position in the textarea
+            const textarea = descriptionRef.current;
+            if (textarea) {
+              const cursorPos = textarea.selectionStart || 0;
+              const textBefore = description.substring(0, cursorPos);
+              const textAfter = description.substring(cursorPos);
+
+              // Insert @mention at cursor position
+              const mention = `@${data.name}`;
+              const newDescription = textBefore + mention + textAfter;
+              setDescription(newDescription);
+
+              // Set cursor after the inserted mention
+              setTimeout(() => {
+                textarea.focus();
+                const newCursorPos = cursorPos + mention.length;
+                textarea.setSelectionRange(newCursorPos, newCursorPos);
+              }, 0);
+
+              return; // Don't process as image
+            }
+          }
+        } catch {
+          // Not valid JSON, continue to image handling
+        }
+      }
+
+      // Fall back to image file handling
       const files = e.dataTransfer?.files;
       if (!files || files.length === 0) return;
 
@@ -464,121 +445,8 @@ export function TaskCreationWizard({
         setTimeout(() => setPasteSuccess(false), 2000);
       }
     },
-    [images, isCreating]
+    [images, isCreating, description]
   );
-
-  /**
-   * Handle drag start - capture file data for overlay
-   */
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    console.log('[DnD] Drag started:', {
-      activeId: event.active.id,
-      activeData: event.active.data.current
-    });
-
-    const data = event.active.data.current as {
-      type: string;
-      path: string;
-      name: string;
-      isDirectory: boolean;
-    } | undefined;
-
-    if (data?.type === 'file') {
-      console.log('[DnD] Setting active drag data:', data);
-      setActiveDragData({
-        path: data.path,
-        name: data.name,
-        isDirectory: data.isDirectory
-      });
-    }
-  }, []);
-
-  /**
-   * Handle drag end - insert @mention in description or add to referencedFiles
-   */
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-
-    console.log('[DnD] Drag ended:', {
-      activeId: active.id,
-      overId: over?.id,
-      overData: over?.data.current
-    });
-
-    // Clear drag state
-    setActiveDragData(null);
-
-    // If not dropped on a valid target, do nothing
-    if (!over) {
-      console.log('[DnD] No drop target detected');
-      return;
-    }
-
-    const data = active.data.current as {
-      type?: string;
-      path?: string;
-      name?: string;
-      isDirectory?: boolean;
-    } | undefined;
-
-    console.log('[DnD] Active data:', data);
-
-    // Only process file drops
-    if (data?.type !== 'file' || !data.path || !data.name) {
-      console.log('[DnD] Not a file drop, ignoring');
-      return;
-    }
-
-    // Handle drop on description textarea - insert inline @mention
-    if (over.id === 'description-drop-zone') {
-      const textarea = descriptionRef.current;
-      if (!textarea) return;
-
-      const cursorPos = textarea.selectionStart || 0;
-      const textBefore = description.substring(0, cursorPos);
-      const textAfter = description.substring(cursorPos);
-
-      // Insert @mention at cursor position
-      const mention = `@${data.name}`;
-      const newDescription = textBefore + mention + textAfter;
-      setDescription(newDescription);
-
-      // Set cursor after the inserted mention
-      setTimeout(() => {
-        textarea.focus();
-        const newCursorPos = cursorPos + mention.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 0);
-
-      return;
-    }
-
-    // Handle drop on file-drop-zone - add to referenced files list
-    if (over.id === 'file-drop-zone') {
-      // Check if we're at the max limit
-      if (referencedFiles.length >= MAX_REFERENCED_FILES) {
-        setError(`Maximum of ${MAX_REFERENCED_FILES} referenced files allowed`);
-        return;
-      }
-
-      // Check for duplicates
-      if (referencedFiles.some(f => f.path === data.path)) {
-        // Silently skip duplicates
-        return;
-      }
-
-      // Add the file to referenced files
-      const newFile: ReferencedFile = {
-        id: crypto.randomUUID(),
-        path: data.path,
-        name: data.name,
-        isDirectory: data.isDirectory ?? false,
-        addedAt: new Date()
-      };
-
-      setReferencedFiles(prev => [...prev, newFile]);
-    }
-  }, [referencedFiles, description]);
 
   /**
    * Parse @mentions from description and create ReferencedFile entries
@@ -731,52 +599,9 @@ export function TaskCreationWizard({
         )}
         hideCloseButton={showFileExplorer}
       >
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragMove={(event) => {
-            console.log('[DnD] Drag move:', {
-              overId: event.over?.id,
-              delta: event.delta,
-              collisions: event.collisions?.map(c => c.id)
-            });
-          }}
-        >
-          <div className="flex h-full min-h-0 overflow-hidden">
-            {/* Form content - Drop zone wrapper */}
-            <div
-              ref={setDropRef}
-              className={cn(
-                "flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto relative transition-all duration-150 ease-out",
-                // Default state - no border
-                !activeDragData && "",
-                // Subtle visual feedback when dragging - border on the entire form
-                activeDragData && !isOverDropZone && "border-2 border-dashed border-muted-foreground/40 rounded-lg",
-                // Clear drop target feedback when over the form
-                activeDragData && isOverDropZone && !isAtMaxFiles && "border-2 border-solid border-info rounded-lg bg-info/5",
-                // Warning state when at capacity
-                activeDragData && isOverDropZone && isAtMaxFiles && "border-2 border-solid border-warning rounded-lg bg-warning/5"
-              )}
-            >
-              {/* Drop zone indicator overlay - shows when dragging over form */}
-              {activeDragData && isOverDropZone && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none rounded-lg">
-                  <div className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow-lg",
-                    isAtMaxFiles
-                      ? "bg-warning text-warning-foreground"
-                      : "bg-info text-info-foreground"
-                  )}>
-                    <FileDown className="h-4 w-4" />
-                    <span>
-                      {isAtMaxFiles
-                        ? `Maximum ${MAX_REFERENCED_FILES} files reached`
-                        : 'Drop file to add reference'}
-                    </span>
-                  </div>
-                </div>
-              )}
+        <div className="flex h-full min-h-0 overflow-hidden">
+          {/* Form content */}
+          <div className="flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto relative">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -809,8 +634,8 @@ export function TaskCreationWizard({
             <Label htmlFor="description" className="text-sm font-medium text-foreground">
               Description <span className="text-destructive">*</span>
             </Label>
-            {/* Wrap textarea in drop zone for file @mentions */}
-            <div ref={setTextareaDropRef} className="relative">
+            {/* Wrap textarea for file @mentions */}
+            <div className="relative">
               {/* Syntax highlight overlay for @mentions */}
               <div
                 className="absolute inset-0 pointer-events-none overflow-hidden rounded-md border border-transparent"
@@ -853,33 +678,16 @@ export function TaskCreationWizard({
                 disabled={isCreating}
                 className={cn(
                   "resize-y min-h-[120px] max-h-[400px] relative bg-transparent",
-                  // Image drop feedback (native drops)
-                  isDragOverTextarea && !isCreating && "border-primary bg-primary/5 ring-2 ring-primary/20",
-                  // File reference drop feedback (dnd-kit drops for @mentions)
-                  activeDragData && isOverTextarea && "border-info bg-info/5 ring-2 ring-info/20"
+                  // Visual feedback when dragging over textarea
+                  isDragOverTextarea && !isCreating && "border-primary bg-primary/5 ring-2 ring-primary/20"
                 )}
                 style={{ caretColor: 'auto' }}
               />
-              {/* Drop indicator for file references */}
-              {activeDragData && isOverTextarea && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-info text-info-foreground text-xs font-medium shadow-sm pointer-events-none z-10">
-                  <File className="h-3 w-3" />
-                  <span>Insert @{activeDragData.name}</span>
-                </div>
-              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Tip: Drag files from the explorer to insert @references, or paste screenshots with {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'}.
             </p>
           </div>
-
-          {/* TEST: Inline file browser for debugging drag-and-drop */}
-          {projectPath && (
-            <div className="border border-dashed border-warning rounded-lg p-2">
-              <p className="text-xs text-warning mb-2 font-medium">TEST: Drag files from here to Description above</p>
-              <DraggableFileList rootPath={projectPath} maxHeight={150} />
-            </div>
-          )}
 
           {/* Title (Optional - Auto-generated if empty) */}
           <div className="space-y-2">
@@ -1242,32 +1050,17 @@ export function TaskCreationWizard({
             </Button>
           </div>
         </DialogFooter>
-            </div>
-
-            {/* File Explorer Drawer */}
-            {projectPath && (
-              <TaskFileExplorerDrawer
-                isOpen={showFileExplorer}
-                onClose={() => setShowFileExplorer(false)}
-                projectPath={projectPath}
-              />
-            )}
           </div>
 
-          {/* Drag overlay - shows what's being dragged */}
-          <DragOverlay dropAnimation={null}>
-            {activeDragData && (
-              <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg pointer-events-none z-[9999]">
-                {activeDragData.isDirectory ? (
-                  <Folder className="h-4 w-4 text-warning" />
-                ) : (
-                  <File className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span className="text-sm">{activeDragData.name}</span>
-              </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+          {/* File Explorer Drawer */}
+          {projectPath && (
+            <TaskFileExplorerDrawer
+              isOpen={showFileExplorer}
+              onClose={() => setShowFileExplorer(false)}
+              projectPath={projectPath}
+            />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

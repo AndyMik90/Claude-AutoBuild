@@ -220,6 +220,9 @@ export interface TaskMetadata {
   phaseModels?: PhaseModelConfig;  // Per-phase model configuration
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
 
+  // Git/Worktree configuration
+  baseBranch?: string;  // Override base branch for this task's worktree
+
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
@@ -430,4 +433,5 @@ export interface TaskStartOptions {
   parallel?: boolean;
   workers?: number;
   model?: string;
+  baseBranch?: string; // Override base branch for worktree creation
 }
