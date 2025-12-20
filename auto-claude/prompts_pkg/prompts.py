@@ -7,6 +7,7 @@ Supports dynamic prompt assembly based on project type for context optimization.
 """
 
 import json
+import re
 from pathlib import Path
 
 from .project_context import (
@@ -384,8 +385,6 @@ The project root is: `{project_dir}`
         mcp_content += "\n\n---\n"
 
         # Replace the multi-line marker comment block
-        import re
-
         marker_pattern = r"<!-- PROJECT-SPECIFIC VALIDATION TOOLS WILL BE INJECTED HERE -->.*?<!-- - API validation \(for projects with API endpoints\) -->"
         base_prompt = re.sub(marker_pattern, mcp_content, base_prompt, flags=re.DOTALL)
     elif mcp_sections:

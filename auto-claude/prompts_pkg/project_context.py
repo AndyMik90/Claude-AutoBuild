@@ -29,7 +29,7 @@ def load_project_index(project_dir: Path) -> dict:
         return {}
 
     try:
-        with open(index_file) as f:
+        with open(index_file, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -200,10 +200,11 @@ def should_refresh_project_index(project_dir: Path) -> bool:
 
     for dep_file in dep_files:
         try:
-            if dep_file.exists() and dep_file.stat().st_mtime > index_mtime:
+            dep_mtime = dep_file.stat().st_mtime
+            if dep_mtime > index_mtime:
                 return True  # Dependency file changed, refresh needed
-        except OSError:
-            continue  # Skip files we can't stat
+        except (OSError, FileNotFoundError):
+            continue  # Skip files we can't stat or don't exist
 
     # Also check subdirectories for monorepos (first level only)
     try:
@@ -222,19 +223,18 @@ def should_refresh_project_index(project_dir: Path) -> bool:
 
             subdir_pkg = subdir / "package.json"
             try:
-                if subdir_pkg.exists() and subdir_pkg.stat().st_mtime > index_mtime:
+                pkg_mtime = subdir_pkg.stat().st_mtime
+                if pkg_mtime > index_mtime:
                     return True
-            except OSError:
+            except (OSError, FileNotFoundError):
                 continue
 
             subdir_pyproject = subdir / "pyproject.toml"
             try:
-                if (
-                    subdir_pyproject.exists()
-                    and subdir_pyproject.stat().st_mtime > index_mtime
-                ):
+                pyproject_mtime = subdir_pyproject.stat().st_mtime
+                if pyproject_mtime > index_mtime:
                     return True
-            except OSError:
+            except (OSError, FileNotFoundError):
                 continue
     except OSError:
         pass  # Can't iterate dir, use cached index

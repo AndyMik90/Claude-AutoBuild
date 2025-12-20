@@ -56,8 +56,8 @@ function parseDeviceCode(output: string): string | null {
   const match = output.match(DEVICE_CODE_PATTERN);
   if (match && match[1]) {
     // Normalize: replace space with hyphen (GitHub expects XXXX-XXXX format)
-    const normalizedCode = match[1].replace(/\s/, '-');
-    debugLog('Parsed device code:', normalizedCode);
+    const normalizedCode = match[1].replace(' ', '-');
+    debugLog('Device code extracted successfully (code redacted for security)');
     return normalizedCode;
   }
   return null;
@@ -236,7 +236,7 @@ export function registerStartGhAuth(): void {
               extractedDeviceCode = deviceFlowInfo.deviceCode;
               extractedAuthUrl = deviceFlowInfo.authUrl;
 
-              debugLog('Device code extracted:', extractedDeviceCode);
+              debugLog('Device code extracted successfully (code redacted for security)');
               debugLog('Auth URL:', extractedAuthUrl);
 
               // Open browser using Electron's shell.openExternal
@@ -251,10 +251,9 @@ export function registerStartGhAuth(): void {
                 // Don't fail here - we'll return the device code so user can manually navigate
               }
 
-              // Reset extraction flag after browser open attempt to allow retry if needed
-              setTimeout(() => {
-                extractionInProgress = false;
-              }, 5000);
+              // Extraction complete - mutex flag stays true to prevent re-extraction
+              // The deviceCodeExtracted flag will prevent future attempts
+              extractionInProgress = false;
             } else {
               // No device code found yet, allow next data chunk to try again
               extractionInProgress = false;

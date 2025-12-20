@@ -20,9 +20,11 @@ export type {
   ExecutionProgressData,
   ProcessType,
   AgentManagerEvents,
-  IdeationConfig,
   TaskExecutionOptions,
   SpecCreationMetadata,
   IdeationProgressData,
   RoadmapProgressData
 } from './types';
+
+// Re-export IdeationConfig from shared types for consistency
+export type { IdeationConfig } from '../../shared/types';

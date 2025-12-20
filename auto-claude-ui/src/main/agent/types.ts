@@ -1,4 +1,5 @@
 import { ChildProcess } from 'child_process';
+import type { IdeationConfig } from '../../shared/types';
 
 /**
  * Agent-specific types for process and state management
@@ -32,15 +33,7 @@ export interface AgentManagerEvents {
   'execution-progress': (taskId: string, progress: ExecutionProgressData) => void;
 }
 
-export interface IdeationConfig {
-  enabledTypes: string[];
-  includeRoadmapContext: boolean;
-  includeKanbanContext: boolean;
-  maxIdeasPerType: number;
-  append?: boolean;
-  model?: string;          // Model shorthand (opus, sonnet, haiku)
-  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
-}
+// IdeationConfig now imported from shared types to maintain consistency
 
 export interface RoadmapConfig {
   model?: string;          // Model shorthand (opus, sonnet, haiku)

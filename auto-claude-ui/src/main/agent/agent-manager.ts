@@ -9,9 +9,9 @@ import { getClaudeProfileManager } from '../claude-profile-manager';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
-  IdeationConfig,
   RoadmapConfig
 } from './types';
+import type { IdeationConfig } from '../../shared/types';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
