@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.5.6",
+  "version": "2.6.0",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "main": "./out/main/index.js",
   "author": "Auto Claude Team",
