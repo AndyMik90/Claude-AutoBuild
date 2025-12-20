@@ -11,6 +11,7 @@ import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handle
 import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
+import { initializeLogForwarding } from './log-forwarder';
 import type { AppSettings } from '../shared/types';
 
 /**
@@ -158,6 +159,9 @@ app.whenReady().then(() => {
 
   // Create window
   createWindow();
+
+  // Initialize log forwarding to DevTools (must be after window creation)
+  initializeLogForwarding(() => mainWindow);
 
   // Initialize usage monitoring after window is created
   if (mainWindow) {
