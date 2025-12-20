@@ -9,6 +9,7 @@
 
 export const DEFAULT_APP_SETTINGS = {
   theme: 'system' as const,
+  colorTheme: 'default' as const,
   defaultModel: 'opus',
   agentFramework: 'auto-claude',
   pythonPath: undefined as string | undefined,
