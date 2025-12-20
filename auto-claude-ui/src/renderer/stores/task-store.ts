@@ -142,7 +142,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   appendLog: (taskId, log) =>
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.id === taskId || t.specId === taskId
+        t.id === taskId
           ? { ...t, logs: [...(t.logs || []), log] }
           : t
       )
