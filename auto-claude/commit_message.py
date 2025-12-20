@@ -282,11 +282,14 @@ def generate_commit_message_sync(
             loop = None
 
         if loop and loop.is_running():
-            # Already in an async context - create a new thread to run
+            # Already in an async context - run in a new thread
+            # Use lambda to ensure coroutine is created inside the worker thread
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                result = pool.submit(asyncio.run, _call_claude_haiku(prompt)).result()
+                result = pool.submit(
+                    lambda: asyncio.run(_call_claude_haiku(prompt))
+                ).result()
         else:
             result = asyncio.run(_call_claude_haiku(prompt))
 
