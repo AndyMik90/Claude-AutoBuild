@@ -740,6 +740,140 @@
   --shadow-focus: 0 0 0 3px rgba(251, 191, 36, 0.3);
 }
 
+/* ============================================
+   NEO THEME (Light)
+   Modern, cyberpunk-inspired pink/purple palette
+   ============================================ */
+[data-theme="neo"] {
+  /* Backgrounds */
+  --background: #FDF4FF;
+  --foreground: #581C87;
+
+  /* Card surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #581C87;
+
+  /* Primary accent - fuchsia/magenta */
+  --primary: #D946EF;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary */
+  --secondary: #FAF5FF;
+  --secondary-foreground: #581C87;
+
+  /* Muted */
+  --muted: #F5F3FF;
+  --muted-foreground: #7C3AED;
+
+  /* Accent */
+  --accent: #FAE8FF;
+  --accent-foreground: #D946EF;
+
+  /* Destructive */
+  --destructive: #E11D48;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders and inputs */
+  --border: #F0ABFC;
+  --input: #F0ABFC;
+  --ring: #D946EF;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #581C87;
+
+  /* Popover */
+  --popover: #FFFFFF;
+  --popover-foreground: #581C87;
+
+  /* Semantic colors */
+  --success: #06B6D4;
+  --success-foreground: #FFFFFF;
+  --success-light: #CFFAFE;
+  --warning: #F59E0B;
+  --warning-foreground: #581C87;
+  --warning-light: #FEF3C7;
+  --info: #8B5CF6;
+  --info-foreground: #FFFFFF;
+  --info-light: #EDE9FE;
+  --error: #E11D48;
+  --error-light: #FFE4E6;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(217, 70, 239, 0.2);
+}
+
+/* ============================================
+   NEO THEME (Dark)
+   Cyberpunk dark mode with neon pink/purple glow
+   ============================================ */
+[data-theme="neo"].dark {
+  /* Backgrounds */
+  --background: #0F0720;
+  --foreground: #FAF5FF;
+
+  /* Card surfaces */
+  --card: #2D1B4E;
+  --card-foreground: #FAF5FF;
+
+  /* Primary accent - bright pink/fuchsia */
+  --primary: #F0ABFC;
+  --primary-foreground: #0F0720;
+
+  /* Secondary */
+  --secondary: #1A0A30;
+  --secondary-foreground: #FAF5FF;
+
+  /* Muted */
+  --muted: #150825;
+  --muted-foreground: #E879F9;
+
+  /* Accent */
+  --accent: #581C87;
+  --accent-foreground: #F0ABFC;
+
+  /* Destructive */
+  --destructive: #FB7185;
+  --destructive-foreground: #0F0720;
+
+  /* Borders and inputs */
+  --border: #581C87;
+  --input: #581C87;
+  --ring: #F0ABFC;
+
+  /* Sidebar */
+  --sidebar: #150825;
+  --sidebar-foreground: #FAF5FF;
+
+  /* Popover */
+  --popover: #3D2563;
+  --popover-foreground: #FAF5FF;
+
+  /* Semantic colors */
+  --success: #22D3EE;
+  --success-foreground: #0F0720;
+  --success-light: #164E63;
+  --warning: #FBBF24;
+  --warning-foreground: #0F0720;
+  --warning-light: #451A03;
+  --info: #A78BFA;
+  --info-foreground: #0F0720;
+  --info-light: #4C1D95;
+  --error: #FB7185;
+  --error-light: #4C0519;
+
+  /* Shadows - with subtle neon glow effect */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(217, 70, 239, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 70, 239, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 0 40px rgba(217, 70, 239, 0.15);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 0 50px rgba(217, 70, 239, 0.2);
+  --shadow-focus: 0 0 0 3px rgba(240, 171, 252, 0.4);
+}
+
 /* Base styles */
 * {
   border-color: var(--border);
