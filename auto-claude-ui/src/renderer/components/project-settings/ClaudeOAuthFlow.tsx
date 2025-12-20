@@ -26,12 +26,16 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
 
   // Track if we've already started auth to prevent double-execution
   const hasStartedRef = useRef(false);
-  const listenerSetupRef = useRef(false);
+  // Track the auto-advance timeout so we can cancel it on unmount/re-render
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listen for OAuth token detection
   useEffect(() => {
-    if (listenerSetupRef.current) return;
-    listenerSetupRef.current = true;
+    // Clear any pending timeout from previous effect run
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
 
     const unsubscribe = window.electronAPI.onTerminalOAuthToken((info) => {
       console.warn('[ClaudeOAuth] Token event received:', {
@@ -44,7 +48,9 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
         setEmail(info.email);
         setStatus('success');
         // Auto-advance after a short delay to show success message
-        setTimeout(() => {
+        // Store the timeout ID so cleanup can cancel it if needed
+        successTimeoutRef.current = setTimeout(() => {
+          successTimeoutRef.current = null; // Clear ref since timeout fired
           onSuccess();
         }, 1500);
       } else {
@@ -54,8 +60,11 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
     });
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
+      unsubscribe?.();
+      // Clear timeout on cleanup to prevent calling onSuccess after unmount
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+        successTimeoutRef.current = null;
       }
     };
   }, [onSuccess]);
