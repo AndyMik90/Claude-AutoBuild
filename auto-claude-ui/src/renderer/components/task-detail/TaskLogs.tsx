@@ -337,7 +337,7 @@ function LogEntry({ entry }: LogEntryProps) {
           <Icon className="h-3 w-3 animate-pulse" />
           <span className="font-medium">{label}</span>
           {entry.tool_input && (
-            <span className="text-muted-foreground truncate max-w-[200px]" title={entry.tool_input}>
+            <span className="text-muted-foreground truncate max-w-[500px]" title={entry.tool_input}>
               {entry.tool_input}
             </span>
           )}

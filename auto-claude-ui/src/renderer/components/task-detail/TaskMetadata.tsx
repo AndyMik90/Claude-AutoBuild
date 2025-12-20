@@ -1,5 +1,4 @@
 import {
-  Info,
   Target,
   Bug,
   Wrench,
@@ -47,18 +46,24 @@ interface TaskMetadataProps {
 }
 
 export function TaskMetadata({ task }: TaskMetadataProps) {
+  const hasClassification = task.metadata && (
+    task.metadata.category ||
+    task.metadata.priority ||
+    task.metadata.complexity ||
+    task.metadata.impact ||
+    task.metadata.securitySeverity ||
+    task.metadata.sourceType
+  );
+
   return (
     <div className="space-y-5">
-      {/* Classification Badges */}
-      {task.metadata && (
-        <div>
-          <div className="section-divider mb-3">
-            <Info className="h-3 w-3" />
-            Classification
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+      {/* Compact Metadata Bar: Classification + Timeline */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border">
+        {/* Classification Badges - Left */}
+        {hasClassification && (
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Category */}
-            {task.metadata.category && (
+            {task.metadata?.category && (
               <Badge
                 variant="outline"
                 className={cn('text-xs', TASK_CATEGORY_COLORS[task.metadata.category])}
@@ -71,7 +76,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </Badge>
             )}
             {/* Priority */}
-            {task.metadata.priority && (
+            {task.metadata?.priority && (
               <Badge
                 variant="outline"
                 className={cn('text-xs', TASK_PRIORITY_COLORS[task.metadata.priority])}
@@ -80,7 +85,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </Badge>
             )}
             {/* Complexity */}
-            {task.metadata.complexity && (
+            {task.metadata?.complexity && (
               <Badge
                 variant="outline"
                 className={cn('text-xs', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
@@ -89,7 +94,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </Badge>
             )}
             {/* Impact */}
-            {task.metadata.impact && (
+            {task.metadata?.impact && (
               <Badge
                 variant="outline"
                 className={cn('text-xs', TASK_IMPACT_COLORS[task.metadata.impact])}
@@ -98,17 +103,17 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </Badge>
             )}
             {/* Security Severity */}
-            {task.metadata.securitySeverity && (
+            {task.metadata?.securitySeverity && (
               <Badge
                 variant="outline"
                 className={cn('text-xs', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 <Shield className="h-3 w-3 mr-1" />
-                {task.metadata.securitySeverity} severity
+                {task.metadata.securitySeverity}
               </Badge>
             )}
             {/* Source Type */}
-            {task.metadata.sourceType && (
+            {task.metadata?.sourceType && (
               <Badge variant="secondary" className="text-xs">
                 {task.metadata.sourceType === 'ideation' && task.metadata.ideationType
                   ? IDEATION_TYPE_LABELS[task.metadata.ideationType] || task.metadata.ideationType
@@ -116,66 +121,72 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               </Badge>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Description */}
+        {/* Timeline - Right */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3" />
+            Created {formatRelativeTime(task.createdAt)}
+          </span>
+          <span className="text-border">•</span>
+          <span>Updated {formatRelativeTime(task.updatedAt)}</span>
+        </div>
+      </div>
+
+      {/* Description - Primary Content */}
       {task.description && (
         <div>
-          <div className="section-divider mb-3">
-            <FileCode className="h-3 w-3" />
-            Description
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {sanitizeMarkdownForDisplay(task.description, 500)}
+          <p className="text-sm text-foreground/90 leading-relaxed">
+            {sanitizeMarkdownForDisplay(task.description, 800)}
           </p>
         </div>
       )}
 
-      {/* Metadata Details */}
+      {/* Secondary Details */}
       {task.metadata && (
-        <div className="space-y-4">
+        <div className="space-y-4 pt-2">
           {/* Rationale */}
           {task.metadata.rationale && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <Lightbulb className="h-3.5 w-3.5 text-warning" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Lightbulb className="h-3 w-3 text-warning" />
                 Rationale
               </h3>
-              <p className="text-sm text-muted-foreground">{task.metadata.rationale}</p>
+              <p className="text-sm text-foreground/80">{task.metadata.rationale}</p>
             </div>
           )}
 
           {/* Problem Solved */}
           {task.metadata.problemSolved && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5 text-success" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Target className="h-3 w-3 text-success" />
                 Problem Solved
               </h3>
-              <p className="text-sm text-muted-foreground">{task.metadata.problemSolved}</p>
+              <p className="text-sm text-foreground/80">{task.metadata.problemSolved}</p>
             </div>
           )}
 
           {/* Target Audience */}
           {task.metadata.targetAudience && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5 text-info" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <Users className="h-3 w-3 text-info" />
                 Target Audience
               </h3>
-              <p className="text-sm text-muted-foreground">{task.metadata.targetAudience}</p>
+              <p className="text-sm text-foreground/80">{task.metadata.targetAudience}</p>
             </div>
           )}
 
           {/* Dependencies */}
           {task.metadata.dependencies && task.metadata.dependencies.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <GitBranch className="h-3.5 w-3.5 text-purple-400" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <GitBranch className="h-3 w-3 text-purple-400" />
                 Dependencies
               </h3>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+              <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.dependencies.map((dep, idx) => (
                   <li key={idx}>{dep}</li>
                 ))}
@@ -186,11 +197,11 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
           {/* Acceptance Criteria */}
           {task.metadata.acceptanceCriteria && task.metadata.acceptanceCriteria.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <ListChecks className="h-3.5 w-3.5 text-success" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <ListChecks className="h-3 w-3 text-success" />
                 Acceptance Criteria
               </h3>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+              <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.acceptanceCriteria.map((criteria, idx) => (
                   <li key={idx}>{criteria}</li>
                 ))}
@@ -201,8 +212,8 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
           {/* Affected Files */}
           {task.metadata.affectedFiles && task.metadata.affectedFiles.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
-                <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <FileCode className="h-3 w-3" />
                 Affected Files
               </h3>
               <div className="flex flex-wrap gap-1">
@@ -223,24 +234,6 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
           )}
         </div>
       )}
-
-      {/* Timestamps */}
-      <div>
-        <div className="section-divider mb-3">
-          <Clock className="h-3 w-3" />
-          Timeline
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Created</span>
-            <span className="text-foreground tabular-nums">{formatRelativeTime(task.createdAt)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Updated</span>
-            <span className="text-foreground tabular-nums">{formatRelativeTime(task.updatedAt)}</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

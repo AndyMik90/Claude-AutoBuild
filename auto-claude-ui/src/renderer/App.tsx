@@ -17,7 +17,7 @@ import {
 } from './components/ui/tooltip';
 import { Sidebar, type SidebarView } from './components/Sidebar';
 import { KanbanBoard } from './components/KanbanBoard';
-import { TaskDetailPanel } from './components/TaskDetailPanel';
+import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
 import { TaskCreationWizard } from './components/TaskCreationWizard';
 import { AppSettingsDialog, type AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
@@ -469,10 +469,12 @@ export function App() {
           </main>
         </div>
 
-        {/* Task detail panel */}
-        {selectedTask && (
-          <TaskDetailPanel task={selectedTask} onClose={handleCloseTaskDetail} />
-        )}
+        {/* Task detail modal */}
+        <TaskDetailModal
+          open={!!selectedTask}
+          task={selectedTask}
+          onOpenChange={(open) => !open && handleCloseTaskDetail()}
+        />
 
         {/* Dialogs */}
         {selectedProjectId && (
