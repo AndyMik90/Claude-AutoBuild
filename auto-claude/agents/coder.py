@@ -17,7 +17,7 @@ from linear_updater import (
     linear_task_started,
     linear_task_stuck,
 )
-from phase_config import get_phase_model
+from phase_config import get_phase_model, get_phase_thinking_budget
 from progress import (
     count_subtasks,
     count_subtasks_detailed,
@@ -245,18 +245,18 @@ async def run_autonomous_agent(
         commit_before = get_latest_commit(project_dir)
         commit_count_before = get_commit_count(project_dir)
 
-        # Get the phase-specific model (respects task_metadata.json configuration)
+        # Get the phase-specific model and thinking level (respects task_metadata.json configuration)
         # first_run means we're in planning phase, otherwise coding phase
         current_phase = "planning" if first_run else "coding"
         phase_model = get_phase_model(spec_dir, current_phase, model)
+        phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
 
-        # Create client (fresh context) with phase-specific model
-        # Coding phase uses no extended thinking for fast iteration
+        # Create client (fresh context) with phase-specific model and thinking
         client = create_client(
             project_dir,
             spec_dir,
             phase_model,
-            max_thinking_tokens=None,  # No extended thinking for coding
+            max_thinking_tokens=phase_thinking_budget,
         )
 
         # Generate appropriate prompt

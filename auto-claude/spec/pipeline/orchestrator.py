@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from analysis.analyzers import analyze_project
-from phase_config import get_spec_phase_thinking_budget
+from phase_config import get_thinking_budget
 from prompts_pkg.project_context import should_refresh_project_index
 from review import run_review_checkpoint
 from task_logger import (
@@ -144,10 +144,8 @@ class SpecOrchestrator:
         """
         runner = self._get_agent_runner()
 
-        # Get thinking budget for this phase
-        thinking_budget = None
-        if phase_name:
-            thinking_budget = get_spec_phase_thinking_budget(phase_name)
+        # Use user's configured thinking level for all spec phases
+        thinking_budget = get_thinking_budget(self.thinking_level)
 
         # Format prior phase summaries for context
         prior_summaries = format_phase_summaries(self._phase_summaries)

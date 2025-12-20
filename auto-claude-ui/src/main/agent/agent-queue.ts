@@ -5,7 +5,8 @@ import { EventEmitter } from 'events';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
-import { IdeationConfig } from './types';
+import { IdeationConfig, RoadmapConfig } from './types';
+import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
@@ -43,14 +44,16 @@ export class AgentQueueManager {
     projectPath: string,
     refresh: boolean = false,
     enableCompetitorAnalysis: boolean = false,
-    refreshCompetitorAnalysis: boolean = false
+    refreshCompetitorAnalysis: boolean = false,
+    config?: RoadmapConfig
   ): void {
     debugLog('[Agent Queue] Starting roadmap generation:', {
       projectId,
       projectPath,
       refresh,
       enableCompetitorAnalysis,
-      refreshCompetitorAnalysis
+      refreshCompetitorAnalysis,
+      config
     });
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
@@ -83,6 +86,15 @@ export class AgentQueueManager {
     // Add refresh competitor analysis flag if user wants fresh competitor data
     if (refreshCompetitorAnalysis) {
       args.push('--refresh-competitor-analysis');
+    }
+
+    // Add model and thinking level from config
+    if (config?.model) {
+      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
+      args.push('--model', modelId);
+    }
+    if (config?.thinkingLevel) {
+      args.push('--thinking-level', config.thinkingLevel);
     }
 
     debugLog('[Agent Queue] Spawning roadmap process with args:', args);
@@ -150,6 +162,15 @@ export class AgentQueueManager {
     // Add append flag to preserve existing ideas
     if (config.append) {
       args.push('--append');
+    }
+
+    // Add model and thinking level from config
+    if (config.model) {
+      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
+      args.push('--model', modelId);
+    }
+    if (config.thinkingLevel) {
+      args.push('--thinking-level', config.thinkingLevel);
     }
 
     debugLog('[Agent Queue] Spawning ideation process with args:', args);

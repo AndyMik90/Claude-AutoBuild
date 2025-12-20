@@ -26,6 +26,7 @@ class IdeationConfigManager:
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
         model: str = "claude-opus-4-5-20251101",
+        thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
     ):
@@ -39,11 +40,13 @@ class IdeationConfigManager:
             include_kanban_context: Include kanban board in analysis
             max_ideas_per_type: Maximum ideas to generate per type
             model: Claude model to use
+            thinking_level: Thinking level for extended reasoning
             refresh: Force regeneration of existing files
             append: Preserve existing ideas when merging
         """
         self.project_dir = Path(project_dir)
         self.model = model
+        self.thinking_level = thinking_level
         self.refresh = refresh
         self.append = append
         self.enabled_types = enabled_types or IDEATION_TYPES.copy()
@@ -59,6 +62,7 @@ class IdeationConfigManager:
             self.project_dir,
             self.output_dir,
             self.model,
+            self.thinking_level,
             self.max_ideas_per_type,
         )
         self.analyzer = ProjectAnalyzer(

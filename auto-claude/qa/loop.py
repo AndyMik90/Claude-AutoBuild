@@ -19,7 +19,7 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from phase_config import get_phase_model, get_thinking_budget
+from phase_config import get_phase_model, get_thinking_budget, get_phase_thinking_budget
 from progress import count_subtasks, is_build_complete
 from task_logger import (
     LogPhase,
@@ -127,9 +127,9 @@ async def run_qa_validation_loop(
         )
         print("\n📝 Human feedback detected. Running QA Fixer first...")
 
-        # Get model for fixer
+        # Get model and thinking budget for fixer (uses QA phase config)
         qa_model = get_phase_model(spec_dir, "qa", model)
-        fixer_thinking_budget = get_thinking_budget("medium")
+        fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
 
         fix_client = create_client(
             project_dir,
@@ -200,11 +200,9 @@ async def run_qa_validation_loop(
 
         print(f"\n--- QA Iteration {qa_iteration}/{MAX_QA_ITERATIONS} ---")
 
-        # Run QA reviewer with phase-specific model and high thinking budget
+        # Run QA reviewer with phase-specific model and thinking budget
         qa_model = get_phase_model(spec_dir, "qa", model)
-        qa_thinking_budget = get_thinking_budget(
-            "high"
-        )  # 10,000 tokens for thorough review
+        qa_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
         debug(
             "qa_loop",
             "Creating client for QA reviewer session...",
@@ -342,10 +340,8 @@ async def run_qa_validation_loop(
                 print("Escalating to human review.")
                 break
 
-            # Run fixer with medium thinking budget
-            fixer_thinking_budget = get_thinking_budget(
-                "medium"
-            )  # 5,000 tokens for focused fixes
+            # Run fixer with phase-specific thinking budget
+            fixer_thinking_budget = get_phase_thinking_budget(spec_dir, "qa")
             debug(
                 "qa_loop",
                 "Starting QA fixer session...",

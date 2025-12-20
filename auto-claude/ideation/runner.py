@@ -42,6 +42,7 @@ class IdeationOrchestrator:
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
         model: str = "claude-opus-4-5-20251101",
+        thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
     ):
@@ -55,6 +56,7 @@ class IdeationOrchestrator:
             include_kanban_context: Include kanban board in analysis
             max_ideas_per_type: Maximum ideas to generate per type
             model: Claude model to use
+            thinking_level: Thinking level for extended reasoning
             refresh: Force regeneration of existing files
             append: Preserve existing ideas when merging
         """
@@ -67,6 +69,7 @@ class IdeationOrchestrator:
             include_kanban_context=include_kanban_context,
             max_ideas_per_type=max_ideas_per_type,
             model=model,
+            thinking_level=thinking_level,
             refresh=refresh,
             append=append,
         )

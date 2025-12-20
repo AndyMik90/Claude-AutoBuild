@@ -72,11 +72,13 @@ class AgentExecutor:
         output_dir: Path,
         model: str,
         create_client_func,
+        thinking_budget: int | None = None,
     ):
         self.project_dir = project_dir
         self.output_dir = output_dir
         self.model = model
         self.create_client = create_client_func
+        self.thinking_budget = thinking_budget
         # Go up from roadmap/ -> runners/ -> auto-claude/prompts/
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
@@ -117,14 +119,20 @@ class AgentExecutor:
                 context_length=len(additional_context),
             )
 
-        # Create client
+        # Create client with thinking budget
         debug(
             "roadmap_executor",
             "Creating Claude client",
             project_dir=str(self.project_dir),
             model=self.model,
+            thinking_budget=self.thinking_budget,
         )
-        client = self.create_client(self.project_dir, self.output_dir, self.model)
+        client = self.create_client(
+            self.project_dir,
+            self.output_dir,
+            self.model,
+            max_thinking_tokens=self.thinking_budget,
+        )
 
         try:
             async with client:

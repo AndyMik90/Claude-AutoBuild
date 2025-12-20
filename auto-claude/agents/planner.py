@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
+from phase_config import get_phase_thinking_budget
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -88,8 +89,14 @@ async def run_followup_planner(
         task_logger.start_phase(LogPhase.PLANNING, "Starting follow-up planning...")
         task_logger.set_session(1)
 
-    # Create client (fresh context)
-    client = create_client(project_dir, spec_dir, model)
+    # Create client (fresh context) with planning phase thinking budget
+    planning_thinking_budget = get_phase_thinking_budget(spec_dir, "planning")
+    client = create_client(
+        project_dir,
+        spec_dir,
+        model,
+        max_thinking_tokens=planning_thinking_budget,
+    )
 
     # Generate follow-up planner prompt
     prompt = get_followup_planner_prompt(spec_dir)

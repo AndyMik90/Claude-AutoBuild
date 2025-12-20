@@ -45,6 +45,20 @@ export interface PhaseThinkingConfig {
   qa: ThinkingLevel;
 }
 
+// Feature-specific model configuration (for non-pipeline features)
+export interface FeatureModelConfig {
+  insights: ModelTypeShort;    // Insights chat feature
+  ideation: ModelTypeShort;    // Ideation generation
+  roadmap: ModelTypeShort;     // Roadmap generation
+}
+
+// Feature-specific thinking level configuration
+export interface FeatureThinkingConfig {
+  insights: ThinkingLevel;
+  ideation: ThinkingLevel;
+  roadmap: ThinkingLevel;
+}
+
 // Agent profile for preset model/thinking configurations
 export interface AgentProfile {
   id: string;
@@ -85,6 +99,9 @@ export interface AppSettings {
   // Custom phase configuration for Auto profile (overrides defaults)
   customPhaseModels?: PhaseModelConfig;
   customPhaseThinking?: PhaseThinkingConfig;
+  // Feature-specific configuration (insights, ideation, roadmap)
+  featureModels?: FeatureModelConfig;
+  featureThinking?: FeatureThinkingConfig;
   // Changelog preferences
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;

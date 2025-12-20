@@ -38,6 +38,13 @@ export interface IdeationConfig {
   includeKanbanContext: boolean;
   maxIdeasPerType: number;
   append?: boolean;
+  model?: string;          // Model shorthand (opus, sonnet, haiku)
+  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
+}
+
+export interface RoadmapConfig {
+  model?: string;          // Model shorthand (opus, sonnet, haiku)
+  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
 }
 
 export interface TaskExecutionOptions {

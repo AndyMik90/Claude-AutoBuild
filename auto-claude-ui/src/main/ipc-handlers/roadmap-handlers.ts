@@ -1,12 +1,44 @@
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata, CompetitorAnalysis } from '../../shared/types';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../shared/constants';
+import type { IPCResult, Roadmap, RoadmapFeature, RoadmapFeatureStatus, RoadmapGenerationStatus, Task, TaskMetadata, CompetitorAnalysis, AppSettings } from '../../shared/types';
+import type { RoadmapConfig } from '../agent/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { projectStore } from '../project-store';
 import { AgentManager } from '../agent';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+
+/**
+ * Read feature settings from the settings file
+ */
+function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
+  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+
+  try {
+    if (existsSync(settingsPath)) {
+      const content = readFileSync(settingsPath, 'utf-8');
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+
+      // Get roadmap-specific settings
+      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+      return {
+        model: featureModels.roadmap,
+        thinkingLevel: featureThinking.roadmap
+      };
+    }
+  } catch (error) {
+    debugError('[Roadmap Handler] Failed to read feature settings:', error);
+  }
+
+  // Return defaults if settings file doesn't exist or fails to parse
+  return {
+    model: DEFAULT_FEATURE_MODELS.roadmap,
+    thinkingLevel: DEFAULT_FEATURE_THINKING.roadmap
+  };
+}
 
 
 /**
@@ -173,10 +205,18 @@ export function registerRoadmapHandlers(
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_GENERATE,
     (_, projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => {
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings();
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel
+      };
+
       debugLog('[Roadmap Handler] Generate request:', {
         projectId,
         enableCompetitorAnalysis,
-        refreshCompetitorAnalysis
+        refreshCompetitorAnalysis,
+        config
       });
 
       const mainWindow = getMainWindow();
@@ -195,7 +235,8 @@ export function registerRoadmapHandlers(
 
       debugLog('[Roadmap Handler] Starting agent manager generation:', {
         projectId,
-        projectPath: project.path
+        projectPath: project.path,
+        config
       });
 
       // Start roadmap generation via agent manager
@@ -204,7 +245,8 @@ export function registerRoadmapHandlers(
         project.path,
         false, // refresh (not a refresh operation)
         enableCompetitorAnalysis ?? false,
-        refreshCompetitorAnalysis ?? false
+        refreshCompetitorAnalysis ?? false,
+        config
       );
 
       // Send initial progress
@@ -223,10 +265,18 @@ export function registerRoadmapHandlers(
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_REFRESH,
     (_, projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => {
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings();
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel
+      };
+
       debugLog('[Roadmap Handler] Refresh request:', {
         projectId,
         enableCompetitorAnalysis,
-        refreshCompetitorAnalysis
+        refreshCompetitorAnalysis,
+        config
       });
 
       const mainWindow = getMainWindow();
@@ -248,7 +298,8 @@ export function registerRoadmapHandlers(
         project.path,
         true, // refresh (this is a refresh operation)
         enableCompetitorAnalysis ?? false,
-        refreshCompetitorAnalysis ?? false
+        refreshCompetitorAnalysis ?? false,
+        config
       );
 
       // Send initial progress
