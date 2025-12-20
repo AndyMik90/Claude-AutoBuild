@@ -9,6 +9,189 @@ import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 
 /**
+ * Core task creation logic - shared between TASK_CREATE and TASK_CREATE_WITH_CHILDREN
+ */
+async function createTaskInternal(
+  projectId: string,
+  title: string,
+  description: string,
+  metadata?: TaskMetadata,
+  parentTaskId?: string,
+  orderIndex?: number
+): Promise<IPCResult<Task>> {
+  const project = projectStore.getProject(projectId);
+  if (!project) {
+    return { success: false, error: 'Project not found' };
+  }
+
+  // Auto-generate title if empty using Claude AI
+  let finalTitle = title;
+  if (!title || !title.trim()) {
+    console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
+    try {
+      const generatedTitle = await titleGenerator.generateTitle(description);
+      if (generatedTitle) {
+        finalTitle = generatedTitle;
+        console.warn('[TASK_CREATE] Generated title:', finalTitle);
+      } else {
+        // Fallback: create title from first line of description
+        finalTitle = description.split('\n')[0].substring(0, 60);
+        if (finalTitle.length === 60) finalTitle += '...';
+        console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+      }
+    } catch (err) {
+      console.error('[TASK_CREATE] Title generation error:', err);
+      // Fallback: create title from first line of description
+      finalTitle = description.split('\n')[0].substring(0, 60);
+      if (finalTitle.length === 60) finalTitle += '...';
+    }
+  }
+
+  // Generate a unique spec ID based on existing specs
+  const specsBaseDir = getSpecsDir(project.autoBuildPath);
+  const specsDir = path.join(project.path, specsBaseDir);
+
+  // Find next available spec number
+  let specNumber = 1;
+  if (existsSync(specsDir)) {
+    const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    // Extract numbers from spec directory names (e.g., "001-feature" -> 1)
+    const existingNumbers = existingDirs
+      .map(name => {
+        const match = name.match(/^(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+
+    if (existingNumbers.length > 0) {
+      specNumber = Math.max(...existingNumbers) + 1;
+    }
+  }
+
+  // Create spec ID with zero-padded number and slugified title
+  const slugifiedTitle = finalTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+  const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+  // Create spec directory
+  const specDir = path.join(specsDir, specId);
+  mkdirSync(specDir, { recursive: true });
+
+  // Build metadata with source type
+  const taskMetadata: TaskMetadata = {
+    sourceType: 'manual',
+    ...metadata
+  };
+
+  // Process and save attached images
+  if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
+    const attachmentsDir = path.join(specDir, 'attachments');
+    mkdirSync(attachmentsDir, { recursive: true });
+
+    const savedImages: typeof taskMetadata.attachedImages = [];
+
+    for (const image of taskMetadata.attachedImages) {
+      if (image.data) {
+        try {
+          // Decode base64 and save to file
+          const buffer = Buffer.from(image.data, 'base64');
+          const imagePath = path.join(attachmentsDir, image.filename);
+          writeFileSync(imagePath, buffer);
+
+          // Store relative path instead of base64 data
+          savedImages.push({
+            id: image.id,
+            filename: image.filename,
+            mimeType: image.mimeType,
+            size: image.size,
+            path: `attachments/${image.filename}`
+            // Don't include data or thumbnail to save space
+          });
+        } catch (err) {
+          console.error(`Failed to save image ${image.filename}:`, err);
+        }
+      }
+    }
+
+    // Update metadata with saved image paths (without base64 data)
+    taskMetadata.attachedImages = savedImages;
+  }
+
+  // Add parent task ID to requirements if this is a child task
+  const requirements: Record<string, unknown> = {
+    task_description: description,
+    workflow_type: taskMetadata.category || 'feature'
+  };
+
+  if (parentTaskId) {
+    requirements.parent_task = parentTaskId;
+  }
+
+  // Add attached images to requirements if present
+  if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
+    requirements.attached_images = taskMetadata.attachedImages.map(img => ({
+      filename: img.filename,
+      path: img.path,
+      description: '' // User can add descriptions later
+    }));
+  }
+
+  const requirementsPath = path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS);
+  writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
+
+  // Create initial implementation_plan.json (task is created but not started)
+  const now = new Date().toISOString();
+  const implementationPlan = {
+    feature: finalTitle,
+    description: description,
+    created_at: now,
+    updated_at: now,
+    status: 'pending',
+    phases: []
+  };
+
+  const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+  writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+
+  // Save task metadata if provided
+  if (taskMetadata) {
+    const metadataPath = path.join(specDir, 'task_metadata.json');
+    writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+  }
+
+  // Create the task object
+  const task: Task = {
+    id: specId,
+    specId: specId,
+    projectId,
+    title: finalTitle,
+    description,
+    status: 'backlog',
+    subtasks: [],
+    logs: [],
+    metadata: taskMetadata,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  // Add hierarchical task fields if provided
+  if (parentTaskId) {
+    task.parentTaskId = parentTaskId;
+  }
+  if (orderIndex !== undefined) {
+    task.orderIndex = orderIndex;
+  }
+
+  return { success: true, data: task };
+}
+
+/**
  * Register task CRUD (Create, Read, Update, Delete) handlers
  */
 export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
@@ -37,164 +220,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       description: string,
       metadata?: TaskMetadata
     ): Promise<IPCResult<Task>> => {
-      const project = projectStore.getProject(projectId);
-      if (!project) {
-        return { success: false, error: 'Project not found' };
-      }
-
-      // Auto-generate title if empty using Claude AI
-      let finalTitle = title;
-      if (!title || !title.trim()) {
-        console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
-        try {
-          const generatedTitle = await titleGenerator.generateTitle(description);
-          if (generatedTitle) {
-            finalTitle = generatedTitle;
-            console.warn('[TASK_CREATE] Generated title:', finalTitle);
-          } else {
-            // Fallback: create title from first line of description
-            finalTitle = description.split('\n')[0].substring(0, 60);
-            if (finalTitle.length === 60) finalTitle += '...';
-            console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
-          }
-        } catch (err) {
-          console.error('[TASK_CREATE] Title generation error:', err);
-          // Fallback: create title from first line of description
-          finalTitle = description.split('\n')[0].substring(0, 60);
-          if (finalTitle.length === 60) finalTitle += '...';
-        }
-      }
-
-      // Generate a unique spec ID based on existing specs
-      const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specsDir = path.join(project.path, specsBaseDir);
-
-      // Find next available spec number
-      let specNumber = 1;
-      if (existsSync(specsDir)) {
-        const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-          .filter(d => d.isDirectory())
-          .map(d => d.name);
-
-        // Extract numbers from spec directory names (e.g., "001-feature" -> 1)
-        const existingNumbers = existingDirs
-          .map(name => {
-            const match = name.match(/^(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(n => n > 0);
-
-        if (existingNumbers.length > 0) {
-          specNumber = Math.max(...existingNumbers) + 1;
-        }
-      }
-
-      // Create spec ID with zero-padded number and slugified title
-      const slugifiedTitle = finalTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .substring(0, 50);
-      const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
-
-      // Create spec directory
-      const specDir = path.join(specsDir, specId);
-      mkdirSync(specDir, { recursive: true });
-
-      // Build metadata with source type
-      const taskMetadata: TaskMetadata = {
-        sourceType: 'manual',
-        ...metadata
-      };
-
-      // Process and save attached images
-      if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
-        const attachmentsDir = path.join(specDir, 'attachments');
-        mkdirSync(attachmentsDir, { recursive: true });
-
-        const savedImages: typeof taskMetadata.attachedImages = [];
-
-        for (const image of taskMetadata.attachedImages) {
-          if (image.data) {
-            try {
-              // Decode base64 and save to file
-              const buffer = Buffer.from(image.data, 'base64');
-              const imagePath = path.join(attachmentsDir, image.filename);
-              writeFileSync(imagePath, buffer);
-
-              // Store relative path instead of base64 data
-              savedImages.push({
-                id: image.id,
-                filename: image.filename,
-                mimeType: image.mimeType,
-                size: image.size,
-                path: `attachments/${image.filename}`
-                // Don't include data or thumbnail to save space
-              });
-            } catch (err) {
-              console.error(`Failed to save image ${image.filename}:`, err);
-            }
-          }
-        }
-
-        // Update metadata with saved image paths (without base64 data)
-        taskMetadata.attachedImages = savedImages;
-      }
-
-      // Create initial implementation_plan.json (task is created but not started)
-      const now = new Date().toISOString();
-      const implementationPlan = {
-        feature: finalTitle,
-        description: description,
-        created_at: now,
-        updated_at: now,
-        status: 'pending',
-        phases: []
-      };
-
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
-
-      // Save task metadata if provided
-      if (taskMetadata) {
-        const metadataPath = path.join(specDir, 'task_metadata.json');
-        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
-      }
-
-      // Create requirements.json with attached images
-      const requirements: Record<string, unknown> = {
-        task_description: description,
-        workflow_type: taskMetadata.category || 'feature'
-      };
-
-      // Add attached images to requirements if present
-      if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
-        requirements.attached_images = taskMetadata.attachedImages.map(img => ({
-          filename: img.filename,
-          path: img.path,
-          description: '' // User can add descriptions later
-        }));
-      }
-
-      const requirementsPath = path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS);
-      writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
-
-      // Create the task object
-      const task: Task = {
-        id: specId,
-        specId: specId,
-        projectId,
-        title: finalTitle,
-        description,
-        status: 'backlog',
-        subtasks: [],
-        logs: [],
-        metadata: taskMetadata,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      return { success: true, data: task };
+      return createTaskInternal(projectId, title, description, metadata);
     }
   );
 
@@ -225,21 +251,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       console.log('[createTaskWithChildren] Project found:', project.name);
       console.log('[createTaskWithChildren] Creating parent task...');
 
-      // Create parent task first (same logic as TASK_CREATE)
-      const parentResult = await new Promise<IPCResult<Task>>((resolve) => {
-        ipcMain.handleOnce('_internal_create_parent', async () => {
-          // Reuse the TASK_CREATE logic
-          const result = await (ipcMain as any)._listeners.get(IPC_CHANNELS.TASK_CREATE)[0](
-            null,
-            projectId,
-            title,
-            description,
-            metadata
-          );
-          resolve(result);
-        });
-        ipcMain.emit('_internal_create_parent' as any);
-      });
+      // Create parent task using shared internal function
+      const parentResult = await createTaskInternal(projectId, title, description, metadata);
 
       if (!parentResult.success || !parentResult.data) {
         console.error('[createTaskWithChildren] ERROR: Failed to create parent task:', parentResult.error);
@@ -254,97 +267,29 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
 
       console.log('[createTaskWithChildren] Creating child tasks...');
 
-      // Create each child task
+      // Create each child task using shared internal function
       for (let i = 0; i < children.length; i++) {
         const child = children[i];
         console.log(`[createTaskWithChildren] Creating child ${i + 1}/${children.length}: "${child.title}"`);
 
         try {
-        // Generate child spec ID
-        const specsBaseDir = getSpecsDir(project.autoBuildPath);
-        const specsDir = path.join(project.path, specsBaseDir);
+          const childResult = await createTaskInternal(
+            projectId,
+            child.title,
+            child.description || '',
+            metadata,
+            parentTask.id,  // Link to parent
+            child.orderIndex
+          );
 
-        // Find next available spec number
-        let specNumber = 1;
-        if (existsSync(specsDir)) {
-          const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-            .filter(d => d.isDirectory())
-            .map(d => d.name);
-
-          const existingNumbers = existingDirs
-            .map(name => {
-              const match = name.match(/^(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            })
-            .filter(n => n > 0);
-
-          if (existingNumbers.length > 0) {
-            specNumber = Math.max(...existingNumbers) + 1;
+          if (!childResult.success || !childResult.data) {
+            throw new Error(childResult.error || 'Failed to create child task');
           }
-        }
 
-        const slugifiedTitle = child.title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '')
-          .substring(0, 50);
-        const childSpecId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
-
-        // Create child spec directory
-        const childSpecDir = path.join(specsDir, childSpecId);
-        mkdirSync(childSpecDir, { recursive: true });
-
-        // Create implementation plan for child
-        const now = new Date().toISOString();
-        const childPlan = {
-          feature: child.title,
-          description: child.description || '',
-          created_at: now,
-          updated_at: now,
-          status: 'pending',
-          phases: []
-        };
-
-        writeFileSync(
-          path.join(childSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-          JSON.stringify(childPlan, null, 2)
-        );
-
-        // Create requirements for child
-        const childRequirements = {
-          task_description: child.description || '',
-          workflow_type: metadata?.category || 'feature',
-          parent_task: parentTask.id  // Link to parent
-        };
-
-        writeFileSync(
-          path.join(childSpecDir, AUTO_BUILD_PATHS.REQUIREMENTS),
-          JSON.stringify(childRequirements, null, 2)
-        );
-
-        // Create child task object
-        const childTask: Task = {
-          id: childSpecId,
-          specId: childSpecId,
-          projectId,
-          title: child.title,
-          description: child.description || '',
-          status: 'backlog',
-          subtasks: [],
-          logs: [],
-          metadata: {
-            sourceType: 'manual',
-            ...metadata
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          parentTaskId: parentTask.id,
-          orderIndex: child.orderIndex
-        };
-
-        childTasks.push(childTask);
-        childTaskIds.push(childTask.id);
-        console.log(`[createTaskWithChildren] ✓ Child ${i + 1}/${children.length} created:`, childTask.id);
+          const childTask = childResult.data;
+          childTasks.push(childTask);
+          childTaskIds.push(childTask.id);
+          console.log(`[createTaskWithChildren] ✓ Child ${i + 1}/${children.length} created:`, childTask.id);
 
         } catch (error) {
           console.error(`[createTaskWithChildren] ERROR creating child ${i + 1}:`, error);
