@@ -331,6 +331,7 @@ def main():
     parser.add_argument("--project-dir", required=True, help="Project directory path")
     parser.add_argument("--message", required=True, help="User message")
     parser.add_argument("--history", default="[]", help="JSON conversation history")
+    parser.add_argument("--history-file", help="Path to JSON file containing conversation history")
     parser.add_argument(
         "--history-file", help="Path to JSON file containing conversation history"
     )
