@@ -144,24 +144,31 @@ try:
 except ImportError:
 
     def debug(*args, **kwargs):
+        """Fallback debug function when debug module is not available."""
         pass
 
     def debug_detailed(*args, **kwargs):
+        """Fallback debug_detailed function when debug module is not available."""
         pass
 
     def debug_verbose(*args, **kwargs):
+        """Fallback debug_verbose function when debug module is not available."""
         pass
 
     def debug_success(*args, **kwargs):
+        """Fallback debug_success function when debug module is not available."""
         pass
 
     def debug_error(*args, **kwargs):
+        """Fallback debug_error function when debug module is not available."""
         pass
 
     def debug_section(*args, **kwargs):
+        """Fallback debug_section function when debug module is not available."""
         pass
 
     def is_debug_enabled():
+        """Fallback is_debug_enabled function when debug module is not available."""
         return False
 
 

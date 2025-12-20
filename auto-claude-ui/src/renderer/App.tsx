@@ -301,10 +301,16 @@ export function App() {
     if (!gitHubSetupProject) return;
 
     try {
+      // NOTE: settings.githubToken is a GitHub access token (from gh CLI),
+      // NOT a Claude Code OAuth token. They are different things:
+      // - GitHub token: for GitHub API access (repo operations)
+      // - Claude token: for Claude AI access (run.py, roadmap, etc.)
+      // The user needs to separately authenticate with Claude using 'claude setup-token'
+
       // Update project env config with GitHub settings
       await window.electronAPI.updateProjectEnv(gitHubSetupProject.id, {
         githubEnabled: true,
-        githubToken: settings.githubToken,
+        githubToken: settings.githubToken, // GitHub token for repo access
         githubRepo: settings.githubRepo
       });
 

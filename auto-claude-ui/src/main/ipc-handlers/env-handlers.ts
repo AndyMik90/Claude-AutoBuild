@@ -62,6 +62,10 @@ export function registerEnvHandlers(
     if (config.githubAutoSync !== undefined) {
       existingVars['GITHUB_AUTO_SYNC'] = config.githubAutoSync ? 'true' : 'false';
     }
+    // Git/Worktree Settings
+    if (config.defaultBranch !== undefined) {
+      existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
+    }
     if (config.graphitiEnabled !== undefined) {
       existingVars['GRAPHITI_ENABLED'] = config.graphitiEnabled ? 'true' : 'false';
     }
@@ -108,6 +112,13 @@ ${existingVars['LINEAR_REALTIME_SYNC'] !== undefined ? `LINEAR_REALTIME_SYNC=${e
 ${existingVars['GITHUB_TOKEN'] ? `GITHUB_TOKEN=${existingVars['GITHUB_TOKEN']}` : '# GITHUB_TOKEN='}
 ${existingVars['GITHUB_REPO'] ? `GITHUB_REPO=${existingVars['GITHUB_REPO']}` : '# GITHUB_REPO=owner/repo'}
 ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingVars['GITHUB_AUTO_SYNC']}` : '# GITHUB_AUTO_SYNC=false'}
+
+# =============================================================================
+# GIT/WORKTREE SETTINGS (OPTIONAL)
+# =============================================================================
+# Default base branch for worktree creation
+# If not set, Auto Claude will auto-detect main/master, or fall back to current branch
+${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANCH']}` : '# DEFAULT_BRANCH=main'}
 
 # =============================================================================
 # UI SETTINGS (OPTIONAL)
@@ -214,6 +225,11 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
       }
       if (vars['GITHUB_AUTO_SYNC']?.toLowerCase() === 'true') {
         config.githubAutoSync = true;
+      }
+
+      // Git/Worktree config
+      if (vars['DEFAULT_BRANCH']) {
+        config.defaultBranch = vars['DEFAULT_BRANCH'];
       }
 
       if (vars['GRAPHITI_ENABLED']?.toLowerCase() === 'true') {

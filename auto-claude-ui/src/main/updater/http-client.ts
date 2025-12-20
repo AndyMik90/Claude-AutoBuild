@@ -74,9 +74,12 @@ export function downloadFile(
   return new Promise((resolve, reject) => {
     const file = createWriteStream(destPath);
 
+    // GitHub API URLs need the GitHub Accept header to get a redirect to the actual file
+    // Non-API URLs (CDN, direct downloads) use octet-stream
+    const isGitHubApi = url.includes('api.github.com');
     const headers = {
       'User-Agent': 'Auto-Claude-UI',
-      'Accept': 'application/octet-stream'
+      'Accept': isGitHubApi ? 'application/vnd.github+json' : 'application/octet-stream'
     };
 
     const request = https.get(url, { headers }, (response) => {

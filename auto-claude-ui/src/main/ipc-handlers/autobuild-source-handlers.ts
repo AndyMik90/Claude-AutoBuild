@@ -5,7 +5,8 @@ import type { IPCResult } from '../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import type { AutoBuildSourceUpdateProgress, SourceEnvConfig, SourceEnvCheckResult } from '../../shared/types';
-import { checkForUpdates as checkSourceUpdates, downloadAndApplyUpdate, getBundledVersion, getEffectiveSourcePath } from '../auto-claude-updater';
+import { checkForUpdates as checkSourceUpdates, downloadAndApplyUpdate, getBundledVersion, getEffectiveVersion, getEffectiveSourcePath } from '../auto-claude-updater';
+import { debugLog } from '../../shared/utils/debug-logger';
 
 
 /**
@@ -21,10 +22,16 @@ export function registerAutobuildSourceHandlers(
   ipcMain.handle(
     IPC_CHANNELS.AUTOBUILD_SOURCE_CHECK,
     async (): Promise<IPCResult<{ updateAvailable: boolean; currentVersion: string; latestVersion?: string; releaseNotes?: string; releaseUrl?: string; error?: string }>> => {
+      console.log('[autobuild-source] Check for updates called');
+      debugLog('[IPC] AUTOBUILD_SOURCE_CHECK called');
       try {
         const result = await checkSourceUpdates();
+        console.log('[autobuild-source] Check result:', JSON.stringify(result, null, 2));
+        debugLog('[IPC] AUTOBUILD_SOURCE_CHECK result:', result);
         return { success: true, data: result };
       } catch (error) {
+        console.error('[autobuild-source] Check error:', error);
+        debugLog('[IPC] AUTOBUILD_SOURCE_CHECK error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to check for updates'
@@ -36,25 +43,33 @@ export function registerAutobuildSourceHandlers(
   ipcMain.on(
     IPC_CHANNELS.AUTOBUILD_SOURCE_DOWNLOAD,
     () => {
+      debugLog('[IPC] Autobuild source download requested');
       const mainWindow = getMainWindow();
-      if (!mainWindow) return;
+      if (!mainWindow) {
+        debugLog('[IPC] No main window available, aborting update');
+        return;
+      }
 
       // Start download in background
       downloadAndApplyUpdate((progress) => {
+        debugLog('[IPC] Update progress:', progress.stage, progress.message);
         mainWindow.webContents.send(
           IPC_CHANNELS.AUTOBUILD_SOURCE_PROGRESS,
           progress
         );
       }).then((result) => {
         if (result.success) {
+          debugLog('[IPC] Update completed successfully, version:', result.version);
           mainWindow.webContents.send(
             IPC_CHANNELS.AUTOBUILD_SOURCE_PROGRESS,
             {
               stage: 'complete',
-              message: `Updated to version ${result.version}`
+              message: `Updated to version ${result.version}`,
+              newVersion: result.version // Include new version for UI refresh
             } as AutoBuildSourceUpdateProgress
           );
         } else {
+          debugLog('[IPC] Update failed:', result.error);
           mainWindow.webContents.send(
             IPC_CHANNELS.AUTOBUILD_SOURCE_PROGRESS,
             {
@@ -64,6 +79,7 @@ export function registerAutobuildSourceHandlers(
           );
         }
       }).catch((error) => {
+        debugLog('[IPC] Update error:', error instanceof Error ? error.message : error);
         mainWindow.webContents.send(
           IPC_CHANNELS.AUTOBUILD_SOURCE_PROGRESS,
           {
@@ -88,7 +104,9 @@ export function registerAutobuildSourceHandlers(
     IPC_CHANNELS.AUTOBUILD_SOURCE_VERSION,
     async (): Promise<IPCResult<string>> => {
       try {
-        const version = getBundledVersion();
+        // Use effective version which accounts for source updates
+        const version = getEffectiveVersion();
+        debugLog('[IPC] Returning effective version:', version);
         return { success: true, data: version };
       } catch (error) {
         return {

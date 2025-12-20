@@ -27,7 +27,7 @@ export type {
 } from './updater/types';
 
 // Export version management
-export { getBundledVersion } from './updater/version-manager';
+export { getBundledVersion, getEffectiveVersion } from './updater/version-manager';
 
 // Export path resolution
 export {

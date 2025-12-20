@@ -76,6 +76,8 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   const [isCheckingSourceUpdate, setIsCheckingSourceUpdate] = useState(false);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<AutoBuildSourceUpdateProgress | null>(null);
+  // Local version state that can be updated after successful update
+  const [displayVersion, setDisplayVersion] = useState<string>(version);
 
   // Electron app update state
   const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
@@ -83,6 +85,11 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   const [isDownloadingAppUpdate, setIsDownloadingAppUpdate] = useState(false);
   const [appDownloadProgress, setAppDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isAppUpdateDownloaded, setIsAppUpdateDownloaded] = useState(false);
+
+  // Sync displayVersion with prop when it changes
+  useEffect(() => {
+    setDisplayVersion(version);
+  }, [version]);
 
   // Check for updates on mount
   useEffect(() => {
@@ -98,6 +105,10 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
       setDownloadProgress(progress);
       if (progress.stage === 'complete') {
         setIsDownloadingUpdate(false);
+        // Update the displayed version if a new version was provided
+        if (progress.newVersion) {
+          setDisplayVersion(progress.newVersion);
+        }
         checkForSourceUpdates();
       } else if (progress.stage === 'error') {
         setIsDownloadingUpdate(false);
@@ -164,14 +175,20 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   };
 
   const checkForSourceUpdates = async () => {
+    console.log('[AdvancedSettings] Checking for source updates...');
     setIsCheckingSourceUpdate(true);
     try {
       const result = await window.electronAPI.checkAutoBuildSourceUpdate();
+      console.log('[AdvancedSettings] Check result:', result);
       if (result.success && result.data) {
         setSourceUpdateCheck(result.data);
+        // Update displayed version from the check result (most accurate)
+        if (result.data.currentVersion) {
+          setDisplayVersion(result.data.currentVersion);
+        }
       }
     } catch (err) {
-      // Silent fail - user can retry via button
+      console.error('[AdvancedSettings] Check error:', err);
     } finally {
       setIsCheckingSourceUpdate(false);
     }
@@ -287,7 +304,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Version</p>
                 <p className="text-base font-medium text-foreground">
-                  {version || 'Loading...'}
+                  {displayVersion || 'Loading...'}
                 </p>
               </div>
               {isCheckingSourceUpdate ? (

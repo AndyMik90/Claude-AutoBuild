@@ -10,6 +10,7 @@ import type {
 } from '../../shared/types';
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
+import { getEffectiveVersion } from '../auto-claude-updater';
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
@@ -264,7 +265,10 @@ export function registerSettingsHandlers(
   // ============================================
 
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async (): Promise<string> => {
-    return app.getVersion();
+    // Use effective version which accounts for source updates
+    const version = getEffectiveVersion();
+    console.log('[settings-handlers] APP_VERSION returning:', version);
+    return version;
   });
 
   // ============================================

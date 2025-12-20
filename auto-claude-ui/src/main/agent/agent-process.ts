@@ -241,6 +241,10 @@ export class AgentProcessManager {
       const log = data.toString('utf8');
       this.emitter.emit('log', taskId, log);
       processLog(log);
+      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
+      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
+        console.log(`[Agent:${taskId}] ${log.trim()}`);
+      }
     });
 
     // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
@@ -250,6 +254,10 @@ export class AgentProcessManager {
       // so we treat it as log, not error
       this.emitter.emit('log', taskId, log);
       processLog(log);
+      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
+      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
+        console.log(`[Agent:${taskId}] ${log.trim()}`);
+      }
     });
 
     // Handle process exit

@@ -169,6 +169,7 @@ export function SectionRouter({
               setShowGitHubToken={setShowGitHubToken}
               gitHubConnectionStatus={gitHubConnectionStatus}
               isCheckingGitHub={isCheckingGitHub}
+              projectPath={project.path}
             />
           </InitializationGuard>
         </SettingsSection>
