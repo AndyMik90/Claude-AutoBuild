@@ -327,13 +327,19 @@ export function registerTerminalHandlers(
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Build the login command with the profile's config dir
-        // Use export to ensure the variable persists, then run setup-token
+        // Use platform-specific syntax for environment variables
         let loginCommand: string;
         if (!profile.isDefault && profile.configDir) {
-          // Use export and run in subshell to ensure CLAUDE_CONFIG_DIR is properly set
           // SECURITY: Use escapeShellArg to prevent command injection via configDir
           const escapedConfigDir = escapeShellArg(profile.configDir);
-          loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+
+          if (process.platform === 'win32') {
+            // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
+            loginCommand = `set "CLAUDE_CONFIG_DIR=${profile.configDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+          } else {
+            // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
+            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+          }
         } else {
           loginCommand = 'claude setup-token';
         }
