@@ -1,4 +1,4 @@
-import { useState, useRef, type DragEvent } from 'react';
+import { useState, useRef, useEffect, type DragEvent } from 'react';
 import { ChevronRight, ChevronDown, Folder, File, FileCode, FileJson, FileText, FileImage, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { FileNode } from '../../shared/types';
@@ -73,6 +73,17 @@ export function FileTreeItem({
   const [isDragging, setIsDragging] = useState(false);
   const dragImageRef = useRef<HTMLDivElement | null>(null);
 
+  // Cleanup drag image on unmount to prevent memory leaks
+  // This handles cases where component unmounts mid-drag or dragend doesn't fire
+  useEffect(() => {
+    return () => {
+      if (dragImageRef.current && dragImageRef.current.parentNode) {
+        dragImageRef.current.parentNode.removeChild(dragImageRef.current);
+        dragImageRef.current = null;
+      }
+    };
+  }, []);
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.isDirectory) {
@@ -102,10 +113,18 @@ export function FileTreeItem({
     e.dataTransfer.setData('text/plain', `@${node.name}`);
     e.dataTransfer.effectAllowed = 'copy';
 
-    // Create a custom drag image
+    // Create a custom drag image using safe DOM manipulation (no innerHTML)
     const dragImage = document.createElement('div');
     dragImage.className = 'flex items-center gap-2 bg-card border border-primary rounded-md px-3 py-2 shadow-lg text-sm';
-    dragImage.innerHTML = `<span>${node.isDirectory ? '📁' : '📄'}</span><span>${node.name}</span>`;
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = node.isDirectory ? '📁' : '📄';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = node.name;
+    
+    dragImage.appendChild(iconSpan);
+    dragImage.appendChild(nameSpan);
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
     dragImage.style.left = '-1000px';
