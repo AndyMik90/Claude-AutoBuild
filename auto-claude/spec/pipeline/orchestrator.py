@@ -199,7 +199,9 @@ class SpecOrchestrator:
 
         if should_refresh_project_index(self.project_dir):
             if index_file.exists():
-                print_status("Project dependencies changed, refreshing index...", "progress")
+                print_status(
+                    "Project dependencies changed, refreshing index...", "progress"
+                )
             else:
                 print_status("Generating project index...", "progress")
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Brain, Scale, Zap, Sliders, Check } from 'lucide-react';
+import { Brain, Scale, Zap, Sparkles, Sliders, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -22,7 +22,8 @@ interface InsightsModelSelectorProps {
 const iconMap: Record<string, React.ElementType> = {
   Brain,
   Scale,
-  Zap
+  Zap,
+  Sparkles
 };
 
 export function InsightsModelSelector({

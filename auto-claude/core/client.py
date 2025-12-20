@@ -281,7 +281,11 @@ def create_client(
 
     # Show detected project capabilities for QA agents
     if agent_type in ("qa_reviewer", "qa_fixer") and any(project_capabilities.values()):
-        caps = [k.replace("is_", "").replace("has_", "") for k, v in project_capabilities.items() if v]
+        caps = [
+            k.replace("is_", "").replace("has_", "")
+            for k, v in project_capabilities.items()
+            if v
+        ]
         print(f"   - Project capabilities: {', '.join(caps)}")
     print()
 

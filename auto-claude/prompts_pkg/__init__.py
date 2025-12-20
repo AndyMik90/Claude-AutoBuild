@@ -6,6 +6,13 @@ Prompt generation and templates for AI interactions.
 """
 
 # Import all functions from prompt_generator
+# Import project context utilities
+from .project_context import (
+    detect_project_capabilities,
+    get_mcp_tools_for_project,
+    load_project_index,
+    should_refresh_project_index,
+)
 from .prompt_generator import (
     format_context_for_prompt,
     generate_environment_context,
@@ -23,14 +30,6 @@ from .prompts import (
     get_qa_fixer_prompt,
     get_qa_reviewer_prompt,
     is_first_run,
-)
-
-# Import project context utilities
-from .project_context import (
-    detect_project_capabilities,
-    get_mcp_tools_for_project,
-    load_project_index,
-    should_refresh_project_index,
 )
 
 __all__ = [

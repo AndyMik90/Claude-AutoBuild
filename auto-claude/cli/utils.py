@@ -14,7 +14,7 @@ _PARENT_DIR = Path(__file__).parent.parent
 if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
-from core.auth import AUTH_TOKEN_ENV_VARS, get_auth_token, get_auth_token_source
+from core.auth import get_auth_token, get_auth_token_source
 from dotenv import load_dotenv
 from graphiti_config import get_graphiti_status
 from linear_integration import LinearManager

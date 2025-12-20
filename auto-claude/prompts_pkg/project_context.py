@@ -147,8 +147,17 @@ def detect_project_capabilities(project_index: dict) -> dict:
         if service.get("database"):
             capabilities["has_database"] = True
         # Also check for ORM/database deps
-        db_deps = {"prisma", "drizzle-orm", "typeorm", "sequelize", "mongoose",
-                   "sqlalchemy", "alembic", "django", "peewee"}
+        db_deps = {
+            "prisma",
+            "drizzle-orm",
+            "typeorm",
+            "sequelize",
+            "mongoose",
+            "sqlalchemy",
+            "alembic",
+            "django",
+            "peewee",
+        }
         if deps & db_deps:
             capabilities["has_database"] = True
 
@@ -203,7 +212,11 @@ def should_refresh_project_index(project_dir: Path) -> bool:
                 continue
             # Skip hidden dirs and common non-service dirs
             if subdir.name.startswith(".") or subdir.name in (
-                "node_modules", "__pycache__", "dist", "build", ".git"
+                "node_modules",
+                "__pycache__",
+                "dist",
+                "build",
+                ".git",
             ):
                 continue
 
@@ -216,7 +229,10 @@ def should_refresh_project_index(project_dir: Path) -> bool:
 
             subdir_pyproject = subdir / "pyproject.toml"
             try:
-                if subdir_pyproject.exists() and subdir_pyproject.stat().st_mtime > index_mtime:
+                if (
+                    subdir_pyproject.exists()
+                    and subdir_pyproject.stat().st_mtime > index_mtime
+                ):
                     return True
             except OSError:
                 continue

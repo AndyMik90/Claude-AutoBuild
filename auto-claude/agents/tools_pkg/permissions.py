@@ -97,9 +97,7 @@ def get_allowed_tools(
 
     # Add MCP tools for QA agents only, based on project capabilities
     if agent_type in ("qa_reviewer", "qa_fixer"):
-        tools.extend(
-            _get_qa_mcp_tools(project_capabilities)
-        )
+        tools.extend(_get_qa_mcp_tools(project_capabilities))
 
     return tools
 
