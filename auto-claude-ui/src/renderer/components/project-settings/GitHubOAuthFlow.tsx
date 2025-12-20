@@ -57,6 +57,9 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
 
   // Ref to track authentication timeout
   const authTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs to track copy feedback timeouts
+  const codeCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const urlCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check gh CLI installation and authentication status on mount
   // Use a ref to prevent double-execution in React Strict Mode
@@ -69,6 +72,18 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       clearTimeout(authTimeoutRef.current);
       authTimeoutRef.current = null;
     }
+  }, []);
+
+  // Cleanup copy feedback timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (codeCopyTimeoutRef.current) {
+        clearTimeout(codeCopyTimeoutRef.current);
+      }
+      if (urlCopyTimeoutRef.current) {
+        clearTimeout(urlCopyTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Handle authentication timeout
@@ -254,8 +269,12 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     try {
       await navigator.clipboard.writeText(deviceCode);
       setCodeCopied(true);
+      // Clear any existing timeout before setting a new one
+      if (codeCopyTimeoutRef.current) {
+        clearTimeout(codeCopyTimeoutRef.current);
+      }
       // Reset the copied state after 2 seconds
-      setTimeout(() => setCodeCopied(false), 2000);
+      codeCopyTimeoutRef.current = setTimeout(() => setCodeCopied(false), 2000);
     } catch (err) {
       debugLog('Failed to copy device code:', err);
     }
@@ -508,7 +527,11 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
                           try {
                             await navigator.clipboard.writeText(authUrl);
                             setUrlCopied(true);
-                            setTimeout(() => setUrlCopied(false), 2000);
+                            // Clear any existing timeout before setting a new one
+                            if (urlCopyTimeoutRef.current) {
+                              clearTimeout(urlCopyTimeoutRef.current);
+                            }
+                            urlCopyTimeoutRef.current = setTimeout(() => setUrlCopied(false), 2000);
                           } catch (err) {
                             debugLog('Failed to copy URL:', err);
                           }

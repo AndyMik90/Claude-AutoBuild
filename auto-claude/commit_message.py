@@ -127,7 +127,9 @@ def _get_spec_context(spec_dir: Path) -> dict:
                 context["github_issue"] = metadata["githubIssueNumber"]
             # Fallback title
             if not context["title"]:
-                context["title"] = plan_data.get("feature") or plan_data.get("title", "")
+                context["title"] = plan_data.get("feature") or plan_data.get(
+                    "title", ""
+                )
         except Exception as e:
             logger.debug(f"Could not read implementation_plan.json: {e}")
 
@@ -150,24 +152,29 @@ def _build_prompt(
 
     # Truncate file list if too long
     if len(files_changed) > 20:
-        files_display = "\n".join(files_changed[:20]) + f"\n... and {len(files_changed) - 20} more files"
+        files_display = (
+            "\n".join(files_changed[:20])
+            + f"\n... and {len(files_changed) - 20} more files"
+        )
     else:
-        files_display = "\n".join(files_changed) if files_changed else "(no files listed)"
+        files_display = (
+            "\n".join(files_changed) if files_changed else "(no files listed)"
+        )
 
     prompt = f"""Generate a commit message for this change.
 
-Task: {spec_context.get('title', 'Unknown task')}
+Task: {spec_context.get("title", "Unknown task")}
 Type: {commit_type}
 Files changed: {len(files_changed)}
 {github_ref}
 
-Description: {spec_context.get('description', 'No description available')}
+Description: {spec_context.get("description", "No description available")}
 
 Changed files:
 {files_display}
 
 Diff summary:
-{diff_summary[:2000] if diff_summary else '(no diff available)'}
+{diff_summary[:2000] if diff_summary else "(no diff available)"}
 
 Generate ONLY the commit message, nothing else. Follow the format exactly:
 type(scope): short description
@@ -268,7 +275,21 @@ def generate_commit_message_sync(
 
     # Call Claude
     try:
-        result = asyncio.run(_call_claude_haiku(prompt))
+        # Check if we're already in an async context
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already in an async context - create a new thread to run
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                result = pool.submit(asyncio.run, _call_claude_haiku(prompt)).result()
+        else:
+            result = asyncio.run(_call_claude_haiku(prompt))
+
         if result:
             return result
     except Exception as e:

@@ -8,7 +8,7 @@ import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg } from '../../shared/utils/shell-escape';
+import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
 
 
 /**
@@ -327,16 +327,17 @@ export function registerTerminalHandlers(
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Build the login command with the profile's config dir
-        // Use platform-specific syntax for environment variables
+        // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
         if (!profile.isDefault && profile.configDir) {
-          // SECURITY: Use escapeShellArg to prevent command injection via configDir
-          const escapedConfigDir = escapeShellArg(profile.configDir);
-
           if (process.platform === 'win32') {
+            // SECURITY: Use Windows-specific escaping for cmd.exe
+            const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `set "CLAUDE_CONFIG_DIR=${profile.configDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
           } else {
+            // SECURITY: Use POSIX escaping for bash/zsh
+            const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
             loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
           }

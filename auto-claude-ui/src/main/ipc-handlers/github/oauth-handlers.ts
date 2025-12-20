@@ -214,10 +214,13 @@ export function registerStartGhAuth(): void {
           let extractedDeviceCode: string | null = null;
           let extractedAuthUrl: string = GITHUB_DEVICE_URL;
           let browserOpenedSuccessfully = false;
+          let extractionInProgress = false;
 
           // Function to attempt device code extraction and browser opening
+          // Uses mutex pattern to prevent race conditions from concurrent data handlers
           const tryExtractAndOpenBrowser = async () => {
-            if (deviceCodeExtracted) return; // Already extracted
+            if (deviceCodeExtracted || extractionInProgress) return;
+            extractionInProgress = true;
 
             const deviceFlowInfo = parseDeviceFlowOutput(output, errorOutput);
 
@@ -240,6 +243,9 @@ export function registerStartGhAuth(): void {
                 browserOpenedSuccessfully = false;
                 // Don't fail here - we'll return the device code so user can manually navigate
               }
+            } else {
+              // No device code found yet, allow next data chunk to try again
+              extractionInProgress = false;
             }
           };
 
@@ -248,7 +254,8 @@ export function registerStartGhAuth(): void {
             output += chunk;
             debugLog('gh stdout:', chunk);
             // Try to extract device code as data comes in
-            tryExtractAndOpenBrowser();
+            // Use void to explicitly ignore promise
+            void tryExtractAndOpenBrowser();
           });
 
           ghProcess.stderr?.on('data', (data) => {
@@ -256,7 +263,7 @@ export function registerStartGhAuth(): void {
             errorOutput += chunk;
             debugLog('gh stderr:', chunk);
             // gh often outputs to stderr, so check there too
-            tryExtractAndOpenBrowser();
+            void tryExtractAndOpenBrowser();
           });
 
           ghProcess.on('close', (code) => {
