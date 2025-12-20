@@ -49,14 +49,14 @@ export function registerWorktreeHandlers(
             encoding: 'utf-8'
           }).trim();
 
-          // Get base branch (usually main or master)
+          // Get base branch - the current branch in the main project (where changes will be merged)
+          // This matches the Python merge logic which merges into the user's current branch
           let baseBranch = 'main';
           try {
-            // Try to get the default branch
-            baseBranch = execSync('git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main', {
+            baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
               cwd: project.path,
               encoding: 'utf-8'
-            }).trim().replace('origin/', '');
+            }).trim();
           } catch {
             baseBranch = 'main';
           }
@@ -145,13 +145,13 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'No worktree found for this task' };
         }
 
-        // Get base branch
+        // Get base branch - the current branch in the main project (where changes will be merged)
         let baseBranch = 'main';
         try {
-          baseBranch = execSync('git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main', {
+          baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
             cwd: project.path,
             encoding: 'utf-8'
-          }).trim().replace('origin/', '');
+          }).trim();
         } catch {
           baseBranch = 'main';
         }
@@ -865,13 +865,13 @@ export function registerWorktreeHandlers(
               encoding: 'utf-8'
             }).trim();
 
-            // Get base branch
+            // Get base branch - the current branch in the main project (where changes will be merged)
             let baseBranch = 'main';
             try {
-              baseBranch = execSync('git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main', {
+              baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
                 cwd: project.path,
                 encoding: 'utf-8'
-              }).trim().replace('origin/', '');
+              }).trim();
             } catch {
               baseBranch = 'main';
             }
