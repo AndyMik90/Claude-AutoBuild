@@ -48,7 +48,8 @@ import {
 import type {
   RoadmapPhase,
   RoadmapFeaturePriority,
-  RoadmapFeatureStatus
+  RoadmapFeatureStatus,
+  FeatureSource
 } from '../../shared/types';
 
 /**
@@ -147,9 +148,10 @@ export function AddFeatureDialog({
         impact,
         phaseId,
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: [],
-        userStories: []
+        userStories: [],
+        source: { provider: 'internal' }
       });
 
       // Persist to file via IPC

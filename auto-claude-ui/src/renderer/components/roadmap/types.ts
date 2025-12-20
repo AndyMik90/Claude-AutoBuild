@@ -27,6 +27,7 @@ export interface FeatureDetailPanelProps {
   onClose: () => void;
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
+  onDelete?: (featureId: string) => void;
   competitorInsights?: CompetitorPainPoint[];
 }
 
@@ -49,4 +50,5 @@ export interface RoadmapTabsProps {
   onFeatureSelect: (feature: RoadmapFeature) => void;
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
+  onSave?: () => void;
 }

@@ -24,7 +24,7 @@ function createTestFeature(overrides: Partial<RoadmapFeature> = {}): RoadmapFeat
     impact: 'medium',
     phaseId: 'phase-1',
     dependencies: [],
-    status: 'idea' as RoadmapFeatureStatus,
+    status: 'under_review' as RoadmapFeatureStatus,
     acceptanceCriteria: ['Test criteria'],
     userStories: ['As a user, I want to test'],
     ...overrides
@@ -309,7 +309,7 @@ describe('Roadmap Store', () => {
         impact: 'high' as const,
         phaseId: 'phase-1',
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: ['Criteria 1'],
         userStories: ['User story 1']
       };
@@ -336,7 +336,7 @@ describe('Roadmap Store', () => {
         impact: 'medium' as const,
         phaseId: 'phase-1',
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: [],
         userStories: []
       };
@@ -393,7 +393,7 @@ describe('Roadmap Store', () => {
         impact: 'high' as const,
         phaseId: 'phase-1',
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: [],
         userStories: []
       });
@@ -414,7 +414,7 @@ describe('Roadmap Store', () => {
         impact: 'high' as const,
         phaseId: 'phase-1',
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: [],
         userStories: []
       });
@@ -438,7 +438,7 @@ describe('Roadmap Store', () => {
         impact: 'medium' as const,
         phaseId: 'phase-3',
         dependencies: [],
-        status: 'idea' as RoadmapFeatureStatus,
+        status: 'under_review' as RoadmapFeatureStatus,
         acceptanceCriteria: [],
         userStories: []
       });
@@ -489,7 +489,7 @@ describe('Roadmap Store', () => {
 
   describe('updateFeatureStatus', () => {
     it('should update feature status by id', () => {
-      const features = [createTestFeature({ id: 'feature-1', status: 'idea' })];
+      const features = [createTestFeature({ id: 'feature-1', status: 'under_review' })];
       const roadmap = createTestRoadmap({ features });
 
       useRoadmapStore.setState({ roadmap });
@@ -503,7 +503,7 @@ describe('Roadmap Store', () => {
 
   describe('updateFeatureLinkedSpec', () => {
     it('should update linked spec and set status to planned', () => {
-      const features = [createTestFeature({ id: 'feature-1', status: 'idea' })];
+      const features = [createTestFeature({ id: 'feature-1', status: 'under_review' })];
       const roadmap = createTestRoadmap({ features });
 
       useRoadmapStore.setState({ roadmap });
@@ -596,9 +596,9 @@ describe('Roadmap Store', () => {
       it('should return correct stats', () => {
         const roadmap = createTestRoadmap({
           features: [
-            createTestFeature({ priority: 'must', status: 'idea', complexity: 'high' }),
+            createTestFeature({ priority: 'must', status: 'under_review', complexity: 'high' }),
             createTestFeature({ priority: 'must', status: 'planned', complexity: 'medium' }),
-            createTestFeature({ priority: 'should', status: 'idea', complexity: 'low' })
+            createTestFeature({ priority: 'should', status: 'under_review', complexity: 'low' })
           ]
         });
 

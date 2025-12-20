@@ -57,7 +57,7 @@ export function useFeatureActions() {
         setSelectedFeature({
           ...feature,
           linkedSpecId: result.data.specId,
-          status: 'planned',
+          status: 'in_progress',
         });
       }
     }
@@ -66,6 +66,52 @@ export function useFeatureActions() {
   return {
     convertFeatureToSpec,
   };
+}
+
+/**
+ * Hook to save roadmap changes to disk
+ *
+ * NOTE: Gets roadmap from store at call time (not render time) to ensure
+ * we save the latest state after Zustand updates (e.g., after drag-drop status change)
+ */
+export function useRoadmapSave(projectId: string) {
+  const saveRoadmap = async () => {
+    // Get current state at call time to avoid stale closure issues
+    const roadmap = useRoadmapStore.getState().roadmap;
+    if (!roadmap) return;
+
+    try {
+      await window.electronAPI.saveRoadmap(projectId, roadmap);
+    } catch (error) {
+      console.error('Failed to save roadmap:', error);
+    }
+  };
+
+  return { saveRoadmap };
+}
+
+/**
+ * Hook to delete features from roadmap
+ */
+export function useFeatureDelete(projectId: string) {
+  const deleteFeature = useRoadmapStore((state) => state.deleteFeature);
+
+  const handleDeleteFeature = async (featureId: string) => {
+    // Delete from store
+    deleteFeature(featureId);
+
+    // Persist to file
+    const roadmap = useRoadmapStore.getState().roadmap;
+    if (roadmap) {
+      try {
+        await window.electronAPI.saveRoadmap(projectId, roadmap);
+      } catch (error) {
+        console.error('Failed to save roadmap after delete:', error);
+      }
+    }
+  };
+
+  return { deleteFeature: handleDeleteFeature };
 }
 
 /**

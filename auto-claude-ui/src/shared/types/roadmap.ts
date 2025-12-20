@@ -68,9 +68,18 @@ export interface CompetitorAnalysis {
 // ============================================
 
 export type RoadmapFeaturePriority = 'must' | 'should' | 'could' | 'wont';
-export type RoadmapFeatureStatus = 'idea' | 'planned' | 'in_progress' | 'done';
+export type RoadmapFeatureStatus = 'under_review' | 'planned' | 'in_progress' | 'done';
 export type RoadmapPhaseStatus = 'planned' | 'in_progress' | 'completed';
 export type RoadmapStatus = 'draft' | 'active' | 'archived';
+
+// Feature source tracking for external integrations (Canny, GitHub Issues, etc.)
+export type FeatureSourceProvider = 'internal' | 'canny' | 'github_issue';
+
+export interface FeatureSource {
+  provider: FeatureSourceProvider;
+  importedAt?: Date;
+  lastSyncedAt?: Date;
+}
 
 export interface TargetAudience {
   primary: string;
@@ -114,6 +123,11 @@ export interface RoadmapFeature {
   userStories: string[];
   linkedSpecId?: string;
   competitorInsightIds?: string[];
+  // External integration fields
+  source?: FeatureSource;
+  externalId?: string;    // ID from external system (e.g., Canny post ID)
+  externalUrl?: string;   // Link back to external system
+  votes?: number;         // Vote count from external system
 }
 
 export interface Roadmap {

@@ -18,17 +18,18 @@ import {
   verticalListSortingStrategy,
   arrayMove
 } from '@dnd-kit/sortable';
-import { Plus, Inbox } from 'lucide-react';
+import { Plus, Inbox, Eye, Calendar, Play, Check } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
 import { SortableFeatureCard } from './SortableFeatureCard';
 import { cn } from '../lib/utils';
+import { useRoadmapStore } from '../stores/roadmap-store';
 import {
-  useRoadmapStore,
-  getFeaturesByPhase
-} from '../stores/roadmap-store';
-import type { RoadmapFeature, RoadmapPhase, Roadmap } from '../../shared/types';
+  ROADMAP_STATUS_COLUMNS,
+  type RoadmapStatusColumn
+} from '../../shared/constants';
+import type { RoadmapFeature, RoadmapFeatureStatus, Roadmap } from '../../shared/types';
 
 interface RoadmapKanbanViewProps {
   roadmap: Roadmap;
@@ -38,37 +39,43 @@ interface RoadmapKanbanViewProps {
   onSave?: () => void;
 }
 
-interface DroppablePhaseColumnProps {
-  phase: RoadmapPhase;
+interface DroppableStatusColumnProps {
+  column: RoadmapStatusColumn;
   features: RoadmapFeature[];
+  roadmap: Roadmap;
   onFeatureClick: (feature: RoadmapFeature) => void;
   onConvertToSpec?: (feature: RoadmapFeature) => void;
   onGoToTask?: (specId: string) => void;
   isOver: boolean;
 }
 
-// Get phase status color for column header
-function getPhaseStatusColor(status: string): string {
-  switch (status) {
-    case 'completed':
-      return 'border-t-success';
-    case 'in_progress':
-      return 'border-t-primary';
+// Get icon component for status
+function getStatusIcon(iconName: string) {
+  switch (iconName) {
+    case 'Eye':
+      return <Eye className="h-3.5 w-3.5" />;
+    case 'Calendar':
+      return <Calendar className="h-3.5 w-3.5" />;
+    case 'Play':
+      return <Play className="h-3.5 w-3.5" />;
+    case 'Check':
+      return <Check className="h-3.5 w-3.5" />;
     default:
-      return 'border-t-muted-foreground/30';
+      return null;
   }
 }
 
-function DroppablePhaseColumn({
-  phase,
+function DroppableStatusColumn({
+  column,
   features,
+  roadmap,
   onFeatureClick,
   onConvertToSpec,
   onGoToTask,
   isOver
-}: DroppablePhaseColumnProps) {
+}: DroppableStatusColumnProps) {
   const { setNodeRef } = useDroppable({
-    id: phase.id
+    id: column.id
   });
 
   const featureIds = features.map((f) => f.id);
@@ -78,7 +85,7 @@ function DroppablePhaseColumn({
       ref={setNodeRef}
       className={cn(
         'flex min-w-80 w-80 shrink-0 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
-        getPhaseStatusColor(phase.status),
+        column.color,
         'border-t-2',
         isOver && 'drop-zone-highlight'
       )}
@@ -87,29 +94,26 @@ function DroppablePhaseColumn({
       <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-              phase.status === 'completed'
+            className={cn(
+              'w-6 h-6 rounded-full flex items-center justify-center',
+              column.id === 'done'
                 ? 'bg-success/10 text-success'
-                : phase.status === 'in_progress'
+                : column.id === 'in_progress'
                 ? 'bg-primary/10 text-primary'
+                : column.id === 'planned'
+                ? 'bg-info/10 text-info'
                 : 'bg-muted text-muted-foreground'
-            }`}
+            )}
           >
-            {phase.order}
+            {getStatusIcon(column.icon)}
           </div>
-          <h2 className="font-semibold text-sm text-foreground truncate max-w-[180px]">
-            {phase.name}
+          <h2 className="font-semibold text-sm text-foreground">
+            {column.label}
           </h2>
           <span className="column-count-badge">
             {features.length}
           </span>
         </div>
-        <Badge
-          variant={phase.status === 'completed' ? 'default' : 'outline'}
-          className="text-xs"
-        >
-          {phase.status.replace('_', ' ')}
-        </Badge>
       </div>
 
       {/* Features list */}
@@ -151,6 +155,7 @@ function DroppablePhaseColumn({
                   <SortableFeatureCard
                     key={feature.id}
                     feature={feature}
+                    roadmap={roadmap}
                     onClick={() => onFeatureClick(feature)}
                     onConvertToSpec={onConvertToSpec}
                     onGoToTask={onGoToTask}
@@ -175,8 +180,7 @@ export function RoadmapKanbanView({
   const [activeFeature, setActiveFeature] = useState<RoadmapFeature | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
-  const reorderFeatures = useRoadmapStore((state) => state.reorderFeatures);
-  const updateFeaturePhase = useRoadmapStore((state) => state.updateFeaturePhase);
+  const updateFeatureStatus = useRoadmapStore((state) => state.updateFeatureStatus);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -189,17 +193,17 @@ export function RoadmapKanbanView({
     })
   );
 
-  // Get features grouped by phase
-  const featuresByPhase = useMemo(() => {
+  // Get features grouped by status
+  const featuresByStatus = useMemo(() => {
     const grouped: Record<string, RoadmapFeature[]> = {};
-    roadmap.phases.forEach((phase) => {
-      grouped[phase.id] = getFeaturesByPhase(roadmap, phase.id);
+    ROADMAP_STATUS_COLUMNS.forEach((column) => {
+      grouped[column.id] = roadmap.features.filter((f) => f.status === column.id);
     });
     return grouped;
-  }, [roadmap]);
+  }, [roadmap.features]);
 
-  // Get all phase IDs for detecting column drops
-  const phaseIds = useMemo(() => roadmap.phases.map((p) => p.id), [roadmap.phases]);
+  // Get all status IDs for detecting column drops
+  const statusIds = useMemo(() => ROADMAP_STATUS_COLUMNS.map((c) => c.id), []);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -219,16 +223,16 @@ export function RoadmapKanbanView({
 
     const overId = over.id as string;
 
-    // Check if over a phase column
-    if (phaseIds.includes(overId)) {
+    // Check if over a status column
+    if (statusIds.includes(overId)) {
       setOverColumnId(overId);
       return;
     }
 
-    // Check if over a feature - get its phase
+    // Check if over a feature - get its status
     const overFeature = roadmap.features.find((f) => f.id === overId);
     if (overFeature) {
-      setOverColumnId(overFeature.phaseId);
+      setOverColumnId(overFeature.status);
     }
   };
 
@@ -245,59 +249,36 @@ export function RoadmapKanbanView({
 
     if (!draggedFeature) return;
 
-    // Determine target phase
-    let targetPhaseId: string;
-    let targetFeatureIndex: number = -1;
+    // Determine target status
+    let targetStatus: RoadmapFeatureStatus;
 
-    if (phaseIds.includes(overId)) {
-      // Dropped directly on a phase column
-      targetPhaseId = overId;
+    if (statusIds.includes(overId)) {
+      // Dropped directly on a status column
+      targetStatus = overId as RoadmapFeatureStatus;
     } else {
-      // Dropped on a feature - get its phase and position
+      // Dropped on a feature - get its status
       const overFeature = roadmap.features.find((f) => f.id === overId);
       if (!overFeature) return;
-      targetPhaseId = overFeature.phaseId;
-      const targetFeatures = featuresByPhase[targetPhaseId] || [];
-      targetFeatureIndex = targetFeatures.findIndex((f) => f.id === overId);
+      targetStatus = overFeature.status;
     }
 
-    const sourcePhaseId = draggedFeature.phaseId;
+    const sourceStatus = draggedFeature.status;
 
-    if (sourcePhaseId !== targetPhaseId) {
-      // Moving to a different phase
-      updateFeaturePhase(activeFeatureId, targetPhaseId);
-
-      // If dropped on a specific feature, reorder within the new phase
-      if (targetFeatureIndex !== -1) {
-        const targetFeatures = [...(featuresByPhase[targetPhaseId] || [])];
-        // Add the moved feature at the target position
-        const updatedIds = targetFeatures.map((f) => f.id);
-        if (!updatedIds.includes(activeFeatureId)) {
-          updatedIds.splice(targetFeatureIndex, 0, activeFeatureId);
-          reorderFeatures(targetPhaseId, updatedIds);
-        }
-      }
+    if (sourceStatus !== targetStatus) {
+      // Moving to a different status
+      updateFeatureStatus(activeFeatureId, targetStatus);
 
       // Trigger save callback
       onSave?.();
-    } else {
-      // Reordering within the same phase
-      const sourceFeatures = featuresByPhase[sourcePhaseId] || [];
-      const oldIndex = sourceFeatures.findIndex((f) => f.id === activeFeatureId);
-      const newIndex = targetFeatureIndex !== -1 ? targetFeatureIndex : sourceFeatures.length - 1;
-
-      if (oldIndex !== newIndex) {
-        const reorderedIds = arrayMove(
-          sourceFeatures.map((f) => f.id),
-          oldIndex,
-          newIndex
-        );
-        reorderFeatures(sourcePhaseId, reorderedIds);
-
-        // Trigger save callback
-        onSave?.();
-      }
     }
+    // Note: We don't support reordering within status columns for now
+    // Features are displayed in their natural order within each status
+  };
+
+  // Get phase name for a feature (for display in drag overlay)
+  const getPhaseNameForFeature = (feature: RoadmapFeature) => {
+    const phase = roadmap.phases.find((p) => p.id === feature.phaseId);
+    return phase?.name || 'Unknown Phase';
   };
 
   return (
@@ -311,19 +292,18 @@ export function RoadmapKanbanView({
         onDragEnd={handleDragEnd}
       >
         <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {roadmap.phases
-            .sort((a, b) => a.order - b.order)
-            .map((phase) => (
-              <DroppablePhaseColumn
-                key={phase.id}
-                phase={phase}
-                features={featuresByPhase[phase.id] || []}
-                onFeatureClick={onFeatureClick}
-                onConvertToSpec={onConvertToSpec}
-                onGoToTask={onGoToTask}
-                isOver={overColumnId === phase.id}
-              />
-            ))}
+          {ROADMAP_STATUS_COLUMNS.map((column) => (
+            <DroppableStatusColumn
+              key={column.id}
+              column={column}
+              features={featuresByStatus[column.id] || []}
+              roadmap={roadmap}
+              onFeatureClick={onFeatureClick}
+              onConvertToSpec={onConvertToSpec}
+              onGoToTask={onGoToTask}
+              isOver={overColumnId === column.id}
+            />
+          ))}
         </div>
 
         {/* Drag overlay - enhanced visual feedback */}
@@ -331,6 +311,11 @@ export function RoadmapKanbanView({
           {activeFeature ? (
             <div className="drag-overlay-card">
               <Card className="p-4 w-80 shadow-2xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {getPhaseNameForFeature(activeFeature)}
+                  </Badge>
+                </div>
                 <div className="font-medium">{activeFeature.title}</div>
                 <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                   {activeFeature.description}
