@@ -29,11 +29,13 @@ class RoadmapOrchestrator:
         model: str = "claude-opus-4-5-20251101",
         refresh: bool = False,
         enable_competitor_analysis: bool = False,
+        refresh_competitor_analysis: bool = False,
     ):
         self.project_dir = Path(project_dir)
         self.model = model
         self.refresh = refresh
         self.enable_competitor_analysis = enable_competitor_analysis
+        self.refresh_competitor_analysis = refresh_competitor_analysis
 
         # Default output to project's .auto-claude directory (installed instance)
         # Note: auto-claude/ is source code, .auto-claude/ is the installed instance
@@ -59,8 +61,10 @@ class RoadmapOrchestrator:
         self.graph_hints_provider = GraphHintsProvider(
             self.output_dir, self.project_dir, self.refresh
         )
+        # Competitor analyzer refreshes if either general refresh or specific competitor refresh
+        competitor_should_refresh = self.refresh or self.refresh_competitor_analysis
         self.competitor_analyzer = CompetitorAnalyzer(
-            self.output_dir, self.refresh, self.agent_executor
+            self.output_dir, competitor_should_refresh, self.agent_executor
         )
         self.project_index_phase = ProjectIndexPhase(
             self.output_dir, self.refresh, self.script_executor

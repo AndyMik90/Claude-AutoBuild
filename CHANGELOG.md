@@ -1,3 +1,107 @@
+## 2.6.0 - Improved User Experience and Agent Configuration
+
+### ✨ New Features
+
+- Add customizable phase configuration in app settings, allowing users to tailor the AI build pipeline to their workflow
+
+- Implement parallel AI merge functionality for faster integration of completed builds
+
+- Add Google AI as LLM and embedding provider for Graphiti memory system
+
+- Implement device code authentication flow with timeout handling, browser launch fallback, and comprehensive testing
+
+### 🛠️ Improvements
+
+- Move Agent Profiles from dashboard to Settings for better organization and discoverability
+
+- Default agent profile to 'Auto (Optimized)' for streamlined out-of-the-box experience
+
+- Enhance WorkspaceStatus component UI with improved visual design
+
+- Refactor task management from sidebar to modal interface for cleaner navigation
+
+- Add comprehensive theme system with multiple color schemes (Forest, Neo, Retro, Dusk, Ocean, Lime) and light/dark mode support
+
+- Extract human-readable feature titles from spec.md for better task identification
+
+- Improve task description display for specs with compact markdown formatting
+
+### 🐛 Bug Fixes
+
+- Fix asyncio coroutine creation in worker threads to properly support async operations
+
+- Improve UX for phase configuration in task creation workflow
+
+- Address CodeRabbit PR #69 feedback and additional review comments
+
+- Fix auto-close behavior for task modal when marking tasks as done
+
+- Resolve Python lint errors and import sorting issues (ruff I001 compliance)
+
+- Ensure planner agent properly writes implementation_plan.json
+
+- Add platform detection for terminal profile commands on Windows
+
+- Set default selected agent profile to 'auto' across all users
+
+- Fix display of correct merge target branch in worktree UI
+
+- Add validation for invalid colorTheme fallback to prevent UI errors
+
+- Remove outdated Sun/Moon toggle button from sidebar
+
+---
+
+## What's Changed
+
+- feat: add customizable phase configuration in app settings by @AndyMik90 in aee0ba4
+
+- feat: implement parallel AI merge functionality by @AndyMik90 in 458d4bb
+
+- feat(graphiti): add Google AI as LLM and embedding provider by @adryserage in fe69106
+
+- fix: create coroutine inside worker thread for asyncio.run by @AndyMik90 in f89e4e6
+
+- fix: improve UX for phase configuration in task creation by @AndyMik90 in b9797cb
+
+- fix: address CodeRabbit PR #69 feedback by @AndyMik90 in cc38a06
+
+- fix: sort imports in workspace.py to pass ruff I001 check by @AndyMik90 in 9981ee4
+
+- fix(ui): auto-close task modal when marking task as done by @AndyMik90 in 297d380
+
+- fix: resolve Python lint errors in workspace.py by @AndyMik90 in 0506256
+
+- refactor: move Agent Profiles from dashboard to Settings by @AndyMik90 in 1094990
+
+- fix(planning): ensure planner agent writes implementation_plan.json by @AndyMik90 in 9ab5a4f
+
+- fix(windows): add platform detection for terminal profile commands by @AndyMik90 in f0a6a0a
+
+- fix: default agent profile to 'Auto (Optimized)' for all users by @AndyMik90 in 08aa2ff
+
+- fix: update default selected agent profile to 'auto' by @AndyMik90 in 37ace0a
+
+- style: enhance WorkspaceStatus component UI by @AndyMik90 in 3092155
+
+- fix: display correct merge target branch in worktree UI by @AndyMik90 in 2b96160
+
+- Improvement/refactor task sidebar to task modal by @AndyMik90 in 2a96f85
+
+- fix: extract human-readable title from spec.md when feature field is spec ID by @AndyMik90 in 8b59375
+
+- fix: task descriptions not showing for specs with compact markdown by @AndyMik90 in 7f12ef0
+
+- Add comprehensive theme system with Forest, Neo, Retro, Dusk, Ocean, and Lime color schemes by @AndyMik90 in ba776a3, e2b24e2, 7589046, e248256, 76c1bd7, bcbced2
+
+- Add ColorTheme type and configuration to app settings by @AndyMik90 in 2ca89ce, c505d6e, a75c0a9
+
+- Implement device code authentication flow with timeout handling and fallback URL display by @AndyMik90 in 5f26d39, 81e1536, 1a7cf40, 4a4ad6b, 6a4c1b4, b75a09c, e134c4c
+
+- fix(graphiti): address CodeRabbit review comments by @adryserage in 679b8cd
+
+- fix(lint): sort imports in Google provider files by @adryserage in 1a38a06
+
 ## 2.6.0 - Multi-Provider Graphiti Support & Platform Fixes
 
 ### ✨ New Features

@@ -62,11 +62,11 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
-  generateRoadmap: () => {
+  generateRoadmap: (_projectId: string, _enableCompetitorAnalysis?: boolean, _refreshCompetitorAnalysis?: boolean) => {
     console.warn('[Browser Mock] generateRoadmap called');
   },
 
-  refreshRoadmap: () => {
+  refreshRoadmap: (_projectId: string, _enableCompetitorAnalysis?: boolean, _refreshCompetitorAnalysis?: boolean) => {
     console.warn('[Browser Mock] refreshRoadmap called');
   },
 

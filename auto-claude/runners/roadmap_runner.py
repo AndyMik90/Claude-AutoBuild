@@ -69,6 +69,12 @@ def main():
         dest="enable_competitor_analysis",
         help="Enable competitor analysis phase",
     )
+    parser.add_argument(
+        "--refresh-competitor-analysis",
+        action="store_true",
+        dest="refresh_competitor_analysis",
+        help="Force refresh competitor analysis even if it exists (requires --competitor-analysis)",
+    )
 
     args = parser.parse_args()
 
@@ -102,6 +108,7 @@ def main():
         model=args.model,
         refresh=args.refresh,
         enable_competitor_analysis=args.enable_competitor_analysis,
+        refresh_competitor_analysis=args.refresh_competitor_analysis,
     )
 
     try:

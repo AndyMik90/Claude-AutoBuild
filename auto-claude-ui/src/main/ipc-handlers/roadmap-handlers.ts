@@ -172,10 +172,11 @@ export function registerRoadmapHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_GENERATE,
-    (_, projectId: string, enableCompetitorAnalysis?: boolean) => {
+    (_, projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => {
       debugLog('[Roadmap Handler] Generate request:', {
         projectId,
-        enableCompetitorAnalysis
+        enableCompetitorAnalysis,
+        refreshCompetitorAnalysis
       });
 
       const mainWindow = getMainWindow();
@@ -198,7 +199,13 @@ export function registerRoadmapHandlers(
       });
 
       // Start roadmap generation via agent manager
-      agentManager.startRoadmapGeneration(projectId, project.path, false, enableCompetitorAnalysis ?? false);
+      agentManager.startRoadmapGeneration(
+        projectId,
+        project.path,
+        false, // refresh (not a refresh operation)
+        enableCompetitorAnalysis ?? false,
+        refreshCompetitorAnalysis ?? false
+      );
 
       // Send initial progress
       mainWindow.webContents.send(
@@ -215,7 +222,13 @@ export function registerRoadmapHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.ROADMAP_REFRESH,
-    (_, projectId: string, enableCompetitorAnalysis?: boolean) => {
+    (_, projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => {
+      debugLog('[Roadmap Handler] Refresh request:', {
+        projectId,
+        enableCompetitorAnalysis,
+        refreshCompetitorAnalysis
+      });
+
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
@@ -230,7 +243,13 @@ export function registerRoadmapHandlers(
       }
 
       // Start roadmap regeneration with refresh flag
-      agentManager.startRoadmapGeneration(projectId, project.path, true, enableCompetitorAnalysis ?? false);
+      agentManager.startRoadmapGeneration(
+        projectId,
+        project.path,
+        true, // refresh (this is a refresh operation)
+        enableCompetitorAnalysis ?? false,
+        refreshCompetitorAnalysis ?? false
+      );
 
       // Send initial progress
       mainWindow.webContents.send(

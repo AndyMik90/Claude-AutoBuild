@@ -49,7 +49,11 @@ const FORMAT_TEMPLATES = {
 
 ## What's Changed
 
-- type: description by @contributor in commit-hash`
+- type: description by @contributor in commit-hash
+
+## Thanks to all contributors
+
+@contributor1, @contributor2`
 };
 
 /**
@@ -274,7 +278,15 @@ PART 2 - "What's Changed" (raw commit list):
 - Example: "- feat: add dark mode support by @contributor in def5678"
 - Include the commit type prefix (feat:, fix:, docs:, etc.)
 - Show the author name with @ prefix
-- Show the short commit hash at the end`;
+- Show the short commit hash at the end
+
+PART 3 - "Thanks to all contributors" (deduplicated list):
+- Add this section after "What's Changed"
+- Extract all unique contributor names from the commits
+- List them in a comma-separated format with @ prefix
+- Example: "## Thanks to all contributors\\n\\n@contributor1, @contributor2, @contributor3"
+- Only include unique names (no duplicates)
+- This acknowledges everyone who contributed to this release`;
   }
 
   return `${audienceInstruction}

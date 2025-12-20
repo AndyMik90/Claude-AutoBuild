@@ -33,18 +33,24 @@ export class AgentQueueManager {
 
   /**
    * Start roadmap generation process
+   *
+   * @param refreshCompetitorAnalysis - Force refresh competitor analysis even if it exists.
+   *   This allows refreshing competitor data independently of the general roadmap refresh.
+   *   Use when user explicitly wants new competitor research.
    */
   startRoadmapGeneration(
     projectId: string,
     projectPath: string,
     refresh: boolean = false,
-    enableCompetitorAnalysis: boolean = false
+    enableCompetitorAnalysis: boolean = false,
+    refreshCompetitorAnalysis: boolean = false
   ): void {
     debugLog('[Agent Queue] Starting roadmap generation:', {
       projectId,
       projectPath,
       refresh,
-      enableCompetitorAnalysis
+      enableCompetitorAnalysis,
+      refreshCompetitorAnalysis
     });
 
     const autoBuildSource = this.processManager.getAutoBuildSourcePath();
@@ -72,6 +78,11 @@ export class AgentQueueManager {
     // Add competitor analysis flag if enabled
     if (enableCompetitorAnalysis) {
       args.push('--competitor-analysis');
+    }
+
+    // Add refresh competitor analysis flag if user wants fresh competitor data
+    if (refreshCompetitorAnalysis) {
+      args.push('--refresh-competitor-analysis');
     }
 
     debugLog('[Agent Queue] Spawning roadmap process with args:', args);
@@ -318,6 +329,15 @@ export class AgentQueueManager {
     childProcess.on('exit', (code: number | null) => {
       debugLog('[Agent Queue] Ideation process exited:', { projectId, code, spawnId });
 
+      // Check if this process was intentionally stopped by the user
+      const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
+      if (wasIntentionallyStopped) {
+        debugLog('[Agent Queue] Ideation process was intentionally stopped, ignoring exit');
+        this.state.clearKilledSpawn(spawnId);
+        this.state.deleteProcess(projectId);
+        return;
+      }
+
       // Get the stored project path before deleting from map
       const processInfo = this.state.getProcess(projectId);
       const storedProjectPath = processInfo?.projectPath;
@@ -516,6 +536,15 @@ export class AgentQueueManager {
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
       debugLog('[Agent Queue] Roadmap process exited:', { projectId, code, spawnId });
+
+      // Check if this process was intentionally stopped by the user
+      const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
+      if (wasIntentionallyStopped) {
+        debugLog('[Agent Queue] Roadmap process was intentionally stopped, ignoring exit');
+        this.state.clearKilledSpawn(spawnId);
+        this.state.deleteProcess(projectId);
+        return;
+      }
 
       // Get the stored project path before deleting from map
       const processInfo = this.state.getProcess(projectId);

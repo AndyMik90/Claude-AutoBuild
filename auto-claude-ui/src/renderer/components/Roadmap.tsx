@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RoadmapGenerationProgress } from './RoadmapGenerationProgress';
 import { CompetitorAnalysisDialog } from './CompetitorAnalysisDialog';
+import { ExistingCompetitorAnalysisDialog } from './ExistingCompetitorAnalysisDialog';
 import { CompetitorAnalysisViewer } from './CompetitorAnalysisViewer';
 import { AddFeatureDialog } from './AddFeatureDialog';
 import { RoadmapHeader } from './roadmap/RoadmapHeader';
@@ -23,6 +24,14 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const { roadmap, competitorAnalysis, generationStatus } = useRoadmapData(projectId);
   const { convertFeatureToSpec } = useFeatureActions();
   const {
+    competitorAnalysisDate,
+    // New dialog for existing analysis
+    showExistingAnalysisDialog,
+    setShowExistingAnalysisDialog,
+    handleUseExistingAnalysis,
+    handleRunNewAnalysis,
+    handleSkipAnalysis,
+    // Original dialog for no existing analysis
     showCompetitorDialog,
     setShowCompetitorDialog,
     handleGenerate,
@@ -61,11 +70,21 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
     return (
       <>
         <RoadmapEmptyState onGenerate={handleGenerate} />
+        {/* Dialog for projects WITHOUT existing competitor analysis */}
         <CompetitorAnalysisDialog
           open={showCompetitorDialog}
           onOpenChange={setShowCompetitorDialog}
           onAccept={handleCompetitorDialogAccept}
           onDecline={handleCompetitorDialogDecline}
+        />
+        {/* Dialog for projects WITH existing competitor analysis */}
+        <ExistingCompetitorAnalysisDialog
+          open={showExistingAnalysisDialog}
+          onOpenChange={setShowExistingAnalysisDialog}
+          onUseExisting={handleUseExistingAnalysis}
+          onRunNew={handleRunNewAnalysis}
+          onSkip={handleSkipAnalysis}
+          analysisDate={competitorAnalysisDate}
         />
       </>
     );
@@ -106,12 +125,22 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
         />
       )}
 
-      {/* Competitor Analysis Permission Dialog */}
+      {/* Competitor Analysis Permission Dialog (no existing analysis) */}
       <CompetitorAnalysisDialog
         open={showCompetitorDialog}
         onOpenChange={setShowCompetitorDialog}
         onAccept={handleCompetitorDialogAccept}
         onDecline={handleCompetitorDialogDecline}
+      />
+
+      {/* Competitor Analysis Options Dialog (existing analysis) */}
+      <ExistingCompetitorAnalysisDialog
+        open={showExistingAnalysisDialog}
+        onOpenChange={setShowExistingAnalysisDialog}
+        onUseExisting={handleUseExistingAnalysis}
+        onRunNew={handleRunNewAnalysis}
+        onSkip={handleSkipAnalysis}
+        analysisDate={competitorAnalysisDate}
       />
 
       {/* Competitor Analysis Viewer */}

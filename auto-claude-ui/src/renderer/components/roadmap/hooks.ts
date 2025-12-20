@@ -70,21 +70,39 @@ export function useFeatureActions() {
 
 /**
  * Hook to manage roadmap generation actions
+ *
+ * Handles two scenarios:
+ * 1. No existing competitor analysis: Show simple enable/skip dialog
+ * 2. Existing competitor analysis: Show options to use existing, run new, or skip
  */
 export function useRoadmapGeneration(projectId: string) {
+  const competitorAnalysis = useRoadmapStore((state) => state.competitorAnalysis);
   const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | null>(null);
   const [showCompetitorDialog, setShowCompetitorDialog] = useState(false);
+  const [showExistingAnalysisDialog, setShowExistingAnalysisDialog] = useState(false);
+
+  // Check if we have existing competitor analysis
+  const hasExistingAnalysis = !!competitorAnalysis;
 
   const handleGenerate = () => {
     setPendingAction('generate');
-    setShowCompetitorDialog(true);
+    if (hasExistingAnalysis) {
+      setShowExistingAnalysisDialog(true);
+    } else {
+      setShowCompetitorDialog(true);
+    }
   };
 
   const handleRefresh = () => {
     setPendingAction('refresh');
-    setShowCompetitorDialog(true);
+    if (hasExistingAnalysis) {
+      setShowExistingAnalysisDialog(true);
+    } else {
+      setShowCompetitorDialog(true);
+    }
   };
 
+  // Handler for "Yes, Enable Analysis" (new competitor analysis)
   const handleCompetitorDialogAccept = () => {
     if (pendingAction === 'generate') {
       generateRoadmap(projectId, true); // Enable competitor analysis
@@ -94,11 +112,44 @@ export function useRoadmapGeneration(projectId: string) {
     setPendingAction(null);
   };
 
+  // Handler for "No, Skip Analysis"
   const handleCompetitorDialogDecline = () => {
     if (pendingAction === 'generate') {
       generateRoadmap(projectId, false); // Disable competitor analysis
     } else if (pendingAction === 'refresh') {
       refreshRoadmap(projectId, false); // Disable competitor analysis
+    }
+    setPendingAction(null);
+  };
+
+  // Handler for "Use existing analysis" - reuses saved competitor data
+  const handleUseExistingAnalysis = () => {
+    // Enable competitor analysis but don't force refresh - backend will use existing if available
+    if (pendingAction === 'generate') {
+      generateRoadmap(projectId, true, false); // enableCompetitorAnalysis=true, refreshCompetitorAnalysis=false
+    } else if (pendingAction === 'refresh') {
+      refreshRoadmap(projectId, true, false); // enableCompetitorAnalysis=true, refreshCompetitorAnalysis=false
+    }
+    setPendingAction(null);
+  };
+
+  // Handler for "Run new analysis" - performs fresh web searches
+  const handleRunNewAnalysis = () => {
+    // Enable competitor analysis AND force refresh to run fresh web searches
+    if (pendingAction === 'generate') {
+      generateRoadmap(projectId, true, true); // enableCompetitorAnalysis=true, refreshCompetitorAnalysis=true
+    } else if (pendingAction === 'refresh') {
+      refreshRoadmap(projectId, true, true); // enableCompetitorAnalysis=true, refreshCompetitorAnalysis=true
+    }
+    setPendingAction(null);
+  };
+
+  // Handler for "Skip analysis"
+  const handleSkipAnalysis = () => {
+    if (pendingAction === 'generate') {
+      generateRoadmap(projectId, false);
+    } else if (pendingAction === 'refresh') {
+      refreshRoadmap(projectId, false);
     }
     setPendingAction(null);
   };
@@ -109,6 +160,15 @@ export function useRoadmapGeneration(projectId: string) {
 
   return {
     pendingAction,
+    hasExistingAnalysis,
+    competitorAnalysisDate: competitorAnalysis?.createdAt,
+    // New dialog for existing analysis
+    showExistingAnalysisDialog,
+    setShowExistingAnalysisDialog,
+    handleUseExistingAnalysis,
+    handleRunNewAnalysis,
+    handleSkipAnalysis,
+    // Original dialog for no existing analysis
     showCompetitorDialog,
     setShowCompetitorDialog,
     handleGenerate,
