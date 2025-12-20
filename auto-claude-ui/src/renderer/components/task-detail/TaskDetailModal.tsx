@@ -407,6 +407,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                             onStageOnlyChange={state.setStageOnly}
                             onShowConflictDialog={state.setShowConflictDialog}
                             onLoadMergePreview={state.loadMergePreview}
+                            onClose={handleClose}
                           />
                         </>
                       )}

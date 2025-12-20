@@ -39,6 +39,7 @@ interface TaskReviewProps {
   onStageOnlyChange: (value: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
+  onClose?: () => void;
 }
 
 /**
@@ -77,7 +78,8 @@ export function TaskReview({
   onShowDiffDialog,
   onStageOnlyChange,
   onShowConflictDialog,
-  onLoadMergePreview
+  onLoadMergePreview,
+  onClose
 }: TaskReviewProps) {
   return (
     <div className="space-y-4">
@@ -119,9 +121,10 @@ export function TaskReview({
           task={task}
           projectPath={stagedProjectPath}
           hasWorktree={worktreeStatus?.exists || false}
+          onClose={onClose}
         />
       ) : (
-        <NoWorkspaceMessage task={task} />
+        <NoWorkspaceMessage task={task} onClose={onClose} />
       )}
 
       {/* QA Feedback Section */}
