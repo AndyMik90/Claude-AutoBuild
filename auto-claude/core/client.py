@@ -205,11 +205,14 @@ def create_client(
     # added by get_agent_allowed_tools() via _get_qa_mcp_tools() for QA agents
 
     # Determine which browser automation tools to allow based on project type
+    # Note: Must check "not is_electron" for Puppeteer to avoid tool mismatch
+    # when Electron MCP is disabled for an Electron project
     browser_tools_permissions = []
     if agent_type in ("qa_reviewer", "qa_fixer"):
         if project_capabilities.get("is_electron") and electron_mcp_enabled:
             browser_tools_permissions = ELECTRON_TOOLS
-        elif project_capabilities.get("is_web_frontend"):
+        elif project_capabilities.get("is_web_frontend") and not project_capabilities.get("is_electron"):
+            # Only add Puppeteer for non-Electron web frontends
             browser_tools_permissions = PUPPETEER_TOOLS
 
     # Create comprehensive security settings

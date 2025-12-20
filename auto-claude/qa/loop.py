@@ -223,8 +223,13 @@ async def run_qa_validation_loop(
         async with client:
             debug("qa_loop", "Running QA reviewer agent session...")
             status, response = await run_qa_agent_session(
-                client, spec_dir, qa_iteration, MAX_QA_ITERATIONS, verbose,
-                previous_error=last_error_context  # Pass error context for self-correction
+                client,
+                project_dir,  # Pass project_dir for capability-based tool injection
+                spec_dir,
+                qa_iteration,
+                MAX_QA_ITERATIONS,
+                verbose,
+                previous_error=last_error_context,  # Pass error context for self-correction
             )
 
         iteration_duration = time_module.time() - iteration_start

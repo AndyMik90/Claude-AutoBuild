@@ -47,7 +47,6 @@ from qa import (
     load_implementation_plan,
     load_qa_fixer_prompt,
     # Agent sessions
-    load_qa_reviewer_prompt,
     print_qa_status,
     record_iteration,
     run_qa_agent_session,
@@ -90,7 +89,6 @@ __all__ = [
     "_normalize_issue_key",
     "_issue_similarity",
     # Agent sessions
-    "load_qa_reviewer_prompt",
     "run_qa_agent_session",
     "load_qa_fixer_prompt",
     "run_qa_fixer_session",
