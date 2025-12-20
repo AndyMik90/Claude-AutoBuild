@@ -189,7 +189,83 @@ def handle_merge_command(
     Returns:
         True if merge succeeded, False otherwise
     """
-    return merge_existing_build(project_dir, spec_name, no_commit=no_commit)
+    success = merge_existing_build(project_dir, spec_name, no_commit=no_commit)
+
+    # Generate commit message suggestion if staging succeeded (no_commit mode)
+    if success and no_commit:
+        _generate_and_save_commit_message(project_dir, spec_name)
+
+    return success
+
+
+def _generate_and_save_commit_message(project_dir: Path, spec_name: str) -> None:
+    """
+    Generate a commit message suggestion and save it for the UI.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+    """
+    try:
+        from commit_message import generate_commit_message_sync
+
+        # Get diff summary for context
+        diff_summary = ""
+        files_changed = []
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--staged", "--stat"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                diff_summary = result.stdout.strip()
+
+            # Get list of changed files
+            result = subprocess.run(
+                ["git", "diff", "--staged", "--name-only"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                files_changed = [
+                    f.strip() for f in result.stdout.strip().split("\n") if f.strip()
+                ]
+        except Exception as e:
+            debug_warning(MODULE, f"Could not get diff summary: {e}")
+
+        # Generate commit message
+        debug(MODULE, "Generating commit message suggestion...")
+        commit_message = generate_commit_message_sync(
+            project_dir=project_dir,
+            spec_name=spec_name,
+            diff_summary=diff_summary,
+            files_changed=files_changed,
+        )
+
+        if commit_message:
+            # Save to spec directory for UI to read
+            spec_dir = project_dir / ".auto-claude" / "specs" / spec_name
+            if not spec_dir.exists():
+                spec_dir = project_dir / "auto-claude" / "specs" / spec_name
+
+            if spec_dir.exists():
+                commit_msg_file = spec_dir / "suggested_commit_message.txt"
+                commit_msg_file.write_text(commit_message, encoding="utf-8")
+                debug_success(
+                    MODULE, f"Saved commit message suggestion to {commit_msg_file}"
+                )
+            else:
+                debug_warning(MODULE, f"Spec directory not found: {spec_dir}")
+        else:
+            debug_warning(MODULE, "No commit message generated")
+
+    except ImportError:
+        debug_warning(MODULE, "commit_message module not available")
+    except Exception as e:
+        debug_warning(MODULE, f"Failed to generate commit message: {e}")
 
 
 def handle_review_command(project_dir: Path, spec_name: str) -> None:

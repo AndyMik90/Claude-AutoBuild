@@ -30,6 +30,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [stageOnly, setStageOnly] = useState(task.status === 'human_review');
   const [stagedSuccess, setStagedSuccess] = useState<string | null>(null);
   const [stagedProjectPath, setStagedProjectPath] = useState<string | undefined>(undefined);
+  const [suggestedCommitMessage, setSuggestedCommitMessage] = useState<string | undefined>(undefined);
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<TaskLogPhase>>(new Set());
@@ -279,6 +280,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     stageOnly,
     stagedSuccess,
     stagedProjectPath,
+    suggestedCommitMessage,
     phaseLogs,
     isLoadingLogs,
     expandedPhases,
@@ -318,6 +320,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setStageOnly,
     setStagedSuccess,
     setStagedProjectPath,
+    setSuggestedCommitMessage,
     setPhaseLogs,
     setIsLoadingLogs,
     setExpandedPhases,

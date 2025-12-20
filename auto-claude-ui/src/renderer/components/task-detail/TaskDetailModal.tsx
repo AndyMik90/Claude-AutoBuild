@@ -120,6 +120,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
           state.setWorkspaceError(null);
           state.setStagedSuccess(result.data.message || 'Changes staged in main project');
           state.setStagedProjectPath(result.data.projectPath);
+          state.setSuggestedCommitMessage(result.data.suggestedCommitMessage);
         } else {
           onOpenChange(false);
         }
@@ -393,6 +394,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                             stageOnly={state.stageOnly}
                             stagedSuccess={state.stagedSuccess}
                             stagedProjectPath={state.stagedProjectPath}
+                            suggestedCommitMessage={state.suggestedCommitMessage}
                             mergePreview={state.mergePreview}
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}

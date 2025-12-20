@@ -26,6 +26,7 @@ interface TaskReviewProps {
   stageOnly: boolean;
   stagedSuccess: string | null;
   stagedProjectPath: string | undefined;
+  suggestedCommitMessage: string | undefined;
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
@@ -64,6 +65,7 @@ export function TaskReview({
   stageOnly,
   stagedSuccess,
   stagedProjectPath,
+  suggestedCommitMessage,
   mergePreview,
   isLoadingPreview,
   showConflictDialog,
@@ -88,6 +90,7 @@ export function TaskReview({
           stagedSuccess={stagedSuccess}
           stagedProjectPath={stagedProjectPath}
           task={task}
+          suggestedCommitMessage={suggestedCommitMessage}
         />
       )}
 

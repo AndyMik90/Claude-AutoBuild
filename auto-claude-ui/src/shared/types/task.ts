@@ -356,6 +356,8 @@ export interface WorktreeMergeResult {
   staged?: boolean;
   alreadyStaged?: boolean;
   projectPath?: string;
+  // AI-generated commit message suggestion (for stage-only mode)
+  suggestedCommitMessage?: string;
   // New conflict info from smart merge
   conflicts?: MergeConflict[];
   stats?: MergeStats;
