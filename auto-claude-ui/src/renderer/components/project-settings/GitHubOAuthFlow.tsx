@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Github,
   Loader2,
@@ -6,7 +6,10 @@ import {
   AlertCircle,
   Info,
   ExternalLink,
-  Terminal
+  Terminal,
+  Copy,
+  Check,
+  Clock
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -29,6 +32,10 @@ function debugLog(message: string, data?: unknown) {
   }
 }
 
+// Authentication timeout in milliseconds (5 minutes)
+// GitHub device codes typically expire after 15 minutes, but 5 minutes is a reasonable UX timeout
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
 /**
  * GitHub OAuth flow component using gh CLI
  * Guides users through authenticating with GitHub using the gh CLI
@@ -40,9 +47,38 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const [cliVersion, setCliVersion] = useState<string | undefined>();
   const [username, setUsername] = useState<string | undefined>();
 
+  // Device flow state for displaying code and auth URL
+  const [deviceCode, setDeviceCode] = useState<string | null>(null);
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [browserOpened, setBrowserOpened] = useState<boolean>(false);
+  const [codeCopied, setCodeCopied] = useState<boolean>(false);
+  const [urlCopied, setUrlCopied] = useState<boolean>(false);
+  const [isTimeout, setIsTimeout] = useState<boolean>(false);
+
+  // Ref to track authentication timeout
+  const authTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Check gh CLI installation and authentication status on mount
   // Use a ref to prevent double-execution in React Strict Mode
   const hasCheckedRef = useRef(false);
+
+  // Clear the authentication timeout
+  const clearAuthTimeout = useCallback(() => {
+    if (authTimeoutRef.current) {
+      debugLog('Clearing auth timeout');
+      clearTimeout(authTimeoutRef.current);
+      authTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Handle authentication timeout
+  const handleAuthTimeout = useCallback(() => {
+    debugLog('Authentication timeout triggered after 5 minutes');
+    setIsTimeout(true);
+    setError('Authentication timed out. The authentication window was open for too long. Please try again.');
+    setStatus('error');
+    authTimeoutRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (hasCheckedRef.current) {
@@ -52,8 +88,13 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     hasCheckedRef.current = true;
     debugLog('Component mounted, checking GitHub status...');
     checkGitHubStatus();
+
+    // Cleanup timeout on unmount
+    return () => {
+      clearAuthTimeout();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run once on mount, checkGitHubStatus is intentionally excluded
-  }, []);
+  }, [clearAuthTimeout]);
 
   const checkGitHubStatus = async () => {
     debugLog('checkGitHubStatus() called');
@@ -138,10 +179,40 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     setStatus('authenticating');
     setError(null);
 
+    // Reset device flow state
+    setDeviceCode(null);
+    setAuthUrl(null);
+    setBrowserOpened(false);
+    setCodeCopied(false);
+    setUrlCopied(false);
+    setIsTimeout(false);
+
+    // Clear any existing timeout and start a new one
+    clearAuthTimeout();
+    debugLog(`Starting auth timeout (${AUTH_TIMEOUT_MS / 1000 / 60} minutes)`);
+    authTimeoutRef.current = setTimeout(handleAuthTimeout, AUTH_TIMEOUT_MS);
+
     try {
       debugLog('Calling startGitHubAuth...');
       const result = await window.electronAPI.startGitHubAuth();
       debugLog('startGitHubAuth result:', result);
+
+      // Clear timeout since we got a response
+      clearAuthTimeout();
+
+      // Capture device flow info if available
+      if (result.data?.deviceCode) {
+        debugLog('Device code received:', result.data.deviceCode);
+        setDeviceCode(result.data.deviceCode);
+      }
+      if (result.data?.authUrl) {
+        debugLog('Auth URL received:', result.data.authUrl);
+        setAuthUrl(result.data.authUrl);
+      }
+      if (result.data?.browserOpened !== undefined) {
+        debugLog('Browser opened status:', result.data.browserOpened);
+        setBrowserOpened(result.data.browserOpened);
+      }
 
       if (result.success && result.data?.success) {
         debugLog('Auth successful, fetching token...');
@@ -149,10 +220,18 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
         await fetchAndNotifyToken();
       } else {
         debugLog('Auth failed:', result.error);
-        setError(result.error || 'Authentication failed');
+        // Include fallback URL info in error message if available
+        const errorMessage = result.error || 'Authentication failed';
+        setError(errorMessage);
+        // Keep authUrl from response for fallback display
+        if (result.data?.fallbackUrl) {
+          setAuthUrl(result.data.fallbackUrl);
+        }
         setStatus('error');
       }
     } catch (err) {
+      // Clear timeout on error
+      clearAuthTimeout();
       debugLog('Error in handleStartAuth:', err);
       setError(err instanceof Error ? err.message : 'Authentication failed');
       setStatus('error');
@@ -167,6 +246,26 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
   const handleRetry = () => {
     debugLog('Retry clicked');
     checkGitHubStatus();
+  };
+
+  const handleCopyDeviceCode = async () => {
+    if (!deviceCode) return;
+    debugLog('Copying device code to clipboard');
+    try {
+      await navigator.clipboard.writeText(deviceCode);
+      setCodeCopied(true);
+      // Reset the copied state after 2 seconds
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch (err) {
+      debugLog('Failed to copy device code:', err);
+    }
+  };
+
+  const handleOpenAuthUrl = () => {
+    if (authUrl) {
+      debugLog('Opening auth URL manually:', authUrl);
+      window.open(authUrl, '_blank');
+    }
   };
 
   debugLog('Rendering with status:', status);
@@ -263,21 +362,81 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
 
       {/* Authenticating */}
       {status === 'authenticating' && (
-        <Card className="border border-info/30 bg-info/10">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <Loader2 className="h-6 w-6 animate-spin text-info shrink-0" />
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-foreground">
-                  Authenticating...
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Please complete the authentication in your browser. This window will update automatically.
-                </p>
+        <div className="space-y-4">
+          <Card className="border border-info/30 bg-info/10">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <Loader2 className="h-6 w-6 animate-spin text-info shrink-0" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-foreground">
+                    Authenticating...
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {browserOpened
+                      ? 'Please complete the authentication in your browser. This window will update automatically.'
+                      : 'Waiting for authentication flow to start...'}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Device Code Display */}
+          {deviceCode && (
+            <Card className="border border-primary/30 bg-primary/5">
+              <CardContent className="p-6">
+                <div className="text-center space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">
+                      Your one-time code
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <code className="text-3xl font-mono font-bold tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-lg">
+                        {deviceCode}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyDeviceCode}
+                        className="shrink-0"
+                      >
+                        {codeCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1 text-success" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>
+                      {browserOpened
+                        ? 'Enter this code in your browser to complete authentication.'
+                        : 'Copy this code, then open the link below to authenticate.'}
+                    </p>
+                    {!browserOpened && authUrl && (
+                      <Button
+                        variant="link"
+                        onClick={handleOpenAuthUrl}
+                        className="text-info hover:text-info/80 p-0 h-auto gap-1"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open {authUrl}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Success */}
@@ -302,22 +461,102 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
       {/* Error */}
       {status === 'error' && error && (
         <div className="space-y-4">
-          <Card className="border border-destructive/30 bg-destructive/10">
+          <Card className={`border ${isTimeout ? 'border-warning/30 bg-warning/10' : 'border-destructive/30 bg-destructive/10'}`}>
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                {isTimeout ? (
+                  <Clock className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                )}
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-destructive">
-                    Authentication Failed
+                  <h3 className={`text-lg font-medium ${isTimeout ? 'text-warning' : 'text-destructive'}`}>
+                    {isTimeout ? 'Authentication Timed Out' : 'Authentication Failed'}
                   </h3>
-                  <p className="text-sm text-destructive/80 mt-1">{error}</p>
+                  <p className={`text-sm mt-1 ${isTimeout ? 'text-warning/80' : 'text-destructive/80'}`}>{error}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Fallback URL display when browser failed to open */}
+          {authUrl && (
+            <Card className="border border-warning/30 bg-warning/10">
+              <CardContent className="p-5">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-base font-medium text-foreground">
+                        Complete Authentication Manually
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        The browser couldn't be opened automatically. Please visit the URL below to complete authentication:
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <code className="text-sm font-mono text-foreground flex-1 break-all">
+                        {authUrl}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(authUrl);
+                            setUrlCopied(true);
+                            setTimeout(() => setUrlCopied(false), 2000);
+                          } catch (err) {
+                            debugLog('Failed to copy URL:', err);
+                          }
+                        }}
+                        className="shrink-0"
+                      >
+                        {urlCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1 text-success" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      onClick={handleOpenAuthUrl}
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open URL in Browser
+                    </Button>
+                  </div>
+
+                  {/* Device code reminder if available */}
+                  {deviceCode && (
+                    <div className="pt-2 border-t border-warning/20">
+                      <p className="text-sm text-muted-foreground">
+                        When prompted, enter this code:{' '}
+                        <code className="font-mono font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">
+                          {deviceCode}
+                        </code>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex justify-center gap-3">
-            <Button onClick={handleRetry} variant="outline">
+            <Button onClick={handleStartAuth} variant="outline">
               Retry
             </Button>
             {onCancel && (

@@ -3,7 +3,7 @@
  * Provides a simpler OAuth flow than manual PAT creation
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
@@ -31,6 +31,64 @@ const GITHUB_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  */
 function isValidGitHubRepo(repo: string): boolean {
   return GITHUB_REPO_PATTERN.test(repo);
+}
+
+// Regex patterns for parsing device code from gh CLI output
+// Expected format: "! First copy your one-time code: XXXX-XXXX"
+const DEVICE_CODE_PATTERN = /(?:one-time code|code):\s*([A-Z0-9]{4}-[A-Z0-9]{4})/i;
+
+// GitHub device flow URL pattern
+const DEVICE_URL_PATTERN = /https:\/\/github\.com\/login\/device/i;
+
+// Default GitHub device flow URL
+const GITHUB_DEVICE_URL = 'https://github.com/login/device';
+
+/**
+ * Parse device code from gh CLI stdout output
+ * Returns the device code (format: XXXX-XXXX) if found, null otherwise
+ */
+function parseDeviceCode(output: string): string | null {
+  const match = output.match(DEVICE_CODE_PATTERN);
+  if (match && match[1]) {
+    debugLog('Parsed device code:', match[1]);
+    return match[1];
+  }
+  return null;
+}
+
+/**
+ * Parse device URL from gh CLI output
+ * Returns the URL if found, or the default GitHub device URL
+ */
+function parseDeviceUrl(output: string): string {
+  const match = output.match(DEVICE_URL_PATTERN);
+  if (match) {
+    debugLog('Found device URL in output:', match[0]);
+    return match[0];
+  }
+  // Default to standard GitHub device flow URL
+  return GITHUB_DEVICE_URL;
+}
+
+/**
+ * Result of parsing device flow output from gh CLI
+ */
+interface DeviceFlowInfo {
+  deviceCode: string | null;
+  authUrl: string;
+}
+
+/**
+ * Parse both device code and URL from combined gh CLI output
+ * Searches through both stdout and stderr as gh may output to either
+ */
+function parseDeviceFlowOutput(stdout: string, stderr: string): DeviceFlowInfo {
+  const combinedOutput = `${stdout}\n${stderr}`;
+
+  return {
+    deviceCode: parseDeviceCode(combinedOutput),
+    authUrl: parseDeviceUrl(combinedOutput)
+  };
 }
 
 /**
@@ -115,13 +173,30 @@ export function registerCheckGhAuth(): void {
 }
 
 /**
+ * Result type for GitHub auth start, including device flow information
+ */
+interface GitHubAuthStartResult {
+  success: boolean;
+  message?: string;
+  deviceCode?: string;
+  authUrl?: string;
+  browserOpened?: boolean;
+  /**
+   * Fallback URL provided when browser launch fails.
+   * The frontend should display this URL so users can manually navigate to complete auth.
+   */
+  fallbackUrl?: string;
+}
+
+/**
  * Start GitHub OAuth flow using gh CLI
- * This will open the browser for device flow authentication
+ * This will extract the device code from gh CLI output and open the browser
+ * using Electron's shell.openExternal (bypasses macOS child process restrictions)
  */
 export function registerStartGhAuth(): void {
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_START_AUTH,
-    async (): Promise<IPCResult<{ success: boolean; message?: string }>> => {
+    async (): Promise<IPCResult<GitHubAuthStartResult>> => {
       debugLog('startGitHubAuth handler called');
       return new Promise((resolve) => {
         try {
@@ -135,17 +210,53 @@ export function registerStartGhAuth(): void {
 
           let output = '';
           let errorOutput = '';
+          let deviceCodeExtracted = false;
+          let extractedDeviceCode: string | null = null;
+          let extractedAuthUrl: string = GITHUB_DEVICE_URL;
+          let browserOpenedSuccessfully = false;
+
+          // Function to attempt device code extraction and browser opening
+          const tryExtractAndOpenBrowser = async () => {
+            if (deviceCodeExtracted) return; // Already extracted
+
+            const deviceFlowInfo = parseDeviceFlowOutput(output, errorOutput);
+
+            if (deviceFlowInfo.deviceCode) {
+              deviceCodeExtracted = true;
+              extractedDeviceCode = deviceFlowInfo.deviceCode;
+              extractedAuthUrl = deviceFlowInfo.authUrl;
+
+              debugLog('Device code extracted:', extractedDeviceCode);
+              debugLog('Auth URL:', extractedAuthUrl);
+
+              // Open browser using Electron's shell.openExternal
+              // This bypasses macOS child process restrictions that block gh CLI's browser launch
+              try {
+                await shell.openExternal(extractedAuthUrl);
+                browserOpenedSuccessfully = true;
+                debugLog('Browser opened successfully via shell.openExternal');
+              } catch (browserError) {
+                debugLog('Failed to open browser:', browserError instanceof Error ? browserError.message : browserError);
+                browserOpenedSuccessfully = false;
+                // Don't fail here - we'll return the device code so user can manually navigate
+              }
+            }
+          };
 
           ghProcess.stdout?.on('data', (data) => {
             const chunk = data.toString();
             output += chunk;
             debugLog('gh stdout:', chunk);
+            // Try to extract device code as data comes in
+            tryExtractAndOpenBrowser();
           });
 
           ghProcess.stderr?.on('data', (data) => {
             const chunk = data.toString();
             errorOutput += chunk;
             debugLog('gh stderr:', chunk);
+            // gh often outputs to stderr, so check there too
+            tryExtractAndOpenBrowser();
           });
 
           ghProcess.on('close', (code) => {
@@ -154,17 +265,39 @@ export function registerStartGhAuth(): void {
             debugLog('Full stderr:', errorOutput);
 
             if (code === 0) {
+              // Success case - include fallbackUrl if browser failed to open
+              // so the user can manually navigate if needed
               resolve({
                 success: true,
                 data: {
                   success: true,
-                  message: 'Successfully authenticated with GitHub'
+                  message: browserOpenedSuccessfully
+                    ? 'Successfully authenticated with GitHub'
+                    : 'Authentication successful. Browser could not be opened automatically.',
+                  deviceCode: extractedDeviceCode || undefined,
+                  authUrl: extractedAuthUrl,
+                  browserOpened: browserOpenedSuccessfully,
+                  // Provide fallback URL when browser failed to open
+                  fallbackUrl: !browserOpenedSuccessfully ? extractedAuthUrl : undefined
                 }
               });
             } else {
+              // Even if auth failed, return device code info if we extracted it
+              // This allows user to retry manually with the fallback URL
+              const fallbackUrlForManualAuth = extractedDeviceCode ? extractedAuthUrl : GITHUB_DEVICE_URL;
+
               resolve({
                 success: false,
-                error: errorOutput || `Authentication failed with exit code ${code}`
+                error: errorOutput || `Authentication failed with exit code ${code}`,
+                data: {
+                  success: false,
+                  deviceCode: extractedDeviceCode || undefined,
+                  authUrl: extractedAuthUrl,
+                  browserOpened: browserOpenedSuccessfully,
+                  // Always provide fallback URL on failure for manual recovery
+                  fallbackUrl: fallbackUrlForManualAuth,
+                  message: 'Authentication failed. Please visit the URL manually to complete authentication.'
+                }
               });
             }
           });
@@ -173,14 +306,28 @@ export function registerStartGhAuth(): void {
             debugLog('gh process error:', error.message);
             resolve({
               success: false,
-              error: error.message
+              error: error.message,
+              data: {
+                success: false,
+                browserOpened: false,
+                // Provide fallback URL so user can attempt manual auth
+                fallbackUrl: GITHUB_DEVICE_URL,
+                message: 'Failed to start GitHub CLI. Please visit the URL manually to authenticate.'
+              }
             });
           });
         } catch (error) {
           debugLog('Exception in startGitHubAuth:', error instanceof Error ? error.message : error);
           resolve({
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
+            data: {
+              success: false,
+              browserOpened: false,
+              // Provide fallback URL for manual authentication recovery
+              fallbackUrl: GITHUB_DEVICE_URL,
+              message: 'An unexpected error occurred. Please visit the URL manually to authenticate.'
+            }
           });
         }
       });
