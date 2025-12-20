@@ -80,6 +80,7 @@ from core.workspace.display import (
     show_build_summary,
 )
 from core.workspace.git_utils import (
+    MAX_PARALLEL_AI_MERGES,
     _is_auto_claude_file,
     get_existing_build_worktree,
 )
@@ -97,6 +98,7 @@ from core.workspace.git_utils import (
 from core.workspace.models import (
     MergeLock,
     MergeLockError,
+    ParallelMergeResult,
     ParallelMergeTask,
 )
 from merge import (
@@ -858,13 +860,13 @@ def _resolve_git_conflicts_with_ai(
         start_time = time.time()
 
         # Run parallel merges
-        # TODO: _run_parallel_merges not yet implemented - see line 140
-        # parallel_results = asyncio.run(_run_parallel_merges(
-        #     tasks=files_needing_ai_merge,
-        #     project_dir=project_dir,
-        #     max_concurrent=MAX_PARALLEL_AI_MERGES,
-        # ))
-        parallel_results = []  # Placeholder until function is implemented
+        parallel_results = asyncio.run(
+            _run_parallel_merges(
+                tasks=files_needing_ai_merge,
+                project_dir=project_dir,
+                max_concurrent=MAX_PARALLEL_AI_MERGES,
+            )
+        )
 
         elapsed = time.time() - start_time
 
@@ -996,3 +998,332 @@ def _resolve_git_conflicts_with_ai(
 # - Git utilities from workspace/git_utils.py
 # - Display functions from workspace/display.py
 # - Finalization functions from workspace/finalization.py
+
+
+# =============================================================================
+# Parallel AI Merge Implementation
+# =============================================================================
+
+import asyncio
+import logging
+import os
+
+_merge_logger = logging.getLogger(__name__)
+
+# System prompt for AI file merging
+AI_MERGE_SYSTEM_PROMPT = """You are an expert code merge assistant. Your task is to perform a 3-way merge of code files.
+
+RULES:
+1. Preserve all functional changes from both versions (ours and theirs)
+2. Maintain code style consistency
+3. Resolve conflicts by understanding the semantic purpose of each change
+4. When changes are independent (different functions/sections), include both
+5. When changes overlap, combine them logically or prefer the more complete version
+6. Preserve all imports from both versions
+7. Output ONLY the merged code - no explanations, no markdown, no code fences
+
+IMPORTANT: Output the raw merged file content only. Do not wrap in code blocks."""
+
+
+def _infer_language_from_path(file_path: str) -> str:
+    """Infer programming language from file extension."""
+    ext_map = {
+        ".py": "python",
+        ".js": "javascript",
+        ".jsx": "javascript",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".rs": "rust",
+        ".go": "go",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".h": "c",
+        ".hpp": "cpp",
+        ".rb": "ruby",
+        ".php": "php",
+        ".swift": "swift",
+        ".kt": "kotlin",
+        ".scala": "scala",
+        ".json": "json",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".toml": "toml",
+        ".md": "markdown",
+        ".html": "html",
+        ".css": "css",
+        ".scss": "scss",
+        ".sql": "sql",
+    }
+    ext = os.path.splitext(file_path)[1].lower()
+    return ext_map.get(ext, "text")
+
+
+def _try_simple_3way_merge(
+    base: str | None,
+    ours: str,
+    theirs: str,
+) -> tuple[bool, str | None]:
+    """
+    Attempt a simple 3-way merge without AI.
+
+    Returns:
+        (success, merged_content) - if success is True, merged_content is the result
+    """
+    # If base is None, we can't do a proper 3-way merge
+    if base is None:
+        # If both are identical, no conflict
+        if ours == theirs:
+            return True, ours
+        # Otherwise, we need AI to decide
+        return False, None
+
+    # If ours equals base, theirs is the only change - take theirs
+    if ours == base:
+        return True, theirs
+
+    # If theirs equals base, ours is the only change - take ours
+    if theirs == base:
+        return True, ours
+
+    # If ours equals theirs, both made same change - take either
+    if ours == theirs:
+        return True, ours
+
+    # Both changed differently from base - need AI merge
+    # We could try a line-by-line merge here, but for safety let's use AI
+    return False, None
+
+
+def _build_merge_prompt(
+    file_path: str,
+    base_content: str | None,
+    main_content: str,
+    worktree_content: str,
+    spec_name: str,
+) -> str:
+    """Build the prompt for AI file merge."""
+    language = _infer_language_from_path(file_path)
+
+    base_section = ""
+    if base_content:
+        # Truncate very large files
+        if len(base_content) > 10000:
+            base_content = base_content[:10000] + "\n... (truncated)"
+        base_section = f"""
+BASE (common ancestor):
+```{language}
+{base_content}
+```
+"""
+
+    # Truncate large content
+    if len(main_content) > 15000:
+        main_content = main_content[:15000] + "\n... (truncated)"
+    if len(worktree_content) > 15000:
+        worktree_content = worktree_content[:15000] + "\n... (truncated)"
+
+    prompt = f"""Perform a 3-way merge for file: {file_path}
+Task being merged: {spec_name}
+{base_section}
+OURS (current main branch):
+```{language}
+{main_content}
+```
+
+THEIRS (changes from task worktree):
+```{language}
+{worktree_content}
+```
+
+Merge these versions, preserving all meaningful changes from both. Output only the merged file content, no explanations."""
+
+    return prompt
+
+
+def _strip_code_fences(content: str) -> str:
+    """Remove markdown code fences if present."""
+    # Check if content starts with code fence
+    lines = content.strip().split("\n")
+    if lines and lines[0].startswith("```"):
+        # Remove first and last line if they're code fences
+        if lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1])
+        else:
+            return "\n".join(lines[1:])
+    return content
+
+
+async def _merge_file_with_ai_async(
+    task: ParallelMergeTask,
+    semaphore: asyncio.Semaphore,
+) -> ParallelMergeResult:
+    """
+    Merge a single file using AI.
+
+    Args:
+        task: The merge task with file contents
+        semaphore: Semaphore for concurrency control
+
+    Returns:
+        ParallelMergeResult with merged content or error
+    """
+    async with semaphore:
+        try:
+            # First try simple 3-way merge
+            success, merged = _try_simple_3way_merge(
+                task.base_content,
+                task.main_content,
+                task.worktree_content,
+            )
+
+            if success and merged is not None:
+                debug(MODULE, f"Auto-merged {task.file_path} without AI")
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=merged,
+                    success=True,
+                    was_auto_merged=True,
+                )
+
+            # Need AI merge
+            debug(MODULE, f"Using AI to merge {task.file_path}")
+
+            # Import auth utilities
+            from core.auth import ensure_claude_code_oauth_token, get_auth_token
+
+            if not get_auth_token():
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=None,
+                    success=False,
+                    error="No authentication token available",
+                )
+
+            ensure_claude_code_oauth_token()
+
+            # Build prompt
+            prompt = _build_merge_prompt(
+                task.file_path,
+                task.base_content,
+                task.main_content,
+                task.worktree_content,
+                task.spec_name,
+            )
+
+            # Call Claude Haiku for fast merge
+            try:
+                from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+            except ImportError:
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=None,
+                    success=False,
+                    error="claude_agent_sdk not installed",
+                )
+
+            client = ClaudeSDKClient(
+                options=ClaudeAgentOptions(
+                    model="claude-haiku-4-5-20251001",
+                    system_prompt=AI_MERGE_SYSTEM_PROMPT,
+                    allowed_tools=[],
+                    max_turns=1,
+                    max_thinking_tokens=1024,  # Low thinking for speed
+                )
+            )
+
+            response_text = ""
+            async with client:
+                await client.query(prompt)
+
+                async for msg in client.receive_response():
+                    msg_type = type(msg).__name__
+                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                        for block in msg.content:
+                            if hasattr(block, "text"):
+                                response_text += block.text
+
+            if response_text:
+                # Strip any code fences the model might have added
+                merged_content = _strip_code_fences(response_text.strip())
+
+                debug(MODULE, f"AI merged {task.file_path} successfully")
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=merged_content,
+                    success=True,
+                    was_auto_merged=False,
+                )
+            else:
+                return ParallelMergeResult(
+                    file_path=task.file_path,
+                    merged_content=None,
+                    success=False,
+                    error="AI returned empty response",
+                )
+
+        except Exception as e:
+            _merge_logger.error(f"Failed to merge {task.file_path}: {e}")
+            return ParallelMergeResult(
+                file_path=task.file_path,
+                merged_content=None,
+                success=False,
+                error=str(e),
+            )
+
+
+async def _run_parallel_merges(
+    tasks: list[ParallelMergeTask],
+    project_dir: Path,
+    max_concurrent: int = MAX_PARALLEL_AI_MERGES,
+) -> list[ParallelMergeResult]:
+    """
+    Run file merges in parallel with concurrency control.
+
+    Args:
+        tasks: List of merge tasks to process
+        project_dir: Project directory (for context, not currently used)
+        max_concurrent: Maximum number of concurrent merge operations
+
+    Returns:
+        List of ParallelMergeResult for each task
+    """
+    if not tasks:
+        return []
+
+    debug(
+        MODULE,
+        f"Starting parallel merge of {len(tasks)} files (max concurrent: {max_concurrent})",
+    )
+
+    # Create semaphore for concurrency control
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    # Create tasks
+    merge_coroutines = [_merge_file_with_ai_async(task, semaphore) for task in tasks]
+
+    # Run all merges concurrently
+    results = await asyncio.gather(*merge_coroutines, return_exceptions=True)
+
+    # Process results, converting exceptions to error results
+    final_results: list[ParallelMergeResult] = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            final_results.append(
+                ParallelMergeResult(
+                    file_path=tasks[i].file_path,
+                    merged_content=None,
+                    success=False,
+                    error=str(result),
+                )
+            )
+        else:
+            final_results.append(result)
+
+    debug(
+        MODULE,
+        f"Parallel merge complete: {sum(1 for r in final_results if r.success)} succeeded, "
+        f"{sum(1 for r in final_results if not r.success)} failed",
+    )
+
+    return final_results

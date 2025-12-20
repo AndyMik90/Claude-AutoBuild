@@ -102,11 +102,12 @@ export function TaskCreationWizard({
   const [model, setModel] = useState<ModelType | ''>(selectedProfile.model);
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(selectedProfile.thinkingLevel);
   // Auto profile - per-phase configuration
+  // Use custom settings from app settings if available, otherwise fall back to defaults
   const [phaseModels, setPhaseModels] = useState<PhaseModelConfig | undefined>(
-    selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
+    settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
   );
   const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
-    selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
+    settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
   );
 
   // Image attachments
@@ -143,8 +144,8 @@ export function TaskCreationWizard({
         setProfileId(draft.profileId || settings.selectedAgentProfile || 'auto');
         setModel(draft.model || selectedProfile.model);
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
-        setPhaseModels(draft.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
-        setPhaseThinking(draft.phaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseModels(draft.phaseModels || settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(draft.phaseThinking || settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
@@ -159,15 +160,15 @@ export function TaskCreationWizard({
         }
         // Note: Referenced Files section is always visible, no need to expand
       } else {
-        // No draft - initialize from selected profile
+        // No draft - initialize from selected profile and custom settings
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
-        setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
-        setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+        setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
       }
     }
-  }, [open, projectId, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel]);
+  }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel]);
 
   // Fetch branches and project default branch when dialog opens
   useEffect(() => {
@@ -542,12 +543,12 @@ export function TaskCreationWizard({
     setPriority('');
     setComplexity('');
     setImpact('');
-    // Reset to selected profile defaults
+    // Reset to selected profile defaults and custom settings
     setProfileId(settings.selectedAgentProfile || 'auto');
     setModel(selectedProfile.model);
     setThinkingLevel(selectedProfile.thinkingLevel);
-    setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
-    setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+    setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
+    setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);

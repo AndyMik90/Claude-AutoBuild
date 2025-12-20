@@ -47,7 +47,13 @@ def get_token_from_keychain() -> str | None:
     try:
         # Query macOS Keychain for Claude Code credentials
         result = subprocess.run(
-            ["/usr/bin/security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+            [
+                "/usr/bin/security",
+                "find-generic-password",
+                "-s",
+                "Claude Code-credentials",
+                "-w",
+            ],
             capture_output=True,
             text=True,
             timeout=5,

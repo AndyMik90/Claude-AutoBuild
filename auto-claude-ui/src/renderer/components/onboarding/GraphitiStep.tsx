@@ -26,7 +26,7 @@ import {
   SelectValue
 } from '../ui/select';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { GraphitiLLMProvider, GraphitiEmbeddingProvider } from '../../../shared/types';
+import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
 
 interface GraphitiStepProps {
   onNext: () => void;
@@ -314,8 +314,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       const result = await window.electronAPI.saveSettings(settingsToSave);
 
       if (result?.success) {
-        // Update local settings store
-        const storeUpdate: Record<string, string> = {};
+        // Update local settings store with API key settings
+        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalAnthropicApiKey' | 'globalGoogleApiKey' | 'globalGroqApiKey' | 'ollamaBaseUrl'>> = {};
         if (config.openaiApiKey.trim()) storeUpdate.globalOpenAIApiKey = config.openaiApiKey.trim();
         if (config.anthropicApiKey.trim()) storeUpdate.globalAnthropicApiKey = config.anthropicApiKey.trim();
         if (config.googleApiKey.trim()) storeUpdate.globalGoogleApiKey = config.googleApiKey.trim();

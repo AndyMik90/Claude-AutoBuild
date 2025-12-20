@@ -52,6 +52,33 @@ export function buildCdCommand(path: string | undefined): string {
 }
 
 /**
+ * Escape a string for safe use as a Windows cmd.exe argument.
+ *
+ * Windows cmd.exe uses different escaping rules than POSIX shells.
+ * This function escapes special characters that could break out of strings
+ * or execute additional commands.
+ *
+ * @param arg - The argument to escape
+ * @returns The escaped argument safe for use in cmd.exe
+ */
+export function escapeShellArgWindows(arg: string): string {
+  // Escape characters that have special meaning in cmd.exe:
+  // ^ is the escape character in cmd.exe
+  // " & | < > ^ need to be escaped
+  // % is used for variable expansion
+  const escaped = arg
+    .replace(/\^/g, '^^')     // Escape carets first (escape char itself)
+    .replace(/"/g, '^"')      // Escape double quotes
+    .replace(/&/g, '^&')      // Escape ampersand (command separator)
+    .replace(/\|/g, '^|')     // Escape pipe
+    .replace(/</g, '^<')      // Escape less than
+    .replace(/>/g, '^>')      // Escape greater than
+    .replace(/%/g, '%%');     // Escape percent (variable expansion)
+
+  return escaped;
+}
+
+/**
  * Validate that a path doesn't contain obviously malicious patterns.
  * This is a defense-in-depth measure - escaping should handle all cases,
  * but this can catch obvious attack attempts early.

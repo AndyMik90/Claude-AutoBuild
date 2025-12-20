@@ -27,8 +27,7 @@ _spec = importlib.util.spec_from_file_location("workspace_module", _workspace_fi
 _workspace_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_workspace_module)
 merge_existing_build = _workspace_module.merge_existing_build
-# TODO: _run_parallel_merges not yet implemented in workspace.py
-# _run_parallel_merges = _workspace_module._run_parallel_merges
+_run_parallel_merges = _workspace_module._run_parallel_merges
 
 # Models and Enums
 # Display Functions
@@ -105,7 +104,7 @@ from .setup import (
 __all__ = [
     # Merge Operations (from workspace.py)
     "merge_existing_build",
-    # '_run_parallel_merges',  # TODO: not yet implemented - Private but used by tests
+    "_run_parallel_merges",  # Private but used internally
     # Models
     "WorkspaceMode",
     "WorkspaceChoice",

@@ -90,9 +90,9 @@ Find these critical sections:
 cat project_index.json
 ```
 
-**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT.**
+**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
-Based on your Phase 0 investigation, create `project_index.json`:
+Based on your Phase 0 investigation, use the Write tool to create `project_index.json`:
 
 ```json
 {
@@ -130,9 +130,9 @@ This contains:
 cat context.json
 ```
 
-**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT.**
+**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
-Based on your Phase 0 investigation and the spec.md, create `context.json`:
+Based on your Phase 0 investigation and the spec.md, use the Write tool to create `context.json`:
 
 ```json
 {
@@ -202,6 +202,15 @@ Minimal overhead - just subtasks, no phases.
 ---
 
 ## PHASE 3: CREATE implementation_plan.json
+
+**🚨 CRITICAL: YOU MUST USE THE WRITE TOOL TO CREATE THIS FILE 🚨**
+
+You MUST use the Write tool to save the implementation plan to `implementation_plan.json`.
+Do NOT just describe what the file should contain - you must actually call the Write tool with the complete JSON content.
+
+**Required action:** Call the Write tool with:
+- file_path: `implementation_plan.json` (in the spec directory)
+- content: The complete JSON plan structure shown below
 
 Based on the workflow type and services involved, create the implementation plan.
 
@@ -631,7 +640,25 @@ Include parallelism analysis, verification strategy, and QA configuration in the
 
 ---
 
+**🚨 END OF PHASE 4 CHECKPOINT 🚨**
+
+Before proceeding to PHASE 5, verify you have:
+1. ✅ Created the complete implementation_plan.json structure
+2. ✅ Used the Write tool to save it (not just described it)
+3. ✅ Added the summary section with parallelism analysis
+4. ✅ Added the verification_strategy section
+5. ✅ Added the qa_acceptance section
+
+If you have NOT used the Write tool yet, STOP and do it now!
+
+---
+
 ## PHASE 5: CREATE init.sh
+
+**🚨 CRITICAL: YOU MUST USE THE WRITE TOOL TO CREATE THIS FILE 🚨**
+
+You MUST use the Write tool to save the init.sh script.
+Do NOT just describe what the file should contain - you must actually call the Write tool.
 
 Create a setup script based on `project_index.json`:
 
@@ -734,6 +761,11 @@ Note: If the commit fails (e.g., nothing to commit, or in a special workspace), 
 ---
 
 ## PHASE 7: CREATE build-progress.txt
+
+**🚨 CRITICAL: YOU MUST USE THE WRITE TOOL TO CREATE THIS FILE 🚨**
+
+You MUST use the Write tool to save build-progress.txt.
+Do NOT just describe what the file should contain - you must actually call the Write tool with the complete content shown below.
 
 ```
 === AUTO-BUILD PROGRESS ===

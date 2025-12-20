@@ -500,6 +500,21 @@ export function registerWorktreeHandlers(
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
 
+              // Read suggested commit message if staging succeeded
+              let suggestedCommitMessage: string | undefined;
+              if (staged) {
+                const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
+                try {
+                  if (existsSync(commitMsgPath)) {
+                    const { readFileSync } = require('fs');
+                    suggestedCommitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+                    debug('Read suggested commit message:', suggestedCommitMessage?.substring(0, 100));
+                  }
+                } catch (e) {
+                  debug('Failed to read suggested commit message:', e);
+                }
+              }
+
               // Persist the status change to implementation_plan.json
               const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
               try {
@@ -531,7 +546,8 @@ export function registerWorktreeHandlers(
                   success: true,
                   message,
                   staged,
-                  projectPath: staged ? project.path : undefined
+                  projectPath: staged ? project.path : undefined,
+                  suggestedCommitMessage
                 }
               });
             } else {

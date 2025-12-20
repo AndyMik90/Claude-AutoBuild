@@ -8,7 +8,7 @@
  * Used in TaskCreationWizard and TaskEditDialog.
  */
 import { useState } from 'react';
-import { Brain, Scale, Zap, Sliders, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, Scale, Zap, Sliders, Sparkles, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Label } from './ui/label';
 import {
   Select,
@@ -220,28 +220,37 @@ export function AgentProfileSelector({
 
       {/* Auto Profile - Phase Configuration */}
       {isAuto && (
-        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-          {/* Phase Summary */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setShowPhaseDetails(!showPhaseDetails)}
-              className={cn(
-                'flex w-full items-center justify-between text-sm',
-                'text-muted-foreground hover:text-foreground transition-colors'
+        <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+          {/* Clickable Header */}
+          <button
+            type="button"
+            onClick={() => setShowPhaseDetails(!showPhaseDetails)}
+            className={cn(
+              'flex w-full items-center justify-between p-4 text-left',
+              'hover:bg-muted/50 transition-colors',
+              !disabled && 'cursor-pointer'
+            )}
+            disabled={disabled}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm text-foreground">Phase Configuration</span>
+              {!showPhaseDetails && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Pencil className="h-3 w-3" />
+                  <span>Click to customize</span>
+                </span>
               )}
-              disabled={disabled}
-            >
-              <span className="font-medium text-foreground">Phase Configuration</span>
-              {showPhaseDetails ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
+            </div>
+            {showPhaseDetails ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
 
-            {/* Compact summary when collapsed */}
-            {!showPhaseDetails && (
+          {/* Compact summary when collapsed */}
+          {!showPhaseDetails && (
+            <div className="px-4 pb-4 -mt-1">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {(Object.keys(PHASE_LABELS) as Array<keyof PhaseModelConfig>).map((phase) => {
                   const modelLabel = AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase];
@@ -253,55 +262,61 @@ export function AgentProfileSelector({
                   );
                 })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Detailed Phase Configuration */}
           {showPhaseDetails && (
-            <div className="space-y-4 pt-2">
+            <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
               {(Object.keys(PHASE_LABELS) as Array<keyof PhaseModelConfig>).map((phase) => (
                 <div key={phase} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium text-muted-foreground">
+                    <Label className="text-xs font-medium text-foreground">
                       {PHASE_LABELS[phase].label}
                     </Label>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       {PHASE_LABELS[phase].description}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={currentPhaseModels[phase]}
-                      onValueChange={(value) => handlePhaseModelChange(phase, value as ModelType)}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AVAILABLE_MODELS.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={currentPhaseThinking[phase]}
-                      onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {THINKING_LEVELS.map((level) => (
-                          <SelectItem key={level.value} value={level.value}>
-                            {level.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Model</Label>
+                      <Select
+                        value={currentPhaseModels[phase]}
+                        onValueChange={(value) => handlePhaseModelChange(phase, value as ModelType)}
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_MODELS.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>
+                              {m.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Thinking</Label>
+                      <Select
+                        value={currentPhaseThinking[phase]}
+                        onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {THINKING_LEVELS.map((level) => (
+                            <SelectItem key={level.value} value={level.value}>
+                              {level.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               ))}

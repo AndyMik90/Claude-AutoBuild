@@ -9,7 +9,8 @@ import json
 from pathlib import Path
 
 # Directory containing prompt files
-PROMPTS_DIR = Path(__file__).parent / "prompts"
+# prompts/ is a sibling directory of prompts_pkg/, so go up one level first
+PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 def get_planner_prompt(spec_dir: Path) -> str:
@@ -38,10 +39,15 @@ def get_planner_prompt(spec_dir: Path) -> str:
 
 Your spec file is located at: `{spec_dir}/spec.md`
 
-Store all build artifacts in this spec directory:
-- `{spec_dir}/implementation_plan.json` - Subtask-based implementation plan
-- `{spec_dir}/build-progress.txt` - Progress notes
-- `{spec_dir}/init.sh` - Environment setup script
+🚨 CRITICAL FILE CREATION INSTRUCTIONS 🚨
+
+You MUST use the Write tool to create these files in the spec directory:
+- `{spec_dir}/implementation_plan.json` - Subtask-based implementation plan (USE WRITE TOOL!)
+- `{spec_dir}/build-progress.txt` - Progress notes (USE WRITE TOOL!)
+- `{spec_dir}/init.sh` - Environment setup script (USE WRITE TOOL!)
+
+DO NOT just describe what these files should contain. You MUST actually call the Write tool
+with the file path and complete content to create them.
 
 The project root is the parent of auto-claude/. Implement code in the project root, not in the spec directory.
 

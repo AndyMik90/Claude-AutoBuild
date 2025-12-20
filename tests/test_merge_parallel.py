@@ -21,9 +21,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
 
 from workspace import ParallelMergeTask, ParallelMergeResult
-
-# _run_parallel_merges is not yet implemented - tests that use it are skipped
-_run_parallel_merges = None
+from core.workspace import _run_parallel_merges
 
 
 class TestParallelMergeDataclasses:
@@ -101,11 +99,10 @@ class TestParallelMergeDataclasses:
 class TestParallelMergeRunner:
     """Tests for the parallel merge runner."""
 
-    @pytest.mark.skip(reason="_run_parallel_merges not yet implemented")
-    def test_run_parallel_merges_empty_list(self, project_dir):
+    def test_run_parallel_merges_empty_list(self, tmp_path):
         """Running with empty task list returns empty results."""
         import asyncio
-        results = asyncio.run(_run_parallel_merges([], project_dir))
+        results = asyncio.run(_run_parallel_merges([], tmp_path))
         assert results == []
 
     def test_parallel_merge_task_with_data(self):
@@ -121,6 +118,81 @@ class TestParallelMergeRunner:
         assert "main" in task.main_content
         assert "hi" in task.worktree_content
         assert task.spec_name == "001-feature"
+
+
+class TestSimple3WayMerge:
+    """Tests for the simple 3-way merge logic."""
+
+    def test_identical_files_merge(self, tmp_path):
+        """When both versions are identical, return that version."""
+        import asyncio
+
+        task = ParallelMergeTask(
+            file_path="src/test.py",
+            main_content="def main(): pass",
+            worktree_content="def main(): pass",  # Same as main
+            base_content="def main(): pass",  # Same as both
+            spec_name="001-no-change",
+        )
+
+        results = asyncio.run(_run_parallel_merges([task], tmp_path))
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].was_auto_merged is True
+        assert results[0].merged_content == "def main(): pass"
+
+    def test_only_worktree_changed(self, tmp_path):
+        """When only worktree changed, take worktree version."""
+        import asyncio
+
+        task = ParallelMergeTask(
+            file_path="src/test.py",
+            main_content="def main(): pass",  # Same as base
+            worktree_content="def main():\n    print('new')",  # Changed
+            base_content="def main(): pass",
+            spec_name="001-worktree-only",
+        )
+
+        results = asyncio.run(_run_parallel_merges([task], tmp_path))
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].was_auto_merged is True
+        assert "print('new')" in results[0].merged_content
+
+    def test_only_main_changed(self, tmp_path):
+        """When only main changed, take main version."""
+        import asyncio
+
+        task = ParallelMergeTask(
+            file_path="src/test.py",
+            main_content="def main():\n    print('main')",  # Changed
+            worktree_content="def main(): pass",  # Same as base
+            base_content="def main(): pass",
+            spec_name="001-main-only",
+        )
+
+        results = asyncio.run(_run_parallel_merges([task], tmp_path))
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].was_auto_merged is True
+        assert "print('main')" in results[0].merged_content
+
+    def test_no_base_but_identical(self, tmp_path):
+        """When no base and both identical, return that version."""
+        import asyncio
+
+        task = ParallelMergeTask(
+            file_path="src/new.py",
+            main_content="# Same content",
+            worktree_content="# Same content",
+            base_content=None,  # New file, no base
+            spec_name="001-new-identical",
+        )
+
+        results = asyncio.run(_run_parallel_merges([task], tmp_path))
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].was_auto_merged is True
 
 
 class TestParallelMergeIntegration:

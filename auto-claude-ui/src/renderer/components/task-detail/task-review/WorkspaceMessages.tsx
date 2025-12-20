@@ -24,12 +24,13 @@ export function LoadingMessage({ message = 'Loading workspace info...' }: Loadin
 
 interface NoWorkspaceMessageProps {
   task?: Task;
+  onClose?: () => void;
 }
 
 /**
  * Displays message when no workspace is found for the task
  */
-export function NoWorkspaceMessage({ task }: NoWorkspaceMessageProps) {
+export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
   const [isMarkingDone, setIsMarkingDone] = useState(false);
 
   const handleMarkDone = async () => {
@@ -38,6 +39,8 @@ export function NoWorkspaceMessage({ task }: NoWorkspaceMessageProps) {
     setIsMarkingDone(true);
     try {
       await persistTaskStatus(task.id, 'done');
+      // Auto-close modal after marking as done
+      onClose?.();
     } catch (err) {
       console.error('Error marking task as done:', err);
     } finally {
@@ -85,12 +88,13 @@ interface StagedInProjectMessageProps {
   task: Task;
   projectPath?: string;
   hasWorktree?: boolean;
+  onClose?: () => void;
 }
 
 /**
  * Displays message when changes have already been staged in the main project
  */
-export function StagedInProjectMessage({ task, projectPath, hasWorktree = false }: StagedInProjectMessageProps) {
+export function StagedInProjectMessage({ task, projectPath, hasWorktree = false, onClose }: StagedInProjectMessageProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +114,8 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false 
       // Mark task as done
       await persistTaskStatus(task.id, 'done');
 
-      // Success - the UI will update automatically via the store
+      // Auto-close modal after marking as done
+      onClose?.();
     } catch (err) {
       console.error('Error deleting worktree:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete worktree');

@@ -196,7 +196,9 @@ class ModificationTracker:
                     try:
                         new_content = current_file.read_text(encoding="utf-8")
                     except UnicodeDecodeError:
-                        new_content = current_file.read_text(encoding="utf-8", errors="replace")
+                        new_content = current_file.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
                 else:
                     # File was deleted
                     new_content = ""

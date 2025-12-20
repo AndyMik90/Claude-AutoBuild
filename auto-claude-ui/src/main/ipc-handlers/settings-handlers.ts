@@ -94,7 +94,8 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_GET,
     async (): Promise<IPCResult<AppSettings>> => {
-      let settings = { ...DEFAULT_APP_SETTINGS };
+      let settings: AppSettings = { ...DEFAULT_APP_SETTINGS };
+      let needsSave = false;
 
       if (existsSync(settingsPath)) {
         try {
@@ -105,11 +106,33 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Migration: Set agent profile to 'auto' for users who haven't made a selection (one-time)
+      // This ensures new users get the optimized 'auto' profile as the default
+      // while preserving existing user preferences
+      if (!settings._migratedAgentProfileToAuto) {
+        // Only set 'auto' if user hasn't made a selection yet
+        if (!settings.selectedAgentProfile) {
+          settings.selectedAgentProfile = 'auto';
+        }
+        settings._migratedAgentProfileToAuto = true;
+        needsSave = true;
+      }
+
       // If no manual autoBuildPath is set, try to auto-detect
       if (!settings.autoBuildPath) {
         const detectedPath = detectAutoBuildSourcePath();
         if (detectedPath) {
           settings.autoBuildPath = detectedPath;
+        }
+      }
+
+      // Persist migration changes
+      if (needsSave) {
+        try {
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        } catch (error) {
+          console.error('[SETTINGS_GET] Failed to persist migration:', error);
+          // Continue anyway - settings will be migrated in-memory for this session
         }
       }
 

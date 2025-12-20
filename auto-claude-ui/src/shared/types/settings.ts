@@ -82,10 +82,15 @@ export interface AppSettings {
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations
   selectedAgentProfile?: string;
+  // Custom phase configuration for Auto profile (overrides defaults)
+  customPhaseModels?: PhaseModelConfig;
+  customPhaseThinking?: PhaseThinkingConfig;
   // Changelog preferences
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // Migration flags (internal use)
+  _migratedAgentProfileToAuto?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

@@ -3,6 +3,7 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
+import { AgentProfileSettings } from './AgentProfileSettings';
 import { AVAILABLE_MODELS } from '../../../shared/constants';
 import type { AppSettings } from '../../../shared/types';
 
@@ -18,64 +19,51 @@ interface GeneralSettingsProps {
 export function GeneralSettings({ settings, onSettingsChange, section }: GeneralSettingsProps) {
   if (section === 'agent') {
     return (
-      <SettingsSection
-        title="Default Agent Settings"
-        description="Configure defaults for new projects"
-      >
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <Label htmlFor="defaultModel" className="text-sm font-medium text-foreground">Default Model</Label>
-            <p className="text-sm text-muted-foreground">The AI model used for agent tasks</p>
-            <Select
-              value={settings.defaultModel}
-              onValueChange={(value) => onSettingsChange({ ...settings, defaultModel: value })}
-            >
-              <SelectTrigger id="defaultModel" className="w-full max-w-md">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_MODELS.map((model) => (
-                  <SelectItem key={model.value} value={model.value}>
-                    {model.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-3">
-            <Label htmlFor="agentFramework" className="text-sm font-medium text-foreground">Agent Framework</Label>
-            <p className="text-sm text-muted-foreground">The coding framework used for autonomous tasks</p>
-            <Select
-              value={settings.agentFramework}
-              onValueChange={(value) => onSettingsChange({ ...settings, agentFramework: value })}
-            >
-              <SelectTrigger id="agentFramework" className="w-full max-w-md">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto-claude">Auto Claude</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between max-w-md">
-              <div className="space-y-1">
-                <Label htmlFor="autoNameTerminals" className="text-sm font-medium text-foreground">
-                  AI Terminal Naming
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically name terminals based on commands (uses Haiku)
-                </p>
+      <div className="space-y-8">
+        {/* Agent Profile Selection */}
+        <AgentProfileSettings />
+
+        {/* Other Agent Settings */}
+        <SettingsSection
+          title="Other Agent Settings"
+          description="Additional agent configuration options"
+        >
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="agentFramework" className="text-sm font-medium text-foreground">Agent Framework</Label>
+              <p className="text-sm text-muted-foreground">The coding framework used for autonomous tasks</p>
+              <Select
+                value={settings.agentFramework}
+                onValueChange={(value) => onSettingsChange({ ...settings, agentFramework: value })}
+              >
+                <SelectTrigger id="agentFramework" className="w-full max-w-md">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto-claude">Auto Claude</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between max-w-md">
+                <div className="space-y-1">
+                  <Label htmlFor="autoNameTerminals" className="text-sm font-medium text-foreground">
+                    AI Terminal Naming
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically name terminals based on commands (uses Haiku)
+                  </p>
+                </div>
+                <Switch
+                  id="autoNameTerminals"
+                  checked={settings.autoNameTerminals}
+                  onCheckedChange={(checked) => onSettingsChange({ ...settings, autoNameTerminals: checked })}
+                />
               </div>
-              <Switch
-                id="autoNameTerminals"
-                checked={settings.autoNameTerminals}
-                onCheckedChange={(checked) => onSettingsChange({ ...settings, autoNameTerminals: checked })}
-              />
             </div>
           </div>
-        </div>
-      </SettingsSection>
+        </SettingsSection>
+      </div>
     );
   }
 

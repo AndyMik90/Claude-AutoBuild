@@ -19,7 +19,7 @@ const iconMap: Record<string, React.ElementType> = {
  */
 export function AgentProfiles() {
   const settings = useSettingsStore((state) => state.settings);
-  const selectedProfileId = settings.selectedAgentProfile || 'balanced';
+  const selectedProfileId = settings.selectedAgentProfile || 'auto';
 
   const handleSelectProfile = async (profileId: string) => {
     await saveSettings({ selectedAgentProfile: profileId });

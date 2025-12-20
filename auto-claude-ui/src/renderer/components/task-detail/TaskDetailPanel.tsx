@@ -84,6 +84,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           state.setWorkspaceError(null);
           state.setStagedSuccess(result.data.message || 'Changes staged in main project');
           state.setStagedProjectPath(result.data.projectPath);
+          state.setSuggestedCommitMessage(result.data.suggestedCommitMessage);
         } else {
           console.warn('[TaskDetailPanel] Full merge success, closing panel');
           onClose();
@@ -196,6 +197,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     stageOnly={state.stageOnly}
                     stagedSuccess={state.stagedSuccess}
                     stagedProjectPath={state.stagedProjectPath}
+                    suggestedCommitMessage={state.suggestedCommitMessage}
                     mergePreview={state.mergePreview}
                     isLoadingPreview={state.isLoadingPreview}
                     showConflictDialog={state.showConflictDialog}

@@ -509,7 +509,9 @@ class FileTimelineTracker:
                     try:
                         content = full_path.read_text(encoding="utf-8")
                     except UnicodeDecodeError:
-                        content = full_path.read_text(encoding="utf-8", errors="replace")
+                        content = full_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )
                     self.on_task_worktree_change(task_id, file_path, content)
 
             debug_success(MODULE, f"Captured {len(changed_files)} files from worktree")
