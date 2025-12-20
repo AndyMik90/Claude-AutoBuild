@@ -4,3 +4,6 @@ python-dotenv>=1.0.0
 
 # Memory Integration (highly recommended) but can be disabled by commenting out the line below
 graphiti-core[falkordb]>=0.5.0
+
+# Google AI (optional - for Gemini LLM and embeddings)
+google-generativeai>=0.8.0

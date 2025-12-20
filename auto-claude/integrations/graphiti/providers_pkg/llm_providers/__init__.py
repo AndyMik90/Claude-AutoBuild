@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from .anthropic_llm import create_anthropic_llm_client
 from .azure_openai_llm import create_azure_openai_llm_client
+from .google_llm import create_google_llm_client
 from .ollama_llm import create_ollama_llm_client
 from .openai_llm import create_openai_llm_client
 
@@ -20,4 +21,5 @@ __all__ = [
     "create_anthropic_llm_client",
     "create_azure_openai_llm_client",
     "create_ollama_llm_client",
+    "create_google_llm_client",
 ]

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from graphiti_config import GraphitiConfig
 
 from .azure_openai_embedder import create_azure_openai_embedder
+from .google_embedder import create_google_embedder
 from .ollama_embedder import create_ollama_embedder
 from .openai_embedder import create_openai_embedder
 from .voyage_embedder import create_voyage_embedder
@@ -20,4 +21,5 @@ __all__ = [
     "create_voyage_embedder",
     "create_azure_openai_embedder",
     "create_ollama_embedder",
+    "create_google_embedder",
 ]

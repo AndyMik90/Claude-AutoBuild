@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 from .embedder_providers import (
     create_azure_openai_embedder,
+    create_google_embedder,
     create_ollama_embedder,
     create_openai_embedder,
     create_voyage_embedder,
@@ -21,6 +22,7 @@ from .exceptions import ProviderError
 from .llm_providers import (
     create_anthropic_llm_client,
     create_azure_openai_llm_client,
+    create_google_llm_client,
     create_ollama_llm_client,
     create_openai_llm_client,
 )
@@ -54,6 +56,8 @@ def create_llm_client(config: "GraphitiConfig") -> Any:
         return create_azure_openai_llm_client(config)
     elif provider == "ollama":
         return create_ollama_llm_client(config)
+    elif provider == "google":
+        return create_google_llm_client(config)
     else:
         raise ProviderError(f"Unknown LLM provider: {provider}")
 
@@ -84,5 +88,7 @@ def create_embedder(config: "GraphitiConfig") -> Any:
         return create_azure_openai_embedder(config)
     elif provider == "ollama":
         return create_ollama_embedder(config)
+    elif provider == "google":
+        return create_google_embedder(config)
     else:
         raise ProviderError(f"Unknown embedder provider: {provider}")

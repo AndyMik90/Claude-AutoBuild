@@ -82,6 +82,7 @@ class LLMProvider(str, Enum):
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
     OLLAMA = "ollama"
+    GOOGLE = "google"
 
 
 class EmbedderProvider(str, Enum):
@@ -91,6 +92,7 @@ class EmbedderProvider(str, Enum):
     VOYAGE = "voyage"
     AZURE_OPENAI = "azure_openai"
     OLLAMA = "ollama"
+    GOOGLE = "google"
 
 
 @dataclass
@@ -127,6 +129,11 @@ class GraphitiConfig:
     # Voyage AI settings (embeddings only)
     voyage_api_key: str = ""
     voyage_embedding_model: str = "voyage-3"
+
+    # Google AI settings (LLM and embeddings)
+    google_api_key: str = ""
+    google_llm_model: str = "gemini-2.0-flash"
+    google_embedding_model: str = "text-embedding-004"
 
     # Ollama settings (local)
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
@@ -189,6 +196,13 @@ class GraphitiConfig:
         voyage_api_key = os.environ.get("VOYAGE_API_KEY", "")
         voyage_embedding_model = os.environ.get("VOYAGE_EMBEDDING_MODEL", "voyage-3")
 
+        # Google AI settings
+        google_api_key = os.environ.get("GOOGLE_API_KEY", "")
+        google_llm_model = os.environ.get("GOOGLE_LLM_MODEL", "gemini-2.0-flash")
+        google_embedding_model = os.environ.get(
+            "GOOGLE_EMBEDDING_MODEL", "text-embedding-004"
+        )
+
         # Ollama settings
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
         ollama_llm_model = os.environ.get("OLLAMA_LLM_MODEL", "")
@@ -220,6 +234,9 @@ class GraphitiConfig:
             azure_openai_embedding_deployment=azure_openai_embedding_deployment,
             voyage_api_key=voyage_api_key,
             voyage_embedding_model=voyage_embedding_model,
+            google_api_key=google_api_key,
+            google_llm_model=google_llm_model,
+            google_embedding_model=google_embedding_model,
             ollama_base_url=ollama_base_url,
             ollama_llm_model=ollama_llm_model,
             ollama_embedding_model=ollama_embedding_model,
@@ -262,6 +279,8 @@ class GraphitiConfig:
             )
         elif self.llm_provider == "ollama":
             return bool(self.ollama_llm_model)
+        elif self.llm_provider == "google":
+            return bool(self.google_api_key)
         return False
 
     def _validate_embedder_provider(self) -> bool:
@@ -278,6 +297,8 @@ class GraphitiConfig:
             )
         elif self.embedder_provider == "ollama":
             return bool(self.ollama_embedding_model and self.ollama_embedding_dim)
+        elif self.embedder_provider == "google":
+            return bool(self.google_api_key)
         return False
 
     def get_validation_errors(self) -> list[str]:
@@ -309,6 +330,9 @@ class GraphitiConfig:
         elif self.llm_provider == "ollama":
             if not self.ollama_llm_model:
                 errors.append("Ollama LLM provider requires OLLAMA_LLM_MODEL")
+        elif self.llm_provider == "google":
+            if not self.google_api_key:
+                errors.append("Google LLM provider requires GOOGLE_API_KEY")
         else:
             errors.append(f"Unknown LLM provider: {self.llm_provider}")
 
@@ -339,6 +363,9 @@ class GraphitiConfig:
                 )
             if not self.ollama_embedding_dim:
                 errors.append("Ollama embedder provider requires OLLAMA_EMBEDDING_DIM")
+        elif self.embedder_provider == "google":
+            if not self.google_api_key:
+                errors.append("Google embedder provider requires GOOGLE_API_KEY")
         else:
             errors.append(f"Unknown embedder provider: {self.embedder_provider}")
 
@@ -516,6 +543,11 @@ def get_available_providers() -> dict:
     # Check Voyage
     if config.voyage_api_key:
         available_embedder.append("voyage")
+
+    # Check Google AI
+    if config.google_api_key:
+        available_llm.append("google")
+        available_embedder.append("google")
 
     # Check Ollama
     if config.ollama_llm_model:

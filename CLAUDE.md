@@ -118,7 +118,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 - **worktree.py** - Git worktree isolation for safe feature development
 - **memory.py** - File-based session memory (primary, always-available storage)
 - **graphiti_memory.py** - Optional graph-based cross-session memory with semantic search
-- **graphiti_providers.py** - Multi-provider factory for Graphiti (OpenAI, Anthropic, Azure, Ollama)
+- **graphiti_providers.py** - Multi-provider factory for Graphiti (OpenAI, Anthropic, Azure, Ollama, Google AI)
 - **graphiti_config.py** - Configuration and validation for Graphiti integration
 - **linear_updater.py** - Optional Linear integration for progress tracking
 
@@ -192,8 +192,8 @@ Dual-layer memory architecture:
 - Graph database with semantic search (FalkorDB)
 - Cross-session context retrieval
 - Multi-provider support (V2):
-  - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama
-  - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama
+  - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI (Gemini)
+  - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
 
 Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
 

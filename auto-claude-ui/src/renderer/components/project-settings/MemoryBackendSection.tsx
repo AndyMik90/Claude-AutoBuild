@@ -146,7 +146,7 @@ export function MemoryBackendSection({
               onValueChange={(value) => onUpdateConfig({
                 graphitiProviderConfig: {
                   ...envConfig.graphitiProviderConfig,
-                  llmProvider: value as 'openai' | 'anthropic' | 'google' | 'groq',
+                  llmProvider: value as 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq',
                   embeddingProvider: envConfig.graphitiProviderConfig?.embeddingProvider || 'openai',
                 }
               })}
@@ -155,10 +155,11 @@ export function MemoryBackendSection({
                 <SelectValue placeholder="Select LLM provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="openai">OpenAI (GPT-5-mini)</SelectItem>
+                <SelectItem value="openai">OpenAI (GPT-4o-mini)</SelectItem>
                 <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                <SelectItem value="google">Google (Gemini)</SelectItem>
-                <SelectItem value="groq">Groq (Llama)</SelectItem>
+                <SelectItem value="google">Google AI (Gemini)</SelectItem>
+                <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                <SelectItem value="ollama">Ollama (Local)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -175,7 +176,7 @@ export function MemoryBackendSection({
                 graphitiProviderConfig: {
                   ...envConfig.graphitiProviderConfig,
                   llmProvider: envConfig.graphitiProviderConfig?.llmProvider || 'openai',
-                  embeddingProvider: value as 'openai' | 'voyage' | 'google' | 'huggingface',
+                  embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'huggingface',
                 }
               })}
             >
@@ -185,8 +186,9 @@ export function MemoryBackendSection({
               <SelectContent>
                 <SelectItem value="openai">OpenAI</SelectItem>
                 <SelectItem value="voyage">Voyage AI</SelectItem>
-                <SelectItem value="google">Google</SelectItem>
-                <SelectItem value="huggingface">HuggingFace (Local)</SelectItem>
+                <SelectItem value="google">Google AI</SelectItem>
+                <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                <SelectItem value="ollama">Ollama (Local)</SelectItem>
               </SelectContent>
             </Select>
           </div>
