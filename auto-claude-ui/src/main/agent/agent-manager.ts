@@ -9,8 +9,9 @@ import { getClaudeProfileManager } from '../claude-profile-manager';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
-  IdeationConfig
+  RoadmapConfig
 } from './types';
+import type { IdeationConfig } from '../../shared/types';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -244,9 +245,10 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     refresh: boolean = false,
     enableCompetitorAnalysis: boolean = false,
-    refreshCompetitorAnalysis: boolean = false
+    refreshCompetitorAnalysis: boolean = false,
+    config?: RoadmapConfig
   ): void {
-    this.queueManager.startRoadmapGeneration(projectId, projectPath, refresh, enableCompetitorAnalysis, refreshCompetitorAnalysis);
+    this.queueManager.startRoadmapGeneration(projectId, projectPath, refresh, enableCompetitorAnalysis, refreshCompetitorAnalysis, config);
   }
 
   /**

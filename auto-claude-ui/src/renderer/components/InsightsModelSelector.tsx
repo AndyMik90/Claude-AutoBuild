@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Brain, Scale, Zap, Sliders, Check } from 'lucide-react';
+import { Brain, Scale, Zap, Sparkles, Sliders, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -22,7 +22,8 @@ interface InsightsModelSelectorProps {
 const iconMap: Record<string, React.ElementType> = {
   Brain,
   Scale,
-  Zap
+  Zap,
+  Sparkles
 };
 
 export function InsightsModelSelector({
@@ -32,8 +33,9 @@ export function InsightsModelSelector({
 }: InsightsModelSelectorProps) {
   const [showCustomModal, setShowCustomModal] = useState(false);
 
-  // Default to 'balanced' if no config
-  const selectedProfileId = currentConfig?.profileId || 'balanced';
+  // Default to 'balanced' if no config, or if 'auto' profile was selected (not applicable for insights)
+  const rawProfileId = currentConfig?.profileId || 'balanced';
+  const selectedProfileId = rawProfileId === 'auto' ? 'balanced' : rawProfileId;
   const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === selectedProfileId);
 
   // Get the appropriate icon
@@ -90,7 +92,7 @@ export function InsightsModelSelector({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel>Agent Profile</DropdownMenuLabel>
-          {DEFAULT_AGENT_PROFILES.map((p) => {
+          {DEFAULT_AGENT_PROFILES.filter(p => !p.isAutoProfile).map((p) => {
             const ProfileIcon = iconMap[p.icon || 'Brain'];
             const isSelected = selectedProfileId === p.id;
             const modelLabel = AVAILABLE_MODELS.find(m => m.value === p.model)?.label;
@@ -132,13 +134,12 @@ export function InsightsModelSelector({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {showCustomModal && (
-        <CustomModelModal
-          currentConfig={currentConfig}
-          onSave={handleCustomSave}
-          onClose={() => setShowCustomModal(false)}
-        />
-      )}
+      <CustomModelModal
+        open={showCustomModal}
+        currentConfig={currentConfig}
+        onSave={handleCustomSave}
+        onClose={() => setShowCustomModal(false)}
+      />
     </>
   );
 }

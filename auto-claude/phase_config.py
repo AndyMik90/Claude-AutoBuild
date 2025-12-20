@@ -118,7 +118,17 @@ def get_thinking_budget(thinking_level: str) -> int | None:
     Returns:
         Token budget or None for no extended thinking
     """
-    return THINKING_BUDGET_MAP.get(thinking_level, THINKING_BUDGET_MAP["medium"])
+    import logging
+
+    if thinking_level not in THINKING_BUDGET_MAP:
+        valid_levels = ", ".join(THINKING_BUDGET_MAP.keys())
+        logging.warning(
+            f"Invalid thinking_level '{thinking_level}'. Valid values: {valid_levels}. "
+            f"Defaulting to 'medium'."
+        )
+        return THINKING_BUDGET_MAP["medium"]
+
+    return THINKING_BUDGET_MAP[thinking_level]
 
 
 def load_task_metadata(spec_dir: Path) -> TaskMetadataConfig | None:

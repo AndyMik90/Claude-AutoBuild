@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ChevronRight,
   Lightbulb,
@@ -8,10 +9,12 @@ import {
   Zap,
   ExternalLink,
   TrendingUp,
+  Trash2,
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { ScrollArea } from '../ui/scroll-area';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
@@ -25,15 +28,25 @@ export function FeatureDetailPanel({
   onClose,
   onConvertToSpec,
   onGoToTask,
+  onDelete,
   competitorInsights = [],
 }: FeatureDetailPanelProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(feature.id);
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg flex flex-col z-50">
       {/* Header */}
-      <div className="shrink-0 p-4 border-b border-border">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+      <div className="shrink-0 p-4 border-b border-border electron-no-drag">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Badge variant="outline" className={ROADMAP_PRIORITY_COLORS[feature.priority]}>
                 {ROADMAP_PRIORITY_LABELS[feature.priority]}
               </Badge>
@@ -44,21 +57,36 @@ export function FeatureDetailPanel({
                 {feature.complexity}
               </Badge>
             </div>
-            <h2 className="font-semibold">{feature.title}</h2>
+            <h2 className="font-semibold truncate">{feature.title}</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0 relative z-10 pointer-events-auto">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteConfirm(true);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-6">
-        {/* Description */}
-        <div>
-          <h3 className="text-sm font-medium mb-2">Description</h3>
-          <p className="text-sm text-muted-foreground">{feature.description}</p>
-        </div>
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-6">
+          {/* Description */}
+          <div>
+            <h3 className="text-sm font-medium mb-2">Description</h3>
+            <p className="text-sm text-muted-foreground">{feature.description}</p>
+          </div>
 
         {/* Rationale */}
         <div>
@@ -179,7 +207,8 @@ export function FeatureDetailPanel({
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </ScrollArea>
 
       {/* Actions */}
       {feature.linkedSpecId ? (
@@ -198,6 +227,31 @@ export function FeatureDetailPanel({
             </Button>
           </div>
         )
+      )}
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 bg-background/95 flex items-center justify-center p-6 z-10">
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+              <Trash2 className="h-6 w-6 text-destructive" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Delete Feature?</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                This will permanently remove "{feature.title}" from your roadmap.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

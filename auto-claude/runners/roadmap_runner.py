@@ -59,6 +59,13 @@ def main():
         help="Model to use (default: claude-opus-4-5-20251101)",
     )
     parser.add_argument(
+        "--thinking-level",
+        type=str,
+        default="medium",
+        choices=["none", "low", "medium", "high", "ultrathink"],
+        help="Thinking level for extended reasoning (default: medium)",
+    )
+    parser.add_argument(
         "--refresh",
         action="store_true",
         help="Force regeneration even if roadmap exists",
@@ -106,6 +113,7 @@ def main():
         project_dir=project_dir,
         output_dir=args.output,
         model=args.model,
+        thinking_level=args.thinking_level,
         refresh=args.refresh,
         enable_competitor_analysis=args.enable_competitor_analysis,
         refresh_competitor_analysis=args.refresh_competitor_analysis,

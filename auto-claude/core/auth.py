@@ -12,17 +12,19 @@ import platform
 import subprocess
 
 # Priority order for auth token resolution
+# NOTE: We intentionally do NOT fall back to ANTHROPIC_API_KEY.
+# Auto Claude is designed to use Claude Code OAuth tokens only.
+# This prevents silent billing to user's API credits when OAuth fails.
 AUTH_TOKEN_ENV_VARS = [
-    "CLAUDE_CODE_OAUTH_TOKEN",  # Original (highest priority)
-    "ANTHROPIC_AUTH_TOKEN",  # CCR/proxy token
-    "ANTHROPIC_API_KEY",  # Direct API key (lowest priority)
+    "CLAUDE_CODE_OAUTH_TOKEN",  # OAuth token from Claude Code CLI
+    "ANTHROPIC_AUTH_TOKEN",  # CCR/proxy token (for enterprise setups)
 ]
 
 # Environment variables to pass through to SDK subprocess
+# NOTE: ANTHROPIC_API_KEY is intentionally excluded to prevent silent API billing
 SDK_ENV_VARS = [
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
-    "ANTHROPIC_API_KEY",
     "NO_PROXY",
     "DISABLE_TELEMETRY",
     "DISABLE_COST_WARNINGS",
@@ -92,9 +94,11 @@ def get_auth_token() -> str | None:
 
     Checks multiple sources in priority order:
     1. CLAUDE_CODE_OAUTH_TOKEN (env var)
-    2. ANTHROPIC_AUTH_TOKEN (ccr/proxy env var)
-    3. ANTHROPIC_API_KEY (direct API key env var)
-    4. macOS Keychain (if on Darwin platform)
+    2. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
+    3. macOS Keychain (if on Darwin platform)
+
+    NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
+    silent billing to user's API credits when OAuth is misconfigured.
 
     Returns:
         Token string if found, None otherwise
@@ -133,14 +137,24 @@ def require_auth_token() -> str:
     token = get_auth_token()
     if not token:
         error_msg = (
-            "No authentication token found.\n"
-            f"Set one of: {', '.join(AUTH_TOKEN_ENV_VARS)}\n"
+            "No OAuth token found.\n\n"
+            "Auto Claude requires Claude Code OAuth authentication.\n"
+            "Direct API keys (ANTHROPIC_API_KEY) are not supported.\n\n"
         )
         # Provide platform-specific guidance
         if platform.system() == "Darwin":
-            error_msg += "For Claude Code CLI: run 'claude setup-token' to save token to macOS Keychain"
+            error_msg += (
+                "To authenticate:\n"
+                "  1. Run: claude setup-token\n"
+                "  2. The token will be saved to macOS Keychain automatically\n\n"
+                "Or set CLAUDE_CODE_OAUTH_TOKEN in your .env file."
+            )
         else:
-            error_msg += "For Claude Code CLI: run 'claude setup-token'"
+            error_msg += (
+                "To authenticate:\n"
+                "  1. Run: claude setup-token\n"
+                "  2. Set CLAUDE_CODE_OAUTH_TOKEN in your .env file"
+            )
         raise ValueError(error_msg)
     return token
 

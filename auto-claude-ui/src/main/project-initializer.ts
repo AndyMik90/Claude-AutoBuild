@@ -3,9 +3,9 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 /**
- * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
+ * Debug logging - only logs when DEBUG=true or in development mode
  */
-const DEBUG = process.env.AUTO_CLAUDE_DEBUG === 'true' || process.env.AUTO_CLAUDE_DEBUG === '1';
+const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
 
 function debug(message: string, data?: Record<string, unknown>): void {
   if (DEBUG) {

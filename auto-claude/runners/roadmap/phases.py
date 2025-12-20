@@ -291,9 +291,20 @@ Output the complete roadmap to roadmap.json.
             with open(self.roadmap_file) as f:
                 data = json.load(f)
 
-            required = ["phases", "features", "vision"]
+            required = ["phases", "features", "vision", "target_audience"]
             missing = [k for k in required if k not in data]
             feature_count = len(data.get("features", []))
+
+            # Validate target_audience structure with type checking
+            target_audience = data.get("target_audience", {})
+            if not isinstance(target_audience, dict):
+                debug_warning(
+                    "roadmap_phase",
+                    f"Invalid target_audience type: expected dict, got {type(target_audience).__name__}",
+                )
+                missing.append("target_audience (invalid type)")
+            elif not target_audience.get("primary"):
+                missing.append("target_audience.primary")
 
             debug_detailed(
                 "roadmap_phase",

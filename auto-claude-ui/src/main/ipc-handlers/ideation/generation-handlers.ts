@@ -3,11 +3,45 @@
  */
 
 import type { IpcMainEvent, IpcMainInvokeEvent, BrowserWindow } from 'electron';
-import { IPC_CHANNELS } from '../../../shared/constants';
-import type { IPCResult, IdeationConfig, IdeationGenerationStatus } from '../../../shared/types';
+import { app } from 'electron';
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
+import type { IPCResult, IdeationConfig, IdeationGenerationStatus, AppSettings } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import type { AgentManager } from '../../agent';
-import { debugLog } from '../../../shared/utils/debug-logger';
+import { debugLog, debugError } from '../../../shared/utils/debug-logger';
+
+/**
+ * Read ideation feature settings from the settings file
+ */
+function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string } {
+  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+
+  try {
+    if (existsSync(settingsPath)) {
+      const content = readFileSync(settingsPath, 'utf-8');
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+
+      // Get ideation-specific settings
+      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+      return {
+        model: featureModels.ideation,
+        thinkingLevel: featureThinking.ideation
+      };
+    }
+  } catch (error) {
+    debugError('[Ideation Handler] Failed to read feature settings:', error);
+  }
+
+  // Return defaults if settings file doesn't exist or fails to parse
+  return {
+    model: DEFAULT_FEATURE_MODELS.ideation,
+    thinkingLevel: DEFAULT_FEATURE_THINKING.ideation
+  };
+}
 
 /**
  * Start ideation generation for a project
@@ -19,10 +53,20 @@ export function startIdeationGeneration(
   agentManager: AgentManager,
   mainWindow: BrowserWindow | null
 ): void {
+  // Get feature settings and merge with config
+  const featureSettings = getIdeationFeatureSettings();
+  const configWithSettings: IdeationConfig = {
+    ...config,
+    model: config.model || featureSettings.model,
+    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel
+  };
+
   debugLog('[Ideation Handler] Start generation request:', {
     projectId,
-    enabledTypes: config.enabledTypes,
-    maxIdeasPerType: config.maxIdeasPerType
+    enabledTypes: configWithSettings.enabledTypes,
+    maxIdeasPerType: configWithSettings.maxIdeasPerType,
+    model: configWithSettings.model,
+    thinkingLevel: configWithSettings.thinkingLevel
   });
 
   if (!mainWindow) return;
@@ -40,11 +84,13 @@ export function startIdeationGeneration(
 
   debugLog('[Ideation Handler] Starting agent manager generation:', {
     projectId,
-    projectPath: project.path
+    projectPath: project.path,
+    model: configWithSettings.model,
+    thinkingLevel: configWithSettings.thinkingLevel
   });
 
   // Start ideation generation via agent manager
-  agentManager.startIdeationGeneration(projectId, project.path, config, false);
+  agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, false);
 
   // Send initial progress
   mainWindow.webContents.send(
@@ -68,6 +114,20 @@ export function refreshIdeationSession(
   agentManager: AgentManager,
   mainWindow: BrowserWindow | null
 ): void {
+  // Get feature settings and merge with config
+  const featureSettings = getIdeationFeatureSettings();
+  const configWithSettings: IdeationConfig = {
+    ...config,
+    model: config.model || featureSettings.model,
+    thinkingLevel: config.thinkingLevel || featureSettings.thinkingLevel
+  };
+
+  debugLog('[Ideation Handler] Refresh session request:', {
+    projectId,
+    model: configWithSettings.model,
+    thinkingLevel: configWithSettings.thinkingLevel
+  });
+
   if (!mainWindow) return;
 
   const project = projectStore.getProject(projectId);
@@ -81,7 +141,7 @@ export function refreshIdeationSession(
   }
 
   // Start ideation regeneration with refresh flag
-  agentManager.startIdeationGeneration(projectId, project.path, config, true);
+  agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, true);
 
   // Send initial progress
   mainWindow.webContents.send(

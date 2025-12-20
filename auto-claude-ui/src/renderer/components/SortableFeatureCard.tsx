@@ -9,17 +9,18 @@ import {
   TooltipContent,
   TooltipTrigger
 } from './ui/tooltip';
-import { Play, ExternalLink, TrendingUp } from 'lucide-react';
+import { Play, ExternalLink, TrendingUp, Layers, ThumbsUp } from 'lucide-react';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS
 } from '../../shared/constants';
-import type { RoadmapFeature } from '../../shared/types';
+import type { RoadmapFeature, Roadmap } from '../../shared/types';
 
 interface SortableFeatureCardProps {
   feature: RoadmapFeature;
+  roadmap?: Roadmap;
   onClick: () => void;
   onConvertToSpec?: (feature: RoadmapFeature) => void;
   onGoToTask?: (specId: string) => void;
@@ -27,6 +28,7 @@ interface SortableFeatureCardProps {
 
 export function SortableFeatureCard({
   feature,
+  roadmap,
   onClick,
   onConvertToSpec,
   onGoToTask
@@ -51,6 +53,12 @@ export function SortableFeatureCard({
   const hasCompetitorInsight =
     !!feature.competitorInsightIds && feature.competitorInsightIds.length > 0;
 
+  // Get phase name for the feature
+  const phaseName = roadmap?.phases.find((p) => p.id === feature.phaseId)?.name;
+
+  // Check if feature has external source (e.g., Canny)
+  const isExternal = feature.source?.provider && feature.source.provider !== 'internal';
+
   return (
     <div
       ref={setNodeRef}
@@ -70,13 +78,29 @@ export function SortableFeatureCard({
         {/* Header - Title with priority badge and action button */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', ROADMAP_PRIORITY_COLORS[feature.priority])}
               >
                 {ROADMAP_PRIORITY_LABELS[feature.priority]}
               </Badge>
+              {phaseName && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 text-muted-foreground border-muted-foreground/30"
+                    >
+                      <Layers className="h-2.5 w-2.5 mr-0.5" />
+                      {phaseName.length > 12 ? `${phaseName.slice(0, 12)}...` : phaseName}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Phase: {phaseName}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {hasCompetitorInsight && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -135,7 +159,7 @@ export function SortableFeatureCard({
         </p>
 
         {/* Metadata badges - compact row */}
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
           <Badge
             variant="outline"
             className={cn('text-[10px] px-1.5 py-0', ROADMAP_COMPLEXITY_COLORS[feature.complexity])}
@@ -148,6 +172,39 @@ export function SortableFeatureCard({
           >
             {feature.impact}
           </Badge>
+          {/* Show vote count if from external source */}
+          {feature.votes !== undefined && feature.votes > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 text-muted-foreground"
+                >
+                  <ThumbsUp className="h-2.5 w-2.5 mr-0.5" />
+                  {feature.votes}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                {feature.votes} votes from user feedback
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {/* Show external source indicator */}
+          {isExternal && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 text-orange-500 border-orange-500/30"
+                >
+                  {feature.source?.provider === 'canny' ? 'Canny' : 'External'}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                Imported from {feature.source?.provider}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </Card>
     </div>

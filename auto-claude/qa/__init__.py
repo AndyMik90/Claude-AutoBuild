@@ -60,10 +60,7 @@ from .report import (
 )
 
 # Agent sessions
-from .reviewer import (
-    load_qa_reviewer_prompt,
-    run_qa_agent_session,
-)
+from .reviewer import run_qa_agent_session
 
 # Public API
 __all__ = [
@@ -96,7 +93,6 @@ __all__ = [
     "_normalize_issue_key",
     "_issue_similarity",
     # Agent sessions
-    "load_qa_reviewer_prompt",
     "run_qa_agent_session",
     "load_qa_fixer_prompt",
     "run_qa_fixer_session",

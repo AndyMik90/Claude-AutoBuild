@@ -19,18 +19,28 @@ TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
 TOOL_GET_SESSION_CONTEXT = "mcp__auto-claude__get_session_context"
 TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 
+# Puppeteer MCP tools for web browser automation
+# Used for web frontend validation (non-Electron web apps)
+PUPPETEER_TOOLS = [
+    "mcp__puppeteer__puppeteer_connect_active_tab",
+    "mcp__puppeteer__puppeteer_navigate",
+    "mcp__puppeteer__puppeteer_screenshot",
+    "mcp__puppeteer__puppeteer_click",
+    "mcp__puppeteer__puppeteer_fill",
+    "mcp__puppeteer__puppeteer_select",
+    "mcp__puppeteer__puppeteer_hover",
+    "mcp__puppeteer__puppeteer_evaluate",
+]
+
 # Electron MCP tools for desktop app automation (when ELECTRON_MCP_ENABLED is set)
-# Uses puppeteer-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
+# Uses electron-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
 # Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).
 # These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
 ELECTRON_TOOLS = [
-    "mcp__electron__electron_connect",  # Connect to Electron app via DevTools
-    "mcp__electron__electron_screenshot",  # Take screenshot of Electron window
-    "mcp__electron__electron_click",  # Click element in Electron app
-    "mcp__electron__electron_fill",  # Fill input field in Electron app
-    "mcp__electron__electron_evaluate",  # Execute JS in Electron renderer
-    "mcp__electron__electron_get_window_info",  # Get window state/bounds
-    "mcp__electron__electron_get_console",  # Get console logs from renderer
+    "mcp__electron__get_electron_window_info",  # Get info about running Electron windows
+    "mcp__electron__take_screenshot",  # Capture screenshot of Electron window
+    "mcp__electron__send_command_to_electron",  # Send commands (click, fill, evaluate JS)
+    "mcp__electron__read_electron_logs",  # Read console logs from Electron app
 ]
 
 # Base tools available to all agents

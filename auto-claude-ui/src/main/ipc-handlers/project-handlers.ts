@@ -136,8 +136,8 @@ const detectAutoBuildSourcePath = (): string | null => {
   // Add process.cwd() as last resort on all platforms
   possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
 
-  // Enable debug logging with AUTO_CLAUDE_DEBUG=1
-  const debug = process.env.AUTO_CLAUDE_DEBUG === '1' || process.env.AUTO_CLAUDE_DEBUG === 'true';
+  // Enable debug logging with DEBUG=1
+  const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 
   if (debug) {
     console.warn('[project-handlers:detectAutoBuildSourcePath] Platform:', process.platform);
@@ -164,7 +164,7 @@ const detectAutoBuildSourcePath = (): string | null => {
   }
 
   console.warn('[project-handlers:detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path.');
-  console.warn('[project-handlers:detectAutoBuildSourcePath] Set AUTO_CLAUDE_DEBUG=1 environment variable for detailed path checking.');
+  console.warn('[project-handlers:detectAutoBuildSourcePath] Set DEBUG=1 environment variable for detailed path checking.');
   return null;
 };
 

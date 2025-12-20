@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.6.0",
+  "version": "2.6.5",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "main": "./out/main/index.js",
   "author": "Auto Claude Team",
@@ -8,8 +8,10 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "dev": "electron-vite dev",
+    "dev:mcp": "electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",
     "start": "electron .",
+    "start:mcp": "electron . --remote-debugging-port=9222",
     "preview": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
     "package:mac": "electron-vite build && electron-builder --mac",

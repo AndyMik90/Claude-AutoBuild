@@ -8,7 +8,7 @@ import { RoadmapHeader } from './roadmap/RoadmapHeader';
 import { RoadmapEmptyState } from './roadmap/RoadmapEmptyState';
 import { RoadmapTabs } from './roadmap/RoadmapTabs';
 import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
-import { useRoadmapData, useFeatureActions, useRoadmapGeneration } from './roadmap/hooks';
+import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
 import { getCompetitorInsightsForFeature } from './roadmap/utils';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
@@ -16,13 +16,15 @@ import type { RoadmapProps } from './roadmap/types';
 export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   // State management
   const [selectedFeature, setSelectedFeature] = useState<RoadmapFeature | null>(null);
-  const [activeTab, setActiveTab] = useState('phases');
+  const [activeTab, setActiveTab] = useState('kanban');
   const [showAddFeatureDialog, setShowAddFeatureDialog] = useState(false);
   const [showCompetitorViewer, setShowCompetitorViewer] = useState(false);
 
   // Custom hooks
   const { roadmap, competitorAnalysis, generationStatus } = useRoadmapData(projectId);
   const { convertFeatureToSpec } = useFeatureActions();
+  const { saveRoadmap } = useRoadmapSave(projectId);
+  const { deleteFeature } = useFeatureDelete(projectId);
   const {
     competitorAnalysisDate,
     // New dialog for existing analysis
@@ -111,6 +113,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onFeatureSelect={setSelectedFeature}
           onConvertToSpec={handleConvertToSpec}
           onGoToTask={handleGoToTask}
+          onSave={saveRoadmap}
         />
       </div>
 
@@ -121,6 +124,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onClose={() => setSelectedFeature(null)}
           onConvertToSpec={handleConvertToSpec}
           onGoToTask={handleGoToTask}
+          onDelete={deleteFeature}
           competitorInsights={getCompetitorInsightsForFeature(selectedFeature, competitorAnalysis)}
         />
       )}

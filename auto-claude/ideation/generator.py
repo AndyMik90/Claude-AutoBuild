@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
+from phase_config import get_thinking_budget
 from ui import print_status
 
 # Ideation types
@@ -56,11 +57,14 @@ class IdeationGenerator:
         project_dir: Path,
         output_dir: Path,
         model: str = "claude-opus-4-5-20251101",
+        thinking_level: str = "medium",
         max_ideas_per_type: int = 5,
     ):
         self.project_dir = Path(project_dir)
         self.output_dir = Path(output_dir)
         self.model = model
+        self.thinking_level = thinking_level
+        self.thinking_budget = get_thinking_budget(thinking_level)
         self.max_ideas_per_type = max_ideas_per_type
         self.prompts_dir = Path(__file__).parent.parent / "prompts"
 
@@ -86,8 +90,13 @@ class IdeationGenerator:
         if additional_context:
             prompt += f"\n{additional_context}\n"
 
-        # Create client
-        client = create_client(self.project_dir, self.output_dir, self.model)
+        # Create client with thinking budget
+        client = create_client(
+            self.project_dir,
+            self.output_dir,
+            self.model,
+            max_thinking_tokens=self.thinking_budget,
+        )
 
         try:
             async with client:
@@ -175,7 +184,12 @@ Common fixes:
 Write the fixed JSON to the file now.
 """
 
-        client = create_client(self.project_dir, self.output_dir, self.model)
+        client = create_client(
+            self.project_dir,
+            self.output_dir,
+            self.model,
+            max_thinking_tokens=self.thinking_budget,
+        )
 
         try:
             async with client:

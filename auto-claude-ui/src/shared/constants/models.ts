@@ -3,7 +3,7 @@
  * Claude models, thinking levels, memory backends, and agent profiles
  */
 
-import type { AgentProfile, PhaseModelConfig } from '../types/settings';
+import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
 
 // ============================================
 // Available Models
@@ -49,20 +49,45 @@ export const THINKING_LEVELS = [
 // ============================================
 
 // Default phase model configuration for Auto profile
-// Optimized for each phase: fast discovery, quality planning, balanced coding, thorough QA
+// Uses Opus across all phases for maximum quality
 export const DEFAULT_PHASE_MODELS: PhaseModelConfig = {
-  spec: 'sonnet',     // Good quality specs without being too slow
+  spec: 'opus',       // Best quality for spec creation
   planning: 'opus',   // Complex architecture decisions benefit from Opus
-  coding: 'sonnet',   // Good balance of speed and quality for implementation
-  qa: 'sonnet'        // Thorough but not overly slow QA
+  coding: 'opus',     // Highest quality implementation
+  qa: 'opus'          // Thorough QA review
 };
 
 // Default phase thinking configuration for Auto profile
 export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
-  spec: 'medium',       // Moderate thinking for spec creation
-  planning: 'high',     // Deep thinking for planning complex features
-  coding: 'medium',     // Standard thinking for coding
-  qa: 'high'            // Thorough analysis for QA review
+  spec: 'ultrathink',   // Deep thinking for comprehensive spec creation
+  planning: 'high',     // High thinking for planning complex features
+  coding: 'low',        // Faster coding iterations
+  qa: 'low'             // Efficient QA review
+};
+
+// ============================================
+// Feature Settings (Non-Pipeline Features)
+// ============================================
+
+// Default feature model configuration (for insights, ideation, roadmap)
+export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
+  insights: 'sonnet',   // Fast, responsive chat
+  ideation: 'opus',     // Creative ideation benefits from Opus
+  roadmap: 'opus'       // Strategic planning benefits from Opus
+};
+
+// Default feature thinking configuration
+export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
+  insights: 'medium',   // Balanced thinking for chat
+  ideation: 'high',     // Deep thinking for creative ideas
+  roadmap: 'high'       // Strategic thinking for roadmap
+};
+
+// Feature labels for UI display
+export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; description: string }> = {
+  insights: { label: 'Insights Chat', description: 'Ask questions about your codebase' },
+  ideation: { label: 'Ideation', description: 'Generate feature ideas and improvements' },
+  roadmap: { label: 'Roadmap', description: 'Create strategic feature roadmaps' }
 };
 
 // Default agent profiles for preset model/thinking configurations
@@ -70,9 +95,9 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
     id: 'auto',
     name: 'Auto (Optimized)',
-    description: 'Uses different models per phase for optimal speed & quality',
-    model: 'sonnet',  // Fallback/default model
-    thinkingLevel: 'medium',
+    description: 'Uses Opus across all phases with optimized thinking levels',
+    model: 'opus',  // Fallback/default model
+    thinkingLevel: 'high',
     icon: 'Sparkles',
     isAutoProfile: true,
     phaseModels: DEFAULT_PHASE_MODELS,

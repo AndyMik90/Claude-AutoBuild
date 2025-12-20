@@ -65,30 +65,32 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
       </div>
 
       {/* Target Audience */}
-      <div className="mt-4 flex items-center gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Target:</span>
-          <span className="font-medium">{roadmap.targetAudience.primary}</span>
+      {roadmap.targetAudience && (
+        <div className="mt-4 flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Target:</span>
+            <span className="font-medium">{roadmap.targetAudience.primary}</span>
+          </div>
+          {roadmap.targetAudience.secondary?.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-muted-foreground cursor-help underline decoration-dotted">
+                  +{roadmap.targetAudience.secondary.length} more personas
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-md">
+                <div className="space-y-1">
+                  <div className="font-semibold mb-2">Secondary Personas:</div>
+                  {roadmap.targetAudience.secondary.map((persona) => (
+                    <div key={persona} className="text-sm">• {persona}</div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
-        {roadmap.targetAudience.secondary.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="text-muted-foreground cursor-help underline decoration-dotted">
-                +{roadmap.targetAudience.secondary.length} more personas
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-md">
-              <div className="space-y-1">
-                <div className="font-semibold mb-2">Secondary Personas:</div>
-                {roadmap.targetAudience.secondary.map((persona) => (
-                  <div key={persona} className="text-sm">• {persona}</div>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
+      )}
 
       {/* Stats */}
       <div className="mt-4 flex items-center gap-6">

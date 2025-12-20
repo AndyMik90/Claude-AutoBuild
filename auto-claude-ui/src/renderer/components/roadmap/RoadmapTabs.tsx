@@ -23,15 +23,27 @@ export function RoadmapTabs({
   onFeatureSelect,
   onConvertToSpec,
   onGoToTask,
+  onSave,
 }: RoadmapTabsProps) {
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="h-full flex flex-col">
       <TabsList className="shrink-0 mx-4 mt-4">
+        <TabsTrigger value="kanban">Kanban</TabsTrigger>
         <TabsTrigger value="phases">Phases</TabsTrigger>
         <TabsTrigger value="features">All Features</TabsTrigger>
         <TabsTrigger value="priorities">By Priority</TabsTrigger>
-        <TabsTrigger value="kanban">Kanban</TabsTrigger>
       </TabsList>
+
+      {/* Kanban View */}
+      <TabsContent value="kanban" className="flex-1 overflow-hidden">
+        <RoadmapKanbanView
+          roadmap={roadmap}
+          onFeatureClick={onFeatureSelect}
+          onConvertToSpec={onConvertToSpec}
+          onGoToTask={onGoToTask}
+          onSave={onSave}
+        />
+      </TabsContent>
 
       {/* Phases View */}
       <TabsContent value="phases" className="flex-1 overflow-auto p-4">
@@ -114,16 +126,6 @@ export function RoadmapTabs({
             );
           })}
         </div>
-      </TabsContent>
-
-      {/* Kanban View */}
-      <TabsContent value="kanban" className="flex-1 overflow-hidden">
-        <RoadmapKanbanView
-          roadmap={roadmap}
-          onFeatureClick={onFeatureSelect}
-          onConvertToSpec={onConvertToSpec}
-          onGoToTask={onGoToTask}
-        />
       </TabsContent>
     </Tabs>
   );

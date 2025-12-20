@@ -99,7 +99,7 @@ export function AgentProfileSettings() {
   };
 
   /**
-   * Check if current config differs from defaults
+   * Check if current phase config differs from defaults
    */
   const hasCustomConfig = (): boolean => {
     const phases: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
@@ -298,6 +298,7 @@ export function AgentProfileSettings() {
             )}
           </div>
         )}
+
       </div>
     </SettingsSection>
   );

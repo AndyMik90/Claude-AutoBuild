@@ -38,7 +38,7 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
   return (
     <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg flex flex-col z-50">
       {/* Header */}
-      <div className="shrink-0 p-4 border-b border-border">
+      <div className="shrink-0 p-4 border-b border-border electron-no-drag">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">

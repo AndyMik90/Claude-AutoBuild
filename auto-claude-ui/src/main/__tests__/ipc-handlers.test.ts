@@ -39,6 +39,14 @@ vi.mock('@electron-toolkit/utils', () => ({
   }
 }));
 
+// Mock version-manager to return a predictable version
+vi.mock('../updater/version-manager', () => ({
+  getEffectiveVersion: vi.fn(() => '0.1.0'),
+  getBundledVersion: vi.fn(() => '0.1.0'),
+  parseVersionFromTag: vi.fn((tag: string) => tag.replace('v', '')),
+  compareVersions: vi.fn(() => 0)
+}));
+
 // Mock modules before importing
 vi.mock('electron', () => {
   const mockIpcMain = new (class extends EventEmitter {
