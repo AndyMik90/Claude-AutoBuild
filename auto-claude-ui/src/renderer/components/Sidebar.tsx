@@ -4,8 +4,6 @@ import {
   Plus,
   Settings,
   Trash2,
-  Moon,
-  Sun,
   LayoutGrid,
   Terminal,
   Map,
@@ -53,7 +51,7 @@ import {
   checkProjectVersion,
   updateProjectAutoBuild
 } from '../stores/project-store';
-import { useSettingsStore, saveSettings } from '../stores/settings-store';
+import { useSettingsStore } from '../stores/settings-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
@@ -267,21 +265,6 @@ export function Sidebar({
     }
   };
 
-  const toggleTheme = () => {
-    const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
-    saveSettings({ theme: newTheme });
-
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const isDark =
-    settings.theme === 'dark' ||
-    (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
   const handleNavClick = (view: SidebarView) => {
     onViewChange?.(view);
   };
@@ -317,18 +300,8 @@ export function Sidebar({
     <TooltipProvider>
       <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
         {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className="electron-drag flex h-14 items-center justify-between px-4 pt-6">
+        <div className="electron-drag flex h-14 items-center px-4 pt-6">
           <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
-          <div className="electron-no-drag flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Toggle theme</TooltipContent>
-            </Tooltip>
-          </div>
         </div>
 
         <Separator className="mt-2" />

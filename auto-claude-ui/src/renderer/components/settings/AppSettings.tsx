@@ -77,7 +77,7 @@ const projectNavItems: NavItem<ProjectSettingsSection>[] = [
  * Coordinates app and project settings sections
  */
 export function AppSettingsDialog({ open, onOpenChange, initialSection, initialProjectSection, onRerunWizard }: AppSettingsDialogProps) {
-  const { settings, setSettings, isSaving, error, saveSettings } = useSettings();
+  const { settings, setSettings, isSaving, error, saveSettings, revertTheme, commitTheme } = useSettings();
   const [version, setVersion] = useState<string>('');
 
   // Track which top-level section is active
@@ -138,8 +138,15 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
 
     if (appSaveSuccess) {
+      // Commit the theme so future cancels won't revert to old values
+      commitTheme();
       onOpenChange(false);
     }
+  };
+
+  const handleCancel = () => {
+    // onOpenChange handler will revert theme changes
+    onOpenChange(false);
   };
 
   const handleProjectChange = (projectId: string | null) => {
@@ -183,7 +190,14 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const projectNavDisabled = !selectedProjectId;
 
   return (
-    <FullScreenDialog open={open} onOpenChange={onOpenChange}>
+    <FullScreenDialog open={open} onOpenChange={(newOpen) => {
+      if (!newOpen) {
+        // Dialog is being closed (via X, escape, or overlay click)
+        // Revert any unsaved theme changes
+        revertTheme();
+      }
+      onOpenChange(newOpen);
+    }}>
       <FullScreenDialogContent>
         <FullScreenDialogHeader>
           <FullScreenDialogTitle className="flex items-center gap-3">
@@ -332,7 +346,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
               {error || projectError}
             </div>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button

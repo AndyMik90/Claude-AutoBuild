@@ -5,6 +5,23 @@
 import type { NotificationSettings } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 
+// Color theme types for multi-theme support
+export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
+
+export interface ThemePreviewColors {
+  bg: string;
+  accent: string;
+  darkBg: string;
+  darkAccent?: string;
+}
+
+export interface ColorThemeDefinition {
+  id: ColorTheme;
+  name: string;
+  description: string;
+  previewColors: ThemePreviewColors;
+}
+
 // Thinking level for Claude model (budget token allocation)
 export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 
@@ -44,6 +61,7 @@ export interface AgentProfile {
 
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
+  colorTheme?: ColorTheme;
   defaultModel: string;
   agentFramework: string;
   pythonPath?: string;

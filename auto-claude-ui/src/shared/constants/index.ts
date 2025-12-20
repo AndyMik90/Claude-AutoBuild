@@ -21,6 +21,9 @@ export * from './changelog';
 // Model and agent profile constants
 export * from './models';
 
+// Theme constants
+export * from './themes';
+
 // GitHub integration constants
 export * from './github';
 

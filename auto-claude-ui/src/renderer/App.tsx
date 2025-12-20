@@ -43,7 +43,8 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { useIpcListeners } from './hooks/useIpc';
-import type { Task, Project } from '../shared/types';
+import { COLOR_THEMES } from '../shared/constants';
+import type { Task, Project, ColorTheme } from '../shared/types';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -177,20 +178,37 @@ export function App() {
 
   // Apply theme on load
   useEffect(() => {
+    const root = document.documentElement;
+
     const applyTheme = () => {
+      // Apply light/dark mode
       if (settings.theme === 'dark') {
-        document.documentElement.classList.add('dark');
+        root.classList.add('dark');
       } else if (settings.theme === 'light') {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
       } else {
         // System preference
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark');
+          root.classList.add('dark');
         } else {
-          document.documentElement.classList.remove('dark');
+          root.classList.remove('dark');
         }
       }
     };
+
+    // Apply color theme via data-theme attribute
+    // Validate colorTheme against known themes, fallback to 'default' if invalid
+    const validThemeIds = COLOR_THEMES.map((t) => t.id);
+    const rawColorTheme = settings.colorTheme ?? 'default';
+    const colorTheme: ColorTheme = validThemeIds.includes(rawColorTheme as ColorTheme)
+      ? (rawColorTheme as ColorTheme)
+      : 'default';
+
+    if (colorTheme === 'default') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', colorTheme);
+    }
 
     applyTheme();
 
@@ -206,7 +224,7 @@ export function App() {
     return () => {
       mediaQuery.removeEventListener('change', handleChange);
     };
-  }, [settings.theme]);
+  }, [settings.theme, settings.colorTheme]);
 
   // Update selected task when tasks change (for real-time updates)
   useEffect(() => {
