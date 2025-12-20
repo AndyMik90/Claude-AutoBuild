@@ -472,6 +472,140 @@
   --shadow-focus: 0 0 0 3px rgba(139, 92, 246, 0.3);
 }
 
+/* ============================================
+   OCEAN THEME (Light)
+   Calm, professional blue tones
+   ============================================ */
+[data-theme="ocean"] {
+  /* Backgrounds */
+  --background: #E0F2FE;
+  --foreground: #0C4A6E;
+
+  /* Card surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #0C4A6E;
+
+  /* Primary accent - sky blue */
+  --primary: #0284C7;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary */
+  --secondary: #F0F9FF;
+  --secondary-foreground: #0C4A6E;
+
+  /* Muted */
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
+
+  /* Accent */
+  --accent: #E0F2FE;
+  --accent-foreground: #0284C7;
+
+  /* Destructive */
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders and inputs */
+  --border: #BAE6FD;
+  --input: #BAE6FD;
+  --ring: #0284C7;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0C4A6E;
+
+  /* Popover */
+  --popover: #FFFFFF;
+  --popover-foreground: #0C4A6E;
+
+  /* Semantic colors */
+  --success: #059669;
+  --success-foreground: #FFFFFF;
+  --success-light: #D1FAE5;
+  --warning: #D97706;
+  --warning-foreground: #FFFFFF;
+  --warning-light: #FEF3C7;
+  --info: #2563EB;
+  --info-foreground: #FFFFFF;
+  --info-light: #DBEAFE;
+  --error: #DC2626;
+  --error-light: #FEE2E2;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+/* ============================================
+   OCEAN THEME (Dark)
+   Deep ocean blue tones
+   ============================================ */
+[data-theme="ocean"].dark {
+  /* Backgrounds */
+  --background: #082F49;
+  --foreground: #F0F9FF;
+
+  /* Card surfaces */
+  --card: #164E63;
+  --card-foreground: #F0F9FF;
+
+  /* Primary accent - bright sky blue */
+  --primary: #38BDF8;
+  --primary-foreground: #082F49;
+
+  /* Secondary */
+  --secondary: #0C4A6E;
+  --secondary-foreground: #F0F9FF;
+
+  /* Muted */
+  --muted: #0A3D5C;
+  --muted-foreground: #7DD3FC;
+
+  /* Accent */
+  --accent: #0C4A6E;
+  --accent-foreground: #38BDF8;
+
+  /* Destructive */
+  --destructive: #F87171;
+  --destructive-foreground: #082F49;
+
+  /* Borders and inputs */
+  --border: #0E7490;
+  --input: #0E7490;
+  --ring: #38BDF8;
+
+  /* Sidebar */
+  --sidebar: #0A3D5C;
+  --sidebar-foreground: #F0F9FF;
+
+  /* Popover */
+  --popover: #1E6B8A;
+  --popover-foreground: #F0F9FF;
+
+  /* Semantic colors */
+  --success: #34D399;
+  --success-foreground: #082F49;
+  --success-light: #134E4A;
+  --warning: #FBBF24;
+  --warning-foreground: #082F49;
+  --warning-light: #451A03;
+  --info: #60A5FA;
+  --info-foreground: #082F49;
+  --info-light: #1E3A8A;
+  --error: #F87171;
+  --error-light: #450A0A;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 0 3px rgba(56, 189, 248, 0.3);
+}
+
 /* Base styles */
 * {
   border-color: var(--border);
