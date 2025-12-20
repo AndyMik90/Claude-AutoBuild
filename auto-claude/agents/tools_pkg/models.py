@@ -19,6 +19,19 @@ TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
 TOOL_GET_SESSION_CONTEXT = "mcp__auto-claude__get_session_context"
 TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 
+# Puppeteer MCP tools for web browser automation
+# Used for web frontend validation (non-Electron web apps)
+PUPPETEER_TOOLS = [
+    "mcp__puppeteer__puppeteer_connect_active_tab",
+    "mcp__puppeteer__puppeteer_navigate",
+    "mcp__puppeteer__puppeteer_screenshot",
+    "mcp__puppeteer__puppeteer_click",
+    "mcp__puppeteer__puppeteer_fill",
+    "mcp__puppeteer__puppeteer_select",
+    "mcp__puppeteer__puppeteer_hover",
+    "mcp__puppeteer__puppeteer_evaluate",
+]
+
 # Electron MCP tools for desktop app automation (when ELECTRON_MCP_ENABLED is set)
 # Uses electron-mcp-server to connect to Electron apps via Chrome DevTools Protocol.
 # Electron app must be started with --remote-debugging-port=9222 (or ELECTRON_DEBUG_PORT).

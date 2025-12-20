@@ -9,7 +9,9 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from analysis.analyzers import analyze_project
 from phase_config import get_spec_phase_thinking_budget
+from prompts_pkg.project_context import should_refresh_project_index
 from review import run_review_checkpoint
 from task_logger import (
     LogEntryType,
@@ -185,6 +187,34 @@ class SpecOrchestrator:
             # Don't fail the pipeline if summarization fails
             print_status(f"Phase summarization skipped: {e}", "warning")
 
+    async def _ensure_fresh_project_index(self) -> None:
+        """Ensure project_index.json is up-to-date before spec creation.
+
+        Uses smart caching: only regenerates if dependency files (package.json,
+        pyproject.toml, etc.) have been modified since the last index generation.
+        This ensures QA agents receive accurate project capability information
+        for dynamic MCP tool injection.
+        """
+        index_file = self.project_dir / ".auto-claude" / "project_index.json"
+
+        if should_refresh_project_index(self.project_dir):
+            if index_file.exists():
+                print_status("Project dependencies changed, refreshing index...", "progress")
+            else:
+                print_status("Generating project index...", "progress")
+
+            try:
+                # Regenerate project index
+                analyze_project(self.project_dir, index_file)
+                print_status("Project index updated", "success")
+            except Exception as e:
+                print_status(f"Project index refresh failed: {e}", "warning")
+                # Don't fail spec creation if indexing fails - continue with cached/missing
+        else:
+            if index_file.exists():
+                print_status("Using cached project index", "info")
+            # If no index exists and no refresh needed, that's fine - capabilities will be empty
+
     async def run(self, interactive: bool = True, auto_approve: bool = False) -> bool:
         """Run the spec creation process with dynamic phase selection.
 
@@ -211,6 +241,9 @@ class SpecOrchestrator:
                 style="heavy",
             )
         )
+
+        # Smart cache: refresh project index if dependency files have changed
+        await self._ensure_fresh_project_index()
 
         # Create phase executor
         phase_executor = phases.PhaseExecutor(

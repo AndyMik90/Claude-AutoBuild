@@ -3,10 +3,17 @@ Prompt Loading Utilities
 ========================
 
 Functions for loading agent prompts from markdown files.
+Supports dynamic prompt assembly based on project type for context optimization.
 """
 
 import json
 from pathlib import Path
+
+from .project_context import (
+    detect_project_capabilities,
+    get_mcp_tools_for_project,
+    load_project_index,
+)
 
 # Directory containing prompt files
 # prompts/ is a sibling directory of prompts_pkg/, so go up one level first
@@ -267,3 +274,143 @@ def is_first_run(spec_dir: Path) -> bool:
     except (OSError, json.JSONDecodeError):
         # If we can't read the file, treat as first run
         return True
+
+
+def _load_prompt_file(filename: str) -> str:
+    """
+    Load a prompt file from the prompts directory.
+
+    Args:
+        filename: Relative path to prompt file (e.g., "qa_reviewer.md" or "mcp_tools/electron_validation.md")
+
+    Returns:
+        Content of the prompt file
+
+    Raises:
+        FileNotFoundError: If prompt file doesn't exist
+    """
+    prompt_file = PROMPTS_DIR / filename
+    if not prompt_file.exists():
+        raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+    return prompt_file.read_text()
+
+
+def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the QA reviewer prompt with project-specific MCP tools dynamically injected.
+
+    This function:
+    1. Loads the base QA reviewer prompt
+    2. Detects project capabilities from project_index.json
+    3. Injects only relevant MCP tool documentation (Electron, Puppeteer, DB, API)
+
+    This saves context window by excluding irrelevant tool docs.
+    For example, a CLI Python project won't get Electron validation docs.
+
+    Args:
+        spec_dir: Directory containing the spec files
+        project_dir: Root directory of the project
+
+    Returns:
+        The QA reviewer prompt with project-specific tools injected
+    """
+    # Load base QA reviewer prompt
+    base_prompt = _load_prompt_file("qa_reviewer.md")
+
+    # Load project index and detect capabilities
+    project_index = load_project_index(project_dir)
+    capabilities = detect_project_capabilities(project_index)
+
+    # Get list of MCP tool doc files to include
+    mcp_tool_files = get_mcp_tools_for_project(capabilities)
+
+    # Load and assemble MCP tool sections
+    mcp_sections = []
+    for tool_file in mcp_tool_files:
+        try:
+            section = _load_prompt_file(tool_file)
+            mcp_sections.append(section)
+        except FileNotFoundError:
+            # Skip missing files gracefully
+            pass
+
+    # Inject spec context at the beginning
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- Progress notes: `{spec_dir}/build-progress.txt`
+- QA report output: `{spec_dir}/qa_report.md`
+- Fix request output: `{spec_dir}/QA_FIX_REQUEST.md`
+
+The project root is: `{project_dir}`
+
+---
+
+## PROJECT CAPABILITIES DETECTED
+
+"""
+
+    # Add capability summary for transparency
+    active_caps = [k for k, v in capabilities.items() if v]
+    if active_caps:
+        spec_context += "Based on project analysis, the following capabilities were detected:\n"
+        for cap in active_caps:
+            cap_name = cap.replace("is_", "").replace("has_", "").replace("_", " ").title()
+            spec_context += f"- {cap_name}\n"
+        spec_context += "\nRelevant validation tools have been included below.\n\n"
+    else:
+        spec_context += "No special project capabilities detected. Using standard validation.\n\n"
+
+    spec_context += "---\n\n"
+
+    # Find injection point in base prompt (after PHASE 4, before PHASE 5)
+    injection_marker = "<!-- PROJECT-SPECIFIC VALIDATION TOOLS WILL BE INJECTED HERE -->"
+
+    if mcp_sections and injection_marker in base_prompt:
+        # Replace marker with actual MCP tool sections
+        mcp_content = "\n\n---\n\n## PROJECT-SPECIFIC VALIDATION TOOLS\n\n"
+        mcp_content += "The following validation tools are available based on your project type:\n\n"
+        mcp_content += "\n\n---\n\n".join(mcp_sections)
+        mcp_content += "\n\n---\n"
+
+        # Replace the multi-line marker comment block
+        import re
+        marker_pattern = r"<!-- PROJECT-SPECIFIC VALIDATION TOOLS WILL BE INJECTED HERE -->.*?<!-- - API validation \(for projects with API endpoints\) -->"
+        base_prompt = re.sub(marker_pattern, mcp_content, base_prompt, flags=re.DOTALL)
+    elif mcp_sections:
+        # Fallback: append at the end if marker not found
+        base_prompt += "\n\n---\n\n## PROJECT-SPECIFIC VALIDATION TOOLS\n\n"
+        base_prompt += "\n\n---\n\n".join(mcp_sections)
+
+    return spec_context + base_prompt
+
+
+def get_qa_fixer_prompt(spec_dir: Path, project_dir: Path) -> str:
+    """
+    Load the QA fixer prompt with spec paths injected.
+
+    Args:
+        spec_dir: Directory containing the spec files
+        project_dir: Root directory of the project
+
+    Returns:
+        The QA fixer prompt content with paths injected
+    """
+    base_prompt = _load_prompt_file("qa_fixer.md")
+
+    spec_context = f"""## SPEC LOCATION
+
+Your spec and progress files are located at:
+- Spec: `{spec_dir}/spec.md`
+- Implementation plan: `{spec_dir}/implementation_plan.json`
+- QA fix request: `{spec_dir}/QA_FIX_REQUEST.md` (READ THIS FIRST!)
+- QA report: `{spec_dir}/qa_report.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return spec_context + base_prompt

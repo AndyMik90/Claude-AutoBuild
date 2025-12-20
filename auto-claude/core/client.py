@@ -20,6 +20,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
+from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
 
 
@@ -174,10 +175,16 @@ def create_client(
     # Check if custom auto-claude tools are available
     auto_claude_tools_enabled = is_tools_available()
 
+    # Load project capabilities for dynamic MCP tool selection
+    # This enables context-aware tool injection based on project type
+    project_index = load_project_index(project_dir)
+    project_capabilities = detect_project_capabilities(project_index)
+
     # Build the list of allowed tools
     # Start with agent-specific tools (includes base tools + auto-claude tools)
+    # Pass project capabilities for dynamic MCP tool filtering
     if auto_claude_tools_enabled:
-        allowed_tools_list = get_agent_allowed_tools(agent_type)
+        allowed_tools_list = get_agent_allowed_tools(agent_type, project_capabilities)
     else:
         allowed_tools_list = [*BUILTIN_TOOLS]
 
@@ -187,17 +194,30 @@ def create_client(
     # Check if Electron MCP is enabled (for QA agents testing Electron apps)
     electron_mcp_enabled = is_electron_mcp_enabled()
 
-    # Add external MCP tools
-    allowed_tools_list.extend(PUPPETEER_TOOLS)
-    allowed_tools_list.extend(CONTEXT7_TOOLS)
+    # Add external MCP tools based on project capabilities
+    # This saves context window by only including relevant tools
+    allowed_tools_list.extend(CONTEXT7_TOOLS)  # Always available
     if linear_enabled:
         allowed_tools_list.extend(LINEAR_TOOLS)
     if graphiti_mcp_enabled:
         allowed_tools_list.extend(GRAPHITI_MCP_TOOLS)
-    # Add Electron MCP tools only for QA agents (qa_reviewer, qa_fixer) when enabled
-    # This prevents context bloat for coder/planner agents who don't need desktop automation
-    if electron_mcp_enabled and agent_type in ("qa_reviewer", "qa_fixer"):
-        allowed_tools_list.extend(ELECTRON_TOOLS)
+
+    # Add browser automation tools only for QA agents, based on project type
+    # Electron apps get Electron MCP tools; web frontends get Puppeteer tools
+    if agent_type in ("qa_reviewer", "qa_fixer"):
+        if project_capabilities.get("is_electron") and electron_mcp_enabled:
+            allowed_tools_list.extend(ELECTRON_TOOLS)
+        elif project_capabilities.get("is_web_frontend"):
+            allowed_tools_list.extend(PUPPETEER_TOOLS)
+        # CLI/backend-only projects get neither - saves context
+
+    # Determine which browser automation tools to allow based on project type
+    browser_tools_permissions = []
+    if agent_type in ("qa_reviewer", "qa_fixer"):
+        if project_capabilities.get("is_electron") and electron_mcp_enabled:
+            browser_tools_permissions = ELECTRON_TOOLS
+        elif project_capabilities.get("is_web_frontend"):
+            browser_tools_permissions = PUPPETEER_TOOLS
 
     # Create comprehensive security settings
     # Note: Using relative paths ("./**") restricts access to project directory
@@ -216,21 +236,14 @@ def create_client(
                 # Bash permission granted here, but actual commands are validated
                 # by the bash_security_hook (see security.py for allowed commands)
                 "Bash(*)",
-                # Allow Puppeteer MCP tools for browser automation
-                *PUPPETEER_TOOLS,
                 # Allow Context7 MCP tools for documentation lookup
                 *CONTEXT7_TOOLS,
                 # Allow Linear MCP tools for project management (if enabled)
                 *(LINEAR_TOOLS if linear_enabled else []),
                 # Allow Graphiti MCP tools for knowledge graph memory (if enabled)
                 *(GRAPHITI_MCP_TOOLS if graphiti_mcp_enabled else []),
-                # Allow Electron MCP tools for QA agents only (if enabled)
-                *(
-                    ELECTRON_TOOLS
-                    if electron_mcp_enabled
-                    and agent_type in ("qa_reviewer", "qa_fixer")
-                    else []
-                ),
+                # Allow browser automation tools based on project type
+                *browser_tools_permissions,
             ],
         },
     }
@@ -249,25 +262,49 @@ def create_client(
     else:
         print("   - Extended thinking: disabled")
 
-    mcp_servers_list = ["puppeteer (browser automation)", "context7 (documentation)"]
+    # Build list of MCP servers for display
+    mcp_servers_list = ["context7 (documentation)"]
+    if agent_type in ("qa_reviewer", "qa_fixer"):
+        if project_capabilities.get("is_electron") and electron_mcp_enabled:
+            mcp_servers_list.append(
+                f"electron (desktop automation, port {get_electron_debug_port()})"
+            )
+        elif project_capabilities.get("is_web_frontend"):
+            mcp_servers_list.append("puppeteer (browser automation)")
     if linear_enabled:
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
-    if electron_mcp_enabled:
-        mcp_servers_list.append(
-            f"electron (desktop automation, port {get_electron_debug_port()})"
-        )
     if auto_claude_tools_enabled:
         mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
+
+    # Show detected project capabilities for QA agents
+    if agent_type in ("qa_reviewer", "qa_fixer") and any(project_capabilities.values()):
+        caps = [k.replace("is_", "").replace("has_", "") for k, v in project_capabilities.items() if v]
+        print(f"   - Project capabilities: {', '.join(caps)}")
     print()
 
     # Configure MCP servers
     mcp_servers = {
-        "puppeteer": {"command": "npx", "args": ["puppeteer-mcp-server"]},
         "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
     }
+
+    # Add browser automation MCP server based on project type
+    if agent_type in ("qa_reviewer", "qa_fixer"):
+        if project_capabilities.get("is_electron") and electron_mcp_enabled:
+            # Electron MCP for desktop apps
+            # Electron app must be started with --remote-debugging-port=<port>
+            mcp_servers["electron"] = {
+                "command": "npm",
+                "args": ["exec", "electron-mcp-server"],
+            }
+        elif project_capabilities.get("is_web_frontend"):
+            # Puppeteer for web frontends
+            mcp_servers["puppeteer"] = {
+                "command": "npx",
+                "args": ["puppeteer-mcp-server"],
+            }
 
     # Add Linear MCP server if enabled
     if linear_enabled:
@@ -283,15 +320,6 @@ def create_client(
         mcp_servers["graphiti-memory"] = {
             "type": "http",
             "url": get_graphiti_mcp_url(),
-        }
-
-    # Add Electron MCP server if enabled
-    # Electron app must be started with --remote-debugging-port=<port> for connection
-    # Uses electron-mcp-server to connect to Electron via Chrome DevTools Protocol
-    if electron_mcp_enabled:
-        mcp_servers["electron"] = {
-            "command": "npm",
-            "args": ["exec", "electron-mcp-server"],
         }
 
     # Add custom auto-claude MCP server if available

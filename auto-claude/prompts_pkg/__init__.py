@@ -20,7 +20,17 @@ from .prompts import (
     get_coding_prompt,
     get_followup_planner_prompt,
     get_planner_prompt,
+    get_qa_fixer_prompt,
+    get_qa_reviewer_prompt,
     is_first_run,
+)
+
+# Import project context utilities
+from .project_context import (
+    detect_project_capabilities,
+    get_mcp_tools_for_project,
+    load_project_index,
+    should_refresh_project_index,
 )
 
 __all__ = [
@@ -35,5 +45,12 @@ __all__ = [
     "get_planner_prompt",
     "get_coding_prompt",
     "get_followup_planner_prompt",
+    "get_qa_reviewer_prompt",
+    "get_qa_fixer_prompt",
     "is_first_run",
+    # project_context functions
+    "load_project_index",
+    "detect_project_capabilities",
+    "get_mcp_tools_for_project",
+    "should_refresh_project_index",
 ]
