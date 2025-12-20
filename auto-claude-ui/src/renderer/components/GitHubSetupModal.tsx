@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Github,
   GitBranch,
+  Key,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -26,6 +27,7 @@ import {
   SelectValue
 } from './ui/select';
 import { GitHubOAuthFlow } from './project-settings/GitHubOAuthFlow';
+import { ClaudeOAuthFlow } from './project-settings/ClaudeOAuthFlow';
 import type { Project, ProjectSettings } from '../../shared/types';
 
 interface GitHubSetupModalProps {
@@ -36,15 +38,16 @@ interface GitHubSetupModalProps {
   onSkip?: () => void;
 }
 
-type SetupStep = 'auth' | 'repo' | 'branch' | 'complete';
+type SetupStep = 'github-auth' | 'claude-auth' | 'repo' | 'branch' | 'complete';
 
 /**
- * GitHub Setup Modal - Required setup flow after Auto Claude initialization
+ * Setup Modal - Required setup flow after Auto Claude initialization
  *
  * Flow:
- * 1. Authenticate with GitHub (via gh CLI OAuth)
- * 2. Detect/confirm repository
- * 3. Select base branch for tasks (with recommended default)
+ * 1. Authenticate with GitHub (via gh CLI OAuth) - for repo operations
+ * 2. Authenticate with Claude (via claude CLI OAuth) - for AI features
+ * 3. Detect/confirm repository
+ * 4. Select base branch for tasks (with recommended default)
  */
 export function GitHubSetupModal({
   open,
@@ -53,7 +56,7 @@ export function GitHubSetupModal({
   onComplete,
   onSkip
 }: GitHubSetupModalProps) {
-  const [step, setStep] = useState<SetupStep>('auth');
+  const [step, setStep] = useState<SetupStep>('github-auth');
   const [githubToken, setGithubToken] = useState<string | null>(null);
   const [githubRepo, setGithubRepo] = useState<string | null>(null);
   const [detectedRepo, setDetectedRepo] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export function GitHubSetupModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setStep('auth');
+      setStep('github-auth');
       setGithubToken(null);
       setGithubRepo(null);
       setDetectedRepo(null);
@@ -140,9 +143,16 @@ export function GitHubSetupModal({
     return branchList[0] || null;
   };
 
-  // Handle OAuth success
-  const handleAuthSuccess = async (token: string) => {
+  // Handle GitHub OAuth success
+  const handleGitHubAuthSuccess = async (token: string) => {
     setGithubToken(token);
+    // Move to Claude auth step
+    setStep('claude-auth');
+  };
+
+  // Handle Claude OAuth success
+  const handleClaudeAuthSuccess = async () => {
+    // Claude token is already saved to active profile by the OAuth flow
     // Move to repo detection
     await detectRepository();
   };
@@ -161,7 +171,7 @@ export function GitHubSetupModal({
   // Render step content
   const renderStepContent = () => {
     switch (step) {
-      case 'auth':
+      case 'github-auth':
         return (
           <>
             <DialogHeader>
@@ -176,7 +186,29 @@ export function GitHubSetupModal({
 
             <div className="py-4">
               <GitHubOAuthFlow
-                onSuccess={handleAuthSuccess}
+                onSuccess={handleGitHubAuthSuccess}
+                onCancel={onSkip}
+              />
+            </div>
+          </>
+        );
+
+      case 'claude-auth':
+        return (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Connect to Claude AI
+              </DialogTitle>
+              <DialogDescription>
+                Auto Claude uses Claude AI for intelligent features like Roadmap generation, Task automation, and Ideation.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <ClaudeOAuthFlow
+                onSuccess={handleClaudeAuthSuccess}
                 onCancel={onSkip}
               />
             </div>
@@ -372,20 +404,27 @@ export function GitHubSetupModal({
 
   // Progress indicator
   const renderProgress = () => {
-    const steps: { key: SetupStep; label: string }[] = [
-      { key: 'auth', label: 'Connect' },
-      { key: 'branch', label: 'Configure' },
+    const steps: { label: string }[] = [
+      { label: 'Authenticate' },
+      { label: 'Configure' },
     ];
 
     // Don't show progress on complete step
     if (step === 'complete') return null;
 
-    const currentIndex = step === 'auth' ? 0 : step === 'repo' ? 0 : 1;
+    // Map steps to progress indices
+    // Auth steps (github-auth, claude-auth, repo) = 0
+    // Config steps (branch) = 1
+    const currentIndex =
+      step === 'github-auth' ? 0 :
+      step === 'claude-auth' ? 0 :
+      step === 'repo' ? 0 :
+      1;
 
     return (
       <div className="flex items-center justify-center gap-2 mb-4">
         {steps.map((s, index) => (
-          <div key={s.key} className="flex items-center">
+          <div key={index} className="flex items-center">
             <div
               className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
                 index < currentIndex

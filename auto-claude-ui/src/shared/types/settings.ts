@@ -107,4 +107,6 @@ export interface AutoBuildSourceUpdateProgress {
   stage: 'checking' | 'downloading' | 'extracting' | 'complete' | 'error';
   percent?: number;
   message: string;
+  /** New version after successful update - used to refresh UI */
+  newVersion?: string;
 }

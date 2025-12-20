@@ -3,6 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/con
 import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
@@ -200,6 +201,11 @@ export function registerTaskExecutionHandlers(
         task.specId
       );
 
+      // Check if worktree exists - QA needs to run in the worktree where the build happened
+      const worktreePath = path.join(project.path, '.worktrees', task.specId);
+      const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
+      const hasWorktree = existsSync(worktreePath);
+
       if (approved) {
         // Write approval to QA report
         const qaReportPath = path.join(specDir, AUTO_BUILD_PATHS.QA_REPORT);
@@ -217,15 +223,60 @@ export function registerTaskExecutionHandlers(
           );
         }
       } else {
-        // Write feedback for QA fixer
-        const fixRequestPath = path.join(specDir, 'QA_FIX_REQUEST.md');
+        // Reset and discard all changes from worktree merge in main
+        // The worktree still has all changes, so nothing is lost
+        if (hasWorktree) {
+          // Step 1: Unstage all changes
+          const resetResult = spawnSync('git', ['reset', 'HEAD'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          });
+          if (resetResult.status === 0) {
+            console.log('[TASK_REVIEW] Unstaged changes in main');
+          }
+
+          // Step 2: Discard all working tree changes (restore to pre-merge state)
+          const checkoutResult = spawnSync('git', ['checkout', '--', '.'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          });
+          if (checkoutResult.status === 0) {
+            console.log('[TASK_REVIEW] Discarded working tree changes in main');
+          }
+
+          // Step 3: Clean untracked files that came from the merge
+          const cleanResult = spawnSync('git', ['clean', '-fd'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          });
+          if (cleanResult.status === 0) {
+            console.log('[TASK_REVIEW] Cleaned untracked files in main');
+          }
+
+          console.log('[TASK_REVIEW] Main branch restored to pre-merge state');
+        }
+
+        // Write feedback for QA fixer - write to WORKTREE spec dir if it exists
+        // The QA process runs in the worktree where the build and implementation_plan.json are
+        const targetSpecDir = hasWorktree ? worktreeSpecDir : specDir;
+        const fixRequestPath = path.join(targetSpecDir, 'QA_FIX_REQUEST.md');
+
+        console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
+        console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
+
         writeFileSync(
           fixRequestPath,
           `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
         );
 
-        // Restart QA process with dev mode
-        agentManager.startQAProcess(taskId, project.path, task.specId);
+        // Restart QA process - use worktree path if it exists, otherwise main project
+        // The QA process needs to run where the implementation_plan.json with completed subtasks is
+        const qaProjectPath = hasWorktree ? worktreePath : project.path;
+        console.warn('[TASK_REVIEW] Starting QA process with projectPath:', qaProjectPath);
+        agentManager.startQAProcess(taskId, qaProjectPath, task.specId);
 
         const mainWindow = getMainWindow();
         if (mainWindow) {

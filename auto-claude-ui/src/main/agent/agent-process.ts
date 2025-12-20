@@ -9,6 +9,7 @@ import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
+import { findPythonCommand, parsePythonCommand } from '../python-detector';
 
 /**
  * Process spawning and lifecycle management
@@ -17,7 +18,8 @@ export class AgentProcessManager {
   private state: AgentState;
   private events: AgentEvents;
   private emitter: EventEmitter;
-  private pythonPath: string = 'python3';
+  // Auto-detect Python command on initialization
+  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
@@ -161,7 +163,9 @@ export class AgentProcessManager {
     // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
     const profileEnv = getProfileEnv();
 
-    const childProcess = spawn(this.pythonPath, args, {
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {
         ...process.env,
@@ -237,6 +241,10 @@ export class AgentProcessManager {
       const log = data.toString('utf8');
       this.emitter.emit('log', taskId, log);
       processLog(log);
+      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
+      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
+        console.log(`[Agent:${taskId}] ${log.trim()}`);
+      }
     });
 
     // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
@@ -246,6 +254,10 @@ export class AgentProcessManager {
       // so we treat it as log, not error
       this.emitter.emit('log', taskId, log);
       processLog(log);
+      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
+      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
+        console.log(`[Agent:${taskId}] ${log.trim()}`);
+      }
     });
 
     // Handle process exit

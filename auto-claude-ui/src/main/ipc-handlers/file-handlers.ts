@@ -8,8 +8,8 @@ import type { IPCResult, FileNode } from '../../shared/types';
 const IGNORED_DIRS = new Set([
   'node_modules', '.git', '__pycache__', 'dist', 'build',
   '.next', '.nuxt', 'coverage', '.cache', '.venv', 'venv',
-  '.idea', '.vscode', 'out', '.turbo', '.auto-claude',
-  '.worktrees', 'vendor', 'target', '.gradle', '.maven'
+  'out', '.turbo', '.worktrees',
+  'vendor', 'target', '.gradle', '.maven'
 ]);
 
 /**
@@ -29,8 +29,11 @@ export function registerFileHandlers(): void {
         // Filter and map entries
         const nodes: FileNode[] = [];
         for (const entry of entries) {
-          // Skip hidden files (except .env which is often useful)
-          if (entry.name.startsWith('.') && entry.name !== '.env') continue;
+          // Skip hidden files (not directories) except useful ones like .env, .gitignore
+          if (!entry.isDirectory() && entry.name.startsWith('.') &&
+              !['.env', '.gitignore', '.env.example', '.env.local'].includes(entry.name)) {
+            continue;
+          }
           // Skip ignored directories
           if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) continue;
 

@@ -205,17 +205,26 @@ export async function initializeProject(
   const store = useProjectStore.getState();
 
   try {
+    console.log('[ProjectStore] initializeProject called for:', projectId);
     const result = await window.electronAPI.initializeProject(projectId);
+    console.log('[ProjectStore] IPC result:', result);
+
     if (result.success && result.data) {
+      console.log('[ProjectStore] IPC succeeded, result.data:', result.data);
       // Update the project's autoBuildPath in local state
       if (result.data.success) {
+        console.log('[ProjectStore] Updating project autoBuildPath to .auto-claude');
         store.updateProject(projectId, { autoBuildPath: '.auto-claude' });
+      } else {
+        console.log('[ProjectStore] result.data.success is false, not updating project');
       }
       return result.data;
     }
+    console.log('[ProjectStore] IPC failed or no data, setting error');
     store.setError(result.error || 'Failed to initialize project');
     return null;
   } catch (error) {
+    console.error('[ProjectStore] Exception during initializeProject:', error);
     store.setError(error instanceof Error ? error.message : 'Unknown error');
     return null;
   }

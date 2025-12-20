@@ -3,12 +3,13 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
+import { findPythonCommand, parsePythonCommand } from '../../python-detector';
 
 /**
  * Register worktree management handlers
@@ -272,6 +273,31 @@ export function registerWorktreeHandlers(
         const worktreePath = path.join(project.path, '.worktrees', task.specId);
         debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
 
+        // Check if changes are already staged (for stage-only mode)
+        if (options?.noCommit) {
+          const stagedResult = spawnSync('git', ['diff', '--staged', '--name-only'], {
+            cwd: project.path,
+            encoding: 'utf-8'
+          });
+
+          if (stagedResult.status === 0 && stagedResult.stdout?.trim()) {
+            const stagedFiles = stagedResult.stdout.trim().split('\n');
+            debug('Changes already staged:', stagedFiles.length, 'files');
+            // Return success - changes are already staged
+            return {
+              success: true,
+              data: {
+                success: true,
+                merged: false,
+                message: `Changes already staged (${stagedFiles.length} files). Review with git diff --staged.`,
+                staged: true,
+                alreadyStaged: true,
+                projectPath: project.path
+              }
+            };
+          }
+        }
+
         // Get git status before merge
         try {
           const gitStatusBefore = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
@@ -294,7 +320,7 @@ export function registerWorktreeHandlers(
           args.push('--no-commit');
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || 'python3';
+        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
 
@@ -310,7 +336,9 @@ export function registerWorktreeHandlers(
           let timeoutId: NodeJS.Timeout | null = null;
           let resolved = false;
 
-          const mergeProcess = spawn(pythonPath, args, {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: {
               ...process.env,
@@ -622,14 +650,16 @@ export function registerWorktreeHandlers(
           '--merge-preview'
         ];
 
-        const pythonPath = pythonEnvManager.getPythonPath() || 'python3';
+        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency
         const previewProfileEnv = getProfileEnv();
 
         return new Promise((resolve) => {
-          const previewProcess = spawn(pythonPath, args, {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', DEBUG: 'true' }
           });

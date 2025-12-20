@@ -4,6 +4,7 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
+import { findPythonCommand, parsePythonCommand } from './python-detector';
 
 /**
  * Debug logging - only logs when AUTO_CLAUDE_DEBUG env var is set
@@ -20,7 +21,8 @@ function debug(...args: unknown[]): void {
  * Service for generating terminal names from commands using Claude AI
  */
 export class TerminalNameGenerator extends EventEmitter {
-  private pythonPath: string = 'python3';
+  // Auto-detect Python command on initialization
+  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor() {
@@ -130,7 +132,9 @@ export class TerminalNameGenerator extends EventEmitter {
     const profileEnv = getProfileEnv();
 
     return new Promise((resolve) => {
-      const childProcess = spawn(this.pythonPath, ['-c', script], {
+      // Parse Python command to handle space-separated commands like "py -3"
+      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
         env: {
           ...process.env,

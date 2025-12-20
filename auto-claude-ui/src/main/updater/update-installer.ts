@@ -12,6 +12,7 @@ import { getUpdateCachePath, getUpdateTargetPath } from './path-resolver';
 import { extractTarball, copyDirectoryRecursive, preserveFiles, restoreFiles, cleanTargetDirectory } from './file-operations';
 import { getCachedRelease, setCachedRelease, clearCachedRelease } from './update-checker';
 import { GitHubRelease, AutoBuildUpdateResult, UpdateProgressCallback, UpdateMetadata } from './types';
+import { debugLog } from '../../shared/utils/debug-logger';
 
 /**
  * Download and apply the latest auto-claude update from GitHub Releases
@@ -25,6 +26,9 @@ export async function downloadAndApplyUpdate(
 ): Promise<AutoBuildUpdateResult> {
   const cachePath = getUpdateCachePath();
 
+  debugLog('[Update] Starting update process...');
+  debugLog('[Update] Cache path:', cachePath);
+
   try {
     onProgress?.({
       stage: 'checking',
@@ -34,19 +38,25 @@ export async function downloadAndApplyUpdate(
     // Ensure cache directory exists
     if (!existsSync(cachePath)) {
       mkdirSync(cachePath, { recursive: true });
+      debugLog('[Update] Created cache directory');
     }
 
     // Get release info (use cache or fetch fresh)
     let release = getCachedRelease();
     if (!release) {
       const releaseUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/releases/latest`;
+      debugLog('[Update] Fetching release info from:', releaseUrl);
       release = await fetchJson<GitHubRelease>(releaseUrl);
       setCachedRelease(release);
+    } else {
+      debugLog('[Update] Using cached release info');
     }
 
     // Use the release tarball URL
     const tarballUrl = release.tarball_url;
     const releaseVersion = parseVersionFromTag(release.tag_name);
+    debugLog('[Update] Release version:', releaseVersion);
+    debugLog('[Update] Tarball URL:', tarballUrl);
 
     const tarballPath = path.join(cachePath, 'auto-claude-update.tar.gz');
     const extractPath = path.join(cachePath, 'extracted');
@@ -63,6 +73,8 @@ export async function downloadAndApplyUpdate(
       message: 'Downloading update...'
     });
 
+    debugLog('[Update] Starting download to:', tarballPath);
+
     // Download the tarball
     await downloadFile(tarballUrl, tarballPath, (percent) => {
       onProgress?.({
@@ -72,13 +84,19 @@ export async function downloadAndApplyUpdate(
       });
     });
 
+    debugLog('[Update] Download complete');
+
     onProgress?.({
       stage: 'extracting',
       message: 'Extracting update...'
     });
 
+    debugLog('[Update] Extracting to:', extractPath);
+
     // Extract the tarball
     await extractTarball(tarballPath, extractPath);
+
+    debugLog('[Update] Extraction complete');
 
     // Find the auto-claude folder in extracted content
     // GitHub tarballs have a root folder like "owner-repo-hash/"
@@ -96,6 +114,7 @@ export async function downloadAndApplyUpdate(
 
     // Determine where to install the update
     const targetPath = getUpdateTargetPath();
+    debugLog('[Update] Target install path:', targetPath);
 
     // Backup existing source (if in dev mode)
     const backupPath = path.join(cachePath, 'backup');
@@ -104,11 +123,14 @@ export async function downloadAndApplyUpdate(
         rmSync(backupPath, { recursive: true, force: true });
       }
       // Simple copy for backup
+      debugLog('[Update] Creating backup at:', backupPath);
       copyDirectoryRecursive(targetPath, backupPath);
     }
 
     // Apply the update
+    debugLog('[Update] Applying update...');
     await applyUpdate(targetPath, autoBuildSource);
+    debugLog('[Update] Update applied successfully');
 
     // Write update metadata
     const metadata: UpdateMetadata = {
@@ -132,14 +154,26 @@ export async function downloadAndApplyUpdate(
       message: `Updated to version ${releaseVersion}`
     });
 
+    debugLog('[Update] ============================================');
+    debugLog('[Update] UPDATE SUCCESSFUL');
+    debugLog('[Update] New version:', releaseVersion);
+    debugLog('[Update] Target path:', targetPath);
+    debugLog('[Update] ============================================');
+
     return {
       success: true,
       version: releaseVersion
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Update failed';
+    debugLog('[Update] ============================================');
+    debugLog('[Update] UPDATE FAILED');
+    debugLog('[Update] Error:', errorMessage);
+    debugLog('[Update] ============================================');
+
     onProgress?.({
       stage: 'error',
-      message: error instanceof Error ? error.message : 'Update failed'
+      message: errorMessage
     });
 
     return {
