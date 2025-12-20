@@ -36,9 +36,10 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  allTasks?: Task[]; // For calculating child task progress
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [hasCheckedRunning, setHasCheckedRunning] = useState(false);
@@ -46,9 +47,18 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
-  
+
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
+
+  // Calculate child task progress
+  const childProgress = task.hasChildren && allTasks ? (() => {
+    const children = allTasks.filter((t) => t.parentTaskId === task.id);
+    const total = children.length;
+    const completed = children.filter((t) => t.status === 'done').length;
+    const inProgress = children.filter((t) => t.status === 'in_progress').length;
+    return { total, completed, inProgress };
+  })() : null;
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a grace period to avoid false positives during process spawn
@@ -290,6 +300,22 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 {task.metadata.securitySeverity} severity
+              </Badge>
+            )}
+            {/* Child task progress - show for parent tasks */}
+            {childProgress && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] px-1.5 py-0',
+                  childProgress.completed === childProgress.total
+                    ? 'bg-success/10 text-success border-success/30'
+                    : childProgress.inProgress > 0
+                    ? 'bg-info/10 text-info border-info/30'
+                    : 'bg-muted text-muted-foreground border-border'
+                )}
+              >
+                {childProgress.completed}/{childProgress.total} subtasks
               </Badge>
             )}
           </div>

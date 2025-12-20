@@ -17,7 +17,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, ChevronDown, ChevronRight } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
@@ -38,10 +38,13 @@ interface KanbanBoardProps {
 interface DroppableColumnProps {
   status: TaskStatus;
   tasks: Task[];
+  allTasks: Task[]; // All tasks for finding children
   onTaskClick: (task: Task) => void;
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
+  expandedTasks: Set<string>;
+  onToggleExpand: (taskId: string) => void;
 }
 
 // Empty state content for each column
@@ -85,12 +88,66 @@ const getEmptyStateContent = (status: TaskStatus): { icon: React.ReactNode; mess
   }
 };
 
-function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
+function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddClick, onArchiveAll, expandedTasks, onToggleExpand }: DroppableColumnProps) {
   const { setNodeRef } = useDroppable({
     id: status
   });
 
-  const taskIds = tasks.map((t) => t.id);
+  // Filter to only show top-level tasks (no parent)
+  const topLevelTasks = tasks.filter((t) => !t.parentTaskId);
+  const taskIds = topLevelTasks.map((t) => t.id);
+
+  // Helper to get children of a task
+  const getChildren = (parentId: string): Task[] => {
+    return allTasks.filter((t) => t.parentTaskId === parentId);
+  };
+
+  // Helper to render a task and its children recursively
+  const renderTaskWithChildren = (task: Task, depth: number = 0): JSX.Element[] => {
+    const isExpanded = expandedTasks.has(task.id);
+    const children = getChildren(task.id);
+    const hasChildren = children.length > 0;
+
+    const elements: JSX.Element[] = [
+      <div key={task.id} className={cn(depth > 0 && 'ml-6')}>
+        <div className="relative">
+          {/* Expand/collapse button for parent tasks */}
+          {hasChildren && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -left-6 top-2 h-5 w-5 z-10 hover:bg-primary/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(task.id);
+              }}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+          <SortableTaskCard
+            key={task.id}
+            task={task}
+            onClick={() => onTaskClick(task)}
+            allTasks={allTasks}
+          />
+        </div>
+      </div>
+    ];
+
+    // Render children if expanded
+    if (hasChildren && isExpanded) {
+      children.forEach((child) => {
+        elements.push(...renderTaskWithChildren(child, depth + 1));
+      });
+    }
+
+    return elements;
+  };
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -164,7 +221,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-3 min-h-[120px]">
-              {tasks.length === 0 ? (
+              {topLevelTasks.length === 0 ? (
                 <div
                   className={cn(
                     'empty-column-dropzone flex flex-col items-center justify-center py-6',
@@ -193,13 +250,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   )}
                 </div>
               ) : (
-                tasks.map((task) => (
-                  <SortableTaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => onTaskClick(task)}
-                  />
-                ))
+                topLevelTasks.map((task) => renderTaskWithChildren(task))
               )}
             </div>
           </SortableContext>
@@ -213,6 +264,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const handleToggleExpand = (taskId: string) => {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
 
   // Count archived tasks for display
   const archivedCount = useMemo(() => {
@@ -373,10 +437,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
               key={status}
               status={status}
               tasks={tasksByStatus[status]}
+              allTasks={filteredTasks}
               onTaskClick={onTaskClick}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+              expandedTasks={expandedTasks}
+              onToggleExpand={handleToggleExpand}
             />
           ))}
         </div>

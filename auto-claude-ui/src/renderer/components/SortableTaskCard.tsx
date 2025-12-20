@@ -7,9 +7,10 @@ import type { Task } from '../../shared/types';
 interface SortableTaskCardProps {
   task: Task;
   onClick: () => void;
+  allTasks?: Task[];
 }
 
-export function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
+export function SortableTaskCard({ task, onClick, allTasks }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -39,7 +40,7 @@ export function SortableTaskCard({ task, onClick }: SortableTaskCardProps) {
       {...attributes}
       {...listeners}
     >
-      <TaskCard task={task} onClick={onClick} />
+      <TaskCard task={task} onClick={onClick} allTasks={allTasks} />
     </div>
   );
 }

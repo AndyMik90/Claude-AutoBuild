@@ -216,6 +216,47 @@ export async function createTask(
 }
 
 /**
+ * Create a parent task with child tasks (for hierarchical tasks)
+ */
+export async function createTaskWithChildren(
+  projectId: string,
+  title: string,
+  description: string,
+  children: Array<{ title: string; description?: string; orderIndex: number }>,
+  metadata?: TaskMetadata
+): Promise<{ parent: Task; children: Task[] } | null> {
+  const store = useTaskStore.getState();
+
+  try {
+    const result = await window.electronAPI.createTaskWithChildren(
+      projectId,
+      title,
+      description,
+      children,
+      metadata
+    );
+
+    if (result.success && result.data) {
+      // Add parent task
+      store.addTask(result.data.parent);
+
+      // Add all child tasks
+      result.data.children.forEach((child: Task) => {
+        store.addTask(child);
+      });
+
+      return result.data;
+    } else {
+      store.setError(result.error || 'Failed to create task with children');
+      return null;
+    }
+  } catch (error) {
+    store.setError(error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
+}
+
+/**
  * Start a task
  */
 export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): void {

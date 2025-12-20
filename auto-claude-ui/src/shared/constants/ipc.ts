@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
+  TASK_CREATE_WITH_CHILDREN: 'task:createWithChildren',
   TASK_DELETE: 'task:delete',
   TASK_UPDATE: 'task:update',
   TASK_START: 'task:start',
@@ -260,6 +261,7 @@ export const IPC_CHANNELS = {
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
+  FILE_READ_CONTENT: 'file:readContent',
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',

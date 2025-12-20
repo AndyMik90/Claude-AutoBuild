@@ -41,7 +41,8 @@ import {
 import { ReferencedFilesSection } from './ReferencedFilesSection';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { AgentProfileSelector } from './AgentProfileSelector';
-import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
+import { parseMarkdownTask, generateRichDescription, type ParsedTask } from '../lib/markdown-task-parser';
+import { createTask, createTaskWithChildren, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
@@ -116,6 +117,9 @@ export function TaskCreationWizard({
   // Referenced files from file explorer
   const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
 
+  // Parsed subtasks from markdown (for hierarchical task creation)
+  const [parsedSubtasks, setParsedSubtasks] = useState<Array<{ title: string; description?: string; orderIndex: number }>>([]);
+
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
@@ -144,18 +148,6 @@ export function TaskCreationWizard({
       },
     })
   );
-
-  // Setup drop zone for file references (entire form)
-  const { setNodeRef: setDropRef, isOver: isOverDropZone } = useDroppable({
-    id: 'file-drop-zone',
-    data: { type: 'file-drop-zone' }
-  });
-
-  // Setup drop zone for description textarea (inline @mentions)
-  const { setNodeRef: setTextareaDropRef, isOver: isOverTextarea } = useDroppable({
-    id: 'description-drop-zone',
-    data: { type: 'description-drop-zone' }
-  });
 
   // Determine if drop zone is at capacity
   const isAtMaxFiles = referencedFiles.length >= MAX_REFERENCED_FILES;
@@ -402,9 +394,67 @@ export function TaskCreationWizard({
   );
 
   /**
+   * Handle markdown file drop - parse and populate form
+   */
+  const handleMarkdownFileDrop = useCallback(async (filePath: string, filename: string) => {
+    try {
+      console.log('[Markdown] Reading file:', filePath);
+      const result = await window.electronAPI.readFileContent(filePath);
+
+      if (!result.success || !result.data) {
+        setError(`Failed to read file: ${result.error}`);
+        return;
+      }
+
+      console.log('[Markdown] Parsing content...');
+      const parsed = parseMarkdownTask(result.data, filename);
+      console.log('[Markdown] Parsed task:', parsed);
+
+      // Populate form with parsed data
+      setDescription(generateRichDescription(parsed));
+      setTitle(parsed.title);
+
+      // Add the markdown file as a referenced file
+      const newFile: ReferencedFile = {
+        id: crypto.randomUUID(),
+        path: filePath,
+        name: filename,
+        isDirectory: false,
+        addedAt: new Date()
+      };
+      setReferencedFiles(prev => [...prev, newFile]);
+
+      console.log('[Markdown] Form populated with task data');
+
+      // Store parsed subtasks for hierarchical task creation
+      if (parsed.subtasks.length > 0) {
+        console.log('[Markdown] Detected subtasks:', parsed.subtasks);
+        const children = parsed.subtasks.map((subtask, index) => ({
+          title: subtask.title,
+          description: subtask.description,
+          orderIndex: index
+        }));
+        setParsedSubtasks(children);
+        console.log('[Markdown] Stored subtasks for hierarchical creation:', children);
+      }
+
+      // TODO: Handle dependencies
+      if (parsed.dependencies.length > 0) {
+        console.log('[Markdown] Detected dependencies:', parsed.dependencies);
+        // Future: Link dependencies when that feature is available
+      }
+
+    } catch (error) {
+      console.error('[Markdown] Error parsing file:', error);
+      setError(`Failed to parse markdown file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
+  /**
    * Handle drag start - capture file data for overlay
    */
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    console.log('[DnD] Drag start:', event.active.id, event.active.data.current);
     const data = event.active.data.current as {
       type: string;
       path: string;
@@ -413,6 +463,7 @@ export function TaskCreationWizard({
     } | undefined;
 
     if (data?.type === 'file') {
+      console.log('[DnD] Setting active drag data:', data);
       setActiveDragData({
         path: data.path,
         name: data.name,
@@ -426,12 +477,16 @@ export function TaskCreationWizard({
    */
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    console.log('[DnD] Drag end:', { activeId: active.id, overId: over?.id, data: active.data.current });
 
     // Clear drag state
     setActiveDragData(null);
 
     // If not dropped on a valid target, do nothing
-    if (!over) return;
+    if (!over) {
+      console.log('[DnD] No drop target');
+      return;
+    }
 
     const data = active.data.current as {
       type?: string;
@@ -441,7 +496,10 @@ export function TaskCreationWizard({
     } | undefined;
 
     // Only process file drops
-    if (data?.type !== 'file' || !data.path || !data.name) return;
+    if (data?.type !== 'file' || !data.path || !data.name) {
+      console.log('[DnD] Invalid file data:', data);
+      return;
+    }
 
     // Handle drop on description textarea - insert inline @mention
     if (over.id === 'description-drop-zone') {
@@ -469,14 +527,28 @@ export function TaskCreationWizard({
 
     // Handle drop on file-drop-zone - add to referenced files list
     if (over.id === 'file-drop-zone') {
+      console.log('[DnD] Dropped on file-drop-zone');
+
+      // Check if this is a markdown planning document
+      const isMarkdown = data.name.endsWith('.md');
+
+      if (isMarkdown) {
+        console.log('[DnD] Markdown file detected, parsing content...');
+        // Read and parse markdown file
+        handleMarkdownFileDrop(data.path, data.name);
+        return;
+      }
+
       // Check if we're at the max limit
       if (referencedFiles.length >= MAX_REFERENCED_FILES) {
+        console.log('[DnD] Max files reached');
         setError(`Maximum of ${MAX_REFERENCED_FILES} referenced files allowed`);
         return;
       }
 
       // Check for duplicates
       if (referencedFiles.some(f => f.path === data.path)) {
+        console.log('[DnD] Duplicate file, skipping');
         // Silently skip duplicates
         return;
       }
@@ -490,6 +562,7 @@ export function TaskCreationWizard({
         addedAt: new Date()
       };
 
+      console.log('[DnD] Adding file to referenced files:', newFile);
       setReferencedFiles(prev => [...prev, newFile]);
     }
   }, [referencedFiles, description]);
@@ -561,16 +634,39 @@ export function TaskCreationWizard({
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
 
-      // Title is optional - if empty, it will be auto-generated by the backend
-      const task = await createTask(projectId, title.trim(), description.trim(), metadata);
-      if (task) {
-        // Clear draft on successful creation
-        clearDraft(projectId);
-        // Reset form and close
-        resetForm();
-        onOpenChange(false);
+      // Check if we have parsed subtasks from markdown - create hierarchical task
+      if (parsedSubtasks.length > 0) {
+        console.log('[Create] Creating hierarchical task with', parsedSubtasks.length, 'children');
+        const result = await createTaskWithChildren(
+          projectId,
+          title.trim(),
+          description.trim(),
+          parsedSubtasks,
+          metadata
+        );
+
+        if (result) {
+          console.log('[Create] Hierarchical task created:', result);
+          // Clear draft on successful creation
+          clearDraft(projectId);
+          // Reset form and close
+          resetForm();
+          onOpenChange(false);
+        } else {
+          setError('Failed to create task with subtasks. Please try again.');
+        }
       } else {
-        setError('Failed to create task. Please try again.');
+        // Regular task creation (no subtasks)
+        const task = await createTask(projectId, title.trim(), description.trim(), metadata);
+        if (task) {
+          // Clear draft on successful creation
+          clearDraft(projectId);
+          // Reset form and close
+          resetForm();
+          onOpenChange(false);
+        } else {
+          setError('Failed to create task. Please try again.');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -594,6 +690,7 @@ export function TaskCreationWizard({
     setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
     setImages([]);
     setReferencedFiles([]);
+    setParsedSubtasks([]);  // Clear parsed subtasks
     setRequireReviewBeforeCoding(false);
     setError(null);
     setShowAdvanced(false);
@@ -632,24 +729,25 @@ export function TaskCreationWizard({
     setError(null);
   };
 
-  return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent
-          className={cn(
-            "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
-            showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
-          )}
-          hideCloseButton={showFileExplorer}
-        >
-          <div className="flex h-full min-h-0 overflow-hidden">
-            {/* Form content - Drop zone wrapper */}
-            <div
-              ref={setDropRef}
+  // Inner component that uses droppable hooks - must be inside DndContext
+  const TaskFormWithDropZones = () => {
+    // Setup drop zone for file references (entire form)
+    const { setNodeRef: setDropRef, isOver: isOverDropZone } = useDroppable({
+      id: 'file-drop-zone',
+      data: { type: 'file-drop-zone' }
+    });
+
+    // Setup drop zone for description textarea (inline @mentions)
+    const { setNodeRef: setTextareaDropRef, isOver: isOverTextarea } = useDroppable({
+      id: 'description-drop-zone',
+      data: { type: 'description-drop-zone' }
+    });
+
+    return (
+      <div className="flex h-full min-h-0 overflow-hidden">
+        {/* Form content - Drop zone wrapper */}
+        <div
+          ref={setDropRef}
               className={cn(
                 "flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto relative transition-all duration-150 ease-out",
                 // Default state - no border
@@ -1080,31 +1178,51 @@ export function TaskCreationWizard({
         </DialogFooter>
             </div>
 
-            {/* File Explorer Drawer */}
-            {projectPath && (
-              <TaskFileExplorerDrawer
-                isOpen={showFileExplorer}
-                onClose={() => setShowFileExplorer(false)}
-                projectPath={projectPath}
-              />
+        {/* File Explorer Drawer */}
+        {projectPath && (
+          <TaskFileExplorerDrawer
+            isOpen={showFileExplorer}
+            onClose={() => setShowFileExplorer(false)}
+            projectPath={projectPath}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent
+          className={cn(
+            "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
+            showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
+          )}
+          hideCloseButton={showFileExplorer}
+        >
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <TaskFormWithDropZones />
+
+            {/* Drag overlay - shows what's being dragged */}
+            <DragOverlay>
+            {activeDragData && (
+              <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg">
+                {activeDragData.isDirectory ? (
+                  <Folder className="h-4 w-4 text-warning" />
+                ) : (
+                  <File className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm">{activeDragData.name}</span>
+              </div>
             )}
-          </div>
+          </DragOverlay>
+        </DndContext>
         </DialogContent>
       </Dialog>
-
-      {/* Drag overlay - shows what's being dragged */}
-      <DragOverlay>
-        {activeDragData && (
-          <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg">
-            {activeDragData.isDirectory ? (
-              <Folder className="h-4 w-4 text-warning" />
-            ) : (
-              <File className="h-4 w-4 text-muted-foreground" />
-            )}
-            <span className="text-sm">{activeDragData.name}</span>
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+    </>
   );
 }

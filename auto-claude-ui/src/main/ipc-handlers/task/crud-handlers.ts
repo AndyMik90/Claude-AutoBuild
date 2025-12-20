@@ -199,6 +199,164 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
   );
 
   /**
+   * Create a parent task with child tasks (hierarchical tasks)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CREATE_WITH_CHILDREN,
+    async (
+      _,
+      projectId: string,
+      title: string,
+      description: string,
+      children: Array<{ title: string; description?: string; orderIndex: number }>,
+      metadata?: TaskMetadata
+    ): Promise<IPCResult<{ parent: Task; children: Task[] }>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      // Create parent task first (same logic as TASK_CREATE)
+      const parentResult = await new Promise<IPCResult<Task>>((resolve) => {
+        ipcMain.handleOnce('_internal_create_parent', async () => {
+          // Reuse the TASK_CREATE logic
+          const result = await (ipcMain as any)._listeners.get(IPC_CHANNELS.TASK_CREATE)[0](
+            null,
+            projectId,
+            title,
+            description,
+            metadata
+          );
+          resolve(result);
+        });
+        ipcMain.emit('_internal_create_parent' as any);
+      });
+
+      if (!parentResult.success || !parentResult.data) {
+        return { success: false, error: parentResult.error || 'Failed to create parent task' };
+      }
+
+      const parentTask = parentResult.data;
+      const childTasks: Task[] = [];
+      const childTaskIds: string[] = [];
+
+      // Create each child task
+      for (const child of children) {
+        // Generate child spec ID
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specsDir = path.join(project.path, specsBaseDir);
+
+        // Find next available spec number
+        let specNumber = 1;
+        if (existsSync(specsDir)) {
+          const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name);
+
+          const existingNumbers = existingDirs
+            .map(name => {
+              const match = name.match(/^(\d+)/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => n > 0);
+
+          if (existingNumbers.length > 0) {
+            specNumber = Math.max(...existingNumbers) + 1;
+          }
+        }
+
+        const slugifiedTitle = child.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        const childSpecId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+        // Create child spec directory
+        const childSpecDir = path.join(specsDir, childSpecId);
+        mkdirSync(childSpecDir, { recursive: true });
+
+        // Create implementation plan for child
+        const now = new Date().toISOString();
+        const childPlan = {
+          feature: child.title,
+          description: child.description || '',
+          created_at: now,
+          updated_at: now,
+          status: 'pending',
+          phases: []
+        };
+
+        writeFileSync(
+          path.join(childSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+          JSON.stringify(childPlan, null, 2)
+        );
+
+        // Create requirements for child
+        const childRequirements = {
+          task_description: child.description || '',
+          workflow_type: metadata?.category || 'feature',
+          parent_task: parentTask.id  // Link to parent
+        };
+
+        writeFileSync(
+          path.join(childSpecDir, AUTO_BUILD_PATHS.REQUIREMENTS),
+          JSON.stringify(childRequirements, null, 2)
+        );
+
+        // Create child task object
+        const childTask: Task = {
+          id: childSpecId,
+          specId: childSpecId,
+          projectId,
+          title: child.title,
+          description: child.description || '',
+          status: 'backlog',
+          subtasks: [],
+          logs: [],
+          metadata: {
+            sourceType: 'manual',
+            ...metadata
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          parentTaskId: parentTask.id,
+          orderIndex: child.orderIndex
+        };
+
+        childTasks.push(childTask);
+        childTaskIds.push(childTask.id);
+      }
+
+      // Update parent task with child references
+      parentTask.hasChildren = true;
+      parentTask.childTaskIds = childTaskIds;
+
+      // Save parent task metadata with child references
+      const parentSpecDir = path.join(
+        project.path,
+        getSpecsDir(project.autoBuildPath),
+        parentTask.specId
+      );
+      const parentMetadataPath = path.join(parentSpecDir, 'task_metadata.json');
+      const updatedParentMetadata = {
+        ...parentTask.metadata,
+        hasChildren: true,
+        childTaskIds: childTaskIds
+      };
+      writeFileSync(parentMetadataPath, JSON.stringify(updatedParentMetadata, null, 2));
+
+      return {
+        success: true,
+        data: {
+          parent: parentTask,
+          children: childTasks
+        }
+      };
+    }
+  );
+
+  /**
    * Delete a task
    */
   ipcMain.handle(
