@@ -606,6 +606,140 @@
   --shadow-focus: 0 0 0 3px rgba(56, 189, 248, 0.3);
 }
 
+/* ============================================
+   RETRO THEME (Light)
+   Warm, nostalgic amber/orange vibes
+   ============================================ */
+[data-theme="retro"] {
+  /* Backgrounds */
+  --background: #FEF3C7;
+  --foreground: #78350F;
+
+  /* Card surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #78350F;
+
+  /* Primary accent - warm amber/orange */
+  --primary: #D97706;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary */
+  --secondary: #FFFBEB;
+  --secondary-foreground: #78350F;
+
+  /* Muted */
+  --muted: #FEFCE8;
+  --muted-foreground: #92400E;
+
+  /* Accent */
+  --accent: #FEF3C7;
+  --accent-foreground: #D97706;
+
+  /* Destructive */
+  --destructive: #B91C1C;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders and inputs */
+  --border: #FDE68A;
+  --input: #FDE68A;
+  --ring: #D97706;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #78350F;
+
+  /* Popover */
+  --popover: #FFFFFF;
+  --popover-foreground: #78350F;
+
+  /* Semantic colors */
+  --success: #15803D;
+  --success-foreground: #FFFFFF;
+  --success-light: #DCFCE7;
+  --warning: #CA8A04;
+  --warning-foreground: #78350F;
+  --warning-light: #FEF9C3;
+  --info: #1D4ED8;
+  --info-foreground: #FFFFFF;
+  --info-light: #DBEAFE;
+  --error: #B91C1C;
+  --error-light: #FEE2E2;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(217, 119, 6, 0.2);
+}
+
+/* ============================================
+   RETRO THEME (Dark)
+   Warm stone/brown tones with golden accents
+   ============================================ */
+[data-theme="retro"].dark {
+  /* Backgrounds */
+  --background: #1C1917;
+  --foreground: #FEFCE8;
+
+  /* Card surfaces */
+  --card: #44403C;
+  --card-foreground: #FEFCE8;
+
+  /* Primary accent - bright amber/gold */
+  --primary: #FBBF24;
+  --primary-foreground: #1C1917;
+
+  /* Secondary */
+  --secondary: #292524;
+  --secondary-foreground: #FEFCE8;
+
+  /* Muted */
+  --muted: #1C1917;
+  --muted-foreground: #FDE68A;
+
+  /* Accent */
+  --accent: #451A03;
+  --accent-foreground: #FBBF24;
+
+  /* Destructive */
+  --destructive: #F87171;
+  --destructive-foreground: #1C1917;
+
+  /* Borders and inputs */
+  --border: #78716C;
+  --input: #78716C;
+  --ring: #FBBF24;
+
+  /* Sidebar */
+  --sidebar: #1C1917;
+  --sidebar-foreground: #FEFCE8;
+
+  /* Popover */
+  --popover: #57534E;
+  --popover-foreground: #FEFCE8;
+
+  /* Semantic colors */
+  --success: #4ADE80;
+  --success-foreground: #1C1917;
+  --success-light: #14532D;
+  --warning: #FACC15;
+  --warning-foreground: #1C1917;
+  --warning-light: #422006;
+  --info: #60A5FA;
+  --info-foreground: #1C1917;
+  --info-light: #1E3A8A;
+  --error: #F87171;
+  --error-light: #450A0A;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 0 3px rgba(251, 191, 36, 0.3);
+}
+
 /* Base styles */
 * {
   border-color: var(--border);
