@@ -95,6 +95,7 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.SETTINGS_GET,
     async (): Promise<IPCResult<AppSettings>> => {
       let settings = { ...DEFAULT_APP_SETTINGS };
+      let needsSave = false;
 
       if (existsSync(settingsPath)) {
         try {
@@ -105,11 +106,29 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Migration: Reset agent profile to 'auto' for existing users (one-time)
+      // This ensures all users get the optimized 'auto' profile as the default
+      const settingsAny = settings as Record<string, unknown>;
+      if (!settingsAny._migratedAgentProfileToAuto) {
+        settings.selectedAgentProfile = 'auto';
+        settingsAny._migratedAgentProfileToAuto = true;
+        needsSave = true;
+      }
+
       // If no manual autoBuildPath is set, try to auto-detect
       if (!settings.autoBuildPath) {
         const detectedPath = detectAutoBuildSourcePath();
         if (detectedPath) {
           settings.autoBuildPath = detectedPath;
+        }
+      }
+
+      // Persist migration changes
+      if (needsSave) {
+        try {
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        } catch {
+          // Ignore write errors during migration
         }
       }
 
