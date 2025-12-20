@@ -96,20 +96,19 @@ def validate_environment(spec_dir: Path) -> bool:
     """
     valid = True
 
-    # Check for authentication token (supports multiple env vars)
+    # Check for OAuth token (API keys are not supported)
     if not get_auth_token():
-        print("Error: No authentication token found")
-        print(f"\nSet one of: {', '.join(AUTH_TOKEN_ENV_VARS)}")
-        print("\nFor Claude Code CLI, get your OAuth token by running:")
+        print("Error: No OAuth token found")
+        print("\nAuto Claude requires Claude Code OAuth authentication.")
+        print("Direct API keys (ANTHROPIC_API_KEY) are not supported.")
+        print("\nTo authenticate, run:")
         print("  claude setup-token")
-        print("\nThen set it:")
-        print("  export CLAUDE_CODE_OAUTH_TOKEN='your-token-here'")
         valid = False
     else:
         # Show which auth source is being used
         source = get_auth_token_source()
-        if source and source != "CLAUDE_CODE_OAUTH_TOKEN":
-            print(f"Auth: Using token from {source}")
+        if source:
+            print(f"Auth: {source}")
 
         # Show custom base URL if set
         base_url = os.environ.get("ANTHROPIC_BASE_URL")
