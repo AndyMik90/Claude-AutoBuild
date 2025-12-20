@@ -204,6 +204,140 @@
   --shadow-focus: 0 0 0 2px rgba(214, 216, 118, 0.2);
 }
 
+/* ============================================
+   DUSK THEME (Light)
+   Warm, muted palette inspired by Fey/Oscura
+   ============================================ */
+[data-theme="dusk"] {
+  /* Backgrounds */
+  --background: #F5F5F0;
+  --foreground: #131419;
+
+  /* Card surfaces */
+  --card: #FFFFFF;
+  --card-foreground: #131419;
+
+  /* Primary accent - muted olive/yellow */
+  --primary: #B8B978;
+  --primary-foreground: #131419;
+
+  /* Secondary */
+  --secondary: #EAEAE5;
+  --secondary-foreground: #131419;
+
+  /* Muted */
+  --muted: #F0F0EB;
+  --muted-foreground: #5C6974;
+
+  /* Accent */
+  --accent: #F0F0E0;
+  --accent-foreground: #B8B978;
+
+  /* Destructive */
+  --destructive: #D84F68;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders and inputs */
+  --border: #E0E0DB;
+  --input: #E0E0DB;
+  --ring: #B8B978;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #131419;
+
+  /* Popover */
+  --popover: #FFFFFF;
+  --popover-foreground: #131419;
+
+  /* Semantic colors */
+  --success: #4EBE96;
+  --success-foreground: #FFFFFF;
+  --success-light: #E0F5ED;
+  --warning: #D2D714;
+  --warning-foreground: #131419;
+  --warning-light: #F5F5D0;
+  --info: #479FFA;
+  --info-foreground: #FFFFFF;
+  --info-light: #E8F4FF;
+  --error: #D84F68;
+  --error-light: #FCE8EC;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(184, 185, 120, 0.2);
+}
+
+/* ============================================
+   DUSK THEME (Dark)
+   Fey-inspired dark theme
+   ============================================ */
+[data-theme="dusk"].dark {
+  /* Backgrounds */
+  --background: #131419;
+  --foreground: #E6E6E6;
+
+  /* Card surfaces */
+  --card: #1A1B21;
+  --card-foreground: #E6E6E6;
+
+  /* Primary accent - pale yellow */
+  --primary: #E6E7A3;
+  --primary-foreground: #131419;
+
+  /* Secondary */
+  --secondary: #222329;
+  --secondary-foreground: #E6E6E6;
+
+  /* Muted */
+  --muted: #16171D;
+  --muted-foreground: #868F97;
+
+  /* Accent */
+  --accent: #2A2B1F;
+  --accent-foreground: #E6E7A3;
+
+  /* Destructive */
+  --destructive: #D84F68;
+  --destructive-foreground: #131419;
+
+  /* Borders and inputs */
+  --border: #282828;
+  --input: #282828;
+  --ring: #E6E7A3;
+
+  /* Sidebar */
+  --sidebar: #16171D;
+  --sidebar-foreground: #E6E6E6;
+
+  /* Popover */
+  --popover: #222329;
+  --popover-foreground: #E6E6E6;
+
+  /* Semantic colors */
+  --success: #4EBE96;
+  --success-foreground: #131419;
+  --success-light: #1A2E28;
+  --warning: #D2D714;
+  --warning-foreground: #131419;
+  --warning-light: #2A2B1A;
+  --info: #479FFA;
+  --info-foreground: #131419;
+  --info-light: #1A2433;
+  --error: #D84F68;
+  --error-light: #2E1A1F;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 0 2px rgba(230, 231, 163, 0.25);
+}
+
 /* Base styles */
 * {
   border-color: var(--border);
