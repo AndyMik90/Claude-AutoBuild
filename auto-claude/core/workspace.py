@@ -72,24 +72,14 @@ except ImportError:
 # Import merge system
 from core.workspace.display import (
     print_conflict_info as _print_conflict_info,
-)
-from core.workspace.display import (
     print_merge_success as _print_merge_success,
-)
-from core.workspace.display import (
     show_build_summary,
 )
 from core.workspace.git_utils import (
     _is_auto_claude_file,
-    get_existing_build_worktree,
-)
-from core.workspace.git_utils import (
     get_changed_files_from_branch as _get_changed_files_from_branch,
-)
-from core.workspace.git_utils import (
+    get_existing_build_worktree,
     get_file_content_from_ref as _get_file_content_from_ref,
-)
-from core.workspace.git_utils import (
     is_lock_file as _is_lock_file,
 )
 
@@ -1003,9 +993,8 @@ def _resolve_git_conflicts_with_ai(
 # =============================================================================
 
 import asyncio
-import os
-import re
 import logging
+import os
 
 _merge_logger = logging.getLogger(__name__)
 
