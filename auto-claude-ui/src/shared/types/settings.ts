@@ -68,6 +68,8 @@ export interface AppSettings {
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // Developer/Debug settings
+  enableBackendLogging?: boolean;  // Show backend logs in DevTools console (default: false)
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
