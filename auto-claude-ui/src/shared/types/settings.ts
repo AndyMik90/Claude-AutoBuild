@@ -68,6 +68,8 @@ export interface AppSettings {
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // Plugin context injection preference
+  enablePluginContextInjection?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
