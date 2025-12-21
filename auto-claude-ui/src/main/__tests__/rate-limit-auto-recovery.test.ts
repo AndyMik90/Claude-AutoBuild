@@ -57,7 +57,7 @@ function createMockProfileManager(options: {
       if (id === 'profile-mu') return profiles.mu;
       return null;
     }),
-    getBestAvailableProfile: vi.fn(() => bestProfile),
+    getBestAvailableProfile: vi.fn((_excludeProfileId?: string) => bestProfile),
     setActiveProfile: vi.fn(),
     recordRateLimitEvent: vi.fn(),
     getAutoSwitchSettings: vi.fn(() => settings),

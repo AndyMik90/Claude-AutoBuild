@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+
 # Apply LadybugDB monkeypatch BEFORE any graphiti imports
 def apply_monkeypatch():
     """Apply LadybugDB monkeypatch or use native kuzu.
