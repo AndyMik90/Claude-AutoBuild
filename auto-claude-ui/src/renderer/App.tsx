@@ -122,7 +122,21 @@ export function App() {
   // Restore tab state and open tabs for loaded projects
   useEffect(() => {
     if (projects.length > 0) {
-      // If there's an active project but no tabs open, open a tab for it
+      // If no tabs are open at all, open the first available project
+      if (projectTabs.length === 0) {
+        const projectToOpen = activeProjectId || selectedProjectId || projects[0].id;
+        // Verify the project exists before opening
+        if (projects.some(p => p.id === projectToOpen)) {
+          openProjectTab(projectToOpen);
+          setActiveProject(projectToOpen);
+        } else {
+          // Fallback to first project if stored IDs are invalid
+          openProjectTab(projects[0].id);
+          setActiveProject(projects[0].id);
+        }
+        return;
+      }
+      // If there's an active project but no tabs open for it, open a tab
       if (activeProjectId && !projectTabs.some(tab => tab.id === activeProjectId)) {
         openProjectTab(activeProjectId);
       }
@@ -132,7 +146,7 @@ export function App() {
         openProjectTab(selectedProjectId);
       }
     }
-  }, [projects, activeProjectId, selectedProjectId, projectTabs]);
+  }, [projects, activeProjectId, selectedProjectId, projectTabs, openProjectTab, setActiveProject]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
@@ -196,6 +210,45 @@ export function App() {
       setShowInitDialog(true);
     }
   }, [selectedProject, skippedInitProjectId, isInitializing]);
+
+  // Global keyboard shortcut: Cmd/Ctrl+T to add project (when not on terminals view)
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Skip if in input fields
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // Cmd/Ctrl+T: Add new project (only when not on terminals view)
+      if ((e.ctrlKey || e.metaKey) && e.key === 't' && activeView !== 'terminals') {
+        e.preventDefault();
+        try {
+          const path = await window.electronAPI.selectDirectory();
+          if (path) {
+            const project = await addProject(path);
+            if (project) {
+              openProjectTab(project.id);
+              if (!project.autoBuildPath) {
+                setPendingProject(project);
+                setInitError(null);
+                setInitSuccess(false);
+                setShowInitDialog(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to add project:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeView, openProjectTab]);
 
   // Load tasks when project changes
   useEffect(() => {
@@ -550,6 +603,7 @@ export function App() {
                   <TerminalGrid
                     projectPath={selectedProject?.path}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+                    isActive={activeView === 'terminals'}
                   />
                 </div>
                 {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (
