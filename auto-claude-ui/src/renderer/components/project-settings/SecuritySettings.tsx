@@ -1,20 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Database,
   Eye,
   EyeOff,
   ChevronDown,
   ChevronUp,
-  Globe,
-  RefreshCw,
-  Loader2,
-  CheckCircle2,
-  AlertCircle
+  Globe
 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
-import { Button } from '../ui/button';
 import {
   Select,
   SelectContent,
@@ -23,14 +18,8 @@ import {
   SelectValue
 } from '../ui/select';
 import { Separator } from '../ui/separator';
+import { OllamaModelSelector } from '../onboarding/OllamaModelSelector';
 import type { ProjectEnvConfig, ProjectSettings as ProjectSettingsType, GraphitiEmbeddingProvider } from '../../../shared/types';
-
-interface OllamaEmbeddingModel {
-  name: string;
-  embedding_dim: number | null;
-  description: string;
-  size_gb: number;
-}
 
 interface SecuritySettingsProps {
   envConfig: ProjectEnvConfig | null;
@@ -65,13 +54,7 @@ export function SecuritySettings({
     azure: false
   });
 
-  // Ollama model detection state
-  const [ollamaModels, setOllamaModels] = useState<OllamaEmbeddingModel[]>([]);
-  const [ollamaStatus, setOllamaStatus] = useState<'idle' | 'checking' | 'connected' | 'disconnected'>('idle');
-  const [ollamaError, setOllamaError] = useState<string | null>(null);
-
   const embeddingProvider = envConfig?.graphitiProviderConfig?.embeddingProvider || 'ollama';
-  const ollamaBaseUrl = envConfig?.graphitiProviderConfig?.ollamaBaseUrl || 'http://localhost:11434';
 
   // Toggle API key visibility
   const toggleShowApiKey = (key: string) => {
@@ -82,44 +65,17 @@ export function SecuritySettings({
     }
   };
 
-  // Detect Ollama embedding models
-  const detectOllamaModels = useCallback(async () => {
-    if (!envConfig?.graphitiEnabled || embeddingProvider !== 'ollama') return;
-
-    setOllamaStatus('checking');
-    setOllamaError(null);
-
-    try {
-      // Check Ollama status first
-      const statusResult = await window.electronAPI.checkOllamaStatus(ollamaBaseUrl);
-      if (!statusResult.success || !statusResult.data?.running) {
-        setOllamaStatus('disconnected');
-        setOllamaError(statusResult.data?.message || 'Ollama is not running');
-        return;
+  // Handle Ollama model selection
+  const handleOllamaModelSelect = (modelName: string, dim: number) => {
+    updateEnvConfig({
+      graphitiProviderConfig: {
+        ...envConfig?.graphitiProviderConfig,
+        embeddingProvider: 'ollama',
+        ollamaEmbeddingModel: modelName,
+        ollamaEmbeddingDim: dim,
       }
-
-      // Get embedding models
-      const modelsResult = await window.electronAPI.listOllamaEmbeddingModels(ollamaBaseUrl);
-      if (!modelsResult.success) {
-        setOllamaStatus('connected');
-        setOllamaError(modelsResult.error || 'Failed to list models');
-        return;
-      }
-
-      setOllamaModels(modelsResult.data?.embedding_models || []);
-      setOllamaStatus('connected');
-    } catch (err) {
-      setOllamaStatus('disconnected');
-      setOllamaError(err instanceof Error ? err.message : 'Failed to detect Ollama models');
-    }
-  }, [envConfig?.graphitiEnabled, embeddingProvider, ollamaBaseUrl]);
-
-  // Auto-detect when Ollama is selected
-  useEffect(() => {
-    if (embeddingProvider === 'ollama' && envConfig?.graphitiEnabled) {
-      detectOllamaModels();
-    }
-  }, [embeddingProvider, envConfig?.graphitiEnabled, detectOllamaModels]);
+    });
+  };
 
   if (!envConfig) return null;
 
@@ -331,135 +287,15 @@ export function SecuritySettings({
       );
     }
 
-    // Ollama (Local)
+    // Ollama (Local) - uses OllamaModelSelector component
     if (embeddingProvider === 'ollama') {
       return (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium text-foreground">Ollama Configuration</Label>
-            <div className="flex items-center gap-2">
-              {ollamaStatus === 'checking' && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Checking...
-                </span>
-              )}
-              {ollamaStatus === 'connected' && (
-                <span className="flex items-center gap-1 text-xs text-success">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Connected
-                </span>
-              )}
-              {ollamaStatus === 'disconnected' && (
-                <span className="flex items-center gap-1 text-xs text-destructive">
-                  <AlertCircle className="h-3 w-3" />
-                  Not running
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={detectOllamaModels}
-                disabled={ollamaStatus === 'checking'}
-                className="h-6 px-2"
-              >
-                <RefreshCw className={`h-3 w-3 ${ollamaStatus === 'checking' ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Base URL</Label>
-            <Input
-              placeholder="http://localhost:11434"
-              value={envConfig.graphitiProviderConfig?.ollamaBaseUrl || ''}
-              onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
-                  embeddingProvider: 'ollama',
-                  ollamaBaseUrl: e.target.value || undefined,
-                }
-              })}
-            />
-          </div>
-
-          {ollamaError && (
-            <div className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-              {ollamaError}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Embedding Model</Label>
-            {ollamaModels.length > 0 ? (
-              <Select
-                value={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
-                onValueChange={(value) => {
-                  const model = ollamaModels.find(m => m.name === value);
-                  updateEnvConfig({
-                    graphitiProviderConfig: {
-                      ...envConfig.graphitiProviderConfig,
-                      embeddingProvider: 'ollama',
-                      ollamaEmbeddingModel: value,
-                      ollamaEmbeddingDim: model?.embedding_dim || undefined,
-                    }
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select embedding model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ollamaModels.map((model) => (
-                    <SelectItem key={model.name} value={model.name}>
-                      <div className="flex items-center gap-2">
-                        <span>{model.name}</span>
-                        {model.embedding_dim && (
-                          <span className="text-xs text-muted-foreground">
-                            ({model.embedding_dim}d)
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                placeholder="nomic-embed-text"
-                value={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
-                onChange={(e) => updateEnvConfig({
-                  graphitiProviderConfig: {
-                    ...envConfig.graphitiProviderConfig,
-                    embeddingProvider: 'ollama',
-                    ollamaEmbeddingModel: e.target.value || undefined,
-                  }
-                })}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              Common models: nomic-embed-text, embeddinggemma, mxbai-embed-large
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Embedding Dimension</Label>
-            <Input
-              type="number"
-              placeholder="768"
-              value={envConfig.graphitiProviderConfig?.ollamaEmbeddingDim || ''}
-              onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
-                  embeddingProvider: 'ollama',
-                  ollamaEmbeddingDim: parseInt(e.target.value) || undefined,
-                }
-              })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Required for Ollama embeddings (e.g., 768 for nomic-embed-text)
-            </p>
-          </div>
+          <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
+          <OllamaModelSelector
+            selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
+            onModelSelect={handleOllamaModelSelect}
+          />
         </div>
       );
     }

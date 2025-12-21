@@ -25,19 +25,13 @@ interface OllamaModelSelectorProps {
 }
 
 // Recommended embedding models for Auto Claude Memory
+// embeddinggemma is first as the recommended default
 const RECOMMENDED_MODELS: OllamaModel[] = [
   {
     name: 'embeddinggemma',
-    description: "Google's lightweight embedding model",
+    description: "Google's lightweight embedding model (Recommended)",
     size_estimate: '621 MB',
     dim: 768,
-    installed: false,
-  },
-  {
-    name: 'qwen3-embedding:0.6b',
-    description: 'Qwen3 small embedding model',
-    size_estimate: '494 MB',
-    dim: 1024,
     installed: false,
   },
   {
