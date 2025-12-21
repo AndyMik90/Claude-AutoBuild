@@ -183,10 +183,21 @@ export function App() {
     };
   }, []);
 
+  // Reset init success flag when selected project changes
+  // This allows the init dialog to show for new/different projects
+  useEffect(() => {
+    setInitSuccess(false);
+    setInitError(null);
+  }, [selectedProjectId]);
+
   // Check if selected project needs initialization (e.g., .auto-claude folder was deleted)
   useEffect(() => {
     // Don't show dialog while initialization is in progress
     if (isInitializing) return;
+
+    // Don't reopen dialog after successful initialization
+    // (project update with autoBuildPath may not have propagated yet)
+    if (initSuccess) return;
 
     if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {
       // Project exists but isn't initialized - show init dialog
@@ -195,7 +206,7 @@ export function App() {
       setInitSuccess(false); // Reset success flag
       setShowInitDialog(true);
     }
-  }, [selectedProject, skippedInitProjectId, isInitializing]);
+  }, [selectedProject, skippedInitProjectId, isInitializing, initSuccess]);
 
   // Load tasks when project changes
   useEffect(() => {

@@ -149,11 +149,11 @@ export function AgentProfileSelector({
         description: profile.description
       };
     }
-    // Default to balanced
+    // Default to auto profile (the actual default)
     return {
-      icon: Scale,
-      label: 'Balanced',
-      description: 'Good balance of speed and quality'
+      icon: Sparkles,
+      label: 'Auto (Optimized)',
+      description: 'Uses Opus across all phases with optimized thinking levels'
     };
   };
 
