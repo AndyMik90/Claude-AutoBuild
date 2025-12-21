@@ -791,74 +791,56 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                  </p>
                </div>
 
-               {llmProvider === 'ollama' && (
-                 <div className="space-y-2">
-                   <Label htmlFor="ollama-llm" className="text-xs text-muted-foreground">LLM Model</Label>
-                   <div className="relative">
-                      <Input
-                        id="ollama-llm"
-                        type="text"
-                        value={config.ollamaLlmModel}
-                        onChange={(e) => setConfig(prev => ({ ...prev, ollamaLlmModel: e.target.value }))}
-                        placeholder="llama3.2, deepseek-r1:7b, etc."
-                        className={`font-mono text-sm pr-20 transition-all duration-200 ${config.ollamaLlmModel ? 'border-success/50 bg-success/5' : 'border-border'}`}
-                        disabled={isSaving || isValidating}
-                      />
-                     {config.ollamaLlmModel && (
-                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                         <CheckCircle2 className="h-4 w-4 text-success" />
-                         <button
-                           type="button"
-                           onClick={() => setConfig(prev => ({ ...prev, ollamaLlmModel: '' }))}
-                           className="text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                         >
-                           Clear
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                   {config.ollamaLlmModel && (
-                     <p className="text-xs text-muted-foreground">
-                       Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaLlmModel}</code>
-                     </p>
-                   )}
-                 </div>
-               )}
+                {llmProvider === 'ollama' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">LLM Model</Label>
+                    {config.ollamaLlmModel ? (
+                      <div className="flex items-center justify-between px-3 py-2 rounded-md border border-success/50 bg-success/5">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                          <code className="font-mono text-sm text-foreground">{config.ollamaLlmModel}</code>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setConfig(prev => ({ ...prev, ollamaLlmModel: '' }))}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 rounded-md border border-border text-xs text-muted-foreground">
+                        Select from available models below
+                      </div>
+                    )}
+                  </div>
+                )}
 
-               {embeddingProvider === 'ollama' && (
-                 <>
-                   <div className="space-y-2">
-                     <Label htmlFor="ollama-embedding" className="text-xs text-muted-foreground">Embedding Model</Label>
-                     <div className="relative">
-                       <Input
-                         id="ollama-embedding"
-                         type="text"
-                         value={config.ollamaEmbeddingModel}
-                         onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: e.target.value }))}
-                         placeholder="nomic-embed-text"
-                         className={`font-mono text-sm pr-20 transition-all duration-200 ${config.ollamaEmbeddingModel ? 'border-success/50 bg-success/5' : 'border-border'}`}
-                         disabled={isSaving || isValidating}
-                       />
-                       {config.ollamaEmbeddingModel && (
-                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                           <CheckCircle2 className="h-4 w-4 text-success" />
-                           <button
-                             type="button"
-                             onClick={() => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: '' }))}
-                             className="text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                           >
-                             Clear
-                           </button>
-                         </div>
-                       )}
-                     </div>
-                     {config.ollamaEmbeddingModel && (
-                       <p className="text-xs text-muted-foreground">
-                         Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaEmbeddingModel}</code>
-                         ({config.ollamaEmbeddingDim} dimensions)
-                       </p>
-                     )}
-                   </div>
+                {embeddingProvider === 'ollama' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Embedding Model</Label>
+                      {config.ollamaEmbeddingModel ? (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-md border border-success/50 bg-success/5">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                            <code className="font-mono text-sm text-foreground">{config.ollamaEmbeddingModel}</code>
+                            <span className="text-xs text-muted-foreground">({config.ollamaEmbeddingDim}d)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: '' }))}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="px-3 py-2 rounded-md border border-border text-xs text-muted-foreground">
+                          Select from available models below
+                        </div>
+                      )}
+                    </div>
                    <div className="space-y-2">
                      <Label htmlFor="ollama-dim" className="text-xs text-muted-foreground">Embedding Dimension</Label>
                      <Input
