@@ -1,5 +1,5 @@
 /**
- * External integrations (Linear, GitHub)
+ * External integrations (Linear, Plane, GitHub)
  */
 
 // ============================================
@@ -59,6 +59,104 @@ export interface LinearSyncStatus {
   issueCount?: number;
   lastSyncedAt?: string;
   error?: string;
+}
+
+// ============================================
+// Plane.so Integration Types
+// ============================================
+
+/**
+ * Plane work item (issue/task)
+ */
+/**
+ * Plane state object (returned when using expand=state)
+ */
+export interface PlaneStateDetail {
+  id: string;
+  name: string;
+  group: string;  // backlog, unstarted, started, completed, cancelled
+  color: string;
+}
+
+export interface PlaneWorkItem {
+  id: string;
+  sequence_id: number;  // e.g., 123 in PROJ-123
+  name: string;
+  description_html?: string;
+  description_stripped?: string;
+  // State can be UUID string or expanded object depending on API call
+  state: string | PlaneStateDetail;
+  priority: 'none' | 'urgent' | 'high' | 'medium' | 'low';
+  labels: string[];  // Label UUIDs
+  assignees: string[];  // User UUIDs
+  project: string;  // Project UUID
+  workspace: string;  // Workspace UUID
+  created_at: string;
+  updated_at: string;
+  target_date?: string;
+  // Expanded fields (when using expand parameter)
+  state_detail?: PlaneStateDetail;
+  project_detail?: {
+    id: string;
+    name: string;
+    identifier: string;  // e.g., "PROJ"
+  };
+  label_details?: Array<{ id: string; name: string; color: string }>;
+  assignee_details?: Array<{ id: string; display_name: string; email: string }>;
+}
+
+/**
+ * Plane project
+ */
+export interface PlaneProject {
+  id: string;
+  name: string;
+  identifier: string;  // e.g., "PROJ" for PROJ-123
+  description?: string;
+  workspace: string;
+}
+
+/**
+ * Plane workflow state
+ */
+export interface PlaneState {
+  id: string;
+  name: string;
+  group: 'backlog' | 'unstarted' | 'started' | 'completed' | 'cancelled';
+  color: string;
+  sequence: number;
+}
+
+/**
+ * Result of importing work items from Plane
+ */
+export interface PlaneImportResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors?: string[];
+}
+
+/**
+ * Plane connection/sync status
+ */
+export interface PlaneSyncStatus {
+  connected: boolean;
+  workspaceSlug?: string;
+  projectCount?: number;
+  lastSyncedAt?: string;
+  error?: string;
+}
+
+/**
+ * Project with Plane configuration (for copy settings feature)
+ */
+export interface PlaneConfiguredProject {
+  id: string;
+  name: string;
+  planeApiKey: string;
+  planeBaseUrl?: string;
+  planeWorkspaceSlug?: string;
 }
 
 // ============================================

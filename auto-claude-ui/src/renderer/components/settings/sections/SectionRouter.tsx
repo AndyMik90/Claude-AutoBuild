@@ -1,10 +1,11 @@
-import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus } from '../../../../shared/types';
+import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, PlaneSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { EnvironmentSettings } from '../../project-settings/EnvironmentSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
+import { PlaneIntegration } from '../integrations/PlaneIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -36,10 +37,15 @@ interface SectionRouterProps {
   claudeAuthStatus: 'checking' | 'authenticated' | 'not_authenticated' | 'error';
   linearConnectionStatus: LinearSyncStatus | null;
   isCheckingLinear: boolean;
+  showPlaneKey: boolean;
+  setShowPlaneKey: React.Dispatch<React.SetStateAction<boolean>>;
+  planeConnectionStatus: PlaneSyncStatus | null;
+  isCheckingPlane: boolean;
   handleInitialize: () => Promise<void>;
   handleUpdate: () => Promise<void>;
   handleClaudeSetup: () => Promise<void>;
   onOpenLinearImport: () => void;
+  onOpenPlaneImport: () => void;
 }
 
 /**
@@ -74,10 +80,15 @@ export function SectionRouter({
   claudeAuthStatus,
   linearConnectionStatus,
   isCheckingLinear,
+  showPlaneKey,
+  setShowPlaneKey,
+  planeConnectionStatus,
+  isCheckingPlane,
   handleInitialize,
   handleUpdate,
   handleClaudeSetup,
-  onOpenLinearImport
+  onOpenLinearImport,
+  onOpenPlaneImport
 }: SectionRouterProps) {
   switch (activeSection) {
     case 'general':
@@ -146,6 +157,31 @@ export function SectionRouter({
               linearConnectionStatus={linearConnectionStatus}
               isCheckingLinear={isCheckingLinear}
               onOpenLinearImport={onOpenLinearImport}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'plane':
+      return (
+        <SettingsSection
+          title="Plane.so Integration"
+          description="Connect to Plane.so for work item tracking and import"
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title="Plane.so Integration"
+            description="Sync with Plane.so for project management"
+          >
+            <PlaneIntegration
+              projectId={project.id}
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
+              showPlaneKey={showPlaneKey}
+              setShowPlaneKey={setShowPlaneKey}
+              planeConnectionStatus={planeConnectionStatus}
+              isCheckingPlane={isCheckingPlane}
+              onOpenPlaneImport={onOpenPlaneImport}
             />
           </InitializationGuard>
         </SettingsSection>

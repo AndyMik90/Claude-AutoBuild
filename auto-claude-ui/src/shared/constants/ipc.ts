@@ -173,6 +173,14 @@ export const IPC_CHANNELS = {
   LINEAR_IMPORT_ISSUES: 'linear:importIssues',
   LINEAR_CHECK_CONNECTION: 'linear:checkConnection',
 
+  // Plane.so integration
+  PLANE_CHECK_CONNECTION: 'plane:checkConnection',
+  PLANE_GET_PROJECTS: 'plane:getProjects',
+  PLANE_GET_WORK_ITEMS: 'plane:getWorkItems',
+  PLANE_GET_STATES: 'plane:getStates',
+  PLANE_GET_CONFIGURED_PROJECTS: 'plane:getConfiguredProjects',
+  PLANE_IMPORT_WORK_ITEMS: 'plane:importWorkItems',
+
   // GitHub integration
   GITHUB_GET_REPOSITORIES: 'github:getRepositories',
   GITHUB_GET_ISSUES: 'github:getIssues',

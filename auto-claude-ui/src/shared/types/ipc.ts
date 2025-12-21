@@ -100,6 +100,12 @@ import type {
   LinearIssue,
   LinearImportResult,
   LinearSyncStatus,
+  PlaneProject,
+  PlaneWorkItem,
+  PlaneState,
+  PlaneImportResult,
+  PlaneSyncStatus,
+  PlaneConfiguredProject,
   GitHubRepository,
   GitHubIssue,
   GitHubSyncStatus,
@@ -300,6 +306,14 @@ export interface ElectronAPI {
   getLinearIssues: (projectId: string, teamId?: string, projectId_?: string) => Promise<IPCResult<LinearIssue[]>>;
   importLinearIssues: (projectId: string, issueIds: string[]) => Promise<IPCResult<LinearImportResult>>;
   checkLinearConnection: (projectId: string) => Promise<IPCResult<LinearSyncStatus>>;
+
+  // Plane.so integration operations
+  checkPlaneConnection: (projectId: string) => Promise<IPCResult<PlaneSyncStatus>>;
+  getPlaneProjects: (projectId: string, workspaceSlug?: string) => Promise<IPCResult<PlaneProject[]>>;
+  getPlaneWorkItems: (projectId: string, workspaceSlug: string, planeProjectId: string) => Promise<IPCResult<PlaneWorkItem[]>>;
+  getPlaneStates: (projectId: string, workspaceSlug: string, planeProjectId: string) => Promise<IPCResult<PlaneState[]>>;
+  getPlaneConfiguredProjects: (excludeProjectId?: string) => Promise<IPCResult<PlaneConfiguredProject[]>>;
+  importPlaneWorkItems: (projectId: string, workItemIds: string[], workspaceSlug: string, planeProjectId: string, planeProjectIdentifier: string) => Promise<IPCResult<PlaneImportResult>>;
 
   // GitHub integration operations
   getGitHubRepositories: (projectId: string) => Promise<IPCResult<GitHubRepository[]>>;

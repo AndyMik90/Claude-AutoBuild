@@ -121,6 +121,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 - **graphiti_providers.py** - Multi-provider factory for Graphiti (OpenAI, Anthropic, Azure, Ollama, Google AI)
 - **graphiti_config.py** - Configuration and validation for Graphiti integration
 - **linear_updater.py** - Optional Linear integration for progress tracking
+- **plane_updater.py** - Optional Plane.so integration for progress tracking
 
 ### Agent Prompts (auto-claude/prompts/)
 
