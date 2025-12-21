@@ -765,10 +765,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         {/* Ollama Settings */}
         {needsOllama && (
           <div className="space-y-4">
-            {/* Ollama Configuration */}
-            <div className="space-y-3 p-3 rounded-md bg-muted/50">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground">Ollama Settings (Local)</p>
+             {/* Ollama Configuration */}
+             <div className="space-y-3 p-4 rounded-md bg-muted/50 border border-border/50">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <p className="text-sm font-semibold text-foreground">Ollama Settings</p>
+                   <p className="text-xs text-muted-foreground mt-0.5">Configure local model settings</p>
+                 </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -785,86 +788,119 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 </Button>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="ollama-url" className="text-xs text-muted-foreground">Base URL</Label>
-                <Input
-                  id="ollama-url"
-                  type="text"
-                  value={config.ollamaBaseUrl}
-                  onChange={(e) => setConfig(prev => ({ ...prev, ollamaBaseUrl: e.target.value }))}
-                  placeholder="http://localhost:11434"
-                  className="font-mono text-sm"
-                  disabled={isSaving || isValidating}
-                />
-              </div>
+               <div className="space-y-2">
+                 <Label htmlFor="ollama-url" className="text-xs text-muted-foreground">Ollama Base URL</Label>
+                 <Input
+                   id="ollama-url"
+                   type="text"
+                   value={config.ollamaBaseUrl}
+                   onChange={(e) => setConfig(prev => ({ ...prev, ollamaBaseUrl: e.target.value }))}
+                   placeholder="http://localhost:11434"
+                   className="font-mono text-sm"
+                   disabled={isSaving || isValidating}
+                 />
+                 <p className="text-xs text-muted-foreground">
+                   Ensure Ollama is running. See{' '}
+                   <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                     ollama.ai
+                   </a>
+                 </p>
+               </div>
 
-              {llmProvider === 'ollama' && (
-                <div className="space-y-2">
-                  <Label htmlFor="ollama-llm" className="text-xs text-muted-foreground">LLM Model</Label>
-                  <Input
-                    id="ollama-llm"
-                    type="text"
-                    value={config.ollamaLlmModel}
-                    onChange={(e) => setConfig(prev => ({ ...prev, ollamaLlmModel: e.target.value }))}
-                    placeholder="llama3.2, deepseek-r1:7b, etc."
-                    className="font-mono text-sm"
-                    disabled={isSaving || isValidating}
-                  />
-                  {config.ollamaLlmModel && (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaLlmModel}</code>
-                    </p>
-                  )}
-                </div>
-              )}
+               {llmProvider === 'ollama' && (
+                 <div className="space-y-2">
+                   <Label htmlFor="ollama-llm" className="text-xs text-muted-foreground">LLM Model</Label>
+                   <div className="relative">
+                      <Input
+                        id="ollama-llm"
+                        type="text"
+                        value={config.ollamaLlmModel}
+                        onChange={(e) => setConfig(prev => ({ ...prev, ollamaLlmModel: e.target.value }))}
+                        placeholder="llama3.2, deepseek-r1:7b, etc."
+                        className={`font-mono text-sm pr-20 transition-all duration-200 ${config.ollamaLlmModel ? 'border-success/50 bg-success/5' : 'border-border'}`}
+                        disabled={isSaving || isValidating}
+                      />
+                     {config.ollamaLlmModel && (
+                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                         <CheckCircle2 className="h-4 w-4 text-success" />
+                         <button
+                           type="button"
+                           onClick={() => setConfig(prev => ({ ...prev, ollamaLlmModel: '' }))}
+                           className="text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                         >
+                           Clear
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                   {config.ollamaLlmModel && (
+                     <p className="text-xs text-muted-foreground">
+                       Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaLlmModel}</code>
+                     </p>
+                   )}
+                 </div>
+               )}
 
-              {embeddingProvider === 'ollama' && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="ollama-embedding" className="text-xs text-muted-foreground">Embedding Model</Label>
-                    <Input
-                      id="ollama-embedding"
-                      type="text"
-                      value={config.ollamaEmbeddingModel}
-                      onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: e.target.value }))}
-                      placeholder="nomic-embed-text"
-                      className="font-mono text-sm"
-                      disabled={isSaving || isValidating}
-                    />
-                    {config.ollamaEmbeddingModel && (
-                      <p className="text-xs text-muted-foreground">
-                        Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaEmbeddingModel}</code>
-                        ({config.ollamaEmbeddingDim} dimensions)
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ollama-dim" className="text-xs text-muted-foreground">Embedding Dimension</Label>
-                    <Input
-                      id="ollama-dim"
-                      type="number"
-                      value={config.ollamaEmbeddingDim}
-                      onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingDim: e.target.value }))}
-                      placeholder="768"
-                      className="font-mono text-sm"
-                      disabled={isSaving || isValidating}
-                    />
-                  </div>
-                </>
-              )}
+               {embeddingProvider === 'ollama' && (
+                 <>
+                   <div className="space-y-2">
+                     <Label htmlFor="ollama-embedding" className="text-xs text-muted-foreground">Embedding Model</Label>
+                     <div className="relative">
+                       <Input
+                         id="ollama-embedding"
+                         type="text"
+                         value={config.ollamaEmbeddingModel}
+                         onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: e.target.value }))}
+                         placeholder="nomic-embed-text"
+                         className={`font-mono text-sm pr-20 transition-all duration-200 ${config.ollamaEmbeddingModel ? 'border-success/50 bg-success/5' : 'border-border'}`}
+                         disabled={isSaving || isValidating}
+                       />
+                       {config.ollamaEmbeddingModel && (
+                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                           <CheckCircle2 className="h-4 w-4 text-success" />
+                           <button
+                             type="button"
+                             onClick={() => setConfig(prev => ({ ...prev, ollamaEmbeddingModel: '' }))}
+                             className="text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                           >
+                             Clear
+                           </button>
+                         </div>
+                       )}
+                     </div>
+                     {config.ollamaEmbeddingModel && (
+                       <p className="text-xs text-muted-foreground">
+                         Selected: <code className="bg-muted px-1 py-0.5 rounded">{config.ollamaEmbeddingModel}</code>
+                         ({config.ollamaEmbeddingDim} dimensions)
+                       </p>
+                     )}
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="ollama-dim" className="text-xs text-muted-foreground">Embedding Dimension</Label>
+                     <Input
+                       id="ollama-dim"
+                       type="number"
+                       value={config.ollamaEmbeddingDim}
+                       onChange={(e) => setConfig(prev => ({ ...prev, ollamaEmbeddingDim: e.target.value }))}
+                       placeholder="768"
+                       className="font-mono text-sm"
+                       disabled={isSaving || isValidating}
+                     />
+                   </div>
+                 </>
+               )}
 
-              <p className="text-xs text-muted-foreground">
-                Ensure Ollama is running locally. See{' '}
-                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                  ollama.ai
-                </a>
-              </p>
+
             </div>
 
-            {/* Sexy Model Discovery Grid */}
-            {showModelDiscovery && (
-              <div className="border-t pt-6">
-                <ModelDiscoveryGrid
+             {/* Model Discovery & Selection */}
+             {showModelDiscovery && (
+               <div className="border-t pt-6 mt-2">
+                 <div className="mb-4">
+                   <h3 className="text-sm font-semibold text-foreground mb-1">Available Models</h3>
+                   <p className="text-xs text-muted-foreground">Discover and select models from your Ollama server</p>
+                 </div>
+                 <ModelDiscoveryGrid
                   models={availableModels}
                   onDownloadModel={downloadModel}
                   onSelectModel={selectModel}
