@@ -79,6 +79,7 @@ export function registerProfileHandlers(): void {
         // Use updateProfile from service layer (handles validation)
         const updatedProfile = await updateProfile({
           id: profileData.id,
+          name: profileData.name,
           baseUrl: profileData.baseUrl,
           apiKey: profileData.apiKey,
           models: profileData.models

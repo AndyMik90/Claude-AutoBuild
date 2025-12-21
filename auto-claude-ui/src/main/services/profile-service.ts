@@ -75,7 +75,7 @@ export type CreateProfileInput = Omit<APIProfile, 'id' | 'createdAt' | 'updatedA
 /**
  * Input type for updating a profile (with id, without createdAt, updatedAt)
  */
-export type UpdateProfileInput = Pick<APIProfile, 'id'> & Omit<CreateProfileInput, 'name'>;
+export type UpdateProfileInput = Pick<APIProfile, 'id'> & CreateProfileInput;
 
 /**
  * Create a new profile with validation
@@ -153,9 +153,21 @@ export async function updateProfile(input: UpdateProfileInput): Promise<APIProfi
 
   const existingProfile = file.profiles[profileIndex];
 
-  // Update profile
+  // Validate profile name uniqueness (exclude current profile from check)
+  if (input.name.trim().toLowerCase() !== existingProfile.name.trim().toLowerCase()) {
+    const trimmed = input.name.trim().toLowerCase();
+    const nameExists = file.profiles.some(
+      (p) => p.id !== input.id && p.name.trim().toLowerCase() === trimmed
+    );
+    if (nameExists) {
+      throw new Error('A profile with this name already exists');
+    }
+  }
+
+  // Update profile (including name)
   const updatedProfile: APIProfile = {
     ...existingProfile,
+    name: input.name.trim(),
     baseUrl: input.baseUrl.trim(),
     apiKey: input.apiKey.trim(),
     models: input.models,

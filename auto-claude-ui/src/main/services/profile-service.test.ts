@@ -9,7 +9,8 @@ import {
   validateBaseUrl,
   validateApiKey,
   validateProfileNameUnique,
-  createProfile
+  createProfile,
+  updateProfile
 } from './profile-service';
 import type { APIProfile, ProfilesFile } from '../../shared/types/profile';
 
@@ -271,6 +272,195 @@ describe('profile-service', () => {
       await expect(createProfile(input)).rejects.toThrow(
         'A profile with this name already exists'
       );
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('should update profile name and other fields', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'existing-id',
+            name: 'Old Name',
+            baseUrl: 'https://old-api.example.com',
+            apiKey: 'sk-old-key-12345678',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+      vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
+
+      const input = {
+        id: 'existing-id',
+        name: 'New Name',
+        baseUrl: 'https://new-api.example.com',
+        apiKey: 'sk-new-api-key-123',
+        models: { default: 'claude-3-5-sonnet-20241022' }
+      };
+
+      const result = await updateProfile(input);
+
+      expect(result.name).toBe('New Name');
+      expect(result.baseUrl).toBe('https://new-api.example.com');
+      expect(result.apiKey).toBe('sk-new-api-key-123');
+      expect(result.models).toEqual({ default: 'claude-3-5-sonnet-20241022' });
+      expect(result.updatedAt).toBeGreaterThan(1000000); // updatedAt should be refreshed
+      expect(result.createdAt).toBe(1000000); // createdAt should remain unchanged
+    });
+
+    it('should allow updating profile with same name (case-insensitive)', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'existing-id',
+            name: 'My Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-old-api-key-123',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+      vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
+
+      const input = {
+        id: 'existing-id',
+        name: 'my profile', // Same name, different case
+        baseUrl: 'https://new-api.example.com',
+        apiKey: 'sk-new-api-key-456'
+      };
+
+      const result = await updateProfile(input);
+      expect(result.name).toBe('my profile');
+      expect(saveProfilesFile).toHaveBeenCalled();
+    });
+
+    it('should throw error when name conflicts with another profile', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Profile One',
+            baseUrl: 'https://api1.example.com',
+            apiKey: 'sk-key-one-12345678',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          },
+          {
+            id: 'profile-2',
+            name: 'Profile Two',
+            baseUrl: 'https://api2.example.com',
+            apiKey: 'sk-key-two-12345678',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const input = {
+        id: 'profile-1',
+        name: 'Profile Two', // Name that exists on profile-2
+        baseUrl: 'https://api1.example.com',
+        apiKey: 'sk-key-one-12345678'
+      };
+
+      await expect(updateProfile(input)).rejects.toThrow(
+        'A profile with this name already exists'
+      );
+    });
+
+    it('should throw error for invalid base URL', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'existing-id',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-api-key-123',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const input = {
+        id: 'existing-id',
+        name: 'Test Profile',
+        baseUrl: 'not-a-url',
+        apiKey: 'sk-test-api-key-123'
+      };
+
+      await expect(updateProfile(input)).rejects.toThrow('Invalid base URL');
+    });
+
+    it('should throw error for invalid API key', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'existing-id',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-api-key-123',
+            createdAt: 1000000,
+            updatedAt: 1000000
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const input = {
+        id: 'existing-id',
+        name: 'Test Profile',
+        baseUrl: 'https://api.example.com',
+        apiKey: 'too-short'
+      };
+
+      await expect(updateProfile(input)).rejects.toThrow('Invalid API key');
+    });
+
+    it('should throw error when profile not found', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const input = {
+        id: 'non-existent-id',
+        name: 'Test Profile',
+        baseUrl: 'https://api.example.com',
+        apiKey: 'sk-test-api-key-123'
+      };
+
+      await expect(updateProfile(input)).rejects.toThrow('Profile not found');
     });
   });
 });
