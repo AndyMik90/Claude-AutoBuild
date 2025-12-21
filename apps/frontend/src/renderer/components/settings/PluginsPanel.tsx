@@ -9,13 +9,14 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
-  Plus
+  Plus,
+  Download
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { SettingsSection } from './SettingsSection';
 import { usePluginStore, loadPlugins, uninstallPlugin } from '../../stores/plugin-store';
-import { InstallPluginDialog } from '../plugins/InstallPluginDialog';
+import { InstallPluginDialog, UpdatePluginDialog } from '../plugins';
 import type { Plugin } from '../../../shared/types';
 
 /**
@@ -34,6 +35,7 @@ export function PluginsPanel() {
 
   const [uninstallingId, setUninstallingId] = useState<string | null>(null);
   const [isInstallDialogOpen, setIsInstallDialogOpen] = useState(false);
+  const [updateDialogPlugin, setUpdateDialogPlugin] = useState<Plugin | null>(null);
 
   // Load plugins when component mounts
   useEffect(() => {
@@ -236,6 +238,18 @@ export function PluginsPanel() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Check Updates button - only for GitHub plugins */}
+                      {plugin.sourceType === 'github' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setUpdateDialogPlugin(plugin)}
+                          className="h-8 w-8"
+                          title="Check for updates"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -265,6 +279,19 @@ export function PluginsPanel() {
         onOpenChange={setIsInstallDialogOpen}
         onSuccess={() => {
           // Refresh plugin list after successful installation
+          loadPlugins();
+        }}
+      />
+
+      {/* Update Plugin Dialog */}
+      <UpdatePluginDialog
+        open={updateDialogPlugin !== null}
+        onOpenChange={(open) => {
+          if (!open) setUpdateDialogPlugin(null);
+        }}
+        plugin={updateDialogPlugin}
+        onSuccess={() => {
+          // Refresh plugin list after successful update
           loadPlugins();
         }}
       />
