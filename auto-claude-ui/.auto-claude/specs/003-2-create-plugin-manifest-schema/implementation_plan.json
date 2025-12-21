@@ -1,0 +1,336 @@
+{
+  "feature": "Plugin Manifest Schema and Validation",
+  "workflow_type": "feature",
+  "workflow_rationale": "New foundational schema and validation layer for the plugin system. This creates the data contract for all plugins, enabling registry, discovery, and boilerplate management.",
+  "phases": [
+    {
+      "id": "phase-1-dependencies",
+      "name": "Install Dependencies",
+      "type": "setup",
+      "description": "Install required validation libraries (zod for JSON schema, semver for version validation)",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Install zod and semver packages",
+          "service": "main",
+          "files_to_modify": ["package.json"],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "pnpm list zod semver",
+            "expected": "zod and semver packages listed in dependencies"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-type-definitions",
+      "name": "Type Definitions",
+      "type": "implementation",
+      "description": "Create TypeScript interfaces for plugin manifest structure",
+      "depends_on": ["phase-1-dependencies"],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Create plugin type definitions with PluginManifest interface",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/types/plugin.ts"],
+          "patterns_from": ["src/shared/types/task.ts", "src/shared/types/project.ts", "src/shared/types/settings.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript compilation errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-validation-errors",
+      "name": "Validation Error Types",
+      "type": "implementation",
+      "description": "Define type-safe error objects for validation failures",
+      "depends_on": ["phase-1-dependencies"],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Create validation error types and result objects",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/lib/validation/errors.ts"],
+          "patterns_from": ["src/shared/types/task.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript compilation errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-semver-validator",
+      "name": "Semver Validator",
+      "type": "implementation",
+      "description": "Implement semantic version validation using semver package",
+      "depends_on": ["phase-3-validation-errors"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Create semver validator with version format validation",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/lib/validation/semver-validator.ts"],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript compilation errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-5-json-schema",
+      "name": "JSON Schema Definition",
+      "type": "implementation",
+      "description": "Create Zod schema for structural validation of plugin manifest",
+      "depends_on": ["phase-2-type-definitions", "phase-3-validation-errors"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Define Zod schema matching PluginManifest interface",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/lib/validation/plugin-schema.ts"],
+          "patterns_from": ["src/shared/types/plugin.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript compilation errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6-composite-validator",
+      "name": "Composite Validator",
+      "type": "implementation",
+      "description": "Build multi-stage validator combining schema, semver, and filesystem checks",
+      "depends_on": ["phase-4-semver-validator", "phase-5-json-schema"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Create composite validator with fail-fast validation pipeline",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/lib/validation/plugin-validator.ts"],
+          "patterns_from": ["src/shared/lib/validation/plugin-schema.ts", "src/shared/lib/validation/semver-validator.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript compilation errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-7-unit-tests",
+      "name": "Unit Tests",
+      "type": "implementation",
+      "description": "Write comprehensive test suite for all validation scenarios",
+      "depends_on": ["phase-6-composite-validator"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-7-1",
+          "description": "Create test suite with valid/invalid manifest cases",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/lib/validation/__tests__/plugin-validator.test.ts"],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npm run test -- src/shared/lib/validation/__tests__/plugin-validator.test.ts",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-2",
+          "description": "Create test cases for semver edge cases (prereleases, build metadata)",
+          "service": "main",
+          "files_to_modify": ["src/shared/lib/validation/__tests__/plugin-validator.test.ts"],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npm run test -- src/shared/lib/validation/__tests__/plugin-validator.test.ts",
+            "expected": "All tests pass including semver edge cases"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-3",
+          "description": "Create test cases for filesystem path validation",
+          "service": "main",
+          "files_to_modify": ["src/shared/lib/validation/__tests__/plugin-validator.test.ts"],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npm run test -- src/shared/lib/validation/__tests__/plugin-validator.test.ts",
+            "expected": "All tests pass including filesystem validation"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-8-documentation",
+      "name": "Documentation",
+      "type": "implementation",
+      "description": "Add JSDoc comments and example plugin.json files",
+      "depends_on": ["phase-7-unit-tests"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-8-1",
+          "description": "Add comprehensive JSDoc to all exported types and functions",
+          "service": "main",
+          "files_to_modify": [
+            "src/shared/types/plugin.ts",
+            "src/shared/lib/validation/plugin-validator.ts",
+            "src/shared/lib/validation/plugin-schema.ts",
+            "src/shared/lib/validation/semver-validator.ts",
+            "src/shared/lib/validation/errors.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": ["src/shared/types/task.ts"],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review all files to ensure JSDoc comments are present for public interfaces"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-2",
+          "description": "Create example valid and invalid plugin.json files",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/shared/lib/validation/__examples__/valid-plugin.json",
+            "src/shared/lib/validation/__examples__/invalid-plugin-missing-fields.json",
+            "src/shared/lib/validation/__examples__/invalid-plugin-bad-semver.json"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Verify example files demonstrate key validation scenarios"
+          },
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 8,
+    "total_subtasks": 11,
+    "services_involved": ["main"],
+    "parallelism": {
+      "max_parallel_phases": 2,
+      "parallel_groups": [
+        {
+          "phases": ["phase-2-type-definitions", "phase-3-validation-errors"],
+          "reason": "Both depend only on phase-1, different file sets, no conflicts"
+        }
+      ],
+      "recommended_workers": 1,
+      "speedup_estimate": "1.1x faster than sequential (minimal parallelism due to dependencies)"
+    },
+    "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 003-2-create-plugin-manifest-schema --parallel 1"
+  },
+  "verification_strategy": {
+    "risk_level": "low",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": ["unit"],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All TypeScript types compile without errors",
+      "Zod schema validates all required fields",
+      "Semver validation handles standard and prerelease versions",
+      "Filesystem validation is async and handles errors gracefully",
+      "All unit tests pass with 100% coverage of validation logic",
+      "All exported types and functions have JSDoc documentation",
+      "Example plugin.json files validate correctly"
+    ],
+    "verification_steps": [
+      {
+        "name": "TypeScript Compilation",
+        "command": "npx tsc --noEmit",
+        "expected_outcome": "No compilation errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Unit Tests",
+        "command": "npm run test -- src/shared/lib/validation/__tests__/",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Lint Check",
+        "command": "npm run lint",
+        "expected_outcome": "No linting errors",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      }
+    ],
+    "reasoning": "Low risk schema definition task. Unit tests are sufficient to validate all validation logic paths. No integration or E2E tests needed as this is a foundational utility without UI or external services."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": ["npm run test -- src/shared/lib/validation/__tests__/"],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": []
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "browser_verification": {
+      "required": false,
+      "pages": []
+    },
+    "database_verification": {
+      "required": false,
+      "checks": []
+    }
+  },
+  "qa_signoff": null
+}
