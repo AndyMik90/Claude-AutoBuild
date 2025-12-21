@@ -287,5 +287,17 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Plugin operations
+  PLUGIN_LIST: 'plugin:list',
+  PLUGIN_INSTALL: 'plugin:install',
+  PLUGIN_UNINSTALL: 'plugin:uninstall',
+  PLUGIN_CHECK_UPDATES: 'plugin:checkUpdates',
+  PLUGIN_APPLY_UPDATES: 'plugin:applyUpdates',
+  PLUGIN_DETECT_BOILERPLATE: 'plugin:detectBoilerplate',
+  PLUGIN_GET_CONTEXT: 'plugin:getContext',
+
+  // Plugin events (main -> renderer)
+  PLUGIN_INSTALL_PROGRESS: 'plugin:installProgress'
 } as const;
