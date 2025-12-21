@@ -860,20 +860,18 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             </div>
 
              {/* Model Discovery & Selection */}
-             {showModelDiscovery && (
-               <div className="border-t pt-6 mt-2">
-                 <ModelDiscoveryGrid
-                  models={availableModels}
-                  onDownloadModel={downloadModel}
-                  onSelectModel={selectModel}
-                  selectedLLM={config.ollamaLlmModel}
-                  selectedEmbedding={config.ollamaEmbeddingModel}
-                  isScanning={isScanningModels}
-                  scanError={scanError}
-                  onScanModels={scanAvailableModels}
-                />
-              </div>
-            )}
+             <div className="border-t pt-6 mt-2">
+               <ModelDiscoveryGrid
+                models={availableModels}
+                onDownloadModel={downloadModel}
+                onSelectModel={selectModel}
+                selectedLLM={config.ollamaLlmModel}
+                selectedEmbedding={config.ollamaEmbeddingModel}
+                isScanning={isScanningModels}
+                scanError={scanError}
+                onScanModels={scanAvailableModels}
+              />
+            </div>
           </div>
         )}
       </div>
