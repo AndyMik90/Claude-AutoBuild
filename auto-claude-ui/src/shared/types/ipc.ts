@@ -286,15 +286,26 @@ export interface ElectronAPI {
   openDockerDesktop: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
   getDockerDownloadUrl: () => Promise<string>;
 
-  // Graphiti validation operations
-  validateFalkorDBConnection: (uri: string) => Promise<IPCResult<GraphitiValidationResult>>;
-  validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
-  testGraphitiConnection: (
-    falkorDbUri: string,
-    openAiApiKey: string
-  ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
+   // Graphiti validation operations
+   validateFalkorDBConnection: (uri: string) => Promise<IPCResult<GraphitiValidationResult>>;
+   validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
+   testGraphitiConnection: (
+     falkorDbUri: string,
+     openAiApiKey: string
+   ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
-  // Linear integration operations
+   // Ollama model management operations
+   scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
+     models: Array<{
+       name: string;
+       size: number;
+       modified_at: string;
+       digest: string;
+     }>;
+   }>>;
+   downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
+
+   // Linear integration operations
   getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;
   getLinearProjects: (projectId: string, teamId: string) => Promise<IPCResult<LinearProject[]>>;
   getLinearIssues: (projectId: string, teamId?: string, projectId_?: string) => Promise<IPCResult<LinearIssue[]>>;

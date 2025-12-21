@@ -59,24 +59,56 @@ export const infrastructureMock = {
     }
   }),
 
-  testGraphitiConnection: async () => ({
-    success: true,
-    data: {
-      falkordb: {
-        success: true,
-        message: 'Connected to FalkorDB at localhost:6380 (mock)',
-        details: { latencyMs: 15 }
-      },
-      openai: {
-        success: true,
-        message: 'OpenAI API key is valid (mock)',
-        details: { provider: 'openai', latencyMs: 100 }
-      },
-      ready: true
-    }
-  }),
+   testGraphitiConnection: async () => ({
+     success: true,
+     data: {
+       falkordb: {
+         success: true,
+         message: 'Connected to FalkorDB at localhost:6380 (mock)',
+         details: { latencyMs: 15 }
+       },
+       openai: {
+         success: true,
+         message: 'OpenAI API key is valid (mock)',
+         details: { provider: 'openai', latencyMs: 100 }
+       },
+       ready: true
+     }
+   }),
 
-  // Ideation Operations
+   // Ollama Model Management Operations
+   scanOllamaModels: async () => ({
+     success: true,
+     data: {
+       models: [
+         {
+           name: 'llama2',
+           size: 3826087936,
+           modified_at: '2024-01-15T10:30:00Z',
+           digest: 'abc123def456'
+         },
+         {
+           name: 'mistral',
+           size: 4069519360,
+           modified_at: '2024-01-14T15:45:00Z',
+           digest: 'xyz789uvw456'
+         },
+         {
+           name: 'nomic-embed-text',
+           size: 274997760,
+           modified_at: '2024-01-13T08:20:00Z',
+           digest: 'emb123emb456'
+         }
+       ]
+     }
+   }),
+
+   downloadOllamaModel: async (_baseUrl: string, _modelName: string) => ({
+     success: true,
+     data: { message: 'Model downloaded successfully (mock)' }
+   }),
+
+   // Ideation Operations
   getIdeation: async () => ({
     success: true,
     data: null

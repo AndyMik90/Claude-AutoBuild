@@ -151,7 +151,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     progress?: number;
   }>>([]);
   const [isScanningModels, setIsScanningModels] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | undefined>(undefined);
   const [showModelDiscovery, setShowModelDiscovery] = useState(false);
 
   // Check Docker/Infrastructure availability on mount
@@ -376,18 +376,18 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     }
 
     setIsScanningModels(true);
-    setScanError(null);
+    setScanError(undefined);
     setAvailableModels([]);
 
     try {
       const result = await window.electronAPI.scanOllamaModels(config.ollamaBaseUrl.trim());
-      if (result?.success && result?.data?.models) {
-        // Mark models that are already selected as downloaded
-        const modelsWithStatus = result.data.models.map(model => ({
-          ...model,
-          downloaded: model.name === config.ollamaLlmModel || model.name === config.ollamaEmbeddingModel
-        }));
-        setAvailableModels(modelsWithStatus);
+       if (result?.success && result?.data?.models) {
+         // Mark models that are already selected as downloaded
+         const modelsWithStatus = result.data.models.map((model: any) => ({
+           ...model,
+           downloaded: model.name === config.ollamaLlmModel || model.name === config.ollamaEmbeddingModel
+         }));
+         setAvailableModels(modelsWithStatus);
         setShowModelDiscovery(true);
       } else {
         setScanError(result?.error || 'Failed to scan models');

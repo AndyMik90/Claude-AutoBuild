@@ -8,6 +8,8 @@
 
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
+import { request as httpRequest, IncomingMessage } from 'http';
+import { request as httpsRequest } from 'https';
 
 const execAsync = promisify(exec);
 

@@ -18,6 +18,8 @@ import {
   validateFalkorDBConnection,
   validateOpenAIApiKey,
   testGraphitiConnection,
+  scanOllamaModels,
+  downloadOllamaModel,
   type GraphitiValidationResult,
 } from '../docker-service';
 
@@ -130,27 +132,91 @@ export function registerDockerHandlers(): void {
     }
   );
 
-  // Test full Graphiti connection (FalkorDB + OpenAI)
-  ipcMain.handle(
-    IPC_CHANNELS.GRAPHITI_TEST_CONNECTION,
-    async (
-      _,
-      falkorDbUri: string,
-      openAiApiKey: string
-    ): Promise<IPCResult<{
-      falkordb: GraphitiValidationResult;
-      openai: GraphitiValidationResult;
-      ready: boolean;
-    }>> => {
-      try {
-        const result = await testGraphitiConnection(falkorDbUri, openAiApiKey);
-        return { success: true, data: result };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to test Graphiti connection',
-        };
-      }
-    }
-  );
+   // Test full Graphiti connection (FalkorDB + OpenAI)
+   ipcMain.handle(
+     IPC_CHANNELS.GRAPHITI_TEST_CONNECTION,
+     async (
+       _,
+       falkorDbUri: string,
+       openAiApiKey: string
+     ): Promise<IPCResult<{
+       falkordb: GraphitiValidationResult;
+       openai: GraphitiValidationResult;
+       ready: boolean;
+     }>> => {
+       try {
+         const result = await testGraphitiConnection(falkorDbUri, openAiApiKey);
+         return { success: true, data: result };
+       } catch (error) {
+         return {
+           success: false,
+           error: error instanceof Error ? error.message : 'Failed to test Graphiti connection',
+         };
+       }
+     }
+   );
+
+   // ============================================
+   // Ollama Model Management Handlers
+   // ============================================
+
+   // Scan available Ollama models
+   ipcMain.handle(
+     'scan-ollama-models',
+     async (
+       _,
+       baseUrl: string
+     ): Promise<IPCResult<{
+       models: Array<{
+         name: string;
+         size: number;
+         modified_at: string;
+         digest: string;
+       }>;
+     }>> => {
+       try {
+         const result = await scanOllamaModels(baseUrl);
+         if (result.success) {
+           return { success: true, data: { models: result.models || [] } };
+         } else {
+           return {
+             success: false,
+             error: result.error || 'Failed to scan Ollama models'
+           };
+         }
+       } catch (error) {
+         return {
+           success: false,
+           error: error instanceof Error ? error.message : 'Failed to scan Ollama models'
+         };
+       }
+     }
+   );
+
+   // Download Ollama model
+   ipcMain.handle(
+     'download-ollama-model',
+     async (
+       _,
+       baseUrl: string,
+       modelName: string
+     ): Promise<IPCResult<{ message: string }>> => {
+       try {
+         const result = await downloadOllamaModel(baseUrl, modelName);
+         if (result.success) {
+           return { success: true, data: { message: result.message || 'Model downloaded successfully' } };
+         } else {
+           return {
+             success: false,
+             error: result.error || result.message
+           };
+         }
+       } catch (error) {
+         return {
+           success: false,
+           error: error instanceof Error ? error.message : 'Failed to download Ollama model'
+         };
+       }
+     }
+   );
 }
