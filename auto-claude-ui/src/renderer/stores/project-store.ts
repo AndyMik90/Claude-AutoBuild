@@ -215,13 +215,13 @@ export async function loadProjects(): Promise<void> {
 
       // Clean up tab state - remove any project IDs that no longer exist
       const validOpenProjectIds = store.openProjectIds.filter(id =>
-        result.data.some((p) => p.id === id)
+        result.data?.some((p) => p.id === id) ?? false
       );
       const validTabOrder = store.tabOrder.filter(id =>
-        result.data.some((p) => p.id === id)
+        result.data?.some((p) => p.id === id) ?? false
       );
       const validActiveProjectId = store.activeProjectId &&
-        result.data.some((p) => p.id === store.activeProjectId)
+        result.data?.some((p) => p.id === store.activeProjectId)
         ? store.activeProjectId
         : null;
 
@@ -233,7 +233,8 @@ export async function loadProjects(): Promise<void> {
         localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(validTabOrder));
         localStorage.setItem(ACTIVE_PROJECT_KEY, validActiveProjectId || '');
 
-        store.set({
+        // Update the store state
+        useProjectStore.setState({
           openProjectIds: validOpenProjectIds,
           tabOrder: validTabOrder,
           activeProjectId: validActiveProjectId
