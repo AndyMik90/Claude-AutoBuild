@@ -223,6 +223,11 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // Plugin context (from boilerplate plugins)
+  pluginContext?: string;  // Formatted context string from boilerplate plugin (skills, patterns, conventions)
+  pluginId?: string;  // ID of the plugin providing context
+  pluginVersion?: string;  // Version of the plugin
 }
 
 export interface Task {
