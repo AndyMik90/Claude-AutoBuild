@@ -59,13 +59,18 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
 
       - name: Notarize macOS apps
-        if: env.APPLE_ID != ''
         continue-on-error: true  # Don't fail build if notarization fails
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Check if notarization credentials are configured
+          if [ -z "$APPLE_ID" ]; then
+            echo "Skipping notarization: APPLE_ID not configured"
+            exit 0
+          fi
+
           cd auto-claude-ui
           mkdir -p notarization-logs
           for dmg in dist/*.dmg; do
