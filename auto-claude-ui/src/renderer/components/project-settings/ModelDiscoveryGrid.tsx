@@ -200,151 +200,125 @@ export function ModelDiscoveryGrid({
         </div>
       )}
 
-      {/* Model Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+       {/* Model Grid */}
+       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredModels.map((model) => {
           const modelType = classifyModel(model.name);
           const popularity = getPopularity(model.name);
           const isSelected = (modelType === 'llm' && selectedLLM === model.name) ||
                            (modelType === 'embedding' && selectedEmbedding === model.name);
 
-          return (
-            <Card
-              key={model.name}
-              className={`group cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
-                isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      modelType === 'llm'
-                        ? 'bg-gradient-to-br from-blue-500 to-purple-600'
-                        : 'bg-gradient-to-br from-green-500 to-teal-600'
-                    }`}>
-                      {modelType === 'llm' ? (
-                        <Brain className="w-5 h-5 text-white" />
-                      ) : (
-                        <Zap className="w-5 h-5 text-white" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-sm truncate">{model.name}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant={modelType === 'llm' ? 'default' : 'secondary'}
-                          className="text-xs px-2 py-0.5"
-                        >
-                          {modelType.toUpperCase()}
-                        </Badge>
-                        {popularity === 'high' && (
-                          <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+           return (
+             <Card
+               key={model.name}
+               className={`flex flex-col transition-all duration-200 ${
+                 isSelected 
+                   ? 'ring-2 ring-blue-500 shadow-lg bg-blue-500/5' 
+                   : 'hover:shadow-md hover:border-border'
+               }`}
+             >
+               <CardContent className="p-4 flex-1 flex flex-col">
+                 {/* Header: Icon + Model Name */}
+                 <div className="flex items-start gap-3 mb-3">
+                   <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                     modelType === 'llm'
+                       ? 'bg-gradient-to-br from-blue-500 to-purple-600'
+                       : 'bg-gradient-to-br from-green-500 to-teal-600'
+                   }`}>
+                     {modelType === 'llm' ? (
+                       <Brain className="w-6 h-6 text-white" />
+                     ) : (
+                       <Zap className="w-6 h-6 text-white" />
+                     )}
+                   </div>
+                   <div className="min-w-0 flex-1">
+                     <h4 className="font-semibold text-sm break-words">{model.name}</h4>
+                     <div className="flex items-center gap-2 mt-1.5">
+                       <Badge
+                         variant={modelType === 'llm' ? 'default' : 'secondary'}
+                         className="text-xs px-2 py-0.5 flex-shrink-0"
+                       >
+                         {modelType.toUpperCase()}
+                       </Badge>
+                       {popularity === 'high' && (
+                         <Star className="w-3 h-3 text-yellow-500 fill-current flex-shrink-0" />
+                       )}
+                     </div>
+                   </div>
+                 </div>
 
-                  <div className="flex gap-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Model info modal would go here
-                            }}
-                          >
-                            <Info className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Model details</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                 {/* Model Info */}
+                 <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
+                   <div className="flex items-center gap-1">
+                     <HardDrive className="w-3 h-3 flex-shrink-0" />
+                     <span>{formatSize(model.size)}</span>
+                   </div>
+                   <div className="flex items-center gap-1">
+                     <Clock className="w-3 h-3 flex-shrink-0" />
+                     <span>{new Date(model.modified_at).toLocaleDateString()}</span>
+                   </div>
+                 </div>
 
-                    {!model.downloaded && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              disabled={model.downloading}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDownloadModel(model.name);
-                              }}
-                            >
-                              {model.downloading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Download className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Download model</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                 {/* Download Progress */}
+                 {model.downloading && model.progress !== undefined && (
+                   <div className="mb-4">
+                     <div className="flex items-center justify-between text-xs mb-1.5">
+                       <span>Downloading...</span>
+                       <span>{Math.round(model.progress)}%</span>
+                     </div>
+                     <div className="w-full bg-muted rounded-full h-2">
+                       <div
+                         className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                         style={{ width: `${model.progress}%` }}
+                       />
+                     </div>
+                   </div>
+                 )}
 
-                    <Button
-                      variant={isSelected ? "default" : "outline"}
-                      size="sm"
-                      className="text-xs px-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectModel(model.name, modelType);
-                      }}
-                    >
-                      {isSelected ? 'Selected' : 'Select'}
-                    </Button>
-                  </div>
-                </div>
+                 {/* Actions - spacer for flex layout */}
+                 <div className="flex-1" />
 
-                {/* Model Metadata */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <HardDrive className="w-3 h-3" />
-                      <span>{formatSize(model.size)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{new Date(model.modified_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  {model.downloaded && (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  )}
-                </div>
-
-                {/* Download Progress */}
-                {model.downloading && model.progress !== undefined && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span>Downloading...</span>
-                      <span>{Math.round(model.progress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${model.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
+                 {/* Action Buttons */}
+                 <div className="flex gap-2">
+                   {!model.downloaded && (
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="flex-1 text-xs"
+                       disabled={model.downloading}
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         onDownloadModel(model.name);
+                       }}
+                     >
+                       {model.downloading ? (
+                         <>
+                           <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                           Downloading
+                         </>
+                       ) : (
+                         <>
+                           <Download className="w-3 h-3 mr-1" />
+                           Download
+                         </>
+                       )}
+                     </Button>
+                   )}
+                   <Button
+                     variant={isSelected ? "default" : "outline"}
+                     size="sm"
+                     className={`flex-1 text-sm font-medium ${isSelected ? 'ring-offset-2' : ''}`}
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       onSelectModel(model.name, modelType);
+                     }}
+                   >
+                     {isSelected ? '✓ Selected' : 'Select'}
+                   </Button>
+                 </div>
+               </CardContent>
+             </Card>
+           );
         })}
       </div>
 
