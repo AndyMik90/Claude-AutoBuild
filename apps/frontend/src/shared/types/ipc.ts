@@ -115,7 +115,10 @@ import type {
   PluginUpdateOptions,
   PluginUpdateResult,
   PluginContext,
-  BoilerplateDetectionResult
+  BoilerplateDetectionResult,
+  GitHubTokenValidation,
+  GitHubRepoAccess,
+  GitAvailability
 } from './plugin';
 
 // Electron API exposed via contextBridge
@@ -620,6 +623,9 @@ export interface ElectronAPI {
   applyPluginUpdates: (options: PluginUpdateOptions) => Promise<IPCResult<PluginUpdateResult>>;
   detectBoilerplate: (projectPath: string) => Promise<IPCResult<BoilerplateDetectionResult>>;
   getPluginContext: (projectId: string) => Promise<IPCResult<PluginContext>>;
+  validateGitHubToken: (token: string) => Promise<GitHubTokenValidation>;
+  checkGitHubRepoAccess: (owner: string, repo: string, token?: string) => Promise<GitHubRepoAccess>;
+  checkGitAvailability: () => Promise<GitAvailability>;
 }
 
 declare global {

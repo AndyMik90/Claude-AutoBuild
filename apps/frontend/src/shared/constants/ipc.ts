@@ -311,6 +311,9 @@ export const IPC_CHANNELS = {
   PLUGIN_APPLY_UPDATES: 'plugin:applyUpdates',
   PLUGIN_DETECT_BOILERPLATE: 'plugin:detectBoilerplate',
   PLUGIN_GET_CONTEXT: 'plugin:getContext',
+  PLUGIN_VALIDATE_GITHUB_TOKEN: 'plugin:validateGitHubToken',
+  PLUGIN_CHECK_GITHUB_REPO_ACCESS: 'plugin:checkGitHubRepoAccess',
+  PLUGIN_CHECK_GIT_AVAILABILITY: 'plugin:checkGitAvailability',
 
   // Plugin events (main -> renderer)
   PLUGIN_INSTALL_PROGRESS: 'plugin:installProgress'

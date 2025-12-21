@@ -393,14 +393,14 @@ export function registerPluginHandlers(
    * Validate a GitHub token
    */
   ipcMain.handle(
-    'plugin:validateGitHubToken',
-    async (_, token: string): Promise<IPCResult<GitHubTokenValidation>> => {
+    IPC_CHANNELS.PLUGIN_VALIDATE_GITHUB_TOKEN,
+    async (_, token: string): Promise<GitHubTokenValidation> => {
       try {
         const result = await gitHubAuth.validateToken(token);
-        return { success: true, data: result };
+        return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return { success: false, error: message };
+        return { valid: false, error: message };
       }
     }
   );
@@ -409,21 +409,14 @@ export function registerPluginHandlers(
    * Check GitHub repository access
    */
   ipcMain.handle(
-    'plugin:checkGitHubRepoAccess',
-    async (_, token: string, url: string): Promise<IPCResult<GitHubRepoAccess>> => {
+    IPC_CHANNELS.PLUGIN_CHECK_GITHUB_REPO_ACCESS,
+    async (_, owner: string, repo: string, token?: string): Promise<GitHubRepoAccess> => {
       try {
-        const parsed = gitHubAuth.parseGitHubUrl(url);
-        if (!parsed) {
-          return {
-            success: false,
-            error: 'Invalid GitHub URL format'
-          };
-        }
-        const result = await gitHubAuth.checkRepoAccess(token, parsed.owner, parsed.repo);
-        return { success: true, data: result };
+        const result = await gitHubAuth.checkRepoAccess(token || '', owner, repo);
+        return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return { success: false, error: message };
+        return { hasAccess: false, owner, repo, isPrivate: false, error: message };
       }
     }
   );
@@ -432,14 +425,14 @@ export function registerPluginHandlers(
    * Check git availability
    */
   ipcMain.handle(
-    'plugin:checkGitAvailability',
-    async (): Promise<IPCResult<GitAvailability>> => {
+    IPC_CHANNELS.PLUGIN_CHECK_GIT_AVAILABILITY,
+    async (): Promise<GitAvailability> => {
       try {
         const result = await gitHubAuth.checkGitAvailability();
-        return { success: true, data: result };
+        return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return { success: false, error: message };
+        return { available: false, meetsMinimum: false, minimumRequired: '2.1.0', error: message };
       }
     }
   );
