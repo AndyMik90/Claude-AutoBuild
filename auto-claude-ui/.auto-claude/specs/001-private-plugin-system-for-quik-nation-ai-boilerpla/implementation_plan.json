@@ -1,0 +1,668 @@
+{
+  "feature": "Private Plugin System for Quik Nation AI Boilerplate",
+  "workflow_type": "feature",
+  "workflow_rationale": "Greenfield plugin architecture implementation. This adds new plugin management capabilities to Auto Claude without modifying core task execution logic. The feature is self-contained with clear boundaries, integrates with existing app startup, settings UI, and task creation flows, and has explicit acceptance criteria.",
+
+  "phases": [
+    {
+      "id": "phase-1-foundation",
+      "name": "Foundation: Types & Plugin Manager",
+      "type": "implementation",
+      "description": "Create core plugin system types, PluginManager class, and Zustand store for plugin state management",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Create TypeScript plugin type definitions",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/shared/types/plugin.ts"],
+          "patterns_from": ["src/shared/types/index.ts", "src/shared/types/task.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Implement PluginManager core class in main process",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/PluginManager.ts"],
+          "patterns_from": ["src/main/insights/session-manager.ts", "src/main/project-store.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-1-3",
+          "description": "Create Zustand plugin store for renderer state",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/stores/plugin-store.ts"],
+          "patterns_from": ["src/renderer/stores/task-store.ts", "src/renderer/stores/project-store.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-1-4",
+          "description": "Initialize PluginManager on app startup",
+          "service": "main",
+          "files_to_modify": ["src/main/index.ts"],
+          "files_to_create": [],
+          "patterns_from": ["src/main/index.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run dev",
+            "expected": "App starts without errors, plugin directory created"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-2-github-integration",
+      "name": "GitHub Integration",
+      "type": "implementation",
+      "description": "Implement GitHub authentication, cloning for private repos, and IPC handlers",
+      "depends_on": ["phase-1-foundation"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Install simple-git and octokit dependencies",
+          "service": "main",
+          "files_to_modify": ["package.json"],
+          "files_to_create": [],
+          "patterns_from": ["package.json"],
+          "verification": {
+            "type": "command",
+            "command": "pnpm add simple-git octokit && pnpm add -D @types/simple-git",
+            "expected": "Dependencies installed successfully"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Create GitHubAuth service with PAT authentication",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/GitHubAuth.ts"],
+          "patterns_from": ["src/main/plugin/PluginManager.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Create IPC handlers for plugin operations",
+          "service": "main",
+          "files_to_modify": ["src/main/index.ts"],
+          "files_to_create": ["src/main/ipc-handlers/plugin-handlers.ts"],
+          "patterns_from": ["src/main/ipc-handlers/task-handlers.ts", "src/main/ipc-handlers/context-handlers.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-2-4",
+          "description": "Add electronAPI types for plugin methods",
+          "service": "main",
+          "files_to_modify": ["src/preload/index.d.ts"],
+          "files_to_create": [],
+          "patterns_from": ["src/preload/index.d.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-3-settings-ui",
+      "name": "Settings UI - Plugins Tab",
+      "type": "implementation",
+      "description": "Add Plugins tab to Settings dialog with installed plugins list",
+      "depends_on": ["phase-1-foundation"],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Create PluginsPanel component for settings",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/components/settings/PluginsPanel.tsx"],
+          "patterns_from": ["src/renderer/components/settings/GeneralSettings.tsx", "src/renderer/components/settings/IntegrationSettings.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings Dialog",
+            "checks": ["PluginsPanel renders", "Shows empty state message when no plugins"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Add 'Plugins' tab to AppSettingsDialog",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/settings/AppSettings.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/settings/AppSettings.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings Dialog",
+            "checks": ["Plugins tab appears in settings", "Tab navigation works"]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-4-install-dialog",
+      "name": "Install Plugin Dialog",
+      "type": "implementation",
+      "description": "Create install dialog with GitHub URL and local path modes",
+      "depends_on": ["phase-2-github-integration"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Create InstallPluginDialog component with GitHub mode",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/components/plugins/InstallPluginDialog.tsx"],
+          "patterns_from": ["src/renderer/components/TaskCreationWizard.tsx", "src/renderer/components/GitHubSetupModal.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings → Plugins → Install Plugin",
+            "checks": ["Dialog opens", "GitHub mode form renders", "URL and token fields present"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Add local path mode to InstallPluginDialog",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/plugins/InstallPluginDialog.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/settings/GeneralSettings.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings → Plugins → Install Plugin",
+            "checks": ["Local path mode available", "File picker works", "Path validation works"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Integrate InstallPluginDialog with PluginsPanel",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/settings/PluginsPanel.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/settings/PluginsPanel.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings → Plugins",
+            "checks": ["Install Plugin button opens dialog", "Dialog flow works end-to-end"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-4-4",
+          "description": "Implement plugin install flow with progress tracking",
+          "service": "main",
+          "files_to_modify": ["src/renderer/stores/plugin-store.ts", "src/main/plugin/PluginManager.ts"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/stores/task-store.ts"],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Open install dialog",
+              "Enter GitHub URL and token",
+              "Click install",
+              "Verify progress indicator shows",
+              "Verify plugin appears in list after install"
+            ]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-5-boilerplate-detection",
+      "name": "Boilerplate Project Detection",
+      "type": "implementation",
+      "description": "Auto-detect boilerplate projects and show metadata in project settings",
+      "depends_on": ["phase-1-foundation"],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Implement boilerplate project detection logic",
+          "service": "main",
+          "files_to_modify": ["src/main/project-store.ts", "src/main/plugin/PluginManager.ts"],
+          "files_to_create": [],
+          "patterns_from": ["src/main/project-store.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "Create BoilerplateTab component for project settings",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/components/project-settings/BoilerplateTab.tsx"],
+          "patterns_from": ["src/renderer/components/context/ProjectIndexTab.tsx", "src/renderer/components/settings/GeneralSettings.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Project Settings",
+            "checks": ["BoilerplateTab renders", "Shows plugin name and version", "Lists 38 skills"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Add Boilerplate tab to ProjectSettings",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/ProjectSettings.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/ProjectSettings.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Project Settings",
+            "checks": ["Boilerplate tab visible for detected projects", "Tab hidden for non-boilerplate projects"]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-6-context-injection",
+      "name": "Task Context Injection",
+      "type": "implementation",
+      "description": "Automatically inject boilerplate skills and patterns into task context",
+      "depends_on": ["phase-5-boilerplate-detection"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Create usePluginContext hook",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/hooks/usePluginContext.ts"],
+          "patterns_from": ["src/renderer/hooks/useIpc.ts", "src/renderer/components/context/hooks.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "Integrate plugin context into task creation flow",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/TaskCreationWizard.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/TaskCreationWizard.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Task Creation Wizard",
+            "checks": ["Boilerplate context injected for detected projects", "Skills visible in context preview"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-3",
+          "description": "Add user preference toggle for context injection",
+          "service": "main",
+          "files_to_modify": ["src/renderer/stores/settings-store.ts", "src/renderer/components/settings/GeneralSettings.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/stores/settings-store.ts"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings → General",
+            "checks": ["Toggle appears", "Toggle controls context injection", "Preference persists"]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-7-update-engine",
+      "name": "Update Engine & Conflict Detection",
+      "type": "implementation",
+      "description": "Implement selective update system with category-based conflict detection",
+      "depends_on": ["phase-2-github-integration"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-7-1",
+          "description": "Create UpdateEngine with conflict detection logic",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/UpdateEngine.ts"],
+          "patterns_from": ["src/main/plugin/PluginManager.ts", "src/main/plugin/GitHubAuth.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run typecheck",
+            "expected": "No type errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-2",
+          "description": "Create UpdatePluginDialog with category view",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/renderer/components/plugins/UpdatePluginDialog.tsx"],
+          "patterns_from": ["src/renderer/components/plugins/InstallPluginDialog.tsx", "src/renderer/components/changelog/Changelog.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Settings → Plugins → Check Updates",
+            "checks": ["Dialog opens", "Categories displayed", "Conflict highlighting works"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-3",
+          "description": "Implement update preview and diff view",
+          "service": "main",
+          "files_to_modify": ["src/renderer/components/plugins/UpdatePluginDialog.tsx"],
+          "files_to_create": [],
+          "patterns_from": ["src/renderer/components/changelog/Changelog.tsx"],
+          "verification": {
+            "type": "browser",
+            "url": "Update Dialog → Preview",
+            "checks": ["Diff view renders", "Side-by-side comparison visible", "Changes highlighted"]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-4",
+          "description": "Implement safe update application with backup",
+          "service": "main",
+          "files_to_modify": ["src/main/plugin/UpdateEngine.ts", "src/main/ipc-handlers/plugin-handlers.ts"],
+          "files_to_create": [],
+          "patterns_from": ["src/main/plugin/UpdateEngine.ts"],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Check for updates",
+              "Select updates to apply",
+              "Click Apply",
+              "Verify backup created",
+              "Verify updates applied",
+              "Verify rollback option available"
+            ]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+
+    {
+      "id": "phase-8-testing-qa",
+      "name": "Testing & QA",
+      "type": "integration",
+      "description": "Write comprehensive tests and perform QA validation",
+      "depends_on": ["phase-4-install-dialog", "phase-6-context-injection", "phase-7-update-engine"],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-8-1",
+          "description": "Write unit tests for PluginManager",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/__tests__/PluginManager.test.ts"],
+          "patterns_from": ["src/renderer/components/__tests__"],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- PluginManager.test.ts",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-2",
+          "description": "Write unit tests for GitHubAuth",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/__tests__/GitHubAuth.test.ts"],
+          "patterns_from": ["src/main/plugin/__tests__/PluginManager.test.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- GitHubAuth.test.ts",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-3",
+          "description": "Write unit tests for UpdateEngine",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/main/plugin/__tests__/UpdateEngine.test.ts"],
+          "patterns_from": ["src/main/plugin/__tests__/PluginManager.test.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- UpdateEngine.test.ts",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-4",
+          "description": "Write integration tests for plugin install flow",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["src/__tests__/integration/plugin-install.test.ts"],
+          "patterns_from": ["e2e/flows.e2e.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- plugin-install.test.ts",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-5",
+          "description": "Write E2E test for complete plugin workflow",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": ["e2e/plugin-workflow.e2e.ts"],
+          "patterns_from": ["e2e/flows.e2e.ts"],
+          "verification": {
+            "type": "command",
+            "command": "npm run test:e2e -- plugin-workflow.e2e.ts",
+            "expected": "E2E test passes"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-6",
+          "description": "Run security scan and validate token handling",
+          "all_services": true,
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "1. Verify GitHub tokens stored securely (Electron safeStorage)\n2. Check logs for exposed credentials\n3. Validate input sanitization\n4. Confirm backup mechanism works"
+          },
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+
+  "summary": {
+    "total_phases": 8,
+    "total_subtasks": 33,
+    "services_involved": ["main"],
+    "parallelism": {
+      "max_parallel_phases": 2,
+      "parallel_groups": [
+        {
+          "phases": ["phase-3-settings-ui", "phase-5-boilerplate-detection"],
+          "reason": "Both depend only on phase-1-foundation, work on different file sets (settings UI vs project detection)"
+        }
+      ],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution recommended - phases have dependencies"
+    },
+    "startup_command": "pnpm install && npm run dev"
+  },
+
+  "verification_strategy": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scanning_required": true,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "Plugin manager loads plugins on app startup without blocking",
+      "Settings shows Plugins tab with installed plugins list",
+      "Install dialog works with GitHub URLs and local paths",
+      "GitHub authentication works with Personal Access Token for private repos",
+      "Boilerplate projects auto-detected when added to Auto Claude",
+      "Project settings shows Boilerplate tab with version info and 38 skills",
+      "Task creation context includes boilerplate skills automatically",
+      "Update UI displays categories with conflict detection",
+      "Updates can be previewed (diff view) before applying",
+      "Updates can be applied safely with rollback capability",
+      "All unit tests pass (8/8 test suites)",
+      "All integration tests pass (5/5 scenarios)",
+      "All E2E tests pass (6/6 user flows)",
+      "Security verification complete (tokens encrypted, no credential exposure)",
+      "No console errors during plugin operations"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "npm test",
+        "expected_outcome": "All unit tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Tests",
+        "command": "npm test -- integration",
+        "expected_outcome": "All integration tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "E2E Tests",
+        "command": "npm run test:e2e",
+        "expected_outcome": "All E2E tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Security Scan - Token Storage",
+        "command": "manual inspection",
+        "expected_outcome": "Tokens stored using Electron safeStorage, not in plain text",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Security Scan - Credential Exposure",
+        "command": "grep -r 'ghp_' src/ --exclude-dir=node_modules || echo 'No tokens found in code'",
+        "expected_outcome": "No hardcoded tokens in source code",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "High risk plugin system with dynamic code loading and GitHub authentication requires comprehensive testing including E2E for plugin installation flow and security scans for credential handling"
+  },
+
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": ["npm test"],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": ["npm test -- integration"],
+      "services_to_test": ["main"]
+    },
+    "e2e_tests": {
+      "required": true,
+      "commands": ["npm run test:e2e"],
+      "flows": ["plugin-install-github", "plugin-install-local", "boilerplate-detection", "task-context-injection", "plugin-update"]
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "Settings → Plugins",
+          "checks": ["Tab exists", "Plugins list renders", "Install button works"]
+        },
+        {
+          "url": "Install Plugin Dialog",
+          "checks": ["Dialog opens", "GitHub/Local modes work", "Form validation works", "Progress shown"]
+        },
+        {
+          "url": "Project Settings → Boilerplate",
+          "checks": ["Tab visible for boilerplate projects", "Skills list displays 38 items", "Version info shown"]
+        },
+        {
+          "url": "Task Creation Wizard",
+          "checks": ["Boilerplate context injected", "Skills visible in preview", "Toggle preference works"]
+        },
+        {
+          "url": "Update Plugin Dialog",
+          "checks": ["Categories displayed", "Diff preview works", "Conflict highlighting visible", "Backup created"]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": false
+    },
+    "security_verification": {
+      "required": true,
+      "checks": [
+        "GitHub PAT stored using Electron safeStorage API",
+        "No tokens logged to console or debug files",
+        "Authenticated URLs never exposed in error messages",
+        "Plugin directory permissions restrict access (not world-readable)"
+      ]
+    }
+  },
+  "qa_signoff": null
+}
