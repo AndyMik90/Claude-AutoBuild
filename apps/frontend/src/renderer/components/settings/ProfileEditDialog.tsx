@@ -8,8 +8,10 @@
  * - Required fields: Name, Base URL, API Key
  * - Optional model fields: Default, Haiku, Sonnet, Opus
  * - Form validation with error display
- * - Save button triggers store action
+ * - Save button triggers store action (create or update)
  * - Close button cancels without saving
+ * - Edit mode: pre-populates form with existing profile data
+ * - Edit mode: API key masked with "Change" button
  */
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -25,8 +27,10 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useSettingsStore } from '../../stores/settings-store';
+import { useToast } from '../../hooks/use-toast';
+import type { APIProfile } from '../../../shared/types/profile';
 import type { ProfileFormData } from '../../../shared/types/profile';
-import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
+import { maskApiKey } from '../../lib/profile-utils';
 
 interface ProfileEditDialogProps {
   /** Whether the dialog is open */
@@ -35,10 +39,16 @@ interface ProfileEditDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Optional callback when profile is successfully saved */
   onSaved?: () => void;
+  /** Optional profile for edit mode (undefined = create mode) */
+  profile?: APIProfile;
 }
 
-export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDialogProps) {
-  const { saveProfile, profilesLoading, profilesError } = useSettingsStore();
+export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: ProfileEditDialogProps) {
+  const { saveProfile, updateProfile, profilesLoading, profilesError } = useSettingsStore();
+  const { toast } = useToast();
+
+  // Edit mode detection: profile prop determines mode
+  const isEditMode = !!profile;
 
   // Form state
   const [name, setName] = useState('');
@@ -49,21 +59,41 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
   const [sonnetModel, setSonnetModel] = useState('');
   const [opusModel, setOpusModel] = useState('');
 
+  // API key change state (for edit mode)
+  const [isChangingApiKey, setIsChangingApiKey] = useState(false);
+
   // Validation errors
   const [nameError, setNameError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
 
-  // Reset form when dialog opens
+  // Reset form and pre-populate when dialog opens
+  // Note: Only reset when dialog opens/closes, not when profile prop changes
+  // This prevents race conditions if user rapidly clicks edit on different profiles
   useEffect(() => {
     if (open) {
-      setName('');
-      setBaseUrl('');
-      setApiKey('');
-      setDefaultModel('');
-      setHaikuModel('');
-      setSonnetModel('');
-      setOpusModel('');
+      if (isEditMode && profile) {
+        // Pre-populate form with existing profile data
+        setName(profile.name);
+        setBaseUrl(profile.baseUrl);
+        setApiKey(''); // Start empty - masked display shown instead
+        setDefaultModel(profile.models?.default || '');
+        setHaikuModel(profile.models?.haiku || '');
+        setSonnetModel(profile.models?.sonnet || '');
+        setOpusModel(profile.models?.opus || '');
+        setIsChangingApiKey(false);
+      } else {
+        // Reset to empty form for create mode
+        setName('');
+        setBaseUrl('');
+        setApiKey('');
+        setDefaultModel('');
+        setHaikuModel('');
+        setSonnetModel('');
+        setOpusModel('');
+        setIsChangingApiKey(false);
+      }
+      // Clear validation errors
       setNameError(null);
       setUrlError(null);
       setKeyError(null);
@@ -93,13 +123,17 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
       setUrlError(null);
     }
 
-    // API Key validation
-    if (!apiKey.trim()) {
-      setKeyError('API Key is required');
-      isValid = false;
-    } else if (!isValidApiKey(apiKey)) {
-      setKeyError('Invalid API Key format');
-      isValid = false;
+    // API Key validation (only in create mode or when changing key in edit mode)
+    if (!isEditMode || isChangingApiKey) {
+      if (!apiKey.trim()) {
+        setKeyError('API Key is required');
+        isValid = false;
+      } else if (!isValidApiKey(apiKey)) {
+        setKeyError('Invalid API Key format');
+        isValid = false;
+      } else {
+        setKeyError(null);
+      }
     } else {
       setKeyError(null);
     }
@@ -113,25 +147,59 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
       return;
     }
 
-    const profileData: ProfileFormData = {
-      name: name.trim(),
-      baseUrl: baseUrl.trim(),
-      apiKey: apiKey.trim()
-    };
+    if (isEditMode && profile) {
+      // Update existing profile
+      const updatedProfile: APIProfile = {
+        ...profile,
+        name: name.trim(),
+        baseUrl: baseUrl.trim(),
+        // Only update API key if user is changing it
+        ...(isChangingApiKey && { apiKey: apiKey.trim() }),
+        // Update models if provided
+        ...(defaultModel || haikuModel || sonnetModel || opusModel ? {
+          models: {
+            ...(defaultModel && { default: defaultModel.trim() }),
+            ...(haikuModel && { haiku: haikuModel.trim() }),
+            ...(sonnetModel && { sonnet: sonnetModel.trim() }),
+            ...(opusModel && { opus: opusModel.trim() })
+          }
+        } : { models: undefined })
+      };
+      const success = await updateProfile(updatedProfile);
+      if (success) {
+        toast({
+          title: 'Profile updated',
+          description: `"${name.trim()}" has been updated successfully.`,
+        });
+        onOpenChange(false);
+        onSaved?.();
+      }
+    } else {
+      // Create new profile
+      const profileData: ProfileFormData = {
+        name: name.trim(),
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim()
+      };
 
-    // Add optional models if provided
-    if (defaultModel || haikuModel || sonnetModel || opusModel) {
-      profileData.models = {};
-      if (defaultModel) profileData.models.default = defaultModel.trim();
-      if (haikuModel) profileData.models.haiku = haikuModel.trim();
-      if (sonnetModel) profileData.models.sonnet = sonnetModel.trim();
-      if (opusModel) profileData.models.opus = opusModel.trim();
-    }
+      // Add optional models if provided
+      if (defaultModel || haikuModel || sonnetModel || opusModel) {
+        profileData.models = {};
+        if (defaultModel) profileData.models.default = defaultModel.trim();
+        if (haikuModel) profileData.models.haiku = haikuModel.trim();
+        if (sonnetModel) profileData.models.sonnet = sonnetModel.trim();
+        if (opusModel) profileData.models.opus = opusModel.trim();
+      }
 
-    const success = await saveProfile(profileData);
-    if (success) {
-      onOpenChange(false);
-      onSaved?.();
+      const success = await saveProfile(profileData);
+      if (success) {
+        toast({
+          title: 'Profile created',
+          description: `"${name.trim()}" has been added successfully.`,
+        });
+        onOpenChange(false);
+        onSaved?.();
+      }
     }
   };
 
@@ -139,7 +207,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add API Profile</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Profile' : 'Add API Profile'}</DialogTitle>
           <DialogDescription>
             Configure a custom Anthropic-compatible API endpoint for your builds.
           </DialogDescription>
@@ -179,19 +247,56 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
             </p>
           </div>
 
-          {/* API Key field (required) */}
+          {/* API Key field (required for create, masked in edit mode) */}
           <div className="space-y-2">
             <Label htmlFor="profile-key">
               API Key <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="profile-key"
-              type="password"
-              placeholder="sk-ant-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className={keyError ? 'border-destructive' : ''}
-            />
+            {isEditMode && !isChangingApiKey && profile ? (
+              // Edit mode: show masked API key
+              <div className="flex items-center gap-2">
+                <Input
+                  id="profile-key"
+                  value={maskApiKey(profile.apiKey)}
+                  disabled
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsChangingApiKey(true)}
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              // Create mode or changing key: show password input
+              <>
+                <Input
+                  id="profile-key"
+                  type="password"
+                  placeholder="sk-ant-..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className={keyError ? 'border-destructive' : ''}
+                />
+                {isEditMode && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsChangingApiKey(false);
+                      setApiKey('');
+                      setKeyError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </>
+            )}
             {keyError && <p className="text-sm text-destructive">{keyError}</p>}
           </div>
 
@@ -204,7 +309,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
 
             <div className="space-y-2">
               <Label htmlFor="model-default" className="text-sm text-muted-foreground">
-                Default Model
+                Default Model (Optional)
               </Label>
               <Input
                 id="model-default"
@@ -216,7 +321,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
 
             <div className="space-y-2">
               <Label htmlFor="model-haiku" className="text-sm text-muted-foreground">
-                Haiku Model
+                Haiku Model (Optional)
               </Label>
               <Input
                 id="model-haiku"
@@ -228,7 +333,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
 
             <div className="space-y-2">
               <Label htmlFor="model-sonnet" className="text-sm text-muted-foreground">
-                Sonnet Model
+                Sonnet Model (Optional)
               </Label>
               <Input
                 id="model-sonnet"
@@ -240,7 +345,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
 
             <div className="space-y-2">
               <Label htmlFor="model-opus" className="text-sm text-muted-foreground">
-                Opus Model
+                Opus Model (Optional)
               </Label>
               <Input
                 id="model-opus"
@@ -286,4 +391,31 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved }: ProfileEditDi
       </DialogContent>
     </Dialog>
   );
+}
+
+// Import validation utilities (defined below to avoid circular dependency)
+function isValidUrl(url: string): boolean {
+  if (!url || url.trim() === '') {
+    return false;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isValidApiKey(key: string): boolean {
+  if (!key || key.trim() === '') {
+    return false;
+  }
+
+  const trimmed = key.trim();
+  if (trimmed.length < 12) {
+    return false;
+  }
+
+  return /^[a-zA-Z0-9\-_+.]+$/.test(trimmed);
 }

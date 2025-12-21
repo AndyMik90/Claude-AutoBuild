@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
+import { Toaster } from './components/ui/toaster';
 import {
   Dialog,
   DialogContent,
@@ -838,6 +839,9 @@ export function App() {
 
         {/* App Update Notification - shows when new app version is available */}
         <AppUpdateNotification />
+
+        {/* Toast notifications */}
+        <Toaster />
       </div>
     </TooltipProvider>
   );

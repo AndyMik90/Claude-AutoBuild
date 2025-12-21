@@ -3,10 +3,10 @@
  *
  * Shows all configured API profiles with an "Add Profile" button.
  * Displays empty state when no profiles exist.
- * Allows setting active profile and deleting profiles.
+ * Allows setting active profile, editing, and deleting profiles.
  */
 import { useState } from 'react';
-import { Plus, Trash2, Check, Server, Globe } from 'lucide-react';
+import { Plus, Trash2, Check, Server, Globe, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useSettingsStore } from '../../stores/settings-store';
@@ -39,6 +39,7 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
   } = useSettingsStore();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editProfile, setEditProfile] = useState<APIProfile | null>(null);
   const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<APIProfile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSettingActive, setIsSettingActive] = useState(false);
@@ -167,14 +168,31 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
                     {isSettingActive ? 'Setting...' : 'Set Active'}
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteConfirmProfile(profile)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditProfile(profile)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit profile</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmProfile(profile)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete profile</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           ))}
@@ -183,9 +201,19 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
 
       {/* Add/Edit Dialog */}
       <ProfileEditDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onSaved={onProfileSaved}
+        open={isAddDialogOpen || editProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAddDialogOpen(false);
+            setEditProfile(null);
+          }
+        }}
+        onSaved={() => {
+          setIsAddDialogOpen(false);
+          setEditProfile(null);
+          onProfileSaved?.();
+        }}
+        profile={editProfile ?? undefined}
       />
 
       {/* Delete Confirmation Dialog */}

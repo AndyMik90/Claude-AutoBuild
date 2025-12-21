@@ -5,37 +5,11 @@ import { vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync } from 'fs';
 import path from 'path';
 
-// Mock localStorage for tests that need it
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-
-  return {
-    getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: vi.fn(() => {
-      store = {};
-    })
-  };
-})();
-
-// Make localStorage available globally
-Object.defineProperty(global, 'localStorage', {
-  value: localStorageMock
-});
-
 // Test data directory for isolated file operations
 export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';
 
 // Create fresh test directory before each test
 beforeEach(() => {
-  // Clear localStorage
-  localStorageMock.clear();
-
   // Use a unique subdirectory per test to avoid race conditions in parallel tests
   const testId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const _testDir = path.join(TEST_DATA_DIR, testId);
@@ -64,33 +38,37 @@ afterEach(() => {
 });
 
 // Mock window.electronAPI for renderer tests
-if (typeof window !== 'undefined') {
-  (window as unknown as { electronAPI: unknown }).electronAPI = {
-    addProject: vi.fn(),
-    removeProject: vi.fn(),
-    getProjects: vi.fn(),
-    updateProjectSettings: vi.fn(),
-    getTasks: vi.fn(),
-    createTask: vi.fn(),
-    startTask: vi.fn(),
-    stopTask: vi.fn(),
-    submitReview: vi.fn(),
-    onTaskProgress: vi.fn(() => vi.fn()),
-    onTaskError: vi.fn(() => vi.fn()),
-    onTaskLog: vi.fn(() => vi.fn()),
-    onTaskStatusChange: vi.fn(() => vi.fn()),
-    getSettings: vi.fn(),
-    saveSettings: vi.fn(),
-    selectDirectory: vi.fn(),
-    getAppVersion: vi.fn(),
-    // Tab state persistence (IPC-based)
-    getTabState: vi.fn().mockResolvedValue({
-      success: true,
-      data: { openProjectIds: [], activeProjectId: null, tabOrder: [] }
-    }),
-    saveTabState: vi.fn().mockResolvedValue({ success: true })
-  };
+// Define window object for Node environment (used by jsdom in tests)
+if (typeof window === 'undefined') {
+  (globalThis as unknown as { window: unknown }).window = {};
 }
+
+(window as unknown as { electronAPI: unknown }).electronAPI = {
+  addProject: vi.fn(),
+  removeProject: vi.fn(),
+  getProjects: vi.fn(),
+  updateProjectSettings: vi.fn(),
+  getTasks: vi.fn(),
+  createTask: vi.fn(),
+  startTask: vi.fn(),
+  stopTask: vi.fn(),
+  submitReview: vi.fn(),
+  onTaskProgress: vi.fn(() => vi.fn()),
+  onTaskError: vi.fn(() => vi.fn()),
+  onTaskLog: vi.fn(() => vi.fn()),
+  onTaskStatusChange: vi.fn(() => vi.fn()),
+  getSettings: vi.fn(),
+  saveSettings: vi.fn(),
+  selectDirectory: vi.fn(),
+  getAppVersion: vi.fn(),
+  // Profile-related API methods
+  getAPIProfiles: vi.fn(),
+  saveAPIProfile: vi.fn(),
+  updateAPIProfile: vi.fn(),
+  deleteAPIProfile: vi.fn(),
+  setActiveAPIProfile: vi.fn(),
+  testAPIConnection: vi.fn()
+};
 
 // Suppress console errors in tests unless explicitly testing error scenarios
 const originalConsoleError = console.error;
