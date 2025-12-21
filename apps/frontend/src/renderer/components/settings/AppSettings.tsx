@@ -13,7 +13,8 @@ import {
   Zap,
   Github,
   Database,
-  Sparkles
+  Sparkles,
+  Server
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -32,6 +33,7 @@ import { ThemeSettings } from './ThemeSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
+import { ProfileList } from './ProfileList';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -46,7 +48,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
+export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications';
 
 interface NavItem<T extends string> {
   id: T;
@@ -60,6 +62,7 @@ const appNavItems: NavItem<AppSection>[] = [
   { id: 'agent', label: 'Agent Settings', icon: Bot, description: 'Default model and framework' },
   { id: 'paths', label: 'Paths', icon: FolderOpen, description: 'Python and framework paths' },
   { id: 'integrations', label: 'Integrations', icon: Key, description: 'API keys & Claude accounts' },
+  { id: 'api-profiles', label: 'API Profiles', icon: Server, description: 'Custom API endpoint profiles' },
   { id: 'updates', label: 'Updates', icon: Package, description: 'Auto Claude updates' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert preferences' }
 ];
@@ -163,6 +166,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
       case 'integrations':
         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
+      case 'api-profiles':
+        return <ProfileList />;
       case 'updates':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':

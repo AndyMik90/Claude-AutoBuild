@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check, Server, Globe } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useSettingsStore } from '../../stores/settings-store';
 import { ProfileEditDialog } from './ProfileEditDialog';
 import { maskApiKey } from '../../lib/profile-utils';
@@ -131,12 +132,19 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Globe className="h-3 w-3" />
-                    <span className="truncate max-w-[200px]">
-                      {getHostFromUrl(profile.baseUrl)}
-                    </span>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <Globe className="h-3 w-3" />
+                        <span className="truncate max-w-[200px]">
+                          {getHostFromUrl(profile.baseUrl)}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{profile.baseUrl}</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <div className="truncate">
                     {maskApiKey(profile.apiKey)}
                   </div>
