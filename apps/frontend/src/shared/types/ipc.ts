@@ -107,6 +107,16 @@ import type {
   GitHubInvestigationResult,
   GitHubInvestigationStatus
 } from './integrations';
+import type {
+  Plugin,
+  PluginInstallOptions,
+  PluginInstallResult,
+  PluginUpdateCheck,
+  PluginUpdateOptions,
+  PluginUpdateResult,
+  PluginContext,
+  BoilerplateDetectionResult
+} from './plugin';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -601,6 +611,15 @@ export interface ElectronAPI {
   // Developer/Debug operations
   setBackendLogging: (enabled: boolean) => void;
   onMainProcessLog: (callback: (data: { level: string; args: string[] }) => void) => () => void;
+
+  // Plugin operations
+  getPlugins: () => Promise<IPCResult<Plugin[]>>;
+  installPlugin: (options: PluginInstallOptions) => Promise<PluginInstallResult>;
+  uninstallPlugin: (pluginId: string) => Promise<IPCResult>;
+  checkPluginUpdates: (pluginId: string) => Promise<IPCResult<PluginUpdateCheck>>;
+  applyPluginUpdates: (options: PluginUpdateOptions) => Promise<IPCResult<PluginUpdateResult>>;
+  detectBoilerplate: (projectPath: string) => Promise<IPCResult<BoilerplateDetectionResult>>;
+  getPluginContext: (projectId: string) => Promise<IPCResult<PluginContext>>;
 }
 
 declare global {

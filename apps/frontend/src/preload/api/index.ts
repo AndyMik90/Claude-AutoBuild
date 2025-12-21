@@ -8,6 +8,7 @@ import { IdeationAPI, createIdeationAPI } from './modules/ideation-api';
 import { InsightsAPI, createInsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { LogAPI, createLogAPI } from './log-api';
+import { PluginAPI, createPluginAPI } from './plugin-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -19,7 +20,8 @@ export interface ElectronAPI extends
   IdeationAPI,
   InsightsAPI,
   AppUpdateAPI,
-  LogAPI {}
+  LogAPI,
+  PluginAPI {}
 
 export const createElectronAPI = (): ElectronAPI => ({
   ...createProjectAPI(),
@@ -31,7 +33,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createIdeationAPI(),
   ...createInsightsAPI(),
   ...createAppUpdateAPI(),
-  ...createLogAPI()
+  ...createLogAPI(),
+  ...createPluginAPI()
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
@@ -45,7 +48,8 @@ export {
   createIdeationAPI,
   createInsightsAPI,
   createAppUpdateAPI,
-  createLogAPI
+  createLogAPI,
+  createPluginAPI
 };
 
 export type {
@@ -58,5 +62,6 @@ export type {
   IdeationAPI,
   InsightsAPI,
   AppUpdateAPI,
-  LogAPI
+  LogAPI,
+  PluginAPI
 };
