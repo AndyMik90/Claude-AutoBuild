@@ -60,6 +60,8 @@ export function Step2ConfigureGenerate(props: Step2ConfigureGenerateProps) {
   } = props;
 
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const projects = useProjectStore((state) => state.projects);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const selectedTasks = doneTasks.filter((t) => selectedTaskIds.includes(t.id));
 
   const summaryInfo = getSummaryInfo(
@@ -112,6 +114,7 @@ export function Step2ConfigureGenerate(props: Step2ConfigureGenerateProps) {
         isDragOver={imageUpload.isDragOver}
         imageError={imageUpload.imageError}
         textareaRef={imageUpload.textareaRef}
+        projectPath={selectedProject?.path}
         onSave={props.onSave}
         onCopy={props.onCopy}
         onChangelogEdit={onChangelogEdit}

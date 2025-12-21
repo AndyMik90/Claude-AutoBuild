@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FileText, Copy, Save, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface PreviewPanelProps {
@@ -14,6 +14,7 @@ interface PreviewPanelProps {
   isDragOver: boolean;
   imageError: string | null;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  projectPath?: string;
   onSave: () => void;
   onCopy: () => void;
   onChangelogEdit: (content: string) => void;
@@ -31,6 +32,7 @@ export function PreviewPanel({
   isDragOver,
   imageError,
   textareaRef,
+  projectPath,
   onSave,
   onCopy,
   onChangelogEdit,
@@ -40,6 +42,20 @@ export function PreviewPanel({
   onDrop
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<'markdown' | 'preview'>('markdown');
+
+  // Custom components for ReactMarkdown to handle local image paths
+  const markdownComponents: Components = useMemo(() => ({
+    img: ({ src, alt, ...props }) => {
+      // Convert relative paths to file:// URLs for Electron
+      let imageSrc = src || '';
+      if (projectPath && imageSrc && !imageSrc.startsWith('http://') && !imageSrc.startsWith('https://') && !imageSrc.startsWith('file://')) {
+        // Handle relative paths like .github/assets/... or ./path/to/image
+        const relativePath = imageSrc.startsWith('./') ? imageSrc.slice(2) : imageSrc;
+        imageSrc = `file://${projectPath}/${relativePath}`;
+      }
+      return <img src={imageSrc} alt={alt || ''} {...props} />;
+    }
+  }), [projectPath]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -146,7 +162,10 @@ export function PreviewPanel({
             ) : (
               <div className="h-full overflow-auto">
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
                     {generatedChangelog}
                   </ReactMarkdown>
                 </div>
