@@ -60,6 +60,7 @@ jobs:
 
       - name: Notarize macOS apps
         if: env.APPLE_ID != ''
+        continue-on-error: true  # Don't fail build if notarization fails
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
