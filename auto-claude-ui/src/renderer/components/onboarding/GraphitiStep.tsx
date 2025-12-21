@@ -380,15 +380,14 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     setAvailableModels([]);
 
     try {
-      const result = await window.electronAPI.scanOllamaModels(config.ollamaBaseUrl.trim());
-       if (result?.success && result?.data?.models) {
-         // Mark models that are already selected as downloaded
-         const modelsWithStatus = result.data.models.map((model: any) => ({
-           ...model,
-           downloaded: model.name === config.ollamaLlmModel || model.name === config.ollamaEmbeddingModel
-         }));
-         setAvailableModels(modelsWithStatus);
-        setShowModelDiscovery(true);
+       const result = await window.electronAPI.scanOllamaModels(config.ollamaBaseUrl.trim());
+        if (result?.success && result?.data?.models) {
+          // All models from /api/tags are already downloaded on the Ollama server
+          const modelsWithStatus = result.data.models.map((model: any) => ({
+            ...model,
+            downloaded: true  // If it's in the API response, it's already on the server
+          }));
+          setAvailableModels(modelsWithStatus);
       } else {
         setScanError(result?.error || 'Failed to scan models');
       }

@@ -278,9 +278,12 @@ export function ModelDiscoveryGrid({
                         </Button>
                       )}
                       <Button
-                        variant={isSelected ? "default" : "outline"}
                         size="sm"
-                        className={`flex-1 text-sm font-medium ${isSelected ? 'ring-offset-2' : ''}`}
+                        className={`flex-1 text-sm font-medium ${
+                          isSelected 
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-muted hover:bg-muted/80 text-foreground'
+                        }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectModel(model.name, 'llm');
@@ -289,9 +292,9 @@ export function ModelDiscoveryGrid({
                         {isSelected ? '✓ Selected' : 'Select'}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              );
+                   </CardContent>
+                 </Card>
+               );
             })}
           </div>
         ) : (
@@ -407,9 +410,12 @@ export function ModelDiscoveryGrid({
                         </Button>
                       )}
                       <Button
-                        variant={isSelected ? "default" : "outline"}
                         size="sm"
-                        className={`flex-1 text-sm font-medium ${isSelected ? 'ring-offset-2' : ''}`}
+                        className={`flex-1 text-sm font-medium ${
+                          isSelected 
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-muted hover:bg-muted/80 text-foreground'
+                        }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectModel(model.name, 'embedding');
