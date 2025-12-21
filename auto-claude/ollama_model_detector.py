@@ -27,7 +27,10 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434"
 # This list helps identify embedding models from the model name
 KNOWN_EMBEDDING_MODELS = {
     "nomic-embed-text": {"dim": 768, "description": "Nomic AI text embeddings"},
-    "embeddinggemma": {"dim": 768, "description": "Google EmbeddingGemma (lightweight)"},
+    "embeddinggemma": {
+        "dim": 768,
+        "description": "Google EmbeddingGemma (lightweight)",
+    },
     "qwen3-embedding": {"dim": 1024, "description": "Qwen3 Embedding (0.6B)"},
     "qwen3-embedding:0.6b": {"dim": 1024, "description": "Qwen3 Embedding 0.6B"},
     "qwen3-embedding:4b": {"dim": 2560, "description": "Qwen3 Embedding 4B"},
@@ -36,14 +39,20 @@ KNOWN_EMBEDDING_MODELS = {
     "bge-large-en": {"dim": 1024, "description": "BAAI General Embedding - Large"},
     "bge-small-en": {"dim": 384, "description": "BAAI General Embedding - Small"},
     "bge-m3": {"dim": 1024, "description": "BAAI General Embedding M3 (multilingual)"},
-    "mxbai-embed-large": {"dim": 1024, "description": "MixedBread AI Embeddings - Large"},
+    "mxbai-embed-large": {
+        "dim": 1024,
+        "description": "MixedBread AI Embeddings - Large",
+    },
     "all-minilm": {"dim": 384, "description": "All-MiniLM sentence embeddings"},
     "snowflake-arctic-embed": {"dim": 1024, "description": "Snowflake Arctic Embed"},
     "jina-embeddings-v2-base-en": {"dim": 768, "description": "Jina AI Embeddings V2"},
     "e5-small": {"dim": 384, "description": "E5 Small embeddings"},
     "e5-base": {"dim": 768, "description": "E5 Base embeddings"},
     "e5-large": {"dim": 1024, "description": "E5 Large embeddings"},
-    "paraphrase-multilingual": {"dim": 768, "description": "Multilingual paraphrase model"},
+    "paraphrase-multilingual": {
+        "dim": 768,
+        "description": "Multilingual paraphrase model",
+    },
 }
 
 # Recommended embedding models for download (shown in UI)
@@ -176,26 +185,35 @@ def cmd_check_status(args) -> None:
     result = fetch_ollama_api(base_url, "api/version")
 
     if result:
-        output_json(True, data={
-            "running": True,
-            "url": base_url,
-            "version": result.get("version", "unknown"),
-        })
+        output_json(
+            True,
+            data={
+                "running": True,
+                "url": base_url,
+                "version": result.get("version", "unknown"),
+            },
+        )
     else:
         # Try alternative endpoint
         tags = fetch_ollama_api(base_url, "api/tags")
         if tags:
-            output_json(True, data={
-                "running": True,
-                "url": base_url,
-                "version": "unknown",
-            })
+            output_json(
+                True,
+                data={
+                    "running": True,
+                    "url": base_url,
+                    "version": "unknown",
+                },
+            )
         else:
-            output_json(True, data={
-                "running": False,
-                "url": base_url,
-                "message": "Ollama is not running or not accessible",
-            })
+            output_json(
+                True,
+                data={
+                    "running": False,
+                    "url": base_url,
+                    "message": "Ollama is not running or not accessible",
+                },
+            )
 
 
 def cmd_list_models(args) -> None:
@@ -219,7 +237,7 @@ def cmd_list_models(args) -> None:
         model_info = {
             "name": name,
             "size_bytes": size,
-            "size_gb": round(size / (1024 ** 3), 2) if size else 0,
+            "size_gb": round(size / (1024**3), 2) if size else 0,
             "modified_at": modified,
             "is_embedding": is_embedding_model(name),
         }
@@ -230,11 +248,14 @@ def cmd_list_models(args) -> None:
 
         model_list.append(model_info)
 
-    output_json(True, data={
-        "models": model_list,
-        "count": len(model_list),
-        "url": base_url,
-    })
+    output_json(
+        True,
+        data={
+            "models": model_list,
+            "count": len(model_list),
+            "url": base_url,
+        },
+    )
 
 
 def cmd_list_embedding_models(args) -> None:
@@ -256,22 +277,27 @@ def cmd_list_embedding_models(args) -> None:
         if is_embedding_model(name):
             embedding_dim = get_embedding_dim(name)
 
-            embedding_models.append({
-                "name": name,
-                "embedding_dim": embedding_dim,
-                "description": get_embedding_description(name),
-                "size_bytes": model.get("size", 0),
-                "size_gb": round(model.get("size", 0) / (1024 ** 3), 2),
-            })
+            embedding_models.append(
+                {
+                    "name": name,
+                    "embedding_dim": embedding_dim,
+                    "description": get_embedding_description(name),
+                    "size_bytes": model.get("size", 0),
+                    "size_gb": round(model.get("size", 0) / (1024**3), 2),
+                }
+            )
 
     # Sort by name
     embedding_models.sort(key=lambda x: x["name"])
 
-    output_json(True, data={
-        "embedding_models": embedding_models,
-        "count": len(embedding_models),
-        "url": base_url,
-    })
+    output_json(
+        True,
+        data={
+            "embedding_models": embedding_models,
+            "count": len(embedding_models),
+            "url": base_url,
+        },
+    )
 
 
 def cmd_get_recommended_models(args) -> None:
@@ -296,16 +322,21 @@ def cmd_get_recommended_models(args) -> None:
         base_name = name.split(":")[0] if ":" in name else name
         is_installed = name in installed_names or base_name in installed_names
 
-        recommended.append({
-            **model,
-            "installed": is_installed,
-        })
+        recommended.append(
+            {
+                **model,
+                "installed": is_installed,
+            }
+        )
 
-    output_json(True, data={
-        "recommended": recommended,
-        "count": len(recommended),
-        "url": base_url,
-    })
+    output_json(
+        True,
+        data={
+            "recommended": recommended,
+            "count": len(recommended),
+            "url": base_url,
+        },
+    )
 
 
 def cmd_pull_model(args) -> None:
@@ -328,7 +359,7 @@ def cmd_pull_model(args) -> None:
         )
 
         output_lines = []
-        for line in iter(process.stdout.readline, ''):
+        for line in iter(process.stdout.readline, ""):
             line = line.strip()
             if line:
                 output_lines.append(line)
@@ -338,13 +369,18 @@ def cmd_pull_model(args) -> None:
         process.wait()
 
         if process.returncode == 0:
-            output_json(True, data={
-                "model": model_name,
-                "status": "completed",
-                "output": output_lines,
-            })
+            output_json(
+                True,
+                data={
+                    "model": model_name,
+                    "status": "completed",
+                    "output": output_lines,
+                },
+            )
         else:
-            output_json(False, error=f"Failed to pull model: {' '.join(output_lines[-3:])}")
+            output_json(
+                False, error=f"Failed to pull model: {' '.join(output_lines[-3:])}"
+            )
 
     except FileNotFoundError:
         output_error("Ollama CLI not found. Please install Ollama first.")
@@ -359,41 +395,40 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # check-status command
-    status_parser = subparsers.add_parser("check-status", help="Check if Ollama is running")
+    status_parser = subparsers.add_parser(
+        "check-status", help="Check if Ollama is running"
+    )
     status_parser.add_argument(
-        "--base-url",
-        help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
+        "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
     # list-models command
     list_parser = subparsers.add_parser("list-models", help="List all Ollama models")
     list_parser.add_argument(
-        "--base-url",
-        help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
+        "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
     # list-embedding-models command
     embed_parser = subparsers.add_parser(
-        "list-embedding-models",
-        help="List Ollama embedding models"
+        "list-embedding-models", help="List Ollama embedding models"
     )
     embed_parser.add_argument(
-        "--base-url",
-        help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
+        "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
     # get-recommended-models command
     recommend_parser = subparsers.add_parser(
         "get-recommended-models",
-        help="Get recommended embedding models with install status"
+        help="Get recommended embedding models with install status",
     )
     recommend_parser.add_argument(
-        "--base-url",
-        help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
+        "--base-url", help=f"Ollama server URL (default: {DEFAULT_OLLAMA_URL})"
     )
 
     # pull-model command
-    pull_parser = subparsers.add_parser("pull-model", help="Pull (download) an Ollama model")
+    pull_parser = subparsers.add_parser(
+        "pull-model", help="Pull (download) an Ollama model"
+    )
     pull_parser.add_argument("model", help="Model name to pull (e.g., embeddinggemma)")
 
     args = parser.parse_args()

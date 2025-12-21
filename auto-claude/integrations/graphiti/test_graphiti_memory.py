@@ -46,6 +46,7 @@ sys.path.insert(0, str(auto_claude_dir))
 # Load .env file
 try:
     from dotenv import load_dotenv
+
     env_file = auto_claude_dir / ".env"
     if env_file.exists():
         load_dotenv(env_file)
@@ -58,6 +59,7 @@ def apply_ladybug_monkeypatch():
     """Apply LadybugDB monkeypatch for embedded database support."""
     try:
         import real_ladybug
+
         sys.modules["kuzu"] = real_ladybug
         return True
     except ImportError:
@@ -66,6 +68,7 @@ def apply_ladybug_monkeypatch():
     # Try native kuzu as fallback
     try:
         import kuzu  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -117,7 +120,7 @@ async def test_ladybugdb_connection(db_path: str, database: str) -> bool:
         # Test basic query
         result = conn.execute("RETURN 1 + 1 as test")
         df = result.get_as_df()
-        test_value = df['test'].iloc[0] if len(df) > 0 else None
+        test_value = df["test"].iloc[0] if len(df) > 0 else None
 
         if test_value == 2:
             print_result("Connection", "SUCCESS - Database responds correctly", True)
@@ -199,6 +202,7 @@ async def test_save_episode(db_path: str, database: str) -> tuple[str, str]:
     except Exception as e:
         print_result("Episode Save", f"FAILED: {e}", False)
         import traceback
+
         traceback.print_exc()
         return None, None
 
@@ -241,8 +245,8 @@ async def test_keyword_search(db_path: str, database: str) -> bool:
 
             print(f"  Found {len(df)} results:")
             for _, row in df.iterrows():
-                name = row.get('name', 'unknown')[:50]
-                content = str(row.get('content', ''))[:60]
+                name = row.get("name", "unknown")[:50]
+                content = str(row.get("content", ""))[:60]
                 print(f"    - {name}: {content}...")
 
             print_result("Keyword Search", f"Found {len(df)} results", True)
@@ -308,25 +312,30 @@ async def test_semantic_search(db_path: str, database: str, group_id: str) -> bo
         print(f"  Found {len(results)} results:")
         for i, result in enumerate(results[:5]):
             # Print available attributes
-            if hasattr(result, 'fact') and result.fact:
-                print(f"    {i+1}. [fact] {str(result.fact)[:80]}...")
-            elif hasattr(result, 'content') and result.content:
-                print(f"    {i+1}. [content] {str(result.content)[:80]}...")
-            elif hasattr(result, 'name'):
-                print(f"    {i+1}. [name] {str(result.name)[:80]}...")
+            if hasattr(result, "fact") and result.fact:
+                print(f"    {i + 1}. [fact] {str(result.fact)[:80]}...")
+            elif hasattr(result, "content") and result.content:
+                print(f"    {i + 1}. [content] {str(result.content)[:80]}...")
+            elif hasattr(result, "name"):
+                print(f"    {i + 1}. [name] {str(result.name)[:80]}...")
 
         await client.close()
 
         if results:
-            print_result("Semantic Search", f"SUCCESS - Found {len(results)} results", True)
+            print_result(
+                "Semantic Search", f"SUCCESS - Found {len(results)} results", True
+            )
         else:
-            print_result("Semantic Search", "No results (may need time for embedding)", False)
+            print_result(
+                "Semantic Search", "No results (may need time for embedding)", False
+            )
 
         return len(results) > 0
 
     except Exception as e:
         print_result("Semantic Search", f"FAILED: {e}", False)
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -350,11 +359,15 @@ async def test_ollama_embeddings() -> bool:
         try:
             resp = requests.get(f"{ollama_base_url}/api/tags", timeout=5)
             if resp.status_code != 200:
-                print_result("Ollama", f"Not responding (status {resp.status_code})", False)
+                print_result(
+                    "Ollama", f"Not responding (status {resp.status_code})", False
+                )
                 return False
 
-            models = [m['name'] for m in resp.json().get('models', [])]
-            embedding_models = [m for m in models if 'embed' in m.lower() or 'gemma' in m.lower()]
+            models = [m["name"] for m in resp.json().get("models", [])]
+            embedding_models = [
+                m for m in models if "embed" in m.lower() or "gemma" in m.lower()
+            ]
             print_result("Ollama", f"Running with {len(models)} models", True)
             print(f"    Embedding models: {embedding_models}")
 
@@ -366,17 +379,19 @@ async def test_ollama_embeddings() -> bool:
         print()
         print("  Generating test embedding...")
 
-        test_text = "This is a test embedding for Auto Claude memory system using LadybugDB."
+        test_text = (
+            "This is a test embedding for Auto Claude memory system using LadybugDB."
+        )
 
         resp = requests.post(
             f"{ollama_base_url}/api/embeddings",
             json={"model": ollama_model, "prompt": test_text},
-            timeout=30
+            timeout=30,
         )
 
         if resp.status_code == 200:
             data = resp.json()
-            embedding = data.get('embedding', [])
+            embedding = data.get("embedding", [])
             print_result("Embedding", f"SUCCESS - {len(embedding)} dimensions", True)
             print(f"    First 5 values: {embedding[:5]}")
 
@@ -385,12 +400,20 @@ async def test_ollama_embeddings() -> bool:
             if len(embedding) == expected_dim:
                 print_result("Dimension", f"Matches expected ({expected_dim})", True)
             else:
-                print_result("Dimension", f"Mismatch! Got {len(embedding)}, expected {expected_dim}", False)
-                print_info(f"Update OLLAMA_EMBEDDING_DIM={len(embedding)} in your config")
+                print_result(
+                    "Dimension",
+                    f"Mismatch! Got {len(embedding)}, expected {expected_dim}",
+                    False,
+                )
+                print_info(
+                    f"Update OLLAMA_EMBEDDING_DIM={len(embedding)} in your config"
+                )
 
             return True
         else:
-            print_result("Embedding", f"FAILED: {resp.status_code} - {resp.text}", False)
+            print_result(
+                "Embedding", f"FAILED: {resp.status_code} - {resp.text}", False
+            )
             return False
 
     except ImportError:
@@ -459,8 +482,12 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
             "recommendations_for_next_session": ["Continue testing"],
         }
 
-        save_result = await memory.save_session_insights(session_num=1, insights=insights)
-        print_result("save_session_insights", "SUCCESS" if save_result else "FAILED", save_result)
+        save_result = await memory.save_session_insights(
+            session_num=1, insights=insights
+        )
+        print_result(
+            "save_session_insights", "SUCCESS" if save_result else "FAILED", save_result
+        )
 
         # Test save_pattern
         print()
@@ -468,7 +495,9 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
         pattern_result = await memory.save_pattern(
             "LadybugDB pattern: Embedded graph database works without Docker"
         )
-        print_result("save_pattern", "SUCCESS" if pattern_result else "FAILED", pattern_result)
+        print_result(
+            "save_pattern", "SUCCESS" if pattern_result else "FAILED", pattern_result
+        )
 
         # Test get_relevant_context
         print()
@@ -479,8 +508,8 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
         print(f"  Found {len(context)} context items")
 
         for item in context[:3]:
-            item_type = item.get('type', 'unknown')
-            content = str(item.get('content', ''))[:60]
+            item_type = item.get("type", "unknown")
+            content = str(item.get("content", ""))[:60]
             print(f"    - [{item_type}] {content}...")
 
         print_result("get_relevant_context", f"Found {len(context)} items", True)
@@ -502,6 +531,7 @@ async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
     except Exception as e:
         print_result("GraphitiMemory", f"FAILED: {e}", False)
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -534,7 +564,7 @@ async def test_database_contents(db_path: str, database: str) -> bool:
             try:
                 result = conn.execute(f"MATCH (n:{table}) RETURN count(n) as count")
                 df = result.get_as_df()
-                count = df['count'].iloc[0] if len(df) > 0 else 0
+                count = df["count"].iloc[0] if len(df) > 0 else 0
                 print(f"    {table}: {count} nodes")
             except Exception as e:
                 if "not exist" in str(e).lower() or "cannot" in str(e).lower():
@@ -578,19 +608,28 @@ async def main():
     parser = argparse.ArgumentParser(description="Test Memory System with LadybugDB")
     parser.add_argument(
         "--test",
-        choices=["all", "connection", "save", "keyword", "semantic", "ollama", "memory", "contents"],
+        choices=[
+            "all",
+            "connection",
+            "save",
+            "keyword",
+            "semantic",
+            "ollama",
+            "memory",
+            "contents",
+        ],
         default="all",
-        help="Which test to run"
+        help="Which test to run",
     )
     parser.add_argument(
         "--db-path",
         default=os.path.expanduser("~/.auto-claude/memories"),
-        help="Database path"
+        help="Database path",
     )
     parser.add_argument(
         "--database",
         default="test_memory",
-        help="Database name (use 'test_memory' for testing)"
+        help="Database name (use 'test_memory' for testing)",
     )
 
     args = parser.parse_args()
@@ -611,13 +650,21 @@ async def main():
     embedder_provider = os.environ.get("GRAPHITI_EMBEDDER_PROVIDER", "")
 
     print_result("GRAPHITI_ENABLED", str(graphiti_enabled), graphiti_enabled)
-    print_result("GRAPHITI_EMBEDDER_PROVIDER", embedder_provider or "(not set)", bool(embedder_provider))
+    print_result(
+        "GRAPHITI_EMBEDDER_PROVIDER",
+        embedder_provider or "(not set)",
+        bool(embedder_provider),
+    )
 
     if embedder_provider == "ollama":
         ollama_model = os.environ.get("OLLAMA_EMBEDDING_MODEL", "")
         ollama_dim = os.environ.get("OLLAMA_EMBEDDING_DIM", "")
-        print_result("OLLAMA_EMBEDDING_MODEL", ollama_model or "(not set)", bool(ollama_model))
-        print_result("OLLAMA_EMBEDDING_DIM", ollama_dim or "(not set)", bool(ollama_dim))
+        print_result(
+            "OLLAMA_EMBEDDING_MODEL", ollama_model or "(not set)", bool(ollama_model)
+        )
+        print_result(
+            "OLLAMA_EMBEDDING_DIM", ollama_dim or "(not set)", bool(ollama_dim)
+        )
     elif embedder_provider == "openai":
         has_key = bool(os.environ.get("OPENAI_API_KEY"))
         print_result("OPENAI_API_KEY", "Set" if has_key else "Not set", has_key)
@@ -642,7 +689,9 @@ async def main():
         await test_keyword_search(args.db_path, args.database)
 
     if test in ["all", "semantic"]:
-        await test_semantic_search(args.db_path, args.database, group_id or "ladybug_test_group")
+        await test_semantic_search(
+            args.db_path, args.database, group_id or "ladybug_test_group"
+        )
 
     if test in ["all", "memory"]:
         await test_graphiti_memory_class(args.db_path, args.database)
@@ -661,7 +710,9 @@ async def main():
     print("    python integrations/graphiti/test_graphiti_memory.py --test ollama")
     print()
     print("    # Test with production database:")
-    print("    python integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory")
+    print(
+        "    python integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory"
+    )
     print()
 
 

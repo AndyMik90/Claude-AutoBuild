@@ -35,7 +35,7 @@ class PatchedKuzuDriver(OriginalKuzuDriver):
 
     def __init__(
         self,
-        db: str = ':memory:',
+        db: str = ":memory:",
         max_concurrent_queries: int = 1,
     ):
         # Store database path before calling parent (which creates the Database)
@@ -55,15 +55,19 @@ class PatchedKuzuDriver(OriginalKuzuDriver):
         # Don't filter out None values - LadybugDB needs them
         params = {k: v for k, v in kwargs.items()}
         # Still remove these unsupported parameters
-        params.pop('database_', None)
-        params.pop('routing_', None)
+        params.pop("database_", None)
+        params.pop("routing_", None)
 
         try:
             results = await self.client.execute(cypher_query_, parameters=params)
         except Exception as e:
             # Truncate long values for logging
-            log_params = {k: (v[:5] if isinstance(v, list) else v) for k, v in params.items()}
-            logger.error(f'Error executing Kuzu query: {e}\n{cypher_query_}\n{log_params}')
+            log_params = {
+                k: (v[:5] if isinstance(v, list) else v) for k, v in params.items()
+            }
+            logger.error(
+                f"Error executing Kuzu query: {e}\n{cypher_query_}\n{log_params}"
+            )
             raise
 
         if not results:
@@ -103,7 +107,9 @@ class PatchedKuzuDriver(OriginalKuzuDriver):
                     if len(parts) >= 4:
                         table_name = parts[1]
                         index_name = parts[3]
-                        drop_query = f"CALL DROP_FTS_INDEX('{table_name}', '{index_name}')"
+                        drop_query = (
+                            f"CALL DROP_FTS_INDEX('{table_name}', '{index_name}')"
+                        )
                         try:
                             conn.execute(drop_query)
                             logger.debug(f"Dropped existing FTS index: {index_name}")
@@ -119,7 +125,9 @@ class PatchedKuzuDriver(OriginalKuzuDriver):
                 error_msg = str(e).lower()
                 # Handle "index already exists" gracefully
                 if "already exists" in error_msg or "duplicate" in error_msg:
-                    logger.debug(f"FTS index already exists (skipping): {query[:60]}...")
+                    logger.debug(
+                        f"FTS index already exists (skipping): {query[:60]}..."
+                    )
                 else:
                     # Log but don't fail - some indexes might fail in certain Kuzu versions
                     logger.warning(f"Failed to create FTS index: {e}")

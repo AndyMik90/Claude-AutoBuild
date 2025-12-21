@@ -33,6 +33,7 @@ def apply_monkeypatch():
     """
     try:
         import real_ladybug
+
         sys.modules["kuzu"] = real_ladybug
         return "ladybug"
     except ImportError:
@@ -41,6 +42,7 @@ def apply_monkeypatch():
     # Try native kuzu as fallback
     try:
         import kuzu  # noqa: F401
+
         return "kuzu"
     except ImportError:
         return None
@@ -50,9 +52,9 @@ def serialize_value(val):
     """Convert non-JSON-serializable types to strings."""
     if val is None:
         return None
-    if hasattr(val, 'isoformat'):
+    if hasattr(val, "isoformat"):
         return val.isoformat()
-    if hasattr(val, 'timestamp'):
+    if hasattr(val, "timestamp"):
         # kuzu Timestamp object
         return str(val)
     return val
@@ -65,7 +67,9 @@ def output_json(success: bool, data=None, error: str = None):
         result["data"] = data
     if error:
         result["error"] = error
-    print(json.dumps(result, default=str))  # Use default=str for any non-serializable types
+    print(
+        json.dumps(result, default=str)
+    )  # Use default=str for any non-serializable types
     sys.exit(0 if success else 1)
 
 
@@ -102,14 +106,17 @@ def cmd_get_status(args):
     # Check if kuzu/LadybugDB is available
     db_backend = apply_monkeypatch()
     if not db_backend:
-        output_json(True, data={
-            "available": False,
-            "ladybugInstalled": False,
-            "databasePath": str(db_path),
-            "database": database,
-            "databaseExists": False,
-            "message": "Neither kuzu nor LadybugDB is installed"
-        })
+        output_json(
+            True,
+            data={
+                "available": False,
+                "ladybugInstalled": False,
+                "databasePath": str(db_path),
+                "database": database,
+                "databaseExists": False,
+                "message": "Neither kuzu nor LadybugDB is installed",
+            },
+        )
         return
 
     full_path = db_path / database
@@ -120,7 +127,7 @@ def cmd_get_status(args):
     if db_path.exists():
         for item in db_path.iterdir():
             # Include both files and directories as potential databases
-            if item.name.startswith('.'):
+            if item.name.startswith("."):
                 continue
             databases.append(item.name)
 
@@ -137,16 +144,19 @@ def cmd_get_status(args):
             connected = False
             error = str(e)
 
-    output_json(True, data={
-        "available": True,
-        "ladybugInstalled": True,
-        "databasePath": str(db_path),
-        "database": database,
-        "databaseExists": db_exists,
-        "connected": connected,
-        "databases": databases,
-        "error": error
-    })
+    output_json(
+        True,
+        data={
+            "available": True,
+            "ladybugInstalled": True,
+            "databasePath": str(db_path),
+            "database": database,
+            "databaseExists": db_exists,
+            "connected": connected,
+            "databases": databases,
+            "error": error,
+        },
+    )
 
 
 def cmd_get_memories(args):
@@ -183,7 +193,9 @@ def cmd_get_memories(args):
                 "name": row.get("name", ""),
                 "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
                 "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content") or row.get("description") or row.get("name", ""),
+                "content": row.get("content")
+                or row.get("description")
+                or row.get("name", ""),
                 "description": row.get("description", ""),
                 "group_id": row.get("group_id", ""),
             }
@@ -199,7 +211,9 @@ def cmd_get_memories(args):
 
     except Exception as e:
         # Table might not exist yet
-        if "Episodic" in str(e) and ("not exist" in str(e).lower() or "cannot" in str(e).lower()):
+        if "Episodic" in str(e) and (
+            "not exist" in str(e).lower() or "cannot" in str(e).lower()
+        ):
             output_json(True, data={"memories": [], "count": 0})
         else:
             output_error(f"Query failed: {e}")
@@ -243,7 +257,9 @@ def cmd_search(args):
                 "name": row.get("name", ""),
                 "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
                 "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content") or row.get("description") or row.get("name", ""),
+                "content": row.get("content")
+                or row.get("description")
+                or row.get("name", ""),
                 "description": row.get("description", ""),
                 "group_id": row.get("group_id", ""),
                 "score": 1.0,  # Keyword match score
@@ -255,10 +271,15 @@ def cmd_search(args):
 
             memories.append(memory)
 
-        output_json(True, data={"memories": memories, "count": len(memories), "query": args.query})
+        output_json(
+            True,
+            data={"memories": memories, "count": len(memories), "query": args.query},
+        )
 
     except Exception as e:
-        if "Episodic" in str(e) and ("not exist" in str(e).lower() or "cannot" in str(e).lower()):
+        if "Episodic" in str(e) and (
+            "not exist" in str(e).lower() or "cannot" in str(e).lower()
+        ):
             output_json(True, data={"memories": [], "count": 0, "query": args.query})
         else:
             output_error(f"Search failed: {e}")
@@ -319,7 +340,10 @@ async def _async_semantic_search(args):
 
         # Validate embedder configuration
         if not config._validate_embedder_provider():
-            return {"success": False, "error": "Embedder provider not properly configured"}
+            return {
+                "success": False,
+                "error": "Embedder provider not properly configured",
+            }
 
         # Initialize client
         client = GraphitiClient(config)
@@ -343,33 +367,36 @@ async def _async_semantic_search(args):
             memories = []
             for result in search_results:
                 # Handle both edge and episode results
-                if hasattr(result, 'fact'):
+                if hasattr(result, "fact"):
                     # Edge result (relationship)
                     memory = {
-                        "id": getattr(result, 'uuid', 'unknown'),
+                        "id": getattr(result, "uuid", "unknown"),
                         "name": result.fact[:100] if result.fact else "",
                         "type": "session_insight",
-                        "timestamp": getattr(result, 'created_at', datetime.now().isoformat()),
+                        "timestamp": getattr(
+                            result, "created_at", datetime.now().isoformat()
+                        ),
                         "content": result.fact or "",
-                        "score": getattr(result, 'score', 1.0),
+                        "score": getattr(result, "score", 1.0),
                     }
-                elif hasattr(result, 'content'):
+                elif hasattr(result, "content"):
                     # Episode result
                     memory = {
-                        "id": getattr(result, 'uuid', 'unknown'),
-                        "name": getattr(result, 'name', '')[:100],
+                        "id": getattr(result, "uuid", "unknown"),
+                        "name": getattr(result, "name", "")[:100],
                         "type": infer_episode_type(
-                            getattr(result, 'name', ''),
-                            getattr(result, 'content', '')
+                            getattr(result, "name", ""), getattr(result, "content", "")
                         ),
-                        "timestamp": getattr(result, 'created_at', datetime.now().isoformat()),
+                        "timestamp": getattr(
+                            result, "created_at", datetime.now().isoformat()
+                        ),
                         "content": result.content or "",
-                        "score": getattr(result, 'score', 1.0),
+                        "score": getattr(result, "score", 1.0),
                     }
                 else:
                     # Generic result
                     memory = {
-                        "id": str(getattr(result, 'uuid', 'unknown')),
+                        "id": str(getattr(result, "uuid", "unknown")),
                         "name": str(result)[:100],
                         "type": "session_insight",
                         "timestamp": datetime.now().isoformat(),
@@ -391,7 +418,7 @@ async def _async_semantic_search(args):
                     "query": search_query,
                     "search_type": "semantic",
                     "embedder": config.embedder_provider,
-                }
+                },
             }
 
         finally:
@@ -446,7 +473,9 @@ def cmd_get_entities(args):
         output_json(True, data={"entities": entities, "count": len(entities)})
 
     except Exception as e:
-        if "Entity" in str(e) and ("not exist" in str(e).lower() or "cannot" in str(e).lower()):
+        if "Entity" in str(e) and (
+            "not exist" in str(e).lower() or "cannot" in str(e).lower()
+        ):
             output_json(True, data={"entities": [], "count": 0})
         else:
             output_error(f"Query failed: {e}")
@@ -488,6 +517,7 @@ def infer_entity_type(name: str) -> str:
 def extract_session_number(name: str) -> int | None:
     """Extract session number from episode name."""
     import re
+
     match = re.search(r"session[_-]?(\d+)", name or "", re.IGNORECASE)
     if match:
         try:
@@ -509,10 +539,14 @@ def main():
     status_parser.add_argument("database", help="Database name")
 
     # get-memories command
-    memories_parser = subparsers.add_parser("get-memories", help="Get episodic memories")
+    memories_parser = subparsers.add_parser(
+        "get-memories", help="Get episodic memories"
+    )
     memories_parser.add_argument("db_path", help="Path to database directory")
     memories_parser.add_argument("database", help="Database name")
-    memories_parser.add_argument("--limit", type=int, default=20, help="Maximum results")
+    memories_parser.add_argument(
+        "--limit", type=int, default=20, help="Maximum results"
+    )
 
     # search command
     search_parser = subparsers.add_parser("search", help="Search memories")
@@ -524,18 +558,22 @@ def main():
     # semantic-search command
     semantic_parser = subparsers.add_parser(
         "semantic-search",
-        help="Semantic vector search (falls back to keyword if embedder not configured)"
+        help="Semantic vector search (falls back to keyword if embedder not configured)",
     )
     semantic_parser.add_argument("db_path", help="Path to database directory")
     semantic_parser.add_argument("database", help="Database name")
     semantic_parser.add_argument("query", help="Search query")
-    semantic_parser.add_argument("--limit", type=int, default=20, help="Maximum results")
+    semantic_parser.add_argument(
+        "--limit", type=int, default=20, help="Maximum results"
+    )
 
     # get-entities command
     entities_parser = subparsers.add_parser("get-entities", help="Get entity memories")
     entities_parser.add_argument("db_path", help="Path to database directory")
     entities_parser.add_argument("database", help="Database name")
-    entities_parser.add_argument("--limit", type=int, default=20, help="Maximum results")
+    entities_parser.add_argument(
+        "--limit", type=int, default=20, help="Maximum results"
+    )
 
     args = parser.parse_args()
 
