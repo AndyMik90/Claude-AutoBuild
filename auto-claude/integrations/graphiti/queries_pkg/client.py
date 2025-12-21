@@ -1,10 +1,12 @@
 """
-FalkorDB client wrapper for Graphiti memory.
+Graph database client wrapper for Graphiti memory.
 
 Handles database connection, initialization, and lifecycle management.
+Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
 """
 
 import logging
+import sys
 from datetime import datetime, timezone
 
 from graphiti_config import GraphitiConfig, GraphitiState
@@ -12,11 +14,37 @@ from graphiti_config import GraphitiConfig, GraphitiState
 logger = logging.getLogger(__name__)
 
 
+def _apply_ladybug_monkeypatch() -> bool:
+    """
+    Apply monkeypatch to use LadybugDB as Kuzu replacement.
+
+    LadybugDB is a fork of Kuzu that provides an embedded graph database.
+    Since graphiti-core has a KuzuDriver, we can use LadybugDB by making
+    the 'kuzu' import point to 'real_ladybug'.
+
+    Returns:
+        True if monkeypatch was applied successfully
+    """
+    try:
+        import real_ladybug
+
+        sys.modules["kuzu"] = real_ladybug
+        logger.info("Applied LadybugDB monkeypatch (kuzu -> real_ladybug)")
+        return True
+    except ImportError:
+        logger.warning(
+            "LadybugDB not installed. Install with: pip install real_ladybug "
+            "(requires Python 3.12+)"
+        )
+        return False
+
+
 class GraphitiClient:
     """
     Manages the Graphiti client lifecycle and database connection.
 
     Handles lazy initialization, provider setup, and connection management.
+    Uses LadybugDB as the embedded graph database.
     """
 
     def __init__(self, config: GraphitiConfig):
@@ -59,7 +87,6 @@ class GraphitiClient:
         try:
             # Import Graphiti core
             from graphiti_core import Graphiti
-            from graphiti_core.driver.falkordb_driver import FalkorDriver
 
             # Import our provider factory
             from graphiti_providers import (
@@ -94,13 +121,23 @@ class GraphitiClient:
                 logger.warning(f"Embedder provider configuration error: {e}")
                 return False
 
-            # Initialize FalkorDB driver
-            self._driver = FalkorDriver(
-                host=self.config.falkordb_host,
-                port=self.config.falkordb_port,
-                password=self.config.falkordb_password or None,
-                database=self.config.database,
-            )
+            # Apply LadybugDB monkeypatch to use it via graphiti's KuzuDriver
+            if not _apply_ladybug_monkeypatch():
+                logger.error(
+                    "LadybugDB is required for Graphiti memory. "
+                    "Install with: pip install real_ladybug (requires Python 3.12+)"
+                )
+                return False
+
+            try:
+                from graphiti_core.driver.kuzu_driver import KuzuDriver
+
+                db_path = self.config.get_db_path()
+                self._driver = KuzuDriver(db=str(db_path))
+                logger.info(f"Initialized LadybugDB driver at: {db_path}")
+            except ImportError as e:
+                logger.warning(f"KuzuDriver not available: {e}")
+                return False
 
             # Initialize Graphiti with the custom providers
             self._graphiti = Graphiti(
@@ -132,7 +169,7 @@ class GraphitiClient:
         except ImportError as e:
             logger.warning(
                 f"Graphiti packages not installed: {e}. "
-                "Install with: pip install graphiti-core[falkordb]"
+                "Install with: pip install real_ladybug graphiti-core"
             )
             return False
 

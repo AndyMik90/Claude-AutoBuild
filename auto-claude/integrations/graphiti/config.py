@@ -5,19 +5,25 @@ Graphiti Integration Configuration
 Constants, status mappings, and configuration helpers for Graphiti memory integration.
 Follows the same patterns as linear_config.py for consistency.
 
+Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
+
 Multi-Provider Support (V2):
-- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama
-- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama
+- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI
+- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
 
 Environment Variables:
     # Core
     GRAPHITI_ENABLED: Set to "true" to enable Graphiti integration
-    GRAPHITI_LLM_PROVIDER: openai|anthropic|azure_openai|ollama (default: openai)
-    GRAPHITI_EMBEDDER_PROVIDER: openai|voyage|azure_openai|ollama (default: openai)
+    GRAPHITI_LLM_PROVIDER: openai|anthropic|azure_openai|ollama|google (default: openai)
+    GRAPHITI_EMBEDDER_PROVIDER: openai|voyage|azure_openai|ollama|google (default: openai)
+
+    # Database
+    GRAPHITI_DATABASE: Graph database name (default: auto_claude_memory)
+    GRAPHITI_DB_PATH: Database storage path (default: ~/.auto-claude/graphs)
 
     # OpenAI
     OPENAI_API_KEY: Required for OpenAI provider
-    OPENAI_MODEL: Model for LLM (default: gpt-5-mini)
+    OPENAI_MODEL: Model for LLM (default: gpt-4o-mini)
     OPENAI_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-3-small)
 
     # Anthropic (LLM only - needs separate embedder)
@@ -34,18 +40,16 @@ Environment Variables:
     VOYAGE_API_KEY: Required for Voyage embedder
     VOYAGE_EMBEDDING_MODEL: Model (default: voyage-3)
 
+    # Google AI
+    GOOGLE_API_KEY: Required for Google provider
+    GOOGLE_LLM_MODEL: Model for LLM (default: gemini-2.0-flash)
+    GOOGLE_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-004)
+
     # Ollama (local)
     OLLAMA_BASE_URL: Ollama server URL (default: http://localhost:11434)
     OLLAMA_LLM_MODEL: Model for LLM (e.g., deepseek-r1:7b)
     OLLAMA_EMBEDDING_MODEL: Model for embeddings (e.g., nomic-embed-text)
     OLLAMA_EMBEDDING_DIM: Embedding dimension (required for Ollama, e.g., 768)
-
-    # FalkorDB
-    GRAPHITI_FALKORDB_HOST: FalkorDB host (default: localhost)
-    GRAPHITI_FALKORDB_PORT: FalkorDB port (default: 6380)
-    GRAPHITI_FALKORDB_PASSWORD: FalkorDB password (default: empty)
-    GRAPHITI_DATABASE: Graph database name (default: auto_claude_memory)
-    GRAPHITI_TELEMETRY_ENABLED: Set to "false" to disable telemetry (default: true)
 """
 
 import json
@@ -57,9 +61,8 @@ from pathlib import Path
 from typing import Optional
 
 # Default configuration values
-DEFAULT_FALKORDB_HOST = "localhost"
-DEFAULT_FALKORDB_PORT = 6380
 DEFAULT_DATABASE = "auto_claude_memory"
+DEFAULT_DB_PATH = "~/.auto-claude/graphs"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 # Graphiti state marker file (stores connection info and status)
@@ -97,19 +100,19 @@ class EmbedderProvider(str, Enum):
 
 @dataclass
 class GraphitiConfig:
-    """Configuration for Graphiti memory integration with multi-provider support."""
+    """Configuration for Graphiti memory integration with multi-provider support.
+
+    Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
+    """
 
     # Core settings
     enabled: bool = False
     llm_provider: str = "openai"
     embedder_provider: str = "openai"
 
-    # FalkorDB connection
-    falkordb_host: str = DEFAULT_FALKORDB_HOST
-    falkordb_port: int = DEFAULT_FALKORDB_PORT
-    falkordb_password: str = ""
+    # Database settings (LadybugDB - embedded, no Docker required)
     database: str = DEFAULT_DATABASE
-    telemetry_enabled: bool = True
+    db_path: str = DEFAULT_DB_PATH
 
     # OpenAI settings
     openai_api_key: str = ""
@@ -154,22 +157,9 @@ class GraphitiConfig:
             "GRAPHITI_EMBEDDER_PROVIDER", "openai"
         ).lower()
 
-        # FalkorDB connection settings
-        falkordb_host = os.environ.get("GRAPHITI_FALKORDB_HOST", DEFAULT_FALKORDB_HOST)
-
-        try:
-            falkordb_port = int(
-                os.environ.get("GRAPHITI_FALKORDB_PORT", str(DEFAULT_FALKORDB_PORT))
-            )
-        except ValueError:
-            falkordb_port = DEFAULT_FALKORDB_PORT
-
-        falkordb_password = os.environ.get("GRAPHITI_FALKORDB_PASSWORD", "")
+        # Database settings (LadybugDB - embedded)
         database = os.environ.get("GRAPHITI_DATABASE", DEFAULT_DATABASE)
-
-        # Telemetry setting
-        telemetry_str = os.environ.get("GRAPHITI_TELEMETRY_ENABLED", "true").lower()
-        telemetry_enabled = telemetry_str not in ("false", "0", "no")
+        db_path = os.environ.get("GRAPHITI_DB_PATH", DEFAULT_DB_PATH)
 
         # OpenAI settings
         openai_api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -218,11 +208,8 @@ class GraphitiConfig:
             enabled=enabled,
             llm_provider=llm_provider,
             embedder_provider=embedder_provider,
-            falkordb_host=falkordb_host,
-            falkordb_port=falkordb_port,
-            falkordb_password=falkordb_password,
             database=database,
-            telemetry_enabled=telemetry_enabled,
+            db_path=db_path,
             openai_api_key=openai_api_key,
             openai_model=openai_model,
             openai_embedding_model=openai_embedding_model,
@@ -371,11 +358,17 @@ class GraphitiConfig:
 
         return errors
 
-    def get_connection_uri(self) -> str:
-        """Get the FalkorDB connection URI."""
-        if self.falkordb_password:
-            return f"redis://:{self.falkordb_password}@{self.falkordb_host}:{self.falkordb_port}"
-        return f"redis://{self.falkordb_host}:{self.falkordb_port}"
+    def get_db_path(self) -> Path:
+        """
+        Get the resolved database path.
+
+        Expands ~ to home directory and appends the database name.
+        Creates the directory if it doesn't exist.
+        """
+        base_path = Path(self.db_path).expanduser()
+        full_path = base_path / self.database
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        return full_path
 
     def get_provider_summary(self) -> str:
         """Get a summary of configured providers."""
@@ -475,9 +468,8 @@ def get_graphiti_status() -> dict:
         Dict with status information:
             - enabled: bool
             - available: bool (has required dependencies)
-            - host: str
-            - port: int
             - database: str
+            - db_path: str
             - llm_provider: str
             - embedder_provider: str
             - reason: str (why unavailable if not available)
@@ -488,9 +480,8 @@ def get_graphiti_status() -> dict:
     status = {
         "enabled": config.enabled,
         "available": False,
-        "host": config.falkordb_host,
-        "port": config.falkordb_port,
         "database": config.database,
+        "db_path": config.db_path,
         "llm_provider": config.llm_provider,
         "embedder_provider": config.embedder_provider,
         "reason": "",
