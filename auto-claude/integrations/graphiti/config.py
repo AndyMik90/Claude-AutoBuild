@@ -5,7 +5,7 @@ Graphiti Integration Configuration
 Constants, status mappings, and configuration helpers for Graphiti memory integration.
 Follows the same patterns as linear_config.py for consistency.
 
-Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
+Uses LadybugDB as the embedded graph database (no Docker required, requires Python 3.12+).
 
 Multi-Provider Support (V2):
 - LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI
@@ -105,7 +105,7 @@ class EmbedderProvider(str, Enum):
 class GraphitiConfig:
     """Configuration for Graphiti memory integration with multi-provider support.
 
-    Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
+    Uses LadybugDB as the embedded graph database (no Docker required, requires Python 3.12+).
     """
 
     # Core settings
@@ -331,6 +331,86 @@ class GraphitiConfig:
         """Get a summary of configured providers."""
         return f"LLM: {self.llm_provider}, Embedder: {self.embedder_provider}"
 
+    def get_embedding_dimension(self) -> int:
+        """
+        Get the embedding dimension for the current embedder provider.
+
+        Returns:
+            Embedding dimension (e.g., 768, 1024, 1536)
+        """
+        if self.embedder_provider == "ollama":
+            if self.ollama_embedding_dim > 0:
+                return self.ollama_embedding_dim
+            # Auto-detect for known models
+            model = self.ollama_embedding_model.lower()
+            if "embeddinggemma" in model or "nomic-embed-text" in model:
+                return 768
+            elif "mxbai" in model or "bge-large" in model:
+                return 1024
+            elif "qwen3" in model:
+                if "0.6b" in model:
+                    return 1024
+                elif "4b" in model:
+                    return 2560
+                elif "8b" in model:
+                    return 4096
+            return 768  # Default fallback
+        elif self.embedder_provider == "openai":
+            # OpenAI text-embedding-3-small default is 1536
+            return 1536
+        elif self.embedder_provider == "voyage":
+            # Voyage-3 uses 1024 dimensions
+            return 1024
+        elif self.embedder_provider == "google":
+            # Google text-embedding-004 uses 768 dimensions
+            return 768
+        elif self.embedder_provider == "azure_openai":
+            # Depends on the deployment, default to 1536
+            return 1536
+        return 768  # Safe default
+
+    def get_provider_signature(self) -> str:
+        """
+        Get a unique signature for the current embedding provider configuration.
+
+        Used to generate provider-specific database names to prevent mixing
+        incompatible embeddings.
+
+        Returns:
+            Provider signature string (e.g., "openai_1536", "ollama_768")
+        """
+        provider = self.embedder_provider
+        dim = self.get_embedding_dimension()
+
+        if provider == "ollama":
+            # Include model name for Ollama
+            model = self.ollama_embedding_model.replace(":", "_").replace(".", "_")
+            return f"ollama_{model}_{dim}"
+        else:
+            return f"{provider}_{dim}"
+
+    def get_provider_specific_database_name(self, base_name: str = None) -> str:
+        """
+        Get a provider-specific database name to prevent embedding dimension mismatches.
+
+        Args:
+            base_name: Base database name (default: from config)
+
+        Returns:
+            Database name with provider signature (e.g., "auto_claude_memory_ollama_768")
+        """
+        if base_name is None:
+            base_name = self.database
+
+        # Remove existing provider suffix if present
+        for provider in ["openai", "ollama", "voyage", "google", "azure_openai"]:
+            if f"_{provider}_" in base_name:
+                base_name = base_name.split(f"_{provider}_")[0]
+                break
+
+        signature = self.get_provider_signature()
+        return f"{base_name}_{signature}"
+
 
 @dataclass
 class GraphitiState:
@@ -403,6 +483,43 @@ class GraphitiState:
         )
         # Keep only last 10 errors
         self.error_log = self.error_log[-10:]
+
+    def has_provider_changed(self, config: GraphitiConfig) -> bool:
+        """
+        Check if the embedding provider has changed since initialization.
+
+        Args:
+            config: Current GraphitiConfig
+
+        Returns:
+            True if provider has changed (requiring migration)
+        """
+        if not self.initialized or not self.embedder_provider:
+            return False
+
+        return self.embedder_provider != config.embedder_provider
+
+    def get_migration_info(self, config: GraphitiConfig) -> dict:
+        """
+        Get information about provider migration needs.
+
+        Args:
+            config: Current GraphitiConfig
+
+        Returns:
+            Dict with migration details or None if no migration needed
+        """
+        if not self.has_provider_changed(config):
+            return None
+
+        return {
+            "old_provider": self.embedder_provider,
+            "new_provider": config.embedder_provider,
+            "old_database": self.database,
+            "new_database": config.get_provider_specific_database_name(),
+            "episode_count": self.episode_count,
+            "requires_migration": True,
+        }
 
 
 def is_graphiti_enabled() -> bool:

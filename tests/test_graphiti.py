@@ -221,7 +221,9 @@ class TestMultiProviderConfig:
         }, clear=True):
             config = GraphitiConfig.from_env()
             # Embedder is valid with just model (dimension auto-detected)
-            assert config._validate_embedder_provider() is True
+            # Use public API: no embedder-related validation errors means valid
+            embedder_errors = [e for e in config.get_validation_errors() if "embedder" in e.lower() or "ollama" in e.lower()]
+            assert len(embedder_errors) == 0
             assert config.is_valid() is True
 
     def test_provider_summary(self):
