@@ -525,9 +525,8 @@ export function App() {
                 onNewProject={handleAddProject}
                 onOpenProject={handleAddProject}
                 onSelectProject={(projectId) => {
-                useProjectStore.getState().selectProject(projectId);
-                openProjectTab(projectId);
-              }}
+                  openProjectTab(projectId);
+                }}
               />
             )}
           </main>
