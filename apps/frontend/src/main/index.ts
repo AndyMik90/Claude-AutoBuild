@@ -12,6 +12,7 @@ import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { initializeLogForwarding } from './log-forwarder';
+import { getPluginManager } from './plugin/PluginManager';
 import type { AppSettings } from '../shared/types';
 
 /**
@@ -156,6 +157,15 @@ app.whenReady().then(() => {
 
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
+
+  // Initialize plugin manager (non-blocking, runs in background)
+  const pluginManager = getPluginManager();
+  pluginManager.initialize().then(() => {
+    console.warn('[main] Plugin manager initialized');
+  }).catch((error) => {
+    // Plugin manager initialization is non-critical; log error but continue
+    console.error('[main] Plugin manager initialization failed:', error);
+  });
 
   // Create window
   createWindow();
