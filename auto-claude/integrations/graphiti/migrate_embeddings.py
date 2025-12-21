@@ -27,17 +27,15 @@ Usage:
 
 import argparse
 import asyncio
-import json
 import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from integrations.graphiti.config import GraphitiConfig, GraphitiState
+from integrations.graphiti.config import GraphitiConfig
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

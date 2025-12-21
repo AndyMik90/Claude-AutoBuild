@@ -140,13 +140,13 @@ class GraphitiMemory:
                 f"⚠️  Embedding provider changed: {migration_info['old_provider']} → {migration_info['new_provider']}"
             )
             logger.warning(
-                f"   This requires migration to prevent dimension mismatch errors."
+                "   This requires migration to prevent dimension mismatch errors."
             )
             logger.warning(
                 f"   Episodes in old database: {migration_info['episode_count']}"
             )
             logger.warning(
-                f"   Run: python integrations/graphiti/migrate_embeddings.py"
+                "   Run: python integrations/graphiti/migrate_embeddings.py"
             )
             logger.warning(
                 f"   Or start fresh by removing: {self.spec_dir / '.graphiti_state.json'}"
