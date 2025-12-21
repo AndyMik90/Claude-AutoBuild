@@ -118,6 +118,8 @@ export interface AppSettings {
   language?: SupportedLanguage;
   // Developer/Debug settings
   enableBackendLogging?: boolean;  // Show backend logs in DevTools console (default: false)
+  // Plugin context injection preference
+  enablePluginContextInjection?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
