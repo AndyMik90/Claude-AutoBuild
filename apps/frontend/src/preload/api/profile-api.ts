@@ -1,0 +1,55 @@
+import { ipcRenderer } from 'electron';
+import { IPC_CHANNELS } from '../../shared/constants';
+import type { IPCResult } from '../../shared/types';
+import type {
+  APIProfile,
+  ProfileFormData,
+  ProfilesFile
+} from '../../shared/types/profile';
+
+export interface ProfileAPI {
+  // Get all profiles
+  getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
+
+  // Save/create a profile
+  saveAPIProfile: (
+    profile: ProfileFormData
+  ) => Promise<IPCResult<APIProfile>>;
+
+  // Update an existing profile
+  updateAPIProfile: (
+    profile: APIProfile
+  ) => Promise<IPCResult<APIProfile>>;
+
+  // Delete a profile
+  deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
+
+  // Set active profile
+  setActiveAPIProfile: (profileId: string) => Promise<IPCResult>;
+}
+
+export const createProfileAPI = (): ProfileAPI => ({
+  // Get all profiles
+  getAPIProfiles: (): Promise<IPCResult<ProfilesFile>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_GET),
+
+  // Save/create a profile
+  saveAPIProfile: (
+    profile: ProfileFormData
+  ): Promise<IPCResult<APIProfile>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_SAVE, profile),
+
+  // Update an existing profile
+  updateAPIProfile: (
+    profile: APIProfile
+  ): Promise<IPCResult<APIProfile>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_UPDATE, profile),
+
+  // Delete a profile
+  deleteAPIProfile: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_DELETE, profileId),
+
+  // Set active profile
+  setActiveAPIProfile: (profileId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_SET_ACTIVE, profileId)
+});

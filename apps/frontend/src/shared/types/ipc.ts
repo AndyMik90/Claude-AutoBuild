@@ -107,6 +107,7 @@ import type {
   GitHubInvestigationResult,
   GitHubInvestigationStatus
 } from './integrations';
+import type { APIProfile, ProfilesFile } from './profile';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -237,6 +238,13 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
+  saveAPIProfile: (profile: Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<APIProfile>>;
+  updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
+  deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
+  setActiveAPIProfile: (profileId: string) => Promise<IPCResult>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;

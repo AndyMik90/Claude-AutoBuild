@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
+import type { APIProfile, ProfileFormData } from '../../shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 
 interface SettingsState {
@@ -7,17 +8,38 @@ interface SettingsState {
   isLoading: boolean;
   error: string | null;
 
+  // API Profile state
+  profiles: APIProfile[];
+  activeProfileId: string | null;
+  profilesLoading: boolean;
+  profilesError: string | null;
+
   // Actions
   setSettings: (settings: AppSettings) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+
+  // Profile actions
+  setProfiles: (profiles: APIProfile[], activeProfileId: string | null) => void;
+  setProfilesLoading: (loading: boolean) => void;
+  setProfilesError: (error: string | null) => void;
+  saveProfile: (profile: ProfileFormData) => Promise<boolean>;
+  updateProfile: (profile: APIProfile) => Promise<boolean>;
+  deleteProfile: (profileId: string) => Promise<boolean>;
+  setActiveProfile: (profileId: string) => Promise<boolean>;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: DEFAULT_APP_SETTINGS as AppSettings,
   isLoading: true,  // Start as true since we load settings on app init
   error: null,
+
+  // API Profile state
+  profiles: [],
+  activeProfileId: null,
+  profilesLoading: false,
+  profilesError: null,
 
   setSettings: (settings) => set({ settings }),
 
@@ -28,7 +50,115 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  setError: (error) => set({ error })
+  setError: (error) => set({ error }),
+
+  // Profile actions
+  setProfiles: (profiles, activeProfileId) => set({ profiles, activeProfileId }),
+
+  setProfilesLoading: (profilesLoading) => set({ profilesLoading }),
+
+  setProfilesError: (profilesError) => set({ profilesError }),
+
+  saveProfile: async (profile: ProfileFormData): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.saveAPIProfile(profile);
+      if (result.success && result.data) {
+        set((state) => ({
+          profiles: [...state.profiles, result.data!],
+          activeProfileId: result.data!.id,
+          profilesLoading: false
+        }));
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to save profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to save profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  updateProfile: async (profile: APIProfile): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.updateAPIProfile(profile);
+      if (result.success && result.data) {
+        set((state) => ({
+          profiles: state.profiles.map((p) =>
+            p.id === result.data!.id ? result.data! : p
+          ),
+          profilesLoading: false
+        }));
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to update profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to update profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  deleteProfile: async (profileId: string): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.deleteAPIProfile(profileId);
+      if (result.success) {
+        set((state) => ({
+          profiles: state.profiles.filter((p) => p.id !== profileId),
+          activeProfileId: state.activeProfileId === profileId ? null : state.activeProfileId,
+          profilesLoading: false
+        }));
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to delete profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to delete profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  setActiveProfile: async (profileId: string): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.setActiveAPIProfile(profileId);
+      if (result.success) {
+        set({ activeProfileId: profileId, profilesLoading: false });
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to set active profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to set active profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  }
 }));
 
 /**
@@ -102,5 +232,24 @@ export async function saveSettings(updates: Partial<AppSettings>): Promise<boole
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Load API profiles from main process
+ */
+export async function loadProfiles(): Promise<void> {
+  const store = useSettingsStore.getState();
+  store.setProfilesLoading(true);
+
+  try {
+    const result = await window.electronAPI.getAPIProfiles();
+    if (result.success && result.data) {
+      store.setProfiles(result.data.profiles, result.data.activeProfileId);
+    }
+  } catch (error) {
+    store.setProfilesError(error instanceof Error ? error.message : 'Failed to load profiles');
+  } finally {
+    store.setProfilesLoading(false);
   }
 }

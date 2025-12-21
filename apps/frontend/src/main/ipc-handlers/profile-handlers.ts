@@ -1,0 +1,178 @@
+/**
+ * Profile IPC Handlers
+ *
+ * IPC handlers for API profile management:
+ * - profiles:get - Get all profiles
+ * - profiles:save - Save/create a profile
+ * - profiles:delete - Delete a profile
+ * - profiles:setActive - Set active profile
+ */
+
+import { ipcMain } from 'electron';
+import { IPC_CHANNELS } from '../../shared/constants';
+import type { IPCResult } from '../../shared/types';
+import type { APIProfile, ProfileFormData, ProfilesFile } from '../../shared/types/profile';
+import {
+  loadProfilesFile,
+  saveProfilesFile,
+  generateProfileId,
+  validateFilePermissions,
+  getProfilesFilePath
+} from '../utils/profile-manager';
+import { createProfile, updateProfile } from '../services/profile-service';
+
+/**
+ * Register all profile-related IPC handlers
+ */
+export function registerProfileHandlers(): void {
+  /**
+   * Get all profiles
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_GET,
+    async (): Promise<IPCResult<ProfilesFile>> => {
+      try {
+        const profiles = await loadProfilesFile();
+        return { success: true, data: profiles };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load profiles'
+        };
+      }
+    }
+  );
+
+  /**
+   * Save/create a profile
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_SAVE,
+    async (
+      _,
+      profileData: ProfileFormData
+    ): Promise<IPCResult<APIProfile>> => {
+      try {
+        // Use createProfile from service layer (handles validation)
+        const newProfile = await createProfile(profileData);
+
+        // Set file permissions to user-readable only
+        await validateFilePermissions(getProfilesFilePath());
+
+        return { success: true, data: newProfile };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save profile'
+        };
+      }
+    }
+  );
+
+  /**
+   * Update an existing profile
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_UPDATE,
+    async (_, profileData: APIProfile): Promise<IPCResult<APIProfile>> => {
+      try {
+        // Use updateProfile from service layer (handles validation)
+        const updatedProfile = await updateProfile({
+          id: profileData.id,
+          baseUrl: profileData.baseUrl,
+          apiKey: profileData.apiKey,
+          models: profileData.models
+        });
+
+        // Set file permissions to user-readable only
+        await validateFilePermissions(getProfilesFilePath());
+
+        return { success: true, data: updatedProfile };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update profile'
+        };
+      }
+    }
+  );
+
+  /**
+   * Delete a profile
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_DELETE,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const file = await loadProfilesFile();
+
+        // Check if profile exists
+        const profileIndex = file.profiles.findIndex((p) => p.id === profileId);
+        if (profileIndex === -1) {
+          return {
+            success: false,
+            error: 'Profile not found'
+          };
+        }
+
+        // Remove profile
+        file.profiles.splice(profileIndex, 1);
+
+        // Clear active profile if it was the deleted one
+        if (file.activeProfileId === profileId) {
+          file.activeProfileId = null;
+        }
+
+        // Save to disk
+        await saveProfilesFile(file);
+
+        // Set file permissions to user-readable only
+        await validateFilePermissions(getProfilesFilePath());
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete profile'
+        };
+      }
+    }
+  );
+
+  /**
+   * Set active profile
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_SET_ACTIVE,
+    async (_, profileId: string): Promise<IPCResult> => {
+      try {
+        const file = await loadProfilesFile();
+
+        // Check if profile exists
+        const profileExists = file.profiles.some((p) => p.id === profileId);
+        if (!profileExists) {
+          return {
+            success: false,
+            error: 'Profile not found'
+          };
+        }
+
+        // Set active profile
+        file.activeProfileId = profileId;
+
+        // Save to disk
+        await saveProfilesFile(file);
+
+        // Set file permissions to user-readable only
+        await validateFilePermissions(getProfilesFilePath());
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set active profile'
+        };
+      }
+    }
+  );
+}
