@@ -78,6 +78,38 @@ export type CreateProfileInput = Omit<APIProfile, 'id' | 'createdAt' | 'updatedA
 export type UpdateProfileInput = Pick<APIProfile, 'id'> & CreateProfileInput;
 
 /**
+ * Delete a profile with validation
+ * Throws errors for validation failures
+ */
+export async function deleteProfile(id: string): Promise<void> {
+  const file = await loadProfilesFile();
+
+  // Find the profile
+  const profileIndex = file.profiles.findIndex((p) => p.id === id);
+  if (profileIndex === -1) {
+    throw new Error('Profile not found');
+  }
+
+  const profile = file.profiles[profileIndex];
+
+  // Active Profile Check: Cannot delete active profile (AC3)
+  if (file.activeProfileId === id) {
+    throw new Error('Cannot delete active profile. Please switch to another profile or OAuth first.');
+  }
+
+  // Remove profile
+  file.profiles.splice(profileIndex, 1);
+
+  // Last Profile Fallback: If no profiles remain, set activeProfileId to null (AC4)
+  if (file.profiles.length === 0) {
+    file.activeProfileId = null;
+  }
+
+  // Save to disk
+  await saveProfilesFile(file);
+}
+
+/**
  * Create a new profile with validation
  * Throws errors for validation failures
  */

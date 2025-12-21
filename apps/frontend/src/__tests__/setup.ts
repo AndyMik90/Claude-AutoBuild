@@ -4,6 +4,7 @@
 import { vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync } from 'fs';
 import path from 'path';
+import '@testing-library/jest-dom/vitest';
 
 // Test data directory for isolated file operations
 export const TEST_DATA_DIR = '/tmp/auto-claude-ui-tests';

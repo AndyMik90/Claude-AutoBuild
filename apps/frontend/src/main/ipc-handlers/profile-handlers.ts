@@ -116,11 +116,19 @@ export function registerProfileHandlers(): void {
           };
         }
 
+        // Active Profile Check: Cannot delete active profile (AC3)
+        if (file.activeProfileId === profileId) {
+          return {
+            success: false,
+            error: 'Cannot delete active profile. Please switch to another profile or OAuth first.'
+          };
+        }
+
         // Remove profile
         file.profiles.splice(profileIndex, 1);
 
-        // Clear active profile if it was the deleted one
-        if (file.activeProfileId === profileId) {
+        // Last Profile Fallback: If no profiles remain, set activeProfileId to null (AC4)
+        if (file.profiles.length === 0) {
           file.activeProfileId = null;
         }
 
