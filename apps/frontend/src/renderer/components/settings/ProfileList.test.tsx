@@ -2,9 +2,35 @@
  * Component and utility tests for ProfileList
  * Tests utility functions and verifies component structure
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ProfileList } from './ProfileList';
 import { maskApiKey } from '../../lib/profile-utils';
+import { useSettingsStore } from '../../stores/settings-store';
 import type { APIProfile } from '@shared/types/profile';
+import { TooltipProvider } from '../ui/tooltip';
+
+// Wrapper for components that need TooltipProvider
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <TooltipProvider>{children}</TooltipProvider>;
+}
+
+// Custom render with wrapper
+function renderWithWrapper(ui: React.ReactElement) {
+  return render(ui, { wrapper: TestWrapper });
+}
+
+// Mock the settings store
+vi.mock('../../stores/settings-store', () => ({
+  useSettingsStore: vi.fn()
+}));
+
+// Mock the toast hook
+vi.mock('../../hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: vi.fn()
+  })
+}));
 
 // Test profile data
 const testProfiles: APIProfile[] = [
@@ -137,5 +163,110 @@ describe('ProfileList - Active Profile Logic', () => {
     const activeProfileId = null;
     const activeProfile = testProfiles.find(p => p.id === activeProfileId);
     expect(activeProfile).toBeUndefined();
+  });
+});
+
+// Test 1: Delete confirmation dialog shows profile name correctly
+describe('ProfileList - Delete Confirmation Dialog', () => {
+  let mockDeleteProfile: ReturnType<typeof vi.fn>;
+  let mockSetActiveProfile: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockDeleteProfile = vi.fn().mockResolvedValue(true);
+    mockSetActiveProfile = vi.fn().mockResolvedValue(true);
+
+    vi.mocked(useSettingsStore).mockReturnValue({
+      profiles: testProfiles,
+      activeProfileId: 'profile-1',
+      deleteProfile: mockDeleteProfile,
+      setActiveProfile: mockSetActiveProfile,
+      profilesLoading: false,
+      settings: {} as any,
+      isLoading: false,
+      error: null,
+      setSettings: vi.fn(),
+      updateSettings: vi.fn(),
+      setLoading: vi.fn(),
+      setError: vi.fn(),
+      setProfiles: vi.fn(),
+      setProfilesLoading: vi.fn(),
+      setProfilesError: vi.fn(),
+      saveProfile: vi.fn().mockResolvedValue(true),
+      updateProfile: vi.fn().mockResolvedValue(true),
+      profilesError: null
+    });
+  });
+
+  it('should show delete confirmation dialog with profile name', () => {
+    renderWithWrapper(<ProfileList />);
+
+    // Click delete button on first profile (find by destructive styling)
+    const deleteButtons = screen.getAllByRole('button').filter(
+      btn => btn.className.includes('text-destructive')
+    );
+    fireEvent.click(deleteButtons[0]);
+
+    // Check dialog appears with profile name
+    expect(screen.getByText(/Delete Profile\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete "Production API"\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cancel/i)).toBeInTheDocument();
+    // Use getAllByText since there are multiple "Delete" elements (title + button)
+    expect(screen.getAllByText(/Delete/i).length).toBeGreaterThan(0);
+  });
+
+  // Test 5: Cancel delete → dialog closes, profile remains in list
+  it('should close dialog when cancel is clicked', () => {
+    renderWithWrapper(<ProfileList />);
+
+    // Click delete button (find by destructive styling)
+    const deleteButtons = screen.getAllByRole('button').filter(
+      btn => btn.className.includes('text-destructive')
+    );
+    fireEvent.click(deleteButtons[0]);
+
+    // Click cancel
+    fireEvent.click(screen.getByText(/Cancel/i));
+
+    // Dialog should be closed
+    expect(screen.queryByText(/Delete Profile\?/i)).not.toBeInTheDocument();
+    // Profiles should still be visible
+    expect(screen.getByText('Production API')).toBeInTheDocument();
+    expect(mockDeleteProfile).not.toHaveBeenCalled();
+  });
+
+  // Test 6: Delete confirmation dialog has delete action button
+  it('should show delete action button in confirmation dialog', () => {
+    vi.mocked(useSettingsStore).mockReturnValue({
+      profiles: testProfiles,
+      activeProfileId: 'profile-2',
+      deleteProfile: mockDeleteProfile,
+      setActiveProfile: mockSetActiveProfile,
+      profilesLoading: false,
+      settings: {} as any,
+      isLoading: false,
+      error: null,
+      setSettings: vi.fn(),
+      updateSettings: vi.fn(),
+      setLoading: vi.fn(),
+      setError: vi.fn(),
+      setProfiles: vi.fn(),
+      setProfilesLoading: vi.fn(),
+      setProfilesError: vi.fn(),
+      saveProfile: vi.fn().mockResolvedValue(true),
+      updateProfile: vi.fn().mockResolvedValue(true),
+      profilesError: null
+    });
+
+    renderWithWrapper(<ProfileList />);
+
+    // Click delete button on inactive profile (find by destructive styling)
+    const deleteButtons = screen.getAllByRole('button').filter(
+      btn => btn.className.includes('text-destructive')
+    );
+    fireEvent.click(deleteButtons[0]);
+
+    // Dialog should have Delete elements (title "Delete Profile?" and "Delete" button)
+    const deleteElements = screen.getAllByText(/Delete/i);
+    expect(deleteElements.length).toBeGreaterThan(1); // At least title + button
   });
 });

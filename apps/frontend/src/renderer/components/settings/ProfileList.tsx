@@ -13,6 +13,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 import { ProfileEditDialog } from './ProfileEditDialog';
 import { maskApiKey } from '../../lib/profile-utils';
 import { cn } from '../../lib/utils';
+import { useToast } from '../../hooks/use-toast';
 import type { APIProfile } from '../../../shared/types/profile';
 import {
   AlertDialog,
@@ -35,8 +36,11 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
     profiles,
     activeProfileId,
     deleteProfile,
-    setActiveProfile
+    setActiveProfile,
+    profilesError
   } = useSettingsStore();
+
+  const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editProfile, setEditProfile] = useState<APIProfile | null>(null);
@@ -50,10 +54,23 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
     setIsDeleting(true);
     const success = await deleteProfile(deleteConfirmProfile.id);
     setIsDeleting(false);
-    setDeleteConfirmProfile(null);
 
-    if (success && onProfileSaved) {
-      onProfileSaved();
+    if (success) {
+      toast({
+        title: 'Profile deleted',
+        description: `"${deleteConfirmProfile.name}" has been removed.`,
+      });
+      setDeleteConfirmProfile(null);
+      if (onProfileSaved) {
+        onProfileSaved();
+      }
+    } else {
+      // Show error toast - handles both active profile error and other errors
+      toast({
+        variant: 'destructive',
+        title: 'Failed to delete profile',
+        description: profilesError || 'An error occurred while deleting the profile.',
+      });
     }
   };
 
