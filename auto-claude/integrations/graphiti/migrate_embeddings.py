@@ -72,15 +72,29 @@ class EmbeddingMigrator:
 
         logger.info("Initializing source client...")
         self.source_client = GraphitiClient(self.source_config)
-        if not await self.source_client.initialize():
-            logger.error("Failed to initialize source client")
+        try:
+            if not await self.source_client.initialize():
+                logger.error("Failed to initialize source client")
+                return False
+        except Exception as e:
+            logger.error(f"Exception initializing source client: {e}")
             return False
 
         if not self.dry_run:
             logger.info("Initializing target client...")
             self.target_client = GraphitiClient(self.target_config)
-            if not await self.target_client.initialize():
-                logger.error("Failed to initialize target client")
+            try:
+                if not await self.target_client.initialize():
+                    logger.error("Failed to initialize target client")
+                    # Clean up source client on partial failure
+                    await self.source_client.close()
+                    self.source_client = None
+                    return False
+            except Exception as e:
+                logger.error(f"Exception initializing target client: {e}")
+                # Clean up source client on partial failure
+                await self.source_client.close()
+                self.source_client = None
                 return False
 
         return True
@@ -170,7 +184,9 @@ class EmbeddingMigrator:
                 name=episode["name"],
                 episode_body=episode["content"] or "",
                 source=episode_type,
-                source_description=episode.get("source_description", "Migrated episode"),
+                source_description=episode.get(
+                    "source_description", "Migrated episode"
+                ),
                 reference_time=valid_at,
                 group_id=episode.get("group_id", "default"),
             )
@@ -253,17 +269,29 @@ async def interactive_migration():
 
     source_provider = source_map[source_choice]
 
-    # Create source config
+    # Validate that source and target are different
+    if source_provider == current_config.embedder_provider:
+        print(f"\nError: Source and target providers are the same ({source_provider}).")
+        print("Migration requires different providers. Exiting.")
+        return
+
+    # Create source config with correct provider-specific database name
     source_config = GraphitiConfig.from_env()
     source_config.embedder_provider = source_provider
-    source_config.database = current_config.get_provider_specific_database_name(
+    # Use the source provider's signature for the database name
+    source_config.database = source_config.get_provider_specific_database_name(
         "auto_claude_memory"
-    ).replace(current_config.get_provider_signature(), "")
+    )
 
     print(f"\nSource: {source_provider}")
     print(f"Target: {current_config.embedder_provider}")
-    print(f"\nThis will migrate all episodes from {source_provider} to {current_config.embedder_provider}")
-    print("Re-embedding may take several minutes depending on the number of episodes.\n")
+    print(
+        f"\nThis will migrate all episodes from {source_provider} "
+        f"to {current_config.embedder_provider}"
+    )
+    print(
+        "Re-embedding may take several minutes depending on the number of episodes.\n"
+    )
 
     confirm = input("Continue? (yes/no): ").strip().lower()
     if confirm != "yes":
@@ -302,14 +330,31 @@ async def automatic_migration(args):
     if args.from_provider:
         source_config = GraphitiConfig.from_env()
         source_config.embedder_provider = args.from_provider
+        # Use source provider's signature for database name
+        source_config.database = source_config.get_provider_specific_database_name(
+            "auto_claude_memory"
+        )
     else:
         source_config = current_config
 
     if args.to_provider:
         target_config = GraphitiConfig.from_env()
         target_config.embedder_provider = args.to_provider
+        # Use target provider's signature for database name
+        target_config.database = target_config.get_provider_specific_database_name(
+            "auto_claude_memory"
+        )
     else:
         target_config = current_config
+
+    # Validate that source and target are different
+    if source_config.embedder_provider == target_config.embedder_provider:
+        logger.error(
+            f"Source and target providers are the same "
+            f"({source_config.embedder_provider}). "
+            f"Specify different --from-provider and --to-provider values."
+        )
+        return
 
     migrator = EmbeddingMigrator(
         source_config=source_config,
