@@ -1,14 +1,22 @@
 import { create } from 'zustand';
 import type { Project, ProjectSettings, AutoBuildVersionInfo, InitializationResult } from '../../shared/types';
 
-// localStorage key for persisting the last selected project
+// localStorage keys for persisting project state
 const LAST_SELECTED_PROJECT_KEY = 'lastSelectedProjectId';
+const OPEN_PROJECTS_KEY = 'openProjectIds';
+const TAB_ORDER_KEY = 'projectTabOrder';
+const ACTIVE_PROJECT_KEY = 'activeProjectId';
 
 interface ProjectState {
   projects: Project[];
   selectedProjectId: string | null;
   isLoading: boolean;
   error: string | null;
+
+  // Tab state
+  openProjectIds: string[]; // Array of open project IDs
+  activeProjectId: string | null; // Currently active tab
+  tabOrder: string[]; // Order of tabs for drag and drop
 
   // Actions
   setProjects: (projects: Project[]) => void;
@@ -19,8 +27,18 @@ interface ProjectState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
+  // Tab management actions
+  openProjectTab: (projectId: string) => void;
+  closeProjectTab: (projectId: string) => void;
+  setActiveProject: (projectId: string | null) => void;
+  reorderTabs: (fromIndex: number, toIndex: number) => void;
+  restoreTabState: () => void;
+
   // Selectors
   getSelectedProject: () => Project | undefined;
+  getOpenProjects: () => Project[];
+  getActiveProject: () => Project | undefined;
+  getProjectTabs: () => Project[];
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -28,6 +46,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectedProjectId: null,
   isLoading: false,
   error: null,
+
+  // Initialize tab state from localStorage
+  openProjectIds: JSON.parse(localStorage.getItem(OPEN_PROJECTS_KEY) || '[]'),
+  activeProjectId: localStorage.getItem(ACTIVE_PROJECT_KEY) || null,
+  tabOrder: JSON.parse(localStorage.getItem(TAB_ORDER_KEY) || '[]'),
 
   setProjects: (projects) => set({ projects }),
 
@@ -70,9 +93,110 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
+  // Tab management actions
+  openProjectTab: (projectId) => {
+    const state = get();
+    if (!state.openProjectIds.includes(projectId)) {
+      const newOpenProjectIds = [...state.openProjectIds, projectId];
+      const newTabOrder = state.tabOrder.includes(projectId)
+        ? state.tabOrder
+        : [...state.tabOrder, projectId];
+
+      localStorage.setItem(OPEN_PROJECTS_KEY, JSON.stringify(newOpenProjectIds));
+      localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(newTabOrder));
+
+      set({
+        openProjectIds: newOpenProjectIds,
+        tabOrder: newTabOrder,
+        activeProjectId: projectId
+      });
+      localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+    } else {
+      // Project already open, just make it active
+      get().setActiveProject(projectId);
+    }
+  },
+
+  closeProjectTab: (projectId) => {
+    const state = get();
+    const newOpenProjectIds = state.openProjectIds.filter(id => id !== projectId);
+    const newTabOrder = state.tabOrder.filter(id => id !== projectId);
+
+    localStorage.setItem(OPEN_PROJECTS_KEY, JSON.stringify(newOpenProjectIds));
+    localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(newTabOrder));
+
+    // If closing the active project, select another one or null
+    let newActiveProjectId = state.activeProjectId;
+    if (state.activeProjectId === projectId) {
+      const remainingTabs = newTabOrder.length > 0 ? newTabOrder : [];
+      newActiveProjectId = remainingTabs.length > 0 ? remainingTabs[0] : null;
+      localStorage.setItem(ACTIVE_PROJECT_KEY, newActiveProjectId || '');
+    }
+
+    set({
+      openProjectIds: newOpenProjectIds,
+      tabOrder: newTabOrder,
+      activeProjectId: newActiveProjectId
+    });
+  },
+
+  setActiveProject: (projectId) => {
+    localStorage.setItem(ACTIVE_PROJECT_KEY, projectId || '');
+    set({ activeProjectId: projectId });
+    // Also update selectedProjectId for backward compatibility
+    get().selectProject(projectId);
+  },
+
+  reorderTabs: (fromIndex, toIndex) => {
+    const state = get();
+    const newTabOrder = [...state.tabOrder];
+    const [movedTab] = newTabOrder.splice(fromIndex, 1);
+    newTabOrder.splice(toIndex, 0, movedTab);
+
+    localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(newTabOrder));
+    set({ tabOrder: newTabOrder });
+  },
+
+  restoreTabState: () => {
+    const openProjectIds = JSON.parse(localStorage.getItem(OPEN_PROJECTS_KEY) || '[]');
+    const activeProjectId = localStorage.getItem(ACTIVE_PROJECT_KEY);
+    const tabOrder = JSON.parse(localStorage.getItem(TAB_ORDER_KEY) || '[]');
+
+    set({
+      openProjectIds,
+      activeProjectId,
+      tabOrder
+    });
+  },
+
+  // Original selectors
   getSelectedProject: () => {
     const state = get();
     return state.projects.find((p) => p.id === state.selectedProjectId);
+  },
+
+  // New selectors for tab functionality
+  getOpenProjects: () => {
+    const state = get();
+    return state.projects.filter((p) => state.openProjectIds.includes(p.id));
+  },
+
+  getActiveProject: () => {
+    const state = get();
+    return state.projects.find((p) => p.id === state.activeProjectId);
+  },
+
+  getProjectTabs: () => {
+    const state = get();
+    const orderedProjects = state.tabOrder
+      .map(id => state.projects.find(p => p.id === id))
+      .filter(Boolean) as Project[];
+
+    // Add any open projects not in tabOrder to the end
+    const remainingProjects = state.projects
+      .filter(p => state.openProjectIds.includes(p.id) && !state.tabOrder.includes(p.id));
+
+    return [...orderedProjects, ...remainingProjects];
   }
 }));
 
@@ -89,13 +213,43 @@ export async function loadProjects(): Promise<void> {
     if (result.success && result.data) {
       store.setProjects(result.data);
 
-      // Restore last selected project from localStorage, or fall back to first project
+      // Clean up tab state - remove any project IDs that no longer exist
+      const validOpenProjectIds = store.openProjectIds.filter(id =>
+        result.data.some((p) => p.id === id)
+      );
+      const validTabOrder = store.tabOrder.filter(id =>
+        result.data.some((p) => p.id === id)
+      );
+      const validActiveProjectId = store.activeProjectId &&
+        result.data.some((p) => p.id === store.activeProjectId)
+        ? store.activeProjectId
+        : null;
+
+      // Update store with cleaned tab state
+      if (validOpenProjectIds.length !== store.openProjectIds.length ||
+          validTabOrder.length !== store.tabOrder.length ||
+          validActiveProjectId !== store.activeProjectId) {
+        localStorage.setItem(OPEN_PROJECTS_KEY, JSON.stringify(validOpenProjectIds));
+        localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(validTabOrder));
+        localStorage.setItem(ACTIVE_PROJECT_KEY, validActiveProjectId || '');
+
+        store.set({
+          openProjectIds: validOpenProjectIds,
+          tabOrder: validTabOrder,
+          activeProjectId: validActiveProjectId
+        });
+      }
+
+      // Restore last selected project from localStorage for backward compatibility,
+      // or fall back to active project, or first project
       if (!store.selectedProjectId && result.data.length > 0) {
         const lastSelectedId = localStorage.getItem(LAST_SELECTED_PROJECT_KEY);
         const projectExists = lastSelectedId && result.data.some((p) => p.id === lastSelectedId);
 
         if (projectExists) {
           store.selectProject(lastSelectedId);
+        } else if (store.activeProjectId) {
+          store.selectProject(store.activeProjectId);
         } else {
           store.selectProject(result.data[0].id);
         }
@@ -121,6 +275,8 @@ export async function addProject(projectPath: string): Promise<Project | null> {
     if (result.success && result.data) {
       store.addProject(result.data);
       store.selectProject(result.data.id);
+      // Also open a tab for the new project
+      store.openProjectTab(result.data.id);
       return result.data;
     } else {
       store.setError(result.error || 'Failed to add project');
@@ -142,6 +298,10 @@ export async function removeProject(projectId: string): Promise<boolean> {
     const result = await window.electronAPI.removeProject(projectId);
     if (result.success) {
       store.removeProject(projectId);
+      // Also close the tab if it's open
+      if (store.openProjectIds.includes(projectId)) {
+        store.closeProjectTab(projectId);
+      }
       return true;
     }
     return false;
