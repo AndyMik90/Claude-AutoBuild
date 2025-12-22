@@ -123,6 +123,42 @@ function updatePackageJson(newVersion) {
   return { oldVersion, packagePath: frontendPath };
 }
 
+// Update apps/backend/__init__.py version
+function updateBackendInit(newVersion) {
+  const initPath = path.join(__dirname, '..', 'apps', 'backend', '__init__.py');
+
+  if (!fs.existsSync(initPath)) {
+    warning(`Backend __init__.py not found at ${initPath}, skipping`);
+    return false;
+  }
+
+  let content = fs.readFileSync(initPath, 'utf8');
+  content = content.replace(/__version__\s*=\s*"[^"]*"/, `__version__ = "${newVersion}"`);
+  fs.writeFileSync(initPath, content);
+  return true;
+}
+
+// Update README.md version references
+function updateReadme(newVersion, oldVersion) {
+  const readmePath = path.join(__dirname, '..', 'README.md');
+
+  if (!fs.existsSync(readmePath)) {
+    warning(`README.md not found at ${readmePath}, skipping`);
+    return false;
+  }
+
+  let content = fs.readFileSync(readmePath, 'utf8');
+
+  // Update version badge: version-X.Y.Z-blue
+  content = content.replace(/version-[\d.]+(-\w+)?-blue/g, `version-${newVersion}-blue`);
+
+  // Update download links: Auto-Claude-X.Y.Z
+  content = content.replace(/Auto-Claude-[\d.]+/g, `Auto-Claude-${newVersion}`);
+
+  fs.writeFileSync(readmePath, content);
+  return true;
+}
+
 // Main function
 function main() {
   const bumpType = process.argv[2];
@@ -153,14 +189,24 @@ function main() {
     error('New version is the same as current version');
   }
 
-  // 4. Update package.json
-  info('Updating package.json...');
+  // 4. Update all version files
+  info('Updating package.json files...');
   updatePackageJson(newVersion);
-  success('Updated package.json');
+  success('Updated package.json files');
+
+  info('Updating apps/backend/__init__.py...');
+  if (updateBackendInit(newVersion)) {
+    success('Updated apps/backend/__init__.py');
+  }
+
+  info('Updating README.md...');
+  if (updateReadme(newVersion, currentVersion)) {
+    success('Updated README.md');
+  }
 
   // 5. Create git commit
   info('Creating git commit...');
-  exec('git add apps/frontend/package.json package.json');
+  exec('git add apps/frontend/package.json package.json apps/backend/__init__.py README.md');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 

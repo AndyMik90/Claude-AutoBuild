@@ -3,6 +3,55 @@
 echo "Running pre-commit checks..."
 
 # =============================================================================
+# VERSION SYNC - Keep all version references in sync with root package.json
+# =============================================================================
+
+# Check if package.json is staged
+if git diff --cached --name-only | grep -q "^package.json$"; then
+  echo "package.json changed, syncing version to all files..."
+
+  # Extract version from root package.json
+  VERSION=$(node -p "require('./package.json').version")
+
+  if [ -n "$VERSION" ]; then
+    # Sync to apps/frontend/package.json
+    if [ -f "apps/frontend/package.json" ]; then
+      node -e "
+        const fs = require('fs');
+        const pkg = require('./apps/frontend/package.json');
+        if (pkg.version !== '$VERSION') {
+          pkg.version = '$VERSION';
+          fs.writeFileSync('./apps/frontend/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          console.log('  Updated apps/frontend/package.json to $VERSION');
+        }
+      "
+      git add apps/frontend/package.json
+    fi
+
+    # Sync to apps/backend/__init__.py
+    if [ -f "apps/backend/__init__.py" ]; then
+      sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py
+      rm -f apps/backend/__init__.py.bak
+      git add apps/backend/__init__.py
+      echo "  Updated apps/backend/__init__.py to $VERSION"
+    fi
+
+    # Sync to README.md
+    if [ -f "README.md" ]; then
+      # Update version badge
+      sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md
+      # Update download links
+      sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md
+      rm -f README.md.bak
+      git add README.md
+      echo "  Updated README.md to $VERSION"
+    fi
+
+    echo "Version sync complete: $VERSION"
+  fi
+fi
+
+# =============================================================================
 # BACKEND CHECKS (Python) - Run first, before frontend
 # =============================================================================
 
@@ -10,20 +59,33 @@ echo "Running pre-commit checks..."
 if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   echo "Python changes detected, running backend checks..."
 
-  # Run ruff linting
-  echo "Running ruff lint..."
-  ruff check apps/backend/ --fix
-  if [ $? -ne 0 ]; then
-    echo "Ruff lint failed. Please fix Python linting errors before committing."
-    exit 1
+  # Determine ruff command (venv or global)
+  RUFF=""
+  if [ -f "apps/backend/.venv/bin/ruff" ]; then
+    RUFF="apps/backend/.venv/bin/ruff"
+  elif [ -f "apps/backend/.venv/Scripts/ruff.exe" ]; then
+    RUFF="apps/backend/.venv/Scripts/ruff.exe"
+  elif command -v ruff >/dev/null 2>&1; then
+    RUFF="ruff"
   fi
 
-  # Run ruff format check
-  echo "Running ruff format check..."
-  ruff format apps/backend/ --check
-  if [ $? -ne 0 ]; then
-    echo "Ruff format check failed. Run 'ruff format apps/backend/' to fix."
-    exit 1
+  if [ -n "$RUFF" ]; then
+    # Run ruff linting (auto-fix)
+    echo "Running ruff lint..."
+    $RUFF check apps/backend/ --fix
+    if [ $? -ne 0 ]; then
+      echo "Ruff lint failed. Please fix Python linting errors before committing."
+      exit 1
+    fi
+
+    # Run ruff format (auto-fix)
+    echo "Running ruff format..."
+    $RUFF format apps/backend/
+
+    # Stage any files that were auto-fixed by ruff
+    git add apps/backend/*.py apps/backend/**/*.py 2>/dev/null || true
+  else
+    echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
   fi
 
   # Run pytest (skip slow/integration tests and Windows-incompatible tests for pre-commit speed)
