@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Brain,
   Database,
@@ -167,29 +167,96 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     };
   }>({});
 
-  // Check Docker/Infrastructure availability on mount
-  useEffect(() => {
-    const checkInfrastructure = async () => {
-      setIsCheckingDocker(true);
-      try {
-        const result = await window.electronAPI.getInfrastructureStatus();
-        setDockerAvailable(result?.success && result?.data?.docker?.running ? true : false);
+  // Track previous progress for speed calculation
+  const downloadProgressRef = useRef<{
+    [modelName: string]: {
+      lastCompleted: number;
+      lastUpdate: number;
+    };
+  }>({});
 
-        if (result?.success && result?.data?.falkordb?.containerRunning) {
-          const detectedPort = result.data.falkordb.port;
-          setConfig(prev => ({
-            ...prev,
-            falkorDbUri: `bolt://localhost:${detectedPort}`
-          }));
-        }
-      } catch {
-        setDockerAvailable(false);
-      } finally {
-        setIsCheckingDocker(false);
+  // Listen for download progress updates
+  useEffect(() => {
+    const handleProgress = (data: {
+      modelName: string;
+      status: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }) => {
+      const now = Date.now();
+      
+      // Initialize tracking for this model if needed
+      if (!downloadProgressRef.current[data.modelName]) {
+        downloadProgressRef.current[data.modelName] = {
+          lastCompleted: data.completed,
+          lastUpdate: now
+        };
       }
+
+      const prevData = downloadProgressRef.current[data.modelName];
+      const timeDelta = now - prevData.lastUpdate;
+      const bytesDelta = data.completed - prevData.lastCompleted;
+
+      // Calculate speed only if we have meaningful time delta (> 100ms)
+      let speedStr = '0 B/s';
+      let timeStr = '';
+      
+      if (timeDelta > 100 && bytesDelta > 0) {
+        const speed = (bytesDelta / timeDelta) * 1000; // bytes per second
+        const remaining = data.total - data.completed;
+        const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
+        
+        // Format speed (MB/s or KB/s)
+        if (speed > 1024 * 1024) {
+          speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
+        } else if (speed > 1024) {
+          speedStr = `${(speed / 1024).toFixed(1)} KB/s`;
+        } else if (speed > 0) {
+          speedStr = `${Math.round(speed)} B/s`;
+        }
+
+        // Format time remaining
+        if (timeRemaining > 3600) {
+          timeStr = `${Math.ceil(timeRemaining / 3600)}h remaining`;
+        } else if (timeRemaining > 60) {
+          timeStr = `${Math.ceil(timeRemaining / 60)}m remaining`;
+        } else if (timeRemaining > 0) {
+          timeStr = `${Math.ceil(timeRemaining)}s remaining`;
+        }
+      }
+
+      // Update tracking
+      downloadProgressRef.current[data.modelName] = {
+        lastCompleted: data.completed,
+        lastUpdate: now
+      };
+
+      setDownloadProgress(prev => {
+        const updated = { ...prev };
+        updated[data.modelName] = {
+          percentage: data.percentage,
+          status: data.status,
+          completed: data.completed,
+          total: data.total,
+          speed: speedStr,
+          timeRemaining: timeStr
+        };
+        return updated;
+      });
     };
 
-    checkInfrastructure();
+    // Register the progress listener
+    if (window.electronAPI?.onDownloadProgress) {
+      window.electronAPI.onDownloadProgress(handleProgress);
+    }
+
+    return () => {
+      // Clean up listener
+      if (window.electronAPI?.offDownloadProgress) {
+        window.electronAPI.offDownloadProgress(handleProgress);
+      }
+    };
   }, []);
 
   // Listen for download progress updates
