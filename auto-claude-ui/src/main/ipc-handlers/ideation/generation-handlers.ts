@@ -69,16 +69,23 @@ export function startIdeationGeneration(
     thinkingLevel: configWithSettings.thinkingLevel
   });
 
-  if (!mainWindow) return;
+  if (!mainWindow) {
+    debugError('[Ideation Handler] Cannot start generation - mainWindow is null:', { projectId });
+    return;
+  }
 
   const project = projectStore.getProject(projectId);
   if (!project) {
-    debugLog('[Ideation Handler] Project not found:', projectId);
-    mainWindow.webContents.send(
-      IPC_CHANNELS.IDEATION_ERROR,
-      projectId,
-      'Project not found'
-    );
+    debugError('[Ideation Handler] Project not found:', projectId);
+    try {
+      mainWindow.webContents.send(
+        IPC_CHANNELS.IDEATION_ERROR,
+        projectId,
+        'Project not found'
+      );
+    } catch (ipcError) {
+      debugError('[Ideation Handler] Failed to send project not found error via IPC:', ipcError);
+    }
     return;
   }
 
@@ -90,18 +97,39 @@ export function startIdeationGeneration(
   });
 
   // Start ideation generation via agent manager
-  agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, false);
+  try {
+    agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, false);
+  } catch (error) {
+    debugError('[Ideation Handler] Failed to start ideation generation:', {
+      projectId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    try {
+      mainWindow.webContents.send(
+        IPC_CHANNELS.IDEATION_ERROR,
+        projectId,
+        error instanceof Error ? error.message : 'Failed to start ideation generation'
+      );
+    } catch (ipcError) {
+      debugError('[Ideation Handler] Failed to send generation error via IPC:', ipcError);
+    }
+    return;
+  }
 
   // Send initial progress
-  mainWindow.webContents.send(
-    IPC_CHANNELS.IDEATION_PROGRESS,
-    projectId,
-    {
-      phase: 'analyzing',
-      progress: 10,
-      message: 'Analyzing project structure...'
-    } as IdeationGenerationStatus
-  );
+  try {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.IDEATION_PROGRESS,
+      projectId,
+      {
+        phase: 'analyzing',
+        progress: 10,
+        message: 'Analyzing project structure...'
+      } as IdeationGenerationStatus
+    );
+  } catch (ipcError) {
+    debugError('[Ideation Handler] Failed to send initial progress via IPC:', ipcError);
+  }
 }
 
 /**
@@ -128,31 +156,67 @@ export function refreshIdeationSession(
     thinkingLevel: configWithSettings.thinkingLevel
   });
 
-  if (!mainWindow) return;
-
-  const project = projectStore.getProject(projectId);
-  if (!project) {
-    mainWindow.webContents.send(
-      IPC_CHANNELS.IDEATION_ERROR,
-      projectId,
-      'Project not found'
-    );
+  if (!mainWindow) {
+    debugError('[Ideation Handler] Cannot refresh session - mainWindow is null:', { projectId });
     return;
   }
 
+  const project = projectStore.getProject(projectId);
+  if (!project) {
+    debugError('[Ideation Handler] Project not found for refresh:', projectId);
+    try {
+      mainWindow.webContents.send(
+        IPC_CHANNELS.IDEATION_ERROR,
+        projectId,
+        'Project not found'
+      );
+    } catch (ipcError) {
+      debugError('[Ideation Handler] Failed to send project not found error via IPC:', ipcError);
+    }
+    return;
+  }
+
+  debugLog('[Ideation Handler] Starting agent manager refresh:', {
+    projectId,
+    projectPath: project.path,
+    model: configWithSettings.model,
+    thinkingLevel: configWithSettings.thinkingLevel
+  });
+
   // Start ideation regeneration with refresh flag
-  agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, true);
+  try {
+    agentManager.startIdeationGeneration(projectId, project.path, configWithSettings, true);
+  } catch (error) {
+    debugError('[Ideation Handler] Failed to refresh ideation session:', {
+      projectId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    try {
+      mainWindow.webContents.send(
+        IPC_CHANNELS.IDEATION_ERROR,
+        projectId,
+        error instanceof Error ? error.message : 'Failed to refresh ideation session'
+      );
+    } catch (ipcError) {
+      debugError('[Ideation Handler] Failed to send refresh error via IPC:', ipcError);
+    }
+    return;
+  }
 
   // Send initial progress
-  mainWindow.webContents.send(
-    IPC_CHANNELS.IDEATION_PROGRESS,
-    projectId,
-    {
-      phase: 'analyzing',
-      progress: 10,
-      message: 'Refreshing ideation...'
-    } as IdeationGenerationStatus
-  );
+  try {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.IDEATION_PROGRESS,
+      projectId,
+      {
+        phase: 'analyzing',
+        progress: 10,
+        message: 'Refreshing ideation...'
+      } as IdeationGenerationStatus
+    );
+  } catch (ipcError) {
+    debugError('[Ideation Handler] Failed to send refresh progress via IPC:', ipcError);
+  }
 }
 
 /**
@@ -166,13 +230,35 @@ export async function stopIdeationGeneration(
 ): Promise<IPCResult> {
   debugLog('[Ideation Handler] Stop generation request:', { projectId });
 
-  const wasStopped = agentManager.stopIdeation(projectId);
+  let wasStopped = false;
+  try {
+    wasStopped = agentManager.stopIdeation(projectId);
+  } catch (error) {
+    debugError('[Ideation Handler] Failed to stop ideation generation:', {
+      projectId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to stop ideation generation'
+    };
+  }
 
   debugLog('[Ideation Handler] Stop result:', { projectId, wasStopped });
 
+  if (!wasStopped) {
+    debugLog('[Ideation Handler] No running ideation process found to stop:', { projectId });
+  }
+
   if (wasStopped && mainWindow) {
     debugLog('[Ideation Handler] Sending stopped event to renderer');
-    mainWindow.webContents.send(IPC_CHANNELS.IDEATION_STOPPED, projectId);
+    try {
+      mainWindow.webContents.send(IPC_CHANNELS.IDEATION_STOPPED, projectId);
+    } catch (ipcError) {
+      debugError('[Ideation Handler] Failed to send stopped event via IPC:', ipcError);
+    }
+  } else if (wasStopped && !mainWindow) {
+    debugError('[Ideation Handler] Cannot send stopped event - mainWindow is null:', { projectId });
   }
 
   return { success: wasStopped };
