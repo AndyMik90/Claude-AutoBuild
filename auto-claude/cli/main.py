@@ -322,7 +322,10 @@ def main() -> None:
 
     if args.merge:
         success = handle_merge_command(
-            project_dir, spec_dir.name, no_commit=args.no_commit, base_branch=args.base_branch
+            project_dir,
+            spec_dir.name,
+            no_commit=args.no_commit,
+            base_branch=args.base_branch,
         )
         if not success:
             sys.exit(1)

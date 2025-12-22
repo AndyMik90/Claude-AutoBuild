@@ -247,7 +247,7 @@ export function Sidebar({
     await removeProject(projectId);
   };
 
-  
+
   const handleNavClick = (view: SidebarView) => {
     onViewChange?.(view);
   };
@@ -289,7 +289,7 @@ export function Sidebar({
 
         <Separator className="mt-2" />
 
-  
+
         <Separator />
 
         {/* Navigation */}

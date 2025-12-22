@@ -139,7 +139,7 @@ export function SDKRateLimitModal() {
       // Create a new profile - the backend will set the proper configDir
       const profileName = newProfileName.trim();
       const profileSlug = profileName.toLowerCase().replace(/\s+/g, '-');
-      
+
       const result = await window.electronAPI.saveClaudeProfile({
         id: `profile-${Date.now()}`,
         name: profileName,
@@ -152,14 +152,14 @@ export function SDKRateLimitModal() {
       if (result.success && result.data) {
         // Initialize the profile (creates terminal and runs claude setup-token)
         const initResult = await window.electronAPI.initializeClaudeProfile(result.data.id);
-        
+
         if (initResult.success) {
           // Reload profiles
           loadClaudeProfiles();
           setNewProfileName('');
           // Close the modal so user can see the terminal
           hideSDKRateLimitModal();
-          
+
           // Alert the user about the terminal
           alert(
             `A terminal has been opened to authenticate "${profileName}".\n\n` +
@@ -312,7 +312,7 @@ export function SDKRateLimitModal() {
               <User className="h-4 w-4" />
               {hasMultipleProfiles ? 'Switch Account & Retry' : 'Use Another Account'}
             </h4>
-            
+
             {hasMultipleProfiles ? (
               <>
                 <p className="text-sm text-muted-foreground mb-3">

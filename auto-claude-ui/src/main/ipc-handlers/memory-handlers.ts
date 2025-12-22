@@ -103,9 +103,9 @@ async function executeOllamaDetector(
   }
 
   return new Promise((resolve) => {
+    let resolved = false;
     const proc = spawn(pythonExe, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 10000,
     });
 
     let stdout = '';
@@ -119,7 +119,19 @@ async function executeOllamaDetector(
       stderr += data.toString();
     });
 
+    // Single timeout mechanism to avoid race condition
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        resolve({ success: false, error: 'Timeout' });
+      }
+    }, 10000);
+
     proc.on('close', (code) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
       if (code === 0 && stdout) {
         try {
           resolve(JSON.parse(stdout));
@@ -132,13 +144,11 @@ async function executeOllamaDetector(
     });
 
     proc.on('error', (err) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
       resolve({ success: false, error: err.message });
     });
-
-    setTimeout(() => {
-      proc.kill();
-      resolve({ success: false, error: 'Timeout' });
-    }, 10000);
   });
 }
 

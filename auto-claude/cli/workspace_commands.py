@@ -584,7 +584,9 @@ def handle_merge_preview_command(
             task_source_branch = _detect_default_branch(project_dir)
 
         # Get actual changed files from git diff (this is the authoritative count)
-        all_changed_files = _get_changed_files_from_git(worktree_path, task_source_branch)
+        all_changed_files = _get_changed_files_from_git(
+            worktree_path, task_source_branch
+        )
         debug(
             MODULE,
             f"Git diff against '{task_source_branch}' shows {len(all_changed_files)} changed files",

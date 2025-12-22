@@ -876,7 +876,7 @@
           try {
             // Set status to in_progress for the restart
             newStatus = 'in_progress';
-            
+
             // Update plan status for restart
             if (plan) {
               plan.status = 'in_progress';
@@ -897,7 +897,7 @@
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
             fileWatcher.watch(taskId, specDirForWatcher);
-            
+
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -932,7 +932,7 @@
             taskId,
             recovered: true,
             newStatus,
-            message: autoRestarted 
+            message: autoRestarted
               ? 'Task recovered and restarted successfully'
               : `Task recovered successfully and moved to ${newStatus}`,
             autoRestarted
@@ -1494,4 +1494,3 @@
       }
     }
   );
-

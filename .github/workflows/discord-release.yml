@@ -22,4 +22,3 @@ jobs:
           footer_timestamp: true
           reduce_headings: true
           remove_github_reference_links: true
-

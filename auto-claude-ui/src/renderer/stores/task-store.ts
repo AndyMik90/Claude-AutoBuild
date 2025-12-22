@@ -339,8 +339,8 @@ export async function recoverStuckTask(
     if (result.success && result.data) {
       // Update local state
       store.updateTaskStatus(taskId, result.data.newStatus);
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: result.data.message,
         autoRestarted: result.data.autoRestarted
       };

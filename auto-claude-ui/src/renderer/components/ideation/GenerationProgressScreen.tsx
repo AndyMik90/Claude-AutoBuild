@@ -58,7 +58,7 @@ export function GenerationProgressScreen({
    */
   const handleStopClick = async () => {
     if (isStopping) return;
-    
+
     setIsStopping(true);
     try {
       await onStop();

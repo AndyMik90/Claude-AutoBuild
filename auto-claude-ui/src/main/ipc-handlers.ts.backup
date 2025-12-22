@@ -1256,7 +1256,7 @@ export function setupIpcHandlers(
           try {
             // Set status to in_progress for the restart
             newStatus = 'in_progress';
-            
+
             // Update plan status for restart
             if (plan) {
               plan.status = 'in_progress';
@@ -1277,7 +1277,7 @@ export function setupIpcHandlers(
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
             fileWatcher.watch(taskId, specDirForWatcher);
-            
+
             agentManager.startTaskExecution(
               taskId,
               project.path,
@@ -1312,7 +1312,7 @@ export function setupIpcHandlers(
             taskId,
             recovered: true,
             newStatus,
-            message: autoRestarted 
+            message: autoRestarted
               ? 'Task recovered and restarted successfully'
               : `Task recovered successfully and moved to ${newStatus}`,
             autoRestarted
@@ -2418,12 +2418,12 @@ export function setupIpcHandlers(
           });
         }
 
-        return { 
-          success: true, 
-          data: { 
+        return {
+          success: true,
+          data: {
             terminalId,
             message: `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
-          } 
+          }
         };
       } catch (error) {
         console.error('[IPC] Failed to initialize Claude profile:', error);

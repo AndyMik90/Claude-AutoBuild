@@ -422,4 +422,3 @@ export class PythonEnvManager extends EventEmitter {
 
 // Singleton instance
 export const pythonEnvManager = new PythonEnvManager();
-

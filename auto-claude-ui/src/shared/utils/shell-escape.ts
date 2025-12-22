@@ -104,4 +104,3 @@ export function isPathSafe(path: string): boolean {
 
   return !suspiciousPatterns.some(pattern => pattern.test(path));
 }
-

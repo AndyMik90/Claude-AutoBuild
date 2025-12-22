@@ -221,6 +221,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       const apiKey = config.llmProvider === 'openai' ? config.openaiApiKey :
                      config.llmProvider === 'anthropic' ? config.anthropicApiKey :
                      config.llmProvider === 'google' ? config.googleApiKey :
+                     config.llmProvider === 'groq' ? config.groqApiKey :
+                     config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
+                     config.llmProvider === 'ollama' ? '' :  // Ollama doesn't need API key
                      config.embeddingProvider === 'openai' ? config.openaiApiKey : '';
 
       const result = await window.electronAPI.testGraphitiConnection({

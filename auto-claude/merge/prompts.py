@@ -36,7 +36,7 @@ def build_timeline_merge_prompt(context: MergeContext) -> str:
     # Build pending tasks section
     pending_tasks_section = _build_pending_tasks_section(context)
 
-    prompt = f'''MERGING: {context.file_path}
+    prompt = f"""MERGING: {context.file_path}
 TASK: {context.task_id} ({context.task_intent.title})
 
 {"=" * 79}
@@ -90,7 +90,7 @@ YOUR TASK:
 5. OUTPUT only the complete merged file content
 
 {"=" * 79}
-'''
+"""
 
     return prompt
 
@@ -206,7 +206,7 @@ Description: {task_intent.get("description", "No description")}
         base_content if base_content else "(File did not exist in common ancestor)"
     )
 
-    prompt = f'''You are a code merge expert. Merge the following conflicting versions of a file.
+    prompt = f"""You are a code merge expert. Merge the following conflicting versions of a file.
 
 FILE: {file_path}
 
@@ -234,7 +234,7 @@ Output ONLY the merged code, wrapped in triple backticks:
 ```{language}
 merged code here
 ```
-'''
+"""
     return prompt
 
 
@@ -470,10 +470,7 @@ def extract_conflict_resolutions(
     # Pattern to match resolution blocks
     # --- CONFLICT_1 RESOLVED --- or similar variations
     resolution_pattern = re.compile(
-        r"---\s*(CONFLICT_\d+)\s*RESOLVED\s*---\s*\n"
-        r"```(?:\w+)?\n"
-        r"(.*?)"
-        r"```",
+        r"---\s*(CONFLICT_\d+)\s*RESOLVED\s*---\s*\n" r"```(?:\w+)?\n" r"(.*?)" r"```",
         re.DOTALL | re.IGNORECASE,
     )
 

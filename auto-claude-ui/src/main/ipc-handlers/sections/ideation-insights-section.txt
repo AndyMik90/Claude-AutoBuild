@@ -1172,4 +1172,3 @@ ${idea.rationale}
       return { success: false, error: 'Failed to rename session' };
     }
   );
-

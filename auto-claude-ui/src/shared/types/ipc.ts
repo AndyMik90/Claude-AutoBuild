@@ -109,6 +109,13 @@ import type {
 } from './integrations';
 
 // Electron API exposed via contextBridge
+// Tab state interface (persisted in main process)
+export interface TabState {
+  openProjectIds: string[];
+  activeProjectId: string | null;
+  tabOrder: string[];
+}
+
 export interface ElectronAPI {
   // Project operations
   addProject: (projectPath: string) => Promise<IPCResult<Project>>;
@@ -118,6 +125,10 @@ export interface ElectronAPI {
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+
+  // Tab State (persisted in main process for reliability)
+  getTabState: () => Promise<IPCResult<TabState>>;
+  saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;

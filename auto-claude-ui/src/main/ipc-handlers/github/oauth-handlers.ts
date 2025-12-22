@@ -531,7 +531,7 @@ export function registerGetGitHubBranches(): void {
     IPC_CHANNELS.GITHUB_GET_BRANCHES,
     async (_event: Electron.IpcMainInvokeEvent, repo: string, _token: string): Promise<IPCResult<string[]>> => {
       debugLog('getGitHubBranches handler called', { repo });
-      
+
       // Validate repo format to prevent command injection
       if (!isValidGitHubRepo(repo)) {
         debugLog('Invalid repo format rejected:', repo);
@@ -540,7 +540,7 @@ export function registerGetGitHubBranches(): void {
           error: 'Invalid repository format. Expected: owner/repo'
         };
       }
-      
+
       try {
         // Use gh CLI to list branches (uses authenticated session)
         // Use execFileSync with separate arguments to avoid shell injection

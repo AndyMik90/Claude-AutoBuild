@@ -344,7 +344,9 @@ class MergeOrchestrator:
             for request in requests:
                 if request.worktree_path and request.worktree_path.exists():
                     self.evolution_tracker.refresh_from_git(
-                        request.task_id, request.worktree_path, target_branch=target_branch
+                        request.task_id,
+                        request.worktree_path,
+                        target_branch=target_branch,
                     )
 
             # Find all files modified by any task
