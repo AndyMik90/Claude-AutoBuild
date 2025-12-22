@@ -4,7 +4,8 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { findPythonCommand, parsePythonCommand } from './python-detector';
+import { parsePythonCommand } from './python-detector';
+import { pythonEnvManager } from './python-env-manager';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -21,8 +22,6 @@ function debug(...args: unknown[]): void {
  * Service for generating terminal names from commands using Claude AI
  */
 export class TerminalNameGenerator extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor() {
@@ -31,12 +30,9 @@ export class TerminalNameGenerator extends EventEmitter {
   }
 
   /**
-   * Configure paths for Python and auto-claude source
+   * Configure the auto-claude source path
    */
-  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
-    if (pythonPath) {
-      this.pythonPath = pythonPath;
-    }
+  configure(autoBuildSourcePath?: string): void {
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
@@ -118,6 +114,23 @@ export class TerminalNameGenerator extends EventEmitter {
       return null;
     }
 
+    // Check if Python environment is ready (has claude_agent_sdk installed)
+    if (!pythonEnvManager.isEnvReady()) {
+      debug('Python environment not ready, initializing...');
+      const status = await pythonEnvManager.initialize(autoBuildSource);
+      if (!status.ready) {
+        debug('Python environment initialization failed:', status.error);
+        return null;
+      }
+    }
+
+    // Get the venv Python path (where claude_agent_sdk is installed)
+    const venvPythonPath = pythonEnvManager.getPythonPath();
+    if (!venvPythonPath) {
+      debug('Venv Python path not available');
+      return null;
+    }
+
     const prompt = this.createNamePrompt(command, cwd);
     const script = this.createGenerationScript(prompt);
 
@@ -132,8 +145,8 @@ export class TerminalNameGenerator extends EventEmitter {
     const profileEnv = getProfileEnv();
 
     return new Promise((resolve) => {
-      // Parse Python command to handle space-separated commands like "py -3"
-      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+      // Use the venv Python where claude_agent_sdk is installed
+      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(venvPythonPath);
       const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
         env: {
