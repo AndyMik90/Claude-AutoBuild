@@ -698,5 +698,90 @@ describe('profile-service', () => {
         ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
       });
     });
+
+    it('should handle profile not found (activeProfileId points to non-existent profile)', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Profile One',
+            baseUrl: 'https://api1.example.com',
+            apiKey: 'sk-key-one-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'non-existent-id', // Points to profile that doesn't exist
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      // Should return empty object gracefully
+      expect(result).toEqual({});
+    });
+
+    it('should trim whitespace from values before filtering', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: '  https://api.example.com  ', // Has whitespace
+            apiKey: 'sk-test-key-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      // Whitespace should be trimmed, not filtered out
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.example.com', // Trimmed
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
+      });
+    });
+
+    it('should filter out whitespace-only values', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: '   ', // Whitespace only
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: '   ' // Whitespace only
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      // Whitespace-only values should be filtered out
+      expect(result).not.toHaveProperty('ANTHROPIC_BASE_URL');
+      expect(result).not.toHaveProperty('ANTHROPIC_MODEL');
+      expect(result).toEqual({
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
+      });
+    });
   });
 });

@@ -214,3 +214,62 @@ export async function updateProfile(input: UpdateProfileInput): Promise<APIProfi
 
   return updatedProfile;
 }
+
+/**
+ * Get environment variables for the active API profile
+ *
+ * Maps the active API profile to SDK environment variables for injection
+ * into Python subprocess. Returns empty object when no profile is active
+ * (OAuth mode), allowing CLAUDE_CODE_OAUTH_TOKEN to be used instead.
+ *
+ * Environment Variable Mapping:
+ * - profile.baseUrl → ANTHROPIC_BASE_URL
+ * - profile.apiKey → ANTHROPIC_AUTH_TOKEN
+ * - profile.models.default → ANTHROPIC_MODEL
+ * - profile.models.haiku → ANTHROPIC_DEFAULT_HAIKU_MODEL
+ * - profile.models.sonnet → ANTHROPIC_DEFAULT_SONNET_MODEL
+ * - profile.models.opus → ANTHROPIC_DEFAULT_OPUS_MODEL
+ *
+ * Empty string values are filtered out (not set as env vars).
+ *
+ * @returns Promise<Record<string, string>> Environment variables for active profile
+ */
+export async function getAPIProfileEnv(): Promise<Record<string, string>> {
+  // Load profiles.json
+  const file = await loadProfilesFile();
+
+  // If no active profile (null/empty), return empty object (OAuth mode)
+  if (!file.activeProfileId || file.activeProfileId === '') {
+    return {};
+  }
+
+  // Find active profile by activeProfileId
+  const profile = file.profiles.find((p) => p.id === file.activeProfileId);
+
+  // If profile not found, return empty object (shouldn't happen with valid data)
+  if (!profile) {
+    return {};
+  }
+
+  // Map profile fields to SDK env vars
+  const envVars: Record<string, string> = {
+    ANTHROPIC_BASE_URL: profile.baseUrl || '',
+    ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+    ANTHROPIC_MODEL: profile.models?.default || '',
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
+    ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
+    ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+  };
+
+  // Filter out empty/whitespace string values (only set env vars that have values)
+  // This handles empty strings, null, undefined, and whitespace-only values
+  const filteredEnvVars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(envVars)) {
+    const trimmedValue = value?.trim();
+    if (trimmedValue && trimmedValue !== '') {
+      filteredEnvVars[key] = trimmedValue;
+    }
+  }
+
+  return filteredEnvVars;
+}

@@ -9,6 +9,7 @@ import { RoadmapConfig } from './types';
 import type { IdeationConfig, Idea } from '../../shared/types';
 import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile-service';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
@@ -43,14 +44,14 @@ export class AgentQueueManager {
    *   This allows refreshing competitor data independently of the general roadmap refresh.
    *   Use when user explicitly wants new competitor research.
    */
-  startRoadmapGeneration(
+  async startRoadmapGeneration(
     projectId: string,
     projectPath: string,
     refresh: boolean = false,
     enableCompetitorAnalysis: boolean = false,
     refreshCompetitorAnalysis: boolean = false,
     config?: RoadmapConfig
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Starting roadmap generation:', {
       projectId,
       projectPath,
@@ -104,18 +105,18 @@ export class AgentQueueManager {
     debugLog('[Agent Queue] Spawning roadmap process with args:', args);
 
     // Use projectId as taskId for roadmap operations
-    this.spawnRoadmapProcess(projectId, projectPath, args);
+    await this.spawnRoadmapProcess(projectId, projectPath, args);
   }
 
   /**
    * Start ideation generation process
    */
-  startIdeationGeneration(
+  async startIdeationGeneration(
     projectId: string,
     projectPath: string,
     config: IdeationConfig,
     refresh: boolean = false
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Starting ideation generation:', {
       projectId,
       projectPath,
@@ -180,17 +181,17 @@ export class AgentQueueManager {
     debugLog('[Agent Queue] Spawning ideation process with args:', args);
 
     // Use projectId as taskId for ideation operations
-    this.spawnIdeationProcess(projectId, projectPath, args);
+    await this.spawnIdeationProcess(projectId, projectPath, args);
   }
 
   /**
    * Spawn a Python process for ideation generation
    */
-  private spawnIdeationProcess(
+  private async spawnIdeationProcess(
     projectId: string,
     projectPath: string,
     args: string[]
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Spawning ideation process:', { projectId, projectPath });
 
     // Kill existing process for this project if any
@@ -213,34 +214,38 @@ export class AgentQueueManager {
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
 
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
     // 2. combinedEnv (auto-claude/.env for CLI usage)
-    // 3. profileEnv (Electron app OAuth token - highest priority)
-    // 4. Our specific overrides
+    // 3. profileEnv (Electron app OAuth token)
+    // 4. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 5. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...combinedEnv,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONPATH: autoBuildSource || '', // Allow imports from auto-claude directory
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'
     };
 
-    // Debug: Show OAuth token source
+    // Debug: Show OAuth token source (AC4: never log the actual token)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
-    const hasToken = !!oauthToken;
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
-      hasToken,
-      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
+      hasToken
+      // SECURITY: Never log token preview - even partial tokens are sensitive (AC4)
     });
 
     // Parse Python command to handle space-separated commands like "py -3"
@@ -484,11 +489,11 @@ export class AgentQueueManager {
   /**
    * Spawn a Python process for roadmap generation
    */
-  private spawnRoadmapProcess(
+  private async spawnRoadmapProcess(
     projectId: string,
     projectPath: string,
     args: string[]
-  ): void {
+  ): Promise<void> {
     debugLog('[Agent Queue] Spawning roadmap process:', { projectId, projectPath });
 
     // Kill existing process for this project if any
@@ -511,34 +516,38 @@ export class AgentQueueManager {
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
 
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
     // 2. combinedEnv (auto-claude/.env for CLI usage)
-    // 3. profileEnv (Electron app OAuth token - highest priority)
-    // 4. Our specific overrides
+    // 3. profileEnv (Electron app OAuth token)
+    // 4. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 5. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...combinedEnv,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONPATH: autoBuildSource || '', // Allow imports from auto-claude directory
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'
     };
 
-    // Debug: Show OAuth token source
+    // Debug: Show OAuth token source (AC4: never log the actual token)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
       ? 'Electron app profile'
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
-    const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
-    const hasToken = !!oauthToken;
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     debugLog('[Agent Queue] OAuth token status:', {
       source: tokenSource,
-      hasToken,
-      tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
+      hasToken
+      // SECURITY: Never log token preview - even partial tokens are sensitive (AC4)
     });
 
     // Parse Python command to handle space-separated commands like "py -3"
