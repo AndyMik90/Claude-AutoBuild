@@ -6,7 +6,7 @@
  */
 
 import { loadProfilesFile, saveProfilesFile, generateProfileId } from '../utils/profile-manager';
-import type { APIProfile } from '../../shared/types/profile';
+import type { APIProfile, TestConnectionResult } from '../../shared/types/profile';
 
 /**
  * Validate base URL format
@@ -272,4 +272,239 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
   }
 
   return filteredEnvVars;
+}
+
+/**
+ * Test API profile connection
+ *
+ * Validates credentials by making a minimal API request to the /v1/models endpoint.
+ * Returns detailed error information for different failure types.
+ *
+ * @param baseUrl - API base URL (will be normalized)
+ * @param apiKey - API key for authentication
+ * @param signal - Optional AbortSignal for cancelling the request
+ * @returns Promise<TestConnectionResult> Result of connection test
+ */
+export async function testConnection(
+  baseUrl: string,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TestConnectionResult> {
+  // Validate API key first (key format doesn't depend on URL normalization)
+  if (!validateApiKey(apiKey)) {
+    return {
+      success: false,
+      errorType: 'auth',
+      message: 'Authentication failed. Please check your API key.'
+    };
+  }
+
+  // Normalize baseUrl BEFORE validation (allows auto-prepending https://)
+  let normalizedUrl = baseUrl.trim();
+
+  // Store original URL for error suggestions
+  const originalUrl = normalizedUrl;
+
+  // If empty, return error
+  if (!normalizedUrl) {
+    return {
+      success: false,
+      errorType: 'endpoint',
+      message: 'Invalid endpoint. Please check the Base URL.'
+    };
+  }
+
+  // Ensure https:// prefix (auto-prepend if NO protocol exists)
+  // Check if URL already has a protocol (contains ://)
+  if (!normalizedUrl.includes('://')) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+
+  // Remove trailing slash
+  normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+
+  // Helper function to generate URL suggestions
+  const getUrlSuggestions = (url: string): string[] => {
+    const suggestions: string[] = [];
+
+    // Check if URL lacks https://
+    if (!url.includes('://')) {
+      suggestions.push('Ensure URL starts with https://');
+    }
+
+    // Check for trailing slash
+    if (url.endsWith('/')) {
+      suggestions.push('Remove trailing slashes from URL');
+    }
+
+    // Check for suspicious domain patterns (common typos)
+    const domainMatch = url.match(/:\/\/([^\/]+)/);
+    if (domainMatch) {
+      const domain = domainMatch[1];
+      // Check for common typos like anthropiic, ap, etc.
+      if (domain.includes('anthropiic') || domain.includes('anthhropic') ||
+          domain.includes('anhtropic') || domain.length < 10) {
+        suggestions.push('Check for typos in domain name');
+      }
+    }
+
+    return suggestions;
+  };
+
+  // Validate the normalized baseUrl
+  if (!validateBaseUrl(normalizedUrl)) {
+    // Generate suggestions based on original URL
+    const suggestions = getUrlSuggestions(originalUrl);
+    const message = suggestions.length > 0
+      ? `Invalid endpoint. Please check the Base URL.${suggestions.map(s => ' ' + s).join('')}`
+      : 'Invalid endpoint. Please check the Base URL.';
+
+    return {
+      success: false,
+      errorType: 'endpoint',
+      message
+    };
+  }
+
+  // Set timeout to 10 seconds (NFR-P3 compliance)
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+
+  // Create a combined controller that aborts when either timeout or external signal aborts
+  const combinedController = new AbortController();
+
+  // Cleanup function for event listeners
+  const cleanup = () => {
+    clearTimeout(timeoutId);
+  };
+
+  // Listen to timeout abort
+  const onTimeoutAbort = () => {
+    cleanup();
+    combinedController.abort();
+  };
+  timeoutController.signal.addEventListener('abort', onTimeoutAbort);
+
+  // Listen to external signal abort (if provided)
+  let onExternalAbort: (() => void) | undefined;
+  if (signal) {
+    // If external signal already aborted, abort immediately
+    if (signal.aborted) {
+      cleanup();
+      timeoutController.signal.removeEventListener('abort', onTimeoutAbort);
+      return {
+        success: false,
+        errorType: 'timeout',
+        message: 'Connection timeout. The endpoint did not respond.'
+      };
+    }
+
+    // Listen to external signal abort
+    onExternalAbort = () => {
+      cleanup();
+      timeoutController.signal.removeEventListener('abort', onTimeoutAbort);
+      combinedController.abort();
+    };
+    signal.addEventListener('abort', onExternalAbort);
+  }
+
+  const combinedSignal = combinedController.signal;
+
+  try {
+    // Make minimal API request
+    const response = await fetch(`${normalizedUrl}/v1/models`, {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      signal: combinedSignal
+    });
+
+    // Clear timeout on successful response
+    cleanup();
+    if (onTimeoutAbort) {
+      timeoutController.signal.removeEventListener('abort', onTimeoutAbort);
+    }
+    if (signal && onExternalAbort) {
+      signal.removeEventListener('abort', onExternalAbort);
+    }
+
+    // Parse response and determine error type
+    if (response.status === 200 || response.status === 201) {
+      return {
+        success: true,
+        message: 'Connection successful'
+      };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      };
+    }
+
+    if (response.status === 404) {
+      // Generate URL suggestions for 404 errors
+      const suggestions = getUrlSuggestions(baseUrl.trim());
+      const message = suggestions.length > 0
+        ? `Invalid endpoint. Please check the Base URL.${suggestions.map(s => ' ' + s).join('')}`
+        : 'Invalid endpoint. Please check the Base URL.';
+
+      return {
+        success: false,
+        errorType: 'endpoint',
+        message
+      };
+    }
+
+    // Other HTTP errors
+    return {
+      success: false,
+      errorType: 'unknown',
+      message: 'Connection test failed. Please try again.'
+    };
+  } catch (error) {
+    // Cleanup event listeners and timeout
+    cleanup();
+    if (onTimeoutAbort) {
+      timeoutController.signal.removeEventListener('abort', onTimeoutAbort);
+    }
+    if (signal && onExternalAbort) {
+      signal.removeEventListener('abort', onExternalAbort);
+    }
+
+    // Determine error type from error object
+    if (error instanceof Error) {
+      // AbortError → timeout
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          errorType: 'timeout',
+          message: 'Connection timeout. The endpoint did not respond.'
+        };
+      }
+
+      // TypeError with ECONNREFUSED/ENOTFOUND → network error
+      if (error instanceof TypeError) {
+        const errorCode = (error as any).code;
+        if (errorCode === 'ECONNREFUSED' || errorCode === 'ENOTFOUND') {
+          return {
+            success: false,
+            errorType: 'network',
+            message: 'Network error. Please check your internet connection.'
+          };
+        }
+      }
+    }
+
+    // Other errors
+    return {
+      success: false,
+      errorType: 'unknown',
+      message: 'Connection test failed. Please try again.'
+    };
+  }
 }
