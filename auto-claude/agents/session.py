@@ -42,6 +42,13 @@ from .utils import (
     sync_plan_to_source,
 )
 
+# Import QA feedback functionality
+try:
+    from qa.loop import get_recovery_feedback
+except ImportError:
+    # Handle case where QA module is not available
+    get_recovery_feedback = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -308,6 +315,138 @@ async def post_session_processing(
             logger.debug(f"Failed to save failed session memory: {e}")
 
         return False
+
+
+def process_validation_feedback(
+    spec_dir: Path,
+    session_num: int | None = None,
+    include_suggestions: bool = True,
+) -> dict:
+    """
+    Process validation feedback from QA for recovery scenarios.
+
+    This function consolidates QA feedback and provides structured information
+    for validation failure recovery processing.
+
+    Args:
+        spec_dir: Spec directory containing QA reports and validation data
+        session_num: Optional session number for context
+        include_suggestions: Whether to include recovery suggestions
+
+    Returns:
+        Dictionary containing:
+        - status: Overall validation status
+        - issues: List of current issues found
+        - history: Iteration history summary
+        - recurring_issues: Issues that have appeared multiple times
+        - suggestions: Actionable recovery suggestions (if enabled)
+        - escalation_needed: Whether human escalation is recommended
+        - session_context: Session number and processing context
+        - feedback_available: Whether QA feedback is available for processing
+    """
+    debug_detailed(
+        "session",
+        "Processing validation feedback",
+        spec_dir=str(spec_dir),
+        session_num=session_num,
+        include_suggestions=include_suggestions,
+    )
+
+    # Initialize feedback structure
+    feedback = {
+        "status": "unknown",
+        "issues": [],
+        "history": {},
+        "recurring_issues": [],
+        "suggestions": [],
+        "escalation_needed": False,
+        "session_context": {
+            "session_num": session_num,
+            "processing_phase": "validation_feedback"
+        },
+        "feedback_available": False,
+    }
+
+    # Check if QA feedback functionality is available
+    if get_recovery_feedback is None:
+        logger.warning("QA feedback functionality not available")
+        debug_error(
+            "session",
+            "QA feedback functionality not available - qa.loop module not found"
+        )
+        return feedback
+
+    try:
+        # Get comprehensive recovery feedback from QA loop
+        qa_feedback = get_recovery_feedback(
+            spec_dir=spec_dir,
+            include_suggestions=include_suggestions,
+        )
+
+        # Merge QA feedback into our structure
+        feedback.update(qa_feedback)
+        feedback["feedback_available"] = True
+
+        # Add session-specific context
+        feedback["session_context"]["timestamp"] = logger.handlers[0].formatter.formatTime(
+            logger.makeRecord(
+                name="session",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg="",
+                args=(),
+                exc_info=None,
+            )
+        ) if logger.handlers else None
+
+        # Log feedback summary
+        debug_success(
+            "session",
+            "Validation feedback processed successfully",
+            status=feedback["status"],
+            issue_count=len(feedback["issues"]),
+            recurring_count=len(feedback["recurring_issues"]),
+            suggestion_count=len(feedback["suggestions"]),
+            escalation_needed=feedback["escalation_needed"],
+        )
+
+        # Provide status messages for user feedback
+        if feedback["issues"]:
+            print_status(
+                f"Found {len(feedback['issues'])} validation issue(s) to address",
+                "warning" if feedback["escalation_needed"] else "info"
+            )
+
+        if feedback["recurring_issues"]:
+            print_status(
+                f"Detected {len(feedback['recurring_issues'])} recurring issue(s) - escalation recommended",
+                "warning"
+            )
+
+        if feedback["suggestions"]:
+            print_status(
+                f"Generated {len(feedback['suggestions'])} recovery suggestion(s)",
+                "info"
+            )
+
+    except Exception as e:
+        logger.error(f"Error processing validation feedback: {e}")
+        debug_error(
+            "session",
+            f"Validation feedback processing failed",
+            error=str(e),
+            spec_dir=str(spec_dir),
+        )
+
+        # Set error state in feedback
+        feedback["status"] = "error"
+        feedback["feedback_available"] = False
+        feedback["error"] = str(e)
+
+        print_status("Failed to process validation feedback", "error")
+
+    return feedback
 
 
 async def run_agent_session(
