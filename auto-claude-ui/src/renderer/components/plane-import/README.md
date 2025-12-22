@@ -65,7 +65,14 @@ Unlike Linear which uses teams, Plane uses:
 - **Workspaces** - Top-level organization (identified by slug)
 - **Projects** - Containers for work items within a workspace
 - **Work Items** - Tasks/issues (called "issues" in Plane API)
-- **States** - Workflow states grouped into: backlog, unstarted, started, completed, cancelled
+- **States** - Workflow states (from `/api/v1/workspaces/:slug/projects/:id/states/`):
+  - `backlog` - Unprioritized/planned work
+  - `unstarted` - Ready but not started
+  - `started` - Work in progress
+  - `completed` - Finished work
+  - `cancelled` - Abandoned work
+
+  Note: These five state groups are fixed by the Plane API and cannot be extended.
 
 ## Usage
 

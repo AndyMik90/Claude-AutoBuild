@@ -179,6 +179,7 @@ export const IPC_CHANNELS = {
   PLANE_GET_WORK_ITEMS: 'plane:getWorkItems',
   PLANE_GET_STATES: 'plane:getStates',
   PLANE_GET_CONFIGURED_PROJECTS: 'plane:getConfiguredProjects',
+  PLANE_COPY_CONFIG_FROM_PROJECT: 'plane:copyConfigFromProject',
   PLANE_IMPORT_WORK_ITEMS: 'plane:importWorkItems',
 
   // GitHub integration

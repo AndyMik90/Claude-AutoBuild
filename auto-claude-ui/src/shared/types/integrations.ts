@@ -150,11 +150,12 @@ export interface PlaneSyncStatus {
 
 /**
  * Project with Plane configuration (for copy settings feature)
+ * Security: API key is NOT exposed - only metadata is returned
  */
 export interface PlaneConfiguredProject {
   id: string;
   name: string;
-  planeApiKey: string;
+  hasPlaneConfig: boolean;
   planeBaseUrl?: string;
   planeWorkspaceSlug?: string;
 }

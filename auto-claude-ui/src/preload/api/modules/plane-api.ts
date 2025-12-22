@@ -11,11 +11,12 @@ import { invokeIpc } from './ipc-utils';
 
 /**
  * Project with Plane configuration (for copy settings feature)
+ * Security: API key is NOT exposed - only metadata is returned
  */
 export interface PlaneConfiguredProject {
   id: string;
   name: string;
-  planeApiKey: string;
+  hasPlaneConfig: boolean;
   planeBaseUrl?: string;
   planeWorkspaceSlug?: string;
 }
@@ -37,6 +38,7 @@ export interface PlaneAPI {
     planeProjectId: string
   ) => Promise<IPCResult<PlaneState[]>>;
   getPlaneConfiguredProjects: (excludeProjectId?: string) => Promise<IPCResult<PlaneConfiguredProject[]>>;
+  copyPlaneConfigFromProject: (targetProjectId: string, sourceProjectId: string) => Promise<IPCResult<void>>;
   importPlaneWorkItems: (
     projectId: string,
     workItemIds: string[],
@@ -72,6 +74,9 @@ export const createPlaneAPI = (): PlaneAPI => ({
 
   getPlaneConfiguredProjects: (excludeProjectId?: string): Promise<IPCResult<PlaneConfiguredProject[]>> =>
     invokeIpc(IPC_CHANNELS.PLANE_GET_CONFIGURED_PROJECTS, excludeProjectId),
+
+  copyPlaneConfigFromProject: (targetProjectId: string, sourceProjectId: string): Promise<IPCResult<void>> =>
+    invokeIpc(IPC_CHANNELS.PLANE_COPY_CONFIG_FROM_PROJECT, targetProjectId, sourceProjectId),
 
   importPlaneWorkItems: (
     projectId: string,

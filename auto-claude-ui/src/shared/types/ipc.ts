@@ -313,6 +313,7 @@ export interface ElectronAPI {
   getPlaneWorkItems: (projectId: string, workspaceSlug: string, planeProjectId: string) => Promise<IPCResult<PlaneWorkItem[]>>;
   getPlaneStates: (projectId: string, workspaceSlug: string, planeProjectId: string) => Promise<IPCResult<PlaneState[]>>;
   getPlaneConfiguredProjects: (excludeProjectId?: string) => Promise<IPCResult<PlaneConfiguredProject[]>>;
+  copyPlaneConfigFromProject: (targetProjectId: string, sourceProjectId: string) => Promise<IPCResult<void>>;
   importPlaneWorkItems: (projectId: string, workItemIds: string[], workspaceSlug: string, planeProjectId: string, planeProjectIdentifier: string) => Promise<IPCResult<PlaneImportResult>>;
 
   // GitHub integration operations

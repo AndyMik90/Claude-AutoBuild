@@ -119,6 +119,11 @@ export const integrationMock = {
     data: []
   }),
 
+  copyPlaneConfigFromProject: async (_targetProjectId: string, _sourceProjectId: string) => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
   importPlaneWorkItems: async (_projectId: string, _workItemIds: string[], _workspaceSlug: string, _planeProjectId: string, _planeProjectIdentifier: string) => ({
     success: false,
     error: 'Not available in browser mock'

@@ -17,7 +17,7 @@ import type { ProjectEnvConfig, PlaneSyncStatus } from '../../../../shared/types
 interface PlaneConfiguredProject {
   id: string;
   name: string;
-  planeApiKey: string;
+  hasPlaneConfig: boolean;
   planeBaseUrl?: string;
   planeWorkspaceSlug?: string;
 }
@@ -69,15 +69,22 @@ export function PlaneIntegration({
     loadConfiguredProjects();
   }, [projectId]);
 
-  const handleCopyFromProject = (sourceProjectId: string) => {
+  const handleCopyFromProject = async (sourceProjectId: string) => {
     const sourceProject = configuredProjects.find(p => p.id === sourceProjectId);
-    if (sourceProject) {
-      updateEnvConfig({
-        planeEnabled: true,
-        planeApiKey: sourceProject.planeApiKey,
-        planeBaseUrl: sourceProject.planeBaseUrl || '',
-        planeWorkspaceSlug: sourceProject.planeWorkspaceSlug || ''
-      });
+    if (!sourceProject) return;
+
+    try {
+      // Security: Copy config in main process without exposing API key to renderer
+      const result = await window.electronAPI.copyPlaneConfigFromProject(projectId, sourceProjectId);
+      if (result.success) {
+        // Trigger a refresh of the env config to show the new values
+        // The parent component should re-fetch the config
+        updateEnvConfig({ planeEnabled: true });
+      } else {
+        console.error('Failed to copy Plane config:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to copy Plane config:', error);
     }
   };
 

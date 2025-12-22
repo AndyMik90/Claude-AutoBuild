@@ -167,12 +167,13 @@ export function registerPlaneHandlers(
   );
 
   // Get list of projects that have Plane configured (for "copy from" feature)
+  // Security: API key is NOT exposed to renderer - only metadata is returned
   ipcMain.handle(
     IPC_CHANNELS.PLANE_GET_CONFIGURED_PROJECTS,
     async (_, excludeProjectId?: string): Promise<IPCResult<Array<{
       id: string;
       name: string;
-      planeApiKey: string;
+      hasPlaneConfig: boolean;
       planeBaseUrl?: string;
       planeWorkspaceSlug?: string;
     }>>> => {
@@ -180,7 +181,7 @@ export function registerPlaneHandlers(
       const configuredProjects: Array<{
         id: string;
         name: string;
-        planeApiKey: string;
+        hasPlaneConfig: boolean;
         planeBaseUrl?: string;
         planeWorkspaceSlug?: string;
       }> = [];
@@ -196,7 +197,7 @@ export function registerPlaneHandlers(
           configuredProjects.push({
             id: project.id,
             name: project.name,
-            planeApiKey: config.apiKey,
+            hasPlaneConfig: true,
             planeBaseUrl: config.baseUrl,
             planeWorkspaceSlug: config.workspaceSlug
           });
@@ -204,6 +205,92 @@ export function registerPlaneHandlers(
       }
 
       return { success: true, data: configuredProjects };
+    }
+  );
+
+  // Copy Plane configuration from one project to another
+  // Security: API key stays in main process, never sent to renderer
+  ipcMain.handle(
+    IPC_CHANNELS.PLANE_COPY_CONFIG_FROM_PROJECT,
+    async (_, targetProjectId: string, sourceProjectId: string): Promise<IPCResult<void>> => {
+      const targetProject = projectStore.getProject(targetProjectId);
+      if (!targetProject) {
+        return { success: false, error: 'Target project not found' };
+      }
+
+      const sourceProject = projectStore.getProject(sourceProjectId);
+      if (!sourceProject) {
+        return { success: false, error: 'Source project not found' };
+      }
+
+      const sourceConfig = getPlaneConfig(sourceProject);
+      if (!sourceConfig?.apiKey) {
+        return { success: false, error: 'Source project has no Plane configuration' };
+      }
+
+      if (!targetProject.autoBuildPath) {
+        return { success: false, error: 'Target project not initialized' };
+      }
+
+      try {
+        // Read existing target .env file
+        const targetEnvPath = path.join(targetProject.path, targetProject.autoBuildPath, '.env');
+        let existingContent = '';
+        if (existsSync(targetEnvPath)) {
+          existingContent = readFileSync(targetEnvPath, 'utf-8');
+        }
+
+        // Parse existing vars and update Plane config
+        const vars = parseEnvFile(existingContent);
+        vars['PLANE_ENABLED'] = 'true';
+        vars['PLANE_API_KEY'] = sourceConfig.apiKey;
+        if (sourceConfig.baseUrl) {
+          vars['PLANE_BASE_URL'] = sourceConfig.baseUrl;
+        }
+        if (sourceConfig.workspaceSlug) {
+          vars['PLANE_WORKSPACE_SLUG'] = sourceConfig.workspaceSlug;
+        }
+
+        // Regenerate the .env file preserving structure
+        // Simple approach: update in place or append
+        let newContent = existingContent;
+
+        // Helper to update or add a var
+        const updateVar = (content: string, key: string, value: string): string => {
+          const regex = new RegExp(`^#?\\s*${key}=.*$`, 'm');
+          if (regex.test(content)) {
+            return content.replace(regex, `${key}=${value}`);
+          } else {
+            // Append to Plane section or end
+            const planeSection = content.indexOf('# PLANE.SO INTEGRATION');
+            if (planeSection !== -1) {
+              // Find end of Plane section (next section header or EOF)
+              const nextSection = content.indexOf('\n# =', planeSection + 1);
+              const insertPos = nextSection !== -1 ? nextSection : content.length;
+              return content.slice(0, insertPos) + `${key}=${value}\n` + content.slice(insertPos);
+            }
+            return content + `\n${key}=${value}`;
+          }
+        };
+
+        newContent = updateVar(newContent, 'PLANE_ENABLED', 'true');
+        newContent = updateVar(newContent, 'PLANE_API_KEY', sourceConfig.apiKey);
+        if (sourceConfig.baseUrl) {
+          newContent = updateVar(newContent, 'PLANE_BASE_URL', sourceConfig.baseUrl);
+        }
+        if (sourceConfig.workspaceSlug) {
+          newContent = updateVar(newContent, 'PLANE_WORKSPACE_SLUG', sourceConfig.workspaceSlug);
+        }
+
+        writeFileSync(targetEnvPath, newContent);
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to copy Plane configuration'
+        };
+      }
     }
   );
 
