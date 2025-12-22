@@ -17,19 +17,23 @@ from .service_analyzer import ServiceAnalyzer
 
 def _has_service_root_file(directory: Path) -> bool:
     """Check if a directory has service root files, including Xcode bundles."""
-    # Check regular files
-    for f in SERVICE_ROOT_FILES:
-        if '*' in f:
-            # Skip glob patterns for now
-            continue
-        if (directory / f).exists():
-            return True
-
-    # Check for Xcode project bundles (directories that end with .xcodeproj or .xcworkspace)
-    for item in directory.iterdir():
-        if item.is_dir():
-            if item.name.endswith('.xcodeproj') or item.name.endswith('.xcworkspace'):
+    try:
+        # Check regular files
+        for f in SERVICE_ROOT_FILES:
+            if '*' in f:
+                # Skip glob patterns for now
+                continue
+            if (directory / f).exists():
                 return True
+
+        # Check for Xcode project bundles (directories that end with .xcodeproj or .xcworkspace)
+        if directory.exists() and directory.is_dir():
+            for item in directory.iterdir():
+                if item.is_dir():
+                    if item.name.endswith('.xcodeproj') or item.name.endswith('.xcworkspace'):
+                        return True
+    except (OSError, PermissionError):
+        pass
 
     return False
 

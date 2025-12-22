@@ -318,11 +318,17 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
     def _detect_xcode_project(self) -> bool:
         """Detect Xcode project or workspace bundles."""
-        # Check for .xcodeproj or .xcworkspace directories
-        for item in self.path.iterdir():
-            if item.is_dir():
-                if item.name.endswith('.xcodeproj') or item.name.endswith('.xcworkspace'):
-                    return True
+        try:
+            # Check for .xcodeproj or .xcworkspace directories
+            if not self.path.exists() or not self.path.is_dir():
+                return False
+
+            for item in self.path.iterdir():
+                if item.is_dir():
+                    if item.name.endswith('.xcodeproj') or item.name.endswith('.xcworkspace'):
+                        return True
+        except (OSError, PermissionError):
+            pass
         return False
 
     def _detect_swift_framework(self) -> None:
@@ -336,16 +342,20 @@ class FrameworkAnalyzer(BaseAnalyzer):
             # Could be macOS app
             pass
 
-        # Check for SwiftUI
-        swift_files = list(self.path.rglob("*.swift"))
-        for swift_file in swift_files[:10]:  # Check first 10 Swift files
-            try:
-                content = swift_file.read_text(encoding="utf-8")
-                if "import SwiftUI" in content:
-                    self.analysis["framework"] = "SwiftUI"
-                    break
-                elif "import UIKit" in content:
-                    self.analysis["framework"] = "UIKit"
-                    break
-            except (OSError, UnicodeDecodeError):
-                continue
+        # Check for SwiftUI/UIKit - safely handle file iteration
+        try:
+            swift_files = list(self.path.rglob("*.swift"))[:10]  # Limit to first 10 files
+            for swift_file in swift_files:
+                try:
+                    content = swift_file.read_text(encoding="utf-8")
+                    if "import SwiftUI" in content:
+                        self.analysis["framework"] = "SwiftUI"
+                        break
+                    elif "import UIKit" in content:
+                        self.analysis["framework"] = "UIKit"
+                        break
+                except (OSError, UnicodeDecodeError):
+                    continue
+        except (OSError, PermissionError, RuntimeError):
+            # If we can't read Swift files, just leave type/platform set
+            pass
