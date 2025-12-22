@@ -53,6 +53,7 @@ import { GitHubSetupModal } from './components/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles } from './stores/settings-store';
+import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
@@ -119,6 +120,13 @@ export function App() {
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
+
+  // API Profile state
+  const profiles = useSettingsStore((state) => state.profiles);
+  const activeProfileId = useSettingsStore((state) => state.activeProfileId);
+
+  // Claude Profile state (OAuth)
+  const claudeProfiles = useClaudeProfileStore((state) => state.profiles);
 
   // UI State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -240,10 +248,21 @@ export function App() {
   // First-run detection - show onboarding wizard if not completed
   // Only check AFTER settings have been loaded from disk to avoid race condition
   useEffect(() => {
-    if (settingsHaveLoaded && settings.onboardingCompleted === false) {
+    // Check if either auth method is configured
+    // API profiles: if profiles exist, auth is configured (user has gone through setup)
+    const hasAPIProfileConfigured = profiles.length > 0;
+    const hasOAuthConfigured = claudeProfiles.some(p =>
+      p.oauthToken || (p.isDefault && p.configDir)
+    );
+    const hasAnyAuth = hasAPIProfileConfigured || hasOAuthConfigured;
+
+    // Only show wizard if onboarding not completed AND no auth is configured
+    if (settingsHaveLoaded &&
+        settings.onboardingCompleted === false &&
+        !hasAnyAuth) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settingsHaveLoaded, settings.onboardingCompleted]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, activeProfileId, claudeProfiles]);
 
   // Sync i18n language with settings
   const { t, i18n } = useTranslation('dialogs');
