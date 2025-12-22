@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
+import type { GraphitiLLMProvider, GraphitiEmbeddingProvider } from '../../../shared/types/project';
 
 export interface EnvironmentVars {
   [key: string]: string;
@@ -140,6 +141,41 @@ export const PROVIDER_ENV_MAP: Record<string, string> = {
  * Providers that don't require an API key (local deployments)
  */
 export const OPTIONAL_CREDENTIAL_PROVIDERS = ['ollama'];
+
+/**
+ * Get the environment variable name for a given provider
+ * @param provider - The provider name (e.g., 'openai', 'anthropic', 'voyage')
+ * @returns The environment variable name or undefined if provider is unknown
+ */
+export function getProviderEnvVarName(provider: string): string | undefined {
+  return PROVIDER_ENV_MAP[provider];
+}
+
+/**
+ * Get the list of unique providers that require credentials
+ * Deduplicates when LLM and embedding providers are the same
+ * @param llmProvider - The LLM provider
+ * @param embeddingProvider - The embedding provider
+ * @returns Array of unique provider names that need credentials
+ */
+export function getRequiredProviders(
+  llmProvider: GraphitiLLMProvider,
+  embeddingProvider: GraphitiEmbeddingProvider
+): string[] {
+  const providers = new Set<string>();
+
+  // Add LLM provider if it requires credentials
+  if (!OPTIONAL_CREDENTIAL_PROVIDERS.includes(llmProvider)) {
+    providers.add(llmProvider);
+  }
+
+  // Add embedding provider if it requires credentials (and is different from LLM)
+  if (!OPTIONAL_CREDENTIAL_PROVIDERS.includes(embeddingProvider)) {
+    providers.add(embeddingProvider);
+  }
+
+  return Array.from(providers);
+}
 
 /**
  * Check if a specific provider has credentials available
