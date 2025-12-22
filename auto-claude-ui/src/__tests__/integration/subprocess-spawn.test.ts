@@ -6,10 +6,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 import { mkdirSync, rmSync, existsSync, writeFileSync } from 'fs';
 import path from 'path';
+import { findPythonCommand, parsePythonCommand } from '../../main/python-detector';
 
 // Test directories
 const TEST_DIR = '/tmp/subprocess-spawn-test';
 const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
+
+// Detect the Python command that will actually be used
+const DETECTED_PYTHON_CMD = findPythonCommand() || 'python';
+const [EXPECTED_PYTHON_COMMAND, EXPECTED_PYTHON_BASE_ARGS] = parsePythonCommand(DETECTED_PYTHON_CMD);
 
 // Mock child_process spawn
 const mockStdout = new EventEmitter();
@@ -99,8 +104,9 @@ describe('Subprocess Spawn Integration', () => {
       manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test task description');
 
       expect(spawn).toHaveBeenCalledWith(
-        'python3',
+        EXPECTED_PYTHON_COMMAND,
         expect.arrayContaining([
+          ...EXPECTED_PYTHON_BASE_ARGS,
           expect.stringContaining('spec_runner.py'),
           '--task',
           'Test task description'
@@ -123,8 +129,13 @@ describe('Subprocess Spawn Integration', () => {
       manager.startTaskExecution('task-1', TEST_PROJECT_PATH, 'spec-001');
 
       expect(spawn).toHaveBeenCalledWith(
-        'python3',
-        expect.arrayContaining([expect.stringContaining('run.py'), '--spec', 'spec-001']),
+        EXPECTED_PYTHON_COMMAND,
+        expect.arrayContaining([
+          ...EXPECTED_PYTHON_BASE_ARGS,
+          expect.stringContaining('run.py'),
+          '--spec',
+          'spec-001'
+        ]),
         expect.objectContaining({
           cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
         })
@@ -140,8 +151,9 @@ describe('Subprocess Spawn Integration', () => {
       manager.startQAProcess('task-1', TEST_PROJECT_PATH, 'spec-001');
 
       expect(spawn).toHaveBeenCalledWith(
-        'python3',
+        EXPECTED_PYTHON_COMMAND,
         expect.arrayContaining([
+          ...EXPECTED_PYTHON_BASE_ARGS,
           expect.stringContaining('run.py'),
           '--spec',
           'spec-001',
@@ -167,8 +179,13 @@ describe('Subprocess Spawn Integration', () => {
 
       // Should spawn normally - parallel options don't affect CLI args anymore
       expect(spawn).toHaveBeenCalledWith(
-        'python3',
-        expect.arrayContaining([expect.stringContaining('run.py'), '--spec', 'spec-001']),
+        EXPECTED_PYTHON_COMMAND,
+        expect.arrayContaining([
+          ...EXPECTED_PYTHON_BASE_ARGS,
+          expect.stringContaining('run.py'),
+          '--spec',
+          'spec-001'
+        ]),
         expect.any(Object)
       );
     });
