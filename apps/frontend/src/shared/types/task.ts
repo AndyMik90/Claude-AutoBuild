@@ -226,6 +226,12 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // Hierarchical task fields (for parent/child relationships)
+  hasChildren?: boolean;  // True if this task has child tasks
+  childTaskIds?: string[];  // IDs of child tasks
+  parentTaskId?: string;  // ID of parent task (if this is a child)
+  orderIndex?: number;  // Order index for sorting child tasks
 }
 
 export interface Task {

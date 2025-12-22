@@ -1,15 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent, type DragEvent } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  useDroppable,
-  type DragStartEvent,
-  type DragEndEvent
-} from '@dnd-kit/core';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch, FileDown, File, Folder } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,7 +42,6 @@ import {
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
   MAX_IMAGES_PER_TASK,
-  MAX_REFERENCED_FILES,
   ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,

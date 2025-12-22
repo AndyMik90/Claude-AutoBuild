@@ -133,6 +133,13 @@ export interface ElectronAPI {
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
   createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
+  createTaskWithChildren: (
+    projectId: string,
+    title: string,
+    description: string,
+    children: Array<{ title: string; description?: string; orderIndex: number }>,
+    metadata?: TaskMetadata
+  ) => Promise<IPCResult<{ parent: Task; children: Task[] }>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
   updateTask: (taskId: string, updates: { title?: string; description?: string }) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
@@ -536,6 +543,7 @@ export interface ElectronAPI {
 
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
+  readFileContent: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
@@ -589,6 +597,10 @@ export interface ElectronAPI {
       percentage: number;
     }) => void
   ) => () => void;
+
+  // Developer/Debug operations
+  setBackendLogging: (enabled: boolean) => void;
+  onMainProcessLog: (callback: (data: { level: string; args: string[] }) => void) => () => void;
 }
 
 declare global {
