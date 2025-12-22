@@ -50,16 +50,21 @@ export function registerLinearHandlers(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': apiKey
       },
       body: JSON.stringify({ query, variables })
     });
 
-    if (!response.ok) {
-      throw new Error(`Linear API error: ${response.status} ${response.statusText}`);
-    }
-
     const result = await response.json();
+
+    if (!response.ok) {
+      // Try to get detailed error message from Linear's response
+      const errorMessage = result?.errors?.[0]?.message
+        || result?.error
+        || result?.message
+        || response.statusText;
+      throw new Error(`Linear API error: ${response.status} - ${errorMessage}`);
+    }
     if (result.errors) {
       throw new Error(result.errors[0]?.message || 'Linear API error');
     }
@@ -116,7 +121,7 @@ export function registerLinearHandlers(
           teamName = data.teams.nodes[0].name;
           // Note: These queries are kept as documentation for future API reference
           const _countQuery = `
-            query($teamId: String!) {
+            query($teamId: ID!) {
               team(id: $teamId) {
                 issues {
                   totalCount: nodes { id }
@@ -126,7 +131,7 @@ export function registerLinearHandlers(
           `;
           // Get approximate count
           const _issuesQuery = `
-            query($teamId: String!) {
+            query($teamId: ID!) {
               issues(filter: { team: { id: { eq: $teamId } } }, first: 0) {
                 pageInfo {
                   hasNextPage
@@ -139,7 +144,7 @@ export function registerLinearHandlers(
 
           // Simple count estimation - get first 250 issues
           const countData = await linearGraphQL(apiKey, `
-            query($teamId: String!) {
+            query($teamId: ID!) {
               issues(filter: { team: { id: { eq: $teamId } } }, first: 250) {
                 nodes { id }
               }
@@ -226,7 +231,7 @@ export function registerLinearHandlers(
 
       try {
         const query = `
-          query($teamId: String!) {
+          query($teamId: ID!) {
             team(id: $teamId) {
               projects {
                 nodes {
@@ -369,7 +374,7 @@ export function registerLinearHandlers(
       try {
         // First, fetch the full details of selected issues
         const query = `
-          query($ids: [String!]!) {
+          query($ids: [ID!]!) {
             issues(filter: { id: { in: $ids } }) {
               nodes {
                 id
