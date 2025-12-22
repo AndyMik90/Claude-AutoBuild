@@ -279,20 +279,28 @@ export function registerLinearHandlers(
       }
 
       try {
-        // Build filter based on provided parameters
-        const filters: string[] = [];
+        // Build filter using GraphQL variables for safety
+        const variables: Record<string, string> = {};
+        const filterParts: string[] = [];
+        const variableDeclarations: string[] = [];
+
         if (teamId) {
-          filters.push(`team: { id: { eq: "${teamId}" } }`);
+          variables.teamId = teamId;
+          variableDeclarations.push('$teamId: ID!');
+          filterParts.push('team: { id: { eq: $teamId } }');
         }
         if (linearProjectId) {
-          filters.push(`project: { id: { eq: "${linearProjectId}" } }`);
+          variables.linearProjectId = linearProjectId;
+          variableDeclarations.push('$linearProjectId: ID!');
+          filterParts.push('project: { id: { eq: $linearProjectId } }');
         }
 
-        const filterClause = filters.length > 0 ? `filter: { ${filters.join(', ')} }` : '';
+        const variablesDef = variableDeclarations.length > 0 ? `(${variableDeclarations.join(', ')})` : '';
+        const filterClause = filterParts.length > 0 ? `filter: { ${filterParts.join(', ')} }, ` : '';
 
         const query = `
-          query {
-            issues(${filterClause}, first: 250, orderBy: updatedAt) {
+          query${variablesDef} {
+            issues(${filterClause}first: 250, orderBy: updatedAt) {
               nodes {
                 id
                 identifier
@@ -329,7 +337,7 @@ export function registerLinearHandlers(
           }
         `;
 
-        const data = await linearGraphQL(apiKey, query) as {
+        const data = await linearGraphQL(apiKey, query, variables) as {
           issues: {
             nodes: Array<{
               id: string;
