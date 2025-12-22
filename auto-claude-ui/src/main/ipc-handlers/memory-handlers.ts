@@ -444,7 +444,7 @@ export function registerMemoryHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.OLLAMA_PULL_MODEL,
     async (
-      _,
+      event,
       modelName: string,
       baseUrl?: string
     ): Promise<IPCResult<OllamaPullResult>> => {
@@ -484,14 +484,48 @@ export function registerMemoryHandlers(): void {
 
           let stdout = '';
           let stderr = '';
+          let stderrBuffer = ''; // Buffer for NDJSON parsing
 
           proc.stdout.on('data', (data) => {
             stdout += data.toString();
           });
 
           proc.stderr.on('data', (data) => {
-            stderr += data.toString();
-            // Could emit progress events here in the future
+            const chunk = data.toString();
+            stderr += chunk;
+            stderrBuffer += chunk;
+
+            // Parse NDJSON (newline-delimited JSON) from stderr
+            // Ollama sends progress data as: {"status":"downloading","completed":X,"total":Y}
+            const lines = stderrBuffer.split('\n');
+            // Keep the last incomplete line in the buffer
+            stderrBuffer = lines.pop() || '';
+
+            lines.forEach((line) => {
+              if (line.trim()) {
+                try {
+                  const progressData = JSON.parse(line);
+                  
+                  // Extract progress information
+                  if (progressData.completed !== undefined && progressData.total !== undefined) {
+                    const percentage = progressData.total > 0 
+                      ? Math.round((progressData.completed / progressData.total) * 100) 
+                      : 0;
+
+                    // Emit progress event to renderer
+                    event.sender.send(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, {
+                      modelName,
+                      status: progressData.status || 'downloading',
+                      completed: progressData.completed,
+                      total: progressData.total,
+                      percentage,
+                    });
+                  }
+                } catch {
+                  // Skip lines that aren't valid JSON
+                }
+              }
+            });
           });
 
           proc.on('close', (code) => {

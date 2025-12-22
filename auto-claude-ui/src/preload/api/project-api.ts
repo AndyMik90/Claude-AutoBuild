@@ -90,8 +90,7 @@ export interface ProjectAPI {
     completed: number;
     total: number;
     percentage: number;
-  }) => void) => void;
-  offDownloadProgress: (callback: Function) => void;
+  }) => void) => () => void;
 
   // Git Operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
@@ -255,11 +254,9 @@ export const createProjectAPI = (): ProjectAPI => ({
     total: number;
     percentage: number;
   }) => void) => {
-    ipcRenderer.on('download-progress', (_, data) => callback(data));
-  },
-
-  offDownloadProgress: (callback: Function) => {
-    ipcRenderer.off('download-progress', callback as any);
+    const listener = (_: any, data: any) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, listener);
+    return () => ipcRenderer.off(IPC_CHANNELS.OLLAMA_PULL_PROGRESS, listener);
   },
 
   // Git Operations

@@ -99,6 +99,10 @@ export const infrastructureMock = {
     }
   }),
 
+  onDownloadProgress: () => () => {
+    console.warn('[Browser Mock] onDownloadProgress listener registered');
+  },
+
   // Ideation Operations
   getIdeation: async () => ({
     success: true,

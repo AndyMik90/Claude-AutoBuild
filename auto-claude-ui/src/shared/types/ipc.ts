@@ -578,6 +578,17 @@ export interface ElectronAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+
+  // Ollama download progress listener
+  onDownloadProgress: (
+    callback: (data: {
+      modelName: string;
+      status: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }) => void
+  ) => () => void;
 }
 
 declare global {

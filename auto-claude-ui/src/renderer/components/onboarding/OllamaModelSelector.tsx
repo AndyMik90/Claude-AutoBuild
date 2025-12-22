@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Check,
   Download,
@@ -56,6 +56,14 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
  * Shows installed models with checkmarks and recommended models with download buttons.
  * Automatically refreshes the list after successful downloads.
  */
+interface DownloadProgress {
+  [modelName: string]: {
+    percentage: number;
+    speed?: string;
+    timeRemaining?: string;
+  };
+}
+
 export function OllamaModelSelector({
   selectedModel,
   onModelSelect,
@@ -67,6 +75,15 @@ export function OllamaModelSelector({
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ollamaAvailable, setOllamaAvailable] = useState(true);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({});
+  
+  // Track previous progress for speed calculation
+  const downloadProgressRef = useRef<{
+    [modelName: string]: {
+      lastCompleted: number;
+      lastUpdate: number;
+    };
+  }>({});
 
   // Check installed models - used by both mount effect and refresh after download
   const checkInstalledModels = async (abortSignal?: AbortSignal) => {
@@ -127,6 +144,88 @@ export function OllamaModelSelector({
     const controller = new AbortController();
     checkInstalledModels(controller.signal);
     return () => controller.abort();
+  }, []);
+
+  // Listen for download progress updates
+  useEffect(() => {
+    const handleProgress = (data: {
+      modelName: string;
+      status: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }) => {
+      const now = Date.now();
+      
+      // Initialize tracking for this model if needed
+      if (!downloadProgressRef.current[data.modelName]) {
+        downloadProgressRef.current[data.modelName] = {
+          lastCompleted: data.completed,
+          lastUpdate: now
+        };
+      }
+
+      const prevData = downloadProgressRef.current[data.modelName];
+      const timeDelta = now - prevData.lastUpdate;
+      const bytesDelta = data.completed - prevData.lastCompleted;
+
+      // Calculate speed only if we have meaningful time delta (> 100ms)
+      let speedStr = '';
+      let timeStr = '';
+      
+      if (timeDelta > 100 && bytesDelta > 0) {
+        const speed = (bytesDelta / timeDelta) * 1000; // bytes per second
+        const remaining = data.total - data.completed;
+        const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
+        
+        // Format speed (MB/s or KB/s)
+        if (speed > 1024 * 1024) {
+          speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
+        } else if (speed > 1024) {
+          speedStr = `${(speed / 1024).toFixed(1)} KB/s`;
+        } else if (speed > 0) {
+          speedStr = `${Math.round(speed)} B/s`;
+        }
+
+        // Format time remaining
+        if (timeRemaining > 3600) {
+          timeStr = `${Math.ceil(timeRemaining / 3600)}h remaining`;
+        } else if (timeRemaining > 60) {
+          timeStr = `${Math.ceil(timeRemaining / 60)}m remaining`;
+        } else if (timeRemaining > 0) {
+          timeStr = `${Math.ceil(timeRemaining)}s remaining`;
+        }
+      }
+
+      // Update tracking
+      downloadProgressRef.current[data.modelName] = {
+        lastCompleted: data.completed,
+        lastUpdate: now
+      };
+
+      setDownloadProgress(prev => {
+        const updated = { ...prev };
+        updated[data.modelName] = {
+          percentage: data.percentage,
+          speed: speedStr,
+          timeRemaining: timeStr
+        };
+        return updated;
+      });
+    };
+
+    // Register the progress listener
+    let unsubscribe: (() => void) | undefined;
+    if (window.electronAPI?.onDownloadProgress) {
+      unsubscribe = window.electronAPI.onDownloadProgress(handleProgress);
+    }
+
+    return () => {
+      // Clean up listener
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const handleDownload = async (modelName: string) => {
@@ -195,89 +294,115 @@ export function OllamaModelSelector({
         </div>
       )}
 
-      <div className="space-y-2">
-        {models.map(model => {
-          const isSelected = selectedModel === model.name;
-          const isCurrentlyDownloading = isDownloading === model.name;
+       <div className="space-y-2">
+         {models.map(model => {
+           const isSelected = selectedModel === model.name;
+           const isCurrentlyDownloading = isDownloading === model.name;
+           const progress = downloadProgress[model.name];
 
-          return (
-            <div
-              key={model.name}
-              className={cn(
-                'flex items-center justify-between rounded-lg border p-3 transition-colors',
-                model.installed && !disabled
-                  ? 'cursor-pointer hover:bg-accent/50'
-                  : 'cursor-default',
-                isSelected && 'border-primary bg-primary/5',
-                !model.installed && 'bg-muted/30'
-              )}
-              onClick={() => handleSelect(model)}
-            >
-              <div className="flex items-center gap-3">
-                {/* Selection/Status indicator */}
-                <div
-                  className={cn(
-                    'flex h-5 w-5 items-center justify-center rounded-full border-2',
-                    isSelected
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : model.installed
-                        ? 'border-muted-foreground/30'
-                        : 'border-muted-foreground/20 bg-muted/50'
-                  )}
-                >
-                  {isSelected && <Check className="h-3 w-3" />}
-                </div>
+           return (
+             <div
+               key={model.name}
+               className={cn(
+                 'rounded-lg border transition-colors',
+                 model.installed && !disabled
+                   ? 'cursor-pointer hover:bg-accent/50'
+                   : 'cursor-default',
+                 isSelected && 'border-primary bg-primary/5',
+                 !model.installed && 'bg-muted/30'
+               )}
+               onClick={() => handleSelect(model)}
+             >
+               <div className="flex items-center justify-between p-3">
+                 <div className="flex items-center gap-3">
+                   {/* Selection/Status indicator */}
+                   <div
+                     className={cn(
+                       'flex h-5 w-5 items-center justify-center rounded-full border-2 shrink-0',
+                       isSelected
+                         ? 'border-primary bg-primary text-primary-foreground'
+                         : model.installed
+                           ? 'border-muted-foreground/30'
+                           : 'border-muted-foreground/20 bg-muted/50'
+                     )}
+                   >
+                     {isSelected && <Check className="h-3 w-3" />}
+                   </div>
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{model.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({model.dim} dim)
-                    </span>
-                    {model.installed && (
-                      <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
-                        Installed
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{model.description}</p>
-                </div>
-              </div>
+                   <div className="flex-1">
+                     <div className="flex items-center gap-2">
+                       <span className="text-sm font-medium">{model.name}</span>
+                       <span className="text-xs text-muted-foreground">
+                         ({model.dim} dim)
+                       </span>
+                       {model.installed && (
+                         <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
+                           Installed
+                         </span>
+                       )}
+                     </div>
+                     <p className="text-xs text-muted-foreground">{model.description}</p>
+                   </div>
+                 </div>
 
-              {/* Download button for non-installed models */}
-              {!model.installed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(model.name);
-                  }}
-                  disabled={isCurrentlyDownloading || disabled}
-                  className="shrink-0"
-                >
-                  {isCurrentlyDownloading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
-                      Download
-                      {model.size_estimate && (
-                        <span className="ml-1 text-muted-foreground">
-                          ({model.size_estimate})
-                        </span>
-                      )}
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                 {/* Download button for non-installed models */}
+                 {!model.installed && (
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       handleDownload(model.name);
+                     }}
+                     disabled={isCurrentlyDownloading || disabled}
+                     className="shrink-0"
+                   >
+                     {isCurrentlyDownloading ? (
+                       <>
+                         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                         Downloading...
+                       </>
+                     ) : (
+                       <>
+                         <Download className="h-3.5 w-3.5 mr-1.5" />
+                         Download
+                         {model.size_estimate && (
+                           <span className="ml-1 text-muted-foreground">
+                             ({model.size_estimate})
+                           </span>
+                         )}
+                       </>
+                     )}
+                   </Button>
+                 )}
+               </div>
+
+               {/* Progress bar for downloading models */}
+               {isCurrentlyDownloading && progress && (
+                 <div className="px-3 pb-3 space-y-1.5">
+                   {/* Progress bar */}
+                   <div className="w-full bg-muted rounded-full h-2">
+                     <div
+                       className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300"
+                       style={{ width: `${Math.max(0, Math.min(100, progress.percentage))}%` }}
+                     />
+                   </div>
+                   {/* Progress info: percentage, speed, time remaining */}
+                   <div className="flex items-center justify-between text-xs text-muted-foreground">
+                     <span className="font-medium text-foreground">
+                       {Math.round(progress.percentage)}%
+                     </span>
+                     <div className="flex items-center gap-2">
+                       {progress.speed && <span>{progress.speed}</span>}
+                       {progress.timeRemaining && <span className="text-primary">{progress.timeRemaining}</span>}
+                     </div>
+                   </div>
+                 </div>
+               )}
+             </div>
+           );
+         })}
+       </div>
 
       <p className="text-xs text-muted-foreground">
         Select an installed model for semantic search. Memory works with keyword search even without embeddings.
