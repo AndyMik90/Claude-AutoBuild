@@ -1,3 +1,187 @@
+## 2.7.0 - Tab Persistence & Memory System Modernization
+
+### ✨ New Features
+
+- Project tab bar with persistent tab management and GitHub organization initialization on project creation
+
+- Task creation enhanced with @ autocomplete for agent profiles and improved drag-and-drop support
+
+- Keyboard shortcuts and tooltips added to project tabs for better navigation
+
+- Agent task restart functionality with new profile support for flexible task recovery
+
+- Ollama embedding model support with automatic dimension detection for self-hosted deployments
+
+### 🛠️ Improvements
+
+- Memory system completely redesigned with embedded LadybugDB, eliminating Docker/FalkorDB dependency and improving performance
+
+- Tab persistence implemented via IPC-based mechanism for reliable session state management
+
+- Terminal environment improved by using virtual environment Python for proper terminal name generation
+
+- AI merge operations timeout increased from 2 to 10 minutes for reliability with larger changes
+
+- Merge operations now use stored baseBranch metadata for consistent branch targeting
+
+- Memory configuration UI simplified and rebranded with improved Ollama integration and detection
+
+- CI/CD workflows enhanced with code signing support and automated release process
+
+- Cross-platform compatibility improved by replacing Unix shell syntax with portable git commands
+
+- Python venv created in userData for packaged applications to ensure proper environment isolation
+
+### 🐛 Bug Fixes
+
+- Task title no longer blocks edit/close buttons in UI
+
+- Tab persistence and terminal shortcuts properly scoped to prevent conflicts
+
+- Agent profile fallback corrected from 'Balanced' to 'Auto (Optimized)'
+
+- macOS notarization made optional and improved with private artifact storage
+
+- Embedding provider changes now properly detected during migration
+
+- Memory query CLI respects user's memory enabled flag
+
+- CodeRabbit review issues and linting errors resolved across codebase
+
+- F-string prefixes removed from strings without placeholders
+
+- Import ordering fixed for ruff compliance
+
+- Preview panel now receives projectPath prop correctly for image component functionality
+
+- Default database path unified to ~/.auto-claude/memories for consistency
+
+- @lydell/node-pty build scripts compatibility improved for pnpm v10
+
+---
+
+## What's Changed
+
+- feat(ui): add project tab bar from PR #101 by @AndyMik90 in c400fe9
+
+- feat: improve task creation UX with @ autocomplete and better drag-drop by @AndyMik90 in 20d1487
+
+- feat(ui): add keyboard shortcuts and tooltips for project tabs by @AndyMik90 in ed73265
+
+- feat(agent): enhance task restart functionality with new profile support by @AndyMik90 in c8452a5
+
+- feat: add Ollama embedding model support with auto-detected dimensions by @AndyMik90 in 45901f3
+
+- feat(memory): replace FalkorDB with LadybugDB embedded database by @AndyMik90 in 87d0b52
+
+- feat: add automated release workflow with code signing by @AndyMik90 in 6819b00
+
+- feat: add embedding provider change detection and fix import ordering by @AndyMik90 in 36f8006
+
+- fix(tests): update tab management tests for IPC-based persistence by @AndyMik90 in ea25d6e
+
+- fix(ui): address CodeRabbit PR review issues by @AndyMik90 in 39ce754
+
+- fix: address CodeRabbit review issues by @AndyMik90 in 95ae0b0
+
+- fix: prevent task title from blocking edit/close buttons by @AndyMik90 in 8a0fb26
+
+- fix: use venv Python for terminal name generation by @AndyMik90 in 325cb54
+
+- fix(merge): increase AI merge timeout from 2 to 10 minutes by @AndyMik90 in 4477538
+
+- fix(merge): use stored baseBranch from task metadata for merge operations by @AndyMik90 in 8d56474
+
+- fix: unify default database path to ~/.auto-claude/memories by @AndyMik90 in 684e3f9
+
+- fix(ui): fix tab persistence and scope terminal shortcuts by @AndyMik90 in 2d1168b
+
+- fix: create Python venv in userData for packaged apps by @AndyMik90 in b83377c
+
+- fix(ui): change agent profile fallback from 'Balanced' to 'Auto (Optimized)' by @AndyMik90 in 385dcc1
+
+- fix: check APPLE_ID in shell instead of workflow if condition by @AndyMik90 in 9eece01
+
+- fix: allow @lydell/node-pty build scripts in pnpm v10 by @AndyMik90 in 1f6963f
+
+- fix: use shell guard for notarization credentials check by @AndyMik90 in 4cbddd3
+
+- fix: improve migrate_embeddings robustness and correctness by @AndyMik90 in 61f0238
+
+- fix: respect user's memory enabled flag in query_memory CLI by @AndyMik90 in 45b2c83
+
+- fix: save notarization logs to private artifact instead of public logs by @AndyMik90 in a82525d
+
+- fix: make macOS notarization optional by @AndyMik90 in f2b7b56
+
+- fix: add author email for Linux builds by @AndyMik90 in 5f66127
+
+- fix: add GH_TOKEN and homepage for release workflow by @AndyMik90 in 568ea18
+
+- fix(ci): quote GITHUB_OUTPUT for shell safety by @AndyMik90 in 1e891e1
+
+- fix: address CodeRabbit review feedback by @AndyMik90 in 8e4b1da
+
+- fix: update test and apply ruff formatting by @AndyMik90 in a087ba3
+
+- fix: address additional CodeRabbit review comments by @AndyMik90 in 461fad6
+
+- fix: sort imports in memory.py for ruff I001 by @AndyMik90 in b3c257d
+
+- fix: address CodeRabbit review comments from PR #100 by @AndyMik90 in 1ed237a
+
+- fix: remove f-string prefixes from strings without placeholders by @AndyMik90 in bcd453a
+
+- fix: resolve remaining CI failures by @AndyMik90 in cfbccda
+
+- fix: resolve all CI failures in PR #100 by @AndyMik90 in c493d6c
+
+- fix(cli): update graphiti status display for LadybugDB by @AndyMik90 in 049c60c
+
+- fix(ui): replace Unix shell syntax with cross-platform git commands by @AndyMik90 in 83aa3f0
+
+- fix: correct model name and release workflow conditionals by @AndyMik90 in de41dfc
+
+- style: fix ruff linting errors in graphiti queries by @AndyMik90 in 127559f
+
+- style: apply ruff formatting to 4 files by @AndyMik90 in 9d5d075
+
+- refactor: update memory test suite for LadybugDB by @AndyMik90 in f0b5efc
+
+- refactor(ui): simplify reference files and images handling in task modal by @AndyMik90 in 1975e4d
+
+- refactor: rebrand memory system UI and simplify configuration by @AndyMik90 in 2b3cd49
+
+- refactor: replace Docker/FalkorDB with embedded LadybugDB for memory system by @AndyMik90 in 325458d
+
+- docs: add CodeRabbit review response tracking by @AndyMik90 in 3452548
+
+- chore: use GitHub noreply email for author field by @AndyMik90 in 18f2045
+
+- chore: simplify notarization step after successful setup by @AndyMik90 in e4fe7cd
+
+- chore: update CI and release workflows, remove changelog config by @AndyMik90 in 6f891b7
+
+- chore: remove docker-compose.yml (FalkorDB no longer used) by @AndyMik90 in 68f3f06
+
+- fix: Replace space with hyphen in productName to fix PTY daemon spawn (#65) by @Craig Van in 8f1f7a7
+
+- fix: update npm scripts to use hyphenated product name by @AndyMik90 in 89978ed
+
+- fix(ui): improve Ollama UX in memory settings by @AndyMik90 in dea1711
+
+- auto-claude: subtask-1-1 - Add projectPath prop to PreviewPanel and implement custom img component by @AndyMik90 in e6529e0
+
+- Project tab persistence and github org init on project creation by @AndyMik90 in ae1dac9
+
+- Readme for installors by @AndyMik90 in 1855d7d
+
+---
+
+## Thanks to all contributors
+
+@AndyMik90, @Craig Van
+
 ## 2.6.0 - Improved User Experience and Agent Configuration
 
 ### ✨ New Features
