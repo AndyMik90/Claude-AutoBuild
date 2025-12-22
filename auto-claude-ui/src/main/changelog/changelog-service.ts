@@ -27,15 +27,13 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
-import { findPythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 /**
  * Main changelog service - orchestrates all changelog operations
  * Delegates to specialized modules for specific concerns
  */
 export class ChangelogService extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
   private claudePath: string = 'claude';
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;
@@ -126,12 +124,10 @@ export class ChangelogService extends EventEmitter {
   }
 
   /**
-   * Configure paths for Python and auto-claude source
+   * Configure paths for auto-claude source
    */
-  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
-    if (pythonPath) {
-      this.pythonPath = pythonPath;
-    }
+  configure(_pythonPath?: string, autoBuildSourcePath?: string): void {
+    // pythonPath is now managed by pythonEnvManager (ignored for backward compatibility)
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
@@ -214,10 +210,16 @@ export class ChangelogService extends EventEmitter {
         throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
       }
 
+      // Get Python path from venv manager (required for claude_agent_sdk)
+      const pythonPath = pythonEnvManager.getPythonPath();
+      if (!pythonPath) {
+        throw new Error('Python environment not ready. Please wait for initialization.');
+      }
+
       const autoBuildEnv = this.loadAutoBuildEnv();
 
       this.generator = new ChangelogGenerator(
-        this.pythonPath,
+        pythonPath,
         this.claudePath,
         autoBuildSource,
         autoBuildEnv,
@@ -260,8 +262,14 @@ export class ChangelogService extends EventEmitter {
         throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
       }
 
+      // Get Python path from venv manager (required for claude_agent_sdk)
+      const pythonPath = pythonEnvManager.getPythonPath();
+      if (!pythonPath) {
+        throw new Error('Python environment not ready. Please wait for initialization.');
+      }
+
       this.versionSuggester = new VersionSuggester(
-        this.pythonPath,
+        pythonPath,
         this.claudePath,
         autoBuildSource,
         this.isDebugEnabled()

@@ -4,7 +4,6 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { parsePythonCommand } from './python-detector';
 import { pythonEnvManager } from './python-env-manager';
 
 /**
@@ -30,9 +29,10 @@ export class TerminalNameGenerator extends EventEmitter {
   }
 
   /**
-   * Configure the auto-claude source path
+   * Configure paths for auto-claude source
    */
-  configure(autoBuildSourcePath?: string): void {
+  configure(_pythonPath?: string, autoBuildSourcePath?: string): void {
+    // pythonPath is now managed by pythonEnvManager (ignored for backward compatibility)
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
@@ -145,9 +145,8 @@ export class TerminalNameGenerator extends EventEmitter {
     const profileEnv = getProfileEnv();
 
     return new Promise((resolve) => {
-      // Use the venv Python where claude_agent_sdk is installed
-      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(venvPythonPath);
-      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+      // Use venvPythonPath from earlier check (where claude_agent_sdk is installed)
+      const childProcess = spawn(venvPythonPath, ['-c', script], {
         cwd: autoBuildSource,
         env: {
           ...process.env,

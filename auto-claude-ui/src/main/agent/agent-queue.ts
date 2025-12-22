@@ -11,6 +11,7 @@ import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 /**
  * Queue management for ideation and roadmap generation
@@ -210,8 +211,13 @@ export class AgentQueueManager {
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
 
-    // Get Python path from process manager (uses venv if configured)
-    const pythonPath = this.processManager.getPythonPath();
+    // Get Python path from venv manager (required for Claude SDK and other dependencies)
+    const pythonPath = pythonEnvManager.getPythonPath();
+    if (!pythonPath) {
+      debugError('[Agent Queue] Python environment not ready for ideation');
+      this.emitter.emit('ideation-error', projectId, 'Python environment not ready. Please wait for initialization.');
+      return;
+    }
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -234,15 +240,14 @@ export class AgentQueueManager {
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
     const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     const hasToken = !!oauthToken;
-    debugLog('[Agent Queue] OAuth token status:', {
+    debugLog('[Agent Queue] Ideation OAuth token status:', {
       source: tokenSource,
       hasToken,
       tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
-    // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+    // Python path is already the full path to venv python, no need to parse
+    const childProcess = spawn(pythonPath, args, {
       cwd,
       env: finalEnv
     });
@@ -456,8 +461,13 @@ export class AgentQueueManager {
     // Get active Claude profile environment (CLAUDE_CODE_OAUTH_TOKEN if not default)
     const profileEnv = getProfileEnv();
 
-    // Get Python path from process manager (uses venv if configured)
-    const pythonPath = this.processManager.getPythonPath();
+    // Get Python path from venv manager (required for Claude SDK and other dependencies)
+    const pythonPath = pythonEnvManager.getPythonPath();
+    if (!pythonPath) {
+      debugError('[Agent Queue] Python environment not ready for roadmap');
+      this.emitter.emit('roadmap-error', projectId, 'Python environment not ready. Please wait for initialization.');
+      return;
+    }
 
     // Build final environment with proper precedence:
     // 1. process.env (system)
@@ -480,15 +490,14 @@ export class AgentQueueManager {
       : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
     const oauthToken = (finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
     const hasToken = !!oauthToken;
-    debugLog('[Agent Queue] OAuth token status:', {
+    debugLog('[Agent Queue] Roadmap OAuth token status:', {
       source: tokenSource,
       hasToken,
       tokenPreview: hasToken ? oauthToken?.substring(0, 20) + '...' : 'none'
     });
 
-    // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+    // Python path is already the full path to venv python, no need to parse
+    const childProcess = spawn(pythonPath, args, {
       cwd,
       env: finalEnv
     });
