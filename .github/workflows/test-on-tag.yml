@@ -36,6 +36,8 @@ jobs:
 
       - name: Run tests
         working-directory: Apps/backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/Apps/backend
         run: |
           source .venv/bin/activate
           pytest ../../tests/ -v --tb=short

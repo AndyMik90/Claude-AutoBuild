@@ -37,6 +37,8 @@ jobs:
 
       - name: Run tests
         working-directory: Apps/backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/Apps/backend
         run: |
           source .venv/bin/activate
           pytest ../../tests/ -v --tb=short -x
@@ -44,6 +46,8 @@ jobs:
       - name: Run tests with coverage
         if: matrix.python-version == '3.12'
         working-directory: Apps/backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/Apps/backend
         run: |
           source .venv/bin/activate
           pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
