@@ -70,6 +70,7 @@ export class ChangelogService extends EventEmitter {
         ]
       : [
           // Unix paths (macOS/Linux)
+          path.join(homeDir, '.claude/local/claude'),  // Claude Code default install location
           '/usr/local/bin/claude',
           '/opt/homebrew/bin/claude',
           path.join(homeDir, '.local/bin/claude'),
