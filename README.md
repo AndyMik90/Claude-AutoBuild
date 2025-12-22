@@ -35,10 +35,10 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 | Platform | Download |
 |----------|----------|
-| **macOS (Apple Silicon M1-M4)** | `Auto-Claude-X.X.X-arm64.dmg` |
-| **macOS (Intel)** | `Auto-Claude-X.X.X-x64.dmg` |
-| **Windows** | `Auto-Claude-X.X.X.exe` |
-| **Linux** | `Auto-Claude-X.X.X.AppImage` or `.deb` |
+| **macOS (Apple Silicon M1-M4)** | `*-arm64.dmg` |
+| **macOS (Intel)** | `*-x64.dmg` |
+| **Windows** | `*.exe` |
+| **Linux** | `*.AppImage` or `*.deb` |
 
 > **Not sure which Mac?** Click the Apple menu () > "About This Mac". Look for "Chip" - M1/M2/M3/M4 = Apple Silicon, otherwise Intel.
 
