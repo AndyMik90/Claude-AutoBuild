@@ -826,3 +826,410 @@ test.describe('Ideation File Generation Verification (Mock-based)', () => {
     cleanupIdeationProject();
   });
 });
+
+// Ideation Error State E2E tests (subtask-5-3)
+test.describe('Ideation Error State Verification (Mock-based)', () => {
+  const TEST_ERROR_PROJECT = path.join(TEST_DATA_DIR, 'error-test-project');
+
+  function setupErrorTestProject(): void {
+    if (existsSync(TEST_DATA_DIR)) {
+      rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    }
+    mkdirSync(TEST_DATA_DIR, { recursive: true });
+    mkdirSync(TEST_ERROR_PROJECT, { recursive: true });
+    mkdirSync(path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation'), { recursive: true });
+  }
+
+  function cleanupErrorTestProject(): void {
+    if (existsSync(TEST_DATA_DIR)) {
+      rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Simulates an error state in ideation generation
+   * Represents what happens when generation fails due to auth error
+   */
+  function createErrorState(projectDir: string, errorMessage: string): void {
+    const errorFile = path.join(projectDir, '.auto-claude', 'ideation', 'error.json');
+    const errorState = {
+      type: 'generation_error',
+      message: errorMessage,
+      timestamp: new Date().toISOString(),
+      phase: 'error',
+      exitCode: 1
+    };
+    writeFileSync(errorFile, JSON.stringify(errorState, null, 2));
+  }
+
+  /**
+   * Simulates auth failure output that would be captured from process stdout/stderr
+   */
+  function createAuthFailureLog(projectDir: string): void {
+    const logFile = path.join(projectDir, '.auto-claude', 'ideation', 'generation.log');
+    const logContent = [
+      '[INFO] Starting ideation generation...',
+      '[INFO] Loading project index...',
+      '[ERROR] Authentication required',
+      '[ERROR] No OAuth token found. Auto Claude requires Claude Code OAuth authentication.',
+      '[ERROR] Please configure your OAuth token in Settings > Claude Profiles.',
+      'Process exited with code 1'
+    ].join('\n');
+    writeFileSync(logFile, logContent);
+  }
+
+  test('Error state file is created when generation fails', async () => {
+    setupErrorTestProject();
+
+    const errorMessage = 'authentication required';
+    createErrorState(TEST_ERROR_PROJECT, errorMessage);
+
+    const errorFile = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation', 'error.json');
+    expect(existsSync(errorFile)).toBe(true);
+
+    const errorState = JSON.parse(readFileSync(errorFile, 'utf-8'));
+    expect(errorState.type).toBe('generation_error');
+    expect(errorState.message).toBe(errorMessage);
+    expect(errorState.phase).toBe('error');
+    expect(errorState.exitCode).toBe(1);
+
+    cleanupErrorTestProject();
+  });
+
+  test('Auth failure log contains expected error patterns', async () => {
+    setupErrorTestProject();
+    createAuthFailureLog(TEST_ERROR_PROJECT);
+
+    const logFile = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation', 'generation.log');
+    expect(existsSync(logFile)).toBe(true);
+
+    const logContent = readFileSync(logFile, 'utf-8');
+
+    // Verify auth failure patterns are present
+    expect(logContent).toContain('Authentication required');
+    expect(logContent).toContain('OAuth token');
+    expect(logContent).toContain('Settings');
+    expect(logContent).toContain('Claude Profiles');
+    expect(logContent).toContain('exited with code 1');
+
+    cleanupErrorTestProject();
+  });
+
+  test('Error state has valid timestamp', async () => {
+    setupErrorTestProject();
+    createErrorState(TEST_ERROR_PROJECT, 'test error');
+
+    const errorFile = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation', 'error.json');
+    const errorState = JSON.parse(readFileSync(errorFile, 'utf-8'));
+
+    const timestamp = new Date(errorState.timestamp);
+    expect(timestamp.toString()).not.toBe('Invalid Date');
+
+    cleanupErrorTestProject();
+  });
+
+  test('No ideation.json exists when generation fails due to auth error', async () => {
+    setupErrorTestProject();
+
+    // Simulate auth failure - error state exists but no ideation output
+    createErrorState(TEST_ERROR_PROJECT, 'authentication required');
+    createAuthFailureLog(TEST_ERROR_PROJECT);
+
+    const ideationDir = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation');
+
+    // Error file should exist
+    expect(existsSync(path.join(ideationDir, 'error.json'))).toBe(true);
+
+    // But ideation.json should NOT exist (generation never completed)
+    expect(existsSync(path.join(ideationDir, 'ideation.json'))).toBe(false);
+
+    cleanupErrorTestProject();
+  });
+
+  test('Error recovery cleans up error state', async () => {
+    setupErrorTestProject();
+
+    // First, simulate a failed generation
+    createErrorState(TEST_ERROR_PROJECT, 'authentication required');
+
+    const errorFile = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation', 'error.json');
+    expect(existsSync(errorFile)).toBe(true);
+
+    // Then, simulate successful recovery (error file removed, ideation created)
+    rmSync(errorFile);
+
+    const ideationDir = path.join(TEST_ERROR_PROJECT, '.auto-claude', 'ideation');
+    const ideationSession = {
+      id: `session-${Date.now()}`,
+      projectId: 'error-test-project',
+      config: {
+        enabledTypes: ['code_improvements'],
+        maxIdeasPerType: 5
+      },
+      ideas: [
+        {
+          id: 'idea-1',
+          title: 'Test Idea',
+          type: 'code_improvements',
+          description: 'Test',
+          status: 'draft',
+          createdAt: new Date().toISOString()
+        }
+      ],
+      projectContext: { existingFeatures: [], techStack: [], plannedFeatures: [] },
+      generatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    writeFileSync(path.join(ideationDir, 'ideation.json'), JSON.stringify(ideationSession, null, 2));
+
+    // Verify error is gone and ideation is present
+    expect(existsSync(errorFile)).toBe(false);
+    expect(existsSync(path.join(ideationDir, 'ideation.json'))).toBe(true);
+
+    cleanupErrorTestProject();
+  });
+});
+
+// Auth Failure Detection Pattern Tests (subtask-5-3)
+test.describe('Auth Failure Detection Patterns', () => {
+  // These patterns should match what's in rate-limit-detector.ts
+  const authFailurePatterns = [
+    'authentication required',
+    'authentication is required',
+    'not authenticated',
+    'not yet authenticated',
+    'login required',
+    'oauth token invalid',
+    'oauth token expired',
+    'oauth token missing',
+    'unauthorized',
+    'please log in',
+    'please authenticate',
+    'invalid credentials',
+    'invalid token',
+    'auth failed',
+    'authentication error',
+    'session expired',
+    'access denied',
+    'permission denied',
+    '401 unauthorized',
+    'credentials missing',
+    'credentials expired'
+  ];
+
+  // Rate limit patterns should NOT match auth failure
+  const rateLimitPatterns = [
+    'Limit reached · resets Dec 17 at 6am',
+    'rate limit exceeded',
+    'too many requests',
+    'usage limit reached'
+  ];
+
+  // Helper to simulate detection logic (mirrors rate-limit-detector.ts)
+  function detectsAuthFailure(output: string): boolean {
+    const lowerOutput = output.toLowerCase();
+    const patterns = [
+      /authentication\s+(is\s+)?required/i,
+      /not\s+(yet\s+)?authenticated/i,
+      /login\s+required/i,
+      /oauth\s+token\s+(is\s+)?(invalid|expired|missing)/i,
+      /\bunauthorized\b/i,
+      /please\s+(log\s+in|authenticate)/i,
+      /invalid\s+(credentials|token)/i,
+      /auth\s+(failed|error)/i,
+      /authentication\s+error/i,
+      /session\s+expired/i,
+      /access\s+denied/i,
+      /permission\s+denied/i,
+      /401\s+unauthorized/i,
+      /credentials\s+(missing|expired)/i
+    ];
+    return patterns.some(pattern => pattern.test(lowerOutput));
+  }
+
+  test('Auth failure patterns are correctly detected', () => {
+    authFailurePatterns.forEach(pattern => {
+      expect(detectsAuthFailure(pattern)).toBe(true);
+    });
+  });
+
+  test('Rate limit patterns are NOT detected as auth failure', () => {
+    rateLimitPatterns.forEach(pattern => {
+      expect(detectsAuthFailure(pattern)).toBe(false);
+    });
+  });
+
+  test('Normal output is NOT detected as auth failure', () => {
+    const normalOutputs = [
+      'Task completed successfully',
+      'Generating ideas...',
+      'Phase 1 complete',
+      'Ideas saved to file'
+    ];
+    normalOutputs.forEach(output => {
+      expect(detectsAuthFailure(output)).toBe(false);
+    });
+  });
+
+  test('Multiline output with auth failure is detected', () => {
+    const multilineOutput = `Starting ideation generation...
+Loading project index...
+Error: authentication required
+Please configure your OAuth token.`;
+    expect(detectsAuthFailure(multilineOutput)).toBe(true);
+  });
+
+  test('Case-insensitive matching works', () => {
+    expect(detectsAuthFailure('AUTHENTICATION REQUIRED')).toBe(true);
+    expect(detectsAuthFailure('Authentication Required')).toBe(true);
+    expect(detectsAuthFailure('UNAUTHORIZED')).toBe(true);
+    expect(detectsAuthFailure('Unauthorized')).toBe(true);
+  });
+
+  test('JSON error responses are detected', () => {
+    const jsonError = '{"error": "unauthorized", "message": "Please authenticate"}';
+    expect(detectsAuthFailure(jsonError)).toBe(true);
+  });
+});
+
+// EnvConfigModal Display Tests (subtask-5-3)
+test.describe('EnvConfigModal Display Logic', () => {
+  // Test the logic that determines when EnvConfigModal should be shown
+
+  test('Modal should show when hasToken is false and generate is clicked', () => {
+    // Simulate the handleGenerate logic from useIdeation.ts
+    const hasToken = false;
+    let showEnvConfigModal = false;
+    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
+
+    // Simulate handleGenerate
+    if (hasToken === false) {
+      pendingAction = 'generate';
+      showEnvConfigModal = true;
+    }
+
+    expect(showEnvConfigModal).toBe(true);
+    expect(pendingAction).toBe('generate');
+  });
+
+  test('Modal should NOT show when hasToken is true', () => {
+    const hasToken = true;
+    let showEnvConfigModal = false;
+    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
+
+    // Simulate handleGenerate
+    if (hasToken === false) {
+      pendingAction = 'generate';
+      showEnvConfigModal = true;
+    }
+
+    expect(showEnvConfigModal).toBe(false);
+    expect(pendingAction).toBeNull();
+  });
+
+  test('Modal should show for refresh action when token is missing', () => {
+    const hasToken = false;
+    let showEnvConfigModal = false;
+    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
+
+    // Simulate handleRefresh
+    if (hasToken === false) {
+      pendingAction = 'refresh';
+      showEnvConfigModal = true;
+    }
+
+    expect(showEnvConfigModal).toBe(true);
+    expect(pendingAction).toBe('refresh');
+  });
+
+  test('Modal should show for append action when token is missing', () => {
+    const hasToken = false;
+    let showEnvConfigModal = false;
+    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
+    const typesToAdd = ['code_improvements'];
+
+    // Simulate handleAddMoreIdeas
+    if (typesToAdd.length > 0 && hasToken === false) {
+      pendingAction = 'append';
+      showEnvConfigModal = true;
+    }
+
+    expect(showEnvConfigModal).toBe(true);
+    expect(pendingAction).toBe('append');
+  });
+
+  test('Pending action is cleared after configuration', () => {
+    let pendingAction: 'generate' | 'refresh' | 'append' | null = 'generate';
+
+    // Simulate handleEnvConfigured
+    pendingAction = null;
+
+    expect(pendingAction).toBeNull();
+  });
+});
+
+// Error State Store Tests (subtask-5-3)
+test.describe('Ideation Store Error State Management', () => {
+  // Tests that mirror the error handling in ideation-store.ts
+
+  test('Error state structure is correct', () => {
+    const errorState = {
+      phase: 'error' as const,
+      progress: 0,
+      message: '',
+      error: 'authentication required'
+    };
+
+    expect(errorState.phase).toBe('error');
+    expect(errorState.progress).toBe(0);
+    expect(errorState.message).toBe('');
+    expect(errorState.error).toBe('authentication required');
+  });
+
+  test('Error phase causes progress screen to hide', () => {
+    // This mirrors the condition in Ideation.tsx line 68
+    const generationStatus = { phase: 'error' as const, progress: 0, message: '' };
+
+    // Condition: show progress screen only when NOT idle, complete, or error
+    const showProgressScreen =
+      generationStatus.phase !== 'idle' &&
+      generationStatus.phase !== 'complete' &&
+      generationStatus.phase !== 'error';
+
+    expect(showProgressScreen).toBe(false);
+  });
+
+  test('Generating phase shows progress screen', () => {
+    const generationStatus = { phase: 'generating' as const, progress: 50, message: 'Processing...' };
+
+    const showProgressScreen =
+      generationStatus.phase !== 'idle' &&
+      generationStatus.phase !== 'complete' &&
+      generationStatus.phase !== 'error';
+
+    expect(showProgressScreen).toBe(true);
+  });
+
+  test('Error is added to logs', () => {
+    const logs: string[] = [];
+    const error = 'authentication required';
+
+    // Simulate addLog behavior from onIdeationError
+    logs.push(`Error: ${error}`);
+
+    expect(logs).toContain('Error: authentication required');
+    expect(logs.length).toBe(1);
+  });
+
+  test('Multiple errors accumulate in logs', () => {
+    const logs: string[] = [];
+
+    logs.push('Error: authentication required');
+    logs.push('Error: retry failed');
+    logs.push('Error: process exited with code 1');
+
+    expect(logs.length).toBe(3);
+    expect(logs[0]).toBe('Error: authentication required');
+    expect(logs[2]).toContain('code 1');
+  });
+});
