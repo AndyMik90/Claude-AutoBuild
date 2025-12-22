@@ -9,9 +9,12 @@ import {
   loadProjectEnvVars,
   loadGlobalSettings,
   isGraphitiEnabled,
-  hasOpenAIKey,
+  hasProviderCredentials,
+  getRequiredProviders,
+  getProviderEnvVarName,
   getGraphitiConnectionDetails
 } from './utils';
+import type { GraphitiLLMProvider, GraphitiEmbeddingProvider } from '../../../shared/types/project';
 
 /**
  * Load Graphiti state from most recent spec directory
@@ -77,7 +80,6 @@ export function buildMemoryStatus(
 
   // Check environment configuration
   const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
-  const hasOpenAI = hasOpenAIKey(projectEnvVars, globalSettings);
 
   if (!graphitiEnabled) {
     return {
@@ -87,12 +89,27 @@ export function buildMemoryStatus(
     };
   }
 
-  if (!hasOpenAI) {
-    return {
-      enabled: true,
-      available: false,
-      reason: 'OPENAI_API_KEY not set (required for Graphiti embeddings)'
-    };
+  // Get selected providers from env vars, defaulting to 'openai' for backward compatibility
+  const llmProvider = (projectEnvVars['GRAPHITI_LLM_PROVIDER'] ||
+                       process.env.GRAPHITI_LLM_PROVIDER ||
+                       'openai') as GraphitiLLMProvider;
+  const embeddingProvider = (projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] ||
+                             process.env.GRAPHITI_EMBEDDER_PROVIDER ||
+                             'openai') as GraphitiEmbeddingProvider;
+
+  // Get unique providers that require credentials
+  const requiredProviders = getRequiredProviders(llmProvider, embeddingProvider);
+
+  // Check credentials for each required provider
+  for (const provider of requiredProviders) {
+    if (!hasProviderCredentials(provider, projectEnvVars, globalSettings)) {
+      const envVarName = getProviderEnvVarName(provider) || `${provider.toUpperCase()}_API_KEY`;
+      return {
+        enabled: true,
+        available: false,
+        reason: `${envVarName} not set (required for ${provider} provider)`
+      };
+    }
   }
 
   const connDetails = getGraphitiConnectionDetails(projectEnvVars);
