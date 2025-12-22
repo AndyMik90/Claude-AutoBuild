@@ -11,10 +11,16 @@ The validation logic is organized into separate modules:
 - filesystem_validators.py: File system operations (chmod, rm, init.sh)
 - git_validators.py: Git operations (commit with secret scanning)
 - database_validators.py: Database operations (postgres, mysql, redis, mongo)
+- network_validators.py: Network commands (curl, wget) - strict mode only
 - validator_registry.py: Central registry of all validators
 
 For backwards compatibility, all validators and the VALIDATORS registry
 are re-exported from this module.
+
+Security Modes:
+- Normal mode: Base validators only
+- Strict mode: Adds curl/wget validators to prevent data exfiltration
+  Enable with: SECURITY_STRICT_MODE=true
 """
 
 # Re-export validation models
@@ -34,13 +40,17 @@ from .filesystem_validators import (
     validate_rm_command,
 )
 from .git_validators import validate_git_commit
+from .network_validators import (
+    validate_curl_command,
+    validate_wget_command,
+)
 from .process_validators import (
     validate_kill_command,
     validate_killall_command,
     validate_pkill_command,
 )
 from .validation_models import ValidationResult, ValidatorFunction
-from .validator_registry import VALIDATORS, get_validator
+from .validator_registry import VALIDATORS, get_validator, get_validators
 
 # Define __all__ for explicit exports
 __all__ = [
@@ -50,6 +60,7 @@ __all__ = [
     # Registry
     "VALIDATORS",
     "get_validator",
+    "get_validators",
     # Process validators
     "validate_pkill_command",
     "validate_kill_command",
@@ -60,6 +71,9 @@ __all__ = [
     "validate_init_script",
     # Git validators
     "validate_git_commit",
+    # Network validators (strict mode)
+    "validate_curl_command",
+    "validate_wget_command",
     # Database validators
     "validate_dropdb_command",
     "validate_dropuser_command",

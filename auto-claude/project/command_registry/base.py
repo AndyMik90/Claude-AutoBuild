@@ -4,15 +4,36 @@ Base Commands Module
 
 Core shell commands that are always safe regardless of project type.
 These commands form the foundation of the security allowlist.
+
+Security Modes:
+- Normal mode: All BASE_COMMANDS available (backward compatible)
+- Strict mode: Dangerous commands removed, network commands validated
+  Enable with: SECURITY_STRICT_MODE=true in environment
 """
 
+import os
+
+
+def is_strict_mode() -> bool:
+    """
+    Check if security strict mode is enabled.
+
+    Strict mode:
+    - Removes shell spawning commands (eval, exec, sh, bash, zsh)
+    - Adds validation for network commands (curl, wget)
+    - Provides defense against prompt injection attacks
+
+    Enable with: SECURITY_STRICT_MODE=true
+    """
+    return os.environ.get("SECURITY_STRICT_MODE", "").lower() in ("true", "1", "yes")
+
 
 # =============================================================================
-# BASE COMMANDS - Always safe regardless of project type
+# SAFE COMMANDS - Always safe regardless of project type or mode
 # =============================================================================
 
-BASE_COMMANDS: set[str] = {
-    # Core shell
+SAFE_COMMANDS: set[str] = {
+    # Core shell (read/navigate)
     "echo",
     "printf",
     "cat",
@@ -78,24 +99,17 @@ BASE_COMMANDS: set[str] = {
     "set",
     "source",
     ".",
-    "eval",
-    "exec",
     "exit",
     "return",
     "break",
     "continue",
-    "sh",
-    "bash",
-    "zsh",
     # Archives
     "tar",
     "zip",
     "unzip",
     "gzip",
     "gunzip",
-    # Network (read-only)
-    "curl",
-    "wget",
+    # Network (read-only, safe for fetching)
     "ping",
     "host",
     "dig",
@@ -149,10 +163,57 @@ BASE_COMMANDS: set[str] = {
 }
 
 # =============================================================================
+# DANGEROUS COMMANDS - Disabled in strict mode
+# =============================================================================
+# These commands can be used to:
+# - Execute arbitrary code (eval, exec)
+# - Spawn new shells that bypass security hooks (sh, bash, zsh)
+# - Exfiltrate data to external servers (curl, wget with POST)
+
+DANGEROUS_COMMANDS: set[str] = {
+    "eval",   # Can execute arbitrary shell code
+    "exec",   # Can replace current process with arbitrary command
+    "sh",     # Spawns new shell - bypasses command validation
+    "bash",   # Spawns new shell - bypasses command validation
+    "zsh",    # Spawns new shell - bypasses command validation
+}
+
+# Network commands - allowed but validated in strict mode
+NETWORK_COMMANDS: set[str] = {
+    "curl",   # Can exfiltrate data via POST/PUT
+    "wget",   # Can exfiltrate data via POST
+}
+
+# =============================================================================
+# BASE_COMMANDS - Computed based on security mode
+# =============================================================================
+
+
+def get_base_commands() -> set[str]:
+    """
+    Get the base command set based on current security mode.
+
+    In strict mode, dangerous commands are excluded and network
+    commands require validation.
+    """
+    if is_strict_mode():
+        # Strict mode: safe commands + network commands (validated separately)
+        return SAFE_COMMANDS | NETWORK_COMMANDS
+    else:
+        # Normal mode: all commands (backward compatible)
+        return SAFE_COMMANDS | DANGEROUS_COMMANDS | NETWORK_COMMANDS
+
+
+# For backward compatibility, BASE_COMMANDS is the full set
+# Code should use get_base_commands() for mode-aware behavior
+BASE_COMMANDS: set[str] = SAFE_COMMANDS | DANGEROUS_COMMANDS | NETWORK_COMMANDS
+
+# =============================================================================
 # VALIDATED COMMANDS - Need extra validation even when allowed
 # =============================================================================
 
-VALIDATED_COMMANDS: dict[str, str] = {
+# Base validators (always active)
+_BASE_VALIDATORS: dict[str, str] = {
     "rm": "validate_rm",
     "chmod": "validate_chmod",
     "pkill": "validate_pkill",
@@ -160,5 +221,37 @@ VALIDATED_COMMANDS: dict[str, str] = {
     "killall": "validate_killall",
 }
 
+# Strict mode validators (added in strict mode)
+_STRICT_VALIDATORS: dict[str, str] = {
+    "curl": "validate_curl",
+    "wget": "validate_wget",
+}
 
-__all__ = ["BASE_COMMANDS", "VALIDATED_COMMANDS"]
+
+def get_validated_commands() -> dict[str, str]:
+    """
+    Get the validated commands dict based on current security mode.
+
+    In strict mode, curl and wget require validation to prevent
+    data exfiltration.
+    """
+    if is_strict_mode():
+        return {**_BASE_VALIDATORS, **_STRICT_VALIDATORS}
+    else:
+        return _BASE_VALIDATORS.copy()
+
+
+# For backward compatibility
+VALIDATED_COMMANDS: dict[str, str] = _BASE_VALIDATORS.copy()
+
+
+__all__ = [
+    "BASE_COMMANDS",
+    "VALIDATED_COMMANDS",
+    "SAFE_COMMANDS",
+    "DANGEROUS_COMMANDS",
+    "NETWORK_COMMANDS",
+    "get_base_commands",
+    "get_validated_commands",
+    "is_strict_mode",
+]
