@@ -847,3 +847,47 @@ body {
 [data-state="closed"].animate-out.zoom-out-98 {
   animation: zoom-out-98 0.2s ease-in;
 }
+
+/* ============================================
+   Task Detail Panel Scalable Font Size
+   ============================================ */
+
+/* Container that enables font size scaling */
+.task-detail-scalable {
+  /* All text within inherits from this base size */
+  font-size: inherit;
+}
+
+/* Override Tailwind's fixed font sizes within scalable container */
+/* These use em units to scale relative to the container's font-size */
+.task-detail-scalable .text-xs {
+  font-size: 0.85em !important;
+}
+
+.task-detail-scalable .text-sm {
+  font-size: 0.93em !important;
+}
+
+.task-detail-scalable .text-base {
+  font-size: 1em !important;
+}
+
+.task-detail-scalable .text-lg {
+  font-size: 1.125em !important;
+}
+
+/* Fixed pixel sizes converted to relative */
+.task-detail-scalable .text-\[10px\] {
+  font-size: 0.714em !important;
+}
+
+.task-detail-scalable .text-\[9px\] {
+  font-size: 0.64em !important;
+}
+
+/* Ensure font-mono elements also scale */
+.task-detail-scalable pre,
+.task-detail-scalable code,
+.task-detail-scalable .font-mono {
+  font-size: inherit;
+}

@@ -334,7 +334,7 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
           {/* Overview Tab */}
           <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
             <ScrollArea className="h-full w-full">
-              <div className="p-5 space-y-5 w-full max-w-full overflow-hidden" style={{ fontSize: `${fontSize}px` }}>
+              <div className="p-5 space-y-5 w-full max-w-full overflow-hidden task-detail-scalable" style={{ fontSize: `${fontSize}px` }}>
                 {/* Warnings */}
                 <TaskWarnings
                   isStuck={state.isStuck}

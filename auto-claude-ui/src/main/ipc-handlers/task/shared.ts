@@ -3,19 +3,39 @@ import { projectStore } from '../../project-store';
 
 /**
  * Helper function to find task and project by taskId
+ * Searches across all registered projects for a task matching the given ID.
+ *
+ * @param taskId - The task ID or spec ID to search for
+ * @returns The task and its project, or undefined values if not found
  */
 export const findTaskAndProject = (taskId: string): { task: Task | undefined; project: Project | undefined } => {
   const projects = projectStore.getProjects();
   let task: Task | undefined;
   let project: Project | undefined;
 
+  // Debug logging to help diagnose "Task not found" issues
+  console.log(`[findTaskAndProject] Searching for task: ${taskId}`);
+  console.log(`[findTaskAndProject] Searching across ${projects.length} projects`);
+
   for (const p of projects) {
     const tasks = projectStore.getTasks(p.id);
+    console.log(`[findTaskAndProject] Project "${p.name}" (${p.path}): ${tasks.length} tasks`);
+
     task = tasks.find((t) => t.id === taskId || t.specId === taskId);
     if (task) {
       project = p;
+      console.log(`[findTaskAndProject] Found task in project: ${p.name}`);
       break;
     }
+  }
+
+  if (!task) {
+    console.warn(`[findTaskAndProject] Task not found: ${taskId}`);
+    console.warn(`[findTaskAndProject] Projects searched:`, projects.map(p => ({
+      name: p.name,
+      path: p.path,
+      autoBuildPath: p.autoBuildPath
+    })));
   }
 
   return { task, project };

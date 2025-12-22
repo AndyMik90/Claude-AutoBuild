@@ -84,6 +84,22 @@ export function App() {
     loadSettings();
   }, []);
 
+  // Keyboard shortcut for full window reload (Cmd+Shift+R / Ctrl+Shift+R)
+  // This reloads the entire UI to pick up new builds without restarting the app
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+Shift+R (macOS) or Ctrl+Shift+R (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toUpperCase() === 'R') {
+        e.preventDefault();
+        console.warn('[App] Reloading window to pick up new build...');
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
 
@@ -325,7 +341,12 @@ export function App() {
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
-          onSettingsClick={() => setIsSettingsDialogOpen(true)}
+          onSettingsClick={(section) => {
+            if (section) {
+              setSettingsInitialSection(section);
+            }
+            setIsSettingsDialogOpen(true);
+          }}
           onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
           onViewChange={setActiveView}

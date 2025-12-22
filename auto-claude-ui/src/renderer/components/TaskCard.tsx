@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, Link2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -59,6 +59,11 @@ export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
     const inProgress = children.filter((t) => t.status === 'in_progress').length;
     return { total, completed, inProgress };
   })() : null;
+
+  // Get parent task info for child tasks
+  const parentTask = task.parentTaskId && allTasks
+    ? allTasks.find((t) => t.id === task.parentTaskId)
+    : null;
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a grace period to avoid false positives during process spawn
@@ -319,6 +324,17 @@ export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
                 )}
               >
                 {childProgress.completed}/{childProgress.total} subtasks
+              </Badge>
+            )}
+            {/* Parent link indicator - show for child tasks */}
+            {parentTask && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-400 border-purple-500/30 flex items-center gap-1 max-w-[150px]"
+                title={`Part of: ${parentTask.title}`}
+              >
+                <Link2 className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{parentTask.title.substring(0, 20)}{parentTask.title.length > 20 ? '...' : ''}</span>
               </Badge>
             )}
           </div>

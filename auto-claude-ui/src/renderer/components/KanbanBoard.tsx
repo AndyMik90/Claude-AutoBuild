@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -17,16 +17,22 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from './ui/tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, archiveTasks, loadTasks } from '../stores/task-store';
 import type { Task, TaskStatus } from '../../shared/types';
 
 interface KanbanBoardProps {
@@ -93,18 +99,9 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
     id: status
   });
 
-  // Filter to only show top-level tasks (no parent)
-  const topLevelTasks = tasks.filter((t) => !t.parentTaskId);
-  const taskIds = topLevelTasks.map((t) => t.id);
-
-  // Debug logging
-  if (tasks.length > 0 && status === 'backlog') {
-    console.log(`[KanbanBoard] Column ${status}:`, {
-      totalTasks: tasks.length,
-      topLevelTasks: topLevelTasks.length,
-      tasksWithParent: tasks.filter(t => t.parentTaskId).length
-    });
-  }
+  // Show ALL tasks in their status columns (including children)
+  // This allows child tasks to be moved independently
+  const taskIds = tasks.map((t) => t.id);
 
   // Helper to get children of a task
   const getChildren = (parentId: string): Task[] => {
@@ -112,23 +109,12 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
   };
 
   // Helper to render a task and its children recursively
-  const renderTaskWithChildren = (task: Task, depth: number = 0): JSX.Element[] => {
+  const renderTaskWithChildren = (task: Task, depth: number = 0): React.ReactElement[] => {
     const isExpanded = expandedTasks.has(task.id);
     const children = getChildren(task.id);
     const hasChildren = children.length > 0;
 
-    // Debug logging for hierarchical tasks
-    if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
-      console.log(`[KanbanBoard] Rendering task ${task.id}:`, {
-        hasChildren: task.hasChildren,
-        childTaskIds: task.childTaskIds,
-        parentTaskId: task.parentTaskId,
-        calculatedChildren: children.length,
-        willShowChevron: hasChildren
-      });
-    }
-
-    const elements: JSX.Element[] = [
+    const elements: React.ReactElement[] = [
       <div key={task.id} className="w-full" style={{ paddingLeft: depth > 0 ? `${depth * 16}px` : 0 }}>
         <div className="flex items-start gap-1 w-full">
           {/* Expand/collapse button for parent tasks */}
@@ -243,7 +229,7 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-3 min-h-[120px]">
-              {topLevelTasks.length === 0 ? (
+              {tasks.length === 0 ? (
                 <div
                   className={cn(
                     'empty-column-dropzone flex flex-col items-center justify-center py-6',
@@ -272,7 +258,48 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
                   )}
                 </div>
               ) : (
-                topLevelTasks.map((task) => renderTaskWithChildren(task))
+                /* Render ALL tasks in their status column - each task is independently draggable */
+                tasks.map((task) => {
+                  const isChildTask = !!task.parentTaskId;
+                  const hasChildren = getChildren(task.id).length > 0;
+                  const isExpanded = expandedTasks.has(task.id);
+
+                  return (
+                    <div key={task.id} className="w-full">
+                      <div className="flex items-start gap-1 w-full">
+                        {/* Expand/collapse button for parent tasks */}
+                        {hasChildren && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 mt-3 shrink-0 hover:bg-primary/10 rounded-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleExpand(task.id);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        )}
+                        {/* Visual indent for child tasks */}
+                        {isChildTask && !hasChildren && (
+                          <div className="w-4 shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <SortableTaskCard
+                            task={task}
+                            onClick={() => onTaskClick(task)}
+                            allTasks={allTasks}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </SortableContext>
@@ -286,6 +313,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => {
     // Initialize with all parent tasks expanded by default
     const initialExpanded = new Set<string>();
@@ -305,25 +333,63 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
       } else {
         next.add(taskId);
       }
-      console.log('[KanbanBoard] Toggled expand for', taskId, 'expanded:', !prev.has(taskId));
       return next;
     });
   };
 
+  // Get project ID from first task for refresh
+  const projectId = tasks[0]?.projectId;
+
+  // Refresh tasks handler
+  const handleRefresh = useCallback(async () => {
+    if (!projectId || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await loadTasks(projectId);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [projectId, isRefreshing]);
+
+  // Keyboard shortcut for refresh (R key)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when typing in inputs
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // R key for refresh (without modifiers)
+      if (e.key.toUpperCase() === 'R' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        handleRefresh();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRefresh]);
+
   // Auto-expand new parent tasks when they appear
   useEffect(() => {
-    tasks.forEach(task => {
-      if (task.hasChildren && task.childTaskIds && task.childTaskIds.length > 0) {
-        setExpandedTasks(prev => {
-          if (!prev.has(task.id)) {
-            const next = new Set(prev);
-            next.add(task.id);
-            console.log('[KanbanBoard] Auto-expanding parent task:', task.id);
-            return next;
-          }
-          return prev;
-        });
+    // Collect all parent task IDs that should be expanded
+    const parentTaskIds = tasks
+      .filter(task => task.hasChildren && task.childTaskIds && task.childTaskIds.length > 0)
+      .map(task => task.id);
+
+    // Only update state if there are new parent tasks to expand
+    setExpandedTasks(prev => {
+      const newIds = parentTaskIds.filter(id => !prev.has(id));
+      if (newIds.length === 0) {
+        return prev; // No change needed - return same reference to prevent re-render
       }
+      const next = new Set(prev);
+      newIds.forEach(id => next.add(id));
+      return next;
     });
   }, [tasks]);
 
@@ -414,7 +480,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumnId(null);
@@ -430,8 +496,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {
-        // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, newStatus);
+        // Persist status change - don't auto-refresh on failure to prevent loops
+        await persistTaskStatus(activeTaskId, newStatus);
       }
       return;
     }
@@ -441,16 +507,40 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     if (overTask) {
       const task = tasks.find((t) => t.id === activeTaskId);
       if (task && task.status !== overTask.status) {
-        // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, overTask.status);
+        // Persist status change - don't auto-refresh on failure to prevent loops
+        await persistTaskStatus(activeTaskId, overTask.status);
       }
     }
   };
 
   return (
+    <TooltipProvider>
     <div className="flex h-full flex-col">
       {/* Kanban header with filters */}
-      <div className="flex items-center justify-end px-6 py-3 border-b border-border/50">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border/50">
+        {/* Left side - Refresh button */}
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing || !projectId}
+                className="gap-2"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                Refresh
+                <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
+                  R
+                </kbd>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh tasks (R)</TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Right side - Show archived */}
         <div className="flex items-center gap-2">
           <Checkbox
             id="showArchived"
@@ -507,5 +597,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
         </DragOverlay>
       </DndContext>
     </div>
+    </TooltipProvider>
   );
 }

@@ -155,7 +155,7 @@ export function registerSettingsHandlers(
       if (!mainWindow) return null;
 
       const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openDirectory'],
+        properties: ['openDirectory', 'showHiddenFiles'],
         title: 'Select Project Directory'
       });
 

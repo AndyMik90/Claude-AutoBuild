@@ -19,7 +19,8 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
-  UserCog
+  UserCog,
+  ArrowUpCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -62,7 +63,7 @@ import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/type
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'agent-profiles';
 
 interface SidebarProps {
-  onSettingsClick: () => void;
+  onSettingsClick: (section?: 'updates' | 'notifications') => void;
   onNewTaskClick: () => void;
   activeView?: SidebarView;
   onViewChange?: (view: SidebarView) => void;
@@ -106,6 +107,9 @@ export function Sidebar({
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [showGitSetupModal, setShowGitSetupModal] = useState(false);
+  const [appUpdateAvailable, setAppUpdateAvailable] = useState(false);
+  const [appUpdateVersion, setAppUpdateVersion] = useState<string | null>(null);
+  const [isAppUpdateDownloaded, setIsAppUpdateDownloaded] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [_versionInfo, setVersionInfo] = useState<AutoBuildVersionInfo | null>(null);
@@ -147,6 +151,38 @@ export function Sidebar({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProjectId, onViewChange]);
+
+  // Listen for app updates and check on mount
+  useEffect(() => {
+    // Check for updates on mount
+    const checkAppUpdates = async () => {
+      try {
+        const result = await window.electronAPI.checkAppUpdate();
+        if (result.success && result.data) {
+          setAppUpdateAvailable(true);
+          setAppUpdateVersion(result.data.version);
+        }
+      } catch (err) {
+        // Silent fail - updates are optional
+      }
+    };
+    checkAppUpdates();
+
+    // Listen for update events
+    const cleanupAvailable = window.electronAPI.onAppUpdateAvailable((info) => {
+      setAppUpdateAvailable(true);
+      setAppUpdateVersion(info.version);
+    });
+
+    const cleanupDownloaded = window.electronAPI.onAppUpdateDownloaded(() => {
+      setIsAppUpdateDownloaded(true);
+    });
+
+    return () => {
+      cleanupAvailable();
+      cleanupDownloaded();
+    };
+  }, []);
 
   // Check for updates when project changes
   useEffect(() => {
@@ -427,6 +463,29 @@ export function Sidebar({
         {/* Rate Limit Indicator - shows when Claude is rate limited */}
         <RateLimitIndicator />
 
+        {/* Update Available Banner */}
+        {appUpdateAvailable && (
+          <div className="px-3 py-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full justify-start gap-2 bg-info hover:bg-info/90 text-info-foreground"
+              onClick={() => onSettingsClick('updates')}
+            >
+              <ArrowUpCircle className="h-4 w-4" />
+              <span className="flex-1 text-left">
+                {isAppUpdateDownloaded ? 'Update Ready - Restart' : `Update Available ${appUpdateVersion ? `(${appUpdateVersion})` : ''}`}
+              </span>
+              {isAppUpdateDownloaded && (
+                <span className="flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+              )}
+            </Button>
+          </div>
+        )}
+
         {/* Bottom section with Settings, Help, and New Task */}
         <div className="p-4 space-y-3">
           {/* Settings and Help row */}
@@ -437,7 +496,7 @@ export function Sidebar({
                   variant="ghost"
                   size="sm"
                   className="flex-1 justify-start gap-2"
-                  onClick={onSettingsClick}
+                  onClick={() => onSettingsClick()}
                 >
                   <Settings className="h-4 w-4" />
                   Settings
