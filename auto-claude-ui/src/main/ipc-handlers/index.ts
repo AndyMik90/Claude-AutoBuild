@@ -21,6 +21,7 @@ import { registerRoadmapHandlers } from './roadmap-handlers';
 import { registerContextHandlers } from './context-handlers';
 import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
+import { registerPlaneHandlers } from './plane-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerAutobuildSourceHandlers } from './autobuild-source-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
@@ -77,6 +78,9 @@ export function setupIpcHandlers(
   // Linear integration handlers
   registerLinearHandlers(agentManager, getMainWindow);
 
+  // Plane.so integration handlers
+  registerPlaneHandlers(agentManager, getMainWindow);
+
   // GitHub integration handlers
   registerGithubHandlers(agentManager, getMainWindow);
 
@@ -113,6 +117,7 @@ export {
   registerContextHandlers,
   registerEnvHandlers,
   registerLinearHandlers,
+  registerPlaneHandlers,
   registerGithubHandlers,
   registerAutobuildSourceHandlers,
   registerIdeationHandlers,

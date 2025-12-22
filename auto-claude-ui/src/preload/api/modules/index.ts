@@ -10,6 +10,7 @@ export * from './ideation-api';
 export * from './insights-api';
 export * from './changelog-api';
 export * from './linear-api';
+export * from './plane-api';
 export * from './github-api';
 export * from './autobuild-api';
 export * from './shell-api';

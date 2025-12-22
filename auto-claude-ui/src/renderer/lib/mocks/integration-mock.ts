@@ -9,6 +9,7 @@ export const integrationMock = {
     data: {
       claudeAuthStatus: 'not_configured' as const,
       linearEnabled: false,
+      planeEnabled: false,
       githubEnabled: false,
       graphitiEnabled: false,
       enableFancyUi: true
@@ -87,6 +88,45 @@ export const integrationMock = {
       connected: false,
       error: 'Not available in browser mock'
     }
+  }),
+
+  // Plane.so Integration Operations
+  checkPlaneConnection: async () => ({
+    success: true,
+    data: {
+      connected: false,
+      error: 'Not available in browser mock'
+    }
+  }),
+
+  getPlaneProjects: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getPlaneWorkItems: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getPlaneStates: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getPlaneConfiguredProjects: async () => ({
+    success: true,
+    data: []
+  }),
+
+  copyPlaneConfigFromProject: async (_targetProjectId: string, _sourceProjectId: string) => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  importPlaneWorkItems: async (_projectId: string, _workItemIds: string[], _workspaceSlug: string, _planeProjectId: string, _planeProjectIdentifier: string) => ({
+    success: false,
+    error: 'Not available in browser mock'
   }),
 
   // GitHub Integration Operations

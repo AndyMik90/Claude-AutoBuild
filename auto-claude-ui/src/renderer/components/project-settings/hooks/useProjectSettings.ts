@@ -12,7 +12,8 @@ import type {
   AutoBuildVersionInfo,
   ProjectEnvConfig,
   LinearSyncStatus,
-  GitHubSyncStatus
+  GitHubSyncStatus,
+  PlaneSyncStatus
 } from '../../../../shared/types';
 
 export interface UseProjectSettingsReturn {
@@ -66,6 +67,14 @@ export interface UseProjectSettingsReturn {
   linearConnectionStatus: LinearSyncStatus | null;
   isCheckingLinear: boolean;
 
+  // Plane state
+  showPlaneKey: boolean;
+  setShowPlaneKey: React.Dispatch<React.SetStateAction<boolean>>;
+  showPlaneImportModal: boolean;
+  setShowPlaneImportModal: React.Dispatch<React.SetStateAction<boolean>>;
+  planeConnectionStatus: PlaneSyncStatus | null;
+  isCheckingPlane: boolean;
+
   // Actions
   handleInitialize: () => Promise<void>;
   handleUpdate: () => Promise<void>;
@@ -117,6 +126,12 @@ export function useProjectSettings(
   const [showLinearImportModal, setShowLinearImportModal] = useState(false);
   const [linearConnectionStatus, setLinearConnectionStatus] = useState<LinearSyncStatus | null>(null);
   const [isCheckingLinear, setIsCheckingLinear] = useState(false);
+
+  // Plane state
+  const [showPlaneKey, setShowPlaneKey] = useState(false);
+  const [showPlaneImportModal, setShowPlaneImportModal] = useState(false);
+  const [planeConnectionStatus, setPlaneConnectionStatus] = useState<PlaneSyncStatus | null>(null);
+  const [isCheckingPlane, setIsCheckingPlane] = useState(false);
 
   // Reset settings when project changes
   useEffect(() => {
@@ -206,6 +221,32 @@ export function useProjectSettings(
       checkLinearConnection();
     }
   }, [envConfig?.linearEnabled, envConfig?.linearApiKey, project.id]);
+
+  // Check Plane connection when API key changes
+  useEffect(() => {
+    const checkPlaneConnection = async () => {
+      if (!envConfig?.planeEnabled || !envConfig.planeApiKey) {
+        setPlaneConnectionStatus(null);
+        return;
+      }
+
+      setIsCheckingPlane(true);
+      try {
+        const result = await window.electronAPI.checkPlaneConnection(project.id);
+        if (result.success && result.data) {
+          setPlaneConnectionStatus(result.data);
+        }
+      } catch {
+        setPlaneConnectionStatus({ connected: false, error: 'Failed to check connection' });
+      } finally {
+        setIsCheckingPlane(false);
+      }
+    };
+
+    if (envConfig?.planeEnabled && envConfig.planeApiKey) {
+      checkPlaneConnection();
+    }
+  }, [envConfig?.planeEnabled, envConfig?.planeApiKey, envConfig?.planeWorkspaceSlug, project.id]);
 
   // Check GitHub connection when token/repo changes
   // Also updates the global GitHub store so other components (like GitHub Issues) see the change
@@ -396,6 +437,12 @@ export function useProjectSettings(
     setShowLinearImportModal,
     linearConnectionStatus,
     isCheckingLinear,
+    showPlaneKey,
+    setShowPlaneKey,
+    showPlaneImportModal,
+    setShowPlaneImportModal,
+    planeConnectionStatus,
+    isCheckingPlane,
     handleInitialize,
     handleUpdate,
     handleSaveEnv,

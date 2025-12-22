@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { LinearTaskImportModal } from '../LinearTaskImportModal';
+import { PlaneTaskImportModal } from '../plane-import';
 import { SettingsSection } from './SettingsSection';
 import { useProjectSettings, UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
 import { EmptyProjectState } from './common/EmptyProjectState';
 import { ErrorDisplay } from './common/ErrorDisplay';
 import { SectionRouter } from './sections/SectionRouter';
 import { createHookProxy } from './utils/hookProxyFactory';
+import { loadTasks } from '../../stores/task-store';
 import type { Project } from '../../../shared/types';
 
-export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'github' | 'memory';
+export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'plane' | 'github' | 'memory';
 
 interface ProjectSettingsContentProps {
   project: Project | undefined;
@@ -98,6 +100,12 @@ function ProjectSettingsContentInner({
     setShowLinearImportModal,
     linearConnectionStatus,
     isCheckingLinear,
+    showPlaneKey,
+    setShowPlaneKey,
+    showPlaneImportModal,
+    setShowPlaneImportModal,
+    planeConnectionStatus,
+    isCheckingPlane,
     handleInitialize,
     handleUpdate,
     handleClaudeSetup,
@@ -144,10 +152,15 @@ function ProjectSettingsContentInner({
         claudeAuthStatus={claudeAuthStatus}
         linearConnectionStatus={linearConnectionStatus}
         isCheckingLinear={isCheckingLinear}
+        showPlaneKey={showPlaneKey}
+        setShowPlaneKey={setShowPlaneKey}
+        planeConnectionStatus={planeConnectionStatus}
+        isCheckingPlane={isCheckingPlane}
         handleInitialize={handleInitialize}
         handleUpdate={handleUpdate}
         handleClaudeSetup={handleClaudeSetup}
         onOpenLinearImport={() => setShowLinearImportModal(true)}
+        onOpenPlaneImport={() => setShowPlaneImportModal(true)}
       />
 
       <ErrorDisplay error={error} envError={envError} />
@@ -158,7 +171,26 @@ function ProjectSettingsContentInner({
         open={showLinearImportModal}
         onOpenChange={setShowLinearImportModal}
         onImportComplete={(result) => {
-          console.warn('Import complete:', result);
+          console.warn('Linear import complete:', result);
+          // Refresh task list to show newly imported tasks
+          if (result.imported > 0) {
+            loadTasks(project.id);
+          }
+        }}
+      />
+
+      {/* Plane Task Import Modal */}
+      <PlaneTaskImportModal
+        projectId={project.id}
+        open={showPlaneImportModal}
+        onOpenChange={setShowPlaneImportModal}
+        defaultWorkspaceSlug={envConfig?.planeWorkspaceSlug}
+        onImportComplete={(result) => {
+          console.warn('Plane import complete:', result);
+          // Refresh task list to show newly imported tasks
+          if (result.imported > 0) {
+            loadTasks(project.id);
+          }
         }}
       />
     </>

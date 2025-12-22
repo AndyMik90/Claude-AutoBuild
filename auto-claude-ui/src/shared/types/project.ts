@@ -277,6 +277,13 @@ export interface ProjectEnvConfig {
   linearProjectId?: string;
   linearRealtimeSync?: boolean; // Enable real-time sync of new Linear tasks
 
+  // Plane.so Integration (self-hosted project management)
+  planeEnabled: boolean;
+  planeApiKey?: string;
+  planeBaseUrl?: string; // For self-hosted instances (default: https://api.plane.so)
+  planeWorkspaceSlug?: string;
+  planeProjectId?: string;
+
   // GitHub Integration
   githubEnabled: boolean;
   githubToken?: string;

@@ -12,3 +12,6 @@ graphiti-core>=0.5.0; python_version >= "3.12"
 
 # Google AI (optional - for Gemini LLM and embeddings)
 google-generativeai>=0.8.0
+
+# HTTP client for Plane.so integration
+aiohttp>=3.9.0

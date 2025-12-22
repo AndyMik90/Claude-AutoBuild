@@ -62,6 +62,22 @@ export function registerEnvHandlers(
     if (config.githubAutoSync !== undefined) {
       existingVars['GITHUB_AUTO_SYNC'] = config.githubAutoSync ? 'true' : 'false';
     }
+    // Plane.so Integration
+    if (config.planeEnabled !== undefined) {
+      existingVars['PLANE_ENABLED'] = config.planeEnabled ? 'true' : 'false';
+    }
+    if (config.planeApiKey !== undefined) {
+      existingVars['PLANE_API_KEY'] = config.planeApiKey;
+    }
+    if (config.planeBaseUrl !== undefined) {
+      existingVars['PLANE_BASE_URL'] = config.planeBaseUrl;
+    }
+    if (config.planeWorkspaceSlug !== undefined) {
+      existingVars['PLANE_WORKSPACE_SLUG'] = config.planeWorkspaceSlug;
+    }
+    if (config.planeProjectId !== undefined) {
+      existingVars['PLANE_PROJECT_ID'] = config.planeProjectId;
+    }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
       existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
@@ -133,6 +149,15 @@ ${existingVars['LINEAR_REALTIME_SYNC'] !== undefined ? `LINEAR_REALTIME_SYNC=${e
 ${existingVars['GITHUB_TOKEN'] ? `GITHUB_TOKEN=${existingVars['GITHUB_TOKEN']}` : '# GITHUB_TOKEN='}
 ${existingVars['GITHUB_REPO'] ? `GITHUB_REPO=${existingVars['GITHUB_REPO']}` : '# GITHUB_REPO=owner/repo'}
 ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingVars['GITHUB_AUTO_SYNC']}` : '# GITHUB_AUTO_SYNC=false'}
+
+# =============================================================================
+# PLANE.SO INTEGRATION (OPTIONAL)
+# =============================================================================
+${existingVars['PLANE_ENABLED'] !== undefined ? `PLANE_ENABLED=${existingVars['PLANE_ENABLED']}` : '# PLANE_ENABLED=false'}
+${existingVars['PLANE_API_KEY'] ? `PLANE_API_KEY=${existingVars['PLANE_API_KEY']}` : '# PLANE_API_KEY='}
+${existingVars['PLANE_BASE_URL'] ? `PLANE_BASE_URL=${existingVars['PLANE_BASE_URL']}` : '# PLANE_BASE_URL=https://api.plane.so'}
+${existingVars['PLANE_WORKSPACE_SLUG'] ? `PLANE_WORKSPACE_SLUG=${existingVars['PLANE_WORKSPACE_SLUG']}` : '# PLANE_WORKSPACE_SLUG='}
+${existingVars['PLANE_PROJECT_ID'] ? `PLANE_PROJECT_ID=${existingVars['PLANE_PROJECT_ID']}` : '# PLANE_PROJECT_ID='}
 
 # =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
@@ -214,6 +239,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       const config: ProjectEnvConfig = {
         claudeAuthStatus: 'not_configured',
         linearEnabled: false,
+        planeEnabled: false,
         githubEnabled: false,
         graphitiEnabled: false,
         enableFancyUi: true,
@@ -259,6 +285,23 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars['LINEAR_REALTIME_SYNC']?.toLowerCase() === 'true') {
         config.linearRealtimeSync = true;
+      }
+
+      // Plane.so config
+      if (vars['PLANE_ENABLED']?.toLowerCase() === 'true') {
+        config.planeEnabled = true;
+      }
+      if (vars['PLANE_API_KEY']) {
+        config.planeApiKey = vars['PLANE_API_KEY'];
+      }
+      if (vars['PLANE_BASE_URL']) {
+        config.planeBaseUrl = vars['PLANE_BASE_URL'];
+      }
+      if (vars['PLANE_WORKSPACE_SLUG']) {
+        config.planeWorkspaceSlug = vars['PLANE_WORKSPACE_SLUG'];
+      }
+      if (vars['PLANE_PROJECT_ID']) {
+        config.planeProjectId = vars['PLANE_PROJECT_ID'];
       }
 
       // GitHub config
