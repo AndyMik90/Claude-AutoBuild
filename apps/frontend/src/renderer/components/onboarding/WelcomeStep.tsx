@@ -50,7 +50,7 @@ export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
     {
       icon: <Brain className="h-5 w-5" />,
       title: 'Memory & Context',
-      description: 'Optional Graphiti integration for persistent memory across sessions'
+      description: 'Persistent memory across sessions with Graphiti'
     },
     {
       icon: <Zap className="h-5 w-5" />,
@@ -88,7 +88,7 @@ export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
         <div className="text-center mb-8">
           <p className="text-muted-foreground">
             This wizard will help you set up your environment in just a few steps.
-            You can configure your Claude OAuth token, optionally set up memory features,
+            You can configure your Claude OAuth token, set up memory features,
             and create your first task.
           </p>
         </div>

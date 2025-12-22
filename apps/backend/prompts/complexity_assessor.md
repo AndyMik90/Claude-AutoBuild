@@ -588,7 +588,7 @@ START
 
 ### Example 5: Complex Feature Task
 
-**Task**: "Add Graphiti Memory Integration with FalkorDB as an optional layer controlled by .env variables using Docker Compose"
+**Task**: "Add Graphiti Memory Integration with LadybugDB (embedded database) as an optional layer controlled by .env variables"
 
 **Assessment**:
 ```json
@@ -596,7 +596,7 @@ START
   "complexity": "complex",
   "workflow_type": "feature",
   "confidence": 0.90,
-  "reasoning": "Multiple integrations (Graphiti, FalkorDB), infrastructure changes (Docker Compose), and new architectural pattern (optional memory layer). Requires research for correct API usage and careful design.",
+  "reasoning": "Multiple integrations (Graphiti, LadybugDB), new architectural pattern (memory layer with embedded database). Requires research for correct API usage and careful design.",
   "analysis": {
     "scope": {
       "estimated_files": 12,
@@ -605,21 +605,21 @@ START
       "notes": "Memory integration will likely touch multiple parts of the system"
     },
     "integrations": {
-      "external_services": ["Graphiti", "FalkorDB"],
-      "new_dependencies": ["graphiti-core", "falkordb driver"],
+      "external_services": ["Graphiti", "LadybugDB"],
+      "new_dependencies": ["graphiti-core", "real_ladybug"],
       "research_needed": true,
       "notes": "Graphiti is a newer library, need to verify API patterns"
     },
     "infrastructure": {
-      "docker_changes": true,
+      "docker_changes": false,
       "database_changes": true,
       "config_changes": true,
-      "notes": "FalkorDB requires Docker container, new env vars needed"
+      "notes": "LadybugDB is embedded, no Docker needed, new env vars required"
     },
     "knowledge": {
       "patterns_exist": false,
       "research_required": true,
-      "unfamiliar_tech": ["graphiti-core", "FalkorDB"],
+      "unfamiliar_tech": ["graphiti-core", "LadybugDB"],
       "notes": "No existing graph database patterns in codebase"
     },
     "risk": {
@@ -632,7 +632,7 @@ START
   "flags": {
     "needs_research": true,
     "needs_self_critique": true,
-    "needs_infrastructure_setup": true
+    "needs_infrastructure_setup": false
   },
   "validation_recommendations": {
     "risk_level": "high",
@@ -640,8 +640,8 @@ START
     "minimal_mode": false,
     "test_types_required": ["unit", "integration", "e2e"],
     "security_scan_required": true,
-    "staging_deployment_required": true,
-    "reasoning": "Database integration with new dependencies requires full test coverage. Security scan for API key handling. Staging deployment to verify Docker container orchestration."
+    "staging_deployment_required": false,
+    "reasoning": "Database integration with new dependencies requires full test coverage. Security scan for API key handling. No staging deployment needed since embedded database doesn't require infrastructure setup."
   }
 }
 ```

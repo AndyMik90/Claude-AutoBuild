@@ -33,7 +33,7 @@ project-settings/
 ├── PasswordInput.tsx                 # Reusable password input with toggle
 ├── StatusBadge.tsx                   # Reusable status badge component
 ├── ConnectionStatus.tsx              # Reusable connection status display
-└── InfrastructureStatus.tsx          # Docker/FalkorDB status display
+└── InfrastructureStatus.tsx          # LadybugDB memory status display
 
 hooks/
 ├── index.ts                          # Barrel export for all hooks
@@ -42,7 +42,7 @@ hooks/
 ├── useClaudeAuth.ts                  # Claude authentication status
 ├── useLinearConnection.ts            # Linear connection status
 ├── useGitHubConnection.ts            # GitHub connection status
-└── useInfrastructureStatus.ts        # Docker/FalkorDB infrastructure status
+└── useInfrastructureStatus.ts        # LadybugDB memory status
 ```
 
 ## Component Breakdown
@@ -125,14 +125,14 @@ hooks/
 - `settings`: Project settings
 - `onUpdateConfig`: Configuration update handler
 - `onUpdateSettings`: Settings update handler
-- `infrastructureStatus`: Docker/FalkorDB status
+- `infrastructureStatus`: LadybugDB memory status
 - Infrastructure management handlers
 
 **Responsibilities**:
 - Toggle between Graphiti and file-based memory
 - Configure LLM and embedding providers
-- Manage FalkorDB connection settings
-- Display infrastructure status (Docker/FalkorDB)
+- Manage LadybugDB connection settings
+- Display infrastructure status (LadybugDB)
 - Handle infrastructure startup
 
 #### AgentConfigSection.tsx
@@ -202,7 +202,7 @@ hooks/
 **Usage**: Used by Linear and GitHub sections to display connection status.
 
 #### InfrastructureStatus.tsx
-**Purpose**: Displays Docker and FalkorDB status for Graphiti.
+**Purpose**: Displays LadybugDB memory status for Graphiti.
 **Props**:
 - `infrastructureStatus`: Status object
 - `isCheckingInfrastructure`: Loading state
@@ -252,7 +252,7 @@ hooks/
 - `isCheckingGitHub`: Loading state
 
 ### useInfrastructureStatus.ts
-**Purpose**: Monitors Docker and FalkorDB infrastructure status.
+**Purpose**: Monitors LadybugDB memory infrastructure status.
 **Returns**:
 - `infrastructureStatus`: Status object
 - `isCheckingInfrastructure`: Loading state

@@ -22,7 +22,7 @@ mocks/
 ├── integration-mock.ts        # External integrations (Linear, GitHub)
 ├── changelog-mock.ts          # Changelog and release operations
 ├── insights-mock.ts           # AI insights and conversations
-├── infrastructure-mock.ts     # Docker, FalkorDB, ideation, updates
+├── infrastructure-mock.ts     # LadybugDB, memory, ideation, updates
 └── settings-mock.ts           # App settings and version info
 ```
 

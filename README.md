@@ -32,7 +32,7 @@ Get the latest pre-built release for your platform:
 - **Claude Pro/Max subscription** - [Get one here](https://claude.ai/upgrade)
 - **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
 - **Git repository** - Your project must be initialized as a git repo
-- **Python 3.12+** - Required for Memory Layer (optional but recommended)
+- **Python 3.12+** - Required for the backend and Memory Layer
 
 ---
 

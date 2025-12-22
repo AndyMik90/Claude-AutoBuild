@@ -99,8 +99,7 @@ interface ValidationStatus {
 /**
  * Graphiti memory configuration step for the onboarding wizard.
  * Uses LadybugDB (embedded database) - no Docker required.
- * Allows users to optionally configure Graphiti memory backend with multiple provider options.
- * This step is entirely optional and can be skipped.
+ * Allows users to configure Graphiti memory backend with multiple provider options.
  */
 export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
@@ -688,7 +687,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Memory & Context (Optional)
+            Memory & Context
           </h1>
           <p className="mt-2 text-muted-foreground">
             Enable Graphiti for persistent memory across coding sessions

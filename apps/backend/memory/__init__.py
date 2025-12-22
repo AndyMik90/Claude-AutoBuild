@@ -10,7 +10,7 @@ Architecture Decision:
     Memory System Hierarchy:
 
     PRIMARY: Graphiti (when GRAPHITI_ENABLED=true)
-        - Graph-based knowledge storage with FalkorDB
+        - Graph-based knowledge storage with LadybugDB (embedded Kuzu database)
         - Semantic search across sessions
         - Cross-project context retrieval
         - Rich relationship modeling

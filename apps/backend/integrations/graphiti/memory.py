@@ -7,7 +7,7 @@ memory system from the auto-claude/graphiti/ package.
 
 The refactored code is now organized as:
 - graphiti/graphiti.py - Main GraphitiMemory class
-- graphiti/client.py - FalkorDB client wrapper
+- graphiti/client.py - LadybugDB client wrapper
 - graphiti/queries.py - Graph query operations
 - graphiti/search.py - Semantic search logic
 - graphiti/schema.py - Graph schema definitions
@@ -70,7 +70,7 @@ def get_graphiti_memory(
 
 async def test_graphiti_connection() -> tuple[bool, str]:
     """
-    Test if FalkorDB is available and Graphiti can connect.
+    Test if LadybugDB is available and Graphiti can connect.
 
     Returns:
         Tuple of (success: bool, message: str)
@@ -116,7 +116,7 @@ async def test_graphiti_connection() -> tuple[bool, str]:
         await graphiti.close()
 
         return True, (
-            f"Connected to FalkorDB at {config.falkordb_host}:{config.falkordb_port} "
+            f"Connected to LadybugDB at {config.falkordb_host}:{config.falkordb_port} "
             f"(providers: {config.get_provider_summary()})"
         )
 

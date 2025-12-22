@@ -130,8 +130,8 @@ Create a list of all issues found:
 ISSUES FOUND:
 
 1. [SEVERITY: HIGH] Package name incorrect
-   - Spec says: "graphiti-core[falkordb]"
-   - Research says: "graphiti-core-falkordb"
+   - Spec says: "graphiti-core real_ladybug"
+   - Research says: "graphiti-core" with separate "real_ladybug" dependency
    - Location: Line 45, Requirements section
 
 2. [SEVERITY: MEDIUM] Missing edge case
@@ -156,7 +156,7 @@ cat spec.md
 
 # Apply fixes using edit commands
 # Example: Fix package name
-sed -i 's/graphiti-core\[falkordb\]/graphiti-core-falkordb/g' spec.md
+sed -i 's/graphiti-core real_ladybug/graphiti-core\nreal_ladybug/g' spec.md
 
 # Or rewrite sections as needed
 ```

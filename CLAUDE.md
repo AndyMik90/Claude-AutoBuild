@@ -9,6 +9,11 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 ## Commands
 
 ### Setup
+
+**Requirements:**
+- Python 3.12+ (required for backend)
+- Node.js (for frontend)
+
 ```bash
 # Install all dependencies from root
 npm run install:all
@@ -132,7 +137,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 - **security.py** + **project_analyzer.py** - Dynamic command allowlisting based on detected project stack
 - **worktree.py** - Git worktree isolation for safe feature development
 - **memory.py** - File-based session memory (primary, always-available storage)
-- **graphiti_memory.py** - Optional graph-based cross-session memory with semantic search
+- **graphiti_memory.py** - Graph-based cross-session memory with semantic search
 - **graphiti_providers.py** - Multi-provider factory for Graphiti (OpenAI, Anthropic, Azure, Ollama, Google AI)
 - **graphiti_config.py** - Configuration and validation for Graphiti integration
 - **linear_updater.py** - Optional Linear integration for progress tracking
@@ -203,20 +208,13 @@ Dual-layer memory architecture:
 - Human-readable files in `specs/XXX/memory/`
 - Session insights, patterns, gotchas, codebase map
 
-**Graphiti Memory (Optional Enhancement)** - `graphiti_memory.py`
+**Graphiti Memory** - `graphiti_memory.py`
 - Graph database with semantic search (LadybugDB - embedded, no Docker)
 - Cross-session context retrieval
-- Requires Python 3.12+
 - Multi-provider support:
   - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI (Gemini)
   - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
-
-```bash
-# Setup (requires Python 3.12+)
-pip install real_ladybug graphiti-core
-```
-
-Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
+- Configure with provider credentials in `.env.example`
 
 ## Project Structure
 

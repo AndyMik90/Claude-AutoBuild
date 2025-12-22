@@ -1,6 +1,6 @@
 # Context Handlers Module
 
-This directory contains the refactored context-related IPC handlers for the Auto Claude UI application. The handlers manage project context, memory systems (both file-based and Graphiti/FalkorDB), and project index operations.
+This directory contains the refactored context-related IPC handlers for the Auto Claude UI application. The handlers manage project context, memory systems (both file-based and Graphiti/LadybugDB), and project index operations.
 
 ## Architecture
 
@@ -18,12 +18,12 @@ Shared utility functions for environment configuration and parsing.
 - `loadGlobalSettings()` - Load global application settings
 - `isGraphitiEnabled(projectEnvVars)` - Check if Graphiti memory system is enabled
 - `hasOpenAIKey(projectEnvVars, globalSettings)` - Check if OpenAI API key is available
-- `getGraphitiConnectionDetails(projectEnvVars)` - Get FalkorDB connection configuration
+- `getGraphitiConnectionDetails(projectEnvVars)` - Get LadybugDB connection configuration
 
 **Types:**
 - `EnvironmentVars` - Environment variable dictionary
 - `GlobalSettings` - Global application settings
-- `GraphitiConnectionDetails` - FalkorDB connection details
+- `GraphitiConnectionDetails` - LadybugDB connection details
 
 #### `memory-status-handlers.ts` (130 lines)
 Handlers for checking Graphiti/memory system configuration status.
@@ -37,7 +37,7 @@ Handlers for checking Graphiti/memory system configuration status.
 - `CONTEXT_MEMORY_STATUS` - Get memory system status
 
 #### `memory-data-handlers.ts` (242 lines)
-Handlers for retrieving and searching memories (both file-based and FalkorDB).
+Handlers for retrieving and searching memories (both file-based and LadybugDB).
 
 **Exports:**
 - `loadFileBasedMemories(specsDir, limit)` - Load memories from spec files
@@ -45,11 +45,11 @@ Handlers for retrieving and searching memories (both file-based and FalkorDB).
 - `registerMemoryDataHandlers(getMainWindow)` - Register IPC handlers
 
 **IPC Channels:**
-- `CONTEXT_GET_MEMORIES` - Get recent memories (with FalkorDB fallback)
+- `CONTEXT_GET_MEMORIES` - Get recent memories (with LadybugDB fallback)
 - `CONTEXT_SEARCH_MEMORIES` - Search memories by query
 
 **Features:**
-- Dual-source memory loading (FalkorDB primary, file-based fallback)
+- Dual-source memory loading (LadybugDB primary, file-based fallback)
 - Session insights extraction from spec directories
 - Codebase map integration
 - Semantic search support (when Graphiti is available)
@@ -103,7 +103,7 @@ context/index.ts (aggregator)
     ↓
     ├── utils.ts (no dependencies, pure utilities)
     ├── memory-status-handlers.ts (depends on: utils)
-    ├── memory-data-handlers.ts (depends on: utils, falkordb-service)
+    ├── memory-data-handlers.ts (depends on: utils, ladybug-service)
     └── project-context-handlers.ts (depends on: utils, memory-status-handlers, memory-data-handlers)
 ```
 
@@ -147,12 +147,12 @@ test('buildMemoryStatus returns correct status', () => {
 - Add TypeScript interface documentation for all data structures
 - Implement caching layer for frequently accessed context data
 - Add telemetry for memory system performance
-- Support additional memory providers beyond FalkorDB
+- Support additional memory providers beyond LadybugDB
 - Implement memory compression for large session insights
 
 ## Related Documentation
 
 - [Project Memory System](../../../../auto-claude/memory.py)
 - [Graphiti Memory Integration](../../../../auto-claude/graphiti_memory.py)
-- [FalkorDB Service](../../falkordb-service.ts)
+- [LadybugDB Integration](../../ladybug-service.ts)
 - [IPC Channels](../../../shared/constants.ts)

@@ -290,7 +290,7 @@ Input: {
       "type": "library",
       "verified_package": {
         "name": "graphiti-core",
-        "install_command": "pip install graphiti-core[falkordb]",
+        "install_command": "pip install graphiti-core",
         "version": ">=0.5.0",
         "verified": true
       },
@@ -308,16 +308,16 @@ Input: {
       },
       "configuration": {
         "env_vars": ["OPENAI_API_KEY"],
-        "dependencies": ["neo4j or falkordb driver"]
+        "dependencies": ["real_ladybug"]
       },
       "infrastructure": {
-        "requires_docker": true,
-        "docker_image": "falkordb/falkordb:latest",
-        "ports": [6379, 3000]
+        "requires_docker": false,
+        "embedded_database": "LadybugDB"
       },
       "gotchas": [
         "Requires OpenAI API key for embeddings",
-        "Must call build_indices_and_constraints() before use"
+        "Must call build_indices_and_constraints() before use",
+        "LadybugDB is embedded - no separate database server needed"
       ],
       "research_sources": [
         "Context7 MCP: /zep/graphiti",
@@ -328,7 +328,7 @@ Input: {
   ],
   "unverified_claims": [],
   "recommendations": [
-    "Consider FalkorDB over Neo4j for simpler local development"
+    "LadybugDB is embedded and requires no Docker or separate database setup"
   ],
   "context7_libraries_used": ["/zep/graphiti"],
   "created_at": "2024-12-10T12:00:00Z"

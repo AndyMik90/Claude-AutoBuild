@@ -176,7 +176,7 @@ describe('PasswordInput', () => {
 | LinearIntegrationSection.tsx | ~160 | Linear integration |
 | GitHubIntegrationSection.tsx | ~140 | GitHub integration |
 | ClaudeAuthSection.tsx | ~100 | Claude authentication |
-| InfrastructureStatus.tsx | ~100 | Docker/FalkorDB status |
+| InfrastructureStatus.tsx | ~100 | LadybugDB memory status |
 | AutoBuildIntegration.tsx | ~70 | Auto-Build setup |
 | NotificationsSection.tsx | ~60 | Notification preferences |
 | AgentConfigSection.tsx | ~35 | Agent configuration |
@@ -189,7 +189,7 @@ describe('PasswordInput', () => {
 
 | Hook | Lines | Purpose |
 |------|-------|---------|
-| useInfrastructureStatus.ts | ~95 | Docker/FalkorDB monitoring |
+| useInfrastructureStatus.ts | ~95 | LadybugDB memory monitoring |
 | useEnvironmentConfig.ts | ~75 | Environment config management |
 | useClaudeAuth.ts | ~55 | Claude auth checking |
 | useGitHubConnection.ts | ~45 | GitHub connection monitoring |
