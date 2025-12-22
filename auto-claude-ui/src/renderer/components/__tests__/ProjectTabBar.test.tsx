@@ -423,6 +423,7 @@ describe('ProjectTabBar', () => {
         project: projects[0],
         isActive: activeProjectId === projects[0].id,
         canClose: projects.length > 1,
+        tabIndex: 0,
         onSelect: expect.any(Function),
         onClose: expect.any(Function)
       };

@@ -45,7 +45,7 @@ export class AgentManager extends EventEmitter {
     // Listen for auto-swap restart events
     this.on('auto-swap-restart-task', (taskId: string, newProfileId: string) => {
       console.log('[AgentManager] Received auto-swap-restart-task event:', { taskId, newProfileId });
-      const success = this.restartTask(taskId);
+      const success = this.restartTask(taskId, newProfileId);
       console.log('[AgentManager] Task restart result:', success ? 'SUCCESS' : 'FAILED');
     });
 
@@ -352,9 +352,11 @@ export class AgentManager extends EventEmitter {
 
   /**
    * Restart task after profile swap
+   * @param taskId - The task to restart
+   * @param newProfileId - Optional new profile ID to apply (from auto-swap)
    */
-  restartTask(taskId: string): boolean {
-    console.log('[AgentManager] restartTask called for:', taskId);
+  restartTask(taskId: string, newProfileId?: string): boolean {
+    console.log('[AgentManager] restartTask called for:', taskId, 'with newProfileId:', newProfileId);
 
     const context = this.taskExecutionContext.get(taskId);
     if (!context) {
@@ -379,6 +381,16 @@ export class AgentManager extends EventEmitter {
 
     context.swapCount++;
     console.log('[AgentManager] Incremented swap count to:', context.swapCount);
+
+    // If a new profile was specified, ensure it's set as active before restart
+    if (newProfileId) {
+      const profileManager = getClaudeProfileManager();
+      const currentActiveId = profileManager.getActiveProfile()?.id;
+      if (currentActiveId !== newProfileId) {
+        console.log('[AgentManager] Setting active profile to:', newProfileId);
+        profileManager.setActiveProfile(newProfileId);
+      }
+    }
 
     // Kill current process
     console.log('[AgentManager] Killing current process for task:', taskId);

@@ -33,9 +33,10 @@ import type { SessionDateInfo } from '../../shared/types';
 interface TerminalGridProps {
   projectPath?: string;
   onNewTaskClick?: () => void;
+  isActive?: boolean;
 }
 
-export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps) {
+export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: TerminalGridProps) {
   const terminals = useTerminalStore((state) => state.terminals);
   const activeTerminalId = useTerminalStore((state) => state.activeTerminalId);
   const addTerminal = useTerminalStore((state) => state.addTerminal);
@@ -167,8 +168,10 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
     removeTerminal(id);
   }, [removeTerminal]);
 
-  // Handle keyboard shortcut for new terminal
+  // Handle keyboard shortcut for new terminal (only when this view is active)
   useEffect(() => {
+    if (!isActive) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+T or Cmd+T for new terminal
       if ((e.ctrlKey || e.metaKey) && e.key === 't') {
@@ -186,7 +189,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick }: TerminalGridProps)
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addTerminal, canAddTerminal, projectPath, activeTerminalId, handleCloseTerminal]);
+  }, [isActive, addTerminal, canAddTerminal, projectPath, activeTerminalId, handleCloseTerminal]);
 
   const handleAddTerminal = useCallback(() => {
     if (canAddTerminal()) {

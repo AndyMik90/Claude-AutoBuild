@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { X, FolderTree, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
 import { FileTree } from './FileTree';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
 
@@ -105,10 +104,10 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
               </p>
             </div>
 
-            {/* File tree */}
-            <ScrollArea className="flex-1">
+            {/* File tree - no ScrollArea wrapper as FileTree uses virtualization with its own scroll container */}
+            <div className="flex-1 overflow-hidden min-h-0">
               <FileTree rootPath={projectPath} />
-            </ScrollArea>
+            </div>
           </motion.div>
         </motion.div>
       )}

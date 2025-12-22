@@ -311,7 +311,7 @@ export class AgentProcessManager {
               profileManager.setActiveProfile(bestProfile.id);
 
               // Emit swap info (for modal)
-              const source = processType === 'spec-creation' ? 'task' : 'task';
+              const source = processType === 'spec-creation' ? 'roadmap' : 'task';
               const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
                 taskId
               });
@@ -337,7 +337,7 @@ export class AgentProcessManager {
           }
 
           // Fall back to manual modal (no auto-swap or no alternative profile)
-          const source = processType === 'spec-creation' ? 'task' : 'task';
+          const source = processType === 'spec-creation' ? 'roadmap' : 'task';
           const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
             taskId
           });
