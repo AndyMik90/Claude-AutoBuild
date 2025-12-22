@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { PythonEnvManager } from '../../python-env-manager';
@@ -10,6 +10,26 @@ import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+
+/**
+ * Read the stored base branch from task_metadata.json
+ * This is the branch the task was created from (set by user during task creation)
+ */
+function getTaskBaseBranch(specDir: string): string | undefined {
+  try {
+    const metadataPath = path.join(specDir, 'task_metadata.json');
+    if (existsSync(metadataPath)) {
+      const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      // Return baseBranch if explicitly set (not the __project_default__ marker)
+      if (metadata.baseBranch && metadata.baseBranch !== '__project_default__') {
+        return metadata.baseBranch;
+      }
+    }
+  } catch (e) {
+    console.warn('[getTaskBaseBranch] Failed to read task metadata:', e);
+  }
+  return undefined;
+}
 
 /**
  * Register worktree management handlers
@@ -325,6 +345,13 @@ export function registerWorktreeHandlers(
         // Add --no-commit flag if requested (stage changes without committing)
         if (options?.noCommit) {
           args.push('--no-commit');
+        }
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          debug('Using stored base branch:', taskBaseBranch);
         }
 
         const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
@@ -669,12 +696,20 @@ export function registerWorktreeHandlers(
         }
 
         const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
         const args = [
           runScript,
           '--spec', task.specId,
           '--project-dir', project.path,
           '--merge-preview'
         ];
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
+        }
 
         const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));

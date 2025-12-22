@@ -46,6 +46,11 @@ export const changelogMock = {
     }
   }),
 
+  readLocalImage: async () => ({
+    success: false,
+    error: 'Mock: Cannot read local images in browser mode'
+  }),
+
   readExistingChangelog: async () => ({
     success: true,
     data: {

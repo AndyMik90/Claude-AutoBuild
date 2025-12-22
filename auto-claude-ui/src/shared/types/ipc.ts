@@ -457,6 +457,10 @@ export interface ElectronAPI {
     imageData: string,
     filename: string
   ) => Promise<IPCResult<{ relativePath: string; url: string }>>;
+  readLocalImage: (
+    projectPath: string,
+    relativePath: string
+  ) => Promise<IPCResult<string>>;
 
   // Changelog event listeners
   onChangelogGenerationProgress: (

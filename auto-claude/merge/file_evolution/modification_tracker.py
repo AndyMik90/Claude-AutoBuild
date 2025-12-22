@@ -129,6 +129,7 @@ class ModificationTracker:
         task_id: str,
         worktree_path: Path,
         evolutions: dict[str, FileEvolution],
+        target_branch: str | None = None,
     ) -> None:
         """
         Refresh task snapshots by analyzing git diff from worktree.
@@ -140,18 +141,25 @@ class ModificationTracker:
             task_id: The task identifier
             worktree_path: Path to the task's worktree
             evolutions: Current evolution data (will be updated)
+            target_branch: Branch to compare against (default: detect from worktree)
         """
+        # Determine the target branch to compare against
+        if not target_branch:
+            # Try to detect the base branch from the worktree's upstream
+            target_branch = self._detect_target_branch(worktree_path)
+
         debug(
             MODULE,
             f"refresh_from_git() for task {task_id}",
             task_id=task_id,
             worktree_path=str(worktree_path),
+            target_branch=target_branch,
         )
 
         try:
-            # Get list of files changed in the worktree
+            # Get list of files changed in the worktree vs target branch
             result = subprocess.run(
-                ["git", "diff", "--name-only", "main...HEAD"],
+                ["git", "diff", "--name-only", f"{target_branch}...HEAD"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
@@ -170,17 +178,17 @@ class ModificationTracker:
             for file_path in changed_files:
                 # Get the diff for this file
                 diff_result = subprocess.run(
-                    ["git", "diff", "main...HEAD", "--", file_path],
+                    ["git", "diff", f"{target_branch}...HEAD", "--", file_path],
                     cwd=worktree_path,
                     capture_output=True,
                     text=True,
                     check=True,
                 )
 
-                # Get content before (from main) and after (current)
+                # Get content before (from target branch) and after (current)
                 try:
                     show_result = subprocess.run(
-                        ["git", "show", f"main:{file_path}"],
+                        ["git", "show", f"{target_branch}:{file_path}"],
                         cwd=worktree_path,
                         capture_output=True,
                         text=True,
@@ -237,3 +245,55 @@ class ModificationTracker:
             snapshot = evolution.get_task_snapshot(task_id)
             if snapshot and snapshot.completed_at is None:
                 snapshot.completed_at = now
+
+    def _detect_target_branch(self, worktree_path: Path) -> str:
+        """
+        Detect the target branch to compare against for a worktree.
+
+        This finds the branch that the worktree was created from by looking
+        at the merge-base between the worktree and common branch names.
+
+        Args:
+            worktree_path: Path to the worktree
+
+        Returns:
+            The detected target branch name, defaults to 'main' if detection fails
+        """
+        # Try to get the upstream tracking branch
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                upstream = result.stdout.strip()
+                # Extract branch name from origin/branch format
+                if "/" in upstream:
+                    return upstream.split("/", 1)[1]
+                return upstream
+        except subprocess.CalledProcessError:
+            pass
+
+        # Try common branch names and find which one has a valid merge-base
+        for branch in ["main", "master", "develop"]:
+            try:
+                result = subprocess.run(
+                    ["git", "merge-base", branch, "HEAD"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    return branch
+            except subprocess.CalledProcessError:
+                continue
+
+        # Default to main
+        debug_warning(
+            MODULE,
+            "Could not detect target branch, defaulting to 'main'",
+            worktree_path=str(worktree_path),
+        )
+        return "main"

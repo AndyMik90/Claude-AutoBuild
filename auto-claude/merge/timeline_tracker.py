@@ -525,6 +525,7 @@ class FileTimelineTracker:
         worktree_path: Path,
         task_intent: str = "",
         task_title: str = "",
+        target_branch: str | None = None,
     ) -> None:
         """
         Initialize timeline tracking from an existing worktree.
@@ -537,17 +538,20 @@ class FileTimelineTracker:
             worktree_path: Path to the worktree directory
             task_intent: Description of what the task intends to do
             task_title: Short title for the task
+            target_branch: Branch to compare against (default: auto-detect)
         """
         debug(MODULE, f"initialize_from_worktree: {task_id}")
 
         try:
-            # Get the branch point (merge-base with main)
-            branch_point = self.git.get_branch_point(worktree_path)
+            # Get the branch point (merge-base with target branch)
+            branch_point = self.git.get_branch_point(worktree_path, target_branch)
             if not branch_point:
                 return
 
             # Get changed files
-            changed_files = self.git.get_changed_files_in_worktree(worktree_path)
+            changed_files = self.git.get_changed_files_in_worktree(
+                worktree_path, target_branch
+            )
             if not changed_files:
                 return
 
@@ -563,8 +567,14 @@ class FileTimelineTracker:
             # Capture current worktree state
             self.capture_worktree_state(task_id, worktree_path)
 
-            # Calculate drift (commits behind main)
-            drift = self.git.count_commits_between(branch_point, "main")
+            # Calculate drift (commits behind target branch)
+            # Use the detected target branch, or fall back to auto-detection
+            actual_target = (
+                target_branch
+                if target_branch
+                else self.git._detect_target_branch(worktree_path)
+            )
+            drift = self.git.count_commits_between(branch_point, actual_target)
             for file_path in changed_files:
                 timeline = self._timelines.get(file_path)
                 if timeline:
@@ -578,6 +588,7 @@ class FileTimelineTracker:
                 "Initialized from worktree",
                 files=len(changed_files),
                 branch_point=branch_point[:8],
+                target_branch=actual_target,
             )
 
         except Exception as e:

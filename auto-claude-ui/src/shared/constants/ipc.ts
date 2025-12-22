@@ -239,6 +239,7 @@ export const IPC_CHANNELS = {
   CHANGELOG_GET_TAGS: 'changelog:getTags',
   CHANGELOG_GET_COMMITS_PREVIEW: 'changelog:getCommitsPreview',
   CHANGELOG_SAVE_IMAGE: 'changelog:saveImage',
+  CHANGELOG_READ_LOCAL_IMAGE: 'changelog:readLocalImage',
 
   // Changelog events (main -> renderer)
   CHANGELOG_GENERATION_PROGRESS: 'changelog:generationProgress',

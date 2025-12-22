@@ -1,10 +1,81 @@
-import { useState, useMemo } from 'react';
-import { FileText, Copy, Save, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { FileText, Copy, Save, CheckCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// Component for loading local images via IPC
+interface LocalImageProps {
+  src: string;
+  alt: string;
+  projectPath?: string;
+}
+
+function LocalImage({ src, alt, projectPath }: LocalImageProps) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // If it's already an absolute URL or data URL, use it directly
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+      setImageSrc(src);
+      setLoading(false);
+      return;
+    }
+
+    // If no project path, we can't load local images
+    if (!projectPath) {
+      setError('Cannot load local image: no project path');
+      setLoading(false);
+      return;
+    }
+
+    // Load local image via IPC
+    const loadImage = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // Handle relative paths like .github/assets/... or ./path/to/image
+        const relativePath = src.startsWith('./') ? src.slice(2) : src;
+        const result = await window.electronAPI.readLocalImage(projectPath, relativePath);
+        if (result.success && result.data) {
+          setImageSrc(result.data);
+        } else {
+          setError(result.error || 'Failed to load image');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load image');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImage();
+  }, [src, projectPath]);
+
+  if (loading) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading image...</span>
+      </span>
+    );
+  }
+
+  if (error || !imageSrc) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <ImageIcon className="h-4 w-4" />
+        <span>{error || 'Image not found'}</span>
+      </span>
+    );
+  }
+
+  return <img src={imageSrc} alt={alt} className="max-w-full h-auto" />;
+}
 
 interface PreviewPanelProps {
   generatedChangelog: string;
@@ -45,15 +116,8 @@ export function PreviewPanel({
 
   // Custom components for ReactMarkdown to handle local image paths
   const markdownComponents: Components = useMemo(() => ({
-    img: ({ src, alt, ...props }) => {
-      // Convert relative paths to file:// URLs for Electron
-      let imageSrc = src || '';
-      if (projectPath && imageSrc && !imageSrc.startsWith('http://') && !imageSrc.startsWith('https://') && !imageSrc.startsWith('file://')) {
-        // Handle relative paths like .github/assets/... or ./path/to/image
-        const relativePath = imageSrc.startsWith('./') ? imageSrc.slice(2) : imageSrc;
-        imageSrc = `file://${projectPath}/${relativePath}`;
-      }
-      return <img src={imageSrc} alt={alt || ''} {...props} />;
+    img: ({ src, alt }) => {
+      return <LocalImage src={src || ''} alt={alt || ''} projectPath={projectPath} />;
     }
   }), [projectPath]);
 
