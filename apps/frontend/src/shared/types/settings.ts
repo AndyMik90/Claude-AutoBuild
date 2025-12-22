@@ -106,6 +106,8 @@ export interface AppSettings {
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // UI Scale setting (75-200%, default 100)
+  uiScale?: number;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
 }

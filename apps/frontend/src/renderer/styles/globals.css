@@ -1651,3 +1651,41 @@ body {
 [data-state="closed"].animate-out.zoom-out-98 {
   animation: zoom-out-98 0.2s ease-in;
 }
+
+/* ============================================
+   UI Scale System (75% - 200%)
+   ============================================ */
+
+/* Explicit base font size */
+:root {
+  font-size: 16px;
+  transition: font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scale levels via data-ui-scale attribute */
+[data-ui-scale="75"] { font-size: 12px; }
+[data-ui-scale="80"] { font-size: 12.8px; }
+[data-ui-scale="85"] { font-size: 13.6px; }
+[data-ui-scale="90"] { font-size: 14.4px; }
+[data-ui-scale="95"] { font-size: 15.2px; }
+[data-ui-scale="100"] { font-size: 16px; }
+[data-ui-scale="105"] { font-size: 16.8px; }
+[data-ui-scale="110"] { font-size: 17.6px; }
+[data-ui-scale="115"] { font-size: 18.4px; }
+[data-ui-scale="120"] { font-size: 19.2px; }
+[data-ui-scale="125"] { font-size: 20px; }
+[data-ui-scale="130"] { font-size: 20.8px; }
+[data-ui-scale="135"] { font-size: 21.6px; }
+[data-ui-scale="140"] { font-size: 22.4px; }
+[data-ui-scale="145"] { font-size: 23.2px; }
+[data-ui-scale="150"] { font-size: 24px; }
+[data-ui-scale="155"] { font-size: 24.8px; }
+[data-ui-scale="160"] { font-size: 25.6px; }
+[data-ui-scale="165"] { font-size: 26.4px; }
+[data-ui-scale="170"] { font-size: 27.2px; }
+[data-ui-scale="175"] { font-size: 28px; }
+[data-ui-scale="180"] { font-size: 28.8px; }
+[data-ui-scale="185"] { font-size: 29.6px; }
+[data-ui-scale="190"] { font-size: 30.4px; }
+[data-ui-scale="195"] { font-size: 31.2px; }
+[data-ui-scale="200"] { font-size: 32px; }

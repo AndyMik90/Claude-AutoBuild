@@ -55,7 +55,7 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { useIpcListeners } from './hooks/useIpc';
-import { COLOR_THEMES } from '../shared/constants';
+import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 
@@ -356,6 +356,14 @@ export function App() {
       mediaQuery.removeEventListener('change', handleChange);
     };
   }, [settings.theme, settings.colorTheme]);
+
+  // Apply UI scale
+  useEffect(() => {
+    const root = document.documentElement;
+    const scale = settings.uiScale ?? UI_SCALE_DEFAULT;
+    const clampedScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, scale));
+    root.setAttribute('data-ui-scale', clampedScale.toString());
+  }, [settings.uiScale]);
 
   // Update selected task when tasks change (for real-time updates)
   useEffect(() => {
