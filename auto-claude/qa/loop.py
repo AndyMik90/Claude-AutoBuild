@@ -511,3 +511,170 @@ async def run_qa_validation_loop(
 
     print("\nManual intervention required.")
     return False
+
+
+# =============================================================================
+# RECOVERY FEEDBACK UTILITIES
+# =============================================================================
+
+
+def get_recovery_feedback(
+    spec_dir: Path,
+    iteration: int | None = None,
+    include_suggestions: bool = True,
+) -> dict:
+    """
+    Get comprehensive feedback for recovery from validation failures.
+
+    This function consolidates all available information about validation
+    failures and provides actionable feedback for the recovery process.
+
+    Args:
+        spec_dir: Spec directory containing QA reports and iteration history
+        iteration: Specific iteration to get feedback for (None for latest)
+        include_suggestions: Whether to include recovery suggestions
+
+    Returns:
+        Dictionary containing:
+        - status: Overall validation status
+        - issues: List of current issues
+        - history: Iteration history summary
+        - recurring_issues: Issues that have appeared multiple times
+        - suggestions: Actionable recovery suggestions (if enabled)
+        - escalation_needed: Whether human escalation is recommended
+    """
+    debug(
+        "qa_loop",
+        "Getting recovery feedback",
+        spec_dir=str(spec_dir),
+        iteration=iteration,
+        include_suggestions=include_suggestions,
+    )
+
+    feedback = {
+        "status": "unknown",
+        "issues": [],
+        "history": {},
+        "recurring_issues": [],
+        "suggestions": [],
+        "escalation_needed": False,
+    }
+
+    # Get current QA status
+    qa_status = get_qa_signoff_status(spec_dir)
+    if qa_status:
+        feedback["status"] = qa_status.get("status", "unknown")
+        feedback["issues"] = qa_status.get("issues_found", [])
+
+    # Get iteration history
+    history = get_iteration_history(spec_dir)
+    if history:
+        # Filter for specific iteration if requested
+        if iteration is not None:
+            history = [h for h in history if h.get("iteration") == iteration]
+
+        # Summarize history
+        total_iterations = len(history)
+        rejected_iterations = len([h for h in history if h.get("status") == "rejected"])
+        error_iterations = len([h for h in history if h.get("status") == "error"])
+        approved_iterations = len([h for h in history if h.get("status") == "approved"])
+
+        feedback["history"] = {
+            "total_iterations": total_iterations,
+            "rejected_iterations": rejected_iterations,
+            "error_iterations": error_iterations,
+            "approved_iterations": approved_iterations,
+            "latest_iteration": history[-1] if history else None,
+        }
+
+        # Check for recurring issues
+        current_issues = feedback["issues"]
+        has_recurring, recurring_issues = has_recurring_issues(current_issues, history)
+        if has_recurring:
+            feedback["recurring_issues"] = recurring_issues
+            feedback["escalation_needed"] = True
+
+    # Add recovery suggestions if requested
+    if include_suggestions:
+        feedback["suggestions"] = _generate_recovery_suggestions(feedback)
+
+    debug(
+        "qa_loop",
+        "Recovery feedback generated",
+        status=feedback["status"],
+        issue_count=len(feedback["issues"]),
+        recurring_count=len(feedback["recurring_issues"]),
+        suggestion_count=len(feedback["suggestions"]),
+    )
+
+    return feedback
+
+
+def _generate_recovery_suggestions(feedback: dict) -> list[str]:
+    """
+    Generate actionable recovery suggestions based on feedback.
+
+    Args:
+        feedback: Recovery feedback dictionary
+
+    Returns:
+        List of actionable suggestions
+    """
+    suggestions = []
+
+    # Analyze issue patterns
+    issues = feedback.get("issues", [])
+    recurring_issues = feedback.get("recurring_issues", [])
+    history = feedback.get("history", {})
+
+    # If there are recurring issues, prioritize addressing them
+    if recurring_issues:
+        suggestions.append(
+            f"URGENT: Address {len(recurring_issues)} recurring issue(s) that have appeared multiple times"
+        )
+        for issue in recurring_issues[:3]:  # Top 3 recurring issues
+            suggestions.append(f"- Focus on: {issue.get('title', 'Unknown issue')}")
+
+    # If too many rejected iterations, suggest strategy change
+    if history.get("rejected_iterations", 0) > 3:
+        suggestions.append(
+            "Consider reviewing the overall approach - multiple iterations have been rejected"
+        )
+
+    # If there are error iterations, suggest debugging
+    if history.get("error_iterations", 0) > 0:
+        suggestions.append(
+            "Review and fix any technical errors before addressing functional issues"
+        )
+
+    # Categorize and suggest based on issue types
+    issue_types = {}
+    for issue in issues:
+        title = issue.get("title", "").lower()
+        if "test" in title:
+            issue_types["testing"] = issue_types.get("testing", 0) + 1
+        elif "build" in title or "compil" in title:
+            issue_types["build"] = issue_types.get("build", 0) + 1
+        elif "implement" in title or "miss" in title:
+            issue_types["implementation"] = issue_types.get("implementation", 0) + 1
+
+    if issue_types:
+        if issue_types.get("testing", 0) > 0:
+            suggestions.append(f"Fix {issue_types['testing']} test-related issue(s)")
+        if issue_types.get("build", 0) > 0:
+            suggestions.append(f"Resolve {issue_types['build']} build-related issue(s)")
+        if issue_types.get("implementation", 0) > 0:
+            suggestions.append(f"Complete {issue_types['implementation']} implementation gap(s)")
+
+    # If no specific suggestions, provide general guidance
+    if not suggestions and issues:
+        suggestions.append("Review the QA report and address each issue systematically")
+        suggestions.append("Start with critical issues that block functionality")
+
+    # Add escalation reminder if needed
+    if feedback.get("escalation_needed"):
+        suggestions.append(
+            "Consider escalating to human review if issues persist after this iteration"
+        )
+
+    return suggestions
