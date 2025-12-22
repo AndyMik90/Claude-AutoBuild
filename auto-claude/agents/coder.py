@@ -67,6 +67,131 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+async def handle_validation_recovery(
+    spec_dir: Path,
+    recovery_prompt: str | None = None,
+) -> dict:
+    """
+    Check if validation recovery is needed and gather recovery context.
+
+    Args:
+        spec_dir: Directory containing the spec
+        recovery_prompt: Optional custom recovery prompt
+
+    Returns:
+        Dictionary with recovery information:
+        {
+            "needed": bool,  # Whether recovery is needed
+            "prompt": str,   # Recovery prompt for the agent
+            "attempt": int,  # Current attempt number
+            "max_attempts": int,  # Maximum allowed attempts
+        }
+    """
+    # Check for validation recovery indicators
+    qa_report_file = spec_dir / "qa_report.md"
+    qa_fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+    escalation_file = spec_dir / "VALIDATION_ESCALATION.md"
+
+    # If escalation file exists, recovery has failed - no more attempts
+    if escalation_file.exists():
+        return {
+            "needed": False,
+            "prompt": "",
+            "attempt": 0,
+            "max_attempts": 0,
+            "escalated": True,
+        }
+
+    # Check if we have validation feedback indicating a failure
+    validation_feedback_exists = (
+        qa_report_file.exists() or
+        qa_fix_request_file.exists() or
+        (human_input_file.exists() and "VALIDATION RECOVERY" in human_input_file.read_text())
+    )
+
+    if not validation_feedback_exists:
+        return {
+            "needed": False,
+            "prompt": "",
+            "attempt": 0,
+            "max_attempts": 3,
+        }
+
+    # Load implementation plan to check recovery attempts
+    from implementation_plan import ImplementationPlan
+    try:
+        plan = ImplementationPlan.load(spec_dir)
+        recovery_attempts = getattr(plan, 'validation_recovery_attempts', 0)
+    except Exception:
+        recovery_attempts = 0
+
+    max_recovery_attempts = 3
+
+    # Check if we've exceeded max attempts
+    if recovery_attempts >= max_recovery_attempts:
+        return {
+            "needed": False,
+            "prompt": "",
+            "attempt": recovery_attempts,
+            "max_attempts": max_recovery_attempts,
+            "escalated": True,
+        }
+
+    # Build recovery prompt if not provided
+    if not recovery_prompt:
+        recovery_prompt_parts = ["## VALIDATION RECOVERY"]
+        recovery_prompt_parts.append("")
+        recovery_prompt_parts.append("The previous implementation failed QA validation.")
+        recovery_prompt_parts.append("Please address the following feedback and fix the issues:")
+        recovery_prompt_parts.append("")
+
+        # Add QA feedback if available
+        if qa_report_file.exists():
+            qa_feedback = qa_report_file.read_text()
+            recovery_prompt_parts.append("### QA Feedback:")
+            recovery_prompt_parts.append("")
+            recovery_prompt_parts.append(qa_feedback)
+            recovery_prompt_parts.append("")
+
+        # Add specific fix requests if available
+        if qa_fix_request_file.exists():
+            fix_requests = qa_fix_request_file.read_text()
+            recovery_prompt_parts.append("### Specific Fix Requests:")
+            recovery_prompt_parts.append("")
+            recovery_prompt_parts.append(fix_requests)
+            recovery_prompt_parts.append("")
+
+        # Add human input if available (and not just the recovery prompt we're creating)
+        if human_input_file.exists():
+            human_input = human_input_file.read_text()
+            if "VALIDATION RECOVERY" not in human_input:
+                recovery_prompt_parts.append("### Human Guidance:")
+                recovery_prompt_parts.append("")
+                recovery_prompt_parts.append(human_input)
+                recovery_prompt_parts.append("")
+
+        recovery_prompt_parts.append("## Instructions:")
+        recovery_prompt_parts.append("")
+        recovery_prompt_parts.append("1. Review all feedback carefully")
+        recovery_prompt_parts.append("2. Fix the identified issues")
+        recovery_prompt_parts.append("3. Ensure all acceptance criteria are met")
+        recovery_prompt_parts.append("4. Test your changes if applicable")
+        recovery_prompt_parts.append("")
+        recovery_prompt_parts.append(f"This is recovery attempt {recovery_attempts + 1} of {max_recovery_attempts}.")
+        recovery_prompt_parts.append("If issues persist after the max attempts, this will be escalated for human review.")
+        recovery_prompt_parts.append("")
+
+        recovery_prompt = "\n".join(recovery_prompt_parts)
+
+    return {
+        "needed": True,
+        "prompt": recovery_prompt,
+        "attempt": recovery_attempts,
+        "max_attempts": max_recovery_attempts,
+    }
+
+
 async def run_autonomous_agent(
     project_dir: Path,
     spec_dir: Path,
@@ -186,6 +311,19 @@ async def run_autonomous_agent(
     # Main loop
     iteration = 0
 
+    # Check for validation recovery at the start
+    recovery_info = await handle_validation_recovery(spec_dir)
+    if recovery_info.get("escalated"):
+        # Validation has been escalated to human, show message and exit
+        escalation_file = spec_dir / "VALIDATION_ESCALATION.md"
+        if escalation_file.exists():
+            print("\n" + "=" * 70)
+            print("  VALIDATION RECOVERY ESCALATED")
+            print("=" * 70)
+            print(escalation_file.read_text())
+            print("=" * 70)
+        return
+
     while True:
         iteration += 1
 
@@ -211,6 +349,128 @@ async def run_autonomous_agent(
             print(f"\nReached max iterations ({max_iterations})")
             print("To continue, run the script again without --max-iterations")
             break
+
+        # Check for validation recovery before getting next subtask
+        recovery_info = await handle_validation_recovery(spec_dir)
+        if recovery_info.get("needed") and not recovery_info.get("escalated"):
+            # We're in validation recovery mode
+            print(f"\n{icon(Icons.WARNING)} VALIDATION RECOVERY MODE")
+            print(f"Attempt {recovery_info['attempt'] + 1} of {recovery_info['max_attempts']}")
+            print()
+
+            # Update status for recovery
+            status_manager.update(state=BuildState.RUNNING)
+            status_manager.update_subtasks(in_progress=1)
+
+            # Print session header for recovery
+            print_session_header(
+                session_num=iteration,
+                is_planner=False,
+                subtask_id="validation-recovery",
+                subtask_desc="Fix validation failures",
+                phase_name="Validation Recovery",
+                attempt=recovery_info['attempt'] + 1,
+            )
+
+            # Capture state before session
+            commit_before = get_latest_commit(project_dir)
+            commit_count_before = get_commit_count(project_dir)
+
+            # Get the phase-specific model and thinking level for recovery
+            phase_model = get_phase_model(spec_dir, "coding", model)
+            phase_thinking_budget = get_phase_thinking_budget(spec_dir, "coding")
+
+            # Create client for recovery
+            client = create_client(
+                project_dir,
+                spec_dir,
+                phase_model,
+                max_thinking_tokens=phase_thinking_budget,
+            )
+
+            # Load current subtask context if available
+            next_subtask = get_next_subtask(spec_dir)
+            context = {}
+            if next_subtask:
+                context = load_subtask_context(spec_dir, project_dir, next_subtask)
+
+            # Generate recovery prompt
+            prompt = recovery_info['prompt']
+
+            # Add context if available
+            if context.get("patterns") or context.get("files_to_modify"):
+                prompt += "\n\n" + format_context_for_prompt(context)
+
+            # Retrieve and append Graphiti memory context
+            graphiti_context = await get_graphiti_context(
+                spec_dir, project_dir, next_subtask
+            )
+            if graphiti_context:
+                prompt += "\n\n" + graphiti_context
+                print_status("Graphiti memory context loaded", "success")
+
+            # Set recovery info in logger
+            if task_logger:
+                task_logger.set_subtask("validation-recovery")
+                task_logger.set_session(iteration)
+
+            # Run recovery session
+            async with client:
+                status, response = await run_agent_session(
+                    client, prompt, spec_dir, verbose, phase=LogPhase.CODING
+                )
+
+            # Post-session processing for recovery
+            linear_is_enabled = (
+                linear_task is not None and linear_task.task_id is not None
+            )
+
+            # For recovery, we always consider it successful unless the session errors out
+            # The QA loop will validate if the fixes actually worked
+            success = status != "error"
+
+            if success:
+                # Clear validation recovery files on successful recovery
+                qa_report_file = spec_dir / "qa_report.md"
+                qa_fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+                human_input_file = spec_dir / "HUMAN_INPUT.md"
+
+                for file_to_remove in [qa_report_file, qa_fix_request_file]:
+                    if file_to_remove.exists():
+                        file_to_remove.unlink()
+
+                # Only clear HUMAN_INPUT.md if it contains validation recovery text
+                if human_input_file.exists():
+                    content = human_input_file.read_text()
+                    if "VALIDATION RECOVERY" in content:
+                        human_input_file.unlink()
+
+                print_status("Validation recovery completed successfully", "success")
+                print(muted("Running QA validation to verify fixes..."))
+                print()
+
+                # Reset recovery attempts in plan
+                try:
+                    from implementation_plan import ImplementationPlan
+                    plan = ImplementationPlan.load(spec_dir)
+                    if hasattr(plan, 'validation_recovery_attempts'):
+                        plan.validation_recovery_attempts = 0
+                        plan.save()
+                except Exception:
+                    pass
+
+            # Continue to next iteration (will trigger QA validation)
+            if status == "continue":
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                continue
+            elif status == "error":
+                print_status("Recovery session encountered an error", "error")
+                status_manager.update(state=BuildState.ERROR)
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                continue
+            else:
+                # Recovery completed, will exit and let QA validate
+                break
 
         # Get the next subtask to work on
         next_subtask = get_next_subtask(spec_dir)
