@@ -194,7 +194,7 @@ export function hasProviderCredentials(
 
   const envVarName = PROVIDER_ENV_MAP[provider];
   if (!envVarName) {
-    // Unknown provider, assume no credentials needed
+    // Unknown provider, fail safe by reporting credentials unavailable
     return false;
   }
 

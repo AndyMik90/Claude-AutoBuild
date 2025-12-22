@@ -61,6 +61,12 @@ describe('Memory Status Handlers', () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GRAPHITI_LLM_PROVIDER;
     delete process.env.GRAPHITI_EMBEDDER_PROVIDER;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env.VOYAGE_API_KEY;
+    delete process.env.GROQ_API_KEY;
+    delete process.env.HUGGINGFACE_API_KEY;
+    delete process.env.OLLAMA_BASE_URL;
   });
 
   afterEach(() => {

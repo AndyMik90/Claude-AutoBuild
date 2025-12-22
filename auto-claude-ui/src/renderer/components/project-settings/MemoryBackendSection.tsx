@@ -10,8 +10,11 @@ import { Separator } from '../ui/separator';
 import type { ProjectEnvConfig, ProjectSettings, InfrastructureStatus as InfrastructureStatusType, GraphitiLLMProvider, GraphitiEmbeddingProvider, GraphitiProviderConfig } from '../../../shared/types';
 
 /**
- * Returns unique set of providers that require credentials based on LLM and embedding provider selection.
+ * Returns unique set of selected providers for UI rendering purposes.
  * Deduplicates when same provider is used for both.
+ *
+ * Note: Unlike backend getRequiredProviders() in utils.ts, this includes ALL providers
+ * (including Ollama) since we need to render configuration inputs for each selected provider.
  */
 function getRequiredCredentialProviders(
   llmProvider: GraphitiLLMProvider,
@@ -82,6 +85,7 @@ function ProviderCredentialInputs({ envConfig, onUpdateConfig }: ProviderCredent
             value={envConfig.openaiKeyIsGlobal ? '' : (providerConfig?.openaiApiKey || envConfig.openaiApiKey || '')}
             onChange={(value) => {
               // Write to both V2 path and legacy path for backward compatibility
+              // TODO: Remove legacy path write (onUpdateConfig) once migration period is complete
               updateProviderConfig({ openaiApiKey: value || undefined });
               onUpdateConfig({ openaiApiKey: value || undefined });
             }}
