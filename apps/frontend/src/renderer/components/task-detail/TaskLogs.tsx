@@ -34,6 +34,7 @@ interface TaskLogsProps {
   logsContainerRef: React.RefObject<HTMLDivElement | null>;
   onLogsScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   onTogglePhase: (phase: TaskLogPhase) => void;
+  fontSize?: number;
 }
 
 const PHASE_LABELS: Record<TaskLogPhase, string> = {
@@ -117,7 +118,8 @@ export function TaskLogs({
   logsEndRef,
   logsContainerRef,
   onLogsScroll,
-  onTogglePhase
+  onTogglePhase,
+  fontSize
 }: TaskLogsProps) {
   return (
     <div
@@ -125,7 +127,7 @@ export function TaskLogs({
       className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
       onScroll={onLogsScroll}
     >
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2" style={{ fontSize: fontSize ? `${fontSize}px` : undefined }}>
         {isLoadingLogs ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

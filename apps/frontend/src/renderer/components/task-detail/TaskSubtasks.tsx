@@ -7,6 +7,7 @@ import type { Task } from '../../../shared/types';
 
 interface TaskSubtasksProps {
   task: Task;
+  fontSize?: number;
 }
 
 function getSubtaskStatusIcon(status: string) {
@@ -22,12 +23,12 @@ function getSubtaskStatusIcon(status: string) {
   }
 }
 
-export function TaskSubtasks({ task }: TaskSubtasksProps) {
+export function TaskSubtasks({ task, fontSize }: TaskSubtasksProps) {
   const progress = calculateProgress(task.subtasks);
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3" style={{ fontSize: fontSize ? `${fontSize}px` : undefined }}>
         {task.subtasks.length === 0 ? (
           <div className="text-center py-12">
             <ListChecks className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />

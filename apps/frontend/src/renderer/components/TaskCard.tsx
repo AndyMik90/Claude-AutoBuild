@@ -183,23 +183,26 @@ export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
   return (
     <Card
       className={cn(
-        'card-surface task-card-enhanced cursor-pointer',
+        'card-surface task-card-enhanced cursor-pointer w-full overflow-hidden',
         isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80'
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-4 overflow-hidden">
         {/* Header - improved visual hierarchy */}
-        <div className="flex items-start justify-between gap-3">
-          <h3
-            className="font-semibold text-sm text-foreground line-clamp-3 leading-snug flex-1 min-w-0 break-words"
-            title={task.title}
-          >
-            {task.title}
-          </h3>
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[160px]">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              className="font-semibold text-sm text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
+              style={{ wordBreak: 'break-word', overflowWrap: 'break-word', hyphens: 'auto' }}
+              title={task.title}
+            >
+              {task.title}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -267,7 +270,7 @@ export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
         {/* Description - sanitized to handle markdown content */}
         {task.description && (
           <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {sanitizeMarkdownForDisplay(task.description, 150)}
+            {sanitizeMarkdownForDisplay(task.description, 200)}
           </p>
         )}
 

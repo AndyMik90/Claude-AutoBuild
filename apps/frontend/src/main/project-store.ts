@@ -400,9 +400,17 @@ export class ProjectStore {
           try {
             const content = readFileSync(metadataPath, 'utf-8');
             metadata = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
+            console.log(`[ProjectStore] Loaded metadata for ${dir.name}:`, {
+              hasChildren: metadata?.hasChildren,
+              childTaskIds: metadata?.childTaskIds,
+              parentTaskId: metadata?.parentTaskId,
+              orderIndex: metadata?.orderIndex
+            });
+          } catch (error) {
+            console.error(`[ProjectStore] Failed to parse metadata for ${dir.name}:`, error);
           }
+        } else {
+          console.log(`[ProjectStore] No metadata file found for ${dir.name}`);
         }
 
         // Determine task status and review reason from plan
@@ -444,7 +452,7 @@ export class ProjectStore {
           }
         }
 
-        tasks.push({
+        const task = {
           id: dir.name, // Use spec directory name as ID
           specId: dir.name,
           projectId,
@@ -460,8 +468,22 @@ export class ProjectStore {
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
           createdAt: new Date(plan?.created_at || Date.now()),
-          updatedAt: new Date(plan?.updated_at || Date.now())
+          updatedAt: new Date(plan?.updated_at || Date.now()),
+          // Extract hierarchical task fields from metadata
+          hasChildren: metadata?.hasChildren,
+          childTaskIds: metadata?.childTaskIds,
+          parentTaskId: metadata?.parentTaskId,
+          orderIndex: metadata?.orderIndex
+        };
+
+        console.log(`[ProjectStore] Created task ${dir.name}:`, {
+          hasChildren: task.hasChildren,
+          childTaskIds: task.childTaskIds,
+          parentTaskId: task.parentTaskId,
+          orderIndex: task.orderIndex
         });
+
+        tasks.push(task);
       } catch (error) {
         // Log error but continue processing other specs
         console.error(`[ProjectStore] Error loading spec ${dir.name}:`, error);

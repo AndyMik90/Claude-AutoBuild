@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
-import { findTaskAndProject } from './shared';
+import { findTaskAndProject, taskHasChildren, findParentTask, findChildTasks, allChildrenComplete } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { getClaudeProfileManager } from '../../claude-profile-manager';
 
@@ -93,6 +93,75 @@ export function registerTaskExecutionHandlers(
           'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
         );
         return;
+      }
+
+      // ENHANCEMENT 1: Prevent starting parent if it has children
+      // Parent tasks with children should be worked through their child tasks
+      if (taskHasChildren(task.id, project.id)) {
+        console.warn('[TASK_START] Cannot start parent task that has children:', task.specId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_ERROR,
+          taskId,
+          'This is a parent task with child tasks. Please start the child tasks instead. Parent tasks are automatically managed based on child task progress.'
+        );
+        return;
+      }
+
+      // ENHANCEMENT 2: Auto-start parent when first child starts
+      // If this task has a parent, move the parent to "in_progress" if it's in backlog
+      if (task.parentTaskId) {
+        const parentTask = findParentTask(task, project.id);
+        if (parentTask && parentTask.status === 'backlog') {
+          console.warn('[TASK_START] Auto-starting parent task:', parentTask.specId);
+
+          // Update parent's implementation_plan.json to in_progress
+          const parentSpecDir = path.join(
+            project.path,
+            getSpecsDir(project.autoBuildPath),
+            parentTask.specId
+          );
+          const parentPlanPath = path.join(parentSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+          try {
+            // Ensure parent spec directory exists
+            if (!existsSync(parentSpecDir)) {
+              mkdirSync(parentSpecDir, { recursive: true });
+            }
+
+            let parentPlan: Record<string, unknown> = {};
+            if (existsSync(parentPlanPath)) {
+              const content = readFileSync(parentPlanPath, 'utf-8');
+              parentPlan = JSON.parse(content);
+            } else {
+              // Create basic plan for parent
+              parentPlan = {
+                feature: parentTask.title,
+                description: parentTask.description || '',
+                created_at: parentTask.createdAt.toISOString(),
+                phases: []
+              };
+            }
+
+            parentPlan.status = 'in_progress';
+            parentPlan.planStatus = 'in_progress';
+            parentPlan.updated_at = new Date().toISOString();
+            parentPlan.autoStartedByChild = task.specId;
+
+            writeFileSync(parentPlanPath, JSON.stringify(parentPlan, null, 2));
+
+            // Notify UI about parent status change
+            mainWindow.webContents.send(
+              IPC_CHANNELS.TASK_STATUS_CHANGE,
+              parentTask.id,
+              'in_progress'
+            );
+
+            console.warn('[TASK_START] Parent task auto-started:', parentTask.specId);
+          } catch (error) {
+            console.error('[TASK_START] Failed to auto-start parent task:', error);
+            // Continue with child task start - parent auto-start is not critical
+          }
+        }
       }
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
@@ -240,6 +309,66 @@ export function registerTaskExecutionHandlers(
             taskId,
             'done'
           );
+
+          // ENHANCEMENT 3: Auto-complete parent when all children are done
+          // Check if this task has a parent and if all siblings are now complete
+          if (task.parentTaskId) {
+            // Need to check after a brief delay to ensure this task's status is updated
+            setTimeout(() => {
+              try {
+                if (allChildrenComplete(task.parentTaskId!, project.id)) {
+                  const parentTask = findParentTask(task, project.id);
+                  if (parentTask && parentTask.status !== 'done') {
+                    console.warn('[TASK_REVIEW] All children complete, auto-completing parent:', parentTask.specId);
+
+                    // Update parent's implementation_plan.json to done
+                    const parentSpecDir = path.join(
+                      project.path,
+                      specsBaseDir,
+                      parentTask.specId
+                    );
+                    const parentPlanPath = path.join(parentSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+                    let parentPlan: Record<string, unknown> = {};
+                    if (existsSync(parentPlanPath)) {
+                      const content = readFileSync(parentPlanPath, 'utf-8');
+                      parentPlan = JSON.parse(content);
+                    } else {
+                      parentPlan = {
+                        feature: parentTask.title,
+                        description: parentTask.description || '',
+                        created_at: parentTask.createdAt.toISOString(),
+                        phases: []
+                      };
+                    }
+
+                    parentPlan.status = 'done';
+                    parentPlan.planStatus = 'completed';
+                    parentPlan.updated_at = new Date().toISOString();
+                    parentPlan.autoCompletedByChildren = true;
+
+                    // Ensure parent spec directory exists
+                    if (!existsSync(parentSpecDir)) {
+                      mkdirSync(parentSpecDir, { recursive: true });
+                    }
+
+                    writeFileSync(parentPlanPath, JSON.stringify(parentPlan, null, 2));
+
+                    // Notify UI about parent status change
+                    mainWindow.webContents.send(
+                      IPC_CHANNELS.TASK_STATUS_CHANGE,
+                      parentTask.id,
+                      'done'
+                    );
+
+                    console.warn('[TASK_REVIEW] Parent task auto-completed:', parentTask.specId);
+                  }
+                }
+              } catch (error) {
+                console.error('[TASK_REVIEW] Failed to auto-complete parent task:', error);
+              }
+            }, 500); // Brief delay to ensure task store is updated
+          }
         }
       } else {
         // Reset and discard all changes from worktree merge in main

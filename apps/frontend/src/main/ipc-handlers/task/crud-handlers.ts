@@ -83,11 +83,19 @@ async function createTaskInternal(
   const specDir = path.join(specsDir, specId);
   mkdirSync(specDir, { recursive: true });
 
-  // Build metadata with source type
+  // Build metadata with source type and hierarchical fields
   const taskMetadata: TaskMetadata = {
     sourceType: 'manual',
     ...metadata
   };
+
+  // Add hierarchical fields to metadata if provided
+  if (parentTaskId) {
+    taskMetadata.parentTaskId = parentTaskId;
+  }
+  if (orderIndex !== undefined) {
+    taskMetadata.orderIndex = orderIndex;
+  }
 
   // Process and save attached images
   if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {

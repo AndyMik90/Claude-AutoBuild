@@ -33,7 +33,7 @@ export function SortableTaskCard({ task, onClick, allTasks }: SortableTaskCardPr
       ref={setNodeRef}
       style={style}
       className={cn(
-        'touch-none transition-all duration-200',
+        'touch-none transition-all duration-200 w-full overflow-hidden',
         isDragging && 'dragging-placeholder opacity-40 scale-[0.98]',
         isOver && !isDragging && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background rounded-xl'
       )}

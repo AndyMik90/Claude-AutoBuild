@@ -1,4 +1,4 @@
-import { X, Pencil, AlertTriangle } from 'lucide-react';
+import { X, Pencil, AlertTriangle, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -12,8 +12,10 @@ interface TaskHeaderProps {
   isIncomplete: boolean;
   taskProgress: { completed: number; total: number };
   isRunning: boolean;
+  isExpanded?: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onToggleExpand?: () => void;
 }
 
 export function TaskHeader({
@@ -22,8 +24,10 @@ export function TaskHeader({
   isIncomplete,
   taskProgress,
   isRunning,
+  isExpanded,
   onClose,
-  onEdit
+  onEdit,
+  onToggleExpand
 }: TaskHeaderProps) {
   return (
     <div className="flex items-start justify-between p-4 pb-3">
@@ -91,6 +95,23 @@ export function TaskHeader({
             {isRunning && !isStuck ? 'Cannot edit while task is running' : 'Edit task'}
           </TooltipContent>
         </Tooltip>
+        {onToggleExpand && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-primary/10 hover:text-primary transition-colors"
+                onClick={onToggleExpand}
+              >
+                {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isExpanded ? 'Collapse panel' : 'Expand panel'}
+            </TooltipContent>
+          </Tooltip>
+        )}
         <Button variant="ghost" size="icon" className="hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
