@@ -63,9 +63,7 @@ export class AgentProcessManager {
       // Alternative: from app root -> apps/backend
       path.resolve(app.getAppPath(), '..', 'backend'),
       // If running from repo root with apps structure
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy: auto-claude folder (for backwards compatibility)
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
