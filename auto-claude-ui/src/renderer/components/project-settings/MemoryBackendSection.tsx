@@ -223,6 +223,27 @@ export function MemoryBackendSection({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">
+              OpenAI Base URL <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Leave empty for default OpenAI API. Set for OpenAI-compatible APIs.
+            </p>
+            <Input
+              placeholder="https://api.openai.com/v1"
+              value={envConfig.graphitiProviderConfig?.openaiBaseUrl || ''}
+              onChange={(e) => onUpdateConfig({
+                graphitiProviderConfig: {
+                  ...envConfig.graphitiProviderConfig,
+                  llmProvider: envConfig.graphitiProviderConfig?.llmProvider || 'openai',
+                  embeddingProvider: envConfig.graphitiProviderConfig?.embeddingProvider || 'openai',
+                  openaiBaseUrl: e.target.value || undefined,
+                }
+              })}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">FalkorDB Host</Label>

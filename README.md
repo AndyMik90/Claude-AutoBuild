@@ -34,7 +34,8 @@ The Desktop UI is the recommended way to use Auto Claude. It provides visual tas
 
 ### Prerequisites
 
-1. **Node.js 18+** - [Download Node.js](https://nodejs.org/)
+1. **Clone this repository** - `git clone git@github.com:AndyMik90/Auto-Claude.git`
+2. **Node.js 18+** - [Download Node.js](https://nodejs.org/)
 2. **Python 3.10+** - [Download Python](https://www.python.org/downloads/)
 3. **Docker Desktop** - Required for the Memory Layer
 4. **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`

@@ -775,6 +775,25 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                 </button>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="globalOpenAIBaseUrl" className="text-sm font-medium text-foreground">
+                OpenAI Base URL <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for default OpenAI API. Set for OpenAI-compatible APIs.
+              </p>
+              <Input
+                id="globalOpenAIBaseUrl"
+                type="text"
+                placeholder="https://api.openai.com/v1"
+                value={settings.globalOpenAIBaseUrl || ''}
+                onChange={(e) =>
+                  onSettingsChange({ ...settings, globalOpenAIBaseUrl: e.target.value || undefined })
+                }
+                className="max-w-lg font-mono text-sm"
+              />
+            </div>
           </div>
         </div>
       </div>

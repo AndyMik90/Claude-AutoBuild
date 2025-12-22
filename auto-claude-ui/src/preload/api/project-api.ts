@@ -61,7 +61,8 @@ export interface ProjectAPI {
   validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
   testGraphitiConnection: (
     falkorDbUri: string,
-    openAiApiKey: string
+    openAiApiKey: string,
+    openAiBaseUrl?: string
   ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
   // Git Operations
@@ -166,9 +167,10 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   testGraphitiConnection: (
     falkorDbUri: string,
-    openAiApiKey: string
+    openAiApiKey: string,
+    openAiBaseUrl?: string
   ): Promise<IPCResult<GraphitiConnectionTestResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GRAPHITI_TEST_CONNECTION, falkorDbUri, openAiApiKey),
+    ipcRenderer.invoke(IPC_CHANNELS.GRAPHITI_TEST_CONNECTION, falkorDbUri, openAiApiKey, openAiBaseUrl),
 
   // Git Operations
   getGitBranches: (projectPath: string): Promise<IPCResult<string[]>> =>
