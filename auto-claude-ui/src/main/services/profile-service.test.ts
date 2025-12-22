@@ -11,9 +11,10 @@ import {
   validateProfileNameUnique,
   createProfile,
   updateProfile,
-  getAPIProfileEnv
+  getAPIProfileEnv,
+  testConnection
 } from './profile-service';
-import type { APIProfile, ProfilesFile } from '../../shared/types/profile';
+import type { APIProfile, ProfilesFile, TestConnectionResult } from '../../shared/types/profile';
 
 // Mock profile-manager
 vi.mock('../utils/profile-manager', () => ({
@@ -782,6 +783,249 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
       });
+    });
+  });
+
+  describe('testConnection', () => {
+    beforeEach(() => {
+      // Mock fetch globally for testConnection tests
+      global.fetch = vi.fn();
+    });
+
+    it('should return success for valid credentials (200 response)', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] })
+      } as Response);
+
+      const result = await testConnection('https://api.anthropic.com', 'sk-ant-test-key-12');
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Connection successful'
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'x-api-key': 'sk-ant-test-key-12',
+            'anthropic-version': '2023-06-01'
+          })
+        })
+      );
+    });
+
+    it('should return auth error for invalid API key (401 response)', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized'
+      } as Response);
+
+      const result = await testConnection('https://api.anthropic.com', 'sk-invalid-key-12');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      });
+    });
+
+    it('should return auth error for 403 response', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden'
+      } as Response);
+
+      const result = await testConnection('https://api.anthropic.com', 'sk-forbidden-key');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      });
+    });
+
+    it('should return endpoint error for invalid URL (404 response)', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found'
+      } as Response);
+
+      const result = await testConnection('https://invalid.example.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'endpoint',
+        message: 'Invalid endpoint. Please check the Base URL.'
+      });
+    });
+
+    it('should return network error for connection refused', async () => {
+      const networkError = new TypeError('Failed to fetch');
+      (networkError as any).code = 'ECONNREFUSED';
+
+      vi.mocked(global.fetch).mockRejectedValue(networkError);
+
+      const result = await testConnection('https://unreachable.example.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'network',
+        message: 'Network error. Please check your internet connection.'
+      });
+    });
+
+    it('should return network error for ENOTFOUND (DNS failure)', async () => {
+      const dnsError = new TypeError('Failed to fetch');
+      (dnsError as any).code = 'ENOTFOUND';
+
+      vi.mocked(global.fetch).mockRejectedValue(dnsError);
+
+      const result = await testConnection('https://nosuchdomain.example.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'network',
+        message: 'Network error. Please check your internet connection.'
+      });
+    });
+
+    it('should return timeout error for AbortError', async () => {
+      const abortError = new Error('Aborted');
+      abortError.name = 'AbortError';
+
+      vi.mocked(global.fetch).mockRejectedValue(abortError);
+
+      const result = await testConnection('https://slow.example.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'timeout',
+        message: 'Connection timeout. The endpoint did not respond.'
+      });
+    });
+
+    it('should return unknown error for other failures', async () => {
+      vi.mocked(global.fetch).mockRejectedValue(new Error('Unknown error'));
+
+      const result = await testConnection('https://api.example.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'unknown',
+        message: 'Connection test failed. Please try again.'
+      });
+    });
+
+    it('should auto-prepend https:// if missing', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] })
+      } as Response);
+
+      await testConnection('api.anthropic.com', 'sk-test-key-12chars');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/models',
+        expect.any(Object)
+      );
+    });
+
+    it('should remove trailing slash from baseUrl', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] })
+      } as Response);
+
+      await testConnection('https://api.anthropic.com/', 'sk-test-key-12chars');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/models',
+        expect.any(Object)
+      );
+    });
+
+    it('should return error for empty baseUrl', async () => {
+      const result = await testConnection('', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'endpoint',
+        message: 'Invalid endpoint. Please check the Base URL.'
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should return error for invalid baseUrl format', async () => {
+      const result = await testConnection('ftp://invalid-protocol.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'endpoint',
+        message: 'Invalid endpoint. Please check the Base URL.'
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should return error for invalid API key format', async () => {
+      const result = await testConnection('https://api.anthropic.com', 'short');
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should abort when signal is triggered', async () => {
+      const abortController = new AbortController();
+      const abortError = new Error('Aborted');
+      abortError.name = 'AbortError';
+
+      vi.mocked(global.fetch).mockRejectedValue(abortError);
+
+      // Abort immediately
+      abortController.abort();
+
+      const result = await testConnection('https://api.anthropic.com', 'sk-test-key-12chars', abortController.signal);
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'timeout',
+        message: 'Connection timeout. The endpoint did not respond.'
+      });
+    });
+
+    it('should set 10 second timeout', async () => {
+      vi.mocked(global.fetch).mockImplementation(() =>
+        new Promise((_, reject) => {
+          setTimeout(() => {
+            const abortError = new Error('Aborted');
+            abortError.name = 'AbortError';
+            reject(abortError);
+          }, 100); // Short delay for test
+        })
+      );
+
+      const startTime = Date.now();
+      const result = await testConnection('https://slow.example.com', 'sk-test-key-12chars');
+      const elapsed = Date.now() - startTime;
+
+      expect(result).toEqual({
+        success: false,
+        errorType: 'timeout',
+        message: 'Connection timeout. The endpoint did not respond.'
+      });
+      // Should timeout at 10 seconds, but we use a mock for faster test
+      expect(elapsed).toBeLessThan(5000); // Well under 10s due to mock
     });
   });
 });

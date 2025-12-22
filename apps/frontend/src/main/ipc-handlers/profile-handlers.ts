@@ -4,14 +4,16 @@
  * IPC handlers for API profile management:
  * - profiles:get - Get all profiles
  * - profiles:save - Save/create a profile
+ * - profiles:update - Update an existing profile
  * - profiles:delete - Delete a profile
  * - profiles:setActive - Set active profile
+ * - profiles:test-connection - Test API profile connection
  */
 
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
-import type { APIProfile, ProfileFormData, ProfilesFile } from '../../shared/types/profile';
+import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult } from '../../shared/types/profile';
 import {
   loadProfilesFile,
   saveProfilesFile,
@@ -19,7 +21,7 @@ import {
   validateFilePermissions,
   getProfilesFilePath
 } from '../utils/profile-manager';
-import { createProfile, updateProfile } from '../services/profile-service';
+import { createProfile, updateProfile, testConnection } from '../services/profile-service';
 
 /**
  * Register all profile-related IPC handlers
@@ -190,6 +192,43 @@ export function registerProfileHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set active profile'
+        };
+      }
+    }
+  );
+
+  /**
+   * Test API profile connection
+   * - Tests credentials by making a minimal API request
+   * - Returns detailed error information for different failure types
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILES_TEST_CONNECTION,
+    async (_event, baseUrl: string, apiKey: string): Promise<IPCResult<TestConnectionResult>> => {
+      try {
+        // Validate inputs (null/empty checks)
+        if (!baseUrl || baseUrl.trim() === '') {
+          return {
+            success: false,
+            error: 'Base URL is required'
+          };
+        }
+
+        if (!apiKey || apiKey.trim() === '') {
+          return {
+            success: false,
+            error: 'API key is required'
+          };
+        }
+
+        // Call testConnection from service layer
+        const result = await testConnection(baseUrl, apiKey);
+
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to test connection'
         };
       }
     }

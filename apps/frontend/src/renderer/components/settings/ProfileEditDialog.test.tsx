@@ -392,3 +392,245 @@ describe('ProfileEditDialog - Validation', () => {
     });
   });
 });
+
+describe('ProfileEditDialog - Test Connection Feature', () => {
+  const mockOnOpenChange = vi.fn();
+  const mockOnSaved = vi.fn();
+  const mockTestConnection = vi.fn();
+
+  const mockProfile: APIProfile = {
+    id: 'test-id',
+    name: 'Test Profile',
+    baseUrl: 'https://api.example.com',
+    apiKey: 'sk-ant-test12345678',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      saveProfile: vi.fn().mockResolvedValue(true),
+      testConnection: mockTestConnection,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: null
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should show Test Connection button', async () => {
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Connection')).toBeInTheDocument();
+    });
+  });
+
+  it('should call testConnection when button is clicked', async () => {
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    const testButton = await screen.findByText('Test Connection');
+    fireEvent.click(testButton);
+
+    await waitFor(() => {
+      expect(mockTestConnection).toHaveBeenCalledWith(
+        'https://api.example.com',
+        'sk-ant-test12345678'
+      );
+    });
+  });
+
+  it('should show loading state while testing connection', async () => {
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: mockTestConnection,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: true,
+      testConnectionResult: null
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Testing...')).toBeInTheDocument();
+    });
+
+    const testButton = screen.getByText('Testing...');
+    expect(testButton).toBeDisabled();
+  });
+
+  it('should show success message when connection succeeds', async () => {
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: mockTestConnection,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: {
+        success: true,
+        message: 'Connection successful'
+      }
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Connection Successful')).toBeInTheDocument();
+      expect(screen.getByText('Connection successful')).toBeInTheDocument();
+    });
+  });
+
+  it('should show error message when connection fails', async () => {
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: mockTestConnection,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: {
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      }
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Connection Failed')).toBeInTheDocument();
+      expect(screen.getByText('Authentication failed. Please check your API key.')).toBeInTheDocument();
+    });
+  });
+
+  it('should validate baseUrl before testing connection', async () => {
+    const testConnectionFn = vi.fn();
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: testConnectionFn,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: null
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+      />
+    );
+
+    // Leave baseUrl empty
+    const testButton = await screen.findByText('Test Connection');
+    fireEvent.click(testButton);
+
+    // Should show error for empty baseUrl
+    await waitFor(() => {
+      expect(screen.getByText('Base URL is required')).toBeInTheDocument();
+    });
+
+    // Should NOT call testConnection
+    expect(testConnectionFn).not.toHaveBeenCalled();
+  });
+
+  it('should validate apiKey before testing connection', async () => {
+    const testConnectionFn = vi.fn();
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: testConnectionFn,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: null
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+      />
+    );
+
+    // Fill baseUrl but leave apiKey empty
+    const urlInput = screen.getByLabelText(/base url/i);
+    fireEvent.change(urlInput, { target: { value: 'https://api.example.com' } });
+
+    const testButton = screen.getByText('Test Connection');
+    fireEvent.click(testButton);
+
+    // Should show error for empty apiKey
+    await waitFor(() => {
+      expect(screen.getByText('API Key is required')).toBeInTheDocument();
+    });
+
+    // Should NOT call testConnection
+    expect(testConnectionFn).not.toHaveBeenCalled();
+  });
+
+  it('should use profile.apiKey when testing in edit mode without changing key', async () => {
+    const testConnectionFn = vi.fn();
+    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      updateProfile: vi.fn().mockResolvedValue(true),
+      testConnection: testConnectionFn,
+      profilesLoading: false,
+      profilesError: null,
+      isTestingConnection: false,
+      testConnectionResult: null
+    });
+
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        profile={mockProfile}
+      />
+    );
+
+    const testButton = await screen.findByText('Test Connection');
+    fireEvent.click(testButton);
+
+    await waitFor(() => {
+      expect(testConnectionFn).toHaveBeenCalledWith(
+        'https://api.example.com',
+        'sk-ant-test12345678'
+      );
+    });
+  });
+});

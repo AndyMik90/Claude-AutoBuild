@@ -113,6 +113,7 @@ export const IPC_CHANNELS = {
   PROFILES_UPDATE: 'profiles:update',
   PROFILES_DELETE: 'profiles:delete',
   PROFILES_SET_ACTIVE: 'profiles:setActive',
+  PROFILES_TEST_CONNECTION: 'profiles:test-connection',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',

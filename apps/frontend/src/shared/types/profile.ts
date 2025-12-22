@@ -48,3 +48,12 @@ export interface ProfileFormData {
     opus?: string;
   };
 }
+
+/**
+ * Test connection result - returned by profile:test-connection
+ */
+export interface TestConnectionResult {
+  success: boolean;
+  errorType?: 'auth' | 'network' | 'endpoint' | 'timeout' | 'unknown';
+  message: string;
+}

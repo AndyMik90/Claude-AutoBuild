@@ -27,7 +27,8 @@ vi.mock('../utils/profile-manager', () => ({
 // Mock profile-service
 vi.mock('../services/profile-service', () => ({
   createProfile: vi.fn(),
-  updateProfile: vi.fn()
+  updateProfile: vi.fn(),
+  testConnection: vi.fn()
 }));
 
 import { registerProfileHandlers } from './profile-handlers';
@@ -38,6 +39,8 @@ import {
   saveProfilesFile,
   validateFilePermissions
 } from '../utils/profile-manager';
+import { testConnection } from '../services/profile-service';
+import type { TestConnectionResult } from '../../shared/types/profile';
 
 // Get the handler function for testing
 function getSetActiveHandler() {
@@ -49,6 +52,18 @@ function getSetActiveHandler() {
     (call) => call[0] === IPC_CHANNELS.PROFILES_SET_ACTIVE
   );
   return setActiveCall?.[1];
+}
+
+// Get the testConnection handler function for testing
+function getTestConnectionHandler() {
+  // Register handlers first to populate ipcMain.handle mock
+  registerProfileHandlers();
+
+  const calls = (ipcMain.handle as unknown as ReturnType<typeof vi.fn>).mock.calls;
+  const testConnectionCall = calls.find(
+    (call) => call[0] === IPC_CHANNELS.PROFILES_TEST_CONNECTION
+  );
+  return testConnectionCall?.[1];
 }
 
 describe('profile-handlers - setActiveProfile', () => {
@@ -194,6 +209,122 @@ describe('profile-handlers - setActiveProfile', () => {
       expect(result).toEqual({
         success: false,
         error: 'Failed to save'
+      });
+    });
+  });
+});
+
+describe('profile-handlers - testConnection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('successful connection tests', () => {
+    it('should return success result for valid connection', async () => {
+      const mockResult: TestConnectionResult = {
+        success: true,
+        message: 'Connection successful'
+      };
+
+      vi.mocked(testConnection).mockResolvedValue(mockResult);
+
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: true,
+        data: mockResult
+      });
+      expect(testConnection).toHaveBeenCalledWith('https://api.anthropic.com', 'sk-test-key-12chars');
+    });
+  });
+
+  describe('input validation', () => {
+    it('should return error for empty baseUrl', async () => {
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, '', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Base URL is required'
+      });
+      expect(testConnection).not.toHaveBeenCalled();
+    });
+
+    it('should return error for whitespace-only baseUrl', async () => {
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, '   ', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Base URL is required'
+      });
+      expect(testConnection).not.toHaveBeenCalled();
+    });
+
+    it('should return error for empty apiKey', async () => {
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', '');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'API key is required'
+      });
+      expect(testConnection).not.toHaveBeenCalled();
+    });
+
+    it('should return error for whitespace-only apiKey', async () => {
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', '   ');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'API key is required'
+      });
+      expect(testConnection).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should return IPCResult with TestConnectionResult data for service errors', async () => {
+      const mockResult: TestConnectionResult = {
+        success: false,
+        errorType: 'auth',
+        message: 'Authentication failed. Please check your API key.'
+      };
+
+      vi.mocked(testConnection).mockResolvedValue(mockResult);
+
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', 'invalid-key');
+
+      expect(result).toEqual({
+        success: true,
+        data: mockResult
+      });
+    });
+
+    it('should return error for unexpected exceptions', async () => {
+      vi.mocked(testConnection).mockRejectedValue(new Error('Unexpected error'));
+
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Unexpected error'
+      });
+    });
+
+    it('should return error for non-Error exceptions', async () => {
+      vi.mocked(testConnection).mockRejectedValue('String error');
+
+      const handler = getTestConnectionHandler();
+      const result = await handler({}, 'https://api.anthropic.com', 'sk-test-key-12chars');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to test connection'
       });
     });
   });

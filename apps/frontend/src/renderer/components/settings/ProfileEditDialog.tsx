@@ -13,7 +13,7 @@
  * - Edit mode: pre-populates form with existing profile data
  * - Edit mode: API key masked with "Change" button
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -30,7 +30,9 @@ import { useSettingsStore } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
 import type { APIProfile } from '../../../shared/types/profile';
 import type { ProfileFormData } from '../../../shared/types/profile';
+import type { TestConnectionResult } from '../../../shared/types/profile';
 import { maskApiKey } from '../../lib/profile-utils';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface ProfileEditDialogProps {
   /** Whether the dialog is open */
@@ -44,7 +46,15 @@ interface ProfileEditDialogProps {
 }
 
 export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: ProfileEditDialogProps) {
-  const { saveProfile, updateProfile, profilesLoading, profilesError } = useSettingsStore();
+  const {
+    saveProfile,
+    updateProfile,
+    profilesLoading,
+    profilesError,
+    testConnection,
+    isTestingConnection,
+    testConnectionResult
+  } = useSettingsStore();
   const { toast } = useToast();
 
   // Edit mode detection: profile prop determines mode
@@ -66,6 +76,31 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
   const [nameError, setNameError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
+
+  // AbortController ref for test connection cleanup
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Local state for auto-hiding test result display
+  const [showTestResult, setShowTestResult] = useState(false);
+
+  // Auto-hide test result after 5 seconds
+  useEffect(() => {
+    if (testConnectionResult) {
+      setShowTestResult(true);
+      const timeoutId = setTimeout(() => {
+        setShowTestResult(false);
+      }, 5000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [testConnectionResult]);
+
+  // Cleanup AbortController when dialog closes or unmounts
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
 
   // Reset form and pre-populate when dialog opens
   // Note: Only reset when dialog opens/closes, not when profile prop changes
@@ -97,6 +132,9 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       setNameError(null);
       setUrlError(null);
       setKeyError(null);
+    } else {
+      // Clear test result display when dialog closes
+      setShowTestResult(false);
     }
   }, [open]);
 
@@ -139,6 +177,42 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
     }
 
     return isValid;
+  };
+
+  // Handle test connection
+  const handleTestConnection = async () => {
+    // Determine API key to use for testing
+    const apiKeyForTest = isEditMode && !isChangingApiKey && profile
+      ? profile.apiKey
+      : apiKey;
+
+    // Basic validation before testing
+    if (!baseUrl.trim()) {
+      setUrlError('Base URL is required');
+      return;
+    }
+    if (!apiKeyForTest.trim()) {
+      setKeyError('API Key is required');
+      return;
+    }
+
+    // Create AbortController for this test
+    abortControllerRef.current = new AbortController();
+
+    await testConnection(baseUrl.trim(), apiKeyForTest.trim(), abortControllerRef.current.signal);
+  };
+
+  // Check if form has minimum required fields for test connection
+  const isFormValidForTest = () => {
+    if (!name.trim() || !baseUrl.trim()) {
+      return false;
+    }
+    // In create mode or when changing key, need apiKey
+    if (!isEditMode || isChangingApiKey) {
+      return apiKey.trim().length > 0;
+    }
+    // In edit mode without changing key, existing profile has apiKey
+    return true;
   };
 
   // Handle save
@@ -299,6 +373,57 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
             )}
             {keyError && <p className="text-sm text-destructive">{keyError}</p>}
           </div>
+
+          {/* Test Connection button */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleTestConnection}
+            disabled={isTestingConnection || !isFormValidForTest()}
+          >
+            {isTestingConnection ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              'Test Connection'
+            )}
+          </Button>
+
+          {/* Inline connection test result */}
+          {showTestResult && testConnectionResult && (
+            <div className={`flex items-start gap-2 p-3 rounded-lg border ${
+              testConnectionResult.success
+                ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
+                : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
+            }`}>
+              {testConnectionResult.success ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${
+                  testConnectionResult.success
+                    ? 'text-green-800 dark:text-green-200'
+                    : 'text-red-800 dark:text-red-200'
+                }`}>
+                  {testConnectionResult.success
+                    ? 'Connection Successful'
+                    : 'Connection Failed'}
+                </p>
+                <p className={`text-sm ${
+                  testConnectionResult.success
+                    ? 'text-green-700 dark:text-green-300'
+                    : 'text-red-700 dark:text-red-300'
+                }`}>
+                  {testConnectionResult.message}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Optional model mappings */}
           <div className="space-y-3 pt-2 border-t">

@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
-import type { APIProfile, ProfileFormData } from '../../shared/types/profile';
+import type { APIProfile, ProfileFormData, TestConnectionResult } from '../../shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
+import { toast } from '../hooks/use-toast';
 
 interface SettingsState {
   settings: AppSettings;
@@ -13,6 +14,10 @@ interface SettingsState {
   activeProfileId: string | null;
   profilesLoading: boolean;
   profilesError: string | null;
+
+  // Test connection state
+  isTestingConnection: boolean;
+  testConnectionResult: TestConnectionResult | null;
 
   // Actions
   setSettings: (settings: AppSettings) => void;
@@ -27,7 +32,8 @@ interface SettingsState {
   saveProfile: (profile: ProfileFormData) => Promise<boolean>;
   updateProfile: (profile: APIProfile) => Promise<boolean>;
   deleteProfile: (profileId: string) => Promise<boolean>;
-  setActiveProfile: (profileId: string) => Promise<boolean>;
+  setActiveProfile: (profileId: string | null) => Promise<boolean>;
+  testConnection: (baseUrl: string, apiKey: string) => Promise<TestConnectionResult | null>;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -40,6 +46,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   activeProfileId: null,
   profilesLoading: false,
   profilesError: null,
+
+  // Test connection state
+  isTestingConnection: false,
+  testConnectionResult: null,
 
   setSettings: (settings) => set({ settings }),
 
@@ -157,6 +167,44 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         profilesLoading: false
       });
       return false;
+    }
+  },
+
+  testConnection: async (baseUrl: string, apiKey: string): Promise<TestConnectionResult | null> => {
+    set({ isTestingConnection: true, testConnectionResult: null });
+    try {
+      const result = await window.electronAPI.testConnection(baseUrl, apiKey);
+
+      // Type narrowing pattern
+      if (result.success && result.data) {
+        set({ testConnectionResult: result.data, isTestingConnection: false });
+
+        // Show toast on success
+        if (result.data.success) {
+          toast({
+            title: 'Connection successful',
+            description: 'Your API credentials are valid.'
+          });
+        }
+        return result.data;
+      }
+
+      // Error from IPC layer
+      set({ isTestingConnection: false });
+      toast({
+        variant: 'destructive',
+        title: 'Connection test failed',
+        description: result.error || 'Failed to test connection'
+      });
+      return null;
+    } catch (error) {
+      set({ isTestingConnection: false });
+      toast({
+        variant: 'destructive',
+        title: 'Connection test failed',
+        description: error instanceof Error ? error.message : 'Failed to test connection'
+      });
+      return null;
     }
   }
 }));

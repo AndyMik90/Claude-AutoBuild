@@ -4,7 +4,8 @@ import type { IPCResult } from '../../shared/types';
 import type {
   APIProfile,
   ProfileFormData,
-  ProfilesFile
+  ProfilesFile,
+  TestConnectionResult
 } from '../../shared/types/profile';
 
 export interface ProfileAPI {
@@ -26,6 +27,12 @@ export interface ProfileAPI {
 
   // Set active profile (null to switch to OAuth)
   setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
+
+  // Test API profile connection
+  testConnection: (
+    baseUrl: string,
+    apiKey: string
+  ) => Promise<IPCResult<TestConnectionResult>>;
 }
 
 export const createProfileAPI = (): ProfileAPI => ({
@@ -51,5 +58,12 @@ export const createProfileAPI = (): ProfileAPI => ({
 
   // Set active profile (null to switch to OAuth)
   setActiveAPIProfile: (profileId: string | null): Promise<IPCResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_SET_ACTIVE, profileId)
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_SET_ACTIVE, profileId),
+
+  // Test API profile connection
+  testConnection: (
+    baseUrl: string,
+    apiKey: string
+  ): Promise<IPCResult<TestConnectionResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_TEST_CONNECTION, baseUrl, apiKey)
 });
