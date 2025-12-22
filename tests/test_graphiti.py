@@ -517,3 +517,164 @@ class TestGraphitiState:
         assert len(state.error_log) == 10
         assert "Error 5" in state.error_log[0]["error"]
         assert "Error 14" in state.error_log[-1]["error"]
+
+
+class TestGoogleProviderConfig:
+    """Tests for Google AI provider configuration (migrated to google-genai SDK)."""
+
+    def test_google_provider_config(self):
+        """Google provider can be configured for LLM and embeddings."""
+        with patch.dict(os.environ, {
+            "GRAPHITI_ENABLED": "true",
+            "GRAPHITI_LLM_PROVIDER": "google",
+            "GRAPHITI_EMBEDDER_PROVIDER": "google",
+            "GOOGLE_API_KEY": "AIzaSyTestKey123"
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.llm_provider == "google"
+            assert config.embedder_provider == "google"
+            assert config.google_api_key == "AIzaSyTestKey123"
+            assert config.is_valid() is True
+
+    def test_google_default_embedding_model(self):
+        """Default Google embedding model is gemini-embedding-001 (3072 dim)."""
+        with patch.dict(os.environ, {}, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.google_embedding_model == "gemini-embedding-001"
+
+    def test_google_embedding_dim_config(self):
+        """Google embedding dimension can be configured."""
+        with patch.dict(os.environ, {
+            "GRAPHITI_ENABLED": "true",
+            "GRAPHITI_EMBEDDER_PROVIDER": "google",
+            "GOOGLE_API_KEY": "AIzaSyTestKey123",
+            "GOOGLE_EMBEDDING_DIM": "1536"
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.google_embedding_dim == 1536
+
+    def test_google_embedding_dim_defaults_to_zero(self):
+        """Google embedding dimension defaults to 0 (use model native)."""
+        with patch.dict(os.environ, {}, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.google_embedding_dim == 0
+
+    def test_google_llm_model_config(self):
+        """Google LLM model can be configured."""
+        with patch.dict(os.environ, {
+            "GOOGLE_LLM_MODEL": "gemini-2.0-flash-lite"
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.google_llm_model == "gemini-2.0-flash-lite"
+
+    def test_google_mixed_with_anthropic(self):
+        """Google embedder can be used with Anthropic LLM."""
+        with patch.dict(os.environ, {
+            "GRAPHITI_ENABLED": "true",
+            "GRAPHITI_LLM_PROVIDER": "anthropic",
+            "GRAPHITI_EMBEDDER_PROVIDER": "google",
+            "ANTHROPIC_API_KEY": "sk-ant-test",
+            "GOOGLE_API_KEY": "AIzaSyTestKey123"
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+            assert config.llm_provider == "anthropic"
+            assert config.embedder_provider == "google"
+            assert config.is_valid() is True
+
+
+class TestGoogleEmbeddingDimensions:
+    """Tests for Google embedding model dimensions."""
+
+    def test_gemini_embedding_001_dimension(self):
+        """gemini-embedding-001 has 3072 dimensions."""
+        from graphiti_providers import get_expected_embedding_dim
+
+        assert get_expected_embedding_dim("gemini-embedding-001") == 3072
+
+    def test_text_embedding_004_dimension(self):
+        """text-embedding-004 (legacy) has 768 dimensions."""
+        from graphiti_providers import get_expected_embedding_dim
+
+        assert get_expected_embedding_dim("text-embedding-004") == 768
+
+
+class TestGoogleProviderFactory:
+    """Tests for Google provider factory functions."""
+
+    def test_create_google_embedder_requires_api_key(self):
+        """create_google_embedder raises ProviderError without API key."""
+        from graphiti_providers import ProviderError, ProviderNotInstalled
+
+        # Import the factory function directly to test
+        try:
+            from integrations.graphiti.providers_pkg.embedder_providers.google_embedder import (
+                create_google_embedder,
+            )
+        except ImportError:
+            pytest.skip("google_embedder module not in path")
+
+        with patch.dict(os.environ, {
+            "GRAPHITI_ENABLED": "true",
+            "GRAPHITI_EMBEDDER_PROVIDER": "google"
+            # Missing GOOGLE_API_KEY
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+
+            try:
+                create_google_embedder(config)
+                pytest.fail("Expected ProviderError for missing GOOGLE_API_KEY")
+            except ProviderError as e:
+                assert "GOOGLE_API_KEY" in str(e)
+            except ProviderNotInstalled:
+                pytest.skip("google-genai not installed")
+
+    def test_create_google_llm_requires_api_key(self):
+        """create_google_llm_client raises ProviderError without API key."""
+        from graphiti_providers import ProviderError, ProviderNotInstalled
+
+        # Import the factory function directly to test
+        try:
+            from integrations.graphiti.providers_pkg.llm_providers.google_llm import (
+                create_google_llm_client,
+            )
+        except ImportError:
+            pytest.skip("google_llm module not in path")
+
+        with patch.dict(os.environ, {
+            "GRAPHITI_ENABLED": "true",
+            "GRAPHITI_LLM_PROVIDER": "google"
+            # Missing GOOGLE_API_KEY
+        }, clear=True):
+            config = GraphitiConfig.from_env()
+
+            try:
+                create_google_llm_client(config)
+                pytest.fail("Expected ProviderError for missing GOOGLE_API_KEY")
+            except ProviderError as e:
+                assert "GOOGLE_API_KEY" in str(e)
+            except ProviderNotInstalled:
+                pytest.skip("google-genai not installed")
+
+    def test_google_embedder_uses_correct_default_model(self):
+        """GoogleEmbedder uses gemini-embedding-001 by default."""
+        try:
+            from integrations.graphiti.providers_pkg.embedder_providers.google_embedder import (
+                DEFAULT_GOOGLE_EMBEDDING_MODEL,
+                DEFAULT_GOOGLE_EMBEDDING_DIM,
+            )
+        except ImportError:
+            pytest.skip("google_embedder module not in path")
+
+        assert DEFAULT_GOOGLE_EMBEDDING_MODEL == "gemini-embedding-001"
+        assert DEFAULT_GOOGLE_EMBEDDING_DIM == 3072
+
+    def test_google_llm_uses_correct_default_model(self):
+        """GoogleLLMClient uses gemini-2.0-flash by default."""
+        try:
+            from integrations.graphiti.providers_pkg.llm_providers.google_llm import (
+                DEFAULT_GOOGLE_LLM_MODEL,
+            )
+        except ImportError:
+            pytest.skip("google_llm module not in path")
+
+        assert DEFAULT_GOOGLE_LLM_MODEL == "gemini-2.0-flash"

@@ -133,7 +133,8 @@ class GraphitiConfig:
     # Google AI settings (LLM and embeddings)
     google_api_key: str = ""
     google_llm_model: str = "gemini-2.0-flash"
-    google_embedding_model: str = "text-embedding-004"
+    google_embedding_model: str = "gemini-embedding-001"  # 3072 dim natively
+    google_embedding_dim: int = 0  # Optional: 3072 (default), 1536, or 768
 
     # Ollama settings (local)
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
@@ -200,8 +201,14 @@ class GraphitiConfig:
         google_api_key = os.environ.get("GOOGLE_API_KEY", "")
         google_llm_model = os.environ.get("GOOGLE_LLM_MODEL", "gemini-2.0-flash")
         google_embedding_model = os.environ.get(
-            "GOOGLE_EMBEDDING_MODEL", "text-embedding-004"
+            "GOOGLE_EMBEDDING_MODEL", "gemini-embedding-001"
         )
+
+        # Google embedding dimension (optional - defaults to model's native 3072)
+        try:
+            google_embedding_dim = int(os.environ.get("GOOGLE_EMBEDDING_DIM", "0"))
+        except ValueError:
+            google_embedding_dim = 0
 
         # Ollama settings
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
@@ -237,6 +244,7 @@ class GraphitiConfig:
             google_api_key=google_api_key,
             google_llm_model=google_llm_model,
             google_embedding_model=google_embedding_model,
+            google_embedding_dim=google_embedding_dim,
             ollama_base_url=ollama_base_url,
             ollama_llm_model=ollama_llm_model,
             ollama_embedding_model=ollama_embedding_model,
