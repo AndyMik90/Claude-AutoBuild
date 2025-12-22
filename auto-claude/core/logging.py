@@ -320,14 +320,14 @@ def timed(logger: logging.Logger | None = None, level: int = logging.DEBUG):
             )
             return result
 
-        if asyncio_is_coroutine(func):
+        if is_coroutine_function(func):
             return async_wrapper
         return wrapper
 
     return decorator
 
 
-def asyncio_is_coroutine(func: Callable) -> bool:
+def is_coroutine_function(func: Callable) -> bool:
     """Check if a function is a coroutine function."""
     import asyncio
 
