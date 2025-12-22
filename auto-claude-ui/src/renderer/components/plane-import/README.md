@@ -4,7 +4,7 @@ This directory contains the Plane.so work item import functionality, structured 
 
 ## Directory Structure
 
-```
+```text
 plane-import/
 ├── README.md                          # This file
 ├── index.ts                           # Central export point
