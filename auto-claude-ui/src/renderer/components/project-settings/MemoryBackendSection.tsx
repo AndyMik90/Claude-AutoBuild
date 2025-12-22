@@ -428,33 +428,11 @@ export function MemoryBackendSection({
 
           <Separator />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium text-foreground">
-                OpenAI API Key {envConfig.openaiKeyIsGlobal ? '(Override)' : ''}
-              </Label>
-              {envConfig.openaiKeyIsGlobal && (
-                <span className="flex items-center gap-1 text-xs text-info">
-                  <Globe className="h-3 w-3" />
-                  Using global key
-                </span>
-              )}
-            </div>
-            {envConfig.openaiKeyIsGlobal ? (
-              <p className="text-xs text-muted-foreground">
-                Using key from App Settings. Enter a project-specific key below to override.
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Required when using OpenAI as LLM or embedding provider
-              </p>
-            )}
-            <PasswordInput
-              value={envConfig.openaiKeyIsGlobal ? '' : (envConfig.openaiApiKey || '')}
-              onChange={(value) => onUpdateConfig({ openaiApiKey: value || undefined })}
-              placeholder={envConfig.openaiKeyIsGlobal ? 'Enter to override global key...' : 'sk-xxxxxxxx'}
-            />
-          </div>
+          {/* Dynamic Provider Credential Inputs */}
+          <ProviderCredentialInputs
+            envConfig={envConfig}
+            onUpdateConfig={onUpdateConfig}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
