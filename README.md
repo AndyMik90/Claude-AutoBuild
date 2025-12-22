@@ -1,55 +1,48 @@
 # Auto Claude
 
-Autonomous multi-agent coding framework that plans, builds, and validates software features for you.
+**Autonomous multi-agent coding framework that plans, builds, and validates software for you.**
 
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
+[![Version](https://img.shields.io/badge/version-2.8.0-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/latest)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
+[![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)
+
+---
+
+## Download
+
+Get the latest pre-built release for your platform:
+
+| Platform | Download | Notes |
+|----------|----------|-------|
+| **Windows** | [Auto-Claude-2.8.0.exe](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Installer (NSIS) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.8.0-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | M1/M2/M3 Macs |
+| **macOS (Intel)** | [Auto-Claude-2.8.0-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Intel Macs |
+| **Linux** | [Auto-Claude-2.8.0.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Universal |
+| **Linux (Debian)** | [Auto-Claude-2.8.0.deb](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Ubuntu/Debian |
+
+> All releases include SHA256 checksums and VirusTotal scan results for security verification.
+
+---
+
+## Requirements
+
+- **Claude Pro/Max subscription** - [Get one here](https://claude.ai/upgrade)
+- **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
+- **Git repository** - Your project must be initialized as a git repo
+- **Python 3.12+** - Required for Memory Layer (optional but recommended)
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- **Node.js 24+** - [Download](https://nodejs.org/)
-- **Python 3.12+** - [Download](https://www.python.org/downloads/) (3.12+ required for Memory Layer)
-- **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
-- **Claude Pro/Max** subscription - [Upgrade](https://claude.ai/upgrade)
-- **Git repository** - Your project must be a git repo
-
-### Installation
-
-```bash
-# Install all dependencies (backend + frontend)
-npm run install:all
-```
-
-### Running
-
-```bash
-# Start the desktop application
-npm start
-
-# Or run in development mode
-npm run dev
-```
-
-### Memory Layer (Optional)
-
-Memory Layer uses LadybugDB (embedded graph database) - no Docker required.
-Enable in settings or set `GRAPHITI_ENABLED=true` in `.env`.
-
-### Download Pre-built
-
-Download the latest release for your platform from [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases/latest):
-
-| Platform | Download |
-|----------|----------|
-| **macOS (Apple Silicon)** | `Auto-Claude-X.X.X-arm64.dmg` |
-| **macOS (Intel)** | `Auto-Claude-X.X.X-x64.dmg` |
-| **Windows** | `Auto-Claude-X.X.X.exe` |
-| **Linux** | `Auto-Claude-X.X.X.AppImage` or `.deb` |
+1. **Download and install** the app for your platform
+2. **Open your project** - Select a git repository folder
+3. **Connect Claude** - The app will guide you through OAuth setup
+4. **Create a task** - Describe what you want to build
+5. **Watch it work** - Agents plan, code, and validate autonomously
 
 ---
 
@@ -57,83 +50,131 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 | Feature | Description |
 |---------|-------------|
-| **Autonomous Tasks** | Describe what you want, agents handle planning, coding, and validation |
-| **Parallel Agents** | Run multiple builds simultaneously across up to 12 terminals |
-| **Safe by Default** | All work happens in isolated git worktrees |
-| **Self-Validating** | Built-in QA loop catches issues before review |
-| **AI Merge** | Automatic conflict resolution when merging back to main |
-| **Memory Layer** | Agents remember insights across sessions |
-| **Cross-Platform** | Desktop app for Mac, Windows, and Linux |
+| **Autonomous Tasks** | Describe your goal; agents handle planning, implementation, and validation |
+| **Parallel Execution** | Run multiple builds simultaneously with up to 12 agent terminals |
+| **Isolated Workspaces** | All changes happen in git worktrees - your main branch stays safe |
+| **Self-Validating QA** | Built-in quality assurance loop catches issues before you review |
+| **AI-Powered Merge** | Automatic conflict resolution when integrating back to main |
+| **Memory Layer** | Agents retain insights across sessions for smarter builds |
+| **Cross-Platform** | Native desktop apps for Windows, macOS, and Linux |
+| **Auto-Updates** | App updates automatically when new versions are released |
 
 ---
 
 ## Interface
 
 ### Kanban Board
-Visual task management from planning to done. Create tasks and watch agents work autonomously.
+Visual task management from planning through completion. Create tasks and monitor agent progress in real-time.
 
 ### Agent Terminals
-Spawn AI-powered terminals with one-click task context injection.
+AI-powered terminals with one-click task context injection. Spawn multiple agents for parallel work.
 
 ![Agent Terminals](.github/assets/Auto-Claude-Agents-terminals.png)
 
 ### Roadmap
-AI-powered feature planning based on your target audience.
+AI-assisted feature planning with competitor analysis and audience targeting.
 
 ![Roadmap](.github/assets/Auto-Claude-roadmap.png)
 
-### Insights
-Chat interface for exploring and understanding your codebase.
-
-### Ideation
-Discover code improvements, performance issues, and security vulnerabilities.
-
-### Changelog
-Generate professional release notes from completed tasks.
+### Additional Features
+- **Insights** - Chat interface for exploring your codebase
+- **Ideation** - Discover improvements, performance issues, and vulnerabilities
+- **Changelog** - Generate release notes from completed tasks
 
 ---
 
 ## Project Structure
 
 ```
-auto-claude/
+Auto-Claude/
 ├── Apps/
-│   ├── backend/           # Python backend (agents, specs, QA)
-│   └── frontend/          # Electron desktop UI
-├── guides/                # Documentation
-└── tests/                 # Test suite
+│   ├── backend/     # Python agents, specs, QA pipeline
+│   └── frontend/    # Electron desktop application
+├── guides/          # Additional documentation
+├── tests/           # Test suite
+└── scripts/         # Build utilities
 ```
 
 ---
 
 ## CLI Usage
 
-For terminal-only workflows and CI/CD integration, see [guides/CLI-USAGE.md](guides/CLI-USAGE.md).
+For headless operation, CI/CD integration, or terminal-only workflows:
 
 ```bash
 cd Apps/backend
 
-# List specs
-python run.py --list
+# Create a spec interactively
+python spec_runner.py --interactive
 
-# Run a spec
+# Run autonomous build
 python run.py --spec 001
 
-# Merge completed build
+# Review and merge
+python run.py --spec 001 --review
 python run.py --spec 001 --merge
 ```
+
+See [guides/CLI-USAGE.md](guides/CLI-USAGE.md) for complete CLI documentation.
 
 ---
 
 ## Configuration
 
-Create `.env` files in `Apps/backend/` (copy from `.env.example`):
+Create `Apps/backend/.env` from the example:
+
+```bash
+cp Apps/backend/.env.example Apps/backend/.env
+```
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CLAUDE_CODE_OAUTH_TOKEN` | Yes | From `claude setup-token` |
-| `GRAPHITI_ENABLED` | No | Enable Memory Layer |
-| `AUTO_BUILD_MODEL` | No | Override default model |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
+| `GRAPHITI_ENABLED` | No | Enable Memory Layer for cross-session context |
+| `AUTO_BUILD_MODEL` | No | Override the default Claude model |
+
+---
+
+## Building from Source
+
+For contributors and development:
+
+```bash
+# Clone the repository
+git clone https://github.com/AndyMik90/Auto-Claude.git
+cd Auto-Claude
+
+# Install all dependencies
+npm run install:all
+
+# Run in development mode
+npm run dev
+
+# Or build and run
+npm start
+```
+
+**System requirements for building:**
+- Node.js 24+
+- Python 3.12+
+- npm 10+
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup.
+
+---
+
+## Security
+
+Auto Claude uses a three-layer security model:
+
+1. **OS Sandbox** - Bash commands run in isolation
+2. **Filesystem Restrictions** - Operations limited to project directory
+3. **Dynamic Command Allowlist** - Only approved commands based on detected project stack
+
+All releases are:
+- Scanned with VirusTotal before publishing
+- Include SHA256 checksums for verification
+- Code-signed where applicable (macOS)
 
 ---
 
@@ -141,39 +182,34 @@ Create `.env` files in `Apps/backend/` (copy from `.env.example`):
 
 | Command | Description |
 |---------|-------------|
-| `npm run install:all` | Install backend + frontend dependencies |
-| `npm start` | Build and run desktop app |
-| `npm run dev` | Run in development mode |
-| `npm run package` | Package app for distribution |
+| `npm run install:all` | Install backend and frontend dependencies |
+| `npm start` | Build and run the desktop app |
+| `npm run dev` | Run in development mode with hot reload |
+| `npm run package` | Package for current platform |
+| `npm run package:mac` | Package for macOS |
+| `npm run package:win` | Package for Windows |
+| `npm run package:linux` | Package for Linux |
 | `npm run lint` | Run linter |
 | `npm test` | Run frontend tests |
 | `npm run test:backend` | Run backend tests |
 
 ---
 
-## How It Works
+## Contributing
 
-### Agent Pipeline
-
-**1. Spec Creation** - Gather requirements and create detailed specifications
-
-**2. Implementation** - Agents execute the plan with built-in verification
-
-**3. QA Loop** - Self-validating agents check their work (up to 50 iterations)
-
-**4. Merge** - AI-powered conflict resolution when merging to main
-
-### Security Model
-
-- **OS Sandbox** - Bash commands run in isolation
-- **Filesystem Restrictions** - Operations limited to project directory
-- **Command Allowlist** - Only approved commands based on project stack
+We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup instructions
+- Code style guidelines
+- Testing requirements
+- Pull request process
 
 ---
 
-## Contributing
+## Community
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+- **Discord** - [Join our community](https://discord.gg/KCXaPBr4Dj)
+- **Issues** - [Report bugs or request features](https://github.com/AndyMik90/Auto-Claude/issues)
+- **Discussions** - [Ask questions](https://github.com/AndyMik90/Auto-Claude/discussions)
 
 ---
 
@@ -181,4 +217,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **AGPL-3.0** - GNU Affero General Public License v3.0
 
-You can use Auto Claude freely, but if you build on it, your code must also be open source under AGPL-3.0. Closed-source commercial use requires a separate license.
+Auto Claude is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
+
+Commercial licensing available for closed-source use cases.
