@@ -38,8 +38,8 @@ body:
       label: Component
       description: Which part of Auto Claude would this affect?
       options:
-        - Python Backend (auto-claude/)
-        - Electron UI (auto-claude-ui/)
+        - Python Backend (Apps/backend/)
+        - Electron UI (Apps/frontend/)
         - Both
         - New component
         - Not sure

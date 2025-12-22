@@ -56,8 +56,8 @@ body:
       label: Component
       description: Which part of Auto Claude is affected?
       options:
-        - Python Backend (auto-claude/)
-        - Electron UI (auto-claude-ui/)
+        - Python Backend (Apps/backend/)
+        - Electron UI (Apps/frontend/)
         - Both
         - Not sure
     validations:

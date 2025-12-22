@@ -29,30 +29,30 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
-        working-directory: auto-claude
+        working-directory: Apps/backend
         run: |
           uv venv
           uv pip install -r requirements.txt
-          uv pip install -r ../tests/requirements-test.txt
+          uv pip install -r ../../tests/requirements-test.txt
 
       - name: Run tests
-        working-directory: auto-claude
+        working-directory: Apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../tests/ -v --tb=short -x
+          pytest ../../tests/ -v --tb=short -x
 
       - name: Run tests with coverage
         if: matrix.python-version == '3.12'
-        working-directory: auto-claude
+        working-directory: Apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage reports
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
-          file: ./auto-claude/coverage.xml
+          file: ./Apps/backend/coverage.xml
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -67,39 +67,34 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+      - name: Get npm cache directory
+        id: npm-cache
+        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        working-directory: auto-claude-ui
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: Apps/frontend
+        run: npm ci --ignore-scripts
 
       - name: Lint
-        working-directory: auto-claude-ui
-        run: pnpm run lint
+        working-directory: Apps/frontend
+        run: npm run lint
 
       - name: Type check
-        working-directory: auto-claude-ui
-        run: pnpm run typecheck
+        working-directory: Apps/frontend
+        run: npm run typecheck
 
       - name: Run tests
-        working-directory: auto-claude-ui
-        run: pnpm run test
+        working-directory: Apps/frontend
+        run: npm run test
 
       - name: Build
-        working-directory: auto-claude-ui
-        run: pnpm run build
+        working-directory: Apps/frontend
+        run: npm run build

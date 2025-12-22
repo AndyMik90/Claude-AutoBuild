@@ -10,88 +10,103 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 
 ### Setup
 ```bash
-# Install dependencies (from auto-claude/)
-uv venv && uv pip install -r requirements.txt
-# Or: python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# Install all dependencies from root
+npm run install:all
+
+# Or install separately:
+# Backend (from Apps/backend/)
+cd Apps/backend && uv venv && uv pip install -r requirements.txt
+
+# Frontend (from Apps/frontend/)
+cd Apps/frontend && npm install
 
 # Set up OAuth token
 claude setup-token
-# Add to auto-claude/.env: CLAUDE_CODE_OAUTH_TOKEN=your-token
+# Add to Apps/backend/.env: CLAUDE_CODE_OAUTH_TOKEN=your-token
 ```
 
 ### Creating and Running Specs
 ```bash
+cd Apps/backend
+
 # Create a spec interactively
-python auto-claude/spec_runner.py --interactive
+python spec_runner.py --interactive
 
 # Create spec from task description
-python auto-claude/spec_runner.py --task "Add user authentication"
+python spec_runner.py --task "Add user authentication"
 
 # Force complexity level (simple/standard/complex)
-python auto-claude/spec_runner.py --task "Fix button" --complexity simple
+python spec_runner.py --task "Fix button" --complexity simple
 
 # Run autonomous build
-python auto-claude/run.py --spec 001
+python run.py --spec 001
 
 # List all specs
-python auto-claude/run.py --list
+python run.py --list
 ```
 
 ### Workspace Management
 ```bash
+cd Apps/backend
+
 # Review changes in isolated worktree
-python auto-claude/run.py --spec 001 --review
+python run.py --spec 001 --review
 
 # Merge completed build into project
-python auto-claude/run.py --spec 001 --merge
+python run.py --spec 001 --merge
 
 # Discard build
-python auto-claude/run.py --spec 001 --discard
+python run.py --spec 001 --discard
 ```
 
 ### QA Validation
 ```bash
+cd Apps/backend
+
 # Run QA manually
-python auto-claude/run.py --spec 001 --qa
+python run.py --spec 001 --qa
 
 # Check QA status
-python auto-claude/run.py --spec 001 --qa-status
+python run.py --spec 001 --qa-status
 ```
 
 ### Testing
 ```bash
 # Install test dependencies (required first time)
-cd auto-claude && uv pip install -r ../tests/requirements-test.txt
+cd Apps/backend && uv pip install -r ../../tests/requirements-test.txt
 
 # Run all tests (use virtual environment pytest)
-auto-claude/.venv/bin/pytest tests/ -v
+Apps/backend/.venv/bin/pytest tests/ -v
 
 # Run single test file
-auto-claude/.venv/bin/pytest tests/test_security.py -v
+Apps/backend/.venv/bin/pytest tests/test_security.py -v
 
 # Run specific test
-auto-claude/.venv/bin/pytest tests/test_security.py::test_bash_command_validation -v
+Apps/backend/.venv/bin/pytest tests/test_security.py::test_bash_command_validation -v
 
 # Skip slow tests
-auto-claude/.venv/bin/pytest tests/ -m "not slow"
+Apps/backend/.venv/bin/pytest tests/ -m "not slow"
+
+# Or from root
+npm run test:backend
 ```
 
 ### Spec Validation
 ```bash
-python auto-claude/validate_spec.py --spec-dir auto-claude/specs/001-feature --checkpoint all
+python Apps/backend/validate_spec.py --spec-dir Apps/backend/specs/001-feature --checkpoint all
 ```
 
 ### Releases
 ```bash
 # Automated version bump and release (recommended)
-node scripts/bump-version.js patch   # 2.5.5 -> 2.5.6
-node scripts/bump-version.js minor   # 2.5.5 -> 2.6.0
-node scripts/bump-version.js major   # 2.5.5 -> 3.0.0
-node scripts/bump-version.js 2.6.0   # Set specific version
+node scripts/bump-version.js patch   # 2.8.0 -> 2.8.1
+node scripts/bump-version.js minor   # 2.8.0 -> 2.9.0
+node scripts/bump-version.js major   # 2.8.0 -> 3.0.0
+node scripts/bump-version.js 2.9.0   # Set specific version
 
 # Then push to trigger GitHub release workflows
 git push origin main
-git push origin v2.6.0
+git push origin v2.9.0
 ```
 
 See [RELEASE.md](RELEASE.md) for detailed release process documentation.
@@ -111,7 +126,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 3. QA Reviewer validates acceptance criteria
 4. QA Fixer resolves issues in a loop
 
-### Key Components
+### Key Components (Apps/backend/)
 
 - **client.py** - Claude SDK client with security hooks and tool permissions
 - **security.py** + **project_analyzer.py** - Dynamic command allowlisting based on detected project stack
@@ -122,7 +137,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 - **graphiti_config.py** - Configuration and validation for Graphiti integration
 - **linear_updater.py** - Optional Linear integration for progress tracking
 
-### Agent Prompts (auto-claude/prompts/)
+### Agent Prompts (Apps/backend/prompts/)
 
 | Prompt | Purpose |
 |--------|---------|
@@ -139,7 +154,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 
 ### Spec Directory Structure
 
-Each spec in `auto-claude/specs/XXX-name/` contains:
+Each spec in `.auto-claude/specs/XXX-name/` contains:
 - `spec.md` - Feature specification
 - `requirements.json` - Structured user requirements
 - `context.json` - Discovered codebase context
@@ -205,18 +220,26 @@ Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
 
 ## Project Structure
 
-Auto Claude can be used in two ways:
-
-**As a standalone CLI tool** (original project):
-```bash
-python auto-claude/run.py --spec 001
+```
+auto-claude/
+├── Apps/
+│   ├── backend/           # Python backend/CLI (the framework code)
+│   └── frontend/          # Electron desktop UI
+├── guides/                # Documentation
+├── tests/                 # Test suite
+└── scripts/               # Build and utility scripts
 ```
 
-**With the optional Electron frontend** (`auto-claude-ui/`):
-- Provides a GUI for task management and progress tracking
-- Wraps the CLI commands - the backend works independently
+**As a standalone CLI tool**:
+```bash
+cd Apps/backend
+python run.py --spec 001
+```
 
-**Directory layout:**
-- `auto-claude/` - Python backend/CLI (the framework code)
-- `auto-claude-ui/` - Optional Electron frontend
+**With the Electron frontend**:
+```bash
+npm start        # Build and run desktop app
+npm run dev      # Run in development mode
+```
+
 - `.auto-claude/specs/` - Per-project data (specs, plans, QA reports) - gitignored

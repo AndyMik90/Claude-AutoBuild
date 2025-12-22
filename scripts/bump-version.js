@@ -100,20 +100,27 @@ function checkGitStatus() {
 
 // Update package.json version
 function updatePackageJson(newVersion) {
-  const packagePath = path.join(__dirname, '..', 'auto-claude-ui', 'package.json');
+  const frontendPath = path.join(__dirname, '..', 'Apps', 'frontend', 'package.json');
+  const rootPath = path.join(__dirname, '..', 'package.json');
 
-  if (!fs.existsSync(packagePath)) {
-    error(`package.json not found at ${packagePath}`);
+  if (!fs.existsSync(frontendPath)) {
+    error(`package.json not found at ${frontendPath}`);
   }
 
-  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  const oldVersion = packageJson.version;
+  // Update frontend package.json
+  const frontendJson = JSON.parse(fs.readFileSync(frontendPath, 'utf8'));
+  const oldVersion = frontendJson.version;
+  frontendJson.version = newVersion;
+  fs.writeFileSync(frontendPath, JSON.stringify(frontendJson, null, 2) + '\n');
 
-  packageJson.version = newVersion;
+  // Update root package.json if it exists
+  if (fs.existsSync(rootPath)) {
+    const rootJson = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
+    rootJson.version = newVersion;
+    fs.writeFileSync(rootPath, JSON.stringify(rootJson, null, 2) + '\n');
+  }
 
-  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
-
-  return { oldVersion, packagePath };
+  return { oldVersion, packagePath: frontendPath };
 }
 
 // Main function
@@ -133,7 +140,7 @@ function main() {
   success('Git working directory is clean');
 
   // 2. Read current version
-  const packagePath = path.join(__dirname, '..', 'auto-claude-ui', 'package.json');
+  const packagePath = path.join(__dirname, '..', 'Apps', 'frontend', 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   const currentVersion = packageJson.version;
   info(`Current version: ${currentVersion}`);
@@ -153,7 +160,7 @@ function main() {
 
   // 5. Create git commit
   info('Creating git commit...');
-  exec('git add auto-claude-ui/package.json');
+  exec('git add Apps/frontend/package.json package.json');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 

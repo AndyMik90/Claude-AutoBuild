@@ -21,38 +21,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Get npm cache directory
+        id: npm-cache
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd auto-claude-ui && pnpm install --frozen-lockfile
+        run: cd Apps/frontend && npm ci
 
       - name: Build application
-        run: cd auto-claude-ui && pnpm run build
+        run: cd Apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd auto-claude-ui && pnpm run package:mac -- --arch=x64
+        run: cd Apps/frontend && npm run package:mac -- --arch=x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
 
       - name: Package macOS (Apple Silicon)
-        run: cd auto-claude-ui && pnpm run package:mac -- --arch=arm64
+        run: cd Apps/frontend && npm run package:mac -- --arch=arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -68,7 +63,7 @@ jobs:
             echo "Skipping notarization: APPLE_ID not configured"
             exit 0
           fi
-          cd auto-claude-ui
+          cd Apps/frontend
           for dmg in dist/*.dmg; do
             echo "Notarizing $dmg..."
             xcrun notarytool submit "$dmg" \
@@ -85,8 +80,8 @@ jobs:
         with:
           name: macos-builds
           path: |
-            auto-claude-ui/dist/*.dmg
-            auto-claude-ui/dist/*.zip
+            Apps/frontend/dist/*.dmg
+            Apps/frontend/dist/*.zip
 
   build-windows:
     runs-on: windows-latest
@@ -96,32 +91,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
+      - name: Get npm cache directory
+        id: npm-cache
         shell: bash
-        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd auto-claude-ui && pnpm install --frozen-lockfile
+        run: cd Apps/frontend && npm ci
 
       - name: Build application
-        run: cd auto-claude-ui && pnpm run build
+        run: cd Apps/frontend && npm run build
 
       - name: Package Windows
-        run: cd auto-claude-ui && pnpm run package:win
+        run: cd Apps/frontend && npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
@@ -132,7 +122,7 @@ jobs:
         with:
           name: windows-builds
           path: |
-            auto-claude-ui/dist/*.exe
+            Apps/frontend/dist/*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -142,31 +132,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Get npm cache directory
+        id: npm-cache
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd auto-claude-ui && pnpm install --frozen-lockfile
+        run: cd Apps/frontend && npm ci
 
       - name: Build application
-        run: cd auto-claude-ui && pnpm run build
+        run: cd Apps/frontend && npm run build
 
       - name: Package Linux
-        run: cd auto-claude-ui && pnpm run package:linux
+        run: cd Apps/frontend && npm run package:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -175,8 +160,8 @@ jobs:
         with:
           name: linux-builds
           path: |
-            auto-claude-ui/dist/*.AppImage
-            auto-claude-ui/dist/*.deb
+            Apps/frontend/dist/*.AppImage
+            Apps/frontend/dist/*.deb
 
   create-release:
     needs: [build-macos, build-windows, build-linux]

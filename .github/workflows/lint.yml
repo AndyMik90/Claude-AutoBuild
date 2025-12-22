@@ -23,10 +23,10 @@ jobs:
         run: pip install ruff
 
       - name: Run ruff check
-        run: ruff check auto-claude/ --output-format=github
+        run: ruff check Apps/backend/ --output-format=github
 
       - name: Run ruff format check
-        run: ruff format auto-claude/ --check --diff
+        run: ruff format Apps/backend/ --check --diff
 
   # TypeScript/React linting
   frontend:
@@ -38,21 +38,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+          node-version: '24'
 
       - name: Install dependencies
-        working-directory: auto-claude-ui
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: Apps/frontend
+        run: npm ci --ignore-scripts
 
       - name: Run ESLint
-        working-directory: auto-claude-ui
-        run: pnpm lint
+        working-directory: Apps/frontend
+        run: npm run lint
 
       - name: Run TypeScript check
-        working-directory: auto-claude-ui
-        run: pnpm typecheck
+        working-directory: Apps/frontend
+        run: npm run typecheck
