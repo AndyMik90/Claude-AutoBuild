@@ -16,7 +16,7 @@ from pathlib import Path
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from debug import debug, debug_section
+from debug import debug, debug_error, debug_section, debug_success
 from ui import Icons, box, icon, muted, print_section, print_status
 
 from .config import IdeationConfigManager
@@ -122,6 +122,22 @@ class IdeationOrchestrator:
             append=self.append,
         )
 
+        # Diagnostic: Verify output directory exists or create it
+        debug(
+            "ideation_runner",
+            "Verifying output directory",
+            output_dir=str(self.output_dir),
+            exists=self.output_dir.exists(),
+        )
+        if not self.output_dir.exists():
+            debug("ideation_runner", "Creating output directory")
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            debug_success(
+                "ideation_runner",
+                "Output directory created",
+                path=str(self.output_dir),
+            )
+
         print(
             box(
                 f"Project: {self.project_dir}\n"
@@ -140,11 +156,21 @@ class IdeationOrchestrator:
         print_section("PHASE 1: PROJECT ANALYSIS", Icons.FOLDER)
         result = await self.project_index_phase.execute()
         results.append(result)
+
+        # Diagnostic: Log phase 1 result and file outputs
+        self._log_phase_result("Phase 1: Project Analysis", result)
+
         if not result.success:
+            debug_error(
+                "ideation_runner",
+                "Project analysis failed",
+                errors=result.errors,
+            )
             print_status("Project analysis failed", "error")
             return False
 
         # Phase 2: Context & Graph Hints (in parallel)
+        debug("ideation_runner", "Starting Phase 2: Context & Graph Hints (parallel)")
         print_section("PHASE 2: CONTEXT & GRAPH HINTS (PARALLEL)", Icons.SEARCH)
 
         # Run context gathering and graph hints in parallel
@@ -155,7 +181,16 @@ class IdeationOrchestrator:
         results.append(hints_result)
         results.append(context_result)
 
+        # Diagnostic: Log phase 2 results and file outputs
+        self._log_phase_result("Phase 2: Context Gathering", context_result)
+        self._log_phase_result("Phase 2: Graph Hints", hints_result)
+
         if not context_result.success:
+            debug_error(
+                "ideation_runner",
+                "Context gathering failed",
+                errors=context_result.errors,
+            )
             print_status("Context gathering failed", "error")
             return False
         # Note: hints_result.success is always True (graceful degradation)
@@ -185,9 +220,20 @@ class IdeationOrchestrator:
         ideation_results = await asyncio.gather(*ideation_tasks, return_exceptions=True)
 
         # Process results
+        debug(
+            "ideation_runner",
+            "Processing Phase 3 results",
+            total_results=len(ideation_results),
+        )
         for i, result in enumerate(ideation_results):
             ideation_type = self.enabled_types[i]
             if isinstance(result, Exception):
+                debug_error(
+                    "ideation_runner",
+                    f"Ideation type failed with exception",
+                    ideation_type=ideation_type,
+                    exception=str(result),
+                )
                 print_status(
                     f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed with exception: {result}",
                     "error",
@@ -205,6 +251,9 @@ class IdeationOrchestrator:
                 )
             else:
                 results.append(result)
+                # Diagnostic: Log each ideation type result
+                self._log_phase_result(f"Phase 3: {ideation_type}", result)
+
                 if result.success:
                     print_status(
                         f"{IDEATION_TYPE_LABELS[ideation_type]}: {result.ideas_count} ideas",
@@ -219,14 +268,119 @@ class IdeationOrchestrator:
                         print(f"  {muted('Error:')} {err}")
 
         # Final Phase: Merge
+        debug("ideation_runner", "Starting Phase 4: Merge & Finalize")
         print_section("PHASE 4: MERGE & FINALIZE", Icons.SUCCESS)
         result = await self.phase_executor.execute_merge()
         results.append(result)
 
+        # Diagnostic: Log merge result and verify final output file
+        self._log_phase_result("Phase 4: Merge", result)
+        self._verify_final_output()
+
         # Summary
         self._print_summary()
 
+        debug_success(
+            "ideation_runner",
+            "Ideation generation complete",
+            total_phases=len(results),
+            successful_phases=sum(1 for r in results if r.success),
+        )
+
         return True
+
+    def _log_phase_result(self, phase_name: str, result: IdeationPhaseResult) -> None:
+        """Log diagnostic information for a phase result.
+
+        Args:
+            phase_name: Human-readable name of the phase
+            result: The phase result to log
+        """
+        # Check if output files actually exist on disk
+        files_exist = {}
+        for file_path in result.output_files:
+            path = Path(file_path)
+            files_exist[file_path] = {
+                "exists": path.exists(),
+                "size": path.stat().st_size if path.exists() else 0,
+            }
+
+        if result.success:
+            debug_success(
+                "ideation_runner",
+                f"{phase_name} completed",
+                success=result.success,
+                output_files=result.output_files,
+                files_verified=files_exist,
+                ideas_count=result.ideas_count,
+                retries=result.retries,
+            )
+        else:
+            debug_error(
+                "ideation_runner",
+                f"{phase_name} failed",
+                success=result.success,
+                output_files=result.output_files,
+                files_verified=files_exist,
+                errors=result.errors,
+                retries=result.retries,
+            )
+
+    def _verify_final_output(self) -> None:
+        """Verify the final ideation.json output file exists and is valid.
+
+        Logs diagnostic information about the file contents.
+        """
+        ideation_file = self.output_dir / "ideation.json"
+
+        debug(
+            "ideation_runner",
+            "Verifying final output file",
+            expected_path=str(ideation_file),
+            exists=ideation_file.exists(),
+        )
+
+        if not ideation_file.exists():
+            debug_error(
+                "ideation_runner",
+                "Final ideation.json file not found",
+                expected_path=str(ideation_file),
+                output_dir_contents=list(str(f) for f in self.output_dir.iterdir())
+                if self.output_dir.exists()
+                else [],
+            )
+            return
+
+        try:
+            with open(ideation_file) as f:
+                data = json.load(f)
+
+            ideas_count = len(data.get("ideas", []))
+            summary = data.get("summary", {})
+            by_type = summary.get("by_type", {})
+
+            debug_success(
+                "ideation_runner",
+                "Final output file verified",
+                path=str(ideation_file),
+                file_size=ideation_file.stat().st_size,
+                total_ideas=ideas_count,
+                ideas_by_type=by_type,
+            )
+        except json.JSONDecodeError as e:
+            debug_error(
+                "ideation_runner",
+                "Final ideation.json is invalid JSON",
+                path=str(ideation_file),
+                error=str(e),
+            )
+        except Exception as e:
+            debug_error(
+                "ideation_runner",
+                "Error reading final ideation.json",
+                path=str(ideation_file),
+                error=str(e),
+            )
 
     def _print_summary(self) -> None:
         """Print summary of ideation generation results."""
