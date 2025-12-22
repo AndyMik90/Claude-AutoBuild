@@ -185,9 +185,9 @@ def get_project_dir(provided_dir: Path | None) -> Path:
 
     project_dir = Path.cwd()
 
-    # Auto-detect if running from within auto-claude directory (the source code)
-    if project_dir.name == "auto-claude" and (project_dir / "run.py").exists():
-        # Running from within auto-claude/ source directory, go up 1 level
-        project_dir = project_dir.parent
+    # Auto-detect if running from within apps/backend directory (the source code)
+    if project_dir.name == "backend" and (project_dir / "run.py").exists():
+        # Running from within apps/backend/ source directory, go up 2 levels
+        project_dir = project_dir.parent.parent
 
     return project_dir
