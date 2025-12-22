@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore, saveSettings as saveSettingsToStore, loadSettings as loadSettingsFromStore } from '../../../stores/settings-store';
+import { UI_SCALE_DEFAULT } from '../../../../shared/constants';
 import type { AppSettings } from '../../../../shared/types';
 import { UI_SCALE_DEFAULT } from '../../../../shared/constants';
 
