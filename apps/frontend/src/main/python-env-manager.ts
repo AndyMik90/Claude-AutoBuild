@@ -24,6 +24,7 @@ export class PythonEnvManager extends EventEmitter {
   private pythonPath: string | null = null;
   private isInitializing = false;
   private isReady = false;
+  private initializationPromise: Promise<PythonEnvStatus> | null = null;
 
   /**
    * Get the path where the venv should be created.
@@ -309,18 +310,42 @@ export class PythonEnvManager extends EventEmitter {
   /**
    * Initialize the Python environment.
    * Creates venv and installs deps if needed.
+   *
+   * If initialization is already in progress, this will wait for and return
+   * the existing initialization promise instead of starting a new one.
    */
   async initialize(autoBuildSourcePath: string): Promise<PythonEnvStatus> {
-    if (this.isInitializing) {
+    // If there's already an initialization in progress, wait for it
+    if (this.initializationPromise) {
+      console.warn('[PythonEnvManager] Initialization already in progress, waiting...');
+      return this.initializationPromise;
+    }
+
+    // If already ready and pointing to the same source, return cached status
+    if (this.isReady && this.autoBuildSourcePath === autoBuildSourcePath) {
       return {
-        ready: false,
-        pythonPath: null,
-        venvExists: false,
-        depsInstalled: false,
-        error: 'Already initializing'
+        ready: true,
+        pythonPath: this.pythonPath,
+        venvExists: true,
+        depsInstalled: true
       };
     }
 
+    // Start new initialization and store the promise
+    this.initializationPromise = this._doInitialize(autoBuildSourcePath);
+
+    try {
+      return await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
+
+  /**
+   * Internal initialization method that performs the actual setup.
+   * This is separated from initialize() to support the promise queue pattern.
+   */
+  private async _doInitialize(autoBuildSourcePath: string): Promise<PythonEnvStatus> {
     this.isInitializing = true;
     this.autoBuildSourcePath = autoBuildSourcePath;
 

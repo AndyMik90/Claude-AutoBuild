@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
 
 /**
  * Detect and return the best available Python command.
@@ -48,12 +49,18 @@ export function getDefaultPythonCommand(): string {
 
 /**
  * Parse a Python command string into command and base arguments.
- * Handles space-separated commands like "py -3".
+ * Handles space-separated commands like "py -3" and file paths with spaces.
  *
- * @param pythonPath - The Python command string (e.g., "python3", "py -3")
+ * @param pythonPath - The Python command string (e.g., "python3", "py -3", "/path/with spaces/python")
  * @returns Tuple of [command, baseArgs] ready for use with spawn()
  */
 export function parsePythonCommand(pythonPath: string): [string, string[]] {
+  // If the path points to an actual file, use it directly (handles paths with spaces)
+  if (existsSync(pythonPath)) {
+    return [pythonPath, []];
+  }
+
+  // Otherwise, split on spaces for commands like "py -3"
   const parts = pythonPath.split(' ');
   const command = parts[0];
   const baseArgs = parts.slice(1);
