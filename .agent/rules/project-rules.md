@@ -16,6 +16,10 @@ You are an expert Senior Software Engineer specializing in **Python (Backend)** 
 
 ## Critical Rules
 
+### Prerequisite
+
+Always use Context7 mcp when asked to implement new libraries, use api's etc. Do not rely on your pre-trained data that is outdated, use Context7 mcp to get the latest docs
+
 ### 1. Package Management
 
 - **ALWAYS** use `uv` for Python operations:

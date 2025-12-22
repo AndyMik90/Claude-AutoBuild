@@ -2,6 +2,8 @@
 
 This file provides context and operational guidelines for Antigravity when working on the **Auto Claude** repository. Only Antigravity should prioritize the instructions in this file.
 
+> **🔀 Fork Note**: This is the `auto-claude-gemini` fork with multi-provider support. See [Fork Documentation](#fork-documentation) below.
+
 ## Project Overview
 
 **Auto Claude** is a multi-agent autonomous coding framework that builds software through coordinated AI agent sessions. It uses the Claude Code SDK (or similar agent interfaces) to run agents in isolated workspaces with security controls.
@@ -90,3 +92,74 @@ The repo uses `pre-commit` to enforce quality. **Always ensure these pass before
     - **Type Safety**: Run `pnpm typecheck` on frontend changes.
 4.  **Task Management**: Use `task_boundary` to track complex implementations.
 5.  **Docs**: Keep `ANTIGRAVITY.md` updated if workflows or commands change.
+
+---
+
+## Fork Documentation
+
+> This section is specific to the `auto-claude-gemini` fork.
+
+### Key Fork Files
+
+| File                                                         | Purpose                                              |
+| ------------------------------------------------------------ | ---------------------------------------------------- |
+| [FORK.md](./FORK.md)                                         | Fork maintenance strategy and upstream sync workflow |
+| [CHANGELOG.fork.md](./CHANGELOG.fork.md)                     | Fork-specific changelog (separate from upstream)     |
+| [fork-docs/ROADMAP.md](./fork-docs/ROADMAP.md)               | Development roadmap for fork features                |
+| [fork-docs/EPIC_BREAKDOWN.md](./fork-docs/EPIC_BREAKDOWN.md) | Detailed epic/feature/task breakdown                 |
+
+### Changelog System
+
+This fork uses a **dual-changelog system**:
+
+1. **`CHANGELOG.md`** — Upstream changes (preserved during syncs)
+2. **`CHANGELOG.fork.md`** — Fork-specific changes (our additions)
+
+#### When to Update Fork Changelog
+
+**After completing any feature from EPIC_BREAKDOWN.md:**
+
+1. Add entry to `CHANGELOG.fork.md` under `## [Unreleased]`
+2. Mark the feature as complete `[x]` in `EPIC_BREAKDOWN.md`
+3. Use workflow: `/update_changelog`
+
+#### Entry Format
+
+```markdown
+### 🚀 Fork Features
+
+- **Feature Name** — Description of what was implemented
+  - Key files: `file1.py`, `file2.py`
+  - Reference: (Epic 1, Feature 1.2)
+```
+
+### Epic Breakdown Usage
+
+When working on fork features, always reference `fork-docs/EPIC_BREAKDOWN.md`:
+
+1. **Read the epic/feature description** before starting
+2. **Check dependencies** (some features depend on others)
+3. **Use the specified model** for optimal results
+4. **Mark progress** as you complete work
+
+#### Feature Types
+
+- **🔹 Atomic features**: Complete the entire feature in one session
+- **🔸 Composite features**: Work through individual tasks
+
+### Fork Workflows
+
+| Workflow            | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `/sync_upstream`    | Sync fork with upstream Auto-Claude         |
+| `/start_feature`    | Start a new feature branch                  |
+| `/update_changelog` | Update fork changelog after completing work |
+
+### Version Scheme
+
+Fork versions follow: `X.X.X-fork.N`
+
+- `X.X.X` = Current upstream version
+- `N` = Fork release number (increments with each fork release)
+
+Example: `2.7.1-fork.1`, `2.7.1-fork.2`, `2.8.0-fork.1`
