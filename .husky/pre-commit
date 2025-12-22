@@ -1,6 +1,46 @@
 #!/bin/sh
 
-# Run lint-staged in auto-claude-ui if there are staged files there
-if git diff --cached --name-only | grep -q "^auto-claude-ui/"; then
-  cd auto-claude-ui && pnpm exec lint-staged
+echo "Running pre-commit checks..."
+
+# Check if there are staged files in Apps/frontend
+if git diff --cached --name-only | grep -q "^Apps/frontend/"; then
+  echo "Frontend changes detected, running frontend checks..."
+  cd Apps/frontend
+  
+  # Run lint-staged (handles staged .ts/.tsx files)
+  npm exec lint-staged
+  
+  # Run TypeScript type check
+  echo "Running type check..."
+  npm run typecheck
+  if [ $? -ne 0 ]; then
+    echo "Type check failed. Please fix TypeScript errors before committing."
+    exit 1
+  fi
+  
+  # Run linting
+  echo "Running lint..."
+  npm run lint
+  if [ $? -ne 0 ]; then
+    echo "Lint failed. Run 'npm run lint:fix' to auto-fix issues."
+    exit 1
+  fi
+  
+  # Check for vulnerabilities (only high severity)
+  echo "Checking for vulnerabilities..."
+  npm audit --audit-level=high
+  if [ $? -ne 0 ]; then
+    echo "High severity vulnerabilities found. Run 'npm audit fix' to resolve."
+    exit 1
+  fi
+  
+  cd ../..
 fi
+
+# Check if there are staged Python files in auto-claude
+if git diff --cached --name-only | grep -q "^auto-claude/.*\.py$"; then
+  echo "Python changes detected, running Python checks..."
+  # Add Python linting here if needed (ruff, etc.)
+fi
+
+echo "All pre-commit checks passed!"
