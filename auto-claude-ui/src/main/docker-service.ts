@@ -443,9 +443,11 @@ export async function validateFalkorDBConnection(
 /**
  * Validate OpenAI API key by attempting to list models
  * @param apiKey - OpenAI API key
+ * @param baseUrl - Optional custom base URL for OpenAI-compatible APIs
  */
 export async function validateOpenAIApiKey(
-  apiKey: string
+  apiKey: string,
+  baseUrl?: string
 ): Promise<GraphitiValidationResult> {
   if (!apiKey || !apiKey.trim()) {
     return {
@@ -454,9 +456,10 @@ export async function validateOpenAIApiKey(
     };
   }
 
-  // Basic format validation
   const trimmedKey = apiKey.trim();
-  if (!trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sess-')) {
+
+  // Only validate sk- format for default OpenAI API (not for custom base URLs)
+  if (!baseUrl && !trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sess-')) {
     return {
       success: false,
       message: 'Invalid API key format. OpenAI API keys should start with "sk-"',
@@ -466,14 +469,35 @@ export async function validateOpenAIApiKey(
   try {
     const startTime = Date.now();
 
-    // Use native https module to avoid additional dependencies
+    // Parse custom base URL or use default OpenAI API
+    let hostname = 'api.openai.com';
+    let port = 443;
+    let basePath = '/v1';
+    let useHttps = true;
+
+    if (baseUrl) {
+      try {
+        const url = new URL(baseUrl);
+        hostname = url.hostname;
+        port = url.port ? parseInt(url.port, 10) : (url.protocol === 'https:' ? 443 : 80);
+        basePath = url.pathname.replace(/\/$/, '') || '/v1';
+        useHttps = url.protocol === 'https:';
+      } catch {
+        return {
+          success: false,
+          message: 'Invalid base URL format',
+        };
+      }
+    }
+
+    // Use native http/https module to avoid additional dependencies
     const result = await new Promise<GraphitiValidationResult>((resolve) => {
-      const https = require('https');
+      const httpModule = useHttps ? require('https') : require('http');
 
       const options = {
-        hostname: 'api.openai.com',
-        port: 443,
-        path: '/v1/models',
+        hostname,
+        port,
+        path: `${basePath}/models`,
         method: 'GET',
         headers: {
           Authorization: `Bearer ${trimmedKey}`,
@@ -482,7 +506,7 @@ export async function validateOpenAIApiKey(
         timeout: 15000,
       };
 
-      const req = https.request(options, (res: { statusCode: number; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
+      const req = httpModule.request(options, (res: { statusCode: number; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
         let data = '';
 
         res.on('data', (chunk: Buffer) => {
@@ -491,28 +515,40 @@ export async function validateOpenAIApiKey(
 
         res.on('end', () => {
           const latencyMs = Date.now() - startTime;
+          const isCustomEndpoint = !!baseUrl;
+          const providerName = isCustomEndpoint ? 'Custom endpoint' : 'OpenAI';
 
           if (res.statusCode === 200) {
             resolve({
               success: true,
-              message: 'OpenAI API key is valid',
+              message: `${providerName} connection successful`,
               details: {
-                provider: 'openai',
+                provider: isCustomEndpoint ? 'custom' : 'openai',
                 latencyMs,
               },
             });
           } else if (res.statusCode === 401) {
             resolve({
               success: false,
-              message: 'Invalid API key. Please check your OpenAI API key.',
+              message: `Invalid API key for ${providerName.toLowerCase()}.`,
             });
           } else if (res.statusCode === 429) {
             // Rate limited but key is valid
             resolve({
               success: true,
-              message: 'OpenAI API key is valid (rate limited, please wait)',
+              message: `${providerName} connection successful (rate limited)`,
               details: {
-                provider: 'openai',
+                provider: isCustomEndpoint ? 'custom' : 'openai',
+                latencyMs,
+              },
+            });
+          } else if (isCustomEndpoint && (res.statusCode === 404 || res.statusCode === 405)) {
+            // Custom endpoint might not have /models - treat as success if reachable
+            resolve({
+              success: true,
+              message: `${providerName} reachable (${res.statusCode} on /models endpoint)`,
+              details: {
+                provider: 'custom',
                 latencyMs,
               },
             });
@@ -521,12 +557,12 @@ export async function validateOpenAIApiKey(
               const errorData = JSON.parse(data);
               resolve({
                 success: false,
-                message: errorData.error?.message || `API error: ${res.statusCode}`,
+                message: errorData.error?.message || `${providerName} error: ${res.statusCode}`,
               });
             } catch {
               resolve({
                 success: false,
-                message: `API error: ${res.statusCode}`,
+                message: `${providerName} error: ${res.statusCode}`,
               });
             }
           }
@@ -534,17 +570,19 @@ export async function validateOpenAIApiKey(
       });
 
       req.on('error', (error: Error) => {
+        const target = baseUrl ? `custom endpoint (${hostname})` : 'OpenAI API';
         resolve({
           success: false,
-          message: `Connection error: ${error.message}`,
+          message: `Cannot connect to ${target}: ${error.message}`,
         });
       });
 
       req.on('timeout', () => {
         req.destroy();
+        const target = baseUrl ? `custom endpoint (${hostname})` : 'OpenAI API';
         resolve({
           success: false,
-          message: 'Connection timeout. Please check your network connection.',
+          message: `Connection timeout to ${target}. Please check the URL and network.`,
         });
       });
 
@@ -564,10 +602,12 @@ export async function validateOpenAIApiKey(
  * Test the full Graphiti connection (FalkorDB + OpenAI)
  * @param falkorDbUri - FalkorDB URI
  * @param openAiApiKey - OpenAI API key
+ * @param openAiBaseUrl - Optional custom base URL for OpenAI-compatible APIs
  */
 export async function testGraphitiConnection(
   falkorDbUri: string,
-  openAiApiKey: string
+  openAiApiKey: string,
+  openAiBaseUrl?: string
 ): Promise<{
   falkordb: GraphitiValidationResult;
   openai: GraphitiValidationResult;
@@ -575,7 +615,7 @@ export async function testGraphitiConnection(
 }> {
   const [falkordb, openai] = await Promise.all([
     validateFalkorDBConnection(falkorDbUri),
-    validateOpenAIApiKey(openAiApiKey),
+    validateOpenAIApiKey(openAiApiKey, openAiBaseUrl),
   ]);
 
   return {

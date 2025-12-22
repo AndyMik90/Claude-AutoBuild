@@ -25,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '../ui/select';
-import { useSettingsStore } from '../../stores/settings-store';
-import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
+import { useSettingsStore } from '@/stores/settings-store';
+import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '@shared/types';
 
 interface GraphitiStepProps {
   onNext: () => void;
@@ -70,6 +70,7 @@ interface GraphitiConfig {
   embeddingProvider: GraphitiEmbeddingProvider;
   // OpenAI
   openaiApiKey: string;
+  openaiBaseUrl: string;
   // Anthropic
   anthropicApiKey: string;
   // Azure OpenAI
@@ -110,6 +111,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     llmProvider: 'openai',
     embeddingProvider: 'openai',
     openaiApiKey: settings.globalOpenAIApiKey || '',
+    openaiBaseUrl: settings.globalOpenAIBaseUrl || '',
     anthropicApiKey: settings.globalAnthropicApiKey || '',
     azureOpenaiApiKey: '',
     azureOpenaiBaseUrl: '',
@@ -230,10 +232,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       // For now, use the existing OpenAI validation - this will be expanded
       const apiKey = config.llmProvider === 'openai' ? config.openaiApiKey :
                      config.embeddingProvider === 'openai' ? config.openaiApiKey : '';
+      const baseUrl = config.openaiBaseUrl.trim() || undefined;
 
       const result = await window.electronAPI.testGraphitiConnection(
         config.falkorDbUri,
-        apiKey.trim()
+        apiKey.trim(),
+        baseUrl
       );
 
       if (result?.success && result?.data) {
@@ -298,6 +302,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       if (config.openaiApiKey.trim()) {
         settingsToSave.globalOpenAIApiKey = config.openaiApiKey.trim();
       }
+      if (config.openaiBaseUrl.trim()) {
+        settingsToSave.globalOpenAIBaseUrl = config.openaiBaseUrl.trim();
+      }
       if (config.anthropicApiKey.trim()) {
         settingsToSave.globalAnthropicApiKey = config.anthropicApiKey.trim();
       }
@@ -315,8 +322,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
       if (result?.success) {
         // Update local settings store with API key settings
-        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalAnthropicApiKey' | 'globalGoogleApiKey' | 'globalGroqApiKey' | 'ollamaBaseUrl'>> = {};
+        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalOpenAIBaseUrl' | 'globalAnthropicApiKey' | 'globalGoogleApiKey' | 'globalGroqApiKey' | 'ollamaBaseUrl'>> = {};
         if (config.openaiApiKey.trim()) storeUpdate.globalOpenAIApiKey = config.openaiApiKey.trim();
+        if (config.openaiBaseUrl.trim()) storeUpdate.globalOpenAIBaseUrl = config.openaiBaseUrl.trim();
         if (config.anthropicApiKey.trim()) storeUpdate.globalAnthropicApiKey = config.anthropicApiKey.trim();
         if (config.googleApiKey.trim()) storeUpdate.globalGoogleApiKey = config.googleApiKey.trim();
         if (config.groqApiKey.trim()) storeUpdate.globalGroqApiKey = config.groqApiKey.trim();
@@ -407,6 +415,29 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
                 OpenAI
               </a>
+            </p>
+          </div>
+        )}
+
+        {/* OpenAI Base URL (optional) */}
+        {needsOpenAI && (
+          <div className="space-y-2">
+            <Label htmlFor="openai-base-url" className="text-sm font-medium text-foreground">
+              OpenAI Base URL <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="openai-base-url"
+              type="text"
+              value={config.openaiBaseUrl}
+              onChange={(e) => {
+                setConfig(prev => ({ ...prev, openaiBaseUrl: e.target.value }));
+              }}
+              placeholder="https://api.openai.com/v1"
+              className="font-mono text-sm"
+              disabled={isSaving || isValidating}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty for default OpenAI API. Set for OpenAI-compatible APIs (e.g., Azure, local proxies).
             </p>
           </div>
         )}

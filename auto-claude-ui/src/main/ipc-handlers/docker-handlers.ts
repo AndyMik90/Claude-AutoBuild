@@ -136,14 +136,15 @@ export function registerDockerHandlers(): void {
     async (
       _,
       falkorDbUri: string,
-      openAiApiKey: string
+      openAiApiKey: string,
+      openAiBaseUrl?: string
     ): Promise<IPCResult<{
       falkordb: GraphitiValidationResult;
       openai: GraphitiValidationResult;
       ready: boolean;
     }>> => {
       try {
-        const result = await testGraphitiConnection(falkorDbUri, openAiApiKey);
+        const result = await testGraphitiConnection(falkorDbUri, openAiApiKey, openAiBaseUrl);
         return { success: true, data: result };
       } catch (error) {
         return {

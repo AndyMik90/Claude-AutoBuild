@@ -76,6 +76,7 @@ export function registerEnvHandlers(
       if (pc.embeddingProvider) existingVars['GRAPHITI_EMBEDDER_PROVIDER'] = pc.embeddingProvider;
       // OpenAI
       if (pc.openaiApiKey) existingVars['OPENAI_API_KEY'] = pc.openaiApiKey;
+      if (pc.openaiBaseUrl) existingVars['OPENAI_BASE_URL'] = pc.openaiBaseUrl;
       if (pc.openaiModel) existingVars['OPENAI_MODEL'] = pc.openaiModel;
       if (pc.openaiEmbeddingModel) existingVars['OPENAI_EMBEDDING_MODEL'] = pc.openaiEmbeddingModel;
       // Anthropic
@@ -172,6 +173,7 @@ ${existingVars['GRAPHITI_EMBEDDER_PROVIDER'] ? `GRAPHITI_EMBEDDER_PROVIDER=${exi
 
 # OpenAI Settings
 ${existingVars['OPENAI_API_KEY'] ? `OPENAI_API_KEY=${existingVars['OPENAI_API_KEY']}` : '# OPENAI_API_KEY='}
+${existingVars['OPENAI_BASE_URL'] ? `OPENAI_BASE_URL=${existingVars['OPENAI_BASE_URL']}` : '# OPENAI_BASE_URL='}
 ${existingVars['OPENAI_MODEL'] ? `OPENAI_MODEL=${existingVars['OPENAI_MODEL']}` : '# OPENAI_MODEL=gpt-4o-mini'}
 ${existingVars['OPENAI_EMBEDDING_MODEL'] ? `OPENAI_EMBEDDING_MODEL=${existingVars['OPENAI_EMBEDDING_MODEL']}` : '# OPENAI_EMBEDDING_MODEL=text-embedding-3-small'}
 
@@ -343,6 +345,7 @@ ${existingVars['GRAPHITI_DATABASE'] ? `GRAPHITI_DATABASE=${existingVars['GRAPHIT
           embeddingProvider: (embeddingProvider as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'huggingface') || 'openai',
           // OpenAI
           openaiApiKey: vars['OPENAI_API_KEY'],
+          openaiBaseUrl: vars['OPENAI_BASE_URL'] || globalSettings.globalOpenAIBaseUrl,
           openaiModel: vars['OPENAI_MODEL'],
           openaiEmbeddingModel: vars['OPENAI_EMBEDDING_MODEL'],
           // Anthropic

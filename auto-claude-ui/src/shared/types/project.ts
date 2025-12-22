@@ -205,6 +205,7 @@ export interface GraphitiProviderConfig {
 
   // OpenAI settings
   openaiApiKey?: string;
+  openaiBaseUrl?: string;  // Custom base URL for OpenAI-compatible APIs
   openaiModel?: string;
   openaiEmbeddingModel?: string;
 

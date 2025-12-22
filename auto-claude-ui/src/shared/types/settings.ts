@@ -86,6 +86,7 @@ export interface AppSettings {
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken?: string;
   globalOpenAIApiKey?: string;
+  globalOpenAIBaseUrl?: string;
   globalAnthropicApiKey?: string;
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;

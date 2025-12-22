@@ -291,7 +291,8 @@ export interface ElectronAPI {
   validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
   testGraphitiConnection: (
     falkorDbUri: string,
-    openAiApiKey: string
+    openAiApiKey: string,
+    openAiBaseUrl?: string
   ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
   // Linear integration operations
