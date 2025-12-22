@@ -68,6 +68,7 @@ export function App() {
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
+  const openProjectIds = useProjectStore((state) => state.openProjectIds);
   const openProjectTab = useProjectStore((state) => state.openProjectTab);
   const closeProjectTab = useProjectStore((state) => state.closeProjectTab);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
@@ -121,32 +122,50 @@ export function App() {
 
   // Restore tab state and open tabs for loaded projects
   useEffect(() => {
+    console.log('[App] Tab restore useEffect triggered:', {
+      projectsCount: projects.length,
+      openProjectIds,
+      activeProjectId,
+      selectedProjectId,
+      projectTabsCount: projectTabs.length,
+      projectTabIds: projectTabs.map(p => p.id)
+    });
+
     if (projects.length > 0) {
-      // If no tabs are open at all, open the first available project
-      if (projectTabs.length === 0) {
+      // Check openProjectIds (persisted state) instead of projectTabs (computed)
+      // to avoid race condition where projectTabs is empty before projects load
+      if (openProjectIds.length === 0) {
+        // No tabs persisted at all, open the first available project
         const projectToOpen = activeProjectId || selectedProjectId || projects[0].id;
+        console.log('[App] No tabs persisted, opening project:', projectToOpen);
         // Verify the project exists before opening
         if (projects.some(p => p.id === projectToOpen)) {
           openProjectTab(projectToOpen);
           setActiveProject(projectToOpen);
         } else {
           // Fallback to first project if stored IDs are invalid
+          console.log('[App] Project not found, falling back to first project:', projects[0].id);
           openProjectTab(projects[0].id);
           setActiveProject(projects[0].id);
         }
         return;
       }
+      console.log('[App] Tabs already persisted, checking active project');
       // If there's an active project but no tabs open for it, open a tab
       if (activeProjectId && !projectTabs.some(tab => tab.id === activeProjectId)) {
+        console.log('[App] Active project has no tab, opening:', activeProjectId);
         openProjectTab(activeProjectId);
       }
       // If there's a selected project but no active project, make it active
       else if (selectedProjectId && !activeProjectId) {
+        console.log('[App] No active project, using selected:', selectedProjectId);
         setActiveProject(selectedProjectId);
         openProjectTab(selectedProjectId);
+      } else {
+        console.log('[App] Tab state is valid, no action needed');
       }
     }
-  }, [projects, activeProjectId, selectedProjectId, projectTabs, openProjectTab, setActiveProject]);
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, projectTabs, openProjectTab, setActiveProject]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);

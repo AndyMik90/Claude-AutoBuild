@@ -13,6 +13,10 @@ export const IPC_CHANNELS = {
   PROJECT_UPDATE_AUTOBUILD: 'project:updateAutoBuild',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
 
+  // Tab state operations (persisted in main process)
+  TAB_STATE_GET: 'tabState:get',
+  TAB_STATE_SAVE: 'tabState:save',
+
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
@@ -192,6 +196,9 @@ export const IPC_CHANNELS = {
   GITHUB_LIST_USER_REPOS: 'github:listUserRepos',
   GITHUB_DETECT_REPO: 'github:detectRepo',
   GITHUB_GET_BRANCHES: 'github:getBranches',
+  GITHUB_CREATE_REPO: 'github:createRepo',
+  GITHUB_ADD_REMOTE: 'github:addRemote',
+  GITHUB_LIST_ORGS: 'github:listOrgs',
 
   // GitHub events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',

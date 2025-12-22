@@ -339,3 +339,4 @@ export class LogService {
 
 // Singleton instance
 export const logService = new LogService();
+

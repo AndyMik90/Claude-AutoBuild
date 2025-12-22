@@ -14,6 +14,13 @@ import type {
   GitStatus
 } from '../../shared/types';
 
+// Tab state interface (persisted in main process)
+export interface TabState {
+  openProjectIds: string[];
+  activeProjectId: string | null;
+  tabOrder: string[];
+}
+
 export interface ProjectAPI {
   // Project Management
   addProject: (projectPath: string) => Promise<IPCResult<Project>>;
@@ -26,6 +33,10 @@ export interface ProjectAPI {
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+
+  // Tab State (persisted in main process for reliability)
+  getTabState: () => Promise<IPCResult<TabState>>;
+  saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
   // Context Operations
   getProjectContext: (projectId: string) => Promise<IPCResult<unknown>>;
@@ -131,6 +142,13 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),
+
+  // Tab State (persisted in main process for reliability)
+  getTabState: (): Promise<IPCResult<TabState>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TAB_STATE_GET),
+
+  saveTabState: (tabState: TabState): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TAB_STATE_SAVE, tabState),
 
   // Context Operations
   getProjectContext: (projectId: string) =>

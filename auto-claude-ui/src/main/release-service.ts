@@ -786,3 +786,4 @@ export class ReleaseService extends EventEmitter {
 
 // Export singleton instance
 export const releaseService = new ReleaseService();
+
