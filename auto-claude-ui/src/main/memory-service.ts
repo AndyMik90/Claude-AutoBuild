@@ -11,6 +11,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { app } from 'electron';
 import { findPythonCommand, parsePythonCommand } from './python-detector';
 import type { MemoryEpisode } from '../shared/types';
 
@@ -94,6 +95,8 @@ function getQueryScriptPath(): string | null {
   const possiblePaths = [
     // Dev mode: from dist/main -> ../../auto-claude
     path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'query_memory.py'),
+    // Packaged app: from app.getAppPath() (handles asar and resources correctly)
+    path.resolve(app.getAppPath(), '..', 'auto-claude', 'query_memory.py'),
     // Alternative: from app root
     path.resolve(process.cwd(), 'auto-claude', 'query_memory.py'),
     // If running from repo root

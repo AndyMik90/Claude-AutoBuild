@@ -67,10 +67,10 @@ export function GitHubSetupModal({
   const [isLoadingRepo, setIsLoadingRepo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when modal opens
+  // Reset state and check existing auth when modal opens
   useEffect(() => {
     if (open) {
-      setStep('github-auth');
+      // Reset all state first
       setGithubToken(null);
       setGithubRepo(null);
       setDetectedRepo(null);
@@ -78,6 +78,47 @@ export function GitHubSetupModal({
       setSelectedBranch(null);
       setRecommendedBranch(null);
       setError(null);
+
+      // Check for existing authentication and skip to appropriate step
+      const checkExistingAuth = async () => {
+        try {
+          // Check for existing GitHub token
+          const ghTokenResult = await window.electronAPI.getGitHubToken();
+          const hasGitHubAuth = ghTokenResult.success && ghTokenResult.data?.token;
+
+          // Check for existing Claude authentication
+          const profilesResult = await window.electronAPI.getClaudeProfiles();
+          let hasClaudeAuth = false;
+          if (profilesResult.success && profilesResult.data) {
+            const activeProfile = profilesResult.data.profiles.find(
+              (p) => p.id === profilesResult.data!.activeProfileId
+            );
+            hasClaudeAuth = !!(activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir));
+          }
+
+          // Determine starting step based on existing auth
+          if (hasGitHubAuth && hasClaudeAuth) {
+            // Both authenticated, go directly to repo detection
+            setGithubToken(ghTokenResult.data!.token);
+            // detectRepository will be called and set the step
+            setStep('repo'); // Temporary, detectRepository will update
+            await detectRepository();
+          } else if (hasGitHubAuth) {
+            // Only GitHub authenticated, go to Claude auth
+            setGithubToken(ghTokenResult.data!.token);
+            setStep('claude-auth');
+          } else {
+            // No auth, start from beginning
+            setStep('github-auth');
+          }
+        } catch (err) {
+          console.error('Failed to check existing auth:', err);
+          // On error, start from beginning
+          setStep('github-auth');
+        }
+      };
+
+      checkExistingAuth();
     }
   }, [open]);
 
@@ -146,7 +187,27 @@ export function GitHubSetupModal({
   // Handle GitHub OAuth success
   const handleGitHubAuthSuccess = async (token: string) => {
     setGithubToken(token);
-    // Move to Claude auth step
+
+    // Check if Claude is already authenticated before showing auth step
+    try {
+      const profilesResult = await window.electronAPI.getClaudeProfiles();
+      if (profilesResult.success && profilesResult.data) {
+        const activeProfile = profilesResult.data.profiles.find(
+          (p) => p.id === profilesResult.data!.activeProfileId
+        );
+        // Check if active profile has authentication (oauthToken or default with configDir)
+        if (activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir)) {
+          // Already authenticated, skip Claude auth and go directly to repo detection
+          await detectRepository();
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check Claude profiles:', err);
+      // On error, fall through to show Claude auth step
+    }
+
+    // Not authenticated, show Claude auth step
     setStep('claude-auth');
   };
 

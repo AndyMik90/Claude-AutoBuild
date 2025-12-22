@@ -458,7 +458,9 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
                   Stored in ~/.auto-claude/memories/
                 </p>
               </div>
-              <CheckCircle2 className="h-4 w-4 text-success ml-auto" />
+              {kuzuAvailable && (
+                <CheckCircle2 className="h-4 w-4 text-success ml-auto" />
+              )}
             </div>
 
             {/* Embedding Provider Selection */}
