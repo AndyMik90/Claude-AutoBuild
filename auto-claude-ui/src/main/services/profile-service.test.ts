@@ -10,7 +10,8 @@ import {
   validateApiKey,
   validateProfileNameUnique,
   createProfile,
-  updateProfile
+  updateProfile,
+  getAPIProfileEnv
 } from './profile-service';
 import type { APIProfile, ProfilesFile } from '../../shared/types/profile';
 
@@ -461,6 +462,241 @@ describe('profile-service', () => {
       };
 
       await expect(updateProfile(input)).rejects.toThrow('Profile not found');
+    });
+  });
+
+  describe('getAPIProfileEnv', () => {
+    it('should return empty object when no active profile (OAuth mode)', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-key-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: null, // No active profile = OAuth mode
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+      expect(result).toEqual({});
+    });
+
+    it('should return empty object when activeProfileId is empty string', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-key-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: '',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+      expect(result).toEqual({});
+    });
+
+    it('should return correct env vars for active profile with all fields', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: 'https://api.custom.com',
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: 'claude-3-5-sonnet-20241022',
+              haiku: 'claude-3-5-haiku-20241022',
+              sonnet: 'claude-3-5-sonnet-20241022',
+              opus: 'claude-3-5-opus-20241022'
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.custom.com',
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
+        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+      });
+    });
+
+    it('should filter out empty string values', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: '',
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: 'claude-3-5-sonnet-20241022',
+              haiku: '',
+              sonnet: ''
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      // Empty baseUrl should be filtered out
+      expect(result).not.toHaveProperty('ANTHROPIC_BASE_URL');
+      // Empty model values should be filtered out
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
+      // Non-empty values should be present
+      expect(result).toEqual({
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
+        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
+      });
+    });
+
+    it('should handle missing models object', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-key-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+            // No models property
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.example.com',
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
+      });
+      expect(result).not.toHaveProperty('ANTHROPIC_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_OPUS_MODEL');
+    });
+
+    it('should handle partial model configurations', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Test Profile',
+            baseUrl: 'https://api.example.com',
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: 'claude-3-5-sonnet-20241022'
+              // Only default model set
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.example.com',
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
+        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
+      });
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
+      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_OPUS_MODEL');
+    });
+
+    it('should find active profile by id when multiple profiles exist', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Profile One',
+            baseUrl: 'https://api1.example.com',
+            apiKey: 'sk-key-one-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          },
+          {
+            id: 'profile-2',
+            name: 'Profile Two',
+            baseUrl: 'https://api2.example.com',
+            apiKey: 'sk-key-two-12345678',
+            models: { default: 'claude-3-5-sonnet-20241022' },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          },
+          {
+            id: 'profile-3',
+            name: 'Profile Three',
+            baseUrl: 'https://api3.example.com',
+            apiKey: 'sk-key-three-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-2',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('../utils/profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api2.example.com',
+        ANTHROPIC_AUTH_TOKEN: 'sk-key-two-12345678',
+        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
+      });
     });
   });
 });
