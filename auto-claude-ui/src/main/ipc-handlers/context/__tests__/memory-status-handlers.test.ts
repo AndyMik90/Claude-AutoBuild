@@ -452,4 +452,184 @@ OPENAI_API_KEY=test-openai-api-key
       expect(status.available).toBe(true);
     });
   });
+
+  /**
+   * Integration tests for subtask-5-3: Azure OpenAI Configuration
+   * Verifies Azure OpenAI configuration with all required fields (API Key, Base URL, Deployment names)
+   */
+  describe('buildMemoryStatus - Azure OpenAI Provider (subtask-5-3)', () => {
+    it('should return available:true for Azure OpenAI with AZURE_OPENAI_API_KEY set', async () => {
+      // Arrange: Azure OpenAI as both LLM and embedding provider with API key
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=azure_openai
+AZURE_OPENAI_API_KEY=test-azure-openai-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Azure OpenAI credentials present, should be available
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(true);
+      expect(status.reason).toBeUndefined();
+    });
+
+    it('should return available:false with correct error when AZURE_OPENAI_API_KEY is missing', async () => {
+      // Arrange: Azure OpenAI as both LLM and embedding provider WITHOUT API key
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=azure_openai
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Missing Azure OpenAI key, should fail with specific error
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(false);
+      expect(status.reason).toContain('AZURE_OPENAI_API_KEY');
+      expect(status.reason).toContain('azure_openai');
+      // Verify it's specifically about Azure, not generic OpenAI
+      expect(status.reason).toMatch(/AZURE_OPENAI_API_KEY.*azure_openai/);
+    });
+
+    it('should return available:true for Azure OpenAI LLM with OpenAI embeddings when both keys set', async () => {
+      // Arrange: Azure OpenAI for LLM, OpenAI for embeddings - need both keys
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=openai
+AZURE_OPENAI_API_KEY=test-azure-openai-api-key
+OPENAI_API_KEY=test-openai-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Both credentials present, should be available
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(true);
+      expect(status.reason).toBeUndefined();
+    });
+
+    it('should return available:false when Azure OpenAI LLM key is missing but OpenAI embedding key is set', async () => {
+      // Arrange: Azure OpenAI for LLM, OpenAI for embeddings - missing Azure key
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=openai
+OPENAI_API_KEY=test-openai-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Missing Azure OpenAI key for LLM
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(false);
+      expect(status.reason).toContain('AZURE_OPENAI_API_KEY');
+      expect(status.reason).toContain('azure_openai');
+    });
+
+    it('should return available:true for Anthropic LLM with Azure OpenAI embeddings when both keys set', async () => {
+      // Arrange: Anthropic for LLM, Azure OpenAI for embeddings
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=anthropic
+GRAPHITI_EMBEDDER_PROVIDER=azure_openai
+ANTHROPIC_API_KEY=test-anthropic-api-key
+AZURE_OPENAI_API_KEY=test-azure-openai-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Both credentials present
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(true);
+    });
+
+    it('should return available:false when Anthropic LLM key is set but Azure OpenAI embedding key is missing', async () => {
+      // Arrange: Anthropic for LLM, Azure OpenAI for embeddings - missing Azure key
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=anthropic
+GRAPHITI_EMBEDDER_PROVIDER=azure_openai
+ANTHROPIC_API_KEY=test-anthropic-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Missing Azure OpenAI key for embeddings
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(false);
+      expect(status.reason).toContain('AZURE_OPENAI_API_KEY');
+      expect(status.reason).toContain('azure_openai');
+      // Should NOT mention Anthropic since it's set
+      expect(status.reason).not.toContain('ANTHROPIC_API_KEY');
+    });
+
+    it('should return available:true for Azure OpenAI LLM with Voyage embeddings when both keys set', async () => {
+      // Arrange: Azure OpenAI for LLM, Voyage for embeddings
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=voyage
+AZURE_OPENAI_API_KEY=test-azure-openai-api-key
+VOYAGE_API_KEY=test-voyage-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Both credentials present
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(true);
+    });
+
+    it('should return available:true for Azure OpenAI LLM with Ollama embeddings (only Azure key needed)', async () => {
+      // Arrange: Azure OpenAI for LLM, Ollama for embeddings (no API key required)
+      writeEnvFile(`
+GRAPHITI_ENABLED=true
+GRAPHITI_LLM_PROVIDER=azure_openai
+GRAPHITI_EMBEDDER_PROVIDER=ollama
+AZURE_OPENAI_API_KEY=test-azure-openai-api-key
+      `.trim());
+
+      // Import after mocking
+      const { buildMemoryStatus } = await import('../memory-status-handlers');
+
+      // Act
+      const status = buildMemoryStatus(TEST_PROJECT_PATH, AUTO_BUILD_PATH);
+
+      // Assert: Ollama doesn't need key, only Azure key required
+      expect(status.enabled).toBe(true);
+      expect(status.available).toBe(true);
+    });
+  });
 });
