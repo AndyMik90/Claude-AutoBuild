@@ -7,6 +7,9 @@ Detects database models and schemas across different ORMs:
 - JavaScript/TypeScript: Prisma, TypeORM, Drizzle, Mongoose
 """
 
+from __future__ import annotations
+
+
 import re
 from pathlib import Path
 
