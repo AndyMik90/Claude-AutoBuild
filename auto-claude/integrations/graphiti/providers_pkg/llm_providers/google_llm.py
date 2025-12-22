@@ -129,12 +129,11 @@ class GoogleLLMClient:
             try:
                 data = json.loads(response.text)
                 return response_model(**data)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, return raw text
-                logger.warning(
-                    "Failed to parse JSON response from Google AI, returning raw text"
-                )
-                return response.text
+            except json.JSONDecodeError as e:
+                raise ProviderError(
+                    f"Failed to parse structured response from Google AI. "
+                    f"Expected JSON for {response_model.__name__}, got: {response.text[:100]}..."
+                ) from e
         else:
             return response.text
 

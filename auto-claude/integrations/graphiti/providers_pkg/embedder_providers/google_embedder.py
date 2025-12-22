@@ -64,6 +64,17 @@ class GoogleEmbedder:
         self._client = genai.Client(api_key=api_key)
         self._types = types
 
+    def _build_embed_config(self) -> Any:
+        """Build EmbedContentConfig with current settings."""
+        if self.output_dimensionality:
+            return self._types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=self.output_dimensionality,
+            )
+        return self._types.EmbedContentConfig(
+            task_type="RETRIEVAL_DOCUMENT",
+        )
+
     async def create(self, input_data: str | list[str]) -> list[float]:
         """
         Create embeddings for the input data.
@@ -84,20 +95,13 @@ class GoogleEmbedder:
             else:
                 # It might be token IDs, convert to string
                 contents = str(input_data)
+        elif isinstance(input_data, list) and len(input_data) == 0:
+            raise ValueError("Cannot create embedding for empty input list")
         else:
             contents = str(input_data)
 
         # Build config with optional output_dimensionality
-        config = None
-        if self.output_dimensionality:
-            config = self._types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=self.output_dimensionality,
-            )
-        else:
-            config = self._types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-            )
+        config = self._build_embed_config()
 
         # Use async API for better performance
         response = await self._client.aio.models.embed_content(
@@ -120,16 +124,7 @@ class GoogleEmbedder:
             List of embedding vectors
         """
         # Build config with optional output_dimensionality
-        config = None
-        if self.output_dimensionality:
-            config = self._types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=self.output_dimensionality,
-            )
-        else:
-            config = self._types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-            )
+        config = self._build_embed_config()
 
         # Process in batches to avoid rate limits
         batch_size = 100
@@ -172,15 +167,8 @@ def create_google_embedder(config: "GraphitiConfig") -> Any:
     model = config.google_embedding_model or DEFAULT_GOOGLE_EMBEDDING_MODEL
     output_dim = getattr(config, "google_embedding_dim", None)
 
-    # Only pass output_dimensionality if explicitly set (non-zero)
-    if output_dim and output_dim > 0:
-        return GoogleEmbedder(
-            api_key=config.google_api_key,
-            model=model,
-            output_dimensionality=output_dim,
-        )
-    else:
-        return GoogleEmbedder(
-            api_key=config.google_api_key,
-            model=model,
-        )
+    return GoogleEmbedder(
+        api_key=config.google_api_key,
+        model=model,
+        output_dimensionality=output_dim if output_dim and output_dim > 0 else None,
+    )
