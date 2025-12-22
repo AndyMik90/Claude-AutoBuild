@@ -7,7 +7,7 @@ Autonomous coding framework powered by Claude AI. Builds software features throu
 ### 1. Install
 
 ```bash
-cd Apps/backend
+cd apps/backend
 python -m pip install -r requirements.txt
 ```
 

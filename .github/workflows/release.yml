@@ -36,20 +36,20 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd Apps/frontend && npm ci
+        run: cd apps/frontend && npm ci
 
       - name: Build application
-        run: cd Apps/frontend && npm run build
+        run: cd apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd Apps/frontend && npm run package:mac -- --arch=x64
+        run: cd apps/frontend && npm run package:mac -- --arch=x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
 
       - name: Package macOS (Apple Silicon)
-        run: cd Apps/frontend && npm run package:mac -- --arch=arm64
+        run: cd apps/frontend && npm run package:mac -- --arch=arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -65,7 +65,7 @@ jobs:
             echo "Skipping notarization: APPLE_ID not configured"
             exit 0
           fi
-          cd Apps/frontend
+          cd apps/frontend
           for dmg in dist/*.dmg; do
             echo "Notarizing $dmg..."
             xcrun notarytool submit "$dmg" \
@@ -82,8 +82,8 @@ jobs:
         with:
           name: macos-intel-builds
           path: |
-            Apps/frontend/dist/*.dmg
-            Apps/frontend/dist/*.zip
+            apps/frontend/dist/*.dmg
+            apps/frontend/dist/*.zip
 
   # Apple Silicon build on ARM64 runner for native compilation
   build-macos-arm64:
@@ -107,13 +107,13 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd Apps/frontend && npm ci
+        run: cd apps/frontend && npm ci
 
       - name: Build application
-        run: cd Apps/frontend && npm run build
+        run: cd apps/frontend && npm run build
 
       - name: Package macOS (Apple Silicon)
-        run: cd Apps/frontend && npm run package:mac -- --arch=arm64
+        run: cd apps/frontend && npm run package:mac -- --arch=arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -129,7 +129,7 @@ jobs:
             echo "Skipping notarization: APPLE_ID not configured"
             exit 0
           fi
-          cd Apps/frontend
+          cd apps/frontend
           for dmg in dist/*.dmg; do
             echo "Notarizing $dmg..."
             xcrun notarytool submit "$dmg" \
@@ -146,8 +146,8 @@ jobs:
         with:
           name: macos-arm64-builds
           path: |
-            Apps/frontend/dist/*.dmg
-            Apps/frontend/dist/*.zip
+            apps/frontend/dist/*.dmg
+            apps/frontend/dist/*.zip
 
   build-windows:
     runs-on: windows-latest
@@ -171,13 +171,13 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd Apps/frontend && npm ci
+        run: cd apps/frontend && npm ci
 
       - name: Build application
-        run: cd Apps/frontend && npm run build
+        run: cd apps/frontend && npm run build
 
       - name: Package Windows
-        run: cd Apps/frontend && npm run package:win
+        run: cd apps/frontend && npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
@@ -188,7 +188,7 @@ jobs:
         with:
           name: windows-builds
           path: |
-            Apps/frontend/dist/*.exe
+            apps/frontend/dist/*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -211,13 +211,13 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: cd Apps/frontend && npm ci
+        run: cd apps/frontend && npm ci
 
       - name: Build application
-        run: cd Apps/frontend && npm run build
+        run: cd apps/frontend && npm run build
 
       - name: Package Linux
-        run: cd Apps/frontend && npm run package:linux
+        run: cd apps/frontend && npm run package:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -226,8 +226,8 @@ jobs:
         with:
           name: linux-builds
           path: |
-            Apps/frontend/dist/*.AppImage
-            Apps/frontend/dist/*.deb
+            apps/frontend/dist/*.AppImage
+            apps/frontend/dist/*.deb
 
   create-release:
     needs: [build-macos-intel, build-macos-arm64, build-windows, build-linux]

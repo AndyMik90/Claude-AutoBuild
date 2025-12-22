@@ -26,7 +26,7 @@ npm --version   # Should output: 11.x.x or higher
 
 ```bash
 # Navigate to frontend directory
-cd Apps/frontend
+cd apps/frontend
 
 # Install dependencies (includes native module rebuild)
 npm install

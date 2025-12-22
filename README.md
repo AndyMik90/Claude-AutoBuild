@@ -87,7 +87,7 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 
 ```
 Auto-Claude/
-├── Apps/
+├── apps/
 │   ├── backend/     # Python agents, specs, QA pipeline
 │   └── frontend/    # Electron desktop application
 ├── guides/          # Additional documentation
@@ -102,7 +102,7 @@ Auto-Claude/
 For headless operation, CI/CD integration, or terminal-only workflows:
 
 ```bash
-cd Apps/backend
+cd apps/backend
 
 # Create a spec interactively
 python spec_runner.py --interactive
@@ -121,10 +121,10 @@ See [guides/CLI-USAGE.md](guides/CLI-USAGE.md) for complete CLI documentation.
 
 ## Configuration
 
-Create `Apps/backend/.env` from the example:
+Create `apps/backend/.env` from the example:
 
 ```bash
-cp Apps/backend/.env.example Apps/backend/.env
+cp apps/backend/.env.example apps/backend/.env
 ```
 
 | Variable | Required | Description |

@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-# Ensure Apps/backend is in sys.path
+# Ensure apps/backend is in sys.path
 _backend_dir = Path(__file__).parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))

@@ -38,7 +38,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Install node-pty and rebuild for Electron
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         shell: pwsh
         run: |
           # Install only node-pty
@@ -52,7 +52,7 @@ jobs:
           npx @electron/rebuild --version $env:ELECTRON_VERSION --module-dir node_modules/node-pty --arch ${{ matrix.arch }}
 
       - name: Package prebuilt binaries
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         shell: pwsh
         run: |
           $electronAbi = (npx electron-abi $env:ELECTRON_VERSION)
@@ -78,7 +78,7 @@ jobs:
           Get-ChildItem $prebuildDir
 
       - name: Create archive
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         shell: pwsh
         run: |
           $electronAbi = (npx electron-abi $env:ELECTRON_VERSION)
@@ -93,14 +93,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-pty-win32-${{ matrix.arch }}
-          path: Apps/frontend/node-pty-*.zip
+          path: apps/frontend/node-pty-*.zip
           retention-days: 90
 
       - name: Upload to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: Apps/frontend/node-pty-*.zip
+          files: apps/frontend/node-pty-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

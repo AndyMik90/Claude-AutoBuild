@@ -62,7 +62,7 @@ lerna-debug.log*
 .update-metadata.json
 
 # ===========================
-# Python (Apps/backend)
+# Python (apps/backend)
 # ===========================
 __pycache__/
 *.py[cod]
@@ -104,7 +104,7 @@ dmypy.json
 .pyre/
 
 # ===========================
-# Node.js (Apps/frontend)
+# Node.js (apps/frontend)
 # ===========================
 node_modules/
 .npm
@@ -126,8 +126,8 @@ out/
 # ===========================
 # Electron
 # ===========================
-Apps/frontend/dist/
-Apps/frontend/out/
+apps/frontend/dist/
+apps/frontend/out/
 *.asar
 *.blockmap
 *.snap

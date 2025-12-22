@@ -14,20 +14,20 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 npm run install:all
 
 # Or install separately:
-# Backend (from Apps/backend/)
-cd Apps/backend && uv venv && uv pip install -r requirements.txt
+# Backend (from apps/backend/)
+cd apps/backend && uv venv && uv pip install -r requirements.txt
 
-# Frontend (from Apps/frontend/)
-cd Apps/frontend && npm install
+# Frontend (from apps/frontend/)
+cd apps/frontend && npm install
 
 # Set up OAuth token
 claude setup-token
-# Add to Apps/backend/.env: CLAUDE_CODE_OAUTH_TOKEN=your-token
+# Add to apps/backend/.env: CLAUDE_CODE_OAUTH_TOKEN=your-token
 ```
 
 ### Creating and Running Specs
 ```bash
-cd Apps/backend
+cd apps/backend
 
 # Create a spec interactively
 python spec_runner.py --interactive
@@ -47,7 +47,7 @@ python run.py --list
 
 ### Workspace Management
 ```bash
-cd Apps/backend
+cd apps/backend
 
 # Review changes in isolated worktree
 python run.py --spec 001 --review
@@ -61,7 +61,7 @@ python run.py --spec 001 --discard
 
 ### QA Validation
 ```bash
-cd Apps/backend
+cd apps/backend
 
 # Run QA manually
 python run.py --spec 001 --qa
@@ -73,19 +73,19 @@ python run.py --spec 001 --qa-status
 ### Testing
 ```bash
 # Install test dependencies (required first time)
-cd Apps/backend && uv pip install -r ../../tests/requirements-test.txt
+cd apps/backend && uv pip install -r ../../tests/requirements-test.txt
 
 # Run all tests (use virtual environment pytest)
-Apps/backend/.venv/bin/pytest tests/ -v
+apps/backend/.venv/bin/pytest tests/ -v
 
 # Run single test file
-Apps/backend/.venv/bin/pytest tests/test_security.py -v
+apps/backend/.venv/bin/pytest tests/test_security.py -v
 
 # Run specific test
-Apps/backend/.venv/bin/pytest tests/test_security.py::test_bash_command_validation -v
+apps/backend/.venv/bin/pytest tests/test_security.py::test_bash_command_validation -v
 
 # Skip slow tests
-Apps/backend/.venv/bin/pytest tests/ -m "not slow"
+apps/backend/.venv/bin/pytest tests/ -m "not slow"
 
 # Or from root
 npm run test:backend
@@ -93,7 +93,7 @@ npm run test:backend
 
 ### Spec Validation
 ```bash
-python Apps/backend/validate_spec.py --spec-dir Apps/backend/specs/001-feature --checkpoint all
+python apps/backend/validate_spec.py --spec-dir apps/backend/specs/001-feature --checkpoint all
 ```
 
 ### Releases
@@ -126,7 +126,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 3. QA Reviewer validates acceptance criteria
 4. QA Fixer resolves issues in a loop
 
-### Key Components (Apps/backend/)
+### Key Components (apps/backend/)
 
 - **client.py** - Claude SDK client with security hooks and tool permissions
 - **security.py** + **project_analyzer.py** - Dynamic command allowlisting based on detected project stack
@@ -137,7 +137,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 - **graphiti_config.py** - Configuration and validation for Graphiti integration
 - **linear_updater.py** - Optional Linear integration for progress tracking
 
-### Agent Prompts (Apps/backend/prompts/)
+### Agent Prompts (apps/backend/prompts/)
 
 | Prompt | Purpose |
 |--------|---------|
@@ -222,7 +222,7 @@ Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
 
 ```
 auto-claude/
-├── Apps/
+├── apps/
 │   ├── backend/           # Python backend/CLI (the framework code)
 │   └── frontend/          # Electron desktop UI
 ├── guides/                # Documentation
@@ -232,7 +232,7 @@ auto-claude/
 
 **As a standalone CLI tool**:
 ```bash
-cd Apps/backend
+cd apps/backend
 python run.py --spec 001
 ```
 

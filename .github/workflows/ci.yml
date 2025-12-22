@@ -29,25 +29,25 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
-        working-directory: Apps/backend
+        working-directory: apps/backend
         run: |
           uv venv
           uv pip install -r requirements.txt
           uv pip install -r ../../tests/requirements-test.txt
 
       - name: Run tests
-        working-directory: Apps/backend
+        working-directory: apps/backend
         env:
-          PYTHONPATH: ${{ github.workspace }}/Apps/backend
+          PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
           pytest ../../tests/ -v --tb=short -x
 
       - name: Run tests with coverage
         if: matrix.python-version == '3.12'
-        working-directory: Apps/backend
+        working-directory: apps/backend
         env:
-          PYTHONPATH: ${{ github.workspace }}/Apps/backend
+          PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
           pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
@@ -56,7 +56,7 @@ jobs:
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
-          file: ./Apps/backend/coverage.xml
+          file: ./apps/backend/coverage.xml
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -84,21 +84,21 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         run: npm ci --ignore-scripts
 
       - name: Lint
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         run: npm run lint
 
       - name: Type check
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         run: npm run typecheck
 
       - name: Run tests
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         run: npm run test
 
       - name: Build
-        working-directory: Apps/frontend
+        working-directory: apps/frontend
         run: npm run build

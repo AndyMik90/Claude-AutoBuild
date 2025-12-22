@@ -1,39 +1,39 @@
 repos:
-  # Python linting (Apps/backend/)
+  # Python linting (apps/backend/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.3
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^Apps/backend/
+        files: ^apps/backend/
       - id: ruff-format
-        files: ^Apps/backend/
+        files: ^apps/backend/
 
-  # Python tests (Apps/backend/) - skip slow/integration tests for pre-commit speed
+  # Python tests (apps/backend/) - skip slow/integration tests for pre-commit speed
   - repo: local
     hooks:
       - id: pytest
         name: Python Tests
-        entry: bash -c 'cd Apps/backend && PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" --ignore=../../tests/test_graphiti.py'
+        entry: bash -c 'cd apps/backend && PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" --ignore=../../tests/test_graphiti.py'
         language: system
-        files: ^(Apps/backend/.*\.py$|tests/.*\.py$)
+        files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false
 
-  # Frontend linting (Apps/frontend/)
+  # Frontend linting (apps/frontend/)
   - repo: local
     hooks:
       - id: eslint
         name: ESLint
-        entry: bash -c 'cd Apps/frontend && npm run lint'
+        entry: bash -c 'cd apps/frontend && npm run lint'
         language: system
-        files: ^Apps/frontend/.*\.(ts|tsx|js|jsx)$
+        files: ^apps/frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
 
       - id: typecheck
         name: TypeScript Check
-        entry: bash -c 'cd Apps/frontend && npm run typecheck'
+        entry: bash -c 'cd apps/frontend && npm run typecheck'
         language: system
-        files: ^Apps/frontend/.*\.(ts|tsx)$
+        files: ^apps/frontend/.*\.(ts|tsx)$
         pass_filenames: false
 
   # General checks
