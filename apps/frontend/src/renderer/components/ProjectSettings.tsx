@@ -304,7 +304,7 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
         onOpenChange={setShowLinearImportModal}
         onImportComplete={(result) => {
           // Optionally refresh or notify
-          console.warn('Import complete:', result);
+          console.log('Import complete:', result);
         }}
       />
     </Dialog>

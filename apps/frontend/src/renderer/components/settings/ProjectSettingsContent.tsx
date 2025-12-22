@@ -158,10 +158,10 @@ function ProjectSettingsContentInner({
         projectId={project.id}
         open={showLinearImportModal}
         onOpenChange={setShowLinearImportModal}
-        onImportComplete={(result) => {
+        onImportComplete={async (result) => {
           // Refresh task list to show imported tasks (even on partial success)
           if (result.imported > 0) {
-            loadTasks(project.id);
+            await loadTasks(project.id);
           }
         }}
       />
