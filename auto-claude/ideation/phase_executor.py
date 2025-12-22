@@ -612,6 +612,8 @@ Output your ideas to {output_file.name}.
                 retries=0,
             )
         except Exception as e:
+            # Catch all exceptions to ensure graceful failure and proper error reporting
+            # The merge phase can fail from OSError, json.JSONDecodeError, KeyError, etc.
             debug_error(
                 "phase_executor",
                 "Merge phase failed",

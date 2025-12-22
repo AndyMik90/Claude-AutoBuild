@@ -992,29 +992,42 @@ test.describe('Ideation Error State Verification (Mock-based)', () => {
 
 // Auth Failure Detection Pattern Tests (subtask-5-3)
 test.describe('Auth Failure Detection Patterns', () => {
-  // These patterns should match what's in rate-limit-detector.ts
+  // These patterns should match what's in rate-limit-detector.ts AUTH_FAILURE_PATTERNS
   const authFailurePatterns = [
     'authentication required',
     'authentication is required',
     'not authenticated',
     'not yet authenticated',
     'login required',
+    'login is required',
     'oauth token invalid',
+    'oauth token is invalid',
     'oauth token expired',
     'oauth token missing',
     'unauthorized',
     'please log in',
+    'please login',
     'please authenticate',
     'invalid credentials',
     'invalid token',
+    'invalid api key',
     'auth failed',
+    'auth error',
+    'auth failure',
+    'authentication failed',
     'authentication error',
+    'authentication failure',
     'session expired',
+    'session invalid',
     'access denied',
     'permission denied',
     '401 unauthorized',
     'credentials missing',
-    'credentials expired'
+    'credentials invalid',
+    'credentials expired',
+    'credentials are missing',
+    'credentials are invalid',
+    'credentials are expired'
   ];
 
   // Rate limit patterns should NOT match auth failure
@@ -1025,26 +1038,25 @@ test.describe('Auth Failure Detection Patterns', () => {
     'usage limit reached'
   ];
 
-  // Helper to simulate detection logic (mirrors rate-limit-detector.ts)
+  // Helper to simulate detection logic (mirrors rate-limit-detector.ts AUTH_FAILURE_PATTERNS exactly)
   function detectsAuthFailure(output: string): boolean {
-    const lowerOutput = output.toLowerCase();
+    // These patterns must match rate-limit-detector.ts AUTH_FAILURE_PATTERNS exactly
     const patterns = [
-      /authentication\s+(is\s+)?required/i,
-      /not\s+(yet\s+)?authenticated/i,
-      /login\s+required/i,
-      /oauth\s+token\s+(is\s+)?(invalid|expired|missing)/i,
-      /\bunauthorized\b/i,
-      /please\s+(log\s+in|authenticate)/i,
-      /invalid\s+(credentials|token)/i,
-      /auth\s+(failed|error)/i,
-      /authentication\s+error/i,
-      /session\s+expired/i,
-      /access\s+denied/i,
-      /permission\s+denied/i,
-      /401\s+unauthorized/i,
-      /credentials\s+(missing|expired)/i
+      /authentication\s*(is\s*)?required/i,
+      /not\s*(yet\s*)?authenticated/i,
+      /login\s*(is\s*)?required/i,
+      /oauth\s*token\s*(is\s*)?(invalid|expired|missing)/i,
+      /unauthorized/i,
+      /please\s*(log\s*in|login|authenticate)/i,
+      /invalid\s*(credentials|token|api\s*key)/i,
+      /auth(entication)?\s*(failed|error|failure)/i,
+      /session\s*(expired|invalid)/i,
+      /access\s*denied/i,
+      /permission\s*denied/i,
+      /401\s*unauthorized/i,
+      /credentials\s*(are\s*)?(missing|invalid|expired)/i
     ];
-    return patterns.some(pattern => pattern.test(lowerOutput));
+    return patterns.some(pattern => pattern.test(output));
   }
 
   test('Auth failure patterns are correctly detected', () => {
@@ -1092,144 +1104,7 @@ Please configure your OAuth token.`;
   });
 });
 
-// EnvConfigModal Display Tests (subtask-5-3)
-test.describe('EnvConfigModal Display Logic', () => {
-  // Test the logic that determines when EnvConfigModal should be shown
-
-  test('Modal should show when hasToken is false and generate is clicked', () => {
-    // Simulate the handleGenerate logic from useIdeation.ts
-    const hasToken = false;
-    let showEnvConfigModal = false;
-    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
-
-    // Simulate handleGenerate
-    if (hasToken === false) {
-      pendingAction = 'generate';
-      showEnvConfigModal = true;
-    }
-
-    expect(showEnvConfigModal).toBe(true);
-    expect(pendingAction).toBe('generate');
-  });
-
-  test('Modal should NOT show when hasToken is true', () => {
-    const hasToken = true;
-    let showEnvConfigModal = false;
-    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
-
-    // Simulate handleGenerate
-    if (hasToken === false) {
-      pendingAction = 'generate';
-      showEnvConfigModal = true;
-    }
-
-    expect(showEnvConfigModal).toBe(false);
-    expect(pendingAction).toBeNull();
-  });
-
-  test('Modal should show for refresh action when token is missing', () => {
-    const hasToken = false;
-    let showEnvConfigModal = false;
-    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
-
-    // Simulate handleRefresh
-    if (hasToken === false) {
-      pendingAction = 'refresh';
-      showEnvConfigModal = true;
-    }
-
-    expect(showEnvConfigModal).toBe(true);
-    expect(pendingAction).toBe('refresh');
-  });
-
-  test('Modal should show for append action when token is missing', () => {
-    const hasToken = false;
-    let showEnvConfigModal = false;
-    let pendingAction: 'generate' | 'refresh' | 'append' | null = null;
-    const typesToAdd = ['code_improvements'];
-
-    // Simulate handleAddMoreIdeas
-    if (typesToAdd.length > 0 && hasToken === false) {
-      pendingAction = 'append';
-      showEnvConfigModal = true;
-    }
-
-    expect(showEnvConfigModal).toBe(true);
-    expect(pendingAction).toBe('append');
-  });
-
-  test('Pending action is cleared after configuration', () => {
-    let pendingAction: 'generate' | 'refresh' | 'append' | null = 'generate';
-
-    // Simulate handleEnvConfigured
-    pendingAction = null;
-
-    expect(pendingAction).toBeNull();
-  });
-});
-
-// Error State Store Tests (subtask-5-3)
-test.describe('Ideation Store Error State Management', () => {
-  // Tests that mirror the error handling in ideation-store.ts
-
-  test('Error state structure is correct', () => {
-    const errorState = {
-      phase: 'error' as const,
-      progress: 0,
-      message: '',
-      error: 'authentication required'
-    };
-
-    expect(errorState.phase).toBe('error');
-    expect(errorState.progress).toBe(0);
-    expect(errorState.message).toBe('');
-    expect(errorState.error).toBe('authentication required');
-  });
-
-  test('Error phase causes progress screen to hide', () => {
-    // This mirrors the condition in Ideation.tsx line 68
-    const generationStatus = { phase: 'error' as const, progress: 0, message: '' };
-
-    // Condition: show progress screen only when NOT idle, complete, or error
-    const showProgressScreen =
-      generationStatus.phase !== 'idle' &&
-      generationStatus.phase !== 'complete' &&
-      generationStatus.phase !== 'error';
-
-    expect(showProgressScreen).toBe(false);
-  });
-
-  test('Generating phase shows progress screen', () => {
-    const generationStatus = { phase: 'generating' as const, progress: 50, message: 'Processing...' };
-
-    const showProgressScreen =
-      generationStatus.phase !== 'idle' &&
-      generationStatus.phase !== 'complete' &&
-      generationStatus.phase !== 'error';
-
-    expect(showProgressScreen).toBe(true);
-  });
-
-  test('Error is added to logs', () => {
-    const logs: string[] = [];
-    const error = 'authentication required';
-
-    // Simulate addLog behavior from onIdeationError
-    logs.push(`Error: ${error}`);
-
-    expect(logs).toContain('Error: authentication required');
-    expect(logs.length).toBe(1);
-  });
-
-  test('Multiple errors accumulate in logs', () => {
-    const logs: string[] = [];
-
-    logs.push('Error: authentication required');
-    logs.push('Error: retry failed');
-    logs.push('Error: process exited with code 1');
-
-    expect(logs.length).toBe(3);
-    expect(logs[0]).toBe('Error: authentication required');
-    expect(logs[2]).toContain('code 1');
-  });
-});
+// Note: EnvConfigModal Display Logic and Ideation Store Error State Management tests
+// have been moved to dedicated unit test files:
+// - auto-claude-ui/src/renderer/__tests__/ideation-store-error-states.test.ts (store tests)
+// - Unit tests should use Vitest and mock the actual components/hooks
