@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -97,6 +97,15 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
   const topLevelTasks = tasks.filter((t) => !t.parentTaskId);
   const taskIds = topLevelTasks.map((t) => t.id);
 
+  // Debug logging
+  if (tasks.length > 0 && status === 'backlog') {
+    console.log(`[KanbanBoard] Column ${status}:`, {
+      totalTasks: tasks.length,
+      topLevelTasks: topLevelTasks.length,
+      tasksWithParent: tasks.filter(t => t.parentTaskId).length
+    });
+  }
+
   // Helper to get children of a task
   const getChildren = (parentId: string): Task[] => {
     return allTasks.filter((t) => t.parentTaskId === parentId);
@@ -108,33 +117,46 @@ function DroppableColumn({ status, tasks, allTasks, onTaskClick, isOver, onAddCl
     const children = getChildren(task.id);
     const hasChildren = children.length > 0;
 
+    // Debug logging for hierarchical tasks
+    if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
+      console.log(`[KanbanBoard] Rendering task ${task.id}:`, {
+        hasChildren: task.hasChildren,
+        childTaskIds: task.childTaskIds,
+        parentTaskId: task.parentTaskId,
+        calculatedChildren: children.length,
+        willShowChevron: hasChildren
+      });
+    }
+
     const elements: JSX.Element[] = [
-      <div key={task.id} className={cn(depth > 0 && 'ml-6')}>
-        <div className="relative">
+      <div key={task.id} className="w-full" style={{ paddingLeft: depth > 0 ? `${depth * 16}px` : 0 }}>
+        <div className="flex items-start gap-1 w-full">
           {/* Expand/collapse button for parent tasks */}
           {hasChildren && (
             <Button
               variant="ghost"
               size="icon"
-              className="absolute -left-6 top-2 h-5 w-5 z-10 hover:bg-primary/10"
+              className="h-6 w-6 mt-3 shrink-0 hover:bg-primary/10 rounded-sm"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleExpand(task.id);
               }}
             >
               {isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-3 w-3" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
             </Button>
           )}
-          <SortableTaskCard
-            key={task.id}
-            task={task}
-            onClick={() => onTaskClick(task)}
-            allTasks={allTasks}
-          />
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick(task)}
+              allTasks={allTasks}
+            />
+          </div>
         </div>
       </div>
     ];
@@ -264,7 +286,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => {
+    // Initialize with all parent tasks expanded by default
+    const initialExpanded = new Set<string>();
+    tasks.forEach(task => {
+      if (task.hasChildren && task.childTaskIds && task.childTaskIds.length > 0) {
+        initialExpanded.add(task.id);
+      }
+    });
+    return initialExpanded;
+  });
 
   const handleToggleExpand = (taskId: string) => {
     setExpandedTasks((prev) => {
@@ -274,9 +305,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
       } else {
         next.add(taskId);
       }
+      console.log('[KanbanBoard] Toggled expand for', taskId, 'expanded:', !prev.has(taskId));
       return next;
     });
   };
+
+  // Auto-expand new parent tasks when they appear
+  useEffect(() => {
+    tasks.forEach(task => {
+      if (task.hasChildren && task.childTaskIds && task.childTaskIds.length > 0) {
+        setExpandedTasks(prev => {
+          if (!prev.has(task.id)) {
+            const next = new Set(prev);
+            next.add(task.id);
+            console.log('[KanbanBoard] Auto-expanding parent task:', task.id);
+            return next;
+          }
+          return prev;
+        });
+      }
+    });
+  }, [tasks]);
 
   // Count archived tasks for display
   const archivedCount = useMemo(() => {

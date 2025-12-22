@@ -1,8 +1,12 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { GripVertical, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { TooltipProvider } from '../ui/tooltip';
-import { calculateProgress } from '../../lib/utils';
+import { calculateProgress, cn } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -17,15 +21,116 @@ import { TaskLogs } from './TaskLogs';
 import { TaskReview } from './TaskReview';
 import type { Task } from '../../../shared/types';
 
+// Panel size constants
+const MIN_WIDTH = 384; // w-96
+const MAX_WIDTH = 900;
+const DEFAULT_WIDTH = 384;
+const EXPANDED_WIDTH = 700;
+const STORAGE_KEY = 'task-detail-panel-width';
+const FONT_SIZE_STORAGE_KEY = 'task-detail-font-size';
+
+// Font size constants
+const MIN_FONT_SIZE = 12;
+const MAX_FONT_SIZE = 20;
+const DEFAULT_FONT_SIZE = 14;
+
 interface TaskDetailPanelProps {
   task: Task;
   onClose: () => void;
+  onSelectTask?: (task: Task) => void;
 }
 
-export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanelProps) {
   const state = useTaskDetail({ task });
   const _progress = calculateProgress(task.subtasks);
   const allTasks = useTaskStore((state) => state.tasks);
+
+  // Panel resize state
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? Math.min(Math.max(parseInt(saved, 10), MIN_WIDTH), MAX_WIDTH) : DEFAULT_WIDTH;
+  });
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  // Font size state
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+    return saved ? Math.min(Math.max(parseInt(saved, 10), MIN_FONT_SIZE), MAX_FONT_SIZE) : DEFAULT_FONT_SIZE;
+  });
+
+  // Save font size to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize.toString());
+  }, [fontSize]);
+
+  // Font size handlers
+  const increaseFontSize = useCallback(() => {
+    setFontSize((prev) => Math.min(prev + 1, MAX_FONT_SIZE));
+  }, []);
+
+  const decreaseFontSize = useCallback(() => {
+    setFontSize((prev) => Math.max(prev - 1, MIN_FONT_SIZE));
+  }, []);
+
+  const resetFontSize = useCallback(() => {
+    setFontSize(DEFAULT_FONT_SIZE);
+  }, []);
+
+  // Save width to localStorage when it changes
+  useEffect(() => {
+    if (!isExpanded) {
+      localStorage.setItem(STORAGE_KEY, panelWidth.toString());
+    }
+  }, [panelWidth, isExpanded]);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeRef.current = {
+      startX: e.clientX,
+      startWidth: panelWidth
+    };
+  }, [panelWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeRef.current) return;
+
+      const delta = resizeRef.current.startX - e.clientX;
+      const newWidth = Math.min(Math.max(resizeRef.current.startWidth + delta, MIN_WIDTH), MAX_WIDTH);
+      setPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeRef.current = null;
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
+  // Toggle expanded mode
+  const handleToggleExpand = useCallback(() => {
+    setIsExpanded((prev) => !prev);
+  }, []);
+
+  // Get current width based on expanded state
+  const currentWidth = isExpanded ? EXPANDED_WIDTH : panelWidth;
 
   // Event Handlers
   const handleStartStop = () => {
@@ -118,7 +223,27 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-full w-96 flex-col bg-card border-l border-border">
+      <div
+        className={cn(
+          "flex h-full flex-col bg-card border-l border-border overflow-hidden relative transition-[width] duration-200",
+          isResizing && "transition-none"
+        )}
+        style={{ width: currentWidth }}
+      >
+        {/* Resize handle */}
+        <div
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize group z-10",
+            "hover:bg-primary/30 active:bg-primary/50",
+            isResizing && "bg-primary/50"
+          )}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-6 w-6 text-muted-foreground" />
+          </div>
+        </div>
+
         {/* Header */}
         <TaskHeader
           task={task}
@@ -126,39 +251,90 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           isIncomplete={state.isIncomplete}
           taskProgress={state.taskProgress}
           isRunning={state.isRunning}
+          isExpanded={isExpanded}
           onClose={onClose}
           onEdit={() => state.setIsEditDialogOpen(true)}
+          onToggleExpand={handleToggleExpand}
         />
 
         <Separator />
 
         {/* Tabs */}
         <Tabs value={state.activeTab} onValueChange={state.setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent p-0 h-auto">
-            <TabsTrigger
-              value="overview"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="subtasks"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
-            >
-              Subtasks ({task.subtasks.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="logs"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
-            >
-              Logs
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between border-b border-border">
+            <TabsList className="justify-start rounded-none bg-transparent p-0 h-auto border-0">
+              <TabsTrigger
+                value="overview"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="subtasks"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+              >
+                Subtasks ({task.subtasks.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="logs"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+              >
+                Logs
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Font Size Controls */}
+            <div className="flex items-center gap-1 pr-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 hover:bg-primary/10"
+                    onClick={decreaseFontSize}
+                    disabled={fontSize <= MIN_FONT_SIZE}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Decrease font size</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-xs font-mono hover:bg-primary/10 min-w-[32px]"
+                    onClick={resetFontSize}
+                  >
+                    {fontSize}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Reset to default ({DEFAULT_FONT_SIZE}px)</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 hover:bg-primary/10"
+                    onClick={increaseFontSize}
+                    disabled={fontSize >= MAX_FONT_SIZE}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Increase font size</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-5">
+            <ScrollArea className="h-full w-full">
+              <div className="p-5 space-y-5 w-full max-w-full overflow-hidden" style={{ fontSize: `${fontSize}px` }}>
                 {/* Warnings */}
                 <TaskWarnings
                   isStuck={state.isStuck}
@@ -186,10 +362,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                   task={task}
                   allTasks={allTasks}
                   onTaskClick={(clickedTask) => {
-                    // For now, just close this panel - user can click the task card to open its detail
-                    // TODO: Add ability to switch between tasks without closing panel
-                    onClose();
-                    // The task click will be handled by the Kanban board
+                    // Switch to the clicked task if onSelectTask is provided
+                    if (onSelectTask) {
+                      onSelectTask(clickedTask);
+                    }
                   }}
                 />
 
@@ -230,7 +406,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
           {/* Subtasks Tab */}
           <TabsContent value="subtasks" className="flex-1 min-h-0 overflow-hidden mt-0">
-            <TaskSubtasks task={task} />
+            <TaskSubtasks task={task} fontSize={fontSize} />
           </TabsContent>
 
           {/* Logs Tab */}
@@ -245,6 +421,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               logsContainerRef={state.logsContainerRef}
               onLogsScroll={state.handleLogsScroll}
               onTogglePhase={state.togglePhase}
+              fontSize={fontSize}
             />
           </TabsContent>
         </Tabs>

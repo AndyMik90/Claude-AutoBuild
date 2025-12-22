@@ -31,12 +31,34 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    console.log('[TaskStore] setTasks called with', tasks.length, 'tasks');
+    tasks.forEach(task => {
+      if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
+        console.log(`[TaskStore] Task ${task.id}:`, {
+          hasChildren: task.hasChildren,
+          childTaskIds: task.childTaskIds,
+          parentTaskId: task.parentTaskId,
+          orderIndex: task.orderIndex
+        });
+      }
+    });
+    set({ tasks });
+  },
 
-  addTask: (task) =>
+  addTask: (task) => {
+    if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
+      console.log(`[TaskStore] addTask ${task.id}:`, {
+        hasChildren: task.hasChildren,
+        childTaskIds: task.childTaskIds,
+        parentTaskId: task.parentTaskId,
+        orderIndex: task.orderIndex
+      });
+    }
     set((state) => ({
       tasks: [...state.tasks, task]
-    })),
+    }));
+  },
 
   updateTask: (taskId, updates) =>
     set((state) => ({

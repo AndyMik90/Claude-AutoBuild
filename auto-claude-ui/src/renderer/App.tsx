@@ -435,7 +435,11 @@ export function App() {
 
         {/* Task detail panel */}
         {selectedTask && (
-          <TaskDetailPanel task={selectedTask} onClose={handleCloseTaskDetail} />
+          <TaskDetailPanel
+            task={selectedTask}
+            onClose={handleCloseTaskDetail}
+            onSelectTask={setSelectedTask}
+          />
         )}
 
         {/* Dialogs */}

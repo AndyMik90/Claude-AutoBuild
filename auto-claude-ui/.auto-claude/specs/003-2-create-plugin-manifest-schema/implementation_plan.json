@@ -23,7 +23,7 @@
             "command": "pnpm list zod semver",
             "expected": "zod and semver packages listed in dependencies"
           },
-          "status": "pending"
+          "status": "completed"
         }
       ]
     },
