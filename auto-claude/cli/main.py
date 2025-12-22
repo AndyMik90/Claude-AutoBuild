@@ -311,7 +311,9 @@ def main() -> None:
     if args.merge_preview:
         from cli.workspace_commands import handle_merge_preview_command
 
-        result = handle_merge_preview_command(project_dir, spec_dir.name)
+        result = handle_merge_preview_command(
+            project_dir, spec_dir.name, base_branch=args.base_branch
+        )
         # Output as JSON for the UI to parse
         import json
 
@@ -320,7 +322,10 @@ def main() -> None:
 
     if args.merge:
         success = handle_merge_command(
-            project_dir, spec_dir.name, no_commit=args.no_commit
+            project_dir,
+            spec_dir.name,
+            no_commit=args.no_commit,
+            base_branch=args.base_branch,
         )
         if not success:
             sys.exit(1)

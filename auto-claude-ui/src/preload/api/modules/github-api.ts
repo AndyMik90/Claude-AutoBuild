@@ -41,9 +41,18 @@ export interface GitHubAPI {
   getGitHubUser: () => Promise<IPCResult<{ username: string; name?: string }>>;
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
 
-  // Repository detection
+  // Repository detection and management
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
+  createGitHubRepo: (
+    repoName: string,
+    options: { description?: string; isPrivate?: boolean; projectPath: string; owner?: string }
+  ) => Promise<IPCResult<{ fullName: string; url: string }>>;
+  addGitRemote: (
+    projectPath: string,
+    repoFullName: string
+  ) => Promise<IPCResult<{ remoteUrl: string }>>;
+  listGitHubOrgs: () => Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>>;
 
   // Event Listeners
   onGitHubInvestigationProgress: (
@@ -113,12 +122,27 @@ export const createGitHubAPI = (): GitHubAPI => ({
   listGitHubUserRepos: (): Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_LIST_USER_REPOS),
 
-  // Repository detection
+  // Repository detection and management
   detectGitHubRepo: (projectPath: string): Promise<IPCResult<string>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_DETECT_REPO, projectPath),
 
   getGitHubBranches: (repo: string, token: string): Promise<IPCResult<string[]>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_GET_BRANCHES, repo, token),
+
+  createGitHubRepo: (
+    repoName: string,
+    options: { description?: string; isPrivate?: boolean; projectPath: string; owner?: string }
+  ): Promise<IPCResult<{ fullName: string; url: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_CREATE_REPO, repoName, options),
+
+  addGitRemote: (
+    projectPath: string,
+    repoFullName: string
+  ): Promise<IPCResult<{ remoteUrl: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ADD_REMOTE, projectPath, repoFullName),
+
+  listGitHubOrgs: (): Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LIST_ORGS),
 
   // Event Listeners
   onGitHubInvestigationProgress: (

@@ -1,60 +1,43 @@
 /**
- * Mock implementation for infrastructure, Docker, and system operations
+ * Mock implementation for infrastructure and system operations
+ * Updated for LadybugDB (embedded database, no Docker required)
  */
 
 export const infrastructureMock = {
-  // Docker & Infrastructure Operations
-  getInfrastructureStatus: async () => ({
+  // Memory Infrastructure Operations (LadybugDB)
+  getMemoryInfrastructureStatus: async () => ({
     success: true,
     data: {
-      docker: {
-        installed: true,
-        running: true,
-        version: 'Docker version 24.0.0 (mock)'
-      },
-      falkordb: {
-        containerExists: true,
-        containerRunning: true,
-        containerName: 'auto-claude-falkordb',
-        port: 6380,
-        healthy: true
+      memory: {
+        kuzuInstalled: true,
+        databasePath: '~/.auto-claude/graphs',
+        databaseExists: true,
+        databases: ['auto_claude_memory']
       },
       ready: true
     }
   }),
 
-  startFalkorDB: async () => ({
+  listMemoryDatabases: async () => ({
     success: true,
-    data: { success: true }
+    data: ['auto_claude_memory', 'project_memory']
   }),
 
-  stopFalkorDB: async () => ({
-    success: true,
-    data: { success: true }
-  }),
-
-  openDockerDesktop: async () => ({
-    success: true,
-    data: { success: true }
-  }),
-
-  getDockerDownloadUrl: async () => 'https://www.docker.com/products/docker-desktop/',
-
-  // Graphiti Validation Operations
-  validateFalkorDBConnection: async () => ({
+  testMemoryConnection: async () => ({
     success: true,
     data: {
       success: true,
-      message: 'Connected to FalkorDB at localhost:6380 (mock)',
-      details: { latencyMs: 15 }
+      message: 'Connected to LadybugDB database (mock)',
+      details: { latencyMs: 5 }
     }
   }),
 
-  validateOpenAIApiKey: async () => ({
+  // LLM API Validation Operations
+  validateLLMApiKey: async () => ({
     success: true,
     data: {
       success: true,
-      message: 'OpenAI API key is valid (mock)',
+      message: 'API key is valid (mock)',
       details: { provider: 'openai', latencyMs: 100 }
     }
   }),
@@ -62,17 +45,57 @@ export const infrastructureMock = {
   testGraphitiConnection: async () => ({
     success: true,
     data: {
-      falkordb: {
+      database: {
         success: true,
-        message: 'Connected to FalkorDB at localhost:6380 (mock)',
-        details: { latencyMs: 15 }
+        message: 'Connected to LadybugDB database (mock)',
+        details: { latencyMs: 5 }
       },
-      openai: {
+      llmProvider: {
         success: true,
-        message: 'OpenAI API key is valid (mock)',
+        message: 'LLM API key is valid (mock)',
         details: { provider: 'openai', latencyMs: 100 }
       },
       ready: true
+    }
+  }),
+
+  // Ollama Model Detection Operations
+  checkOllamaStatus: async () => ({
+    success: true,
+    data: {
+      running: true,
+      url: 'http://localhost:11434',
+      version: '0.1.0',
+    }
+  }),
+
+  listOllamaModels: async () => ({
+    success: true,
+    data: {
+      models: [
+        { name: 'llama2', size_bytes: 4000000000, size_gb: 3.73, modified_at: '2024-01-01', is_embedding: false },
+        { name: 'nomic-embed-text', size_bytes: 500000000, size_gb: 0.47, modified_at: '2024-01-01', is_embedding: true, embedding_dim: 768, description: 'Nomic AI text embeddings' },
+      ],
+      count: 2
+    }
+  }),
+
+  listOllamaEmbeddingModels: async () => ({
+    success: true,
+    data: {
+      embedding_models: [
+        { name: 'nomic-embed-text', embedding_dim: 768, description: 'Nomic AI text embeddings', size_bytes: 500000000, size_gb: 0.47 },
+      ],
+      count: 1
+    }
+  }),
+
+  pullOllamaModel: async (modelName: string) => ({
+    success: true,
+    data: {
+      model: modelName,
+      status: 'completed' as const,
+      output: [`Pulling ${modelName}...`, 'Pull complete']
     }
   }),
 

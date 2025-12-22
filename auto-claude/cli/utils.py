@@ -145,7 +145,8 @@ def validate_environment(spec_dir: Path) -> bool:
     if graphiti_status["available"]:
         print("Graphiti memory: ENABLED")
         print(f"  Database: {graphiti_status['database']}")
-        print(f"  Host: {graphiti_status['host']}:{graphiti_status['port']}")
+        if graphiti_status.get("db_path"):
+            print(f"  Path: {graphiti_status['db_path']}")
     elif graphiti_status["enabled"]:
         print(
             f"Graphiti memory: CONFIGURED but unavailable ({graphiti_status['reason']})"

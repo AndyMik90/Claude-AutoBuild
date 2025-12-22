@@ -248,8 +248,8 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
             {/* Header */}
             <div className="p-5 pb-4 border-b border-border shrink-0">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <DialogPrimitive.Title className="text-xl font-semibold leading-tight text-foreground pr-4">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <DialogPrimitive.Title className="text-xl font-semibold leading-tight text-foreground truncate">
                     {task.title}
                   </DialogPrimitive.Title>
                   <DialogPrimitive.Description asChild>
@@ -298,7 +298,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                     </div>
                   </DialogPrimitive.Description>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 electron-no-drag">
                   <Button
                     variant="ghost"
                     size="icon"

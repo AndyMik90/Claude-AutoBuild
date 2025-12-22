@@ -11,10 +11,11 @@ import type {
   MemoryEpisode
 } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getFalkorDBService } from '../../falkordb-service';
+import { getMemoryService, isKuzuAvailable } from '../../memory-service';
 import {
-  getAutoBuildSourcePath
+  getGraphitiDatabaseDetails
 } from './utils';
+import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import {
   loadGraphitiStateFromSpecs,
   buildMemoryStatus
@@ -39,34 +40,34 @@ function loadProjectIndex(projectPath: string): ProjectIndex | null {
 }
 
 /**
- * Load recent memories with FalkorDB fallback
+ * Load recent memories from LadybugDB with file-based fallback
  */
 async function loadRecentMemories(
   projectPath: string,
   autoBuildPath: string | undefined,
   memoryStatusAvailable: boolean,
-  memoryHost?: string,
-  memoryPort?: number
+  dbPath?: string,
+  database?: string
 ): Promise<MemoryEpisode[]> {
   let recentMemories: MemoryEpisode[] = [];
 
-  // Try to load from FalkorDB first if Graphiti is available
-  if (memoryStatusAvailable && memoryHost && memoryPort) {
+  // Try to load from LadybugDB first if Graphiti is available and Kuzu is installed
+  if (memoryStatusAvailable && isKuzuAvailable() && dbPath && database) {
     try {
-      const falkorService = getFalkorDBService({
-        host: memoryHost,
-        port: memoryPort,
+      const memoryService = getMemoryService({
+        dbPath,
+        database,
       });
-      const falkorMemories = await falkorService.getAllMemories(20);
-      if (falkorMemories.length > 0) {
-        recentMemories = falkorMemories;
+      const graphMemories = await memoryService.getEpisodicMemories(20);
+      if (graphMemories.length > 0) {
+        recentMemories = graphMemories;
       }
     } catch (error) {
-      console.warn('Failed to load memories from FalkorDB, falling back to file-based:', error);
+      console.warn('Failed to load memories from LadybugDB, falling back to file-based:', error);
     }
   }
 
-  // Fall back to file-based memory if no FalkorDB memories found
+  // Fall back to file-based memory if no graph memories found
   if (recentMemories.length === 0) {
     const specsBaseDir = getSpecsDir(autoBuildPath);
     const specsDir = path.join(projectPath, specsBaseDir);
@@ -110,8 +111,8 @@ export function registerProjectContextHandlers(
           project.path,
           project.autoBuildPath,
           memoryStatus.available,
-          memoryStatus.host,
-          memoryStatus.port
+          memoryStatus.dbPath,
+          memoryStatus.database
         );
 
         return {
@@ -144,7 +145,7 @@ export function registerProjectContextHandlers(
 
       try {
         // Run the analyzer script to regenerate project_index.json
-        const autoBuildSource = getAutoBuildSourcePath();
+        const autoBuildSource = getEffectiveSourcePath();
 
         if (!autoBuildSource) {
           return {

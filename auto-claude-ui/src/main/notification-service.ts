@@ -66,7 +66,7 @@ class NotificationService {
   private sendNotification(type: NotificationType, options: NotificationOptions): void {
     // Get notification settings
     const settings = this.getNotificationSettings(options.projectId);
-    
+
     // Check if this notification type is enabled
     if (!this.isNotificationEnabled(type, settings)) {
       return;
@@ -162,4 +162,3 @@ class NotificationService {
 
 // Export singleton instance
 export const notificationService = new NotificationService();
-

@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { PythonEnvManager } from '../../python-env-manager';
@@ -10,6 +10,26 @@ import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+
+/**
+ * Read the stored base branch from task_metadata.json
+ * This is the branch the task was created from (set by user during task creation)
+ */
+function getTaskBaseBranch(specDir: string): string | undefined {
+  try {
+    const metadataPath = path.join(specDir, 'task_metadata.json');
+    if (existsSync(metadataPath)) {
+      const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      // Return baseBranch if explicitly set (not the __project_default__ marker)
+      if (metadata.baseBranch && metadata.baseBranch !== '__project_default__') {
+        return metadata.baseBranch;
+      }
+    }
+  } catch (e) {
+    console.warn('[getTaskBaseBranch] Failed to read task metadata:', e);
+  }
+  return undefined;
+}
 
 /**
  * Register worktree management handlers
@@ -61,12 +81,13 @@ export function registerWorktreeHandlers(
             baseBranch = 'main';
           }
 
-          // Get commit count
+          // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
           try {
-            const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD 2>/dev/null || echo 0`, {
+            const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
               cwd: worktreePath,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe']
             }).trim();
             commitCount = parseInt(countOutput, 10) || 0;
           } catch {
@@ -78,10 +99,12 @@ export function registerWorktreeHandlers(
           let additions = 0;
           let deletions = 0;
 
+          let diffStat = '';
           try {
-            const diffStat = execSync(`git diff --stat ${baseBranch}...HEAD 2>/dev/null || echo ""`, {
+            diffStat = execSync(`git diff --stat ${baseBranch}...HEAD`, {
               cwd: worktreePath,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe']
             }).trim();
 
             // Parse the summary line (e.g., "3 files changed, 50 insertions(+), 10 deletions(-)")
@@ -159,17 +182,21 @@ export function registerWorktreeHandlers(
         // Get the diff with file stats
         const files: WorktreeDiffFile[] = [];
 
+        let numstat = '';
+        let nameStatus = '';
         try {
-          // Get numstat for additions/deletions per file
-          const numstat = execSync(`git diff --numstat ${baseBranch}...HEAD 2>/dev/null || echo ""`, {
+          // Get numstat for additions/deletions per file (cross-platform)
+          numstat = execSync(`git diff --numstat ${baseBranch}...HEAD`, {
             cwd: worktreePath,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
-          // Get name-status for file status
-          const nameStatus = execSync(`git diff --name-status ${baseBranch}...HEAD 2>/dev/null || echo ""`, {
+          // Get name-status for file status (cross-platform)
+          nameStatus = execSync(`git diff --name-status ${baseBranch}...HEAD`, {
             cwd: worktreePath,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
           // Parse name-status to get file statuses
@@ -320,6 +347,13 @@ export function registerWorktreeHandlers(
           args.push('--no-commit');
         }
 
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          debug('Using stored base branch:', taskBaseBranch);
+        }
+
         const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
@@ -332,7 +366,7 @@ export function registerWorktreeHandlers(
         });
 
         return new Promise((resolve) => {
-          const MERGE_TIMEOUT_MS = 120000; // 2 minutes timeout for merge operations
+          const MERGE_TIMEOUT_MS = 600000; // 10 minutes timeout for AI merge operations with many files
           let timeoutId: NodeJS.Timeout | null = null;
           let resolved = false;
 
@@ -446,14 +480,17 @@ export function registerWorktreeHandlers(
                     const specBranch = `auto-claude/${task.specId}`;
                     try {
                       // Check if current branch contains all commits from spec branch
-                      const mergeBaseResult = execSync(
-                        `git merge-base --is-ancestor ${specBranch} HEAD 2>/dev/null && echo "merged" || echo "not-merged"`,
-                        { cwd: project.path, encoding: 'utf-8' }
-                      ).trim();
-                      mergeAlreadyCommitted = mergeBaseResult === 'merged';
+                      // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
+                      execSync(
+                        `git merge-base --is-ancestor ${specBranch} HEAD`,
+                        { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                      );
+                      // If we reach here, the command succeeded (exit code 0) - branch is merged
+                      mergeAlreadyCommitted = true;
                       debug('Merge already committed check:', mergeAlreadyCommitted);
                     } catch {
-                      // Branch may not exist or other error - assume not merged
+                      // Exit code 1 means not merged, or branch may not exist
+                      mergeAlreadyCommitted = false;
                       debug('Could not check merge status, assuming not merged');
                     }
                   }
@@ -659,12 +696,20 @@ export function registerWorktreeHandlers(
         }
 
         const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
         const args = [
           runScript,
           '--spec', task.specId,
           '--project-dir', project.path,
           '--merge-preview'
         ];
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
+        }
 
         const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
@@ -892,27 +937,30 @@ export function registerWorktreeHandlers(
               baseBranch = 'main';
             }
 
-            // Get commit count
+            // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
             try {
-              const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD 2>/dev/null || echo 0`, {
+              const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
                 cwd: entryPath,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                stdio: ['pipe', 'pipe', 'pipe']
               }).trim();
               commitCount = parseInt(countOutput, 10) || 0;
             } catch {
               commitCount = 0;
             }
 
-            // Get diff stats
+            // Get diff stats (cross-platform - no shell syntax)
             let filesChanged = 0;
             let additions = 0;
             let deletions = 0;
+            let diffStat = '';
 
             try {
-              const diffStat = execSync(`git diff --shortstat ${baseBranch}...HEAD 2>/dev/null || echo ""`, {
+              diffStat = execSync(`git diff --shortstat ${baseBranch}...HEAD`, {
                 cwd: entryPath,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                stdio: ['pipe', 'pipe', 'pipe']
               }).trim();
 
               const filesMatch = diffStat.match(/(\d+) files? changed/);

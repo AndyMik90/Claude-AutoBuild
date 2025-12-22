@@ -79,7 +79,7 @@ export function MemoriesTab({
               <>
                 <div className="grid gap-3 sm:grid-cols-3 text-sm">
                   <InfoItem label="Database" value={memoryStatus.database || 'auto_claude_memory'} />
-                  <InfoItem label="Host" value={`${memoryStatus.host}:${memoryStatus.port}`} />
+                  <InfoItem label="Path" value={memoryStatus.dbPath || '~/.auto-claude/graphs'} />
                   {memoryState && (
                     <InfoItem label="Episodes" value={memoryState.episode_count.toString()} />
                   )}
@@ -94,7 +94,7 @@ export function MemoriesTab({
               <div className="text-sm text-muted-foreground">
                 <p>{memoryStatus?.reason || 'Graphiti memory is not configured'}</p>
                 <p className="mt-2 text-xs">
-                  To enable graph memory, set <code className="bg-muted px-1 py-0.5 rounded">GRAPHITI_ENABLED=true</code> and configure FalkorDB.
+                  To enable graph memory, set <code className="bg-muted px-1 py-0.5 rounded">GRAPHITI_ENABLED=true</code> in project settings.
                 </p>
               </div>
             )}

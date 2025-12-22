@@ -10,7 +10,7 @@ import {
   loadGlobalSettings,
   isGraphitiEnabled,
   hasOpenAIKey,
-  getGraphitiConnectionDetails
+  getGraphitiDatabaseDetails
 } from './utils';
 
 /**
@@ -65,13 +65,12 @@ export function buildMemoryStatus(
 
   // If we have initialized state from specs, use it
   if (memoryState?.initialized) {
-    const connDetails = getGraphitiConnectionDetails(projectEnvVars);
+    const dbDetails = getGraphitiDatabaseDetails(projectEnvVars);
     return {
       enabled: true,
       available: true,
       database: memoryState.database || 'auto_claude_memory',
-      host: connDetails.host,
-      port: connDetails.port
+      dbPath: dbDetails.dbPath
     };
   }
 
@@ -95,13 +94,12 @@ export function buildMemoryStatus(
     };
   }
 
-  const connDetails = getGraphitiConnectionDetails(projectEnvVars);
+  const dbDetails = getGraphitiDatabaseDetails(projectEnvVars);
   return {
     enabled: true,
     available: true,
-    host: connDetails.host,
-    port: connDetails.port,
-    database: connDetails.database
+    dbPath: dbDetails.dbPath,
+    database: dbDetails.database
   };
 }
 

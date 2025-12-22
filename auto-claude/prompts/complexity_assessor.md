@@ -196,7 +196,7 @@ cat > complexity_assessment.json << 'EOF'
   "workflow_type": "[feature|refactor|investigation|migration|simple]",
   "confidence": [0.0-1.0],
   "reasoning": "[2-3 sentence explanation]",
-  
+
   "analysis": {
     "scope": {
       "estimated_files": [number],
@@ -228,13 +228,13 @@ cat > complexity_assessment.json << 'EOF'
       "notes": "[brief explanation]"
     }
   },
-  
+
   "recommended_phases": [
     "discovery",
     "requirements",
     "..."
   ],
-  
+
   "flags": {
     "needs_research": [true|false],
     "needs_self_critique": [true|false],

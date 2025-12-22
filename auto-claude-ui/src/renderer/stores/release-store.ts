@@ -64,7 +64,7 @@ export const useReleaseStore = create<ReleaseState>((set) => ({
 
   setReleaseableVersions: (versions) => set({ releaseableVersions: versions }),
   setIsLoadingVersions: (loading) => set({ isLoadingVersions: loading }),
-  setSelectedVersion: (version) => set({ 
+  setSelectedVersion: (version) => set({
     selectedVersion: version,
     // Reset preflight when version changes
     preflightStatus: null,
@@ -97,7 +97,7 @@ export async function loadReleaseableVersions(projectId: string): Promise<void> 
     const result = await window.electronAPI.getReleaseableVersions(projectId);
     if (result.success && result.data) {
       store.setReleaseableVersions(result.data);
-      
+
       // Auto-select first unreleased version if none selected
       if (!store.selectedVersion) {
         const firstUnreleased = result.data.find((v: ReleaseableVersion) => !v.isReleased);
@@ -121,7 +121,7 @@ export async function loadReleaseableVersions(projectId: string): Promise<void> 
 export async function runPreflightCheck(projectId: string): Promise<void> {
   const store = useReleaseStore.getState();
   const version = store.selectedVersion;
-  
+
   if (!version) {
     store.setError('No version selected');
     return;
@@ -150,7 +150,7 @@ export async function runPreflightCheck(projectId: string): Promise<void> {
 export function createRelease(projectId: string): void {
   const store = useReleaseStore.getState();
   const version = store.selectedVersion;
-  
+
   if (!version) {
     store.setError('No version selected');
     return;
@@ -211,5 +211,3 @@ export function canCreateRelease(): boolean {
     !store.isCreatingRelease
   );
 }
-
-

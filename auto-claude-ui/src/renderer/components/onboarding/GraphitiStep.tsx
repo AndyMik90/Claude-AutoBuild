@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  Server,
   Zap,
   XCircle
 } from 'lucide-react';
@@ -55,17 +54,17 @@ const EMBEDDING_PROVIDERS: Array<{
   description: string;
   requiresApiKey: boolean;
 }> = [
+  { id: 'ollama', name: 'Ollama', description: 'Local embeddings (free)', requiresApiKey: false },
   { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small (recommended)', requiresApiKey: true },
   { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (great with Anthropic)', requiresApiKey: true },
   { id: 'google', name: 'Google AI', description: 'Gemini text-embedding-004', requiresApiKey: true },
-  { id: 'huggingface', name: 'HuggingFace', description: 'Open source models', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure embeddings', requiresApiKey: true },
-  { id: 'ollama', name: 'Ollama', description: 'Local embeddings (free)', requiresApiKey: false }
+  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure embeddings', requiresApiKey: true }
 ];
 
 interface GraphitiConfig {
   enabled: boolean;
-  falkorDbUri: string;
+  database: string;
+  dbPath: string;
   llmProvider: GraphitiLLMProvider;
   embeddingProvider: GraphitiEmbeddingProvider;
   // OpenAI
@@ -93,12 +92,13 @@ interface GraphitiConfig {
 }
 
 interface ValidationStatus {
-  falkordb: { tested: boolean; success: boolean; message: string } | null;
+  database: { tested: boolean; success: boolean; message: string } | null;
   provider: { tested: boolean; success: boolean; message: string } | null;
 }
 
 /**
- * Graphiti/FalkorDB configuration step for the onboarding wizard.
+ * Graphiti memory configuration step for the onboarding wizard.
+ * Uses LadybugDB (embedded database) - no Docker required.
  * Allows users to optionally configure Graphiti memory backend with multiple provider options.
  * This step is entirely optional and can be skipped.
  */
@@ -106,7 +106,8 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: false,
-    falkorDbUri: 'bolt://localhost:6380',
+    database: 'auto_claude_memory',
+    dbPath: '',
     llmProvider: 'openai',
     embeddingProvider: 'openai',
     openaiApiKey: settings.globalOpenAIApiKey || '',
@@ -128,33 +129,25 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [isCheckingDocker, setIsCheckingDocker] = useState(true);
-  const [dockerAvailable, setDockerAvailable] = useState<boolean | null>(null);
+  const [isCheckingInfra, setIsCheckingInfra] = useState(true);
+  const [kuzuAvailable, setKuzuAvailable] = useState<boolean | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState<ValidationStatus>({
-    falkordb: null,
+    database: null,
     provider: null
   });
 
-  // Check Docker/Infrastructure availability on mount
+  // Check LadybugDB/Kuzu availability on mount
   useEffect(() => {
     const checkInfrastructure = async () => {
-      setIsCheckingDocker(true);
+      setIsCheckingInfra(true);
       try {
-        const result = await window.electronAPI.getInfrastructureStatus();
-        setDockerAvailable(result?.success && result?.data?.docker?.running ? true : false);
-
-        if (result?.success && result?.data?.falkordb?.containerRunning) {
-          const detectedPort = result.data.falkordb.port;
-          setConfig(prev => ({
-            ...prev,
-            falkorDbUri: `bolt://localhost:${detectedPort}`
-          }));
-        }
+        const result = await window.electronAPI.getMemoryInfrastructureStatus();
+        setKuzuAvailable(result?.success && result?.data?.memory?.kuzuInstalled ? true : false);
       } catch {
-        setDockerAvailable(false);
+        setKuzuAvailable(false);
       } finally {
-        setIsCheckingDocker(false);
+        setIsCheckingInfra(false);
       }
     };
 
@@ -165,7 +158,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     setConfig(prev => ({ ...prev, enabled: checked }));
     setError(null);
     setSuccess(false);
-    setValidationStatus({ falkordb: null, provider: null });
+    setValidationStatus({ database: null, provider: null });
   };
 
   const toggleShowApiKey = (key: string) => {
@@ -202,9 +195,6 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     if (llmProvider === 'groq') {
       if (!config.groqApiKey.trim()) return 'Groq API key';
     }
-    if (embeddingProvider === 'huggingface') {
-      if (!config.huggingfaceApiKey.trim()) return 'HuggingFace API key';
-    }
     if (llmProvider === 'ollama') {
       if (!config.ollamaLlmModel.trim()) return 'Ollama LLM model name';
     }
@@ -224,41 +214,48 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
     setIsValidating(true);
     setError(null);
-    setValidationStatus({ falkordb: null, provider: null });
+    setValidationStatus({ database: null, provider: null });
 
     try {
-      // For now, use the existing OpenAI validation - this will be expanded
+      // Get the API key for the current LLM provider
       const apiKey = config.llmProvider === 'openai' ? config.openaiApiKey :
+                     config.llmProvider === 'anthropic' ? config.anthropicApiKey :
+                     config.llmProvider === 'google' ? config.googleApiKey :
+                     config.llmProvider === 'groq' ? config.groqApiKey :
+                     config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
+                     config.llmProvider === 'ollama' ? '' :  // Ollama doesn't need API key
                      config.embeddingProvider === 'openai' ? config.openaiApiKey : '';
 
-      const result = await window.electronAPI.testGraphitiConnection(
-        config.falkorDbUri,
-        apiKey.trim()
-      );
+      const result = await window.electronAPI.testGraphitiConnection({
+        dbPath: config.dbPath || undefined,
+        database: config.database || 'auto_claude_memory',
+        llmProvider: config.llmProvider,
+        apiKey: apiKey.trim()
+      });
 
       if (result?.success && result?.data) {
         setValidationStatus({
-          falkordb: {
+          database: {
             tested: true,
-            success: result.data.falkordb.success,
-            message: result.data.falkordb.message
+            success: result.data.database.success,
+            message: result.data.database.message
           },
           provider: {
             tested: true,
-            success: result.data.openai.success,
-            message: result.data.openai.success
+            success: result.data.llmProvider.success,
+            message: result.data.llmProvider.success
               ? `${config.llmProvider} / ${config.embeddingProvider} providers configured`
-              : result.data.openai.message
+              : result.data.llmProvider.message
           }
         });
 
         if (!result.data.ready) {
           const errors: string[] = [];
-          if (!result.data.falkordb.success) {
-            errors.push(`FalkorDB: ${result.data.falkordb.message}`);
+          if (!result.data.database.success) {
+            errors.push(`Database: ${result.data.database.message}`);
           }
-          if (!result.data.openai.success) {
-            errors.push(`Provider: ${result.data.openai.message}`);
+          if (!result.data.llmProvider.success) {
+            errors.push(`Provider: ${result.data.llmProvider.message}`);
           }
           if (errors.length > 0) {
             setError(errors.join('\n'));
@@ -359,7 +356,6 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     const needsVoyage = embeddingProvider === 'voyage';
     const needsGoogle = llmProvider === 'google' || embeddingProvider === 'google';
     const needsGroq = llmProvider === 'groq';
-    const needsHuggingFace = embeddingProvider === 'huggingface';
     const needsOllama = llmProvider === 'ollama' || embeddingProvider === 'ollama';
 
     return (
@@ -611,39 +607,6 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
           </div>
         )}
 
-        {/* HuggingFace API Key */}
-        {needsHuggingFace && (
-          <div className="space-y-2">
-            <Label htmlFor="huggingface-key" className="text-sm font-medium text-foreground">
-              HuggingFace API Key
-            </Label>
-            <div className="relative">
-              <Input
-                id="huggingface-key"
-                type={showApiKey['huggingface'] ? 'text' : 'password'}
-                value={config.huggingfaceApiKey}
-                onChange={(e) => setConfig(prev => ({ ...prev, huggingfaceApiKey: e.target.value }))}
-                placeholder="hf_..."
-                className="pr-10 font-mono text-sm"
-                disabled={isSaving || isValidating}
-              />
-              <button
-                type="button"
-                onClick={() => toggleShowApiKey('huggingface')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showApiKey['huggingface'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
-              <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                HuggingFace
-              </a>
-            </p>
-          </div>
-        )}
-
         {/* Ollama Settings */}
         {needsOllama && (
           <div className="space-y-3 p-3 rounded-md bg-muted/50">
@@ -732,15 +695,15 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
           </p>
         </div>
 
-        {/* Loading state for Docker check */}
-        {isCheckingDocker && (
+        {/* Loading state for infrastructure check */}
+        {isCheckingInfra && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
 
         {/* Main content */}
-        {!isCheckingDocker && (
+        {!isCheckingInfra && (
           <div className="space-y-6">
             {/* Success state */}
             {success && (
@@ -789,19 +752,19 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                   </Card>
                 )}
 
-                {/* Docker warning */}
-                {dockerAvailable === false && (
-                  <Card className="border border-warning/30 bg-warning/10">
+                {/* Kuzu status notice */}
+                {kuzuAvailable === false && (
+                  <Card className="border border-info/30 bg-info/10">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                        <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-warning">
-                            Docker not detected
+                          <p className="text-sm font-medium text-info">
+                            Database will be created automatically
                           </p>
-                          <p className="text-sm text-warning/80 mt-1">
-                            FalkorDB requires Docker to run. You can still configure Graphiti now
-                            and set up Docker later.
+                          <p className="text-sm text-info/80 mt-1">
+                            LadybugDB uses an embedded database - no Docker required.
+                            The database will be created when you first use memory features.
                           </p>
                         </div>
                       </div>
@@ -827,6 +790,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           <li>Persistent memory across coding sessions</li>
                           <li>Better understanding of your codebase over time</li>
                           <li>Reduces repetitive explanations</li>
+                          <li>No Docker required - uses embedded database</li>
                         </ul>
                         <button
                           onClick={handleOpenDocs}
@@ -851,7 +815,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                             Enable Graphiti Memory
                           </Label>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Requires FalkorDB (Docker) and an LLM/embedding provider
+                            Uses LadybugDB (embedded) and an LLM/embedding provider
                           </p>
                         </div>
                       </div>
@@ -867,42 +831,42 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 {/* Configuration fields (shown when enabled) */}
                 {config.enabled && (
                   <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
-                    {/* FalkorDB URI */}
+                    {/* Database Settings */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Server className="h-4 w-4 text-muted-foreground" />
-                          <Label htmlFor="falkordb-uri" className="text-sm font-medium text-foreground">
-                            FalkorDB URI
+                          <Database className="h-4 w-4 text-muted-foreground" />
+                          <Label htmlFor="database-name" className="text-sm font-medium text-foreground">
+                            Database Name
                           </Label>
                         </div>
-                        {validationStatus.falkordb && (
+                        {validationStatus.database && (
                           <div className="flex items-center gap-1.5">
-                            {validationStatus.falkordb.success ? (
+                            {validationStatus.database.success ? (
                               <CheckCircle2 className="h-4 w-4 text-success" />
                             ) : (
                               <XCircle className="h-4 w-4 text-destructive" />
                             )}
-                            <span className={`text-xs ${validationStatus.falkordb.success ? 'text-success' : 'text-destructive'}`}>
-                              {validationStatus.falkordb.success ? 'Connected' : 'Failed'}
+                            <span className={`text-xs ${validationStatus.database.success ? 'text-success' : 'text-destructive'}`}>
+                              {validationStatus.database.success ? 'Ready' : 'Issue'}
                             </span>
                           </div>
                         )}
                       </div>
                       <Input
-                        id="falkordb-uri"
+                        id="database-name"
                         type="text"
-                        value={config.falkorDbUri}
+                        value={config.database}
                         onChange={(e) => {
-                          setConfig(prev => ({ ...prev, falkorDbUri: e.target.value }));
-                          setValidationStatus(prev => ({ ...prev, falkordb: null }));
+                          setConfig(prev => ({ ...prev, database: e.target.value }));
+                          setValidationStatus(prev => ({ ...prev, database: null }));
                         }}
-                        placeholder="bolt://localhost:6379"
+                        placeholder="auto_claude_memory"
                         className="font-mono text-sm"
                         disabled={isSaving || isValidating}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Auto-detected from Docker if FalkorDB is running
+                        Stored in ~/.auto-claude/graphs/
                       </p>
                     </div>
 
@@ -990,7 +954,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                           </>
                         )}
                       </Button>
-                      {validationStatus.falkordb?.success && validationStatus.provider?.success && (
+                      {validationStatus.database?.success && validationStatus.provider?.success && (
                         <p className="text-xs text-success text-center mt-2">
                           All connections validated successfully!
                         </p>
@@ -1032,7 +996,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             </Button>
             <Button
               onClick={handleContinue}
-              disabled={isCheckingDocker || (config.enabled && !!getRequiredApiKey() && !success) || isSaving || isValidating}
+              disabled={isCheckingInfra || (config.enabled && !!getRequiredApiKey() && !success) || isSaving || isValidating}
             >
               {isSaving ? (
                 <>

@@ -26,6 +26,7 @@ import { changelogService } from '../changelog-service';
 import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
+import { getEffectiveSourcePath } from '../updater/path-resolver';
 
 // ============================================
 // Git Helper Functions
@@ -103,93 +104,6 @@ function detectMainBranch(projectPath: string): string | null {
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
 /**
- * Auto-detect the auto-claude source path relative to the app location.
- * Works across platforms (macOS, Windows, Linux) in both dev and production modes.
- */
-const detectAutoBuildSourcePath = (): string | null => {
-  const possiblePaths: string[] = [];
-
-  // Development mode paths
-  if (is.dev) {
-    // In dev, __dirname is typically auto-claude-ui/out/main
-    // We need to go up to the project root to find auto-claude/
-    possiblePaths.push(
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // From out/main up 3 levels
-      path.resolve(__dirname, '..', '..', 'auto-claude'),        // From out/main up 2 levels
-      path.resolve(process.cwd(), 'auto-claude'),                // From cwd (project root)
-      path.resolve(process.cwd(), '..', 'auto-claude')           // From cwd parent (if running from auto-claude-ui/)
-    );
-  } else {
-    // Production mode paths (packaged app)
-    // On Windows/Linux/macOS, the app might be installed anywhere
-    // We check common locations relative to the app bundle
-    const appPath = app.getAppPath();
-    possiblePaths.push(
-      path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
-      path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
-      path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
-      path.resolve(process.resourcesPath, '..', 'auto-claude'), // Relative to resources
-      path.resolve(process.resourcesPath, '..', '..', 'auto-claude')
-    );
-  }
-
-  // Add process.cwd() as last resort on all platforms
-  possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
-
-  // Enable debug logging with DEBUG=1
-  const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
-
-  if (debug) {
-    console.warn('[project-handlers:detectAutoBuildSourcePath] Platform:', process.platform);
-    console.warn('[project-handlers:detectAutoBuildSourcePath] Is dev:', is.dev);
-    console.warn('[project-handlers:detectAutoBuildSourcePath] __dirname:', __dirname);
-    console.warn('[project-handlers:detectAutoBuildSourcePath] app.getAppPath():', app.getAppPath());
-    console.warn('[project-handlers:detectAutoBuildSourcePath] process.cwd():', process.cwd());
-    console.warn('[project-handlers:detectAutoBuildSourcePath] Checking paths:', possiblePaths);
-  }
-
-  for (const p of possiblePaths) {
-    // Use requirements.txt as marker - it always exists in auto-claude source
-    const markerPath = path.join(p, 'requirements.txt');
-    const exists = existsSync(p) && existsSync(markerPath);
-
-    if (debug) {
-      console.warn(`[project-handlers:detectAutoBuildSourcePath] Checking ${p}: ${exists ? '✓ FOUND' : '✗ not found'}`);
-    }
-
-    if (exists) {
-      console.warn(`[project-handlers:detectAutoBuildSourcePath] Auto-detected source path: ${p}`);
-      return p;
-    }
-  }
-
-  console.warn('[project-handlers:detectAutoBuildSourcePath] Could not auto-detect Auto Claude source path.');
-  console.warn('[project-handlers:detectAutoBuildSourcePath] Set DEBUG=1 environment variable for detailed path checking.');
-  return null;
-};
-
-/**
- * Get the configured auto-claude source path from settings, or auto-detect
- */
-const getAutoBuildSourcePath = (): string | null => {
-  // First check if manually configured
-  if (existsSync(settingsPath)) {
-    try {
-      const content = readFileSync(settingsPath, 'utf-8');
-      const settings = JSON.parse(content);
-      if (settings.autoBuildPath && existsSync(settings.autoBuildPath)) {
-        return settings.autoBuildPath;
-      }
-    } catch {
-      // Fall through to auto-detect
-    }
-  }
-
-  // Auto-detect from app location
-  return detectAutoBuildSourcePath();
-};
-
-/**
  * Configure all Python-dependent services with the managed Python path
  */
 const configureServicesWithPython = (
@@ -211,7 +125,7 @@ const initializePythonEnvironment = async (
   pythonEnvManager: PythonEnvManager,
   agentManager: AgentManager
 ): Promise<PythonEnvStatus> => {
-  const autoBuildSource = getAutoBuildSourcePath();
+  const autoBuildSource = getEffectiveSourcePath();
   if (!autoBuildSource) {
     console.warn('[IPC] Auto-build source not found, skipping Python env init');
     return {
@@ -301,6 +215,31 @@ export function registerProjectHandlers(
         return { success: true };
       }
       return { success: false, error: 'Project not found' };
+    }
+  );
+
+  // ============================================
+  // Tab State Operations (persisted in main process)
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.TAB_STATE_GET,
+    async (): Promise<IPCResult<{ openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }>> => {
+      const tabState = projectStore.getTabState();
+      console.log('[IPC] TAB_STATE_GET returning:', tabState);
+      return { success: true, data: tabState };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TAB_STATE_SAVE,
+    async (
+      _,
+      tabState: { openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }
+    ): Promise<IPCResult> => {
+      console.log('[IPC] TAB_STATE_SAVE called with:', tabState);
+      projectStore.saveTabState(tabState);
+      return { success: true };
     }
   );
 

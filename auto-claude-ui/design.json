@@ -63,10 +63,10 @@
         "id": "default",
         "name": "Default",
         "description": "Oscura Midnight - deepest dark with saturated yellow accent, inspired by Fey/Oscura",
-        "previewColors": { 
-          "lightBg": "#F2F2ED", 
+        "previewColors": {
+          "lightBg": "#F2F2ED",
           "lightAccent": "#A5A66A",
-          "darkBg": "#0B0B0F", 
+          "darkBg": "#0B0B0F",
           "darkAccent": "#D6D876"
         },
         "semanticColors": {
@@ -81,10 +81,10 @@
         "id": "dusk",
         "name": "Dusk",
         "description": "Warmer Oscura variant with slightly lighter dark mode",
-        "previewColors": { 
-          "lightBg": "#F5F5F0", 
+        "previewColors": {
+          "lightBg": "#F5F5F0",
           "lightAccent": "#B8B978",
-          "darkBg": "#131419", 
+          "darkBg": "#131419",
           "darkAccent": "#E6E7A3"
         },
         "semanticColors": {
@@ -99,50 +99,50 @@
         "id": "lime",
         "name": "Lime",
         "description": "Fresh, energetic lime/chartreuse with purple accents",
-        "previewColors": { 
-          "lightBg": "#E8F5A3", 
-          "darkBg": "#0F0F1A", 
-          "accent": "#7C3AED" 
+        "previewColors": {
+          "lightBg": "#E8F5A3",
+          "darkBg": "#0F0F1A",
+          "accent": "#7C3AED"
         }
       },
       {
         "id": "ocean",
-        "name": "Ocean", 
+        "name": "Ocean",
         "description": "Calm, professional blue tones",
-        "previewColors": { 
-          "lightBg": "#E0F2FE", 
-          "darkBg": "#082F49", 
-          "accent": "#0284C7" 
+        "previewColors": {
+          "lightBg": "#E0F2FE",
+          "darkBg": "#082F49",
+          "accent": "#0284C7"
         }
       },
       {
         "id": "retro",
         "name": "Retro",
         "description": "Warm, nostalgic amber/orange vibes",
-        "previewColors": { 
-          "lightBg": "#FEF3C7", 
-          "darkBg": "#1C1917", 
-          "accent": "#D97706" 
+        "previewColors": {
+          "lightBg": "#FEF3C7",
+          "darkBg": "#1C1917",
+          "accent": "#D97706"
         }
       },
       {
         "id": "neo",
         "name": "Neo",
         "description": "Modern cyberpunk pink/magenta",
-        "previewColors": { 
-          "lightBg": "#FDF4FF", 
-          "darkBg": "#0F0720", 
-          "accent": "#D946EF" 
+        "previewColors": {
+          "lightBg": "#FDF4FF",
+          "darkBg": "#0F0720",
+          "accent": "#D946EF"
         }
       },
       {
         "id": "forest",
         "name": "Forest",
         "description": "Natural, earthy green tones",
-        "previewColors": { 
-          "lightBg": "#DCFCE7", 
-          "darkBg": "#052E16", 
-          "accent": "#16A34A" 
+        "previewColors": {
+          "lightBg": "#DCFCE7",
+          "darkBg": "#052E16",
+          "accent": "#16A34A"
         }
       }
     ],
@@ -152,7 +152,7 @@
   "colors": {
     "note": "These are the Default theme colors (Oscura Midnight). See themeSystem for all available themes.",
     "cssVariablePrefix": "--color-",
-    
+
     "lightMode": {
       "background": {
         "primary": "#F2F2ED",
@@ -186,7 +186,7 @@
         "focus": "#A5A66A"
       }
     },
-    
+
     "darkMode": {
       "background": {
         "primary": "#0B0B0F",
@@ -223,7 +223,7 @@
         "focus": "#D6D876"
       }
     },
-    
+
     "semantic": {
       "success": "#4EBE96",
       "successLight": { "light": "#E0F5ED", "dark": "#1A2924" },
@@ -238,7 +238,7 @@
       "infoLight": { "light": "#E8F4FF", "dark": "#1A2230" },
       "infoDescription": "Blue - for links and informational elements"
     },
-    
+
     "shadows": {
       "lightMode": {
         "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
@@ -511,30 +511,30 @@
         "fontWeight": "500"
       },
       "variants": {
-        "default": { 
-          "background": "var(--color-background-secondary)", 
-          "text": "var(--color-text-secondary)" 
+        "default": {
+          "background": "var(--color-background-secondary)",
+          "text": "var(--color-text-secondary)"
         },
-        "primary": { 
-          "background": "var(--color-accent-primary-light)", 
-          "text": "var(--color-accent-primary)" 
+        "primary": {
+          "background": "var(--color-accent-primary-light)",
+          "text": "var(--color-accent-primary)"
         },
-        "success": { 
-          "background": "var(--color-semantic-success-light)", 
-          "text": "var(--color-semantic-success)" 
+        "success": {
+          "background": "var(--color-semantic-success-light)",
+          "text": "var(--color-semantic-success)"
         },
-        "warning": { 
-          "background": "var(--color-semantic-warning-light)", 
-          "text": "var(--color-semantic-warning)" 
+        "warning": {
+          "background": "var(--color-semantic-warning-light)",
+          "text": "var(--color-semantic-warning)"
         },
-        "error": { 
-          "background": "var(--color-semantic-error-light)", 
-          "text": "var(--color-semantic-error)" 
+        "error": {
+          "background": "var(--color-semantic-error-light)",
+          "text": "var(--color-semantic-error)"
         },
-        "outline": { 
-          "background": "transparent", 
-          "border": "1px solid var(--color-border-default)", 
-          "text": "var(--color-text-secondary)" 
+        "outline": {
+          "background": "transparent",
+          "border": "1px solid var(--color-border-default)",
+          "text": "var(--color-text-secondary)"
         }
       }
     },
@@ -616,10 +616,10 @@
       "description": "Date picker grid with clear day cells and selection states.",
       "styling": {
         "dayCell": { "size": "36px", "borderRadius": "md (8px)" },
-        "selectedDay": { 
-          "background": "var(--color-accent-primary)", 
-          "text": "var(--color-text-inverse)", 
-          "borderRadius": "full" 
+        "selectedDay": {
+          "background": "var(--color-accent-primary)",
+          "text": "var(--color-text-inverse)",
+          "borderRadius": "full"
         },
         "todayIndicator": "var(--color-accent-primary) text color or dot",
         "rangeSelection": "var(--color-accent-primary-light) background for range days"
@@ -634,14 +634,14 @@
         "thumbSize": "20px"
       },
       "styling": {
-        "off": { 
-          "track": "var(--color-border-default)", 
+        "off": {
+          "track": "var(--color-border-default)",
           "lightTrack": "#DEDED9",
           "darkTrack": "#232323",
-          "thumb": "white" 
+          "thumb": "white"
         },
-        "on": { 
-          "track": "var(--color-accent-primary)", 
+        "on": {
+          "track": "var(--color-accent-primary)",
           "lightTrack": "#A5A66A",
           "darkTrack": "#D6D876",
           "thumb": "var(--color-text-inverse)",
@@ -895,7 +895,7 @@
     "cssVariableMap": {
       "backgrounds": [
         "--color-background-primary",
-        "--color-background-secondary", 
+        "--color-background-secondary",
         "--color-background-neutral"
       ],
       "surfaces": [

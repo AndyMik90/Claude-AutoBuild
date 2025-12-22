@@ -7,7 +7,13 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Plus,
+  Link,
+  Lock,
+  Globe,
+  Building,
+  User
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -19,6 +25,7 @@ import {
   DialogTitle
 } from './ui/dialog';
 import { Label } from './ui/label';
+import { Input } from './ui/input';
 import {
   Select,
   SelectContent,
@@ -38,7 +45,7 @@ interface GitHubSetupModalProps {
   onSkip?: () => void;
 }
 
-type SetupStep = 'github-auth' | 'claude-auth' | 'repo' | 'branch' | 'complete';
+type SetupStep = 'github-auth' | 'claude-auth' | 'repo-confirm' | 'repo' | 'branch' | 'complete';
 
 /**
  * Setup Modal - Required setup flow after Auto Claude initialization
@@ -67,10 +74,23 @@ export function GitHubSetupModal({
   const [isLoadingRepo, setIsLoadingRepo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when modal opens
+  // Repo setup state (for when no remote is detected)
+  const [repoAction, setRepoAction] = useState<'create' | 'link' | null>(null);
+  const [newRepoName, setNewRepoName] = useState('');
+  const [isPrivateRepo, setIsPrivateRepo] = useState(true);
+  const [existingRepoName, setExistingRepoName] = useState('');
+  const [isCreatingRepo, setIsCreatingRepo] = useState(false);
+
+  // Organization selection state
+  const [githubUsername, setGithubUsername] = useState<string | null>(null);
+  const [organizations, setOrganizations] = useState<Array<{ login: string; avatarUrl?: string }>>([]);
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+
+  // Reset state and check existing auth when modal opens
   useEffect(() => {
     if (open) {
-      setStep('github-auth');
+      // Reset all state first
       setGithubToken(null);
       setGithubRepo(null);
       setDetectedRepo(null);
@@ -78,8 +98,83 @@ export function GitHubSetupModal({
       setSelectedBranch(null);
       setRecommendedBranch(null);
       setError(null);
+      // Reset repo setup state
+      setRepoAction(null);
+      setNewRepoName(project.name.replace(/[^A-Za-z0-9_.-]/g, '-'));
+      setIsPrivateRepo(true);
+      setExistingRepoName('');
+      setIsCreatingRepo(false);
+      // Reset organization state
+      setGithubUsername(null);
+      setOrganizations([]);
+      setSelectedOwner(null);
+      setIsLoadingOrgs(false);
+
+      // Check for existing authentication and skip to appropriate step
+      const checkExistingAuth = async () => {
+        try {
+          // Check for existing GitHub token
+          const ghTokenResult = await window.electronAPI.getGitHubToken();
+          const hasGitHubAuth = ghTokenResult.success && ghTokenResult.data?.token;
+
+          // Check for existing Claude authentication
+          const profilesResult = await window.electronAPI.getClaudeProfiles();
+          let hasClaudeAuth = false;
+          if (profilesResult.success && profilesResult.data) {
+            const activeProfile = profilesResult.data.profiles.find(
+              (p) => p.id === profilesResult.data!.activeProfileId
+            );
+            hasClaudeAuth = !!(activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir));
+          }
+
+          // Determine starting step based on existing auth
+          if (hasGitHubAuth && hasClaudeAuth) {
+            // Both authenticated, go directly to repo detection
+            setGithubToken(ghTokenResult.data!.token);
+            // detectRepository will be called and set the step
+            setStep('repo'); // Temporary, detectRepository will update
+            await detectRepository();
+          } else if (hasGitHubAuth) {
+            // Only GitHub authenticated, go to Claude auth
+            setGithubToken(ghTokenResult.data!.token);
+            setStep('claude-auth');
+          } else {
+            // No auth, start from beginning
+            setStep('github-auth');
+          }
+        } catch (err) {
+          console.error('Failed to check existing auth:', err);
+          // On error, start from beginning
+          setStep('github-auth');
+        }
+      };
+
+      checkExistingAuth();
     }
   }, [open]);
+
+  // Load user info and organizations
+  const loadUserAndOrgs = async () => {
+    setIsLoadingOrgs(true);
+    try {
+      // Get current user
+      const userResult = await window.electronAPI.getGitHubUser();
+      if (userResult.success && userResult.data) {
+        setGithubUsername(userResult.data.username);
+        setSelectedOwner(userResult.data.username); // Default to personal account
+      }
+
+      // Get organizations
+      const orgsResult = await window.electronAPI.listGitHubOrgs();
+      if (orgsResult.success && orgsResult.data) {
+        setOrganizations(orgsResult.data.orgs);
+      }
+    } catch (err) {
+      console.error('Failed to load user/orgs:', err);
+    } finally {
+      setIsLoadingOrgs(false);
+    }
+  };
 
   // Detect repository from git remote when auth succeeds
   const detectRepository = async () => {
@@ -92,15 +187,16 @@ export function GitHubSetupModal({
       if (result.success && result.data) {
         setDetectedRepo(result.data);
         setGithubRepo(result.data);
-        setStep('branch');
-        // Immediately load branches
-        await loadBranches(result.data);
+        // Go to confirmation step instead of directly to branch
+        setStep('repo-confirm');
       } else {
-        // No remote detected, show repo input step
+        // No remote detected, load orgs and show repo setup step
+        await loadUserAndOrgs();
         setStep('repo');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to detect repository');
+      await loadUserAndOrgs();
       setStep('repo');
     } finally {
       setIsLoadingRepo(false);
@@ -146,7 +242,27 @@ export function GitHubSetupModal({
   // Handle GitHub OAuth success
   const handleGitHubAuthSuccess = async (token: string) => {
     setGithubToken(token);
-    // Move to Claude auth step
+
+    // Check if Claude is already authenticated before showing auth step
+    try {
+      const profilesResult = await window.electronAPI.getClaudeProfiles();
+      if (profilesResult.success && profilesResult.data) {
+        const activeProfile = profilesResult.data.profiles.find(
+          (p) => p.id === profilesResult.data!.activeProfileId
+        );
+        // Check if active profile has authentication (oauthToken or default with configDir)
+        if (activeProfile?.oauthToken || (activeProfile?.isDefault && activeProfile?.configDir)) {
+          // Already authenticated, skip Claude auth and go directly to repo detection
+          await detectRepository();
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check Claude profiles:', err);
+      // On error, fall through to show Claude auth step
+    }
+
+    // Not authenticated, show Claude auth step
     setStep('claude-auth');
   };
 
@@ -155,6 +271,92 @@ export function GitHubSetupModal({
     // Claude token is already saved to active profile by the OAuth flow
     // Move to repo detection
     await detectRepository();
+  };
+
+  // Handle creating a new GitHub repository
+  const handleCreateRepo = async () => {
+    if (!newRepoName.trim()) {
+      setError('Please enter a repository name');
+      return;
+    }
+
+    if (!selectedOwner) {
+      setError('Please select an owner for the repository');
+      return;
+    }
+
+    setIsCreatingRepo(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.createGitHubRepo(newRepoName.trim(), {
+        isPrivate: isPrivateRepo,
+        projectPath: project.path,
+        owner: selectedOwner !== githubUsername ? selectedOwner : undefined // Only pass owner if it's an org
+      });
+
+      if (result.success && result.data) {
+        // Repo created and remote added automatically by gh CLI
+        setGithubRepo(result.data.fullName);
+        setDetectedRepo(result.data.fullName);
+        setStep('branch');
+        await loadBranches(result.data.fullName);
+      } else {
+        setError(result.error || 'Failed to create repository');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create repository');
+    } finally {
+      setIsCreatingRepo(false);
+    }
+  };
+
+  // Handle confirming the detected repository
+  const handleConfirmRepo = async () => {
+    if (detectedRepo) {
+      setStep('branch');
+      await loadBranches(detectedRepo);
+    }
+  };
+
+  // Handle changing the repository (go to repo setup)
+  const handleChangeRepo = async () => {
+    await loadUserAndOrgs();
+    setStep('repo');
+  };
+
+  // Handle linking to an existing GitHub repository
+  const handleLinkRepo = async () => {
+    if (!existingRepoName.trim()) {
+      setError('Please enter a repository name (owner/repo format)');
+      return;
+    }
+
+    // Validate format
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(existingRepoName.trim())) {
+      setError('Invalid format. Use owner/repo (e.g., username/my-project)');
+      return;
+    }
+
+    setIsCreatingRepo(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.addGitRemote(project.path, existingRepoName.trim());
+
+      if (result.success) {
+        setGithubRepo(existingRepoName.trim());
+        setDetectedRepo(existingRepoName.trim());
+        setStep('branch');
+        await loadBranches(existingRepoName.trim());
+      } else {
+        setError(result.error || 'Failed to add remote');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add remote');
+    } finally {
+      setIsCreatingRepo(false);
+    }
   };
 
   // Handle branch selection complete
@@ -215,34 +417,235 @@ export function GitHubSetupModal({
           </>
         );
 
+      case 'repo-confirm':
+        return (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Github className="h-5 w-5" />
+                Confirm Repository
+              </DialogTitle>
+              <DialogDescription>
+                We detected a GitHub repository for this project. Please confirm or change it.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                  <div>
+                    <p className="font-medium">Repository Detected</p>
+                    <p className="text-sm text-muted-foreground font-mono">
+                      {detectedRepo}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Auto Claude will use this repository for managing task branches and keeping your code up to date.
+              </p>
+
+              {error && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={handleChangeRepo}>
+                Use Different Repository
+              </Button>
+              <Button onClick={handleConfirmRepo}>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Confirm & Continue
+              </Button>
+            </DialogFooter>
+          </>
+        );
+
       case 'repo':
         return (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Github className="h-5 w-5" />
-                Repository Not Detected
+                Connect to GitHub
               </DialogTitle>
               <DialogDescription>
-                We couldn't detect a GitHub repository for this project. Please ensure your project has a GitHub remote configured.
+                Your project needs a GitHub repository. Create a new one or link to an existing repository.
               </DialogDescription>
             </DialogHeader>
 
             <div className="py-4 space-y-4">
-              <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
+              {/* Action selection */}
+              {!repoAction && (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setRepoAction('create')}
+                    className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <Plus className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">Create New Repo</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Create a new repository on GitHub
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setRepoAction('link')}
+                    className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <Link className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">Link Existing</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Connect to an existing repository
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Create new repo form */}
+              {repoAction === 'create' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <button
+                      onClick={() => setRepoAction(null)}
+                      className="text-primary hover:underline"
+                    >
+                      ← Back
+                    </button>
+                    <span>Create a new repository</span>
+                  </div>
+
+                  {/* Owner selection */}
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">No GitHub remote found</p>
-                    <p className="text-xs text-muted-foreground">
-                      To use Auto Claude, your project needs to be connected to a GitHub repository.
-                    </p>
-                    <div className="text-xs font-mono bg-muted p-2 rounded mt-2">
-                      git remote add origin https://github.com/owner/repo.git
+                    <Label>Owner</Label>
+                    {isLoadingOrgs ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading accounts...
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {/* Personal account */}
+                        {githubUsername && (
+                          <button
+                            onClick={() => setSelectedOwner(githubUsername)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                              selectedOwner === githubUsername
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-muted hover:border-primary/50'
+                            }`}
+                            disabled={isCreatingRepo}
+                          >
+                            <User className="h-4 w-4" />
+                            <span className="text-sm">{githubUsername}</span>
+                          </button>
+                        )}
+                        {/* Organizations */}
+                        {organizations.map((org) => (
+                          <button
+                            key={org.login}
+                            onClick={() => setSelectedOwner(org.login)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                              selectedOwner === org.login
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-muted hover:border-primary/50'
+                            }`}
+                            disabled={isCreatingRepo}
+                          >
+                            <Building className="h-4 w-4" />
+                            <span className="text-sm">{org.login}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {organizations.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Select your personal account or an organization
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="repo-name">Repository Name</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedOwner || '...'} /
+                      </span>
+                      <Input
+                        id="repo-name"
+                        value={newRepoName}
+                        onChange={(e) => setNewRepoName(e.target.value)}
+                        placeholder="my-project"
+                        disabled={isCreatingRepo}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Visibility</Label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIsPrivateRepo(true)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                          isPrivateRepo
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                        disabled={isCreatingRepo}
+                      >
+                        <Lock className="h-4 w-4" />
+                        <span className="text-sm">Private</span>
+                      </button>
+                      <button
+                        onClick={() => setIsPrivateRepo(false)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
+                          !isPrivateRepo
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                        disabled={isCreatingRepo}
+                      >
+                        <Globe className="h-4 w-4" />
+                        <span className="text-sm">Public</span>
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Link existing repo form */}
+              {repoAction === 'link' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <button
+                      onClick={() => setRepoAction(null)}
+                      className="text-primary hover:underline"
+                    >
+                      ← Back
+                    </button>
+                    <span>Link to existing repository</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="existing-repo">Repository</Label>
+                    <Input
+                      id="existing-repo"
+                      value={existingRepoName}
+                      onChange={(e) => setExistingRepoName(e.target.value)}
+                      placeholder="username/repository"
+                      disabled={isCreatingRepo}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter the full repository path (e.g., octocat/hello-world)
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
@@ -253,20 +656,52 @@ export function GitHubSetupModal({
 
             <DialogFooter>
               {onSkip && (
-                <Button variant="outline" onClick={onSkip}>
+                <Button variant="outline" onClick={onSkip} disabled={isCreatingRepo}>
                   Skip for now
                 </Button>
               )}
-              <Button onClick={detectRepository} disabled={isLoadingRepo}>
-                {isLoadingRepo ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  'Retry Detection'
-                )}
-              </Button>
+              {repoAction === 'create' && (
+                <Button onClick={handleCreateRepo} disabled={isCreatingRepo || !newRepoName.trim()}>
+                  {isCreatingRepo ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Repository
+                    </>
+                  )}
+                </Button>
+              )}
+              {repoAction === 'link' && (
+                <Button onClick={handleLinkRepo} disabled={isCreatingRepo || !existingRepoName.trim()}>
+                  {isCreatingRepo ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Linking...
+                    </>
+                  ) : (
+                    <>
+                      <Link className="mr-2 h-4 w-4" />
+                      Link Repository
+                    </>
+                  )}
+                </Button>
+              )}
+              {!repoAction && (
+                <Button variant="outline" onClick={detectRepository} disabled={isLoadingRepo}>
+                  {isLoadingRepo ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    'Retry Detection'
+                  )}
+                </Button>
+              )}
             </DialogFooter>
           </>
         );

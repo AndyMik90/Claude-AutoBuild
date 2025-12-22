@@ -5,6 +5,7 @@
 
 # Virtual environment
 .venv/
+.venv*/
 venv/
 env/
 

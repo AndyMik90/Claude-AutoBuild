@@ -109,6 +109,13 @@ import type {
 } from './integrations';
 
 // Electron API exposed via contextBridge
+// Tab state interface (persisted in main process)
+export interface TabState {
+  openProjectIds: string[];
+  activeProjectId: string | null;
+  tabOrder: string[];
+}
+
 export interface ElectronAPI {
   // Project operations
   addProject: (projectPath: string) => Promise<IPCResult<Project>>;
@@ -118,6 +125,10 @@ export interface ElectronAPI {
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+
+  // Tab State (persisted in main process for reliability)
+  getTabState: () => Promise<IPCResult<TabState>>;
+  saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
@@ -279,20 +290,19 @@ export interface ElectronAPI {
   checkClaudeAuth: (projectId: string) => Promise<IPCResult<ClaudeAuthResult>>;
   invokeClaudeSetup: (projectId: string) => Promise<IPCResult<ClaudeAuthResult>>;
 
-  // Docker & Infrastructure operations (for Graphiti/FalkorDB)
-  getInfrastructureStatus: (port?: number) => Promise<IPCResult<InfrastructureStatus>>;
-  startFalkorDB: (port?: number) => Promise<IPCResult<{ success: boolean; error?: string }>>;
-  stopFalkorDB: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
-  openDockerDesktop: () => Promise<IPCResult<{ success: boolean; error?: string }>>;
-  getDockerDownloadUrl: () => Promise<string>;
+  // Memory Infrastructure operations (LadybugDB - no Docker required)
+  getMemoryInfrastructureStatus: (dbPath?: string) => Promise<IPCResult<InfrastructureStatus>>;
+  listMemoryDatabases: (dbPath?: string) => Promise<IPCResult<string[]>>;
+  testMemoryConnection: (dbPath?: string, database?: string) => Promise<IPCResult<GraphitiValidationResult>>;
 
   // Graphiti validation operations
-  validateFalkorDBConnection: (uri: string) => Promise<IPCResult<GraphitiValidationResult>>;
-  validateOpenAIApiKey: (apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
-  testGraphitiConnection: (
-    falkorDbUri: string,
-    openAiApiKey: string
-  ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
+  validateLLMApiKey: (provider: string, apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
+  testGraphitiConnection: (config: {
+    dbPath?: string;
+    database?: string;
+    llmProvider: string;
+    apiKey: string;
+  }) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
   // Linear integration operations
   getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;
@@ -332,6 +342,15 @@ export interface ElectronAPI {
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
+  createGitHubRepo: (
+    repoName: string,
+    options: { description?: string; isPrivate?: boolean; projectPath: string; owner?: string }
+  ) => Promise<IPCResult<{ fullName: string; url: string }>>;
+  addGitRemote: (
+    projectPath: string,
+    repoFullName: string
+  ) => Promise<IPCResult<{ remoteUrl: string }>>;
+  listGitHubOrgs: () => Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>>;
 
   // GitHub event listeners
   onGitHubInvestigationProgress: (
@@ -458,6 +477,10 @@ export interface ElectronAPI {
     imageData: string,
     filename: string
   ) => Promise<IPCResult<{ relativePath: string; url: string }>>;
+  readLocalImage: (
+    projectPath: string,
+    relativePath: string
+  ) => Promise<IPCResult<string>>;
 
   // Changelog event listeners
   onChangelogGenerationProgress: (
@@ -520,6 +543,41 @@ export interface ElectronAPI {
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
+
+  // Ollama model detection operations
+  checkOllamaStatus: (baseUrl?: string) => Promise<IPCResult<{
+    running: boolean;
+    url: string;
+    version?: string;
+    message?: string;
+  }>>;
+  listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
+    models: Array<{
+      name: string;
+      size_bytes: number;
+      size_gb: number;
+      modified_at: string;
+      is_embedding: boolean;
+      embedding_dim?: number | null;
+      description?: string;
+    }>;
+    count: number;
+  }>>;
+  listOllamaEmbeddingModels: (baseUrl?: string) => Promise<IPCResult<{
+    embedding_models: Array<{
+      name: string;
+      embedding_dim: number | null;
+      description: string;
+      size_bytes: number;
+      size_gb: number;
+    }>;
+    count: number;
+  }>>;
+  pullOllamaModel: (modelName: string, baseUrl?: string) => Promise<IPCResult<{
+    model: string;
+    status: 'completed' | 'failed';
+    output: string[];
+  }>>;
 }
 
 declare global {

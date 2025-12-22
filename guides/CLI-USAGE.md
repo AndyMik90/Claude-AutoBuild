@@ -159,15 +159,3 @@ python validate_spec.py --spec-dir specs/001-feature --checkpoint all
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
-
-## Auto Claude Memory Layer (Optional)
-
-For cross-session context retention, see the main README for Memory Layer setup instructions.
-
-### Verifying Memory Layer
-
-```bash
-cd auto-claude
-source .venv/bin/activate
-python test_graphiti_memory.py
-```

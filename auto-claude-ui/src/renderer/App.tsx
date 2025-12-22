@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Settings2, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy
+} from '@dnd-kit/sortable';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Button } from './components/ui/button';
 import {
@@ -44,6 +57,7 @@ import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-sto
 import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
+import { ProjectTabBar } from './components/ProjectTabBar';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -52,6 +66,13 @@ export function App() {
   // Stores
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
+  const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
+  const openProjectIds = useProjectStore((state) => state.openProjectIds);
+  const openProjectTab = useProjectStore((state) => state.openProjectTab);
+  const closeProjectTab = useProjectStore((state) => state.closeProjectTab);
+  const setActiveProject = useProjectStore((state) => state.setActiveProject);
+  const reorderTabs = useProjectStore((state) => state.reorderTabs);
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
@@ -77,14 +98,74 @@ export function App() {
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
 
-  // Get selected project
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  // Setup drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    })
+  );
+
+  // Track dragging state for overlay
+  const [activeDragProject, setActiveDragProject] = useState<Project | null>(null);
+
+  // Get tabs and selected project
+  const projectTabs = getProjectTabs();
+  const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
 
   // Initial load
   useEffect(() => {
     loadProjects();
     loadSettings();
   }, []);
+
+  // Restore tab state and open tabs for loaded projects
+  useEffect(() => {
+    console.log('[App] Tab restore useEffect triggered:', {
+      projectsCount: projects.length,
+      openProjectIds,
+      activeProjectId,
+      selectedProjectId,
+      projectTabsCount: projectTabs.length,
+      projectTabIds: projectTabs.map(p => p.id)
+    });
+
+    if (projects.length > 0) {
+      // Check openProjectIds (persisted state) instead of projectTabs (computed)
+      // to avoid race condition where projectTabs is empty before projects load
+      if (openProjectIds.length === 0) {
+        // No tabs persisted at all, open the first available project
+        const projectToOpen = activeProjectId || selectedProjectId || projects[0].id;
+        console.log('[App] No tabs persisted, opening project:', projectToOpen);
+        // Verify the project exists before opening
+        if (projects.some(p => p.id === projectToOpen)) {
+          openProjectTab(projectToOpen);
+          setActiveProject(projectToOpen);
+        } else {
+          // Fallback to first project if stored IDs are invalid
+          console.log('[App] Project not found, falling back to first project:', projects[0].id);
+          openProjectTab(projects[0].id);
+          setActiveProject(projects[0].id);
+        }
+        return;
+      }
+      console.log('[App] Tabs already persisted, checking active project');
+      // If there's an active project but no tabs open for it, open a tab
+      if (activeProjectId && !projectTabs.some(tab => tab.id === activeProjectId)) {
+        console.log('[App] Active project has no tab, opening:', activeProjectId);
+        openProjectTab(activeProjectId);
+      }
+      // If there's a selected project but no active project, make it active
+      else if (selectedProjectId && !activeProjectId) {
+        console.log('[App] No active project, using selected:', selectedProjectId);
+        setActiveProject(selectedProjectId);
+        openProjectTab(selectedProjectId);
+      } else {
+        console.log('[App] Tab state is valid, no action needed');
+      }
+    }
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, projectTabs, openProjectTab, setActiveProject]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
@@ -135,10 +216,21 @@ export function App() {
     };
   }, []);
 
+  // Reset init success flag when selected project changes
+  // This allows the init dialog to show for new/different projects
+  useEffect(() => {
+    setInitSuccess(false);
+    setInitError(null);
+  }, [selectedProjectId]);
+
   // Check if selected project needs initialization (e.g., .auto-claude folder was deleted)
   useEffect(() => {
     // Don't show dialog while initialization is in progress
     if (isInitializing) return;
+
+    // Don't reopen dialog after successful initialization
+    // (project update with autoBuildPath may not have propagated yet)
+    if (initSuccess) return;
 
     if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {
       // Project exists but isn't initialized - show init dialog
@@ -147,12 +239,52 @@ export function App() {
       setInitSuccess(false); // Reset success flag
       setShowInitDialog(true);
     }
-  }, [selectedProject, skippedInitProjectId, isInitializing]);
+  }, [selectedProject, skippedInitProjectId, isInitializing, initSuccess]);
+
+  // Global keyboard shortcut: Cmd/Ctrl+T to add project (when not on terminals view)
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Skip if in input fields
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // Cmd/Ctrl+T: Add new project (only when not on terminals view)
+      if ((e.ctrlKey || e.metaKey) && e.key === 't' && activeView !== 'terminals') {
+        e.preventDefault();
+        try {
+          const path = await window.electronAPI.selectDirectory();
+          if (path) {
+            const project = await addProject(path);
+            if (project) {
+              openProjectTab(project.id);
+              if (!project.autoBuildPath) {
+                setPendingProject(project);
+                setInitError(null);
+                setInitSuccess(false);
+                setShowInitDialog(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to add project:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeView, openProjectTab]);
 
   // Load tasks when project changes
   useEffect(() => {
-    if (selectedProjectId) {
-      loadTasks(selectedProjectId);
+    const currentProjectId = activeProjectId || selectedProjectId;
+    if (currentProjectId) {
+      loadTasks(currentProjectId);
       setSelectedTask(null); // Clear selection on project change
     } else {
       useTaskStore.getState().clearTasks();
@@ -173,7 +305,7 @@ export function App() {
         console.error('[App] Failed to restore sessions:', err);
       });
     }
-  }, [selectedProjectId, selectedProject?.path, selectedProject?.name]);
+  }, [activeProjectId, selectedProjectId, selectedProject?.path, selectedProject?.name]);
 
   // Apply theme on load
   useEffect(() => {
@@ -250,16 +382,53 @@ export function App() {
       const path = await window.electronAPI.selectDirectory();
       if (path) {
         const project = await addProject(path);
-        if (project && !project.autoBuildPath) {
-          // Project doesn't have Auto Claude initialized, show init dialog
-          setPendingProject(project);
-          setInitError(null); // Clear any previous errors
-          setInitSuccess(false); // Reset success flag
-          setShowInitDialog(true);
+        if (project) {
+          // Open a tab for the new project
+          openProjectTab(project.id);
+
+          if (!project.autoBuildPath) {
+            // Project doesn't have Auto Claude initialized, show init dialog
+            setPendingProject(project);
+            setInitError(null); // Clear any previous errors
+            setInitSuccess(false); // Reset success flag
+            setShowInitDialog(true);
+          }
         }
       }
     } catch (error) {
       console.error('Failed to add project:', error);
+    }
+  };
+
+  const handleProjectTabSelect = (projectId: string) => {
+    setActiveProject(projectId);
+  };
+
+  const handleProjectTabClose = (projectId: string) => {
+    closeProjectTab(projectId);
+  };
+
+  // Handle drag start - set the active dragged project
+  const handleDragStart = (event: any) => {
+    const { active } = event;
+    const draggedProject = projectTabs.find(p => p.id === active.id);
+    if (draggedProject) {
+      setActiveDragProject(draggedProject);
+    }
+  };
+
+  // Handle drag end - reorder tabs if dropped over another tab
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragProject(null);
+
+    if (!over) return;
+
+    const oldIndex = projectTabs.findIndex(p => p.id === active.id);
+    const newIndex = projectTabs.findIndex(p => p.id === over.id);
+
+    if (oldIndex !== newIndex && oldIndex !== -1 && newIndex !== -1) {
+      reorderTabs(oldIndex, newIndex);
     }
   };
 
@@ -386,6 +555,38 @@ export function App() {
 
         {/* Main content */}
         <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Project Tabs */}
+          {projectTabs.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
+                <ProjectTabBar
+                  projects={projectTabs}
+                  activeProjectId={activeProjectId}
+                  onProjectSelect={handleProjectTabSelect}
+                  onProjectClose={handleProjectTabClose}
+                  onAddProject={handleAddProject}
+                />
+              </SortableContext>
+
+              {/* Drag overlay - shows what's being dragged */}
+              <DragOverlay>
+                {activeDragProject && (
+                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
+                    <div className="w-1 h-4 bg-muted-foreground rounded-full" />
+                    <span className="truncate font-medium text-sm">
+                      {activeDragProject.name}
+                    </span>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
+          )}
+
           {/* Header */}
           <header className="electron-drag flex h-14 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6">
             <div className="electron-no-drag">
@@ -432,21 +633,22 @@ export function App() {
                   <TerminalGrid
                     projectPath={selectedProject?.path}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+                    isActive={activeView === 'terminals'}
                   />
                 </div>
-                {activeView === 'roadmap' && selectedProjectId && (
-                  <Roadmap projectId={selectedProjectId} onGoToTask={handleGoToTask} />
+                {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (
+                  <Roadmap projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
                 )}
-                {activeView === 'context' && selectedProjectId && (
-                  <Context projectId={selectedProjectId} />
+                {activeView === 'context' && (activeProjectId || selectedProjectId) && (
+                  <Context projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'ideation' && selectedProjectId && (
-                  <Ideation projectId={selectedProjectId} onGoToTask={handleGoToTask} />
+                {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
+                  <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
                 )}
-                {activeView === 'insights' && selectedProjectId && (
-                  <Insights projectId={selectedProjectId} />
+                {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
+                  <Insights projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'github-issues' && selectedProjectId && (
+                {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
                   <GitHubIssues
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('github');
@@ -455,11 +657,11 @@ export function App() {
                     onNavigateToTask={handleGoToTask}
                   />
                 )}
-                {activeView === 'changelog' && selectedProjectId && (
+                {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (
                   <Changelog />
                 )}
-                {activeView === 'worktrees' && selectedProjectId && (
-                  <Worktrees projectId={selectedProjectId} />
+                {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
+                  <Worktrees projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'agent-tools' && (
                   <div className="flex h-full items-center justify-center">
@@ -477,7 +679,9 @@ export function App() {
                 projects={projects}
                 onNewProject={handleAddProject}
                 onOpenProject={handleAddProject}
-                onSelectProject={(projectId) => useProjectStore.getState().selectProject(projectId)}
+                onSelectProject={(projectId) => {
+                  openProjectTab(projectId);
+                }}
               />
             )}
           </main>
@@ -491,9 +695,9 @@ export function App() {
         />
 
         {/* Dialogs */}
-        {selectedProjectId && (
+        {(activeProjectId || selectedProjectId) && (
           <TaskCreationWizard
-            projectId={selectedProjectId}
+            projectId={activeProjectId || selectedProjectId!}
             open={isNewTaskDialogOpen}
             onOpenChange={setIsNewTaskDialogOpen}
           />

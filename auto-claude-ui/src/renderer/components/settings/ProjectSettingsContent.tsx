@@ -86,8 +86,6 @@ function ProjectSettingsContentInner({
     setShowLinearKey,
     showOpenAIKey,
     setShowOpenAIKey,
-    showFalkorPassword,
-    setShowFalkorPassword,
     showGitHubToken,
     setShowGitHubToken,
     expandedSections: _expandedSections,
@@ -138,8 +136,6 @@ function ProjectSettingsContentInner({
         setShowLinearKey={setShowLinearKey}
         showOpenAIKey={showOpenAIKey}
         setShowOpenAIKey={setShowOpenAIKey}
-        showFalkorPassword={showFalkorPassword}
-        setShowFalkorPassword={setShowFalkorPassword}
         showGitHubToken={showGitHubToken}
         setShowGitHubToken={setShowGitHubToken}
         gitHubConnectionStatus={gitHubConnectionStatus}

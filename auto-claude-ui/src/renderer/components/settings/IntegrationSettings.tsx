@@ -504,7 +504,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               Run <code className="px-1 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code> to get your token
                             </span>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <div className="relative">
                               <Input
@@ -522,7 +522,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                                 {showManualToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                               </button>
                             </div>
-                            
+
                             <Input
                               type="email"
                               placeholder="Email (optional, for display)"
@@ -531,7 +531,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               className="text-xs h-8"
                             />
                           </div>
-                          
+
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"

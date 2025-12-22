@@ -134,6 +134,7 @@ def merge_existing_build(
     spec_name: str,
     no_commit: bool = False,
     use_smart_merge: bool = True,
+    base_branch: str | None = None,
 ) -> bool:
     """
     Merge an existing build into the project using intent-aware merge.
@@ -152,6 +153,7 @@ def merge_existing_build(
         spec_name: Name of the spec
         no_commit: If True, merge changes but don't commit (stage only for review in IDE)
         use_smart_merge: If True, use intent-aware merge (default True)
+        base_branch: The branch the task was created from (for comparison). If None, auto-detect.
 
     Returns:
         True if merge succeeded
@@ -217,7 +219,12 @@ def merge_existing_build(
     # Try smart merge first if enabled
     if use_smart_merge:
         smart_result = _try_smart_merge(
-            project_dir, spec_name, worktree_path, manager, no_commit=no_commit
+            project_dir,
+            spec_name,
+            worktree_path,
+            manager,
+            no_commit=no_commit,
+            task_source_branch=base_branch,
         )
 
         if smart_result is not None:
@@ -313,6 +320,7 @@ def _try_smart_merge(
     worktree_path: Path,
     manager: WorktreeManager,
     no_commit: bool = False,
+    task_source_branch: str | None = None,
 ) -> dict | None:
     """
     Try to use the intent-aware merge system.
@@ -322,6 +330,10 @@ def _try_smart_merge(
 
     Uses a lock file to prevent concurrent merges for the same spec.
 
+    Args:
+        task_source_branch: The branch the task was created from (for comparison).
+                           If None, auto-detect.
+
     Returns:
         Dict with results, or None if smart merge not applicable
     """
@@ -329,7 +341,12 @@ def _try_smart_merge(
     try:
         with MergeLock(project_dir, spec_name):
             return _try_smart_merge_inner(
-                project_dir, spec_name, worktree_path, manager, no_commit
+                project_dir,
+                spec_name,
+                worktree_path,
+                manager,
+                no_commit,
+                task_source_branch=task_source_branch,
             )
     except MergeLockError as e:
         print(warning(f"  {e}"))
@@ -346,6 +363,7 @@ def _try_smart_merge_inner(
     worktree_path: Path,
     manager: WorktreeManager,
     no_commit: bool = False,
+    task_source_branch: str | None = None,
 ) -> dict | None:
     """Inner implementation of smart merge (called with lock held)."""
     debug(
@@ -381,8 +399,17 @@ def _try_smart_merge_inner(
         )
 
         # Refresh evolution data from the worktree
-        debug(MODULE, "Refreshing evolution data from git", spec_name=spec_name)
-        orchestrator.evolution_tracker.refresh_from_git(spec_name, worktree_path)
+        # Use task_source_branch (where task branched from) for comparing what files changed
+        # If not provided, auto-detection will find main/master
+        debug(
+            MODULE,
+            "Refreshing evolution data from git",
+            spec_name=spec_name,
+            task_source_branch=task_source_branch,
+        )
+        orchestrator.evolution_tracker.refresh_from_git(
+            spec_name, worktree_path, target_branch=task_source_branch
+        )
 
         # Check for git-level conflicts first (branch divergence)
         debug(MODULE, "Checking for git-level conflicts")

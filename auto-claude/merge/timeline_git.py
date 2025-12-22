@@ -197,19 +197,25 @@ class TimelineGitHelper:
                 return worktree_path.read_text(encoding="utf-8", errors="replace")
         return ""
 
-    def get_changed_files_in_worktree(self, worktree_path: Path) -> list[str]:
+    def get_changed_files_in_worktree(
+        self, worktree_path: Path, target_branch: str | None = None
+    ) -> list[str]:
         """
-        Get all changed files in a worktree vs main.
+        Get all changed files in a worktree vs target branch.
 
         Args:
             worktree_path: Path to the worktree directory
+            target_branch: Branch to compare against (default: auto-detect)
 
         Returns:
             List of file paths changed in the worktree
         """
+        if not target_branch:
+            target_branch = self._detect_target_branch(worktree_path)
+
         try:
             result = subprocess.run(
-                ["git", "diff", "--name-only", "main...HEAD"],
+                ["git", "diff", "--name-only", f"{target_branch}...HEAD"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
@@ -224,26 +230,35 @@ class TimelineGitHelper:
             logger.error(f"Failed to get changed files in worktree: {e}")
             return []
 
-    def get_branch_point(self, worktree_path: Path) -> str | None:
+    def get_branch_point(
+        self, worktree_path: Path, target_branch: str | None = None
+    ) -> str | None:
         """
-        Get the branch point (merge-base with main) for a worktree.
+        Get the branch point (merge-base with target branch) for a worktree.
 
         Args:
             worktree_path: Path to the worktree directory
+            target_branch: Branch to find merge-base with (default: auto-detect)
 
         Returns:
             Commit hash of the branch point, or None if error
         """
+        if not target_branch:
+            target_branch = self._detect_target_branch(worktree_path)
+
         try:
             result = subprocess.run(
-                ["git", "merge-base", "main", "HEAD"],
+                ["git", "merge-base", target_branch, "HEAD"],
                 cwd=worktree_path,
                 capture_output=True,
                 text=True,
             )
 
             if result.returncode != 0:
-                debug_warning(MODULE, "Could not determine branch point")
+                debug_warning(
+                    MODULE,
+                    f"Could not determine branch point for {target_branch}",
+                )
                 return None
 
             return result.stdout.strip()
@@ -251,6 +266,50 @@ class TimelineGitHelper:
         except Exception as e:
             logger.error(f"Failed to get branch point: {e}")
             return None
+
+    def _detect_target_branch(self, worktree_path: Path) -> str:
+        """
+        Detect the target branch to compare against for a worktree.
+
+        Args:
+            worktree_path: Path to the worktree
+
+        Returns:
+            The detected target branch name, defaults to 'main' if detection fails
+        """
+        # Try to get the upstream tracking branch
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                upstream = result.stdout.strip()
+                # Extract branch name from origin/branch format
+                if "/" in upstream:
+                    return upstream.split("/", 1)[1]
+                return upstream
+        except Exception:
+            pass
+
+        # Try common branch names and find which one has a valid merge-base
+        for branch in ["main", "master", "develop"]:
+            try:
+                result = subprocess.run(
+                    ["git", "merge-base", branch, "HEAD"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    return branch
+            except Exception:
+                continue
+
+        # Default to main
+        return "main"
 
     def count_commits_between(self, from_commit: str, to_commit: str) -> int:
         """

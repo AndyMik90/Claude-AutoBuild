@@ -531,7 +531,7 @@ export function registerGetGitHubBranches(): void {
     IPC_CHANNELS.GITHUB_GET_BRANCHES,
     async (_event: Electron.IpcMainInvokeEvent, repo: string, _token: string): Promise<IPCResult<string[]>> => {
       debugLog('getGitHubBranches handler called', { repo });
-      
+
       // Validate repo format to prevent command injection
       if (!isValidGitHubRepo(repo)) {
         debugLog('Invalid repo format rejected:', repo);
@@ -540,7 +540,7 @@ export function registerGetGitHubBranches(): void {
           error: 'Invalid repository format. Expected: owner/repo'
         };
       }
-      
+
       try {
         // Use gh CLI to list branches (uses authenticated session)
         // Use execFileSync with separate arguments to avoid shell injection
@@ -574,6 +574,203 @@ export function registerGetGitHubBranches(): void {
 }
 
 /**
+ * Create a new GitHub repository using gh CLI
+ */
+export function registerCreateGitHubRepo(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_CREATE_REPO,
+    async (
+      _event: Electron.IpcMainInvokeEvent,
+      repoName: string,
+      options: { description?: string; isPrivate?: boolean; projectPath: string; owner?: string }
+    ): Promise<IPCResult<{ fullName: string; url: string }>> => {
+      debugLog('createGitHubRepo handler called', { repoName, options });
+
+      // Validate repo name - only alphanumeric, hyphens, underscores
+      if (!/^[A-Za-z0-9_.-]+$/.test(repoName)) {
+        return {
+          success: false,
+          error: 'Invalid repository name. Use only letters, numbers, hyphens, underscores, and periods.'
+        };
+      }
+
+      try {
+        // Get the authenticated username
+        const username = execSync('gh api user --jq .login', {
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        }).trim();
+
+        // Determine the owner (personal account or organization)
+        const owner = options.owner || username;
+        const isOrgRepo = owner !== username;
+
+        // Build the full repo name (owner/repo format for orgs)
+        const repoFullName = isOrgRepo ? `${owner}/${repoName}` : repoName;
+
+        // Build gh repo create command arguments
+        const args = ['repo', 'create', repoFullName, '--source', options.projectPath];
+
+        if (options.isPrivate) {
+          args.push('--private');
+        } else {
+          args.push('--public');
+        }
+
+        if (options.description) {
+          args.push('--description', options.description);
+        }
+
+        // Push to remote after creation
+        args.push('--push');
+
+        debugLog('Running: gh', args);
+        const output = execFileSync('gh', args, {
+          encoding: 'utf-8',
+          cwd: options.projectPath,
+          stdio: 'pipe'
+        });
+
+        debugLog('gh repo create output:', output);
+
+        const fullName = `${owner}/${repoName}`;
+        const url = `https://github.com/${fullName}`;
+
+        debugLog('Created repo:', { fullName, url });
+
+        return {
+          success: true,
+          data: { fullName, url }
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create repository';
+        debugLog('Failed to create repo:', errorMessage);
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+    }
+  );
+}
+
+/**
+ * Add a remote origin to a local git repository
+ */
+export function registerAddGitRemote(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_ADD_REMOTE,
+    async (
+      _event: Electron.IpcMainInvokeEvent,
+      projectPath: string,
+      repoFullName: string
+    ): Promise<IPCResult<{ remoteUrl: string }>> => {
+      debugLog('addGitRemote handler called', { projectPath, repoFullName });
+
+      // Validate repo format
+      if (!isValidGitHubRepo(repoFullName)) {
+        return {
+          success: false,
+          error: 'Invalid repository format. Expected: owner/repo'
+        };
+      }
+
+      const remoteUrl = `https://github.com/${repoFullName}.git`;
+
+      try {
+        // Check if origin already exists
+        try {
+          execSync('git remote get-url origin', {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          });
+          // Origin exists, remove it first
+          debugLog('Removing existing origin remote');
+          execSync('git remote remove origin', {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          });
+        } catch {
+          // No origin exists, which is fine
+        }
+
+        // Add the remote
+        debugLog('Adding remote origin:', remoteUrl);
+        execFileSync('git', ['remote', 'add', 'origin', remoteUrl], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+
+        debugLog('Remote added successfully');
+        return {
+          success: true,
+          data: { remoteUrl }
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to add remote';
+        debugLog('Failed to add remote:', errorMessage);
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+    }
+  );
+}
+
+/**
+ * List user's GitHub organizations
+ */
+export function registerListGitHubOrgs(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_LIST_ORGS,
+    async (): Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>> => {
+      debugLog('listGitHubOrgs handler called');
+
+      try {
+        // Get user's organizations
+        const output = execSync('gh api user/orgs --jq \'.[] | {login: .login, avatarUrl: .avatar_url}\'', {
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+
+        // Parse the JSON lines output
+        const orgs: Array<{ login: string; avatarUrl?: string }> = [];
+        const lines = output.trim().split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const org = JSON.parse(line);
+            orgs.push({
+              login: org.login,
+              avatarUrl: org.avatarUrl
+            });
+          } catch {
+            // Skip invalid JSON lines
+          }
+        }
+
+        debugLog('Found organizations:', orgs.length);
+        return {
+          success: true,
+          data: { orgs }
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to list organizations';
+        debugLog('Failed to list orgs:', errorMessage);
+        return {
+          success: true, // Return success with empty array - user might not have any orgs
+          data: { orgs: [] }
+        };
+      }
+    }
+  );
+}
+
+/**
  * Register all GitHub OAuth handlers
  */
 export function registerGithubOAuthHandlers(): void {
@@ -586,5 +783,8 @@ export function registerGithubOAuthHandlers(): void {
   registerListUserRepos();
   registerDetectGitHubRepo();
   registerGetGitHubBranches();
+  registerCreateGitHubRepo();
+  registerAddGitRemote();
+  registerListGitHubOrgs();
   debugLog('GitHub OAuth handlers registered');
 }

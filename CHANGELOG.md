@@ -407,7 +407,7 @@
 
 - Restructured SortableFeatureCard badge layout for improved visual presentation
 
-Bug Fixes: 
+Bug Fixes:
 - Fixed spec runner path configuration for more reliable task execution
 
 ---

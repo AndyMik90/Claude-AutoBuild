@@ -48,6 +48,10 @@ export interface ChangelogAPI {
     imageData: string,
     filename: string
   ) => Promise<IPCResult<{ relativePath: string; url: string }>>;
+  readLocalImage: (
+    projectPath: string,
+    relativePath: string
+  ) => Promise<IPCResult<string>>;
 
   // Event Listeners
   onChangelogGenerationProgress: (
@@ -112,6 +116,12 @@ export const createChangelogAPI = (): ChangelogAPI => ({
     filename: string
   ): Promise<IPCResult<{ relativePath: string; url: string }>> =>
     invokeIpc(IPC_CHANNELS.CHANGELOG_SAVE_IMAGE, projectId, imageData, filename),
+
+  readLocalImage: (
+    projectPath: string,
+    relativePath: string
+  ): Promise<IPCResult<string>> =>
+    invokeIpc(IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE, projectPath, relativePath),
 
   // Event Listeners
   onChangelogGenerationProgress: (

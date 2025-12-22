@@ -951,7 +951,7 @@ export function registerTaskHandlers(
           try {
             // Set status to in_progress for the restart
             newStatus = 'in_progress';
-            
+
             // Update plan status for restart
             if (plan) {
               plan.status = 'in_progress';
@@ -964,7 +964,7 @@ export function registerTaskHandlers(
             const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
             fileWatcher.watch(taskId, specDirForWatcher);
-            
+
             // Note: Parallel execution is handled internally by the agent
             agentManager.startTaskExecution(
               taskId,
@@ -1000,7 +1000,7 @@ export function registerTaskHandlers(
             taskId,
             recovered: true,
             newStatus,
-            message: autoRestarted 
+            message: autoRestarted
               ? 'Task recovered and restarted successfully'
               : `Task recovered successfully and moved to ${newStatus}`,
             autoRestarted

@@ -116,13 +116,13 @@ export function FileTreeItem({
     // Create a custom drag image using safe DOM manipulation (no innerHTML)
     const dragImage = document.createElement('div');
     dragImage.className = 'flex items-center gap-2 bg-card border border-primary rounded-md px-3 py-2 shadow-lg text-sm';
-    
+
     const iconSpan = document.createElement('span');
     iconSpan.textContent = node.isDirectory ? '📁' : '📄';
-    
+
     const nameSpan = document.createElement('span');
     nameSpan.textContent = node.name;
-    
+
     dragImage.appendChild(iconSpan);
     dragImage.appendChild(nameSpan);
     dragImage.style.position = 'absolute';

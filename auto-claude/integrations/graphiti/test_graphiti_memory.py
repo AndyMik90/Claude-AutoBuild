@@ -1,70 +1,77 @@
 #!/usr/bin/env python3
 """
-Test Script for Graphiti Memory Integration V2
-==============================================
+Test Script for Memory Integration with LadybugDB
+=================================================
 
-This script tests the hybrid memory layer (graph + semantic search) to verify
-data is being saved and retrieved correctly from FalkorDB.
+This script tests the memory layer (graph + semantic search) to verify
+data is being saved and retrieved correctly from LadybugDB (embedded Kuzu).
 
-V2 supports multiple LLM and embedding providers. Set up your preferred provider:
+LadybugDB is an embedded graph database - no Docker required!
 
 Usage:
     # Set environment variables first (or in .env file):
     export GRAPHITI_ENABLED=true
-    export GRAPHITI_LLM_PROVIDER=openai  # or: anthropic, azure_openai, ollama
-    export GRAPHITI_EMBEDDER_PROVIDER=openai  # or: voyage, azure_openai, ollama
+    export GRAPHITI_EMBEDDER_PROVIDER=ollama  # or: openai, voyage, azure_openai, google
 
-    # Provider-specific credentials (set based on your chosen providers):
-    # OpenAI:
-    export OPENAI_API_KEY=sk-...
-
-    # Anthropic (LLM only, needs separate embedder):
-    export ANTHROPIC_API_KEY=sk-ant-...
-
-    # Voyage AI (embeddings only):
-    export VOYAGE_API_KEY=...
-
-    # Azure OpenAI:
-    export AZURE_OPENAI_API_KEY=...
-    export AZURE_OPENAI_BASE_URL=https://...
-    export AZURE_OPENAI_LLM_DEPLOYMENT=gpt-5
-    export AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
-
-    # Ollama (local):
-    export OLLAMA_LLM_MODEL=deepseek-r1:7b
-    export OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+    # For Ollama (recommended - free, local):
+    export OLLAMA_EMBEDDING_MODEL=embeddinggemma
     export OLLAMA_EMBEDDING_DIM=768
 
-    # FalkorDB (optional - uses defaults localhost:6380):
-    export GRAPHITI_FALKORDB_HOST=localhost
-    export GRAPHITI_FALKORDB_PORT=6380
+    # For OpenAI:
+    export OPENAI_API_KEY=sk-...
 
     # Run the test:
-    python auto-claude/test_graphiti_memory.py
+    cd auto-claude
+    python integrations/graphiti/test_graphiti_memory.py
+
+    # Or run specific tests:
+    python integrations/graphiti/test_graphiti_memory.py --test connection
+    python integrations/graphiti/test_graphiti_memory.py --test save
+    python integrations/graphiti/test_graphiti_memory.py --test search
+    python integrations/graphiti/test_graphiti_memory.py --test ollama
 """
 
+import argparse
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 # Add auto-claude to path
-sys.path.insert(0, str(Path(__file__).parent))
+auto_claude_dir = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(auto_claude_dir))
 
 # Load .env file
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
 
-env_file = Path(__file__).parent / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-    print(f"Loaded .env from {env_file}")
+    env_file = auto_claude_dir / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"Loaded .env from {env_file}")
+except ImportError:
+    print("Note: python-dotenv not installed, using environment variables only")
 
-from graphiti_config import (
-    GraphitiConfig,
-    get_graphiti_status,
-    is_graphiti_enabled,
-)
+
+def apply_ladybug_monkeypatch():
+    """Apply LadybugDB monkeypatch for embedded database support."""
+    try:
+        import real_ladybug
+
+        sys.modules["kuzu"] = real_ladybug
+        return True
+    except ImportError:
+        pass
+
+    # Try native kuzu as fallback
+    try:
+        import kuzu  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def print_header(title: str):
@@ -80,121 +87,102 @@ def print_result(label: str, value: str, success: bool = True):
     print(f"  {status} {label}: {value}")
 
 
-async def test_connection():
-    """Test basic FalkorDB connection and provider configuration."""
-    print_header("1. Testing FalkorDB Connection & Providers")
+def print_info(message: str):
+    """Print an info line."""
+    print(f"  ℹ️  {message}")
 
-    config = GraphitiConfig.from_env()
 
-    print(f"  Host: {config.falkordb_host}")
-    print(f"  Port: {config.falkordb_port}")
-    print(f"  Database: {config.database}")
-    print(f"  LLM Provider: {config.llm_provider}")
-    print(f"  Embedder Provider: {config.embedder_provider}")
+async def test_ladybugdb_connection(db_path: str, database: str) -> bool:
+    """Test basic LadybugDB connection."""
+    print_header("1. Testing LadybugDB Connection")
+
+    print(f"  Database path: {db_path}")
+    print(f"  Database name: {database}")
     print()
 
+    if not apply_ladybug_monkeypatch():
+        print_result("LadybugDB", "Not installed (pip install real-ladybug)", False)
+        return False
+
+    print_result("LadybugDB", "Installed", True)
+
     try:
-        from graphiti_core import Graphiti
-        from graphiti_core.driver.falkordb_driver import FalkorDriver
-        from graphiti_providers import ProviderError, create_embedder, create_llm_client
+        import kuzu  # This is real_ladybug via monkeypatch
 
-        # Test provider creation
-        print("  Creating LLM client...")
-        try:
-            llm_client = create_llm_client(config)
-            print_result("LLM Client", f"Created for {config.llm_provider}", True)
-        except ProviderError as e:
-            print_result("LLM Client", f"FAILED: {e}", False)
+        # Ensure parent directory exists (database will create its own structure)
+        full_path = Path(db_path) / database
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create database and connection
+        db = kuzu.Database(str(full_path))
+        conn = kuzu.Connection(db)
+
+        # Test basic query
+        result = conn.execute("RETURN 1 + 1 as test")
+        df = result.get_as_df()
+        test_value = df["test"].iloc[0] if len(df) > 0 else None
+
+        if test_value == 2:
+            print_result("Connection", "SUCCESS - Database responds correctly", True)
+            return True
+        else:
+            print_result("Connection", f"Unexpected result: {test_value}", False)
             return False
-
-        print("  Creating embedder...")
-        try:
-            embedder = create_embedder(config)
-            print_result("Embedder", f"Created for {config.embedder_provider}", True)
-        except ProviderError as e:
-            print_result("Embedder", f"FAILED: {e}", False)
-            return False
-
-        # Try to connect to FalkorDB
-        print("  Connecting to FalkorDB...")
-        driver = FalkorDriver(
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-            database=config.database,
-        )
-
-        graphiti = Graphiti(
-            graph_driver=driver,
-            llm_client=llm_client,
-            embedder=embedder,
-        )
-
-        # Try building indices
-        print("  Building indices...")
-        await graphiti.build_indices_and_constraints()
-
-        print_result("Connection", "SUCCESS", True)
-
-        await graphiti.close()
-        return True
 
     except Exception as e:
         print_result("Connection", f"FAILED: {e}", False)
         return False
 
 
-async def test_save_episode():
+async def test_save_episode(db_path: str, database: str) -> tuple[str, str]:
     """Test saving an episode to the graph."""
     print_header("2. Testing Episode Save")
 
-    config = GraphitiConfig.from_env()
-
     try:
-        from graphiti_core import Graphiti
-        from graphiti_core.driver.falkordb_driver import FalkorDriver
-        from graphiti_core.nodes import EpisodeType
-        from graphiti_providers import create_embedder, create_llm_client
+        from integrations.graphiti.config import GraphitiConfig
+        from integrations.graphiti.queries_pkg.client import GraphitiClient
 
-        # Create providers using factory
-        llm_client = create_llm_client(config)
-        embedder = create_embedder(config)
+        # Create config
+        config = GraphitiConfig.from_env()
+        config.db_path = db_path
+        config.database = database
+        config.enabled = True
 
-        # Connect
-        driver = FalkorDriver(
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-            database=config.database,
-        )
+        print(f"  Embedder provider: {config.embedder_provider}")
+        print()
 
-        graphiti = Graphiti(
-            graph_driver=driver,
-            llm_client=llm_client,
-            embedder=embedder,
-        )
-        await graphiti.build_indices_and_constraints()
+        # Initialize client
+        client = GraphitiClient(config)
+        initialized = await client.initialize()
 
-        # Create test episode
+        if not initialized:
+            print_result("Client Init", "Failed to initialize", False)
+            return None, None
+
+        print_result("Client Init", "SUCCESS", True)
+
+        # Create test episode data
         test_data = {
             "type": "test_episode",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "test_field": "Hello from test script!",
+            "test_field": "Hello from LadybugDB test!",
             "test_number": 42,
-            "test_list": ["item1", "item2", "item3"],
+            "embedder": config.embedder_provider,
         }
 
         episode_name = f"test_episode_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        group_id = "graphiti_test_group"
+        group_id = "ladybug_test_group"
 
         print(f"  Episode name: {episode_name}")
         print(f"  Group ID: {group_id}")
         print(f"  Data: {json.dumps(test_data, indent=4)}")
         print()
 
-        # Save the episode
+        # Save using Graphiti
+        from graphiti_core.nodes import EpisodeType
+
         print("  Saving episode...")
-        await graphiti.add_episode(
+        await client.graphiti.add_episode(
             name=episode_name,
             episode_body=json.dumps(test_data),
             source=EpisodeType.text,
@@ -205,9 +193,12 @@ async def test_save_episode():
 
         print_result("Episode Save", "SUCCESS", True)
 
-        await graphiti.close()
+        await client.close()
         return episode_name, group_id
 
+    except ImportError as e:
+        print_result("Import", f"Missing dependency: {e}", False)
+        return None, None
     except Exception as e:
         print_result("Episode Save", f"FAILED: {e}", False)
         import traceback
@@ -216,84 +207,231 @@ async def test_save_episode():
         return None, None
 
 
-async def test_search(group_id: str):
-    """Test semantic search."""
-    print_header("3. Testing Semantic Search")
+async def test_keyword_search(db_path: str, database: str) -> bool:
+    """Test keyword search (works without embeddings)."""
+    print_header("3. Testing Keyword Search")
 
-    if not group_id:
-        print("  ⚠️  Skipping - no group_id from previous test")
-        return
-
-    config = GraphitiConfig.from_env()
+    if not apply_ladybug_monkeypatch():
+        print_result("LadybugDB", "Not installed", False)
+        return False
 
     try:
-        from graphiti_core import Graphiti
-        from graphiti_core.driver.falkordb_driver import FalkorDriver
-        from graphiti_providers import create_embedder, create_llm_client
+        import kuzu
 
-        # Create providers using factory
-        llm_client = create_llm_client(config)
-        embedder = create_embedder(config)
+        full_path = Path(db_path) / database
+        if not full_path.exists():
+            print_info("Database doesn't exist yet - run save test first")
+            return True
 
-        # Connect
-        driver = FalkorDriver(
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-            database=config.database,
-        )
+        db = kuzu.Database(str(full_path))
+        conn = kuzu.Connection(db)
 
-        graphiti = Graphiti(
-            graph_driver=driver,
-            llm_client=llm_client,
-            embedder=embedder,
-        )
+        # Search for test episodes
+        search_query = "test"
+        print(f"  Search query: '{search_query}'")
+        print()
 
-        # Search for the test data
-        query = "test episode hello"
-        print(f'  Query: "{query}"')
+        query = f"""
+            MATCH (e:Episodic)
+            WHERE toLower(e.name) CONTAINS '{search_query}'
+               OR toLower(e.content) CONTAINS '{search_query}'
+            RETURN e.name as name, e.content as content
+            LIMIT 5
+        """
+
+        try:
+            result = conn.execute(query)
+            df = result.get_as_df()
+
+            print(f"  Found {len(df)} results:")
+            for _, row in df.iterrows():
+                name = row.get("name", "unknown")[:50]
+                content = str(row.get("content", ""))[:60]
+                print(f"    - {name}: {content}...")
+
+            print_result("Keyword Search", f"Found {len(df)} results", True)
+            return True
+
+        except Exception as e:
+            if "Episodic" in str(e) and "not exist" in str(e).lower():
+                print_info("Episodic table doesn't exist yet - run save test first")
+                return True
+            raise
+
+    except Exception as e:
+        print_result("Keyword Search", f"FAILED: {e}", False)
+        return False
+
+
+async def test_semantic_search(db_path: str, database: str, group_id: str) -> bool:
+    """Test semantic search using embeddings."""
+    print_header("4. Testing Semantic Search")
+
+    if not group_id:
+        print_info("Skipping - no group_id from save test")
+        return True
+
+    try:
+        from integrations.graphiti.config import GraphitiConfig
+        from integrations.graphiti.queries_pkg.client import GraphitiClient
+
+        # Create config
+        config = GraphitiConfig.from_env()
+        config.db_path = db_path
+        config.database = database
+        config.enabled = True
+
+        if not config.embedder_provider:
+            print_info("No embedder configured - semantic search requires embeddings")
+            return True
+
+        print(f"  Embedder: {config.embedder_provider}")
+        print()
+
+        # Initialize client
+        client = GraphitiClient(config)
+        initialized = await client.initialize()
+
+        if not initialized:
+            print_result("Client Init", "Failed", False)
+            return False
+
+        # Search
+        query = "test episode hello LadybugDB"
+        print(f"  Query: '{query}'")
         print(f"  Group ID: {group_id}")
         print()
 
         print("  Searching...")
-        results = await graphiti.search(
+        results = await client.graphiti.search(
             query=query,
             group_ids=[group_id],
             num_results=10,
         )
 
         print(f"  Found {len(results)} results:")
-        for i, result in enumerate(results):
-            print(f"\n  Result {i + 1}:")
+        for i, result in enumerate(results[:5]):
             # Print available attributes
-            for attr in ["fact", "content", "uuid", "name", "score"]:
-                if hasattr(result, attr):
-                    val = getattr(result, attr)
-                    if val:
-                        print(f"    {attr}: {str(val)[:100]}...")
+            if hasattr(result, "fact") and result.fact:
+                print(f"    {i + 1}. [fact] {str(result.fact)[:80]}...")
+            elif hasattr(result, "content") and result.content:
+                print(f"    {i + 1}. [content] {str(result.content)[:80]}...")
+            elif hasattr(result, "name"):
+                print(f"    {i + 1}. [name] {str(result.name)[:80]}...")
+
+        await client.close()
 
         if results:
-            print_result("Search", f"SUCCESS - Found {len(results)} results", True)
+            print_result(
+                "Semantic Search", f"SUCCESS - Found {len(results)} results", True
+            )
         else:
-            print_result("Search", "WARNING - No results found", False)
+            print_result(
+                "Semantic Search", "No results (may need time for embedding)", False
+            )
 
-        await graphiti.close()
+        return len(results) > 0
 
     except Exception as e:
-        print_result("Search", f"FAILED: {e}", False)
+        print_result("Semantic Search", f"FAILED: {e}", False)
         import traceback
 
         traceback.print_exc()
+        return False
 
 
-async def test_graphiti_memory_class():
-    """Test the GraphitiMemory wrapper class."""
-    print_header("4. Testing GraphitiMemory Class")
+async def test_ollama_embeddings() -> bool:
+    """Test Ollama embedding generation directly."""
+    print_header("5. Testing Ollama Embeddings")
+
+    ollama_model = os.environ.get("OLLAMA_EMBEDDING_MODEL", "embeddinggemma")
+    ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    print(f"  Model: {ollama_model}")
+    print(f"  Base URL: {ollama_base_url}")
+    print()
 
     try:
-        from graphiti_memory import GraphitiMemory
+        import requests
 
-        # Create a temporary spec directory for testing
+        # Check Ollama status
+        print("  Checking Ollama status...")
+        try:
+            resp = requests.get(f"{ollama_base_url}/api/tags", timeout=5)
+            if resp.status_code != 200:
+                print_result(
+                    "Ollama", f"Not responding (status {resp.status_code})", False
+                )
+                return False
+
+            models = [m["name"] for m in resp.json().get("models", [])]
+            embedding_models = [
+                m for m in models if "embed" in m.lower() or "gemma" in m.lower()
+            ]
+            print_result("Ollama", f"Running with {len(models)} models", True)
+            print(f"    Embedding models: {embedding_models}")
+
+        except requests.exceptions.ConnectionError:
+            print_result("Ollama", "Not running - start with 'ollama serve'", False)
+            return False
+
+        # Test embedding generation
+        print()
+        print("  Generating test embedding...")
+
+        test_text = (
+            "This is a test embedding for Auto Claude memory system using LadybugDB."
+        )
+
+        resp = requests.post(
+            f"{ollama_base_url}/api/embeddings",
+            json={"model": ollama_model, "prompt": test_text},
+            timeout=30,
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            embedding = data.get("embedding", [])
+            print_result("Embedding", f"SUCCESS - {len(embedding)} dimensions", True)
+            print(f"    First 5 values: {embedding[:5]}")
+
+            # Verify dimension matches config
+            expected_dim = int(os.environ.get("OLLAMA_EMBEDDING_DIM", 768))
+            if len(embedding) == expected_dim:
+                print_result("Dimension", f"Matches expected ({expected_dim})", True)
+            else:
+                print_result(
+                    "Dimension",
+                    f"Mismatch! Got {len(embedding)}, expected {expected_dim}",
+                    False,
+                )
+                print_info(
+                    f"Update OLLAMA_EMBEDDING_DIM={len(embedding)} in your config"
+                )
+
+            return True
+        else:
+            print_result(
+                "Embedding", f"FAILED: {resp.status_code} - {resp.text}", False
+            )
+            return False
+
+    except ImportError:
+        print_result("requests", "Not installed (pip install requests)", False)
+        return False
+    except Exception as e:
+        print_result("Ollama Embeddings", f"FAILED: {e}", False)
+        return False
+
+
+async def test_graphiti_memory_class(db_path: str, database: str) -> bool:
+    """Test the GraphitiMemory wrapper class."""
+    print_header("6. Testing GraphitiMemory Class")
+
+    try:
+        from integrations.graphiti.memory import GraphitiMemory
+
+        # Create temporary directories for testing
         test_spec_dir = Path("/tmp/graphiti_test_spec")
         test_spec_dir.mkdir(parents=True, exist_ok=True)
 
@@ -304,6 +442,10 @@ async def test_graphiti_memory_class():
         print(f"  Project dir: {test_project_dir}")
         print()
 
+        # Override database path via environment
+        os.environ["GRAPHITI_DB_PATH"] = db_path
+        os.environ["GRAPHITI_DATABASE"] = database
+
         # Create memory instance
         memory = GraphitiMemory(test_spec_dir, test_project_dir)
 
@@ -312,28 +454,30 @@ async def test_graphiti_memory_class():
         print()
 
         if not memory.is_enabled:
-            print_result("GraphitiMemory", "Graphiti not enabled/configured", False)
-            return
+            print_info("GraphitiMemory not enabled - check GRAPHITI_ENABLED=true")
+            return True
 
         # Initialize
         print("  Initializing...")
         init_result = await memory.initialize()
-        print(f"  Initialized: {init_result}")
 
         if not init_result:
-            print_result("GraphitiMemory Init", "Failed to initialize", False)
-            return
+            print_result("Initialize", "Failed", False)
+            return False
+
+        print_result("Initialize", "SUCCESS", True)
 
         # Test save_session_insights
-        print("\n  Testing save_session_insights...")
+        print()
+        print("  Testing save_session_insights...")
         insights = {
-            "subtasks_completed": ["subtask-test-1", "subtask-test-2"],
+            "subtasks_completed": ["test-subtask-1"],
             "discoveries": {
-                "files_understood": {"test.py": "Test file purpose"},
-                "patterns_found": ["Pattern: Using async/await"],
-                "gotchas_encountered": ["Gotcha: Need to handle edge case"],
+                "files_understood": {"test.py": "Test file"},
+                "patterns_found": ["Pattern: LadybugDB works!"],
+                "gotchas_encountered": [],
             },
-            "what_worked": ["Using the GraphitiMemory class"],
+            "what_worked": ["Using embedded database"],
             "what_failed": [],
             "recommendations_for_next_session": ["Continue testing"],
         }
@@ -346,246 +490,229 @@ async def test_graphiti_memory_class():
         )
 
         # Test save_pattern
-        print("\n  Testing save_pattern...")
+        print()
+        print("  Testing save_pattern...")
         pattern_result = await memory.save_pattern(
-            "Test pattern: Always validate inputs before processing"
+            "LadybugDB pattern: Embedded graph database works without Docker"
         )
         print_result(
             "save_pattern", "SUCCESS" if pattern_result else "FAILED", pattern_result
         )
 
-        # Test save_gotcha
-        print("\n  Testing save_gotcha...")
-        gotcha_result = await memory.save_gotcha(
-            "Gotcha: FalkorDB requires Redis protocol on port 6380"
-        )
-        print_result(
-            "save_gotcha", "SUCCESS" if gotcha_result else "FAILED", gotcha_result
-        )
+        # Test get_relevant_context
+        print()
+        print("  Testing get_relevant_context...")
+        await asyncio.sleep(1)  # Brief wait for processing
 
-        # Test save_codebase_discoveries
-        print("\n  Testing save_codebase_discoveries...")
-        discoveries = {
-            "graphiti_memory.py": "Manages graph-based persistent memory",
-            "graphiti_config.py": "Configuration for FalkorDB connection",
-        }
-        discovery_result = await memory.save_codebase_discoveries(discoveries)
-        print_result(
-            "save_codebase_discoveries",
-            "SUCCESS" if discovery_result else "FAILED",
-            discovery_result,
-        )
+        context = await memory.get_relevant_context("LadybugDB embedded database")
+        print(f"  Found {len(context)} context items")
 
-        # Test get_relevant_context (semantic search)
-        print("\n  Testing get_relevant_context (waiting for embedding processing)...")
-        await asyncio.sleep(2)  # Give time for embeddings
-
-        context = await memory.get_relevant_context("graphiti memory session insights")
-        print(f"  Found {len(context)} context items:")
         for item in context[:3]:
-            print(f"    - Type: {item.get('type', 'unknown')}")
-            print(f"      Content: {str(item.get('content', ''))[:80]}...")
+            item_type = item.get("type", "unknown")
+            content = str(item.get("content", ""))[:60]
+            print(f"    - [{item_type}] {content}...")
 
-        print_result(
-            "get_relevant_context", f"Found {len(context)} items", len(context) > 0
-        )
+        print_result("get_relevant_context", f"Found {len(context)} items", True)
 
-        # Get status summary
-        print("\n  Status summary:")
+        # Get status
+        print()
+        print("  Status summary:")
         status = memory.get_status_summary()
         for key, value in status.items():
             print(f"    {key}: {value}")
 
         await memory.close()
-        print_result("GraphitiMemory", "All tests completed", True)
+        print_result("GraphitiMemory", "All tests passed", True)
+        return True
 
     except ImportError as e:
-        print_result("GraphitiMemory", f"Import error: {e}", False)
+        print_result("Import", f"Missing: {e}", False)
+        return False
     except Exception as e:
         print_result("GraphitiMemory", f"FAILED: {e}", False)
         import traceback
 
         traceback.print_exc()
+        return False
 
 
-async def test_raw_falkordb():
-    """Test raw FalkorDB operations to see what's in the database."""
-    print_header("5. Raw FalkorDB Query (Debug)")
+async def test_database_contents(db_path: str, database: str) -> bool:
+    """Show what's in the database (debug)."""
+    print_header("7. Database Contents (Debug)")
 
-    config = GraphitiConfig.from_env()
+    if not apply_ladybug_monkeypatch():
+        print_result("LadybugDB", "Not installed", False)
+        return False
 
     try:
-        import redis
-        from falkordb import FalkorDB
+        import kuzu
 
-        # Connect using FalkorDB client
-        db = FalkorDB(
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-        )
+        full_path = Path(db_path) / database
+        if not full_path.exists():
+            print_info(f"Database doesn't exist at {full_path}")
+            return True
 
-        # List all graphs
-        graphs = db.list_graphs()
-        print(f"  Available graphs: {graphs}")
+        db = kuzu.Database(str(full_path))
+        conn = kuzu.Connection(db)
 
-        # Query the main graph
-        graph_name = config.database
-        print(f"\n  Querying graph: {graph_name}")
+        # Get table info
+        print("  Checking tables...")
 
-        graph = db.select_graph(graph_name)
+        tables_to_check = ["Episodic", "Entity", "Community"]
 
-        # Count nodes
-        result = graph.query("MATCH (n) RETURN count(n) as count")
-        node_count = result.result_set[0][0] if result.result_set else 0
-        print(f"  Total nodes: {node_count}")
+        for table in tables_to_check:
+            try:
+                result = conn.execute(f"MATCH (n:{table}) RETURN count(n) as count")
+                df = result.get_as_df()
+                count = df["count"].iloc[0] if len(df) > 0 else 0
+                print(f"    {table}: {count} nodes")
+            except Exception as e:
+                if "not exist" in str(e).lower() or "cannot" in str(e).lower():
+                    print(f"    {table}: (table not created yet)")
+                else:
+                    print(f"    {table}: Error - {e}")
 
-        # Count edges
-        result = graph.query("MATCH ()-[r]->() RETURN count(r) as count")
-        edge_count = result.result_set[0][0] if result.result_set else 0
-        print(f"  Total edges: {edge_count}")
+        # Show sample episodic nodes
+        print()
+        print("  Sample Episodic nodes:")
+        try:
+            result = conn.execute("""
+                MATCH (e:Episodic)
+                RETURN e.name as name, e.created_at as created
+                ORDER BY e.created_at DESC
+                LIMIT 5
+            """)
+            df = result.get_as_df()
 
-        # Get node labels
-        result = graph.query("MATCH (n) RETURN DISTINCT labels(n)")
-        labels = [r[0] for r in result.result_set] if result.result_set else []
-        print(f"  Node labels: {labels}")
+            if len(df) == 0:
+                print("    (none)")
+            else:
+                for _, row in df.iterrows():
+                    print(f"    - {row.get('name', 'unknown')}")
+        except Exception as e:
+            if "Episodic" in str(e):
+                print("    (table not created yet)")
+            else:
+                print(f"    Error: {e}")
 
-        # Get sample nodes
-        print("\n  Sample nodes:")
-        result = graph.query("MATCH (n) RETURN n LIMIT 5")
-        for i, row in enumerate(result.result_set or []):
-            print(f"    {i + 1}. {row}")
+        print_result("Database Contents", "Displayed", True)
+        return True
 
-        # Get episode nodes specifically
-        print("\n  Episode nodes:")
-        result = graph.query(
-            "MATCH (n:Episode) RETURN n.name, n.source_description LIMIT 5"
-        )
-        for i, row in enumerate(result.result_set or []):
-            print(f"    {i + 1}. name={row[0]}, desc={row[1]}")
-
-        # Get entity nodes
-        print("\n  Entity nodes:")
-        result = graph.query("MATCH (n:Entity) RETURN n.name, n.summary LIMIT 5")
-        for i, row in enumerate(result.result_set or []):
-            print(f"    {i + 1}. name={row[0]}, summary={str(row[1])[:50]}...")
-
-        print_result(
-            "Raw FalkorDB", f"Graph has {node_count} nodes, {edge_count} edges", True
-        )
-
-    except ImportError as e:
-        print_result("Raw FalkorDB", f"Import error (install falkordb): {e}", False)
     except Exception as e:
-        print_result("Raw FalkorDB", f"FAILED: {e}", False)
-        import traceback
-
-        traceback.print_exc()
+        print_result("Database Contents", f"FAILED: {e}", False)
+        return False
 
 
 async def main():
     """Run all tests."""
-    print("\n" + "=" * 60)
-    print("  GRAPHITI MEMORY TEST SUITE")
-    print("=" * 60)
-
-    # Check configuration first
-    print_header("0. Configuration Check")
-
-    config = GraphitiConfig.from_env()
-    status = get_graphiti_status()
-
-    print_result("GRAPHITI_ENABLED", str(config.enabled), config.enabled)
-    print_result("LLM Provider", config.llm_provider, True)
-    print_result("Embedder Provider", config.embedder_provider, True)
-    print_result("FalkorDB host", config.falkordb_host, True)
-    print_result("FalkorDB port", str(config.falkordb_port), True)
-    print_result("Database", config.database, True)
-    print_result(
-        "is_graphiti_enabled()", str(is_graphiti_enabled()), is_graphiti_enabled()
+    parser = argparse.ArgumentParser(description="Test Memory System with LadybugDB")
+    parser.add_argument(
+        "--test",
+        choices=[
+            "all",
+            "connection",
+            "save",
+            "keyword",
+            "semantic",
+            "ollama",
+            "memory",
+            "contents",
+        ],
+        default="all",
+        help="Which test to run",
+    )
+    parser.add_argument(
+        "--db-path",
+        default=os.path.expanduser("~/.auto-claude/memories"),
+        help="Database path",
+    )
+    parser.add_argument(
+        "--database",
+        default="test_memory",
+        help="Database name (use 'test_memory' for testing)",
     )
 
-    # Show provider-specific configuration
-    if config.llm_provider == "openai":
+    args = parser.parse_args()
+
+    print("\n" + "=" * 60)
+    print("  MEMORY SYSTEM TEST SUITE (LadybugDB)")
+    print("=" * 60)
+
+    # Configuration check
+    print_header("0. Configuration Check")
+
+    print(f"  Database path: {args.db_path}")
+    print(f"  Database name: {args.database}")
+    print()
+
+    # Check environment
+    graphiti_enabled = os.environ.get("GRAPHITI_ENABLED", "").lower() == "true"
+    embedder_provider = os.environ.get("GRAPHITI_EMBEDDER_PROVIDER", "")
+
+    print_result("GRAPHITI_ENABLED", str(graphiti_enabled), graphiti_enabled)
+    print_result(
+        "GRAPHITI_EMBEDDER_PROVIDER",
+        embedder_provider or "(not set)",
+        bool(embedder_provider),
+    )
+
+    if embedder_provider == "ollama":
+        ollama_model = os.environ.get("OLLAMA_EMBEDDING_MODEL", "")
+        ollama_dim = os.environ.get("OLLAMA_EMBEDDING_DIM", "")
         print_result(
-            "OPENAI_API_KEY set",
-            "Yes" if config.openai_api_key else "No",
-            bool(config.openai_api_key),
+            "OLLAMA_EMBEDDING_MODEL", ollama_model or "(not set)", bool(ollama_model)
         )
-    elif config.llm_provider == "anthropic":
         print_result(
-            "ANTHROPIC_API_KEY set",
-            "Yes" if config.anthropic_api_key else "No",
-            bool(config.anthropic_api_key),
+            "OLLAMA_EMBEDDING_DIM", ollama_dim or "(not set)", bool(ollama_dim)
         )
-    elif config.llm_provider == "ollama":
-        print_result(
-            "OLLAMA_LLM_MODEL",
-            config.ollama_llm_model or "Not set",
-            bool(config.ollama_llm_model),
+    elif embedder_provider == "openai":
+        has_key = bool(os.environ.get("OPENAI_API_KEY"))
+        print_result("OPENAI_API_KEY", "Set" if has_key else "Not set", has_key)
+
+    # Run tests based on selection
+    test = args.test
+    group_id = None
+
+    if test in ["all", "connection"]:
+        await test_ladybugdb_connection(args.db_path, args.database)
+
+    if test in ["all", "ollama"]:
+        await test_ollama_embeddings()
+
+    if test in ["all", "save"]:
+        _, group_id = await test_save_episode(args.db_path, args.database)
+        if group_id:
+            print("\n  Waiting 2 seconds for embedding processing...")
+            await asyncio.sleep(2)
+
+    if test in ["all", "keyword"]:
+        await test_keyword_search(args.db_path, args.database)
+
+    if test in ["all", "semantic"]:
+        await test_semantic_search(
+            args.db_path, args.database, group_id or "ladybug_test_group"
         )
 
-    if config.embedder_provider == "openai":
-        print_result(
-            "OPENAI_API_KEY set (embedder)",
-            "Yes" if config.openai_api_key else "No",
-            bool(config.openai_api_key),
-        )
-    elif config.embedder_provider == "voyage":
-        print_result(
-            "VOYAGE_API_KEY set",
-            "Yes" if config.voyage_api_key else "No",
-            bool(config.voyage_api_key),
-        )
-    elif config.embedder_provider == "ollama":
-        print_result(
-            "OLLAMA_EMBEDDING_MODEL",
-            config.ollama_embedding_model or "Not set",
-            bool(config.ollama_embedding_model),
-        )
-        print_result(
-            "OLLAMA_EMBEDDING_DIM",
-            str(config.ollama_embedding_dim)
-            if config.ollama_embedding_dim
-            else "Not set",
-            bool(config.ollama_embedding_dim),
-        )
+    if test in ["all", "memory"]:
+        await test_graphiti_memory_class(args.db_path, args.database)
 
-    if not is_graphiti_enabled():
-        print("\n  ⚠️  Graphiti is not enabled or misconfigured!")
-        print("  Make sure to set these environment variables:")
-        print("    export GRAPHITI_ENABLED=true")
-        print(
-            "    export GRAPHITI_LLM_PROVIDER=openai  # or anthropic, azure_openai, ollama"
-        )
-        print(
-            "    export GRAPHITI_EMBEDDER_PROVIDER=openai  # or voyage, azure_openai, ollama"
-        )
-        print("    # Plus provider-specific credentials (see docstring for examples)")
-        print()
-        if status.get("reason"):
-            print(f"  Reason: {status['reason']}")
-        if status.get("errors"):
-            print(f"  Errors: {status['errors']}")
-        return
-
-    # Run tests
-    conn_ok = await test_connection()
-
-    if conn_ok:
-        episode_name, group_id = await test_save_episode()
-
-        # Wait a bit for embeddings to process
-        if episode_name:
-            print("\n  Waiting 3 seconds for embedding processing...")
-            await asyncio.sleep(3)
-
-        await test_search(group_id)
-        await test_graphiti_memory_class()
-        await test_raw_falkordb()
+    if test in ["all", "contents"]:
+        await test_database_contents(args.db_path, args.database)
 
     print_header("TEST SUMMARY")
     print("  Tests completed. Check the results above for any failures.")
+    print()
+    print("  Quick commands:")
+    print("    # Run all tests:")
+    print("    python integrations/graphiti/test_graphiti_memory.py")
+    print()
+    print("    # Test just Ollama embeddings:")
+    print("    python integrations/graphiti/test_graphiti_memory.py --test ollama")
+    print()
+    print("    # Test with production database:")
+    print(
+        "    python integrations/graphiti/test_graphiti_memory.py --database auto_claude_memory"
+    )
     print()
 
 

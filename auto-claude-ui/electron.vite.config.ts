@@ -9,7 +9,7 @@ export default defineConfig({
       exclude: [
         'uuid',
         'chokidar',
-        'ioredis',
+        'kuzu',
         'electron-updater',
         '@electron-toolkit/utils'
       ]

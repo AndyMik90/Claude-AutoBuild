@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import type { InfrastructureStatus } from '../../shared/types';
 
+/**
+ * Hook for checking memory infrastructure status (LadybugDB)
+ * No Docker required - uses embedded database
+ */
 export function useInfrastructureStatus(
   graphitiEnabled: boolean | undefined,
-  falkorDbPort: number | undefined,
+  dbPath: string | undefined,
   open: boolean
 ) {
   const [infrastructureStatus, setInfrastructureStatus] = useState<InfrastructureStatus | null>(null);
   const [isCheckingInfrastructure, setIsCheckingInfrastructure] = useState(false);
-  const [isStartingFalkorDB, setIsStartingFalkorDB] = useState(false);
-  const [isOpeningDocker, setIsOpeningDocker] = useState(false);
 
   useEffect(() => {
     const checkInfrastructure = async () => {
@@ -20,8 +22,7 @@ export function useInfrastructureStatus(
 
       setIsCheckingInfrastructure(true);
       try {
-        const port = falkorDbPort || 6380;
-        const result = await window.electronAPI.getInfrastructureStatus(port);
+        const result = await window.electronAPI.getMemoryInfrastructureStatus(dbPath);
         if (result.success && result.data) {
           setInfrastructureStatus(result.data);
         }
@@ -41,57 +42,10 @@ export function useInfrastructureStatus(
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [graphitiEnabled, falkorDbPort, open]);
-
-  const handleStartFalkorDB = async () => {
-    setIsStartingFalkorDB(true);
-    try {
-      const port = falkorDbPort || 6380;
-      const result = await window.electronAPI.startFalkorDB(port);
-      if (result.success && result.data?.success) {
-        // Refresh status after starting
-        const statusResult = await window.electronAPI.getInfrastructureStatus(port);
-        if (statusResult.success && statusResult.data) {
-          setInfrastructureStatus(statusResult.data);
-        }
-      }
-    } catch {
-      // Error handling is implicit in the status check
-    } finally {
-      setIsStartingFalkorDB(false);
-    }
-  };
-
-  const handleOpenDockerDesktop = async () => {
-    setIsOpeningDocker(true);
-    try {
-      await window.electronAPI.openDockerDesktop();
-      // Wait a bit then refresh status
-      setTimeout(async () => {
-        const port = falkorDbPort || 6380;
-        const result = await window.electronAPI.getInfrastructureStatus(port);
-        if (result.success && result.data) {
-          setInfrastructureStatus(result.data);
-        }
-        setIsOpeningDocker(false);
-      }, 3000);
-    } catch {
-      setIsOpeningDocker(false);
-    }
-  };
-
-  const handleDownloadDocker = async () => {
-    const url = await window.electronAPI.getDockerDownloadUrl();
-    window.electronAPI.openExternal(url);
-  };
+  }, [graphitiEnabled, dbPath, open]);
 
   return {
     infrastructureStatus,
     isCheckingInfrastructure,
-    isStartingFalkorDB,
-    isOpeningDocker,
-    handleStartFalkorDB,
-    handleOpenDockerDesktop,
-    handleDownloadDocker,
   };
 }

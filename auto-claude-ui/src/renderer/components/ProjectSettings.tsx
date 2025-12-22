@@ -79,14 +79,9 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
   const {
     infrastructureStatus,
     isCheckingInfrastructure,
-    isStartingFalkorDB,
-    isOpeningDocker,
-    handleStartFalkorDB,
-    handleOpenDockerDesktop,
-    handleDownloadDocker,
   } = useInfrastructureStatus(
     envConfig?.graphitiEnabled,
-    envConfig?.graphitiFalkorDbPort,
+    envConfig?.graphitiDbPath,
     open
   );
 
@@ -253,11 +248,6 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                   onUpdateSettings={(updates) => setSettings({ ...settings, ...updates })}
                   infrastructureStatus={infrastructureStatus}
                   isCheckingInfrastructure={isCheckingInfrastructure}
-                  isStartingFalkorDB={isStartingFalkorDB}
-                  isOpeningDocker={isOpeningDocker}
-                  onStartFalkorDB={handleStartFalkorDB}
-                  onOpenDockerDesktop={handleOpenDockerDesktop}
-                  onDownloadDocker={handleDownloadDocker}
                 />
 
                 <Separator />

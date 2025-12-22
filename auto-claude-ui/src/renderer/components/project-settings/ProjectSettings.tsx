@@ -45,8 +45,6 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
     setShowLinearKey,
     showOpenAIKey,
     setShowOpenAIKey,
-    showFalkorPassword,
-    setShowFalkorPassword,
     showGitHubToken,
     setShowGitHubToken,
     expandedSections,
@@ -146,8 +144,6 @@ export function ProjectSettings({ project, open, onOpenChange }: ProjectSettings
                   updateEnvConfig={updateEnvConfig}
                   showOpenAIKey={showOpenAIKey}
                   setShowOpenAIKey={setShowOpenAIKey}
-                  showFalkorPassword={showFalkorPassword}
-                  setShowFalkorPassword={setShowFalkorPassword}
                   expanded={expandedSections.graphiti}
                   onToggle={() => toggleSection('graphiti')}
                 />

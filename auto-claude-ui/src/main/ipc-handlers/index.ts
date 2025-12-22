@@ -92,7 +92,7 @@ export function setupIpcHandlers(
   // Insights handlers
   registerInsightsHandlers(getMainWindow);
 
-  // Docker & infrastructure handlers (for Graphiti/FalkorDB)
+  // Memory & infrastructure handlers (for Graphiti/LadybugDB)
   registerDockerHandlers();
 
   // App auto-update handlers

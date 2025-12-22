@@ -5,15 +5,21 @@ Graphiti Integration Configuration
 Constants, status mappings, and configuration helpers for Graphiti memory integration.
 Follows the same patterns as linear_config.py for consistency.
 
+Uses LadybugDB as the embedded graph database (no Docker required, requires Python 3.12+).
+
 Multi-Provider Support (V2):
-- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama
-- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama
+- LLM Providers: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI
+- Embedder Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
 
 Environment Variables:
     # Core
     GRAPHITI_ENABLED: Set to "true" to enable Graphiti integration
-    GRAPHITI_LLM_PROVIDER: openai|anthropic|azure_openai|ollama (default: openai)
-    GRAPHITI_EMBEDDER_PROVIDER: openai|voyage|azure_openai|ollama (default: openai)
+    GRAPHITI_LLM_PROVIDER: openai|anthropic|azure_openai|ollama|google (default: openai)
+    GRAPHITI_EMBEDDER_PROVIDER: openai|voyage|azure_openai|ollama|google (default: openai)
+
+    # Database
+    GRAPHITI_DATABASE: Graph database name (default: auto_claude_memory)
+    GRAPHITI_DB_PATH: Database storage path (default: ~/.auto-claude/memories)
 
     # OpenAI
     OPENAI_API_KEY: Required for OpenAI provider
@@ -22,7 +28,7 @@ Environment Variables:
 
     # Anthropic (LLM only - needs separate embedder)
     ANTHROPIC_API_KEY: Required for Anthropic provider
-    GRAPHITI_ANTHROPIC_MODEL: Model for LLM (default: claude-sonnet-4-5-latest)
+    GRAPHITI_ANTHROPIC_MODEL: Model for LLM (default: claude-sonnet-4-5)
 
     # Azure OpenAI
     AZURE_OPENAI_API_KEY: Required for Azure provider
@@ -34,18 +40,19 @@ Environment Variables:
     VOYAGE_API_KEY: Required for Voyage embedder
     VOYAGE_EMBEDDING_MODEL: Model (default: voyage-3)
 
+    # Google AI
+    GOOGLE_API_KEY: Required for Google provider
+    GOOGLE_LLM_MODEL: Model for LLM (default: gemini-2.0-flash)
+    GOOGLE_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-004)
+
     # Ollama (local)
     OLLAMA_BASE_URL: Ollama server URL (default: http://localhost:11434)
     OLLAMA_LLM_MODEL: Model for LLM (e.g., deepseek-r1:7b)
-    OLLAMA_EMBEDDING_MODEL: Model for embeddings (e.g., nomic-embed-text)
-    OLLAMA_EMBEDDING_DIM: Embedding dimension (required for Ollama, e.g., 768)
-
-    # FalkorDB
-    GRAPHITI_FALKORDB_HOST: FalkorDB host (default: localhost)
-    GRAPHITI_FALKORDB_PORT: FalkorDB port (default: 6380)
-    GRAPHITI_FALKORDB_PASSWORD: FalkorDB password (default: empty)
-    GRAPHITI_DATABASE: Graph database name (default: auto_claude_memory)
-    GRAPHITI_TELEMETRY_ENABLED: Set to "false" to disable telemetry (default: true)
+    OLLAMA_EMBEDDING_MODEL: Model for embeddings. Supported models with auto-detected dimensions:
+        - embeddinggemma (768) - Google's lightweight embedding model
+        - qwen3-embedding:0.6b (1024), :4b (2560), :8b (4096) - Qwen3 series
+        - nomic-embed-text (768), mxbai-embed-large (1024), bge-large (1024)
+    OLLAMA_EMBEDDING_DIM: Override dimension (optional if using known model)
 """
 
 import json
@@ -57,9 +64,8 @@ from pathlib import Path
 from typing import Optional
 
 # Default configuration values
-DEFAULT_FALKORDB_HOST = "localhost"
-DEFAULT_FALKORDB_PORT = 6380
 DEFAULT_DATABASE = "auto_claude_memory"
+DEFAULT_DB_PATH = "~/.auto-claude/memories"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 # Graphiti state marker file (stores connection info and status)
@@ -97,19 +103,19 @@ class EmbedderProvider(str, Enum):
 
 @dataclass
 class GraphitiConfig:
-    """Configuration for Graphiti memory integration with multi-provider support."""
+    """Configuration for Graphiti memory integration with multi-provider support.
+
+    Uses LadybugDB as the embedded graph database (no Docker required, requires Python 3.12+).
+    """
 
     # Core settings
     enabled: bool = False
     llm_provider: str = "openai"
     embedder_provider: str = "openai"
 
-    # FalkorDB connection
-    falkordb_host: str = DEFAULT_FALKORDB_HOST
-    falkordb_port: int = DEFAULT_FALKORDB_PORT
-    falkordb_password: str = ""
+    # Database settings (LadybugDB - embedded, no Docker required)
     database: str = DEFAULT_DATABASE
-    telemetry_enabled: bool = True
+    db_path: str = DEFAULT_DB_PATH
 
     # OpenAI settings
     openai_api_key: str = ""
@@ -118,7 +124,7 @@ class GraphitiConfig:
 
     # Anthropic settings (LLM only)
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-5-latest"
+    anthropic_model: str = "claude-sonnet-4-5"
 
     # Azure OpenAI settings
     azure_openai_api_key: str = ""
@@ -154,22 +160,9 @@ class GraphitiConfig:
             "GRAPHITI_EMBEDDER_PROVIDER", "openai"
         ).lower()
 
-        # FalkorDB connection settings
-        falkordb_host = os.environ.get("GRAPHITI_FALKORDB_HOST", DEFAULT_FALKORDB_HOST)
-
-        try:
-            falkordb_port = int(
-                os.environ.get("GRAPHITI_FALKORDB_PORT", str(DEFAULT_FALKORDB_PORT))
-            )
-        except ValueError:
-            falkordb_port = DEFAULT_FALKORDB_PORT
-
-        falkordb_password = os.environ.get("GRAPHITI_FALKORDB_PASSWORD", "")
+        # Database settings (LadybugDB - embedded)
         database = os.environ.get("GRAPHITI_DATABASE", DEFAULT_DATABASE)
-
-        # Telemetry setting
-        telemetry_str = os.environ.get("GRAPHITI_TELEMETRY_ENABLED", "true").lower()
-        telemetry_enabled = telemetry_str not in ("false", "0", "no")
+        db_path = os.environ.get("GRAPHITI_DB_PATH", DEFAULT_DB_PATH)
 
         # OpenAI settings
         openai_api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -181,7 +174,7 @@ class GraphitiConfig:
         # Anthropic settings
         anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         anthropic_model = os.environ.get(
-            "GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-5-latest"
+            "GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-5"
         )
 
         # Azure OpenAI settings
@@ -218,11 +211,8 @@ class GraphitiConfig:
             enabled=enabled,
             llm_provider=llm_provider,
             embedder_provider=embedder_provider,
-            falkordb_host=falkordb_host,
-            falkordb_port=falkordb_port,
-            falkordb_password=falkordb_password,
             database=database,
-            telemetry_enabled=telemetry_enabled,
+            db_path=db_path,
             openai_api_key=openai_api_key,
             openai_model=openai_model,
             openai_embedding_model=openai_embedding_model,
@@ -249,39 +239,16 @@ class GraphitiConfig:
 
         Returns True if:
         - GRAPHITI_ENABLED is true
-        - LLM provider is configured correctly
-        - Embedder provider is configured correctly
+        - Embedder provider is configured (optional - keyword search works without)
+
+        Note: LLM provider is no longer required - Claude Agent SDK handles RAG queries.
         """
         if not self.enabled:
             return False
 
-        # Validate LLM provider
-        if not self._validate_llm_provider():
-            return False
-
-        # Validate embedder provider
-        if not self._validate_embedder_provider():
-            return False
-
+        # Embedder validation is optional - memory works with keyword search fallback
+        # Return True if enabled, embedder config is a bonus for semantic search
         return True
-
-    def _validate_llm_provider(self) -> bool:
-        """Validate LLM provider configuration."""
-        if self.llm_provider == "openai":
-            return bool(self.openai_api_key)
-        elif self.llm_provider == "anthropic":
-            return bool(self.anthropic_api_key)
-        elif self.llm_provider == "azure_openai":
-            return bool(
-                self.azure_openai_api_key
-                and self.azure_openai_base_url
-                and self.azure_openai_llm_deployment
-            )
-        elif self.llm_provider == "ollama":
-            return bool(self.ollama_llm_model)
-        elif self.llm_provider == "google":
-            return bool(self.google_api_key)
-        return False
 
     def _validate_embedder_provider(self) -> bool:
         """Validate embedder provider configuration."""
@@ -296,7 +263,8 @@ class GraphitiConfig:
                 and self.azure_openai_embedding_deployment
             )
         elif self.embedder_provider == "ollama":
-            return bool(self.ollama_embedding_model and self.ollama_embedding_dim)
+            # Only require model - dimension is auto-detected for known models
+            return bool(self.ollama_embedding_model)
         elif self.embedder_provider == "google":
             return bool(self.google_api_key)
         return False
@@ -309,34 +277,10 @@ class GraphitiConfig:
             errors.append("GRAPHITI_ENABLED must be set to true")
             return errors
 
-        # LLM provider validation
-        if self.llm_provider == "openai":
-            if not self.openai_api_key:
-                errors.append("OpenAI LLM provider requires OPENAI_API_KEY")
-        elif self.llm_provider == "anthropic":
-            if not self.anthropic_api_key:
-                errors.append("Anthropic LLM provider requires ANTHROPIC_API_KEY")
-        elif self.llm_provider == "azure_openai":
-            if not self.azure_openai_api_key:
-                errors.append("Azure OpenAI LLM provider requires AZURE_OPENAI_API_KEY")
-            if not self.azure_openai_base_url:
-                errors.append(
-                    "Azure OpenAI LLM provider requires AZURE_OPENAI_BASE_URL"
-                )
-            if not self.azure_openai_llm_deployment:
-                errors.append(
-                    "Azure OpenAI LLM provider requires AZURE_OPENAI_LLM_DEPLOYMENT"
-                )
-        elif self.llm_provider == "ollama":
-            if not self.ollama_llm_model:
-                errors.append("Ollama LLM provider requires OLLAMA_LLM_MODEL")
-        elif self.llm_provider == "google":
-            if not self.google_api_key:
-                errors.append("Google LLM provider requires GOOGLE_API_KEY")
-        else:
-            errors.append(f"Unknown LLM provider: {self.llm_provider}")
+        # Note: LLM provider validation removed - Claude Agent SDK handles RAG queries
+        # Memory works with keyword search even without embedder, so embedder errors are warnings
 
-        # Embedder provider validation
+        # Embedder provider validation (optional - keyword search works without)
         if self.embedder_provider == "openai":
             if not self.openai_api_key:
                 errors.append("OpenAI embedder provider requires OPENAI_API_KEY")
@@ -361,8 +305,7 @@ class GraphitiConfig:
                 errors.append(
                     "Ollama embedder provider requires OLLAMA_EMBEDDING_MODEL"
                 )
-            if not self.ollama_embedding_dim:
-                errors.append("Ollama embedder provider requires OLLAMA_EMBEDDING_DIM")
+            # Note: OLLAMA_EMBEDDING_DIM is optional - auto-detected for known models
         elif self.embedder_provider == "google":
             if not self.google_api_key:
                 errors.append("Google embedder provider requires GOOGLE_API_KEY")
@@ -371,15 +314,102 @@ class GraphitiConfig:
 
         return errors
 
-    def get_connection_uri(self) -> str:
-        """Get the FalkorDB connection URI."""
-        if self.falkordb_password:
-            return f"redis://:{self.falkordb_password}@{self.falkordb_host}:{self.falkordb_port}"
-        return f"redis://{self.falkordb_host}:{self.falkordb_port}"
+    def get_db_path(self) -> Path:
+        """
+        Get the resolved database path.
+
+        Expands ~ to home directory and appends the database name.
+        Creates the parent directory if it doesn't exist (not the final
+        database file/directory itself, which is created by the driver).
+        """
+        base_path = Path(self.db_path).expanduser()
+        full_path = base_path / self.database
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        return full_path
 
     def get_provider_summary(self) -> str:
         """Get a summary of configured providers."""
         return f"LLM: {self.llm_provider}, Embedder: {self.embedder_provider}"
+
+    def get_embedding_dimension(self) -> int:
+        """
+        Get the embedding dimension for the current embedder provider.
+
+        Returns:
+            Embedding dimension (e.g., 768, 1024, 1536)
+        """
+        if self.embedder_provider == "ollama":
+            if self.ollama_embedding_dim > 0:
+                return self.ollama_embedding_dim
+            # Auto-detect for known models
+            model = self.ollama_embedding_model.lower()
+            if "embeddinggemma" in model or "nomic-embed-text" in model:
+                return 768
+            elif "mxbai" in model or "bge-large" in model:
+                return 1024
+            elif "qwen3" in model:
+                if "0.6b" in model:
+                    return 1024
+                elif "4b" in model:
+                    return 2560
+                elif "8b" in model:
+                    return 4096
+            return 768  # Default fallback
+        elif self.embedder_provider == "openai":
+            # OpenAI text-embedding-3-small default is 1536
+            return 1536
+        elif self.embedder_provider == "voyage":
+            # Voyage-3 uses 1024 dimensions
+            return 1024
+        elif self.embedder_provider == "google":
+            # Google text-embedding-004 uses 768 dimensions
+            return 768
+        elif self.embedder_provider == "azure_openai":
+            # Depends on the deployment, default to 1536
+            return 1536
+        return 768  # Safe default
+
+    def get_provider_signature(self) -> str:
+        """
+        Get a unique signature for the current embedding provider configuration.
+
+        Used to generate provider-specific database names to prevent mixing
+        incompatible embeddings.
+
+        Returns:
+            Provider signature string (e.g., "openai_1536", "ollama_768")
+        """
+        provider = self.embedder_provider
+        dim = self.get_embedding_dimension()
+
+        if provider == "ollama":
+            # Include model name for Ollama
+            model = self.ollama_embedding_model.replace(":", "_").replace(".", "_")
+            return f"ollama_{model}_{dim}"
+        else:
+            return f"{provider}_{dim}"
+
+    def get_provider_specific_database_name(self, base_name: str = None) -> str:
+        """
+        Get a provider-specific database name to prevent embedding dimension mismatches.
+
+        Args:
+            base_name: Base database name (default: from config)
+
+        Returns:
+            Database name with provider signature (e.g., "auto_claude_memory_ollama_768")
+        """
+        if base_name is None:
+            base_name = self.database
+
+        # Remove existing provider suffix if present
+        for provider in ["openai", "ollama", "voyage", "google", "azure_openai"]:
+            if f"_{provider}_" in base_name:
+                base_name = base_name.split(f"_{provider}_")[0]
+                break
+
+        signature = self.get_provider_signature()
+        return f"{base_name}_{signature}"
 
 
 @dataclass
@@ -454,6 +484,43 @@ class GraphitiState:
         # Keep only last 10 errors
         self.error_log = self.error_log[-10:]
 
+    def has_provider_changed(self, config: GraphitiConfig) -> bool:
+        """
+        Check if the embedding provider has changed since initialization.
+
+        Args:
+            config: Current GraphitiConfig
+
+        Returns:
+            True if provider has changed (requiring migration)
+        """
+        if not self.initialized or not self.embedder_provider:
+            return False
+
+        return self.embedder_provider != config.embedder_provider
+
+    def get_migration_info(self, config: GraphitiConfig) -> dict:
+        """
+        Get information about provider migration needs.
+
+        Args:
+            config: Current GraphitiConfig
+
+        Returns:
+            Dict with migration details or None if no migration needed
+        """
+        if not self.has_provider_changed(config):
+            return None
+
+        return {
+            "old_provider": self.embedder_provider,
+            "new_provider": config.embedder_provider,
+            "old_database": self.database,
+            "new_database": config.get_provider_specific_database_name(),
+            "episode_count": self.episode_count,
+            "requires_migration": True,
+        }
+
 
 def is_graphiti_enabled() -> bool:
     """
@@ -475,9 +542,8 @@ def get_graphiti_status() -> dict:
         Dict with status information:
             - enabled: bool
             - available: bool (has required dependencies)
-            - host: str
-            - port: int
             - database: str
+            - db_path: str
             - llm_provider: str
             - embedder_provider: str
             - reason: str (why unavailable if not available)
@@ -488,9 +554,8 @@ def get_graphiti_status() -> dict:
     status = {
         "enabled": config.enabled,
         "available": False,
-        "host": config.falkordb_host,
-        "port": config.falkordb_port,
         "database": config.database,
+        "db_path": config.db_path,
         "llm_provider": config.llm_provider,
         "embedder_provider": config.embedder_provider,
         "reason": "",
@@ -501,14 +566,17 @@ def get_graphiti_status() -> dict:
         status["reason"] = "GRAPHITI_ENABLED not set to true"
         return status
 
-    # Get validation errors
+    # Get validation errors (these are warnings, not blockers)
     errors = config.get_validation_errors()
     if errors:
         status["errors"] = errors
-        status["reason"] = errors[0]  # First error as primary reason
-        return status
+        # Errors are informational - embedder is optional (keyword search fallback)
 
-    status["available"] = True
+    # Available if is_valid() returns True (just needs enabled flag)
+    status["available"] = config.is_valid()
+    if not status["available"]:
+        status["reason"] = errors[0] if errors else "Configuration invalid"
+
     return status
 
 

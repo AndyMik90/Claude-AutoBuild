@@ -48,6 +48,18 @@ export const projectMock = {
     }
   }),
 
+  // Tab state operations (persisted in main process)
+  getTabState: async () => ({
+    success: true,
+    data: {
+      openProjectIds: [],
+      activeProjectId: null,
+      tabOrder: []
+    }
+  }),
+
+  saveTabState: async () => ({ success: true }),
+
   // Dialog operations
   selectDirectory: async () => {
     return prompt('Enter project path (browser mock):', '/Users/demo/projects/new-project');

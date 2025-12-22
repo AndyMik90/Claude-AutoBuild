@@ -24,114 +24,57 @@ Your AI coding companion. Build features, fix bugs, and ship faster — with aut
 - **Self-Validating**: Built-in QA loop catches issues before you review
 - **Isolated Workspaces**: All work happens in git worktrees — your code stays safe
 - **AI Merge Resolution**: Intelligent conflict resolution when merging back to main — no manual conflict fixing
-- **Memory Layer**: Agents remember insights across sessions for smarter decisions
 - **Cross-Platform**: Desktop app runs on Mac, Windows, and Linux
 - **Any Project Type**: Build web apps, APIs, CLIs — works with any software project
 
-## 🚀 Quick Start (Desktop UI)
+## Quick Start
 
-The Desktop UI is the recommended way to use Auto Claude. It provides visual task management, real-time progress tracking, and a Kanban board interface.
+### Download Auto Claude
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases/latest):
+
+| Platform | Download |
+|----------|----------|
+| **macOS (Apple Silicon M1-M4)** | `Auto-Claude-X.X.X-arm64.dmg` |
+| **macOS (Intel)** | `Auto-Claude-X.X.X-x64.dmg` |
+| **Windows** | `Auto-Claude-X.X.X.exe` |
+| **Linux** | `Auto-Claude-X.X.X.AppImage` or `.deb` |
+
+> **Not sure which Mac?** Click the Apple menu () > "About This Mac". Look for "Chip" - M1/M2/M3/M4 = Apple Silicon, otherwise Intel.
 
 ### Prerequisites
 
-1. **Node.js 18+** - [Download Node.js](https://nodejs.org/)
-2. **Python 3.10+** - [Download Python](https://www.python.org/downloads/)
-3. **Docker Desktop** - Required for the Memory Layer
-4. **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
-5. **Claude Subscription** - Requires [Claude Pro or Max](https://claude.ai/upgrade) for Claude Code access
-6. **Git Repository** - Your project must be initialized as a git repository
+Before using Auto Claude, you need:
 
-### Git Initialization
+1. **Claude Subscription** - Requires [Claude Pro or Max](https://claude.ai/upgrade) for Claude Code access
+2. **Claude Code CLI** - Install with: `npm install -g @anthropic-ai/claude-code`
 
-**Auto Claude requires a git repository** to create isolated worktrees for safe parallel development. If your project isn't a git repo yet:
+### Install and Run
 
-```bash
-cd your-project
-git init
-git add .
-git commit -m "Initial commit"
-```
-
-> **Why git?** Auto Claude uses git branches and worktrees to isolate each task in its own workspace, keeping your main branch clean until you're ready to merge. This allows you to work on multiple features simultaneously without conflicts.
-
----
-
-### Installing Docker Desktop
-
-Docker runs the FalkorDB database that powers Auto Claude's cross-session memory.
-
-| Operating System | Download Link |
-|------------------|---------------|
-| **Mac (Apple Silicon M1/M2/M3/M4)** | [Download for Apple Chip](https://desktop.docker.com/mac/main/arm64/Docker.dmg) |
-| **Mac (Intel)** | [Download for Intel Chip](https://desktop.docker.com/mac/main/amd64/Docker.dmg) |
-| **Windows** | [Download for Windows](https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe) |
-| **Linux** | [Installation Guide](https://docs.docker.com/desktop/install/linux-install/) |
-
-> **Not sure which Mac?** Click the Apple menu (🍎) → "About This Mac". Look for "Chip" - M1/M2/M3/M4 = Apple Silicon, otherwise Intel.
-
-**After installing:** Open Docker Desktop and wait for the whale icon (🐳) to appear in your menu bar/system tray.
-
-> **Using the Desktop UI?** It automatically detects Docker status and offers one-click FalkorDB setup. No terminal commands needed!
-
-📚 **For detailed installation steps, troubleshooting, and advanced configuration, see [guides/DOCKER-SETUP.md](guides/DOCKER-SETUP.md)**
-
----
-
-### Step 1: Set Up the Python Backend
-
-The Desktop UI runs Python scripts behind the scenes. Set up the Python environment:
-
-```bash
-cd auto-claude
-
-# Using uv (recommended)
-uv venv && uv pip install -r requirements.txt
-
-# Or using standard Python
-python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-```
-
-### Step 2: Start the Memory Layer
-
-The Auto Claude Memory Layer provides cross-session context retention using a graph database:
-
-```bash
-# Make sure Docker Desktop is running, then:
-docker-compose up -d falkordb
-```
-
-### Step 3: Install and Launch the Desktop UI
-
-```bash
-cd auto-claude-ui
-
-# Install dependencies (pnpm recommended, npm works too)
-pnpm install
-# or: npm install
-
-# Build and start the application
-pnpm run build && pnpm run start
-# or: npm run build && npm run start
-```
+1. **Download** the installer for your platform from the table above
+2. **Install**:
+   - **macOS**: Open the `.dmg`, drag Auto Claude to Applications
+   - **Windows**: Run the `.exe` installer (see note below about security warning)
+   - **Linux**: Make the AppImage executable (`chmod +x`) and run it, or install the `.deb`
+3. **Launch** Auto Claude
+4. **Add your project** and start building!
 
 <details>
-<summary><b>Windows users:</b> If installation fails with node-gyp errors, click here</summary>
+<summary><b>Windows users:</b> Security warning when installing</summary>
 
-Auto Claude automatically downloads prebuilt binaries for Windows. If prebuilts aren't available for your Electron version yet, you'll need Visual Studio Build Tools:
+The Windows installer is not yet code-signed, so you may see a "Windows protected your PC" warning from Microsoft Defender SmartScreen.
 
-1. Download [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-2. Select "Desktop development with C++" workload
-3. In "Individual Components", add "MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs"
-4. Restart terminal and run `npm install` again
+**To proceed:**
+1. Click "More info"
+2. Click "Run anyway"
+
+This is safe — all releases are automatically scanned with VirusTotal before publishing. You can verify any installer by checking the **VirusTotal Scan Results** section in each [release's notes](https://github.com/AndyMik90/Auto-Claude/releases).
+
+We're working on obtaining a code signing certificate for future releases.
 
 </details>
 
-### Step 4: Start Building
-
-1. Add your project in the UI
-2. Create a new task describing what you want to build
-3. Watch as Auto Claude creates a spec, plans, and implements your feature
-4. Review changes and merge when satisfied
+> **Want to build from source?** See [CONTRIBUTING.md](CONTRIBUTING.md#running-from-source) for development setup.
 
 ---
 
@@ -241,23 +184,6 @@ Three-layer defense keeps your code safe:
 - **Filesystem Restrictions** — Operations limited to project directory
 - **Command Allowlist** — Only approved commands based on your project's stack
 
-### 🧠 Memory Layer
-
-The Memory Layer is a **hybrid RAG system** combining graph nodes with semantic search to deliver the best possible context during AI coding. Agents remember insights from previous sessions, discovered codebase patterns persist and are reusable, and historical context helps agents make smarter decisions.
-
-**Architecture:**
-- **Backend**: FalkorDB (graph database) via Docker
-- **Library**: Graphiti for knowledge graph operations
-- **Providers**: OpenAI, Anthropic, Azure OpenAI, Google AI, or Ollama (local/offline)
-
-| Setup | LLM | Embeddings | Notes |
-|-------|-----|------------|-------|
-| **OpenAI** | OpenAI | OpenAI | Simplest - single API key |
-| **Anthropic + Voyage** | Anthropic | Voyage AI | High quality |
-| **Google AI** | Gemini | Google | Single API key, fast inference |
-| **Ollama** | Ollama | Ollama | Fully offline |
-| **Azure** | Azure OpenAI | Azure OpenAI | Enterprise |
-
 ## Project Structure
 
 ```
@@ -273,9 +199,8 @@ your-project/
 │   ├── spec_runner.py        # Spec creation orchestrator
 │   ├── prompts/              # Agent prompt templates
 │   └── ...
-├── auto-claude-ui/           # Electron desktop application
-│   └── ...
-└── docker-compose.yml        # FalkorDB for Memory Layer
+└── auto-claude-ui/           # Electron desktop application
+    └── ...
 ```
 
 ### Understanding the Folders
@@ -309,13 +234,6 @@ The `.auto-claude/` directory is gitignored and project-specific - you'll have o
 |----------|----------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `AUTO_BUILD_MODEL` | No | Model override (default: claude-opus-4-5-20251101) |
-| `GRAPHITI_ENABLED` | Recommended | Set to `true` to enable Memory Layer |
-| `GRAPHITI_LLM_PROVIDER` | For Memory | LLM provider: openai, anthropic, azure_openai, ollama, google |
-| `GRAPHITI_EMBEDDER_PROVIDER` | For Memory | Embedder: openai, voyage, azure_openai, ollama, google |
-| `OPENAI_API_KEY` | For OpenAI | Required for OpenAI provider |
-| `ANTHROPIC_API_KEY` | For Anthropic | Required for Anthropic LLM |
-| `VOYAGE_API_KEY` | For Voyage | Required for Voyage embeddings |
-| `GOOGLE_API_KEY` | For Google | Required for Google AI (Gemini) provider |
 
 See `auto-claude/.env.example` for complete configuration options.
 

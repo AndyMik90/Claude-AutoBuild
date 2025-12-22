@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir } from '../../shared/constants';
 import type {
   IPCResult,
@@ -370,6 +370,46 @@ export function registerChangelogHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save image'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CHANGELOG_READ_LOCAL_IMAGE,
+    async (_, projectPath: string, relativePath: string): Promise<IPCResult<string>> => {
+      try {
+        // Construct full path from project path and relative path
+        const fullPath = path.join(projectPath, relativePath);
+
+        // Verify the file exists
+        if (!existsSync(fullPath)) {
+          return { success: false, error: `Image not found: ${relativePath}` };
+        }
+
+        // Read the file and convert to base64
+        const buffer = readFileSync(fullPath);
+        const base64 = buffer.toString('base64');
+
+        // Determine MIME type from extension
+        const ext = path.extname(relativePath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.svg': 'image/svg+xml'
+        };
+        const mimeType = mimeTypes[ext] || 'image/png';
+
+        // Return as data URL
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        return { success: true, data: dataUrl };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read image'
         };
       }
     }

@@ -2,8 +2,16 @@
   "name": "auto-claude-ui",
   "version": "2.6.5",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
+  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+  },
   "main": "./out/main/index.js",
-  "author": "Auto Claude Team",
+  "author": {
+    "name": "Auto Claude Team",
+    "email": "119136210+AndyMik90@users.noreply.github.com"
+  },
   "license": "AGPL-3.0",
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
@@ -59,7 +67,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
-    "ioredis": "^5.8.2",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
     "react": "^19.2.3",
@@ -79,7 +86,6 @@
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/react": "^16.1.0",
-    "@types/ioredis": "^4.28.10",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -110,6 +116,7 @@
       "node-pty": "npm:@lydell/node-pty@^1.1.0"
     },
     "onlyBuiltDependencies": [
+      "@lydell/node-pty",
       "electron",
       "electron-winstaller",
       "esbuild"
@@ -118,6 +125,7 @@
   "build": {
     "appId": "com.autoclaude.ui",
     "productName": "Auto-Claude",
+    "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
@@ -151,13 +159,23 @@
           "!**/*.pyc",
           "!**/specs",
           "!**/.venv",
-          "!**/.env"
+          "!**/.venv-*",
+          "!**/venv",
+          "!**/.env",
+          "!**/tests",
+          "!**/*.egg-info",
+          "!**/.pytest_cache",
+          "!**/.mypy_cache"
         ]
       }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "resources/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
       "target": [
         "dmg",
         "zip"

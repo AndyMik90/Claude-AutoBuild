@@ -151,7 +151,7 @@ export function EnvironmentSettings({
                       )}
                     </Button>
                   </div>
-                  
+
                   {activeProfile ? (
                     <div className="mt-3 flex items-center gap-3">
                       <div className={cn(

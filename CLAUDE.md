@@ -189,11 +189,17 @@ Dual-layer memory architecture:
 - Session insights, patterns, gotchas, codebase map
 
 **Graphiti Memory (Optional Enhancement)** - `graphiti_memory.py`
-- Graph database with semantic search (FalkorDB)
+- Graph database with semantic search (LadybugDB - embedded, no Docker)
 - Cross-session context retrieval
-- Multi-provider support (V2):
+- Requires Python 3.12+
+- Multi-provider support:
   - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI (Gemini)
   - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
+
+```bash
+# Setup (requires Python 3.12+)
+pip install real_ladybug graphiti-core
+```
 
 Enable with: `GRAPHITI_ENABLED=true` + provider credentials. See `.env.example`.
 

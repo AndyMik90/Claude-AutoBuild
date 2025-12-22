@@ -8,6 +8,7 @@ Thank you for your interest in contributing to Auto Claude! This document provid
 - [Development Setup](#development-setup)
   - [Python Backend](#python-backend)
   - [Electron Frontend](#electron-frontend)
+- [Running from Source](#running-from-source)
 - [Pre-commit Hooks](#pre-commit-hooks)
 - [Code Style](#code-style)
 - [Testing](#testing)
@@ -28,7 +29,6 @@ Before contributing, ensure you have the following installed:
 - **pnpm** - Package manager for the frontend (`npm install -g pnpm`)
 - **uv** (recommended) or **pip** - Python package manager
 - **Git** - Version control
-- **Docker** (optional) - For running FalkorDB if using Graphiti memory
 
 ## Development Setup
 
@@ -79,6 +79,58 @@ pnpm build
 # Package for distribution
 pnpm package
 ```
+
+## Running from Source
+
+If you want to run Auto Claude from source (for development or testing unreleased features), follow these steps:
+
+### Step 1: Clone and Set Up Python Backend
+
+```bash
+git clone https://github.com/AndyMik90/Auto-Claude.git
+cd Auto-Claude/auto-claude
+
+# Using uv (recommended)
+uv venv && uv pip install -r requirements.txt
+
+# Or using standard Python
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Set up environment
+cp .env.example .env
+# Edit .env and add your CLAUDE_CODE_OAUTH_TOKEN (get it via: claude setup-token)
+```
+
+### Step 2: Run the Desktop UI
+
+```bash
+cd ../auto-claude-ui
+
+# Install dependencies
+pnpm install
+
+# Development mode (hot reload)
+pnpm dev
+
+# Or production build
+pnpm run build && pnpm run start
+```
+
+<details>
+<summary><b>Windows users:</b> If installation fails with node-gyp errors, click here</summary>
+
+Auto Claude automatically downloads prebuilt binaries for Windows. If prebuilts aren't available for your Electron version yet, you'll need Visual Studio Build Tools:
+
+1. Download [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Select "Desktop development with C++" workload
+3. In "Individual Components", add "MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs"
+4. Restart terminal and run `pnpm install` again
+
+</details>
+
+> **Note:** For regular usage, we recommend downloading the pre-built releases from [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases). Running from source is primarily for contributors and those testing unreleased features.
 
 ## Pre-commit Hooks
 

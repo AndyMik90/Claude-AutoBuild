@@ -24,10 +24,15 @@ class TestIsGraphitiEnabled:
         with patch.dict(os.environ, {"GRAPHITI_ENABLED": "false"}, clear=True):
             assert is_graphiti_enabled() is False
 
-    def test_returns_false_without_openai_key(self):
-        """Returns False when enabled but OPENAI_API_KEY not set."""
+    def test_returns_true_without_openai_key(self):
+        """Returns True when enabled even without OPENAI_API_KEY.
+
+        Since LLM provider is no longer required (Claude SDK handles RAG) and
+        embedder is optional (keyword search fallback works), Graphiti is
+        available whenever GRAPHITI_ENABLED=true.
+        """
         with patch.dict(os.environ, {"GRAPHITI_ENABLED": "true"}, clear=True):
-            assert is_graphiti_enabled() is False
+            assert is_graphiti_enabled() is True
 
     def test_returns_true_when_configured(self):
         """Returns True when properly configured."""
@@ -50,58 +55,60 @@ class TestGetGraphitiStatus:
             assert "not set" in status["reason"].lower()
 
     def test_status_when_missing_openai_key(self):
-        """Returns correct status when OPENAI_API_KEY missing."""
+        """Returns correct status when OPENAI_API_KEY missing.
+
+        Since embedder is optional (keyword search fallback works), the status
+        is still available but will have validation warnings about missing
+        embedder credentials.
+        """
         with patch.dict(os.environ, {"GRAPHITI_ENABLED": "true"}, clear=True):
             status = get_graphiti_status()
             assert status["enabled"] is True
-            assert status["available"] is False
-            assert "openai" in status["reason"].lower()
+            # Available because embedder is optional (keyword search fallback)
+            assert status["available"] is True
 
 
 class TestGraphitiConfig:
     """Tests for GraphitiConfig class."""
 
     def test_from_env_defaults(self):
-        """Config uses correct defaults.
-
-        Note: Default port is 6380 (mapped from FalkorDB's internal 6379)
-        to avoid conflicts with local Redis instances.
-        """
+        """Config uses correct defaults for LadybugDB (embedded database)."""
         with patch.dict(os.environ, {}, clear=True):
             config = GraphitiConfig.from_env()
             assert config.enabled is False
-            assert config.falkordb_host == "localhost"
-            assert config.falkordb_port == 6380  # Maps to internal 6379
             assert config.database == "auto_claude_memory"
+            assert "auto-claude" in config.db_path.lower()  # Default path in ~/.auto-claude/
 
     def test_from_env_custom_values(self):
         """Config reads custom environment values."""
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
             "OPENAI_API_KEY": "sk-test",
-            "GRAPHITI_FALKORDB_HOST": "db.example.com",
-            "GRAPHITI_FALKORDB_PORT": "6380",
-            "GRAPHITI_DATABASE": "my_graph"
+            "GRAPHITI_DATABASE": "my_graph",
+            "GRAPHITI_DB_PATH": "/custom/path"
         }, clear=True):
             config = GraphitiConfig.from_env()
             assert config.enabled is True
-            assert config.falkordb_host == "db.example.com"
-            assert config.falkordb_port == 6380
             assert config.database == "my_graph"
+            assert config.db_path == "/custom/path"
 
-    def test_is_valid_requires_enabled_and_key(self):
-        """is_valid() requires both GRAPHITI_ENABLED and OPENAI_API_KEY."""
-        # Neither set
+    def test_is_valid_requires_only_enabled(self):
+        """is_valid() requires only GRAPHITI_ENABLED.
+
+        LLM provider is no longer required (Claude SDK handles RAG) and
+        embedder is optional (keyword search fallback works).
+        """
+        # Not enabled
         with patch.dict(os.environ, {}, clear=True):
             config = GraphitiConfig.from_env()
             assert config.is_valid() is False
 
-        # Only enabled
+        # Only enabled - now valid (embedder optional)
         with patch.dict(os.environ, {"GRAPHITI_ENABLED": "true"}, clear=True):
             config = GraphitiConfig.from_env()
-            assert config.is_valid() is False
+            assert config.is_valid() is True
 
-        # Both set
+        # With embedder configured
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
             "OPENAI_API_KEY": "sk-test"
@@ -202,22 +209,22 @@ class TestMultiProviderConfig:
             assert config.embedder_provider == "openai"
             assert config.is_valid() is True
 
-    def test_ollama_requires_embedding_dim(self):
-        """Ollama embedder requires embedding dimension to be set."""
+    def test_ollama_valid_with_model_only(self):
+        """Ollama embedder only requires model (dimension auto-detected)."""
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
             "GRAPHITI_LLM_PROVIDER": "ollama",
             "GRAPHITI_EMBEDDER_PROVIDER": "ollama",
             "OLLAMA_LLM_MODEL": "deepseek-r1:7b",
             "OLLAMA_EMBEDDING_MODEL": "nomic-embed-text"
-            # Missing OLLAMA_EMBEDDING_DIM
+            # OLLAMA_EMBEDDING_DIM is optional - auto-detected for known models
         }, clear=True):
             config = GraphitiConfig.from_env()
-            # LLM should be valid
-            assert config._validate_llm_provider() is True
-            # Embedder should be invalid without dimension
-            assert config._validate_embedder_provider() is False
-            assert config.is_valid() is False
+            # Embedder is valid with just model (dimension auto-detected)
+            # Use public API: no embedder-related validation errors means valid
+            embedder_errors = [e for e in config.get_validation_errors() if "embedder" in e.lower() or "ollama" in e.lower()]
+            assert len(embedder_errors) == 0
+            assert config.is_valid() is True
 
     def test_provider_summary(self):
         """Provider summary returns correct string."""
@@ -248,8 +255,12 @@ class TestValidationErrors:
             errors = config.get_validation_errors()
             assert any("OPENAI_API_KEY" in e for e in errors)
 
-    def test_validation_errors_missing_anthropic_key(self):
-        """Validation errors list missing Anthropic key."""
+    def test_no_llm_validation_errors(self):
+        """LLM provider validation removed (Claude SDK handles RAG).
+
+        Setting an LLM provider without credentials should not generate errors,
+        as the Claude Agent SDK handles all graph operations.
+        """
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
             "GRAPHITI_LLM_PROVIDER": "anthropic",
@@ -258,7 +269,8 @@ class TestValidationErrors:
         }, clear=True):
             config = GraphitiConfig.from_env()
             errors = config.get_validation_errors()
-            assert any("ANTHROPIC_API_KEY" in e for e in errors)
+            # No LLM validation errors since Claude SDK handles RAG
+            assert not any("ANTHROPIC_API_KEY" in e for e in errors)
 
     def test_validation_errors_missing_azure_config(self):
         """Validation errors list missing Azure configuration."""
@@ -272,17 +284,16 @@ class TestValidationErrors:
             assert any("AZURE_OPENAI_API_KEY" in e for e in errors)
             assert any("AZURE_OPENAI_BASE_URL" in e for e in errors)
 
-    def test_validation_errors_unknown_provider(self):
-        """Validation errors report unknown provider."""
+    def test_validation_errors_unknown_embedder_provider(self):
+        """Validation errors report unknown embedder provider."""
         with patch.dict(os.environ, {
             "GRAPHITI_ENABLED": "true",
-            "GRAPHITI_LLM_PROVIDER": "unknown_provider",
-            "GRAPHITI_EMBEDDER_PROVIDER": "openai",
-            "OPENAI_API_KEY": "sk-test"
+            "GRAPHITI_EMBEDDER_PROVIDER": "unknown_provider",
         }, clear=True):
             config = GraphitiConfig.from_env()
             errors = config.get_validation_errors()
-            assert any("Unknown LLM provider" in e for e in errors)
+            # Unknown embedder provider should generate error
+            assert any("Unknown embedder provider" in e for e in errors)
 
 
 class TestAvailableProviders:

@@ -246,7 +246,9 @@ class MergeOrchestrator:
 
             # Ensure evolution data is up to date
             debug(MODULE, "Refreshing evolution data from git...")
-            self.evolution_tracker.refresh_from_git(task_id, worktree_path)
+            self.evolution_tracker.refresh_from_git(
+                task_id, worktree_path, target_branch=target_branch
+            )
 
             # Get files modified by this task
             modifications = self.evolution_tracker.get_task_modifications(task_id)
@@ -342,7 +344,9 @@ class MergeOrchestrator:
             for request in requests:
                 if request.worktree_path and request.worktree_path.exists():
                     self.evolution_tracker.refresh_from_git(
-                        request.task_id, request.worktree_path
+                        request.task_id,
+                        request.worktree_path,
+                        target_branch=target_branch,
                     )
 
             # Find all files modified by any task

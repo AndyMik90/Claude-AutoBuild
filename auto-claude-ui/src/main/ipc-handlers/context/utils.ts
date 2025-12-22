@@ -120,29 +120,21 @@ export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: Gl
 }
 
 /**
- * Get Graphiti connection details
+ * Get Graphiti database details (LadybugDB - embedded database)
  */
-export interface GraphitiConnectionDetails {
-  host: string;
-  port: number;
+export interface GraphitiDatabaseDetails {
+  dbPath: string;
   database: string;
 }
 
-export function getGraphitiConnectionDetails(projectEnvVars: EnvironmentVars): GraphitiConnectionDetails {
-  const host = projectEnvVars['GRAPHITI_FALKORDB_HOST'] ||
-               process.env.GRAPHITI_FALKORDB_HOST ||
-               'localhost';
-
-  const port = parseInt(
-    projectEnvVars['GRAPHITI_FALKORDB_PORT'] ||
-    process.env.GRAPHITI_FALKORDB_PORT ||
-    '6380',
-    10
-  );
+export function getGraphitiDatabaseDetails(projectEnvVars: EnvironmentVars): GraphitiDatabaseDetails {
+  const dbPath = projectEnvVars['GRAPHITI_DB_PATH'] ||
+                 process.env.GRAPHITI_DB_PATH ||
+                 require('path').join(require('os').homedir(), '.auto-claude', 'memories');
 
   const database = projectEnvVars['GRAPHITI_DATABASE'] ||
                    process.env.GRAPHITI_DATABASE ||
                    'auto_claude_memory';
 
-  return { host, port, database };
+  return { dbPath, database };
 }

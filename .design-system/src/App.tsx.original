@@ -40,45 +40,45 @@ interface ThemeConfig {
 }
 
 const COLOR_THEMES: { id: ColorTheme; name: string; description: string; previewColors: { bg: string; accent: string; darkBg: string; darkAccent?: string } }[] = [
-  { 
-    id: 'default', 
-    name: 'Default', 
+  {
+    id: 'default',
+    name: 'Default',
     description: 'Oscura-inspired with pale yellow accent',
     previewColors: { bg: '#F2F2ED', accent: '#E6E7A3', darkBg: '#0B0B0F', darkAccent: '#E6E7A3' }
   },
-  { 
-    id: 'dusk', 
-    name: 'Dusk', 
+  {
+    id: 'dusk',
+    name: 'Dusk',
     description: 'Warmer variant with slightly lighter dark mode',
     previewColors: { bg: '#F5F5F0', accent: '#E6E7A3', darkBg: '#131419', darkAccent: '#E6E7A3' }
   },
-  { 
-    id: 'lime', 
-    name: 'Lime', 
+  {
+    id: 'lime',
+    name: 'Lime',
     description: 'Fresh, energetic lime with purple accents',
     previewColors: { bg: '#E8F5A3', accent: '#7C3AED', darkBg: '#0F0F1A' }
   },
-  { 
-    id: 'ocean', 
-    name: 'Ocean', 
+  {
+    id: 'ocean',
+    name: 'Ocean',
     description: 'Calm, professional blue tones',
     previewColors: { bg: '#E0F2FE', accent: '#0284C7', darkBg: '#082F49' }
   },
-  { 
-    id: 'retro', 
-    name: 'Retro', 
+  {
+    id: 'retro',
+    name: 'Retro',
     description: 'Warm, nostalgic amber vibes',
     previewColors: { bg: '#FEF3C7', accent: '#D97706', darkBg: '#1C1917' }
   },
-  { 
-    id: 'neo', 
-    name: 'Neo', 
+  {
+    id: 'neo',
+    name: 'Neo',
     description: 'Modern cyberpunk pink/magenta',
     previewColors: { bg: '#FDF4FF', accent: '#D946EF', darkBg: '#0F0720' }
   },
-  { 
-    id: 'forest', 
-    name: 'Forest', 
+  {
+    id: 'forest',
+    name: 'Forest',
     description: 'Natural, earthy green tones',
     previewColors: { bg: '#DCFCE7', accent: '#16A34A', darkBg: '#052E16' }
   }
@@ -113,21 +113,21 @@ function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement
-    
+
     // Set color theme
     if (config.colorTheme === 'default') {
       root.removeAttribute('data-theme')
     } else {
       root.setAttribute('data-theme', config.colorTheme)
     }
-    
+
     // Set mode
     if (config.mode === 'dark') {
       root.classList.add('dark')
     } else {
       root.classList.remove('dark')
     }
-    
+
     localStorage.setItem('design-system-theme-config', JSON.stringify(config))
   }, [config])
 
@@ -135,24 +135,24 @@ function useTheme() {
   const setMode = (mode: Mode) => setConfig(c => ({ ...c, mode }))
   const toggleMode = () => setConfig(c => ({ ...c, mode: c.mode === 'light' ? 'dark' : 'light' }))
 
-  return { 
-    colorTheme: config.colorTheme, 
-    mode: config.mode, 
-    setColorTheme, 
-    setMode, 
+  return {
+    colorTheme: config.colorTheme,
+    mode: config.mode,
+    setColorTheme,
+    setMode,
     toggleMode,
     themes: COLOR_THEMES
   }
 }
 
 // Theme Selector Component
-function ThemeSelector({ 
-  colorTheme, 
-  mode, 
-  onColorThemeChange, 
+function ThemeSelector({
+  colorTheme,
+  mode,
+  onColorThemeChange,
   onModeToggle,
   themes
-}: { 
+}: {
   colorTheme: ColorTheme
   mode: Mode
   onColorThemeChange: (theme: ColorTheme) => void
@@ -160,10 +160,10 @@ function ThemeSelector({
   themes: typeof COLOR_THEMES
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  
+
   // Find theme with fallback to first theme (default)
   const currentTheme = themes.find(t => t.id === colorTheme) || themes[0]
-  
+
   return (
     <div className="flex items-center gap-3">
       {/* Color Theme Dropdown */}
@@ -172,7 +172,7 @@ function ThemeSelector({
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-background-secondary)] hover:bg-[var(--color-border-default)] transition-colors"
         >
-          <div 
+          <div
             className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
             style={{ backgroundColor: mode === 'dark' ? currentTheme.previewColors.accent : currentTheme.previewColors.bg }}
           />
@@ -182,12 +182,12 @@ function ThemeSelector({
             isOpen ? "rotate-90" : "-rotate-90"
           )} />
         </button>
-        
+
         {isOpen && (
           <>
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setIsOpen(false)} 
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsOpen(false)}
             />
             <div className="absolute top-full right-0 mt-2 w-64 p-2 bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border-default)] z-50">
               {themes.map((theme) => (
@@ -199,17 +199,17 @@ function ThemeSelector({
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 rounded-[var(--radius-md)] transition-colors text-left",
-                    colorTheme === theme.id 
-                      ? "bg-[var(--color-accent-primary-light)]" 
+                    colorTheme === theme.id
+                      ? "bg-[var(--color-accent-primary-light)]"
                       : "hover:bg-[var(--color-background-secondary)]"
                   )}
                 >
                   <div className="flex -space-x-1">
-                    <div 
+                    <div
                       className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
                       style={{ backgroundColor: theme.previewColors.bg }}
                     />
-                    <div 
+                    <div
                       className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
                       style={{ backgroundColor: theme.previewColors.accent }}
                     />
@@ -227,7 +227,7 @@ function ThemeSelector({
           </>
         )}
       </div>
-      
+
       {/* Light/Dark Toggle */}
       <button
         onClick={onModeToggle}
@@ -255,16 +255,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   pill?: boolean
 }
 
-function Button({ 
-  children, 
-  variant = 'primary', 
-  size = 'md', 
+function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
   pill = false,
   className,
-  ...props 
+  ...props
 }: ButtonProps) {
   const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2'
-  
+
   const variants = {
     primary: 'bg-[var(--color-accent-primary)] text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-primary-hover)] focus:ring-[var(--color-accent-primary)]',
     secondary: 'bg-transparent border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)]',
@@ -272,17 +272,17 @@ function Button({
     success: 'bg-[var(--color-semantic-success)] text-white hover:opacity-90',
     danger: 'bg-[var(--color-semantic-error)] text-white hover:opacity-90'
   }
-  
+
   const sizes = {
     sm: 'h-8 px-3 text-xs',
     md: 'h-10 px-4 text-sm',
     lg: 'h-12 px-6 text-base'
   }
-  
+
   const radius = pill ? 'rounded-full' : 'rounded-[var(--radius-md)]'
-  
+
   return (
-    <button 
+    <button
       className={cn(baseStyles, variants[variant], sizes[size], radius, className)}
       {...props}
     >
@@ -306,7 +306,7 @@ function Badge({ children, variant = 'default' }: BadgeProps) {
     error: 'bg-[var(--color-semantic-error-light)] text-[var(--color-semantic-error)]',
     outline: 'bg-transparent border border-[var(--color-border-default)] text-[var(--color-text-secondary)]'
   }
-  
+
   return (
     <span className={cn(
       'inline-flex items-center px-3 py-1 rounded-full text-label-small',
@@ -337,12 +337,12 @@ function Avatar({ src, name = 'User', size = 'md', color }: AvatarProps & { colo
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   // Default to neutral gray, can be overridden with color prop
-  const bgStyle = color 
-    ? { backgroundColor: color } 
+  const bgStyle = color
+    ? { backgroundColor: color }
     : {}
 
   return (
-    <div 
+    <div
       className={cn(
         'rounded-full flex items-center justify-center font-semibold border-2 border-[var(--color-surface-card)] overflow-hidden',
         !color && 'bg-[var(--color-border-default)]',
@@ -363,7 +363,7 @@ function Avatar({ src, name = 'User', size = 'md', color }: AvatarProps & { colo
 function AvatarGroup({ avatars, max = 4 }: { avatars: { name: string; src?: string }[]; max?: number }) {
   const visible = avatars.slice(0, max)
   const remaining = avatars.length - max
-  
+
   return (
     <div className="flex -space-x-2">
       {visible.map((avatar, i) => (
@@ -379,11 +379,11 @@ function AvatarGroup({ avatars, max = 4 }: { avatars: { name: string; src?: stri
 }
 
 // Progress Circle Component
-function ProgressCircle({ 
-  value, 
+function ProgressCircle({
+  value,
   size = 'md',
   color = 'var(--color-accent-primary)'
-}: { 
+}: {
   value: number
   size?: 'sm' | 'md' | 'lg'
   color?: string
@@ -393,12 +393,12 @@ function ProgressCircle({
     md: { width: 56, stroke: 5, fontSize: 'text-xs' },
     lg: { width: 80, stroke: 6, fontSize: 'text-base' }
   }
-  
+
   const { width, stroke, fontSize } = sizes[size]
   const radius = (width - stroke) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (value / 100) * circumference
-  
+
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={width} height={width} className="-rotate-90">
@@ -431,11 +431,11 @@ function ProgressCircle({
 }
 
 // Card Component
-function Card({ 
-  children, 
+function Card({
+  children,
   className,
   padding = true
-}: { 
+}: {
   children: React.ReactNode
   className?: string
   padding?: boolean
@@ -452,10 +452,10 @@ function Card({
 }
 
 // Input Component
-function Input({ 
+function Input({
   placeholder,
   className,
-  ...props 
+  ...props
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
@@ -534,7 +534,7 @@ function NotificationsCard() {
         </div>
         <p className="text-body-small text-[var(--color-text-tertiary)] mt-1">Unread</p>
       </div>
-      
+
       <div className="divide-y divide-[var(--color-border-default)]">
         <div className="p-4 flex gap-3">
           <Avatar size="sm" name="Ashlynn George" />
@@ -559,7 +559,7 @@ function NotificationsCard() {
             <MoreVertical className="w-4 h-4 text-[var(--color-text-tertiary)]" />
           </button>
         </div>
-        
+
         <div className="p-4 flex gap-3">
           <Avatar size="sm" name="Ashlynn George" />
           <div className="flex-1">
@@ -576,7 +576,7 @@ function NotificationsCard() {
           </button>
         </div>
       </div>
-      
+
       <div className="p-4 flex gap-2 border-t border-[var(--color-border-default)]">
         <Button variant="secondary" className="flex-1" pill>Mark all as read</Button>
         <Button variant="primary" className="flex-1" pill>View all</Button>
@@ -595,7 +595,7 @@ function CalendarCard() {
     [19, 20, 21, 22, 23, 24, 25],
     [26, 27, 28, 29, 30, 31, 1]
   ]
-  
+
   return (
     <Card className="w-[300px]">
       <div className="flex items-center justify-between mb-4">
@@ -607,7 +607,7 @@ function CalendarCard() {
           <ChevronRight className="w-5 h-5 text-[var(--color-text-tertiary)]" />
         </button>
       </div>
-      
+
       <div className="grid grid-cols-7 gap-1 text-center">
         {days.map((day, i) => (
           <div key={i} className="text-label-small text-[var(--color-text-tertiary)] py-2">
@@ -618,7 +618,7 @@ function CalendarCard() {
           const isCurrentMonth = (i < 3 && date > 20) || (i > 30 && date < 10) ? false : true
           const isSelected = date === 26 && isCurrentMonth
           const isToday = date === 16 && isCurrentMonth
-          
+
           return (
             <button
               key={i}
@@ -647,7 +647,7 @@ function TeamMembersCard() {
     { name: 'Jim Connor', role: 'Project manager' },
     { name: 'Tom Kinley', role: 'Project manager' }
   ]
-  
+
   return (
     <Card className="w-[320px]" padding={false}>
       <div className="divide-y divide-[var(--color-border-default)]">
@@ -667,7 +667,7 @@ function TeamMembersCard() {
           </div>
         ))}
       </div>
-      
+
       <div className="p-4 border-t border-[var(--color-border-default)] flex justify-center gap-3">
         <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe" className="h-6" />
         <div className="px-3 py-1 bg-[#1A1F71] text-white text-sm font-bold rounded">VISA</div>
@@ -688,13 +688,13 @@ function ProjectStatusCard() {
           <MoreVertical className="w-5 h-5 text-[var(--color-text-tertiary)]" />
         </button>
       </div>
-      
+
       <h3 className="text-heading-large mb-2">Amber website redesign</h3>
       <p className="text-body-medium text-[var(--color-text-secondary)] mb-4">
         In today's fast-paced digital landscape, our mission is to transform our website into a more intuitive, engaging, and user-friendly platfor...
       </p>
-      
-      <AvatarGroup 
+
+      <AvatarGroup
         avatars={[
           { name: 'User 1' },
           { name: 'User 2' },
@@ -716,18 +716,18 @@ function MilestoneCard() {
         <h3 className="text-heading-medium">Wireframes milestone</h3>
         <Button variant="secondary" size="sm" pill>View details</Button>
       </div>
-      
+
       <div className="flex items-center gap-6">
         <div>
           <p className="text-body-small text-[var(--color-text-secondary)]">Due date:</p>
           <p className="text-heading-small">March 20th</p>
         </div>
-        
+
         <ProgressCircle value={39} size="lg" />
-        
+
         <div>
           <p className="text-body-small text-[var(--color-text-secondary)]">Asignees:</p>
-          <AvatarGroup 
+          <AvatarGroup
             avatars={[
               { name: 'A' },
               { name: 'B' },
@@ -748,21 +748,21 @@ function IntegrationsCard() {
   const [slack, setSlack] = useState(true)
   const [meet, setMeet] = useState(true)
   const [github, setGithub] = useState(false)
-  
+
   const integrations = [
     { icon: Slack, name: 'Slack', desc: 'Used as a main source of communication', enabled: slack, toggle: setSlack, color: '#E91E63' },
     { icon: Video, name: 'Google meet', desc: 'Used for all types of calls', enabled: meet, toggle: setMeet, color: '#00897B' },
     { icon: Github, name: 'Github', desc: 'Enables automated workflows, code synchronization', enabled: github, toggle: setGithub, color: '#333' }
   ]
-  
+
   return (
     <Card className="w-[320px]">
       <h3 className="text-heading-medium mb-4">Integrations</h3>
-      
+
       <div className="space-y-4">
         {integrations.map((int, i) => (
           <div key={i} className="flex items-center gap-3">
-            <div 
+            <div
               className="w-10 h-10 rounded-[var(--radius-lg)] flex items-center justify-center"
               style={{ backgroundColor: `${int.color}15` }}
             >
@@ -787,7 +787,7 @@ function IntegrationsCard() {
 export default function App() {
   const [activeSection, setActiveSection] = useState('overview')
   const { colorTheme, mode, setColorTheme, toggleMode, themes } = useTheme()
-  
+
   const sections = [
     { id: 'overview', label: 'Overview' },
     { id: 'colors', label: 'Colors' },
@@ -796,9 +796,9 @@ export default function App() {
     { id: 'animations', label: 'Animations' },
     { id: 'themes', label: 'Themes' }
   ]
-  
+
   const currentThemeInfo = themes.find(t => t.id === colorTheme) || themes[0]
-  
+
   return (
     <div className="min-h-screen p-8 transition-colors duration-300">
       {/* Header */}
@@ -820,7 +820,7 @@ export default function App() {
                 onModeToggle={toggleMode}
                 themes={themes}
               />
-              
+
               {/* Section Navigation */}
               <div className="flex gap-2">
                 {sections.map((section) => (
@@ -838,7 +838,7 @@ export default function App() {
           </div>
         </Card>
       </div>
-      
+
       {/* Content */}
       <div className="max-w-7xl mx-auto">
         {activeSection === 'overview' && (
@@ -862,7 +862,7 @@ export default function App() {
             </section>
           </div>
         )}
-        
+
         {activeSection === 'colors' && (
           <div className="space-y-8">
             <Card>
@@ -872,7 +872,7 @@ export default function App() {
                   Currently showing: <strong className="text-[var(--color-text-primary)]">{currentThemeInfo.name}</strong> theme
                 </p>
               </div>
-              
+
               <div className="space-y-6">
                 <div>
                   <h3 className="text-heading-small mb-3">Background</h3>
@@ -889,7 +889,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Accent</h3>
                   <div className="flex gap-4">
@@ -910,7 +910,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Semantic</h3>
                   <div className="flex gap-4">
@@ -936,7 +936,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Text</h3>
                   <div className="flex gap-4">
@@ -958,23 +958,23 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Theme-specific color values */}
               <div className="mt-8 p-4 bg-[var(--color-background-secondary)] rounded-[var(--radius-lg)]">
                 <p className="text-body-small text-[var(--color-text-secondary)]">
-                  <strong>Note:</strong> Colors vary by theme and mode. Switch themes using the dropdown above to see different palettes. 
+                  <strong>Note:</strong> Colors vary by theme and mode. Switch themes using the dropdown above to see different palettes.
                   For specific hex values, see the <strong>Themes</strong> tab or check <code className="font-mono bg-[var(--color-background-neutral)] px-1 rounded">design.json</code>.
                 </p>
               </div>
             </Card>
           </div>
         )}
-        
+
         {activeSection === 'typography' && (
           <div className="space-y-8">
             <Card>
               <h2 className="text-heading-large mb-6">Typography Scale</h2>
-              
+
               <div className="space-y-6">
                 <div className="border-b border-[var(--color-border-default)] pb-4">
                   <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Display Large • 36px / 700</p>
@@ -1012,13 +1012,13 @@ export default function App() {
             </Card>
           </div>
         )}
-        
+
         {activeSection === 'components' && (
           <div className="space-y-8">
             {/* Buttons */}
             <Card>
               <h2 className="text-heading-large mb-6">Buttons</h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <h3 className="text-heading-small mb-3">Variants</h3>
@@ -1030,7 +1030,7 @@ export default function App() {
                     <Button variant="danger">Danger</Button>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Pill Buttons</h3>
                   <div className="flex flex-wrap gap-4">
@@ -1039,7 +1039,7 @@ export default function App() {
                     <Button variant="ghost" pill>Ghost Pill</Button>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Sizes</h3>
                   <div className="flex flex-wrap items-center gap-4">
@@ -1050,7 +1050,7 @@ export default function App() {
                 </div>
               </div>
             </Card>
-            
+
             {/* Badges */}
             <Card>
               <h2 className="text-heading-large mb-6">Badges</h2>
@@ -1063,11 +1063,11 @@ export default function App() {
                 <Badge variant="outline">Outline</Badge>
               </div>
             </Card>
-            
+
             {/* Avatars */}
             <Card>
               <h2 className="text-heading-large mb-6">Avatars</h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <h3 className="text-heading-small mb-3">Sizes</h3>
@@ -1080,10 +1080,10 @@ export default function App() {
                     <Avatar size="2xl" name="2XL" />
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-heading-small mb-3">Avatar Group</h3>
-                  <AvatarGroup 
+                  <AvatarGroup
                     avatars={[
                       { name: 'Alice' },
                       { name: 'Bob' },
@@ -1097,7 +1097,7 @@ export default function App() {
                 </div>
               </div>
             </Card>
-            
+
             {/* Progress */}
             <Card>
               <h2 className="text-heading-large mb-6">Progress Circles</h2>
@@ -1108,7 +1108,7 @@ export default function App() {
                 <ProgressCircle value={100} size="lg" color="var(--color-semantic-success)" />
               </div>
             </Card>
-            
+
             {/* Inputs */}
             <Card>
               <h2 className="text-heading-large mb-6">Inputs</h2>
@@ -1117,7 +1117,7 @@ export default function App() {
                 <Input placeholder="Disabled input" disabled />
               </div>
             </Card>
-            
+
             {/* Toggles */}
             <Card>
               <h2 className="text-heading-large mb-6">Toggles</h2>
@@ -1132,7 +1132,7 @@ export default function App() {
                 </div>
               </div>
             </Card>
-            
+
             {/* Cards */}
             <Card>
               <h2 className="text-heading-large mb-6">Cards</h2>
@@ -1153,13 +1153,13 @@ export default function App() {
             </Card>
           </div>
         )}
-        
+
         {activeSection === 'animations' && (
           <AnimationsSection theme={mode} colorTheme={currentThemeInfo.name} />
         )}
-        
+
         {activeSection === 'themes' && (
-          <ThemesSection 
+          <ThemesSection
             currentTheme={colorTheme}
             currentMode={mode}
             themes={themes}
@@ -1184,55 +1184,55 @@ const animationVariants = {
     animate: { opacity: 1 },
     exit: { opacity: 0 }
   },
-  
+
   // Scale animations
   scaleIn: {
     initial: { opacity: 0, scale: 0.9 },
     animate: { opacity: 1, scale: 1 },
     exit: { opacity: 0, scale: 0.9 }
   },
-  
+
   // Slide animations
   slideUp: {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: -20 }
   },
-  
+
   slideDown: {
     initial: { opacity: 0, y: -20 },
     animate: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: 20 }
   },
-  
+
   slideLeft: {
     initial: { opacity: 0, x: 20 },
     animate: { opacity: 1, x: 0 },
     exit: { opacity: 0, x: -20 }
   },
-  
+
   slideRight: {
     initial: { opacity: 0, x: -20 },
     animate: { opacity: 1, x: 0 },
     exit: { opacity: 0, x: 20 }
   },
-  
+
   // Spring pop
   pop: {
     initial: { opacity: 0, scale: 0.5 },
-    animate: { 
-      opacity: 1, 
+    animate: {
+      opacity: 1,
       scale: 1,
       transition: { type: 'spring', stiffness: 500, damping: 25 }
     },
     exit: { opacity: 0, scale: 0.5 }
   },
-  
+
   // Bounce
   bounce: {
     initial: { opacity: 0, y: -50 },
-    animate: { 
-      opacity: 1, 
+    animate: {
+      opacity: 1,
       y: 0,
       transition: { type: 'spring', stiffness: 300, damping: 10 }
     }
@@ -1254,19 +1254,19 @@ const transitions = {
 }
 
 // Demo component for showcasing an animation
-function AnimationDemo({ 
-  title, 
-  description, 
+function AnimationDemo({
+  title,
+  description,
   children,
-  code 
-}: { 
+  code
+}: {
   title: string
   description: string
   children: React.ReactNode
   code?: string
 }) {
   const [key, setKey] = useState(0)
-  
+
   return (
     <div className="bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] shadow-[var(--shadow-md)] overflow-hidden border border-[var(--color-border-default)]">
       <div className="p-6 border-b border-[var(--color-border-default)]">
@@ -1282,13 +1282,13 @@ function AnimationDemo({
         </div>
         <p className="text-body-small text-[var(--color-text-secondary)]">{description}</p>
       </div>
-      
+
       <div className="p-8 bg-[var(--color-background-secondary)] min-h-[160px] flex items-center justify-center">
         <div key={key}>
           {children}
         </div>
       </div>
-      
+
       {code && (
         <div className="p-4 bg-[var(--color-background-neutral)] border-t border-[var(--color-border-default)]">
           <pre className="text-body-small font-mono text-[var(--color-text-secondary)] overflow-x-auto">
@@ -1305,8 +1305,8 @@ function HoverCardDemo() {
   return (
     <motion.div
       className="w-48 h-32 bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] shadow-[var(--shadow-md)] flex items-center justify-center cursor-pointer border border-[var(--color-border-default)]"
-      whileHover={{ 
-        scale: 1.05, 
+      whileHover={{
+        scale: 1.05,
         boxShadow: 'var(--shadow-lg)',
         y: -4
       }}
@@ -1335,7 +1335,7 @@ function ButtonPressDemo() {
 // Staggered list demo
 function StaggeredListDemo() {
   const items = ['First item', 'Second item', 'Third item', 'Fourth item']
-  
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -1345,12 +1345,12 @@ function StaggeredListDemo() {
       }
     }
   }
-  
+
   const item = {
     hidden: { opacity: 0, x: -20 },
     show: { opacity: 1, x: 0 }
   }
-  
+
   return (
     <motion.ul
       className="space-y-2"
@@ -1374,14 +1374,14 @@ function StaggeredListDemo() {
 // Notification toast demo
 function ToastDemo() {
   const [show, setShow] = useState(true)
-  
+
   useEffect(() => {
     if (!show) {
       const timer = setTimeout(() => setShow(true), 500)
       return () => clearTimeout(timer)
     }
   }, [show])
-  
+
   return (
     <div className="relative h-20 w-72">
       <AnimatePresence>
@@ -1400,7 +1400,7 @@ function ToastDemo() {
               <p className="text-body-small font-medium">Success!</p>
               <p className="text-body-small text-[var(--color-text-tertiary)]">Action completed</p>
             </div>
-            <button 
+            <button
               onClick={() => setShow(false)}
               className="p-1 hover:bg-[var(--color-background-secondary)] rounded transition-colors"
             >
@@ -1416,11 +1416,11 @@ function ToastDemo() {
 // Modal demo
 function ModalDemo() {
   const [isOpen, setIsOpen] = useState(false)
-  
+
   return (
     <div className="relative">
       <Button onClick={() => setIsOpen(true)}>Open Modal</Button>
-      
+
       <AnimatePresence>
         {isOpen && (
           <>
@@ -1458,7 +1458,7 @@ function ModalDemo() {
 // Counter animation demo
 function CounterDemo() {
   const [count, setCount] = useState(0)
-  
+
   return (
     <div className="flex items-center gap-4">
       <motion.button
@@ -1469,7 +1469,7 @@ function CounterDemo() {
       >
         <Minus className="w-4 h-4" />
       </motion.button>
-      
+
       <div className="w-20 text-center overflow-hidden">
         <AnimatePresence mode="popLayout">
           <motion.span
@@ -1484,7 +1484,7 @@ function CounterDemo() {
           </motion.span>
         </AnimatePresence>
       </div>
-      
+
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -1507,7 +1507,7 @@ function LoadingDemo() {
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
       />
-      
+
       {/* Pulsing dots */}
       <div className="flex gap-1">
         {[0, 1, 2].map((i) => (
@@ -1515,16 +1515,16 @@ function LoadingDemo() {
             key={i}
             className="w-2 h-2 bg-[var(--color-accent-primary)] rounded-full"
             animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-            transition={{ 
-              duration: 0.8, 
-              repeat: Infinity, 
+            transition={{
+              duration: 0.8,
+              repeat: Infinity,
               delay: i * 0.15,
               ease: 'easeInOut'
             }}
           />
         ))}
       </div>
-      
+
       {/* Bouncing dots */}
       <div className="flex gap-1">
         {[0, 1, 2].map((i) => (
@@ -1532,9 +1532,9 @@ function LoadingDemo() {
             key={i}
             className="w-2 h-2 bg-[var(--color-semantic-success)] rounded-full"
             animate={{ y: [0, -8, 0] }}
-            transition={{ 
-              duration: 0.5, 
-              repeat: Infinity, 
+            transition={{
+              duration: 0.5,
+              repeat: Infinity,
               delay: i * 0.1,
               ease: 'easeInOut'
             }}
@@ -1565,14 +1565,14 @@ function DragDemo() {
 // Progress animation demo
 function ProgressAnimationDemo() {
   const [progress, setProgress] = useState(0)
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setProgress(75)
     }, 300)
     return () => clearTimeout(timer)
   }, [])
-  
+
   return (
     <div className="w-64 space-y-4">
       <div className="h-2 bg-[var(--color-border-default)] rounded-full overflow-hidden">
@@ -1583,7 +1583,7 @@ function ProgressAnimationDemo() {
           transition={{ duration: 1, ease: 'easeOut' }}
         />
       </div>
-      
+
       <div className="flex justify-between text-body-small text-[var(--color-text-secondary)]">
         <span>Progress</span>
         <motion.span
@@ -1602,7 +1602,7 @@ function ProgressAnimationDemo() {
 function IconAnimationsDemo() {
   const [liked, setLiked] = useState(false)
   const [starred, setStarred] = useState(false)
-  
+
   return (
     <div className="flex items-center gap-6">
       {/* Heart like animation */}
@@ -1615,15 +1615,15 @@ function IconAnimationsDemo() {
           animate={liked ? { scale: [1, 1.3, 1] } : { scale: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <Heart 
+          <Heart
             className={cn(
               'w-6 h-6 transition-colors',
               liked ? 'fill-red-500 text-red-500' : 'text-[var(--color-text-tertiary)]'
-            )} 
+            )}
           />
         </motion.div>
       </motion.button>
-      
+
       {/* Star animation */}
       <motion.button
         whileTap={{ scale: 0.8 }}
@@ -1634,23 +1634,23 @@ function IconAnimationsDemo() {
           animate={starred ? { rotate: [0, 72, 144, 216, 288, 360], scale: [1, 1.2, 1] } : { rotate: 0, scale: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Star 
+          <Star
             className={cn(
               'w-6 h-6 transition-colors',
               starred ? 'fill-yellow-400 text-yellow-400' : 'text-[var(--color-text-tertiary)]'
-            )} 
+            )}
           />
         </motion.div>
       </motion.button>
-      
+
       {/* Continuous sparkle */}
       <motion.div
-        animate={{ 
+        animate={{
           rotate: [0, 15, -15, 0],
           scale: [1, 1.1, 1]
         }}
-        transition={{ 
-          duration: 2, 
+        transition={{
+          duration: 2,
           repeat: Infinity,
           ease: 'easeInOut'
         }}
@@ -1665,7 +1665,7 @@ function IconAnimationsDemo() {
 // Accordion demo
 function AccordionDemo() {
   const [isOpen, setIsOpen] = useState(false)
-  
+
   return (
     <div className="w-72 bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-border-default)]">
       <motion.button
@@ -1680,7 +1680,7 @@ function AccordionDemo() {
           <ChevronLeft className="w-5 h-5 -rotate-90 text-[var(--color-text-tertiary)]" />
         </motion.div>
       </motion.button>
-      
+
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -1717,7 +1717,7 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
             </p>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="p-4 bg-[var(--color-background-secondary)] rounded-[var(--radius-lg)]">
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-1">Duration Presets</p>
@@ -1733,12 +1733,12 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
           </div>
         </div>
       </Card>
-      
+
       {/* Basic Transitions */}
       <div>
         <h3 className="text-heading-medium mb-4">Basic Transitions</h3>
         <div className="grid grid-cols-2 gap-6">
-          <AnimationDemo 
+          <AnimationDemo
             title="Fade In"
             description="Simple opacity transition for subtle entrances"
           >
@@ -1751,8 +1751,8 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
               <span className="text-body-medium">Faded In</span>
             </motion.div>
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Scale In"
             description="Scale with opacity for modal-like entrances"
           >
@@ -1765,8 +1765,8 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
               <span className="text-body-medium">Scaled In</span>
             </motion.div>
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Slide Up"
             description="Vertical slide for tooltips and dropdowns"
           >
@@ -1779,8 +1779,8 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
               <span className="text-body-medium">Slid Up</span>
             </motion.div>
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Spring Pop"
             description="Bouncy spring animation for attention-grabbing elements"
           >
@@ -1795,33 +1795,33 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
           </AnimationDemo>
         </div>
       </div>
-      
+
       {/* Interactive Animations */}
       <div>
         <h3 className="text-heading-medium mb-4">Interactive Animations</h3>
         <div className="grid grid-cols-2 gap-6">
-          <AnimationDemo 
+          <AnimationDemo
             title="Hover Card"
             description="Scale and elevation change on hover"
           >
             <HoverCardDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Button Press"
             description="Tactile feedback with scale on tap"
           >
             <ButtonPressDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Draggable Element"
             description="Constrained drag with elastic boundaries"
           >
             <DragDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Icon Interactions"
             description="Like, favorite, and animated icons"
           >
@@ -1829,33 +1829,33 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
           </AnimationDemo>
         </div>
       </div>
-      
+
       {/* Component Animations */}
       <div>
         <h3 className="text-heading-medium mb-4">Component Animations</h3>
         <div className="grid grid-cols-2 gap-6">
-          <AnimationDemo 
+          <AnimationDemo
             title="Staggered List"
             description="Sequential item animation for lists"
           >
             <StaggeredListDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Toast Notification"
             description="Enter/exit animations for notifications"
           >
             <ToastDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Modal Dialog"
             description="Overlay + scale animation for modals"
           >
             <ModalDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Accordion"
             description="Height animation for expandable content"
           >
@@ -1863,26 +1863,26 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
           </AnimationDemo>
         </div>
       </div>
-      
+
       {/* Utility Animations */}
       <div>
         <h3 className="text-heading-medium mb-4">Utility Animations</h3>
         <div className="grid grid-cols-2 gap-6">
-          <AnimationDemo 
+          <AnimationDemo
             title="Number Counter"
             description="Animated number transitions"
           >
             <CounterDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Loading States"
             description="Spinner, pulse, and bounce loaders"
           >
             <LoadingDemo />
           </AnimationDemo>
-          
-          <AnimationDemo 
+
+          <AnimationDemo
             title="Progress Bar"
             description="Animated progress indication"
           >
@@ -1890,11 +1890,11 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
           </AnimationDemo>
         </div>
       </div>
-      
+
       {/* Animation Guidelines */}
       <Card>
         <h2 className="text-heading-large mb-6">Animation Guidelines</h2>
-        
+
         <div className="grid grid-cols-2 gap-6">
           <div>
             <h3 className="text-heading-small mb-3 text-[var(--color-semantic-success)]">✓ Do</h3>
@@ -1907,7 +1907,7 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
               <li>• Use consistent timing across similar elements</li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="text-heading-small mb-3 text-[var(--color-semantic-error)]">✗ Don't</h3>
             <ul className="space-y-2 text-body-medium text-[var(--color-text-secondary)]">
@@ -1920,7 +1920,7 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
             </ul>
           </div>
         </div>
-        
+
         <div className="mt-6 p-4 bg-[var(--color-accent-primary-light)] rounded-[var(--radius-lg)]">
           <p className="text-body-medium text-[var(--color-accent-primary)]">
             <strong>Accessibility Note:</strong> Always wrap animations in a check for <code className="font-mono bg-[var(--color-background-secondary)] px-1 rounded">prefers-reduced-motion</code> and provide static alternatives.
@@ -1935,12 +1935,12 @@ function AnimationsSection({ theme, colorTheme }: { theme: 'light' | 'dark'; col
 // THEMES SECTION
 // ============================================
 
-function ThemePreviewCard({ 
-  theme, 
-  isActive, 
+function ThemePreviewCard({
+  theme,
+  isActive,
   mode,
-  onClick 
-}: { 
+  onClick
+}: {
   theme: typeof COLOR_THEMES[0]
   isActive: boolean
   mode: 'light' | 'dark'
@@ -1949,10 +1949,10 @@ function ThemePreviewCard({
   // Preview colors based on mode
   const bgColor = mode === 'light' ? theme.previewColors.bg : theme.previewColors.darkBg
   const cardColor = mode === 'light' ? '#FFFFFF' : '#1A1A1A'
-  const accentColor = mode === 'dark' && theme.previewColors.darkAccent 
-    ? theme.previewColors.darkAccent 
+  const accentColor = mode === 'dark' && theme.previewColors.darkAccent
+    ? theme.previewColors.darkAccent
     : theme.previewColors.accent
-  
+
   return (
     <motion.button
       whileHover={{ scale: 1.02, y: -4 }}
@@ -1960,8 +1960,8 @@ function ThemePreviewCard({
       onClick={onClick}
       className={cn(
         "relative p-4 rounded-[var(--radius-2xl)] text-left transition-all overflow-hidden",
-        isActive 
-          ? "ring-2 ring-[var(--color-accent-primary)] ring-offset-2 ring-offset-[var(--color-background-primary)]" 
+        isActive
+          ? "ring-2 ring-[var(--color-accent-primary)] ring-offset-2 ring-offset-[var(--color-background-primary)]"
           : "hover:shadow-[var(--shadow-lg)]"
       )}
       style={{ backgroundColor: bgColor }}
@@ -1969,24 +1969,24 @@ function ThemePreviewCard({
       {/* Mini UI Preview */}
       <div className="space-y-3">
         {/* Mini header */}
-        <div 
+        <div
           className="h-8 rounded-[var(--radius-md)] flex items-center px-3 gap-2"
           style={{ backgroundColor: cardColor }}
         >
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />
           <div className="w-16 h-2 rounded-full bg-gray-300" />
         </div>
-        
+
         {/* Mini cards */}
         <div className="grid grid-cols-2 gap-2">
-          <div 
+          <div
             className="h-16 rounded-[var(--radius-md)] p-2"
             style={{ backgroundColor: cardColor }}
           >
             <div className="w-8 h-8 rounded-full mb-1" style={{ backgroundColor: accentColor, opacity: 0.2 }} />
             <div className="w-full h-1.5 rounded-full bg-gray-200" />
           </div>
-          <div 
+          <div
             className="h-16 rounded-[var(--radius-md)] p-2"
             style={{ backgroundColor: cardColor }}
           >
@@ -1995,16 +1995,16 @@ function ThemePreviewCard({
             <div className="w-1/2 h-1.5 rounded-full bg-gray-200 mt-1" />
           </div>
         </div>
-        
+
         {/* Mini button */}
-        <div 
+        <div
           className="h-6 rounded-full flex items-center justify-center"
           style={{ backgroundColor: accentColor }}
         >
           <div className="w-12 h-1.5 rounded-full bg-white/50" />
         </div>
       </div>
-      
+
       {/* Theme info */}
       <div className="mt-4">
         <div className="flex items-center gap-2">
@@ -2021,14 +2021,14 @@ function ThemePreviewCard({
           {theme.description}
         </p>
       </div>
-      
+
       {/* Color swatches */}
       <div className="flex gap-1 mt-3">
-        <div 
+        <div
           className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
           style={{ backgroundColor: theme.previewColors.bg }}
         />
-        <div 
+        <div
           className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
           style={{ backgroundColor: theme.previewColors.accent }}
         />
@@ -2037,13 +2037,13 @@ function ThemePreviewCard({
   )
 }
 
-function ThemesSection({ 
-  currentTheme, 
-  currentMode, 
+function ThemesSection({
+  currentTheme,
+  currentMode,
   themes,
   onThemeChange,
   onModeChange
-}: { 
+}: {
   currentTheme: ColorTheme
   currentMode: Mode
   themes: typeof COLOR_THEMES
@@ -2066,15 +2066,15 @@ function ThemesSection({
               </p>
             </div>
           </div>
-          
+
           {/* Mode Toggle */}
           <div className="flex items-center gap-3 p-1 bg-[var(--color-background-secondary)] rounded-full">
             <button
               onClick={() => currentMode === 'dark' && onModeChange()}
               className={cn(
                 "px-4 py-2 rounded-full text-body-medium font-medium transition-all",
-                currentMode === 'light' 
-                  ? "bg-[var(--color-surface-card)] shadow-sm" 
+                currentMode === 'light'
+                  ? "bg-[var(--color-surface-card)] shadow-sm"
                   : "text-[var(--color-text-secondary)]"
               )}
             >
@@ -2085,8 +2085,8 @@ function ThemesSection({
               onClick={() => currentMode === 'light' && onModeChange()}
               className={cn(
                 "px-4 py-2 rounded-full text-body-medium font-medium transition-all",
-                currentMode === 'dark' 
-                  ? "bg-[var(--color-surface-card)] shadow-sm" 
+                currentMode === 'dark'
+                  ? "bg-[var(--color-surface-card)] shadow-sm"
                   : "text-[var(--color-text-secondary)]"
               )}
             >
@@ -2096,7 +2096,7 @@ function ThemesSection({
           </div>
         </div>
       </Card>
-      
+
       {/* Theme Grid */}
       <div>
         <h3 className="text-heading-medium mb-4">Color Themes</h3>
@@ -2112,11 +2112,11 @@ function ThemesSection({
           ))}
         </div>
       </div>
-      
+
       {/* Current Theme Details */}
       <Card>
         <h3 className="text-heading-medium mb-4">Current Theme Colors</h3>
-        
+
         <div className="grid grid-cols-4 gap-4">
           <div>
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Background</p>
@@ -2131,7 +2131,7 @@ function ThemesSection({
               </div>
             </div>
           </div>
-          
+
           <div>
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Surface</p>
             <div className="space-y-2">
@@ -2145,7 +2145,7 @@ function ThemesSection({
               </div>
             </div>
           </div>
-          
+
           <div>
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Accent</p>
             <div className="space-y-2">
@@ -2159,7 +2159,7 @@ function ThemesSection({
               </div>
             </div>
           </div>
-          
+
           <div>
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">Semantic</p>
             <div className="space-y-2">
@@ -2175,11 +2175,11 @@ function ThemesSection({
           </div>
         </div>
       </Card>
-      
+
       {/* Usage Instructions */}
       <Card>
         <h3 className="text-heading-medium mb-4">Using Themes</h3>
-        
+
         <div className="grid grid-cols-2 gap-6">
           <div className="p-4 bg-[var(--color-background-secondary)] rounded-[var(--radius-lg)]">
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">HTML Setup</p>
@@ -2194,7 +2194,7 @@ function ThemesSection({
 <html data-theme="neo" class="dark">`}
             </pre>
           </div>
-          
+
           <div className="p-4 bg-[var(--color-background-secondary)] rounded-[var(--radius-lg)]">
             <p className="text-label-small text-[var(--color-text-tertiary)] mb-2">CSS Variables</p>
             <pre className="text-body-small font-mono text-[var(--color-text-primary)] overflow-x-auto">
@@ -2205,7 +2205,7 @@ border: 1px solid var(--color-border-default);`}
             </pre>
           </div>
         </div>
-        
+
         <div className="mt-4 p-4 bg-[var(--color-accent-primary-light)] rounded-[var(--radius-lg)]">
           <p className="text-body-medium text-[var(--color-accent-primary)]">
             <strong>Tip:</strong> All themes automatically support light and dark modes. Just toggle the <code className="font-mono bg-[var(--color-background-secondary)] px-1 rounded">.dark</code> class!

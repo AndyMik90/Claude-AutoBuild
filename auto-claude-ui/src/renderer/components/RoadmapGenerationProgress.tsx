@@ -204,7 +204,7 @@ export function RoadmapGenerationProgress({
    */
   const handleStopClick = async () => {
     if (!onStop || isStopping) return;
-    
+
     setIsStopping(true);
     try {
       await onStop();

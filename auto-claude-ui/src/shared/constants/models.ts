@@ -135,5 +135,5 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
 
 export const MEMORY_BACKENDS = [
   { value: 'file', label: 'File-based (default)' },
-  { value: 'graphiti', label: 'Graphiti (FalkorDB)' }
+  { value: 'graphiti', label: 'Graphiti (LadybugDB)' }
 ] as const;

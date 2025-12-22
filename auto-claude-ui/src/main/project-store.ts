@@ -6,9 +6,16 @@ import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, Implemen
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 
+interface TabState {
+  openProjectIds: string[];
+  activeProjectId: string | null;
+  tabOrder: string[];
+}
+
 interface StoreData {
   projects: Project[];
   settings: Record<string, unknown>;
+  tabState?: TabState;
 }
 
 /**
@@ -68,6 +75,14 @@ export class ProjectStore {
     // Check if project already exists
     const existing = this.data.projects.find((p) => p.path === projectPath);
     if (existing) {
+      // Validate that .auto-claude folder still exists for existing project
+      // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
+      if (existing.autoBuildPath && !isInitialized(existing.path)) {
+        console.warn(`[ProjectStore] .auto-claude folder was deleted for project "${existing.name}" - resetting autoBuildPath`);
+        existing.autoBuildPath = '';
+        existing.updatedAt = new Date();
+        this.save();
+      }
       return existing;
     }
 
@@ -124,6 +139,34 @@ export class ProjectStore {
    */
   getProjects(): Project[] {
     return this.data.projects;
+  }
+
+  /**
+   * Get tab state
+   */
+  getTabState(): TabState {
+    return this.data.tabState || {
+      openProjectIds: [],
+      activeProjectId: null,
+      tabOrder: []
+    };
+  }
+
+  /**
+   * Save tab state
+   */
+  saveTabState(tabState: TabState): void {
+    // Filter out any project IDs that no longer exist
+    const validProjectIds = this.data.projects.map(p => p.id);
+    this.data.tabState = {
+      openProjectIds: tabState.openProjectIds.filter(id => validProjectIds.includes(id)),
+      activeProjectId: tabState.activeProjectId && validProjectIds.includes(tabState.activeProjectId)
+        ? tabState.activeProjectId
+        : null,
+      tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id))
+    };
+    console.log('[ProjectStore] Saving tab state:', this.data.tabState);
+    this.save();
   }
 
   /**

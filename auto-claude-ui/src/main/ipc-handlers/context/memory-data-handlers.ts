@@ -9,11 +9,11 @@ import type {
   ContextSearchResult
 } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getFalkorDBService } from '../../falkordb-service';
+import { getMemoryService, isKuzuAvailable } from '../../memory-service';
 import {
   loadProjectEnvVars,
   isGraphitiEnabled,
-  getGraphitiConnectionDetails
+  getGraphitiDatabaseDetails
 } from './utils';
 
 /**
@@ -169,20 +169,20 @@ export function registerMemoryDataHandlers(
       const projectEnvVars = loadProjectEnvVars(project.path, project.autoBuildPath);
       const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
 
-      // Try FalkorDB first if available
-      if (graphitiEnabled) {
+      // Try LadybugDB first if available
+      if (graphitiEnabled && isKuzuAvailable()) {
         try {
-          const connDetails = getGraphitiConnectionDetails(projectEnvVars);
-          const falkorService = getFalkorDBService({
-            host: connDetails.host,
-            port: connDetails.port,
+          const dbDetails = getGraphitiDatabaseDetails(projectEnvVars);
+          const memoryService = getMemoryService({
+            dbPath: dbDetails.dbPath,
+            database: dbDetails.database,
           });
-          const falkorMemories = await falkorService.getAllMemories(limit);
-          if (falkorMemories.length > 0) {
-            return { success: true, data: falkorMemories };
+          const graphMemories = await memoryService.getEpisodicMemories(limit);
+          if (graphMemories.length > 0) {
+            return { success: true, data: graphMemories };
           }
         } catch (error) {
-          console.warn('Failed to get memories from FalkorDB, falling back to file-based:', error);
+          console.warn('Failed to get memories from LadybugDB, falling back to file-based:', error);
         }
       }
 
@@ -207,19 +207,19 @@ export function registerMemoryDataHandlers(
       const projectEnvVars = loadProjectEnvVars(project.path, project.autoBuildPath);
       const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
 
-      // Try FalkorDB search if available
-      if (graphitiEnabled) {
+      // Try LadybugDB search if available
+      if (graphitiEnabled && isKuzuAvailable()) {
         try {
-          const connDetails = getGraphitiConnectionDetails(projectEnvVars);
-          const falkorService = getFalkorDBService({
-            host: connDetails.host,
-            port: connDetails.port,
+          const dbDetails = getGraphitiDatabaseDetails(projectEnvVars);
+          const memoryService = getMemoryService({
+            dbPath: dbDetails.dbPath,
+            database: dbDetails.database,
           });
-          const falkorResults = await falkorService.searchMemories(query, 20);
-          if (falkorResults.length > 0) {
+          const graphResults = await memoryService.searchMemories(query, 20);
+          if (graphResults.length > 0) {
             return {
               success: true,
-              data: falkorResults.map(r => ({
+              data: graphResults.map(r => ({
                 content: r.content,
                 score: r.score || 1.0,
                 type: r.type
@@ -227,7 +227,7 @@ export function registerMemoryDataHandlers(
             };
           }
         } catch (error) {
-          console.warn('Failed to search FalkorDB, falling back to file-based:', error);
+          console.warn('Failed to search LadybugDB, falling back to file-based:', error);
         }
       }
 

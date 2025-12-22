@@ -33,8 +33,6 @@ export function createHookProxy(
     get setShowLinearKey() { return hookRef.current.setShowLinearKey; },
     get showOpenAIKey() { return hookRef.current.showOpenAIKey; },
     get setShowOpenAIKey() { return hookRef.current.setShowOpenAIKey; },
-    get showFalkorPassword() { return hookRef.current.showFalkorPassword; },
-    get setShowFalkorPassword() { return hookRef.current.setShowFalkorPassword; },
     get showGitHubToken() { return hookRef.current.showGitHubToken; },
     get setShowGitHubToken() { return hookRef.current.setShowGitHubToken; },
     get expandedSections() { return hookRef.current.expandedSections; },

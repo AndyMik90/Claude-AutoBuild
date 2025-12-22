@@ -57,7 +57,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # Frontend tests
+  # Frontend lint, typecheck, test, and build
   test-frontend:
     runs-on: ubuntu-latest
     steps:
@@ -72,12 +72,34 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: auto-claude-ui
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Lint
+        working-directory: auto-claude-ui
+        run: pnpm run lint
+
+      - name: Type check
+        working-directory: auto-claude-ui
+        run: pnpm run typecheck
+
       - name: Run tests
         working-directory: auto-claude-ui
-        run: pnpm test
+        run: pnpm run test
+
+      - name: Build
+        working-directory: auto-claude-ui
+        run: pnpm run build

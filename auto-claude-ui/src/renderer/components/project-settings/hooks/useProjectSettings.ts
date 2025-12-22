@@ -44,8 +44,6 @@ export interface UseProjectSettingsReturn {
   setShowLinearKey: React.Dispatch<React.SetStateAction<boolean>>;
   showOpenAIKey: boolean;
   setShowOpenAIKey: React.Dispatch<React.SetStateAction<boolean>>;
-  showFalkorPassword: boolean;
-  setShowFalkorPassword: React.Dispatch<React.SetStateAction<boolean>>;
   showGitHubToken: boolean;
   setShowGitHubToken: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -97,7 +95,6 @@ export function useProjectSettings(
   const [showClaudeToken, setShowClaudeToken] = useState(false);
   const [showLinearKey, setShowLinearKey] = useState(false);
   const [showOpenAIKey, setShowOpenAIKey] = useState(false);
-  const [showFalkorPassword, setShowFalkorPassword] = useState(false);
 
   // Collapsible sections
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -386,8 +383,6 @@ export function useProjectSettings(
     setShowLinearKey,
     showOpenAIKey,
     setShowOpenAIKey,
-    showFalkorPassword,
-    setShowFalkorPassword,
     showGitHubToken,
     setShowGitHubToken,
     expandedSections,

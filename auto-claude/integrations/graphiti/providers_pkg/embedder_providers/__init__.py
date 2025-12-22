@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
 from .azure_openai_embedder import create_azure_openai_embedder
 from .google_embedder import create_google_embedder
-from .ollama_embedder import create_ollama_embedder
+from .ollama_embedder import (
+    KNOWN_OLLAMA_EMBEDDING_MODELS,
+    create_ollama_embedder,
+    get_embedding_dim_for_model,
+)
 from .openai_embedder import create_openai_embedder
 from .voyage_embedder import create_voyage_embedder
 
@@ -22,4 +26,6 @@ __all__ = [
     "create_azure_openai_embedder",
     "create_ollama_embedder",
     "create_google_embedder",
+    "KNOWN_OLLAMA_EMBEDDING_MODELS",
+    "get_embedding_dim_for_model",
 ]

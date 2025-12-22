@@ -218,12 +218,12 @@
           });
         }
 
-        return { 
-          success: true, 
-          data: { 
+        return {
+          success: true,
+          data: {
             terminalId,
             message: `A terminal has been opened to authenticate "${profile.name}". Complete the OAuth flow in your browser, then copy the token shown in the terminal.`
-          } 
+          }
         };
       } catch (error) {
         console.error('[IPC] Failed to initialize Claude profile:', error);

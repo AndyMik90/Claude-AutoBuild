@@ -273,22 +273,45 @@ export class AgentProcessManager {
 
       // Check for rate limit if process failed
       if (code !== 0) {
+        console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
+        console.log('[AgentProcess] Checking for rate limit in output (last 500 chars):', allOutput.slice(-500));
+
         const rateLimitDetection = detectRateLimit(allOutput);
+        console.log('[AgentProcess] Rate limit detection result:', {
+          isRateLimited: rateLimitDetection.isRateLimited,
+          resetTime: rateLimitDetection.resetTime,
+          limitType: rateLimitDetection.limitType,
+          profileId: rateLimitDetection.profileId,
+          suggestedProfile: rateLimitDetection.suggestedProfile
+        });
+
         if (rateLimitDetection.isRateLimited) {
           // Check if auto-swap is enabled
           const profileManager = getClaudeProfileManager();
           const autoSwitchSettings = profileManager.getAutoSwitchSettings();
 
+          console.log('[AgentProcess] Auto-switch settings:', {
+            enabled: autoSwitchSettings.enabled,
+            autoSwitchOnRateLimit: autoSwitchSettings.autoSwitchOnRateLimit,
+            proactiveSwapEnabled: autoSwitchSettings.proactiveSwapEnabled
+          });
+
           if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit) {
             const currentProfileId = rateLimitDetection.profileId;
             const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
+            console.log('[AgentProcess] Best available profile:', bestProfile ? {
+              id: bestProfile.id,
+              name: bestProfile.name
+            } : 'NONE');
+
             if (bestProfile) {
               // Switch active profile
+              console.log('[AgentProcess] AUTO-SWAP: Switching from', currentProfileId, 'to', bestProfile.id);
               profileManager.setActiveProfile(bestProfile.id);
 
               // Emit swap info (for modal)
-              const source = processType === 'spec-creation' ? 'task' : 'task';
+              const source = processType === 'spec-creation' ? 'roadmap' : 'task';
               const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
                 taskId
               });
@@ -298,30 +321,42 @@ export class AgentProcessManager {
                 name: bestProfile.name
               };
               rateLimitInfo.swapReason = 'reactive';
+
+              console.log('[AgentProcess] Emitting sdk-rate-limit event (auto-swapped):', rateLimitInfo);
               this.emitter.emit('sdk-rate-limit', rateLimitInfo);
 
               // Restart task
+              console.log('[AgentProcess] Emitting auto-swap-restart-task event for task:', taskId);
               this.emitter.emit('auto-swap-restart-task', taskId, bestProfile.id);
               return;
+            } else {
+              console.log('[AgentProcess] No alternative profile available - falling back to manual modal');
             }
+          } else {
+            console.log('[AgentProcess] Auto-switch disabled - showing manual modal');
           }
 
           // Fall back to manual modal (no auto-swap or no alternative profile)
-          const source = processType === 'spec-creation' ? 'task' : 'task';
+          const source = processType === 'spec-creation' ? 'roadmap' : 'task';
           const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
             taskId
           });
+          console.log('[AgentProcess] Emitting sdk-rate-limit event (manual):', rateLimitInfo);
           this.emitter.emit('sdk-rate-limit', rateLimitInfo);
         } else {
+          console.log('[AgentProcess] No rate limit detected - checking for auth failure');
           // Not rate limited - check for authentication failure
           const authFailureDetection = detectAuthFailure(allOutput);
           if (authFailureDetection.isAuthFailure) {
+            console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
             this.emitter.emit('auth-failure', taskId, {
               profileId: authFailureDetection.profileId,
               failureType: authFailureDetection.failureType,
               message: authFailureDetection.message,
               originalError: authFailureDetection.originalError
             });
+          } else {
+            console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
           }
         }
       }

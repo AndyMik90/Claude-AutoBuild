@@ -41,7 +41,7 @@ export function InvestigationDialog({
   useEffect(() => {
     if (open && selectedIssue && projectId) {
       let isMounted = true;
-      
+
       setLoadingComments(true);
       setComments([]);
       setSelectedCommentIds([]);
