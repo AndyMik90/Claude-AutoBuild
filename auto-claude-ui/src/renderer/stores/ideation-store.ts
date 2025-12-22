@@ -23,9 +23,12 @@ interface IdeationState {
   typeStates: Record<IdeationType, IdeationTypeState>;
   // Selection state
   selectedIds: Set<string>;
+  // Track current project to validate IPC events
+  currentProjectId: string | null;
 
   // Actions
   setSession: (session: IdeationSession | null) => void;
+  setCurrentProjectId: (projectId: string | null) => void;
   setGenerationStatus: (status: IdeationGenerationStatus) => void;
   setConfig: (config: Partial<IdeationConfig>) => void;
   updateIdeaStatus: (ideaId: string, status: IdeationStatus) => void;
@@ -80,9 +83,12 @@ export const useIdeationStore = create<IdeationState>((set) => ({
   logs: [],
   typeStates: { ...initialTypeStates },
   selectedIds: new Set<string>(),
+  currentProjectId: null,
 
   // Actions
   setSession: (session) => set({ session }),
+
+  setCurrentProjectId: (projectId) => set({ currentProjectId: projectId }),
 
   setGenerationStatus: (status) => set({ generationStatus: status }),
 
@@ -226,7 +232,8 @@ export const useIdeationStore = create<IdeationState>((set) => ({
       session: null,
       generationStatus: initialGenerationStatus,
       typeStates: { ...initialTypeStates },
-      selectedIds: new Set<string>()
+      selectedIds: new Set<string>(),
+      currentProjectId: null
     }),
 
   addLog: (log) =>
@@ -331,6 +338,9 @@ export async function loadIdeation(projectId: string): Promise<void> {
   // Clear existing session before loading new project data
   // This ensures we don't show stale data from a previous project
   store.clearSession();
+
+  // Set the current project ID to validate IPC events
+  store.setCurrentProjectId(projectId);
 
   const result = await window.electronAPI.getIdeation(projectId);
   if (result.success && result.data) {
@@ -564,37 +574,60 @@ export function isUIUXIdea(idea: Idea): idea is Idea & { type: 'ui_ux_improvemen
 export function setupIdeationListeners(): () => void {
   const store = useIdeationStore.getState;
 
+  // Helper to validate projectId matches current project
+  // Returns true if valid, false if event should be ignored
+  const isValidProjectId = (eventProjectId: string): boolean => {
+    const currentProjectId = store().currentProjectId;
+    if (currentProjectId && eventProjectId !== currentProjectId) {
+      if (window.DEBUG) {
+        console.log('[Ideation] Ignoring event for wrong project:', {
+          eventProjectId,
+          currentProjectId
+        });
+      }
+      return false;
+    }
+    return true;
+  };
+
   // Listen for progress updates
-  const unsubProgress = window.electronAPI.onIdeationProgress((_projectId, status) => {
+  const unsubProgress = window.electronAPI.onIdeationProgress((projectId, status) => {
     // Debug logging
     if (window.DEBUG) {
       console.log('[Ideation] Progress update:', {
-        projectId: _projectId,
+        projectId,
         phase: status.phase,
         progress: status.progress,
         message: status.message
       });
     }
+    // Validate projectId before updating store
+    if (!isValidProjectId(projectId)) return;
     store().setGenerationStatus(status);
   });
 
   // Listen for log messages
-  const unsubLog = window.electronAPI.onIdeationLog((_projectId, log) => {
+  const unsubLog = window.electronAPI.onIdeationLog((projectId, log) => {
+    // Validate projectId before updating store
+    if (!isValidProjectId(projectId)) return;
     store().addLog(log);
   });
 
   // Listen for individual ideation type completion (streaming)
   const unsubTypeComplete = window.electronAPI.onIdeationTypeComplete(
-    (_projectId, ideationType, ideas) => {
+    (projectId, ideationType, ideas) => {
       // Debug logging
       if (window.DEBUG) {
         console.log('[Ideation] Type completed:', {
-          projectId: _projectId,
+          projectId,
           ideationType,
           ideasCount: ideas.length,
           ideas: ideas.map(i => ({ id: i.id, title: i.title, type: i.type }))
         });
       }
+
+      // Validate projectId before updating store
+      if (!isValidProjectId(projectId)) return;
 
       store().addIdeasForType(ideationType, ideas);
       store().addLog(`✓ ${ideationType} completed with ${ideas.length} ideas`);
@@ -620,11 +653,14 @@ export function setupIdeationListeners(): () => void {
 
   // Listen for individual ideation type failure
   const unsubTypeFailed = window.electronAPI.onIdeationTypeFailed(
-    (_projectId, ideationType) => {
+    (projectId, ideationType) => {
       // Debug logging
       if (window.DEBUG) {
-        console.error('[Ideation] Type failed:', { projectId: _projectId, ideationType });
+        console.error('[Ideation] Type failed:', { projectId, ideationType });
       }
+
+      // Validate projectId before updating store
+      if (!isValidProjectId(projectId)) return;
 
       store().setTypeState(ideationType as IdeationType, 'failed');
       store().addLog(`✗ ${ideationType} failed`);
@@ -632,11 +668,11 @@ export function setupIdeationListeners(): () => void {
   );
 
   // Listen for completion (final session with all data)
-  const unsubComplete = window.electronAPI.onIdeationComplete((_projectId, session) => {
+  const unsubComplete = window.electronAPI.onIdeationComplete((projectId, session) => {
     // Debug logging
     if (window.DEBUG) {
       console.log('[Ideation] Generation complete:', {
-        projectId: _projectId,
+        projectId,
         totalIdeas: session.ideas.length,
         ideaTypes: session.ideas.reduce((acc, idea) => {
           acc[idea.type] = (acc[idea.type] || 0) + 1;
@@ -644,6 +680,9 @@ export function setupIdeationListeners(): () => void {
         }, {} as Record<string, number>)
       });
     }
+
+    // Validate projectId before updating store
+    if (!isValidProjectId(projectId)) return;
 
     // Final session replaces the partial one with complete data
     store().setSession(session);
@@ -656,11 +695,14 @@ export function setupIdeationListeners(): () => void {
   });
 
   // Listen for errors
-  const unsubError = window.electronAPI.onIdeationError((_projectId, error) => {
+  const unsubError = window.electronAPI.onIdeationError((projectId, error) => {
     // Debug logging
     if (window.DEBUG) {
-      console.error('[Ideation] Error received:', { projectId: _projectId, error });
+      console.error('[Ideation] Error received:', { projectId, error });
     }
+
+    // Validate projectId before updating store
+    if (!isValidProjectId(projectId)) return;
 
     store().setGenerationStatus({
       phase: 'error',
@@ -672,7 +714,10 @@ export function setupIdeationListeners(): () => void {
   });
 
   // Listen for stopped event
-  const unsubStopped = window.electronAPI.onIdeationStopped((_projectId) => {
+  const unsubStopped = window.electronAPI.onIdeationStopped((projectId) => {
+    // Validate projectId before updating store
+    if (!isValidProjectId(projectId)) return;
+
     store().setGenerationStatus({
       phase: 'idle',
       progress: 0,
