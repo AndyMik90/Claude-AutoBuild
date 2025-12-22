@@ -10,12 +10,31 @@ interface ProgressTracking {
   lastUpdate: number;
 }
 
-// Core calculation functions (same as component implementation)
+/**
+ * Core calculation functions (same as component implementation)
+ * These utilities are extracted for testability and reusability
+ */
+
+/**
+ * Calculate download speed in bytes per second.
+ * Formula: (bytes changed / milliseconds elapsed) * 1000
+ *
+ * @param {number} bytesDelta - Number of bytes downloaded in the interval
+ * @param {number} timeDelta - Time elapsed in milliseconds
+ * @returns {number} Download speed in bytes per second
+ */
 function calculateSpeed(bytesDelta: number, timeDelta: number): number {
   if (timeDelta <= 0) return 0;
   return (bytesDelta / timeDelta) * 1000;
 }
 
+/**
+ * Format raw speed (bytes/second) into human-readable string.
+ * Automatically scales to MB/s, KB/s, or B/s based on magnitude.
+ *
+ * @param {number} speed - Speed in bytes per second
+ * @returns {string} Formatted speed string (e.g., "2.5 MB/s", "512.3 KB/s")
+ */
 function formatSpeed(speed: number): string {
   if (speed <= 0) return '';
   if (speed > 1024 * 1024) {
@@ -27,11 +46,26 @@ function formatSpeed(speed: number): string {
   return `${Math.round(speed)} B/s`;
 }
 
+/**
+ * Calculate time remaining in seconds based on remaining bytes and current speed.
+ * Formula: remaining bytes / speed (bytes/second)
+ *
+ * @param {number} remaining - Bytes remaining to download
+ * @param {number} speed - Current download speed in bytes per second
+ * @returns {number} Estimated time remaining in seconds
+ */
 function calculateTimeRemaining(remaining: number, speed: number): number {
   if (speed <= 0) return 0;
   return Math.ceil(remaining / speed);
 }
 
+/**
+ * Format time remaining (in seconds) into human-readable string.
+ * Automatically scales to hours, minutes, or seconds based on duration.
+ *
+ * @param {number} timeRemaining - Time remaining in seconds
+ * @returns {string} Formatted time string (e.g., "2h remaining", "45m remaining")
+ */
 function formatTimeRemaining(timeRemaining: number): string {
   if (timeRemaining <= 0) return '';
   if (timeRemaining > 3600) {
@@ -43,6 +77,14 @@ function formatTimeRemaining(timeRemaining: number): string {
   return `${Math.ceil(timeRemaining)}s remaining`;
 }
 
+/**
+ * Calculate completion percentage, ensuring result is bounded between 0-100%.
+ * Prevents edge cases like negative or >100% values.
+ *
+ * @param {number} completed - Bytes downloaded so far
+ * @param {number} total - Total bytes to download
+ * @returns {number} Completion percentage (0-100)
+ */
 function calculatePercentage(completed: number, total: number): number {
   if (total <= 0) return 0;
   const percentage = (completed / total) * 100;

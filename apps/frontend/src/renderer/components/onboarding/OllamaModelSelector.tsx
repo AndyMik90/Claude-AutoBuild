@@ -51,10 +51,8 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
 ];
 
 /**
- * OllamaModelSelector - Select or download Ollama embedding models
- *
- * Shows installed models with checkmarks and recommended models with download buttons.
- * Automatically refreshes the list after successful downloads.
+ * Progress state for a single model download.
+ * Tracks percentage completion, download speed, and estimated time remaining.
  */
 interface DownloadProgress {
   [modelName: string]: {
@@ -64,6 +62,34 @@ interface DownloadProgress {
   };
 }
 
+/**
+ * OllamaModelSelector Component
+ *
+ * Provides UI for selecting and downloading Ollama embedding models for semantic search.
+ * Features:
+ * - Displays list of recommended embedding models (embeddinggemma, nomic-embed-text, mxbai-embed-large)
+ * - Shows installation status with checkmarks for installed models
+ * - Download buttons with file size estimates for uninstalled models
+ * - Real-time download progress tracking with speed and ETA
+ * - Automatic list refresh after successful downloads
+ * - Graceful handling when Ollama service is not running
+ *
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.selectedModel - Currently selected model name
+ * @param {Function} props.onModelSelect - Callback when a model is selected (model: string, dim: number) => void
+ * @param {boolean} [props.disabled=false] - If true, disables selection and downloads
+ * @param {string} [props.className] - Additional CSS classes to apply to root element
+ *
+ * @example
+ * ```tsx
+ * <OllamaModelSelector
+ *   selectedModel="embeddinggemma"
+ *   onModelSelect={(model, dim) => console.log(`Selected ${model} with ${dim} dimensions`)}
+ *   disabled={false}
+ * />
+ * ```
+ */
 export function OllamaModelSelector({
   selectedModel,
   onModelSelect,
@@ -85,7 +111,13 @@ export function OllamaModelSelector({
     };
   }>({});
 
-  // Check installed models - used by both mount effect and refresh after download
+  /**
+   * Checks Ollama service status and fetches list of installed embedding models.
+   * Updates component state with installation status for each recommended model.
+   *
+   * @param {AbortSignal} [abortSignal] - Optional abort signal to cancel the request
+   * @returns {Promise<void>}
+   */
   const checkInstalledModels = async (abortSignal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
@@ -146,15 +178,20 @@ export function OllamaModelSelector({
     return () => controller.abort();
   }, []);
 
-  // Listen for download progress updates
-  useEffect(() => {
-    const handleProgress = (data: {
-      modelName: string;
-      status: string;
-      completed: number;
-      total: number;
-      percentage: number;
-    }) => {
+   /**
+    * Progress listener effect:
+    * Subscribes to real-time download progress events from the main process.
+    * Calculates and formats download speed (MB/s, KB/s, B/s) and time remaining.
+    * Uses useRef to track previous state for accurate speed calculations.
+    */
+   useEffect(() => {
+     const handleProgress = (data: {
+       modelName: string;
+       status: string;
+       completed: number;
+       total: number;
+       percentage: number;
+     }) => {
       const now = Date.now();
       
       // Initialize tracking for this model if needed
@@ -228,29 +265,43 @@ export function OllamaModelSelector({
     };
   }, []);
 
-  const handleDownload = async (modelName: string) => {
-    setIsDownloading(modelName);
-    setError(null);
+   /**
+    * Initiates download of an Ollama embedding model.
+    * Updates UI state during download and refreshes model list after completion.
+    *
+    * @param {string} modelName - Name of the model to download (e.g., 'embeddinggemma')
+    * @returns {Promise<void>}
+    */
+   const handleDownload = async (modelName: string) => {
+     setIsDownloading(modelName);
+     setError(null);
 
-    try {
-      const result = await window.electronAPI.pullOllamaModel(modelName);
-      if (result?.success) {
-        // Refresh the model list
-        await checkInstalledModels();
-      } else {
-        setError(result?.error || `Failed to download ${modelName}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Download failed');
-    } finally {
-      setIsDownloading(null);
-    }
-  };
+     try {
+       const result = await window.electronAPI.pullOllamaModel(modelName);
+       if (result?.success) {
+         // Refresh the model list
+         await checkInstalledModels();
+       } else {
+         setError(result?.error || `Failed to download ${modelName}`);
+       }
+     } catch (err) {
+       setError(err instanceof Error ? err.message : 'Download failed');
+     } finally {
+       setIsDownloading(null);
+     }
+   };
 
-  const handleSelect = (model: OllamaModel) => {
-    if (!model.installed || disabled) return;
-    onModelSelect(model.name, model.dim);
-  };
+   /**
+    * Handles model selection by calling the parent callback.
+    * Only allows selection of installed models and when component is not disabled.
+    *
+    * @param {OllamaModel} model - The model to select
+    * @returns {void}
+    */
+   const handleSelect = (model: OllamaModel) => {
+     if (!model.installed || disabled) return;
+     onModelSelect(model.name, model.dim);
+   };
 
   if (isLoading) {
     return (

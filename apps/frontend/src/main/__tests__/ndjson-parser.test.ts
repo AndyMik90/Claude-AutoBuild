@@ -5,13 +5,32 @@ import { describe, it, expect, beforeEach } from 'vitest';
  * Tests the parser used in memory-handlers.ts for parsing Ollama's streaming progress data
  */
 
+/**
+ * Ollama progress data structure.
+ * Represents a single progress update from Ollama's download stream.
+ */
 interface ProgressData {
-  status?: string;
-  completed?: number;
-  total?: number;
+  status?: string;    // Current operation (e.g., 'downloading', 'extracting', 'verifying')
+  completed?: number; // Bytes downloaded so far
+  total?: number;     // Total bytes to download
 }
 
-// Simulate the NDJSON parser from memory-handlers.ts
+/**
+ * Simulate the NDJSON parser from memory-handlers.ts.
+ * Parses newline-delimited JSON from Ollama's stderr stream.
+ * Handles partial lines by maintaining a buffer between calls.
+ *
+ * Algorithm:
+ * 1. Append incoming chunk to buffer
+ * 2. Split by newline and keep last incomplete line in buffer
+ * 3. Parse complete lines as JSON
+ * 4. Skip invalid JSON gracefully
+ * 5. Return array of successfully parsed progress objects
+ *
+ * @param {string} chunk - The chunk of data received from the stream
+ * @param {Object} bufferRef - Reference object holding buffer state { current: string }
+ * @returns {ProgressData[]} Array of parsed progress objects from complete lines
+ */
 function parseNDJSON(chunk: string, bufferRef: { current: string }): ProgressData[] {
   const results: ProgressData[] = [];
   
@@ -25,7 +44,7 @@ function parseNDJSON(chunk: string, bufferRef: { current: string }): ProgressDat
         const progressData = JSON.parse(line);
         results.push(progressData);
       } catch {
-        // Skip invalid JSON
+        // Skip invalid JSON - allows parser to be resilient to malformed data
       }
     }
   });
