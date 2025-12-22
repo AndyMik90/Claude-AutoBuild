@@ -151,8 +151,7 @@ export function registerPlaneHandlers(
           data: {
             connected: true,
             workspaceSlug: config.workspaceSlug,
-            projectCount: projects.length,
-            lastSyncedAt: new Date().toISOString()
+            projectCount: projects.length
           }
         };
       } catch (error) {
@@ -265,19 +264,39 @@ export function registerPlaneHandlers(
       }
 
       try {
-        const data = await planeAPI<{ results?: PlaneWorkItem[] }>(
-          config,
-          'GET',
-          `/api/v1/workspaces/${workspaceSlug}/projects/${planeProjectId}/work-items/?expand=state,labels,assignees,project&per_page=100`
-        );
+        // Fetch all work items with pagination support
+        const allWorkItems: PlaneWorkItem[] = [];
+        let page = 1;
+        let hasMore = true;
+        const perPage = 100;
 
-        const workItems = data.results || (Array.isArray(data) ? data : []);
-        console.log('[Plane] Fetched work items:', workItems.length);
-        if (workItems.length > 0) {
-          console.log('[Plane] Sample work item state field:', workItems[0].state);
-          console.log('[Plane] Sample work item state_detail:', JSON.stringify(workItems[0].state_detail, null, 2));
+        while (hasMore) {
+          const data = await planeAPI<{ results?: PlaneWorkItem[]; next?: string }>(
+            config,
+            'GET',
+            `/api/v1/workspaces/${workspaceSlug}/projects/${planeProjectId}/work-items/?expand=state,labels,assignees,project&per_page=${perPage}&page=${page}`
+          );
+
+          const workItems = data.results || (Array.isArray(data) ? data : []);
+          allWorkItems.push(...workItems);
+
+          // Stop if we got fewer than perPage (last page) or no next link
+          hasMore = workItems.length === perPage && !!data.next;
+          page++;
+
+          // Safety limit to prevent infinite loops
+          if (page > 50) {
+            console.warn('[Plane] Hit pagination safety limit (5000 items)');
+            break;
+          }
         }
-        return { success: true, data: workItems };
+
+        console.log('[Plane] Fetched work items:', allWorkItems.length);
+        if (allWorkItems.length > 0) {
+          console.log('[Plane] Sample work item state field:', allWorkItems[0].state);
+          console.log('[Plane] Sample work item state_detail:', JSON.stringify(allWorkItems[0].state_detail, null, 2));
+        }
+        return { success: true, data: allWorkItems };
       } catch (error) {
         return {
           success: false,
@@ -396,32 +415,53 @@ export function registerPlaneHandlers(
             // Description: Just the work item description
             const description = workItem.description_stripped || workItem.description_html || 'No description provided.';
 
-            // Find next available spec number
-            let specNumber = 1;
-            const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-              .filter(d => d.isDirectory())
-              .map(d => d.name);
-            const existingNumbers = existingDirs
-              .map(name => {
-                const match = name.match(/^(\d+)/);
-                return match ? parseInt(match[1], 10) : 0;
-              })
-              .filter(n => n > 0);
-            if (existingNumbers.length > 0) {
-              specNumber = Math.max(...existingNumbers) + 1;
-            }
-
-            // Create spec ID with zero-padded number and slugified title
+            // Create spec ID with slugified title
             const slugifiedTitle = workItem.name
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-|-$/g, '')
-              .substring(0, 50);
-            const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+              .substring(0, 50) || 'untitled';  // Fallback for empty titles
 
-            // Create spec directory
-            const specDir = path.join(specsDir, specId);
-            mkdirSync(specDir, { recursive: true });
+            // Find next available spec number with retry to handle race conditions
+            let specDir = '';
+            let specId = '';
+            let attempts = 0;
+            const maxAttempts = 10;
+
+            while (attempts < maxAttempts) {
+              attempts++;
+              const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+                .filter(d => d.isDirectory())
+                .map(d => d.name);
+              const existingNumbers = existingDirs
+                .map(name => {
+                  const match = name.match(/^(\d+)/);
+                  return match ? parseInt(match[1], 10) : 0;
+                })
+                .filter(n => n > 0);
+              const specNumber = existingNumbers.length > 0
+                ? Math.max(...existingNumbers) + 1
+                : 1;
+
+              specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+              specDir = path.join(specsDir, specId);
+
+              // Try to create directory - if it fails due to existing dir, retry with next number
+              try {
+                mkdirSync(specDir, { recursive: false });
+                break;  // Success - directory created
+              } catch (err) {
+                if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+                  // Directory already exists (race condition), retry
+                  continue;
+                }
+                throw err;  // Other error, propagate
+              }
+            }
+
+            if (attempts >= maxAttempts) {
+              throw new Error(`Failed to create unique spec directory after ${maxAttempts} attempts`);
+            }
 
             // Create initial implementation_plan.json
             const now = new Date().toISOString();
