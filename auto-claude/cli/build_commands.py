@@ -175,6 +175,22 @@ def handle_build_command(
             continue_existing = check_existing_build(project_dir, spec_dir.name)
             if continue_existing:
                 # Continue with existing worktree
+
+                # Check if validation recovery is needed for existing build
+                if _check_validation_recovery_needed(spec_dir):
+                    print()
+                    print(
+                        warning(
+                            f"{icon(Icons.WARNING)} VALIDATION RECOVERY DETECTED"
+                        )
+                    )
+                    print()
+                    print(muted("Previous build has validation feedback that needs addressing."))
+                    print(muted("Will attempt automatic recovery during the build process."))
+                    print()
+
+                    # Don't exit here - let the normal build process handle recovery
+                    # when it reaches the QA validation phase
                 pass
             else:
                 # User chose to start fresh or merged existing
@@ -263,14 +279,71 @@ def handle_build_command(
                     print("The implementation is production-ready.\n")
                 else:
                     print("\n" + "=" * 70)
-                    print("  ⚠️  QA VALIDATION INCOMPLETE")
+                    print("  ⚠️  QA VALIDATION FAILED")
                     print("=" * 70)
-                    print("\nSome issues require manual attention.")
-                    print(f"See: {spec_dir / 'qa_report.md'}")
-                    print(f"Or:  {spec_dir / 'QA_FIX_REQUEST.md'}")
-                    print(
-                        f"\nResume QA: python auto-claude/run.py --spec {spec_dir.name} --qa\n"
+                    print("\nAttempting automatic recovery with validation feedback...")
+
+                    # Attempt validation failure recovery
+                    recovery_successful = handle_validation_failure_recovery(
+                        project_dir=working_dir,
+                        spec_dir=spec_dir,
+                        model=model,
+                        max_iterations=max_iterations,
+                        verbose=verbose,
+                        worktree_manager=worktree_manager,
+                        working_dir=working_dir,
+                        source_spec_dir=source_spec_dir,
                     )
+
+                    if recovery_successful:
+                        # Recovery completed, run QA again to verify fixes
+                        print("\n" + "=" * 70)
+                        print("  🔄 RE-VALIDATING AFTER RECOVERY")
+                        print("=" * 70)
+                        print("\nRe-running QA validation to verify fixes...\n")
+
+                        try:
+                            qa_approved = asyncio.run(
+                                run_qa_validation_loop(
+                                    project_dir=working_dir,
+                                    spec_dir=spec_dir,
+                                    model=model,
+                                    verbose=verbose,
+                                )
+                            )
+
+                            if qa_approved:
+                                print("\n" + "=" * 70)
+                                print("  ✅ RECOVERY SUCCESSFUL - QA VALIDATION PASSED")
+                                print("=" * 70)
+                                print("\nAll validation issues have been resolved.")
+                                print("The implementation is production-ready.\n")
+                            else:
+                                print("\n" + "=" * 70)
+                                print("  ⚠️  RECOVERY INCOMPLETE - VALIDATION STILL FAILING")
+                                print("=" * 70)
+                                print("\nSome issues persist after recovery attempts.")
+                                print(f"See: {spec_dir / 'qa_report.md'}")
+                                print(f"Or:  {spec_dir / 'QA_FIX_REQUEST.md'}")
+                                print(
+                                    f"\nResume QA: python auto-claude/run.py --spec {spec_dir.name} --qa\n"
+                                )
+                        except KeyboardInterrupt:
+                            print("\n\nQA validation paused after recovery.")
+                            print(f"Resume: python auto-claude/run.py --spec {spec_dir.name} --qa")
+                            qa_approved = False
+                    else:
+                        # Recovery failed or max attempts exceeded
+                        print("\n" + "=" * 70)
+                        print("  ❌ RECOVERY FAILED - ESCALATION REQUIRED")
+                        print("=" * 70)
+                        print("\nAutomatic recovery was unable to resolve validation issues.")
+                        print(f"See: {spec_dir / 'VALIDATION_ESCALATION.md'}")
+                        print(f"Or:  {spec_dir / 'qa_report.md'}")
+                        print(
+                            f"\nManual intervention required. Review feedback and run again:\n"
+                            f"python auto-claude/run.py --spec {spec_dir.name}\n"
+                        )
 
                 # Sync implementation plan to main project after QA
                 # This ensures the main project has the latest status (human_review)
@@ -456,6 +529,258 @@ def _handle_build_interrupt(
     except EOFError:
         # stdin closed
         pass
+
+
+def handle_validation_failure_recovery(
+    project_dir: Path,
+    spec_dir: Path,
+    model: str,
+    max_iterations: int | None,
+    verbose: bool,
+    worktree_manager=None,
+    working_dir: Path | None = None,
+    source_spec_dir: Path | None = None,
+) -> bool:
+    """
+    Handle validation failure recovery by re-engaging the coder agent with QA feedback.
+
+    Args:
+        project_dir: Project root directory
+        spec_dir: Spec directory path
+        model: Model to use for recovery
+        max_iterations: Maximum iterations for recovery
+        verbose: Enable verbose output
+        worktree_manager: Worktree manager instance (if using isolated mode)
+        working_dir: Current working directory (defaults to project_dir if None)
+        source_spec_dir: Original spec directory for syncing progress
+
+    Returns:
+        bool: True if recovery was successful, False if max retries exceeded or escalation needed
+    """
+    from agent import run_autonomous_agent
+    from debug import debug, debug_info, debug_success, debug_warning
+    from implementation_plan import ImplementationPlan
+    from qa_loop import get_validation_feedback
+
+    # Default working_dir to project_dir if not provided
+    if working_dir is None:
+        working_dir = project_dir
+
+    # Load implementation plan to check recovery attempts
+    plan = ImplementationPlan.load(spec_dir)
+
+    # Get current recovery attempt count (initialize if not present)
+    recovery_attempts = getattr(plan, 'validation_recovery_attempts', 0)
+    max_recovery_attempts = 3  # Configurable retry limit
+
+    debug(
+        "build_commands.py",
+        "Starting validation failure recovery",
+        attempt=recovery_attempts + 1,
+        max_attempts=max_recovery_attempts
+    )
+
+    if recovery_attempts >= max_recovery_attempts:
+        debug_warning(
+            "build_commands.py",
+            "Max recovery attempts exceeded, escalating to human",
+            attempts=recovery_attempts,
+            max_attempts=max_recovery_attempts
+        )
+
+        # Create escalation report
+        escalation_file = spec_dir / "VALIDATION_ESCALATION.md"
+        escalation_content = [
+            "# Validation Recovery Escalation",
+            "",
+            f"This build has exceeded the maximum validation recovery attempts ({max_recovery_attempts}).",
+            "",
+            "## What was attempted:",
+            f"- {recovery_attempts} automatic recovery attempts",
+            "- Each attempt incorporated QA feedback and re-engaged the coder agent",
+            "",
+            "## What requires human attention:",
+            "1. Review the validation feedback in `qa_report.md`",
+            "2. Review failed recovery attempts in recovery logs",
+            "3. Determine if the implementation approach needs revision",
+            "4. Consider modifying acceptance criteria if requirements are unclear",
+            "",
+            "## To resume after intervention:",
+            f"```bash",
+            f"python auto-claude/run.py --spec {spec_dir.name}",
+            "```",
+        ]
+        escalation_file.write_text("\n".join(escalation_content))
+
+        print()
+        print(
+            warning(
+                f"{icon(Icons.WARNING)} MAX RECOVERY ATTEMPTS EXCEEDED"
+            )
+        )
+        print()
+        print(muted(f"Made {recovery_attempts} attempts to fix validation failures automatically."))
+        print(muted("Human intervention required."))
+        print()
+        print(highlight(f"See: {escalation_file.name} for details"))
+        print()
+
+        return False
+
+    # Increment recovery attempts
+    plan.validation_recovery_attempts = recovery_attempts + 1
+    plan.save()
+
+    print()
+    print(
+        warning(
+            f"{icon(Icons.WARNING)} VALIDATION FAILURE - ATTEMPTING RECOVERY"
+        )
+    )
+    print()
+    print(muted(f"Recovery attempt {plan.validation_recovery_attempts} of {max_recovery_attempts}"))
+    print()
+
+    # Get validation feedback to provide to the coder agent
+    feedback_file = spec_dir / "qa_report.md"
+    qa_fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+
+    recovery_prompt = ["## VALIDATION RECOVERY"]
+    recovery_prompt.append("")
+    recovery_prompt.append("The previous implementation failed QA validation.")
+    recovery_prompt.append("Please address the following feedback and fix the issues:")
+    recovery_prompt.append("")
+
+    # Add QA feedback if available
+    if feedback_file.exists():
+        qa_feedback = feedback_file.read_text()
+        recovery_prompt.append("### QA Feedback:")
+        recovery_prompt.append("")
+        recovery_prompt.append(qa_feedback)
+        recovery_prompt.append("")
+
+    # Add specific fix requests if available
+    if qa_fix_request_file.exists():
+        fix_requests = qa_fix_request_file.read_text()
+        recovery_prompt.append("### Specific Fix Requests:")
+        recovery_prompt.append("")
+        recovery_prompt.append(fix_requests)
+        recovery_prompt.append("")
+
+    # Add human input if available
+    if human_input_file.exists():
+        human_input = human_input_file.read_text()
+        recovery_prompt.append("### Human Guidance:")
+        recovery_prompt.append("")
+        recovery_prompt.append(human_input)
+        recovery_prompt.append("")
+
+    recovery_prompt.append("## Instructions:")
+    recovery_prompt.append("")
+    recovery_prompt.append("1. Review all feedback carefully")
+    recovery_prompt.append("2. Fix the identified issues")
+    recovery_prompt.append("3. Ensure all acceptance criteria are met")
+    recovery_prompt.append("4. Test your changes if applicable")
+    recovery_prompt.append("")
+    recovery_prompt.append(f"This is recovery attempt {plan.validation_recovery_attempts} of {max_recovery_attempts}.")
+    recovery_prompt.append("If issues persist after the max attempts, this will be escalated for human review.")
+    recovery_prompt.append("")
+
+    # Save recovery prompt as HUMAN_INPUT.md for the agent to read
+    recovery_input_file = spec_dir / "HUMAN_INPUT.md"
+    recovery_input_file.write_text("\n".join(recovery_prompt))
+
+    # Update status to indicate recovery is in progress
+    status_manager = StatusManager(project_dir)
+    status_manager.update(state=BuildState.RUNNING)
+
+    print(muted("Engaging coder agent with validation feedback..."))
+    print()
+
+    try:
+        # Re-engage the autonomous agent with recovery context
+        asyncio.run(
+            run_autonomous_agent(
+                project_dir=working_dir,
+                spec_dir=spec_dir,
+                model=model,
+                max_iterations=max_iterations,
+                verbose=verbose,
+                source_spec_dir=source_spec_dir,
+            )
+        )
+
+        debug_success(
+            "build_commands.py",
+            "Validation recovery completed",
+            attempt=plan.validation_recovery_attempts
+        )
+
+        # Clear recovery attempts on successful completion
+        plan.validation_recovery_attempts = 0
+        plan.save()
+
+        print()
+        print(success(f"{icon(Icons.SUCCESS)} RECOVERY COMPLETED"))
+        print()
+        print(muted("The coder agent has addressed the validation feedback."))
+        print(muted("Running QA validation again to verify fixes..."))
+        print()
+
+        return True
+
+    except Exception as e:
+        debug_warning(
+            "build_commands.py",
+            "Validation recovery failed",
+            attempt=plan.validation_recovery_attempts,
+            error=str(e)
+        )
+
+        print()
+        print(
+            warning(
+                f"{icon(Icons.WARNING)} RECOVERY ATTEMPT FAILED"
+            )
+        )
+        print()
+        print(muted(f"Recovery attempt {plan.validation_recovery_attempts} encountered an error: {e}"))
+        print(muted("Will try again or escalate if max attempts reached."))
+        print()
+
+        # Don't increment again here - it's already incremented above
+        return False
+
+
+def _check_validation_recovery_needed(spec_dir: Path) -> bool:
+    """
+    Check if validation recovery is needed based on spec state.
+
+    Args:
+        spec_dir: Spec directory path
+
+    Returns:
+        bool: True if recovery is needed, False otherwise
+    """
+    qa_fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    human_input_file = spec_dir / "HUMAN_INPUT.md"
+
+    # Check if there are active QA fix requests
+    if qa_fix_request_file.exists():
+        content = qa_fix_request_file.read_text()
+        # Simple heuristic - if file has substantial content, recovery might be needed
+        if len(content.strip()) > 50:  # More than just minimal content
+            return True
+
+    # Check if human input contains recovery instructions
+    if human_input_file.exists():
+        content = human_input_file.read_text()
+        if "VALIDATION RECOVERY" in content or "validation feedback" in content.lower():
+            return True
+
+    return False
+
 
     # Resume instructions (shown when user provided instructions or chose file/type/paste)
     print()
