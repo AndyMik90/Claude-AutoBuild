@@ -120,6 +120,65 @@ export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: Gl
 }
 
 /**
+ * Provider-to-environment variable mapping
+ * Maps provider names to their required environment variable names
+ */
+export const PROVIDER_ENV_MAP: Record<string, string> = {
+  // LLM Providers
+  openai: 'OPENAI_API_KEY',
+  google: 'GOOGLE_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
+  azure_openai: 'AZURE_OPENAI_API_KEY',
+  ollama: 'OLLAMA_BASE_URL',  // Optional, defaults to localhost
+  groq: 'GROQ_API_KEY',
+  // Embedding Providers (additional)
+  voyage: 'VOYAGE_API_KEY',
+  huggingface: 'HUGGINGFACE_API_KEY',
+};
+
+/**
+ * Providers that don't require an API key (local deployments)
+ */
+export const OPTIONAL_CREDENTIAL_PROVIDERS = ['ollama'];
+
+/**
+ * Check if a specific provider has credentials available
+ * Priority: project .env > global settings > process.env
+ * Special handling: ollama doesn't require credentials (local deployment)
+ */
+export function hasProviderCredentials(
+  provider: string,
+  projectEnvVars: EnvironmentVars,
+  globalSettings: GlobalSettings
+): boolean {
+  // Ollama doesn't require credentials (local deployment)
+  if (OPTIONAL_CREDENTIAL_PROVIDERS.includes(provider)) {
+    return true;
+  }
+
+  const envVarName = PROVIDER_ENV_MAP[provider];
+  if (!envVarName) {
+    // Unknown provider, assume no credentials needed
+    return false;
+  }
+
+  // Special handling for OpenAI - check global settings
+  if (provider === 'openai') {
+    return !!(
+      projectEnvVars[envVarName] ||
+      globalSettings.globalOpenAIApiKey ||
+      process.env[envVarName]
+    );
+  }
+
+  // For other providers, check project env vars and process.env
+  return !!(
+    projectEnvVars[envVarName] ||
+    process.env[envVarName]
+  );
+}
+
+/**
  * Get Graphiti connection details
  */
 export interface GraphitiConnectionDetails {
