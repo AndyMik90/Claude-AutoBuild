@@ -9,6 +9,9 @@ Detects API routes and endpoints across different frameworks:
 - Rust: Axum, Actix
 """
 
+from __future__ import annotations
+
+
 import re
 from pathlib import Path
 
