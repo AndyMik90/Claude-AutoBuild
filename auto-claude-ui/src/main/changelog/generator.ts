@@ -12,7 +12,6 @@ import { buildChangelogPrompt, buildGitPrompt, createGenerationScript } from './
 import { extractChangelog } from './parser';
 import { getCommits, getBranchDiffCommits } from './git-integration';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
-import { parsePythonCommand } from '../python-detector';
 
 /**
  * Core changelog generation logic
@@ -140,9 +139,8 @@ export class ChangelogGenerator extends EventEmitter {
     // Build environment with explicit critical variables
     const spawnEnv = this.buildSpawnEnvironment();
 
-    // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+    // Python path is already the full path to venv python
+    const childProcess = spawn(this.pythonPath, ['-c', script], {
       cwd: this.autoBuildSourcePath,
       env: spawnEnv
     });
