@@ -80,6 +80,21 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Gemfile")
             self._detect_ruby_framework(content)
 
+        # Swift detection
+        elif self._detect_xcode_project():
+            self.analysis["language"] = "Swift"
+            self._detect_swift_framework()
+
+        elif self._exists("Package.swift"):
+            self.analysis["language"] = "Swift"
+            self.analysis["package_manager"] = "Swift Package Manager"
+            self._detect_swift_framework()
+
+        elif self._exists("Podfile"):
+            self.analysis["language"] = "Swift"
+            self.analysis["package_manager"] = "CocoaPods"
+            self._detect_swift_framework()
+
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
         from .port_detector import PortDetector
@@ -297,3 +312,54 @@ class FrameworkAnalyzer(BaseAnalyzer):
         elif self._exists("bun.lockb"):
             return "bun"
         return "npm"
+
+    def _detect_xcode_project(self) -> bool:
+        """Detect Xcode project or workspace bundles."""
+        try:
+            if not self.path.exists() or not self.path.is_dir():
+                return False
+
+            # Check current directory
+            for item in self.path.iterdir():
+                if item.is_dir():
+                    if item.name.endswith(".xcodeproj") or item.name.endswith(
+                        ".xcworkspace"
+                    ):
+                        return True
+
+            # Check parent directory (for nested Xcode projects like ProjectName/ProjectName/)
+            parent = self.path.parent
+            if parent and parent.exists():
+                for item in parent.iterdir():
+                    if item.is_dir():
+                        if item.name.endswith(".xcodeproj") or item.name.endswith(
+                            ".xcworkspace"
+                        ):
+                            return True
+        except (OSError, PermissionError):
+            pass
+        return False
+
+    def _detect_swift_framework(self) -> None:
+        """Detect Swift framework and platform."""
+        self.analysis["type"] = "mobile"
+        self.analysis["platform"] = "iOS"
+
+        # Check for SwiftUI/UIKit
+        try:
+            swift_files = list(self.path.rglob("*.swift"))[
+                :10
+            ]  # Check first 10 Swift files
+            for swift_file in swift_files:
+                try:
+                    content = swift_file.read_text(encoding="utf-8")
+                    if "import SwiftUI" in content:
+                        self.analysis["framework"] = "SwiftUI"
+                        break
+                    elif "import UIKit" in content:
+                        self.analysis["framework"] = "UIKit"
+                        break
+                except (OSError, UnicodeDecodeError):
+                    continue
+        except (OSError, PermissionError, RuntimeError):
+            pass

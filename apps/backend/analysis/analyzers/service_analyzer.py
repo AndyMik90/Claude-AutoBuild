@@ -21,7 +21,13 @@ class ServiceAnalyzer(BaseAnalyzer):
     """Analyzes a single service/package within a project."""
 
     def __init__(self, service_path: Path, service_name: str):
-        super().__init__(service_path)
+        # Handle nested Xcode project structure (ProjectName/ProjectName/code)
+        xcode_subdir = service_path / service_name
+        if xcode_subdir.exists() and xcode_subdir.is_dir():
+            super().__init__(xcode_subdir)
+        else:
+            super().__init__(service_path)
+
         self.name = service_name
         self.analysis = {
             "name": service_name,
@@ -136,6 +142,17 @@ class ServiceAnalyzer(BaseAnalyzer):
             "tasks": "Background tasks",
             "jobs": "Background jobs",
             "workers": "Worker processes",
+            # Swift/iOS specific
+            "Sources": "Swift source code (SPM)",
+            "ViewControllers": "View controllers",
+            "ViewModels": "View models",
+            "Views": "UI views",
+            "Screens": "Screen components",
+            "Resources": "Assets and resources",
+            "Assets.xcassets": "Image assets",
+            "Preview Content": "SwiftUI previews",
+            "Models": "Data models (Swift)",
+            "Services": "Business logic (Swift)",
         }
 
         for dir_name, purpose in patterns.items():
@@ -179,12 +196,27 @@ class ServiceAnalyzer(BaseAnalyzer):
             "cmd/main.go",
             "src/main.rs",
             "src/lib.rs",
+            # Swift entry points
+            "main.swift",
+            "AppDelegate.swift",
+            "App.swift",
         ]
 
         for pattern in entry_patterns:
             if self._exists(pattern):
                 self.analysis["entry_point"] = pattern
                 break
+
+        # Check for SwiftUI App file pattern (e.g., AIWhatsappApp.swift)
+        if (
+            not self.analysis.get("entry_point")
+            and self.analysis.get("language") == "Swift"
+        ):
+            swift_files = list(self.path.glob("*.swift"))
+            for swift_file in swift_files:
+                if "App" in swift_file.name:
+                    self.analysis["entry_point"] = swift_file.name
+                    break
 
     def _detect_dependencies(self) -> None:
         """Extract key dependencies."""
@@ -206,6 +238,31 @@ class ServiceAnalyzer(BaseAnalyzer):
                     if match:
                         deps.append(match.group(1))
             self.analysis["dependencies"] = deps[:20]
+
+        elif self._exists("Package.swift"):
+            # Swift Package Manager dependencies
+            content = self._read_file("Package.swift")
+            deps = []
+            # Match .package(url: "...", ...) patterns and extract package name
+            for match in re.finditer(
+                r'\.package\([^)]*url:\s*"[^"]*\/([^/"]+)(?:\.git)?"', content
+            ):
+                deps.append(match.group(1))
+            if deps:
+                self.analysis["dependencies"] = deps[:20]
+
+        elif self._exists("Podfile"):
+            # CocoaPods dependencies
+            content = self._read_file("Podfile")
+            deps = []
+            for line in content.split("\n"):
+                line = line.strip()
+                # Match pod 'PodName' or pod "PodName"
+                match = re.match(r"pod\s+['\"]([^'\"]+)['\"]", line)
+                if match:
+                    deps.append(match.group(1))
+            if deps:
+                self.analysis["dependencies"] = deps[:20]
 
     def _detect_testing(self) -> None:
         """Detect testing framework and configuration."""
