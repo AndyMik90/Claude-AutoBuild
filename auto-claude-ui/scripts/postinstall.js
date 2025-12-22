@@ -44,11 +44,15 @@ To install:
 
 /**
  * Run electron-rebuild
+ * Note: We skip node-pty because @lydell/node-pty already includes prebuilds
+ * and electron-rebuild fails with pnpm's symlinked node_modules structure
  */
 function runElectronRebuild() {
   return new Promise((resolve, reject) => {
     const npx = isWindows ? 'npx.cmd' : 'npx';
-    const child = spawn(npx, ['electron-rebuild'], {
+    // Skip node-pty - @lydell/node-pty includes prebuilds that work automatically
+    const args = ['electron-rebuild', '--ignore', 'node-pty'];
+    const child = spawn(npx, args, {
       stdio: 'inherit',
       shell: isWindows,
       cwd: path.join(__dirname, '..'),
@@ -68,14 +72,30 @@ function runElectronRebuild() {
 
 /**
  * Check if node-pty is already built
+ * Checks both @lydell/node-pty (pnpm override) and node-pty locations
  */
 function isNodePtyBuilt() {
-  const buildDir = path.join(__dirname, '..', 'node_modules', 'node-pty', 'build', 'Release');
-  if (!fs.existsSync(buildDir)) return false;
+  // Check @lydell/node-pty first (used via pnpm override)
+  const lydellBuildDir = path.join(__dirname, '..', 'node_modules', '@lydell', 'node-pty', 'build', 'Release');
+  // Also check traditional node-pty location
+  const nodePtyBuildDir = path.join(__dirname, '..', 'node_modules', 'node-pty', 'build', 'Release');
 
-  // Check for the main .node file
-  const files = fs.readdirSync(buildDir);
-  return files.some((f) => f.endsWith('.node'));
+  for (const buildDir of [lydellBuildDir, nodePtyBuildDir]) {
+    if (fs.existsSync(buildDir)) {
+      const files = fs.readdirSync(buildDir);
+      if (files.some((f) => f.endsWith('.node'))) {
+        return true;
+      }
+    }
+  }
+
+  // Also check for prebuilds directory (used by @lydell/node-pty)
+  const prebuildsDir = path.join(__dirname, '..', 'node_modules', '@lydell', 'node-pty', 'prebuilds');
+  if (fs.existsSync(prebuildsDir)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
