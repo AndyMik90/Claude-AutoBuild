@@ -36,6 +36,7 @@ async def run_followup_planner(
     spec_dir: Path,
     model: str,
     verbose: bool = False,
+    auto_continue: bool = False,
 ) -> bool:
     """
     Run the follow-up planner to add new subtasks to a completed spec.
@@ -57,6 +58,7 @@ async def run_followup_planner(
         spec_dir: Directory containing the completed spec
         model: Claude model to use
         verbose: Whether to show detailed output
+        auto_continue: Whether to automatically continue to building after planning
 
     Returns:
         bool: True if planning completed successfully
@@ -140,19 +142,54 @@ async def run_followup_planner(
                 plan.save(plan_file)
 
                 print()
-                content = [
-                    bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
-                    "",
-                    f"New pending subtasks: {highlight(str(len(pending_subtasks)))}",
-                    f"Total subtasks: {len(all_subtasks)}",
-                    "",
-                    muted("Next steps:"),
-                    f"  Run: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
-                ]
-                print(box(content, width=70, style="heavy"))
-                print()
-                status_manager.update(state=BuildState.PAUSED)
-                return True
+                if auto_continue:
+                    # Auto-continue to building phase
+                    from agent import run_autonomous_agent
+
+                    content = [
+                        bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
+                        "",
+                        f"New pending subtasks: {highlight(str(len(pending_subtasks)))}",
+                        f"Total subtasks: {len(all_subtasks)}",
+                        "",
+                        muted("Auto-continuing to building phase..."),
+                    ]
+                    print(box(content, width=70, style="heavy"))
+                    print()
+
+                    # Transition to building and run autonomous agent
+                    status_manager.update(state=BuildState.BUILDING)
+
+                    try:
+                        # Run autonomous agent to handle the new subtasks
+                        success = await run_autonomous_agent(
+                            project_dir=project_dir,
+                            spec_dir=spec_dir,
+                            model=model,
+                            verbose=verbose,
+                        )
+                        return success
+                    except Exception as e:
+                        print_status(f"Auto-continue error: {e}", "error")
+                        if task_logger:
+                            task_logger.log_error(f"Auto-continue error: {e}", LogPhase.PLANNING)
+                        status_manager.update(state=BuildState.ERROR)
+                        return False
+                else:
+                    # Traditional behavior - pause and wait for manual intervention
+                    content = [
+                        bold(f"{icon(Icons.SUCCESS)} FOLLOW-UP PLANNING COMPLETE"),
+                        "",
+                        f"New pending subtasks: {highlight(str(len(pending_subtasks)))}",
+                        f"Total subtasks: {len(all_subtasks)}",
+                        "",
+                        muted("Next steps:"),
+                        f"  Run: {highlight(f'python auto-claude/run.py --spec {spec_dir.name}')}",
+                    ]
+                    print(box(content, width=70, style="heavy"))
+                    print()
+                    status_manager.update(state=BuildState.PAUSED)
+                    return True
             else:
                 print()
                 print_status(
