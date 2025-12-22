@@ -48,6 +48,17 @@ interface ModelDiscoveryGridProps {
   onScanModels?: () => void;
   showLLMSection?: boolean;
   showEmbeddingSection?: boolean;
+  downloadProgress?: {
+    [modelName: string]: {
+      percentage: number;
+      status: string;
+      completed: number;
+      total: number;
+      speed?: string;
+      timeRemaining?: string;
+      error?: string;
+    };
+  };
 }
 
 export function ModelDiscoveryGrid({
@@ -60,7 +71,8 @@ export function ModelDiscoveryGrid({
   scanError,
   onScanModels,
   showLLMSection = true,
-  showEmbeddingSection = true
+  showEmbeddingSection = true,
+  downloadProgress = {}
 }: ModelDiscoveryGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'size' | 'recent'>('name');
@@ -331,15 +343,38 @@ export function ModelDiscoveryGrid({
                       <span>3.8B parameters</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('llama3.2')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['llama3.2'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['llama3.2'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['llama3.2'].percentage}%</p>
+                        {downloadProgress['llama3.2'].speed && (
+                          <p className="text-xs">{downloadProgress['llama3.2'].speed}</p>
+                        )}
+                        {downloadProgress['llama3.2'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['llama3.2'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['llama3.2'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['llama3.2'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('llama3.2')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -365,15 +400,38 @@ export function ModelDiscoveryGrid({
                       <span>7.3B parameters</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('mistral')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['mistral'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['mistral'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['mistral'].percentage}%</p>
+                        {downloadProgress['mistral'].speed && (
+                          <p className="text-xs">{downloadProgress['mistral'].speed}</p>
+                        )}
+                        {downloadProgress['mistral'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['mistral'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['mistral'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['mistral'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('mistral')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -399,15 +457,38 @@ export function ModelDiscoveryGrid({
                       <span>7.0B parameters</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('deepseek-r1:7b')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['deepseek-r1:7b'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['deepseek-r1:7b'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['deepseek-r1:7b'].percentage}%</p>
+                        {downloadProgress['deepseek-r1:7b'].speed && (
+                          <p className="text-xs">{downloadProgress['deepseek-r1:7b'].speed}</p>
+                        )}
+                        {downloadProgress['deepseek-r1:7b'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['deepseek-r1:7b'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['deepseek-r1:7b'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['deepseek-r1:7b'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('deepseek-r1:7b')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -574,15 +655,38 @@ export function ModelDiscoveryGrid({
                       <span>384-dim vectors</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('nomic-embed-text')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['nomic-embed-text'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-green-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['nomic-embed-text'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['nomic-embed-text'].percentage}%</p>
+                        {downloadProgress['nomic-embed-text'].speed && (
+                          <p className="text-xs">{downloadProgress['nomic-embed-text'].speed}</p>
+                        )}
+                        {downloadProgress['nomic-embed-text'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['nomic-embed-text'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['nomic-embed-text'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['nomic-embed-text'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('nomic-embed-text')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -608,15 +712,38 @@ export function ModelDiscoveryGrid({
                       <span>1024-dim vectors</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('mxbai-embed-large')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['mxbai-embed-large'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-green-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['mxbai-embed-large'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['mxbai-embed-large'].percentage}%</p>
+                        {downloadProgress['mxbai-embed-large'].speed && (
+                          <p className="text-xs">{downloadProgress['mxbai-embed-large'].speed}</p>
+                        )}
+                        {downloadProgress['mxbai-embed-large'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['mxbai-embed-large'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['mxbai-embed-large'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['mxbai-embed-large'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('mxbai-embed-large')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -642,15 +769,38 @@ export function ModelDiscoveryGrid({
                       <span>384-dim vectors</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onDownloadModel('all-minilm-l6-v2')}
-                    size="sm"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Download
-                  </Button>
+                  {downloadProgress['all-minilm-l6-v2'] ? (
+                    <div className="w-32">
+                      <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-green-500 h-full transition-all duration-300"
+                          style={{ width: `${downloadProgress['all-minilm-l6-v2'].percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 text-center">
+                        <p className="font-semibold">{downloadProgress['all-minilm-l6-v2'].percentage}%</p>
+                        {downloadProgress['all-minilm-l6-v2'].speed && (
+                          <p className="text-xs">{downloadProgress['all-minilm-l6-v2'].speed}</p>
+                        )}
+                        {downloadProgress['all-minilm-l6-v2'].timeRemaining && (
+                          <p className="text-xs">{downloadProgress['all-minilm-l6-v2'].timeRemaining}</p>
+                        )}
+                        {downloadProgress['all-minilm-l6-v2'].error && (
+                          <p className="text-xs text-red-500">{downloadProgress['all-minilm-l6-v2'].error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => onDownloadModel('all-minilm-l6-v2')}
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Download
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

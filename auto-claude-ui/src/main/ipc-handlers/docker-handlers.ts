@@ -193,30 +193,44 @@ export function registerDockerHandlers(): void {
      }
    );
 
-   // Download Ollama model
-   ipcMain.handle(
-     'download-ollama-model',
-     async (
-       _,
-       baseUrl: string,
-       modelName: string
-     ): Promise<IPCResult<{ message: string }>> => {
-       try {
-         const result = await downloadOllamaModel(baseUrl, modelName);
-         if (result.success) {
-           return { success: true, data: { message: result.message || 'Model downloaded successfully' } };
-         } else {
-           return {
-             success: false,
-             error: result.error || result.message
-           };
-         }
-       } catch (error) {
-         return {
-           success: false,
-           error: error instanceof Error ? error.message : 'Failed to download Ollama model'
-         };
-       }
-     }
-   );
+    // Download Ollama model with progress tracking
+    ipcMain.handle(
+      'download-ollama-model',
+      async (
+        event,
+        baseUrl: string,
+        modelName: string
+      ): Promise<IPCResult<{ message: string }>> => {
+        try {
+          // Pass progress callback to emit events to renderer
+          const result = await downloadOllamaModel(
+            baseUrl,
+            modelName,
+            (progress) => {
+              // Send progress updates to renderer
+              event.sender.send('download-progress', {
+                modelName,
+                status: progress.status,
+                completed: progress.completed,
+                total: progress.total,
+                percentage: progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
+              });
+            }
+          );
+          if (result.success) {
+            return { success: true, data: { message: result.message || 'Model downloaded successfully' } };
+          } else {
+            return {
+              success: false,
+              error: result.error || result.message
+            };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to download Ollama model'
+          };
+        }
+      }
+    );
 }

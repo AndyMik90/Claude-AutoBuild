@@ -294,18 +294,26 @@ export interface ElectronAPI {
      openAiApiKey: string
    ) => Promise<IPCResult<GraphitiConnectionTestResult>>;
 
-   // Ollama model management operations
-   scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
-     models: Array<{
-       name: string;
-       size: number;
-       modified_at: string;
-       digest: string;
-     }>;
-   }>>;
-   downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
+    // Ollama model management operations
+    scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
+      models: Array<{
+        name: string;
+        size: number;
+        modified_at: string;
+        digest: string;
+      }>;
+    }>>;
+    downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
+    onDownloadProgress: (callback: (data: {
+      modelName: string;
+      status: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }) => void) => void;
+    offDownloadProgress: (callback: Function) => void;
 
-   // Linear integration operations
+    // Linear integration operations
   getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;
   getLinearProjects: (projectId: string, teamId: string) => Promise<IPCResult<LinearProject[]>>;
   getLinearIssues: (projectId: string, teamId?: string, projectId_?: string) => Promise<IPCResult<LinearIssue[]>>;

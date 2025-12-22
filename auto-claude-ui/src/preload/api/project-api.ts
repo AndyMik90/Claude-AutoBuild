@@ -74,6 +74,14 @@ export interface ProjectAPI {
     }>;
   }>>;
   downloadOllamaModel: (baseUrl: string, modelName: string) => Promise<IPCResult<{ message: string }>>;
+  onDownloadProgress: (callback: (data: {
+    modelName: string;
+    status: string;
+    completed: number;
+    total: number;
+    percentage: number;
+  }) => void) => void;
+  offDownloadProgress: (callback: Function) => void;
 
   // Git Operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
@@ -194,6 +202,20 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   downloadOllamaModel: (baseUrl: string, modelName: string): Promise<IPCResult<{ message: string }>> =>
     ipcRenderer.invoke('download-ollama-model', baseUrl, modelName),
+
+  onDownloadProgress: (callback: (data: {
+    modelName: string;
+    status: string;
+    completed: number;
+    total: number;
+    percentage: number;
+  }) => void) => {
+    ipcRenderer.on('download-progress', (_, data) => callback(data));
+  },
+
+  offDownloadProgress: (callback: Function) => {
+    ipcRenderer.off('download-progress', callback as any);
+  },
 
   // Git Operations
   getGitBranches: (projectPath: string): Promise<IPCResult<string[]>> =>

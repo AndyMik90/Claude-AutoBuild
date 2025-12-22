@@ -154,6 +154,19 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
   const [scanError, setScanError] = useState<string | undefined>(undefined);
   const [showModelDiscovery, setShowModelDiscovery] = useState(false);
 
+  // Download progress tracking
+  const [downloadProgress, setDownloadProgress] = useState<{
+    [modelName: string]: {
+      percentage: number;
+      status: string;
+      completed: number;
+      total: number;
+      speed?: string;
+      timeRemaining?: string;
+      error?: string;
+    };
+  }>({});
+
   // Check Docker/Infrastructure availability on mount
   useEffect(() => {
     const checkInfrastructure = async () => {
@@ -177,6 +190,73 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     };
 
     checkInfrastructure();
+  }, []);
+
+  // Listen for download progress updates
+  useEffect(() => {
+    const handleProgress = (data: {
+      modelName: string;
+      status: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }) => {
+      // Calculate speed and time remaining
+      const startTime = Date.now();
+      let lastUpdate = Date.now();
+      let lastCompleted = 0;
+
+      setDownloadProgress(prev => {
+        const updated = { ...prev };
+        const speed = ((data.completed - lastCompleted) / (Date.now() - lastUpdate)) * 1000; // bytes per second
+        const remaining = data.total - data.completed;
+        const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
+        
+        // Format speed (MB/s or KB/s)
+        let speedStr = '0 B/s';
+        if (speed > 1024 * 1024) {
+          speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
+        } else if (speed > 1024) {
+          speedStr = `${(speed / 1024).toFixed(1)} KB/s`;
+        }
+
+        // Format time remaining
+        let timeStr = '';
+        if (timeRemaining > 3600) {
+          timeStr = `${Math.ceil(timeRemaining / 3600)}h remaining`;
+        } else if (timeRemaining > 60) {
+          timeStr = `${Math.ceil(timeRemaining / 60)}m remaining`;
+        } else if (timeRemaining > 0) {
+          timeStr = `${Math.ceil(timeRemaining)}s remaining`;
+        }
+
+        updated[data.modelName] = {
+          percentage: data.percentage,
+          status: data.status,
+          completed: data.completed,
+          total: data.total,
+          speed: speedStr,
+          timeRemaining: timeStr
+        };
+
+        lastCompleted = data.completed;
+        lastUpdate = Date.now();
+
+        return updated;
+      });
+    };
+
+    // Register the progress listener
+    if (window.electronAPI?.onDownloadProgress) {
+      window.electronAPI.onDownloadProgress(handleProgress);
+    }
+
+    return () => {
+      // Clean up listener
+      if (window.electronAPI?.offDownloadProgress) {
+        window.electronAPI.offDownloadProgress(handleProgress);
+      }
+    };
   }, []);
 
   const handleToggleEnabled = (checked: boolean) => {
@@ -410,6 +490,20 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       return;
     }
 
+    // Clear any previous errors for this model
+    setError(null);
+
+    // Initialize download progress
+    setDownloadProgress(prev => ({
+      ...prev,
+      [modelName]: {
+        percentage: 0,
+        status: 'Initializing download...',
+        completed: 0,
+        total: 0
+      }
+    }));
+
     // Update model status
     setAvailableModels(prev =>
       prev.map(model =>
@@ -435,8 +529,25 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
           )
         );
 
-        // Show success notification (you could use a toast library here)
-        console.log(`Model ${modelName} downloaded successfully!`);
+        // Update progress to success
+        setDownloadProgress(prev => ({
+          ...prev,
+          [modelName]: {
+            percentage: 100,
+            status: 'Download complete',
+            completed: prev[modelName]?.total || 0,
+            total: prev[modelName]?.total || 0
+          }
+        }));
+
+        // Clear progress after 2 seconds
+        setTimeout(() => {
+          setDownloadProgress(prev => {
+            const updated = { ...prev };
+            delete updated[modelName];
+            return updated;
+          });
+        }, 2000);
       } else {
         // Reset download status
         setAvailableModels(prev =>
@@ -446,6 +557,16 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               : model
           )
         );
+
+        // Update progress with error
+        setDownloadProgress(prev => ({
+          ...prev,
+          [modelName]: {
+            ...prev[modelName],
+            error: result?.error || `Failed to download ${modelName}`
+          }
+        }));
+
         setError(result?.error || `Failed to download ${modelName}`);
       }
     } catch (err) {
@@ -882,18 +1003,19 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                    </div>
                  ) : null}
                  
-                 <ModelDiscoveryGrid
-                  models={availableModels}
-                  onDownloadModel={downloadModel}
-                  onSelectModel={selectModel}
-                  selectedLLM={llmProvider === 'ollama' ? config.ollamaLlmModel : undefined}
-                  selectedEmbedding={embeddingProvider === 'ollama' ? config.ollamaEmbeddingModel : undefined}
-                  isScanning={isScanningModels}
-                  scanError={scanError}
-                  onScanModels={scanAvailableModels}
-                  showLLMSection={llmProvider === 'ollama'}
-                  showEmbeddingSection={embeddingProvider === 'ollama'}
-                />
+                  <ModelDiscoveryGrid
+                   models={availableModels}
+                   onDownloadModel={downloadModel}
+                   onSelectModel={selectModel}
+                   selectedLLM={llmProvider === 'ollama' ? config.ollamaLlmModel : undefined}
+                   selectedEmbedding={embeddingProvider === 'ollama' ? config.ollamaEmbeddingModel : undefined}
+                   isScanning={isScanningModels}
+                   scanError={scanError}
+                   onScanModels={scanAvailableModels}
+                   showLLMSection={llmProvider === 'ollama'}
+                   showEmbeddingSection={embeddingProvider === 'ollama'}
+                   downloadProgress={downloadProgress}
+                 />
               </div>
              )}
           </div>

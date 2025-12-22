@@ -103,12 +103,20 @@ export const infrastructureMock = {
      }
    }),
 
-   downloadOllamaModel: async (_baseUrl: string, _modelName: string) => ({
-     success: true,
-     data: { message: 'Model downloaded successfully (mock)' }
-   }),
+    downloadOllamaModel: async (_baseUrl: string, _modelName: string) => ({
+      success: true,
+      data: { message: 'Model downloaded successfully (mock)' }
+    }),
 
-   // Ideation Operations
+    onDownloadProgress: (_callback: Function) => {
+      // Mock implementation - just no-op
+    },
+
+    offDownloadProgress: (_callback: Function) => {
+      // Mock implementation - just no-op
+    },
+
+    // Ideation Operations
   getIdeation: async () => ({
     success: true,
     data: null
