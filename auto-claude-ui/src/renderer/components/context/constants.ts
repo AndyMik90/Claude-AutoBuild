@@ -8,7 +8,8 @@ import {
   FileCode,
   Lightbulb,
   FolderTree,
-  AlertTriangle
+  AlertTriangle,
+  Smartphone
 } from 'lucide-react';
 
 // Service type icon mapping
@@ -19,6 +20,7 @@ export const serviceTypeIcons: Record<string, React.ElementType> = {
   scraper: Code,
   library: Package,
   proxy: GitBranch,
+  mobile: Smartphone,
   unknown: FileCode
 };
 
@@ -30,6 +32,7 @@ export const serviceTypeColors: Record<string, string> = {
   scraper: 'bg-green-500/10 text-green-400 border-green-500/30',
   library: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
   proxy: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  mobile: 'bg-pink-500/10 text-pink-400 border-pink-500/30',
   unknown: 'bg-muted text-muted-foreground border-muted'
 };
 
