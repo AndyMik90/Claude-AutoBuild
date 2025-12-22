@@ -138,7 +138,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  setActiveProfile: async (profileId: string): Promise<boolean> => {
+  setActiveProfile: async (profileId: string | null): Promise<boolean> => {
     set({ profilesLoading: true, profilesError: null });
     try {
       const result = await window.electronAPI.setActiveAPIProfile(profileId);

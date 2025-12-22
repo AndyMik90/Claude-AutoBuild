@@ -270,3 +270,80 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
     expect(deleteElements.length).toBeGreaterThan(1); // At least title + button
   });
 });
+
+describe('ProfileList - Switch to OAuth Button', () => {
+  let mockDeleteProfile: ReturnType<typeof vi.fn>;
+  let mockSetActiveProfile: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockDeleteProfile = vi.fn().mockResolvedValue(true);
+    mockSetActiveProfile = vi.fn().mockResolvedValue(true);
+
+    vi.mocked(useSettingsStore).mockReturnValue({
+      profiles: testProfiles,
+      activeProfileId: 'profile-1', // Profile is active
+      deleteProfile: mockDeleteProfile,
+      setActiveProfile: mockSetActiveProfile,
+      profilesLoading: false,
+      settings: {} as any,
+      isLoading: false,
+      error: null,
+      setSettings: vi.fn(),
+      updateSettings: vi.fn(),
+      setLoading: vi.fn(),
+      setError: vi.fn(),
+      setProfiles: vi.fn(),
+      setProfilesLoading: vi.fn(),
+      setProfilesError: vi.fn(),
+      saveProfile: vi.fn().mockResolvedValue(true),
+      updateProfile: vi.fn().mockResolvedValue(true),
+      profilesError: null
+    });
+  });
+
+  it('should show "Switch to OAuth" button when a profile is active', () => {
+    renderWithWrapper(<ProfileList />);
+
+    // Button should be visible when activeProfileId is set
+    expect(screen.getByText(/Switch to OAuth/i)).toBeInTheDocument();
+  });
+
+  it('should NOT show "Switch to OAuth" button when no profile is active', () => {
+    vi.mocked(useSettingsStore).mockReturnValue({
+      profiles: testProfiles,
+      activeProfileId: null, // No profile active
+      deleteProfile: mockDeleteProfile,
+      setActiveProfile: mockSetActiveProfile,
+      profilesLoading: false,
+      settings: {} as any,
+      isLoading: false,
+      error: null,
+      setSettings: vi.fn(),
+      updateSettings: vi.fn(),
+      setLoading: vi.fn(),
+      setError: vi.fn(),
+      setProfiles: vi.fn(),
+      setProfilesLoading: vi.fn(),
+      setProfilesError: vi.fn(),
+      saveProfile: vi.fn().mockResolvedValue(true),
+      updateProfile: vi.fn().mockResolvedValue(true),
+      profilesError: null
+    });
+
+    renderWithWrapper(<ProfileList />);
+
+    // Button should NOT be visible when activeProfileId is null
+    expect(screen.queryByText(/Switch to OAuth/i)).not.toBeInTheDocument();
+  });
+
+  it('should call setActiveProfile with null when "Switch to OAuth" is clicked', () => {
+    renderWithWrapper(<ProfileList />);
+
+    // Click the "Switch to OAuth" button
+    const switchButton = screen.getByText(/Switch to OAuth/i);
+    fireEvent.click(switchButton);
+
+    // Should call setActiveProfile with null to switch to OAuth
+    expect(mockSetActiveProfile).toHaveBeenCalledWith(null);
+  });
+});

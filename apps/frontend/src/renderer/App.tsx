@@ -49,6 +49,7 @@ import { SDKRateLimitModal } from './components/SDKRateLimitModal';
 import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { UsageIndicator } from './components/UsageIndicator';
+import { AuthStatusIndicator } from './components/AuthStatusIndicator';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
@@ -622,6 +623,7 @@ export function App() {
             {selectedProject && (
               <div className="electron-no-drag flex items-center gap-3">
                 <UsageIndicator />
+                <AuthStatusIndicator />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

@@ -150,12 +150,22 @@ export function registerProfileHandlers(): void {
 
   /**
    * Set active profile
+   * - If profileId is provided, set that profile as active
+   * - If profileId is null, clear active profile (switch to OAuth)
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_SET_ACTIVE,
-    async (_, profileId: string): Promise<IPCResult> => {
+    async (_, profileId: string | null): Promise<IPCResult> => {
       try {
         const file = await loadProfilesFile();
+
+        // If switching to OAuth (null), clear active profile
+        if (profileId === null) {
+          file.activeProfileId = null;
+          await saveProfilesFile(file);
+          await validateFilePermissions(getProfilesFilePath());
+          return { success: true };
+        }
 
         // Check if profile exists
         const profileExists = file.profiles.some((p) => p.id === profileId);

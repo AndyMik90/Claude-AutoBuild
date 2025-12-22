@@ -24,8 +24,8 @@ export interface ProfileAPI {
   // Delete a profile
   deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
 
-  // Set active profile
-  setActiveAPIProfile: (profileId: string) => Promise<IPCResult>;
+  // Set active profile (null to switch to OAuth)
+  setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
 }
 
 export const createProfileAPI = (): ProfileAPI => ({
@@ -49,7 +49,7 @@ export const createProfileAPI = (): ProfileAPI => ({
   deleteAPIProfile: (profileId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROFILES_DELETE, profileId),
 
-  // Set active profile
-  setActiveAPIProfile: (profileId: string): Promise<IPCResult> =>
+  // Set active profile (null to switch to OAuth)
+  setActiveAPIProfile: (profileId: string | null): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROFILES_SET_ACTIVE, profileId)
 });

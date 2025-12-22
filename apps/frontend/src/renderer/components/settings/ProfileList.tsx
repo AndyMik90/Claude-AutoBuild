@@ -74,15 +74,46 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
     }
   };
 
-  const handleSetActiveProfile = async (profileId: string) => {
-    if (profileId === activeProfileId) return;
+  /**
+   * Handle setting a profile as active or switching to OAuth
+   * @param profileId - The profile ID to activate, or null to switch to OAuth
+   */
+  const handleSetActiveProfile = async (profileId: string | null) => {
+    // Allow switching to OAuth (null) even when no profile is active
+    if (profileId !== null && profileId === activeProfileId) return;
 
     setIsSettingActive(true);
     const success = await setActiveProfile(profileId);
     setIsSettingActive(false);
 
-    if (success && onProfileSaved) {
-      onProfileSaved();
+    if (success) {
+      // Show success toast
+      if (profileId === null) {
+        // Switched to OAuth
+        toast({
+          title: 'Switched to OAuth',
+          description: 'Now using OAuth authentication',
+        });
+      } else {
+        // Switched to profile
+        const activeProfile = profiles.find(p => p.id === profileId);
+        if (activeProfile) {
+          toast({
+            title: 'Profile activated',
+            description: `Now using ${activeProfile.name}`,
+          });
+        }
+      }
+      if (onProfileSaved) {
+        onProfileSaved();
+      }
+    } else {
+      // Show error toast on failure
+      toast({
+        variant: 'destructive',
+        title: 'Failed to switch authentication',
+        description: profilesError || 'An error occurred while switching authentication method.',
+      });
     }
   };
 
@@ -129,6 +160,19 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
       {/* Profile list */}
       {profiles.length > 0 && (
         <div className="space-y-2">
+          {/* Switch to OAuth button (visible when a profile is active) */}
+          {activeProfileId && (
+            <div className="flex items-center justify-end pb-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSetActiveProfile(null)}
+                disabled={isSettingActive}
+              >
+                {isSettingActive ? 'Switching...' : 'Switch to OAuth'}
+              </Button>
+            </div>
+          )}
           {profiles.map((profile) => (
             <div
               key={profile.id}
