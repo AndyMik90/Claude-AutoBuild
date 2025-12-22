@@ -11,6 +11,8 @@
     "install:backend:full": "cd apps/backend && . .venv/bin/activate && pip install -r requirements.txt",
     "start": "cd apps/frontend && npm run build && npm run start",
     "dev": "cd apps/frontend && npm run dev",
+    "dev:debug": "DEBUG=true cd apps/frontend && npm run dev",
+    "dev:mcp": "cd apps/frontend && npm run dev:mcp",
     "build": "cd apps/frontend && npm run build",
     "lint": "cd apps/frontend && npm run lint",
     "test": "cd apps/frontend && npm test",
