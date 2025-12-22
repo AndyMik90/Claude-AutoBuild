@@ -20,6 +20,11 @@ from ui import (
     icon,
 )
 
+from .batch_commands import (
+    handle_batch_cleanup_command,
+    handle_batch_create_command,
+    handle_batch_status_command,
+)
 from .build_commands import handle_build_command
 from .followup_commands import handle_followup_command
 from .qa_commands import (
@@ -237,6 +242,30 @@ Environment Variables:
         help="Base branch for creating worktrees (default: auto-detect or current branch)",
     )
 
+    # Batch task management
+    parser.add_argument(
+        "--batch-create",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="Create multiple tasks from a batch JSON file",
+    )
+    parser.add_argument(
+        "--batch-status",
+        action="store_true",
+        help="Show status of all specs in the project",
+    )
+    parser.add_argument(
+        "--batch-cleanup",
+        action="store_true",
+        help="Clean up completed specs (dry-run by default)",
+    )
+    parser.add_argument(
+        "--no-dry-run",
+        action="store_true",
+        help="Actually delete files in cleanup (not just preview)",
+    )
+
     return parser.parse_args()
 
 
@@ -281,6 +310,19 @@ def main() -> None:
     # Handle --cleanup-worktrees command
     if args.cleanup_worktrees:
         handle_cleanup_worktrees_command(project_dir)
+        return
+
+    # Handle batch commands
+    if args.batch_create:
+        handle_batch_create_command(args.batch_create, str(project_dir))
+        return
+
+    if args.batch_status:
+        handle_batch_status_command(str(project_dir))
+        return
+
+    if args.batch_cleanup:
+        handle_batch_cleanup_command(str(project_dir), dry_run=not args.no_dry_run)
         return
 
     # Require --spec if not listing
