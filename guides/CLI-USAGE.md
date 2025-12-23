@@ -13,6 +13,28 @@ This document covers terminal-only usage of Auto Claude. **For most users, we re
 - Python 3.9+
 - Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
 
+### Installing Python
+
+**Windows:**
+```bash
+winget install Python.Python.3.12
+```
+
+**macOS:**
+```bash
+brew install python@3.12
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install python3.12 python3.12-venv
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install python3.12
+```
+
 ## Setup
 
 **Step 1:** Navigate to the backend directory
