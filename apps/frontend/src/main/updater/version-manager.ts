@@ -36,6 +36,10 @@ export function getEffectiveVersion(): string {
   } else {
     // Development: check the actual source paths where updates are written
     const possibleSourcePaths = [
+      // New apps structure
+      path.join(app.getAppPath(), '..', 'backend'),
+      path.join(process.cwd(), 'apps', 'backend'),
+      // Legacy paths for backwards compatibility
       path.join(app.getAppPath(), '..', 'auto-claude'),
       path.join(app.getAppPath(), '..', '..', 'auto-claude'),
       path.join(process.cwd(), 'auto-claude'),

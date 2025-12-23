@@ -9,6 +9,8 @@ Uses the Claude Agent SDK (same as the rest of the system) for extraction.
 Falls back to generic insights if extraction fails (never blocks the build).
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os

@@ -11,6 +11,8 @@ Detects authentication and authorization patterns:
 - Auth middleware and decorators
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any

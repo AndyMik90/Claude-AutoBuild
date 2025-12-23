@@ -244,6 +244,8 @@ export interface Task {
   releasedInVersion?: string;  // Version in which this task was released
   stagedInMainProject?: boolean;  // True if changes were staged to main project (worktree merged with --no-commit)
   stagedAt?: string;  // ISO timestamp when changes were staged
+  location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
+  specsPath?: string;  // Full path to specs directory for this task
   createdAt: Date;
   updatedAt: Date;
 }

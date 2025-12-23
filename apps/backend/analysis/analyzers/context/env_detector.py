@@ -9,6 +9,8 @@ Detects and analyzes environment variables from multiple sources:
 - Source code (os.getenv, process.env)
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any

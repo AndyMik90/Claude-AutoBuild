@@ -4,7 +4,7 @@
 
 import https from 'https';
 import { createWriteStream } from 'fs';
-import { TIMEOUTS } from './config';
+import { TIMEOUTS, GITHUB_CONFIG } from './config';
 
 /**
  * Fetch JSON from a URL using https
@@ -24,6 +24,26 @@ export function fetchJson<T>(url: string): Promise<T> {
           fetchJson<T>(redirectUrl).then(resolve).catch(reject);
           return;
         }
+      }
+
+      // Handle HTTP 300 Multiple Choices (branch/tag name collision)
+      if (response.statusCode === 300) {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          console.error('[HTTP] Multiple choices for resource:', {
+            url,
+            statusCode: 300,
+            response: data
+          });
+          reject(new Error(
+            `Multiple resources found for ${url}. ` +
+            `This usually means a branch and tag have the same name. ` +
+            `Please report this issue at https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/issues`
+          ));
+        });
+        response.on('error', reject);
+        return;
       }
 
       if (response.statusCode !== 200) {
@@ -91,6 +111,28 @@ export function downloadFile(
           downloadFile(redirectUrl, destPath, onProgress).then(resolve).catch(reject);
           return;
         }
+      }
+
+      // Handle HTTP 300 Multiple Choices (branch/tag name collision)
+      if (response.statusCode === 300) {
+        file.close();
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          console.error('[HTTP] Multiple choices for resource:', {
+            url,
+            statusCode: 300,
+            response: data
+          });
+          reject(new Error(
+            `Multiple resources found for ${url}. ` +
+            `This usually means a branch and tag have the same name. ` +
+            `Please download the latest version manually from: ` +
+            `https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/releases/latest`
+          ));
+        });
+        response.on('error', reject);
+        return;
       }
 
       if (response.statusCode !== 200) {

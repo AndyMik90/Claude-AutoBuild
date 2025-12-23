@@ -6,6 +6,8 @@ Detects application ports from multiple sources including entry points,
 environment files, Docker Compose, configuration files, and scripts.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any
