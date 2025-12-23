@@ -44,9 +44,6 @@ import type { TestConnectionResult } from '../../shared/types/profile';
 
 // Get the handler function for testing
 function getSetActiveHandler() {
-  // Register handlers first to populate ipcMain.handle mock
-  registerProfileHandlers();
-
   const calls = (ipcMain.handle as unknown as ReturnType<typeof vi.fn>).mock.calls;
   const setActiveCall = calls.find(
     (call) => call[0] === IPC_CHANNELS.PROFILES_SET_ACTIVE
@@ -56,9 +53,6 @@ function getSetActiveHandler() {
 
 // Get the testConnection handler function for testing
 function getTestConnectionHandler() {
-  // Register handlers first to populate ipcMain.handle mock
-  registerProfileHandlers();
-
   const calls = (ipcMain.handle as unknown as ReturnType<typeof vi.fn>).mock.calls;
   const testConnectionCall = calls.find(
     (call) => call[0] === IPC_CHANNELS.PROFILES_TEST_CONNECTION
@@ -69,6 +63,7 @@ function getTestConnectionHandler() {
 describe('profile-handlers - setActiveProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    registerProfileHandlers();
   });
 
   const mockProfiles: APIProfile[] = [
@@ -217,6 +212,7 @@ describe('profile-handlers - setActiveProfile', () => {
 describe('profile-handlers - testConnection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    registerProfileHandlers();
   });
 
   describe('successful connection tests', () => {
