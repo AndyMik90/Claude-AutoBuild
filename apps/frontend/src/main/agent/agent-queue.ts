@@ -12,6 +12,7 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
+import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 
 /**
@@ -329,12 +330,11 @@ export class AgentQueueManager {
           }
         };
         loadIdeationType().catch((err: unknown) => {
-          debugError('[Agent Queue] Unhandled error loading ideation type:', {
+          debugError('[Agent Queue] Unhandled error in ideation type handler (event already emitted):', {
             ideationType,
             projectId,
             typeFilePath
           }, err);
-          this.emitter.emit('ideation-type-complete', projectId, ideationType, []);
         });
       }
 
@@ -459,6 +459,8 @@ export class AgentQueueManager {
             }
           } catch (err) {
             debugError('[Ideation] Unexpected error in ideation completion:', err);
+            this.emitter.emit('ideation-error', projectId,
+              `Failed to load ideation session: ${err instanceof Error ? err.message : 'Unknown error'}`);
           }
         } else {
           debugError('[Ideation] No project path available to load session');
@@ -661,12 +663,13 @@ export class AgentQueueManager {
               const loadRoadmap = async (): Promise<void> => {
                 try {
                   const content = await fsPromises.readFile(roadmapFilePath, 'utf-8');
-                  const roadmap = JSON.parse(content);
+                  const rawRoadmap = JSON.parse(content);
+                  const transformedRoadmap = transformRoadmapFromSnakeCase(rawRoadmap, projectId);
                   debugLog('[Agent Queue] Loaded roadmap:', {
-                    featuresCount: roadmap.features?.length || 0,
-                    phasesCount: roadmap.phases?.length || 0
+                    featuresCount: transformedRoadmap.features?.length || 0,
+                    phasesCount: transformedRoadmap.phases?.length || 0
                   });
-                  this.emitter.emit('roadmap-complete', projectId, roadmap);
+                  this.emitter.emit('roadmap-complete', projectId, transformedRoadmap);
                 } catch (err) {
                   debugError('[Roadmap] Failed to load roadmap:', err);
                   this.emitter.emit('roadmap-error', projectId,
@@ -683,7 +686,12 @@ export class AgentQueueManager {
             }
           } catch (err) {
             debugError('[Roadmap] Unexpected error in roadmap completion:', err);
+            this.emitter.emit('roadmap-error', projectId,
+              `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
           }
+        } else {
+          debugError('[Roadmap] No project path available for roadmap completion');
+          this.emitter.emit('roadmap-error', projectId, 'Roadmap completed but project path not found.');
         }
       } else {
         debugError('[Agent Queue] Roadmap generation failed:', { projectId, code });
