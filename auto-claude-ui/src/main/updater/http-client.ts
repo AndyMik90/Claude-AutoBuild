@@ -26,6 +26,26 @@ export function fetchJson<T>(url: string): Promise<T> {
         }
       }
 
+      // Handle HTTP 300 Multiple Choices (branch/tag name collision)
+      if (response.statusCode === 300) {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          console.error('[HTTP] Multiple choices for resource:', {
+            url,
+            statusCode: 300,
+            response: data
+          });
+          reject(new Error(
+            `Multiple resources found for ${url}. ` +
+            `This usually means a branch and tag have the same name. ` +
+            `Please report this issue at https://github.com/AndyMik90/Auto-Claude/issues`
+          ));
+        });
+        response.on('error', reject);
+        return;
+      }
+
       if (response.statusCode !== 200) {
         // Collect response body for error details (limit to 10KB)
         const maxErrorSize = 10 * 1024;
@@ -91,6 +111,28 @@ export function downloadFile(
           downloadFile(redirectUrl, destPath, onProgress).then(resolve).catch(reject);
           return;
         }
+      }
+
+      // Handle HTTP 300 Multiple Choices (branch/tag name collision)
+      if (response.statusCode === 300) {
+        file.close();
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          console.error('[HTTP] Multiple choices for resource:', {
+            url,
+            statusCode: 300,
+            response: data
+          });
+          reject(new Error(
+            `Multiple resources found for ${url}. ` +
+            `This usually means a branch and tag have the same name. ` +
+            `Please download the latest version manually from: ` +
+            `https://github.com/${url.includes('AndyMik90') ? 'AndyMik90' : 'OWNER'}/Auto-Claude/releases/latest`
+          ));
+        });
+        response.on('error', reject);
+        return;
       }
 
       if (response.statusCode !== 200) {

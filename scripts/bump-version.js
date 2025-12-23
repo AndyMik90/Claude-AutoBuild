@@ -146,23 +146,32 @@ function main() {
     error('New version is the same as current version');
   }
 
-  // 4. Update package.json
+  // 4. Validate release (check for branch/tag conflicts)
+  info('Validating release...');
+  try {
+    exec(`node ${path.join(__dirname, 'validate-release.js')} v${newVersion}`);
+    success('Release validation passed');
+  } catch (err) {
+    error(`Release validation failed: ${err.message}`);
+  }
+
+  // 5. Update package.json
   info('Updating package.json...');
   updatePackageJson(newVersion);
   success('Updated package.json');
 
-  // 5. Create git commit
+  // 6. Create git commit
   info('Creating git commit...');
   exec('git add auto-claude-ui/package.json');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 
-  // 6. Create git tag
+  // 7. Create git tag
   info('Creating git tag...');
   exec(`git tag -a v${newVersion} -m "Release v${newVersion}"`);
   success(`Created tag: v${newVersion}`);
 
-  // 7. Instructions
+  // 8. Instructions
   log('\n📋 Next steps:', colors.yellow);
   log(`   1. Review the changes: git log -1`, colors.yellow);
   log(`   2. Push the commit: git push origin <branch-name>`, colors.yellow);
