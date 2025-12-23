@@ -12,7 +12,8 @@ import type { APIProfile, ProfilesFile } from '@auto-claude/profile-service';
 // Mock electron before importing
 vi.mock('electron', () => ({
   ipcMain: {
-    handle: vi.fn()
+    handle: vi.fn(),
+    on: vi.fn()
   }
 }));
 
@@ -24,7 +25,16 @@ vi.mock('@auto-claude/profile-service', () => ({
   getProfilesFilePath: vi.fn(() => '/test/profiles.json'),
   createProfile: vi.fn(),
   updateProfile: vi.fn(),
-  testConnection: vi.fn()
+  testConnection: vi.fn(),
+  atomicModifyProfiles: vi.fn(async (modifier: (file: unknown) => unknown) => {
+    const { loadProfilesFile, saveProfilesFile } = await import(
+      '@auto-claude/profile-service'
+    );
+    const file = await loadProfilesFile();
+    const modified = modifier(file);
+    await saveProfilesFile(modified as never);
+    return modified;
+  })
 }));
 
 import { registerProfileHandlers } from './profile-handlers';
@@ -61,7 +71,6 @@ describe('profile-handlers - setActiveProfile', () => {
     vi.clearAllMocks();
     registerProfileHandlers();
   });
-
   const mockProfiles: APIProfile[] = [
     {
       id: 'profile-1',

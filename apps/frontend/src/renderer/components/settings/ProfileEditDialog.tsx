@@ -279,7 +279,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="profile-edit-dialog">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Edit Profile' : 'Add API Profile'}</DialogTitle>
           <DialogDescription>

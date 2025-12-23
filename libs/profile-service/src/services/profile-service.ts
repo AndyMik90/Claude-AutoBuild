@@ -3,10 +3,11 @@
  *
  * Provides validation functions for URL, API key, and profile name uniqueness.
  * Handles creating new profiles with validation.
+ * Uses atomic operations with file locking to prevent TOCTOU race conditions.
  */
 
-import { loadProfilesFile, saveProfilesFile, generateProfileId, validateFilePermissions, getProfilesFilePath } from '../utils/profile-manager';
-import type { APIProfile, TestConnectionResult } from '../types/profile';
+import { loadProfilesFile, saveProfilesFile, generateProfileId, validateFilePermissions, getProfilesFilePath, atomicModifyProfiles } from '../utils/profile-manager.js';
+import type { APIProfile, TestConnectionResult } from '../types/profile.js';
 
 /**
  * Validate base URL format
@@ -53,6 +54,10 @@ export function validateApiKey(apiKey: string): boolean {
 
 /**
  * Validate that profile name is unique (case-insensitive, trimmed)
+ * 
+ * WARNING: This is for UX feedback only. Do NOT rely on this for correctness.
+ * The actual uniqueness check happens atomically inside create/update operations
+ * to prevent TOCTOU race conditions.
  */
 export async function validateProfileNameUnique(name: string): Promise<boolean> {
   const trimmed = name.trim().toLowerCase();
@@ -80,44 +85,37 @@ export type UpdateProfileInput = Pick<APIProfile, 'id'> & CreateProfileInput;
 /**
  * Delete a profile with validation
  * Throws errors for validation failures
+ * Uses atomic operation to prevent race conditions
  */
 export async function deleteProfile(id: string): Promise<void> {
-  const file = await loadProfilesFile();
+  await atomicModifyProfiles((file) => {
+    // Find the profile
+    const profileIndex = file.profiles.findIndex((p) => p.id === id);
+    if (profileIndex === -1) {
+      throw new Error('Profile not found');
+    }
 
-  // Find the profile
-  const profileIndex = file.profiles.findIndex((p) => p.id === id);
-  if (profileIndex === -1) {
-    throw new Error('Profile not found');
-  }
+    // Active Profile Check: Cannot delete active profile (AC3)
+    if (file.activeProfileId === id) {
+      throw new Error('Cannot delete active profile. Please switch to another profile or OAuth first.');
+    }
 
-  const profile = file.profiles[profileIndex];
+    // Remove profile
+    file.profiles.splice(profileIndex, 1);
 
-  // Active Profile Check: Cannot delete active profile (AC3)
-  if (file.activeProfileId === id) {
-    throw new Error('Cannot delete active profile. Please switch to another profile or OAuth first.');
-  }
+    // Last Profile Fallback: If no profiles remain, set activeProfileId to null (AC4)
+    if (file.profiles.length === 0) {
+      file.activeProfileId = null;
+    }
 
-  // Remove profile
-  file.profiles.splice(profileIndex, 1);
-
-  // Last Profile Fallback: If no profiles remain, set activeProfileId to null (AC4)
-  if (file.profiles.length === 0) {
-    file.activeProfileId = null;
-  }
-
-  // Save to disk
-  await saveProfilesFile(file);
-
-  // Set file permissions to user-readable only
-  const permissionsValid = await validateFilePermissions(getProfilesFilePath());
-  if (!permissionsValid) {
-    throw new Error('Failed to set secure file permissions');
-  }
+    return file;
+  });
 }
 
 /**
  * Create a new profile with validation
  * Throws errors for validation failures
+ * Uses atomic operation to prevent race conditions in concurrent profile creation
  */
 export async function createProfile(input: CreateProfileInput): Promise<APIProfile> {
   // Validate base URL
@@ -130,44 +128,52 @@ export async function createProfile(input: CreateProfileInput): Promise<APIProfi
     throw new Error('Invalid API key');
   }
 
-  // Validate profile name uniqueness
-  const isUnique = await validateProfileNameUnique(input.name);
-  if (!isUnique) {
-    throw new Error('A profile with this name already exists');
-  }
+  // Use atomic operation to ensure uniqueness check and creation happen together
+  // This prevents TOCTOU race where another process creates the same profile name
+  // between our check and write
+  const newProfile = await atomicModifyProfiles((file) => {
+    // Re-check uniqueness within the lock (this is the authoritative check)
+    const trimmed = input.name.trim().toLowerCase();
+    const exists = file.profiles.some(
+      (p) => p.name.trim().toLowerCase() === trimmed
+    );
+    
+    if (exists) {
+      throw new Error('A profile with this name already exists');
+    }
 
-  // Load existing profiles
-  const file = await loadProfilesFile();
+    // Create new profile
+    const now = Date.now();
+    const profile: APIProfile = {
+      id: generateProfileId(),
+      name: input.name.trim(),
+      baseUrl: input.baseUrl.trim(),
+      apiKey: input.apiKey.trim(),
+      models: input.models,
+      createdAt: now,
+      updatedAt: now
+    };
 
-  // Create new profile
-  const now = Date.now();
-  const newProfile: APIProfile = {
-    id: generateProfileId(),
-    name: input.name.trim(),
-    baseUrl: input.baseUrl.trim(),
-    apiKey: input.apiKey.trim(),
-    models: input.models,
-    createdAt: now,
-    updatedAt: now
-  };
+    // Add to profiles list
+    file.profiles.push(profile);
 
-  // Add to profiles list
-  file.profiles.push(newProfile);
+    // Set as active if it's the first profile
+    if (file.profiles.length === 1) {
+      file.activeProfileId = profile.id;
+    }
 
-  // Set as active if it's the first profile
-  if (file.profiles.length === 1) {
-    file.activeProfileId = newProfile.id;
-  }
+    return file;
+  });
 
-  // Save to disk
-  await saveProfilesFile(file);
-
-  return newProfile;
+  // Find and return the newly created profile
+  const createdProfile = newProfile.profiles[newProfile.profiles.length - 1];
+  return createdProfile;
 }
 
 /**
  * Update an existing profile with validation
  * Throws errors for validation failures
+ * Uses atomic operation to prevent race conditions in concurrent profile updates
  */
 export async function updateProfile(input: UpdateProfileInput): Promise<APIProfile> {
   // Validate base URL
@@ -180,44 +186,46 @@ export async function updateProfile(input: UpdateProfileInput): Promise<APIProfi
     throw new Error('Invalid API key');
   }
 
-  // Load existing profiles
-  const file = await loadProfilesFile();
-
-  // Find the profile
-  const profileIndex = file.profiles.findIndex((p) => p.id === input.id);
-  if (profileIndex === -1) {
-    throw new Error('Profile not found');
-  }
-
-  const existingProfile = file.profiles[profileIndex];
-
-  // Validate profile name uniqueness (exclude current profile from check)
-  if (input.name.trim().toLowerCase() !== existingProfile.name.trim().toLowerCase()) {
-    const trimmed = input.name.trim().toLowerCase();
-    const nameExists = file.profiles.some(
-      (p) => p.id !== input.id && p.name.trim().toLowerCase() === trimmed
-    );
-    if (nameExists) {
-      throw new Error('A profile with this name already exists');
+  // Use atomic operation to ensure uniqueness check and update happen together
+  const modifiedFile = await atomicModifyProfiles((file) => {
+    // Find the profile
+    const profileIndex = file.profiles.findIndex((p) => p.id === input.id);
+    if (profileIndex === -1) {
+      throw new Error('Profile not found');
     }
-  }
 
-  // Update profile (including name)
-  const updatedProfile: APIProfile = {
-    ...existingProfile,
-    name: input.name.trim(),
-    baseUrl: input.baseUrl.trim(),
-    apiKey: input.apiKey.trim(),
-    models: input.models,
-    updatedAt: Date.now()
-  };
+    const existingProfile = file.profiles[profileIndex];
 
-  // Replace in profiles list
-  file.profiles[profileIndex] = updatedProfile;
+    // Validate profile name uniqueness (exclude current profile from check)
+    // This check happens atomically within the lock
+    if (input.name.trim().toLowerCase() !== existingProfile.name.trim().toLowerCase()) {
+      const trimmed = input.name.trim().toLowerCase();
+      const nameExists = file.profiles.some(
+        (p) => p.id !== input.id && p.name.trim().toLowerCase() === trimmed
+      );
+      if (nameExists) {
+        throw new Error('A profile with this name already exists');
+      }
+    }
 
-  // Save to disk
-  await saveProfilesFile(file);
+    // Update profile (including name)
+    const updated: APIProfile = {
+      ...existingProfile,
+      name: input.name.trim(),
+      baseUrl: input.baseUrl.trim(),
+      apiKey: input.apiKey.trim(),
+      models: input.models,
+      updatedAt: Date.now()
+    };
 
+    // Replace in profiles list
+    file.profiles[profileIndex] = updated;
+
+    return file;
+  });
+
+  // Find and return the updated profile
+  const updatedProfile = modifiedFile.profiles.find((p) => p.id === input.id)!;
   return updatedProfile;
 }
 

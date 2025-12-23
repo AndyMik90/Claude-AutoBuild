@@ -18,9 +18,13 @@ import {
   loadProfilesFile,
   saveProfilesFile,
   validateFilePermissions,
-  getProfilesFilePath
+  getProfilesFilePath,
+  atomicModifyProfiles
 } from '@auto-claude/profile-service';
 import { createProfile, updateProfile, deleteProfile, testConnection } from '@auto-claude/profile-service';
+
+// Track active test connection requests for cancellation
+const activeTestConnections = new Map<number, AbortController>();
 
 /**
  * Register all profile-related IPC handlers
@@ -127,41 +131,28 @@ export function registerProfileHandlers(): void {
    * Set active profile
    * - If profileId is provided, set that profile as active
    * - If profileId is null, clear active profile (switch to OAuth)
+   * Uses atomic operation to prevent race conditions
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_SET_ACTIVE,
     async (_, profileId: string | null): Promise<IPCResult> => {
       try {
-        const file = await loadProfilesFile();
+        await atomicModifyProfiles((file) => {
+          // If switching to OAuth (null), clear active profile
+          if (profileId === null) {
+            file.activeProfileId = null;
+            return file;
+          }
 
-        // If switching to OAuth (null), clear active profile
-        if (profileId === null) {
-          file.activeProfileId = null;
-          await saveProfilesFile(file);
-          await validateFilePermissions(getProfilesFilePath()).catch((err) => {
-            console.warn('[profile-handlers] Failed to set secure file permissions:', err);
-          });
-          return { success: true };
-        }
+          // Check if profile exists
+          const profileExists = file.profiles.some((p) => p.id === profileId);
+          if (!profileExists) {
+            throw new Error('Profile not found');
+          }
 
-        // Check if profile exists
-        const profileExists = file.profiles.some((p) => p.id === profileId);
-        if (!profileExists) {
-          return {
-            success: false,
-            error: 'Profile not found'
-          };
-        }
-
-        // Set active profile
-        file.activeProfileId = profileId;
-
-        // Save to disk
-        await saveProfilesFile(file);
-
-        // Set file permissions to user-readable only
-        await validateFilePermissions(getProfilesFilePath()).catch((err) => {
-          console.warn('[profile-handlers] Failed to set secure file permissions:', err);
+          // Set active profile
+          file.activeProfileId = profileId;
+          return file;
         });
 
         return { success: true };
@@ -179,15 +170,17 @@ export function registerProfileHandlers(): void {
    * - Tests credentials by making a minimal API request
    * - Returns detailed error information for different failure types
    * - Includes configurable timeout (defaults to 15 seconds)
-   * - Note: AbortSignal from renderer is not serializable through IPC;
-   *   timeout is managed internally by the handler
+   * - Supports cancellation via PROFILES_TEST_CONNECTION_CANCEL
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_TEST_CONNECTION,
-    async (_event, baseUrl: string, apiKey: string, _signal?: AbortSignal): Promise<IPCResult<TestConnectionResult>> => {
-      // Create AbortController for timeout
+    async (_event, baseUrl: string, apiKey: string, requestId: number): Promise<IPCResult<TestConnectionResult>> => {
+      // Create AbortController for timeout and cancellation
       const controller = new AbortController();
       const timeoutMs = 15000; // 15 seconds
+
+      // Track this request for cancellation
+      activeTestConnections.set(requestId, controller);
 
       // Set timeout to abort the request
       const timeoutId = setTimeout(() => {
@@ -198,6 +191,7 @@ export function registerProfileHandlers(): void {
         // Validate inputs (null/empty checks)
         if (!baseUrl || baseUrl.trim() === '') {
           clearTimeout(timeoutId);
+          activeTestConnections.delete(requestId);
           return {
             success: false,
             error: 'Base URL is required'
@@ -206,6 +200,7 @@ export function registerProfileHandlers(): void {
 
         if (!apiKey || apiKey.trim() === '') {
           clearTimeout(timeoutId);
+          activeTestConnections.delete(requestId);
           return {
             success: false,
             error: 'API key is required'
@@ -217,11 +212,13 @@ export function registerProfileHandlers(): void {
 
         // Clear timeout on success
         clearTimeout(timeoutId);
+        activeTestConnections.delete(requestId);
 
         return { success: true, data: result };
       } catch (error) {
         // Clear timeout on error
         clearTimeout(timeoutId);
+        activeTestConnections.delete(requestId);
 
         // Handle abort errors (timeout or explicit cancellation)
         if (error instanceof Error && error.name === 'AbortError') {
@@ -235,6 +232,20 @@ export function registerProfileHandlers(): void {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to test connection'
         };
+      }
+    }
+  );
+
+  /**
+   * Cancel an active test connection request
+   */
+  ipcMain.on(
+    IPC_CHANNELS.PROFILES_TEST_CONNECTION_CANCEL,
+    (_event, requestId: number) => {
+      const controller = activeTestConnections.get(requestId);
+      if (controller) {
+        controller.abort();
+        activeTestConnections.delete(requestId);
       }
     }
   );

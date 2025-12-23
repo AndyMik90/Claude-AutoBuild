@@ -3,12 +3,15 @@
  *
  * Handles loading and saving profiles.json from the auto-claude directory.
  * Provides graceful handling for missing or corrupted files.
+ * Uses file locking to prevent race conditions in concurrent operations.
  */
 
 import { promises as fs } from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import type { APIProfile, ProfilesFile } from '../types/profile';
+// @ts-ignore - no types available
+import * as lockfile from 'proper-lockfile';
+import type { APIProfile, ProfilesFile } from '../types/profile.js';
 
 /**
  * Get the path to profiles.json in the auto-claude directory
@@ -108,6 +111,7 @@ export async function loadProfilesFile(): Promise<ProfilesFile> {
 /**
  * Save profiles.json to disk
  * Creates the auto-claude directory if it doesn't exist
+ * Ensures secure file permissions (user read/write only)
  */
 export async function saveProfilesFile(data: ProfilesFile): Promise<void> {
   const filePath = getProfilesFilePath();
@@ -120,6 +124,12 @@ export async function saveProfilesFile(data: ProfilesFile): Promise<void> {
   // Write file with formatted JSON
   const content = JSON.stringify(data, null, 2);
   await fs.writeFile(filePath, content, 'utf-8');
+  
+  // Set secure file permissions (user read/write only - 0600)
+  const permissionsValid = await validateFilePermissions(filePath);
+  if (!permissionsValid) {
+    throw new Error('Failed to set secure file permissions on profiles file');
+  }
 }
 
 /**
@@ -152,4 +162,101 @@ export async function validateFilePermissions(filePath: string): Promise<boolean
   } catch {
     return false;
   }
+}
+
+/**
+ * Execute a function with exclusive file lock to prevent race conditions
+ * This ensures atomic read-modify-write operations on the profiles file
+ * 
+ * @param fn Function to execute while holding the lock
+ * @returns Result of the function execution
+ */
+export async function withProfilesLock<T>(fn: () => Promise<T>): Promise<T> {
+  const filePath = getProfilesFilePath();
+  const dir = path.dirname(filePath);
+  
+  // Ensure directory and file exist before trying to lock
+  await fs.mkdir(dir, { recursive: true });
+  
+  // Create file if it doesn't exist (needed for lockfile to work)
+  try {
+    await fs.access(filePath);
+  } catch {
+    // File doesn't exist, create it atomically with exclusive flag
+    const defaultData = getDefaultProfilesFile();
+    try {
+      await fs.writeFile(filePath, JSON.stringify(defaultData, null, 2), { encoding: 'utf-8', flag: 'wx' });
+    } catch (err: any) {
+      // If file was created by another process (race condition), that's fine
+      if (err.code !== 'EEXIST') {
+        throw err;
+      }
+      // EEXIST means another process won the race, proceed normally
+    }
+  }
+  
+  // Acquire lock with reasonable timeout
+  let release: (() => Promise<void>) | undefined;
+  try {
+    release = await lockfile.lock(filePath, {
+      retries: {
+        retries: 10,
+        minTimeout: 50,
+        maxTimeout: 500
+      }
+    });
+    
+    // Execute the function while holding the lock
+    return await fn();
+  } finally {
+    // Always release the lock
+    if (release) {
+      await release();
+    }
+  }
+}
+
+/**
+ * Atomically modify the profiles file
+ * Loads, modifies, and saves the file within an exclusive lock
+ * 
+ * @param modifier Function that modifies the ProfilesFile
+ * @returns The modified ProfilesFile
+ */
+export async function atomicModifyProfiles(
+  modifier: (file: ProfilesFile) => ProfilesFile | Promise<ProfilesFile>
+): Promise<ProfilesFile> {
+  return await withProfilesLock(async () => {
+    // Load current state
+    const file = await loadProfilesFile();
+    
+    // Apply modification
+    const modifiedFile = await modifier(file);
+    
+    // Save atomically (write to temp file and rename)
+    const filePath = getProfilesFilePath();
+    const tempPath = `${filePath}.tmp`;
+    
+    try {
+      // Write to temp file
+      const content = JSON.stringify(modifiedFile, null, 2);
+      await fs.writeFile(tempPath, content, 'utf-8');
+      
+      // Set permissions on temp file
+      await fs.chmod(tempPath, 0o600);
+      
+      // Atomically replace original file
+      await fs.rename(tempPath, filePath);
+      
+      return modifiedFile;
+    } catch (error) {
+      // Clean up temp file on error
+      try {
+        await fs.unlink(tempPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw error;
+    }
+  });
 }

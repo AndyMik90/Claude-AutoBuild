@@ -68,7 +68,7 @@ if (typeof window === 'undefined') {
   updateAPIProfile: vi.fn(),
   deleteAPIProfile: vi.fn(),
   setActiveAPIProfile: vi.fn(),
-  testAPIConnection: vi.fn()
+  testConnection: vi.fn()
 };
 
 // Suppress console errors in tests unless explicitly testing error scenarios

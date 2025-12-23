@@ -23,7 +23,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1"
+    "@anthropic-ai/sdk": "^0.32.1",
+    "proper-lockfile": "^4.1.2"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

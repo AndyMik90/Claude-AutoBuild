@@ -20,7 +20,17 @@ import type { APIProfile, ProfilesFile, TestConnectionResult } from '../types/pr
 vi.mock('../utils/profile-manager', () => ({
   loadProfilesFile: vi.fn(),
   saveProfilesFile: vi.fn(),
-  generateProfileId: vi.fn(() => 'mock-uuid-1234')
+  generateProfileId: vi.fn(() => 'mock-uuid-1234'),
+  validateFilePermissions: vi.fn().mockResolvedValue(true),
+  getProfilesFilePath: vi.fn(() => '/mock/profiles.json'),
+  atomicModifyProfiles: vi.fn(async (modifier: (file: ProfilesFile) => ProfilesFile) => {
+    // Get the current mock file from loadProfilesFile
+    const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+    const file = await loadProfilesFile();
+    const modified = modifier(file);
+    await saveProfilesFile(modified);
+    return modified;
+  })
 }));
 
 describe('profile-service', () => {

@@ -36,6 +36,8 @@ export interface ProfileAPI {
   ) => Promise<IPCResult<TestConnectionResult>>;
 }
 
+let testConnectionRequestId = 0;
+
 export const createProfileAPI = (): ProfileAPI => ({
   // Get all profiles
   getAPIProfiles: (): Promise<IPCResult<ProfilesFile>> =>
@@ -66,6 +68,20 @@ export const createProfileAPI = (): ProfileAPI => ({
     baseUrl: string,
     apiKey: string,
     signal?: AbortSignal
-  ): Promise<IPCResult<TestConnectionResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_TEST_CONNECTION, baseUrl, apiKey, signal)
+  ): Promise<IPCResult<TestConnectionResult>> => {
+    // Check if already aborted before initiating request
+    if (signal?.aborted) {
+      return Promise.reject(new DOMException('The operation was aborted.', 'AbortError'));
+    }
+    
+    const requestId = ++testConnectionRequestId;
+    
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        ipcRenderer.send(IPC_CHANNELS.PROFILES_TEST_CONNECTION_CANCEL, requestId);
+      }, { once: true });
+    }
+    
+    return ipcRenderer.invoke(IPC_CHANNELS.PROFILES_TEST_CONNECTION, baseUrl, apiKey, requestId);
+  }
 });

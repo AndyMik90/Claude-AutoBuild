@@ -245,7 +245,7 @@ export interface ElectronAPI {
   updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
   deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
   setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
-  testConnection: (baseUrl: string, apiKey: string) => Promise<IPCResult<TestConnectionResult>>;
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<TestConnectionResult>>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;

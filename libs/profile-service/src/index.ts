@@ -11,7 +11,7 @@ export type {
   ProfilesFile,
   ProfileFormData,
   TestConnectionResult
-} from './types/profile';
+} from './types/profile.js';
 
 // Profile Manager utilities
 export {
@@ -19,8 +19,10 @@ export {
   saveProfilesFile,
   generateProfileId,
   validateFilePermissions,
-  getProfilesFilePath
-} from './utils/profile-manager';
+  getProfilesFilePath,
+  withProfilesLock,
+  atomicModifyProfiles
+} from './utils/profile-manager.js';
 
 // Profile Service
 export {
@@ -32,6 +34,6 @@ export {
   deleteProfile,
   getAPIProfileEnv,
   testConnection
-} from './services/profile-service';
+} from './services/profile-service.js';
 
-export type { CreateProfileInput, UpdateProfileInput } from './services/profile-service';
+export type { CreateProfileInput, UpdateProfileInput } from './services/profile-service.js';
