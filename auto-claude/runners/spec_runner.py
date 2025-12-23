@@ -197,11 +197,86 @@ Examples:
         action="store_true",
         help="Skip human review checkpoint and automatically approve spec for building",
     )
+    parser.add_argument(
+        "--template",
+        type=str,
+        help="Use a spec template (e.g., rest-api, react-component, bug-fix)",
+    )
+    parser.add_argument(
+        "--vars",
+        type=str,
+        help='Template variables as JSON (e.g., \'{"endpoint": "/users"}\')',
+    )
+    parser.add_argument(
+        "--list-templates",
+        action="store_true",
+        help="List available spec templates",
+    )
 
     args = parser.parse_args()
 
+    # Handle --list-templates command
+    if args.list_templates:
+        from templates import list_templates as list_template_fn
+
+        templates = list_template_fn()
+        print("\nAvailable Spec Templates:")
+        print("-" * 60)
+        for t in templates:
+            builtin_tag = " (built-in)" if t.get("builtin", False) else ""
+            print(f"  {t['name']:<20} - {t['description'][:40]}...{builtin_tag}")
+        print("\nUsage:")
+        print(
+            '  python spec_runner.py --template rest-api --vars \'{"endpoint": "/users"}\''
+        )
+        sys.exit(0)
+
+    # Handle --template option
+    if args.template:
+        import json as json_lib
+
+        from templates import apply_template, load_template
+
+        # Parse template variables
+        template_vars = {}
+        if args.vars:
+            try:
+                template_vars = json_lib.loads(args.vars)
+            except json_lib.JSONDecodeError as e:
+                print(f"Error: Invalid JSON for --vars: {e}")
+                sys.exit(1)
+
+        try:
+            # Apply template to generate spec content
+            spec_content = apply_template(args.template, template_vars)
+
+            # Load template info for metadata
+            template = load_template(args.template)
+
+            # Use template name as task description if not provided
+            if not args.task:
+                task_description = f"[Template: {template.title}]\n\n{spec_content}"
+            else:
+                task_description = (
+                    args.task + f"\n\n[Template: {template.title}]\n\n{spec_content}"
+                )
+
+            # Set complexity from template if not overridden
+            if not args.complexity:
+                args.complexity = template.complexity
+
+            print(f"\n{icon(Icons.DOCUMENT)} Using template: {template.title}")
+            print(f"  Complexity: {template.complexity}")
+            print()
+
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+    else:
+        # Initialize task_description from args if no template
+        task_description = args.task
+
     # Handle task from file if provided
-    task_description = args.task
     if args.task_file:
         if not args.task_file.exists():
             print(f"Error: Task file not found: {args.task_file}")

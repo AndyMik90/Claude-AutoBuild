@@ -6,9 +6,9 @@ Functions for tracking and displaying progress of the autonomous coding agent.
 Uses subtask-based implementation plans (implementation_plan.json).
 
 Enhanced with colored output, icons, and better visual formatting.
+Uses caching for improved performance when accessing implementation plans frequently.
 """
 
-import json
 from pathlib import Path
 
 from ui import (
@@ -25,6 +25,18 @@ from ui import (
     warning,
 )
 
+from .cache import get_implementation_plan_cache
+
+
+def _load_plan(spec_dir: Path) -> dict | None:
+    """
+    Load implementation plan with caching.
+
+    Uses the global implementation plan cache for improved performance.
+    """
+    plan_file = spec_dir / "implementation_plan.json"
+    return get_implementation_plan_cache().load(plan_file)
+
 
 def count_subtasks(spec_dir: Path) -> tuple[int, int]:
     """
@@ -36,27 +48,20 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
     Returns:
         (completed_count, total_count)
     """
-    plan_file = spec_dir / "implementation_plan.json"
-
-    if not plan_file.exists():
+    plan = _load_plan(spec_dir)
+    if plan is None:
         return 0, 0
 
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
+    total = 0
+    completed = 0
 
-        total = 0
-        completed = 0
+    for phase in plan.get("phases", []):
+        for subtask in phase.get("subtasks", []):
+            total += 1
+            if subtask.get("status") == "completed":
+                completed += 1
 
-        for phase in plan.get("phases", []):
-            for subtask in phase.get("subtasks", []):
-                total += 1
-                if subtask.get("status") == "completed":
-                    completed += 1
-
-        return completed, total
-    except (OSError, json.JSONDecodeError):
-        return 0, 0
+    return completed, total
 
 
 def count_subtasks_detailed(spec_dir: Path) -> dict:
@@ -66,8 +71,6 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
     Returns:
         Dict with completed, in_progress, pending, failed counts
     """
-    plan_file = spec_dir / "implementation_plan.json"
-
     result = {
         "completed": 0,
         "in_progress": 0,
@@ -76,25 +79,20 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
         "total": 0,
     }
 
-    if not plan_file.exists():
+    plan = _load_plan(spec_dir)
+    if plan is None:
         return result
 
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
+    for phase in plan.get("phases", []):
+        for subtask in phase.get("subtasks", []):
+            result["total"] += 1
+            status = subtask.get("status", "pending")
+            if status in result:
+                result[status] += 1
+            else:
+                result["pending"] += 1
 
-        for phase in plan.get("phases", []):
-            for subtask in phase.get("subtasks", []):
-                result["total"] += 1
-                status = subtask.get("status", "pending")
-                if status in result:
-                    result[status] += 1
-                else:
-                    result["pending"] += 1
-
-        return result
-    except (OSError, json.JSONDecodeError):
-        return result
+    return result
 
 
 def is_build_complete(spec_dir: Path) -> bool:
@@ -179,11 +177,9 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
             remaining = total - completed
             print_status(f"{remaining} subtasks remaining", "info")
 
-        # Phase summary
-        try:
-            with open(spec_dir / "implementation_plan.json") as f:
-                plan = json.load(f)
-
+        # Phase summary - use cached plan
+        plan = _load_plan(spec_dir)
+        if plan:
             print("\nPhases:")
             for phase in plan.get("phases", []):
                 phase_subtasks = phase.get("subtasks", [])
@@ -228,9 +224,6 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
                     print(
                         f"  {icon(Icons.ARROW_RIGHT)} Next: {highlight(next_id)} - {next_desc}"
                     )
-
-        except (OSError, json.JSONDecodeError):
-            pass
     else:
         print()
         print_status("No implementation subtasks yet - planner needs to run", "pending")
@@ -286,117 +279,92 @@ def get_plan_summary(spec_dir: Path) -> dict:
     Returns:
         Dictionary with plan statistics
     """
-    plan_file = spec_dir / "implementation_plan.json"
+    empty_summary = {
+        "workflow_type": None,
+        "total_phases": 0,
+        "total_subtasks": 0,
+        "completed_subtasks": 0,
+        "pending_subtasks": 0,
+        "in_progress_subtasks": 0,
+        "failed_subtasks": 0,
+        "phases": [],
+    }
 
-    if not plan_file.exists():
-        return {
-            "workflow_type": None,
-            "total_phases": 0,
-            "total_subtasks": 0,
-            "completed_subtasks": 0,
-            "pending_subtasks": 0,
-            "in_progress_subtasks": 0,
-            "failed_subtasks": 0,
-            "phases": [],
+    plan = _load_plan(spec_dir)
+    if plan is None:
+        return empty_summary
+
+    summary = {
+        "workflow_type": plan.get("workflow_type"),
+        "total_phases": len(plan.get("phases", [])),
+        "total_subtasks": 0,
+        "completed_subtasks": 0,
+        "pending_subtasks": 0,
+        "in_progress_subtasks": 0,
+        "failed_subtasks": 0,
+        "phases": [],
+    }
+
+    for phase in plan.get("phases", []):
+        phase_info = {
+            "id": phase.get("id"),
+            "phase": phase.get("phase"),
+            "name": phase.get("name"),
+            "depends_on": phase.get("depends_on", []),
+            "subtasks": [],
+            "completed": 0,
+            "total": 0,
         }
 
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
+        for subtask in phase.get("subtasks", []):
+            status = subtask.get("status", "pending")
+            summary["total_subtasks"] += 1
+            phase_info["total"] += 1
 
-        summary = {
-            "workflow_type": plan.get("workflow_type"),
-            "total_phases": len(plan.get("phases", [])),
-            "total_subtasks": 0,
-            "completed_subtasks": 0,
-            "pending_subtasks": 0,
-            "in_progress_subtasks": 0,
-            "failed_subtasks": 0,
-            "phases": [],
-        }
+            if status == "completed":
+                summary["completed_subtasks"] += 1
+                phase_info["completed"] += 1
+            elif status == "in_progress":
+                summary["in_progress_subtasks"] += 1
+            elif status == "failed":
+                summary["failed_subtasks"] += 1
+            else:
+                summary["pending_subtasks"] += 1
 
-        for phase in plan.get("phases", []):
-            phase_info = {
-                "id": phase.get("id"),
-                "phase": phase.get("phase"),
-                "name": phase.get("name"),
-                "depends_on": phase.get("depends_on", []),
-                "subtasks": [],
-                "completed": 0,
-                "total": 0,
-            }
+            phase_info["subtasks"].append(
+                {
+                    "id": subtask.get("id"),
+                    "description": subtask.get("description"),
+                    "status": status,
+                    "service": subtask.get("service"),
+                }
+            )
 
-            for subtask in phase.get("subtasks", []):
-                status = subtask.get("status", "pending")
-                summary["total_subtasks"] += 1
-                phase_info["total"] += 1
+        summary["phases"].append(phase_info)
 
-                if status == "completed":
-                    summary["completed_subtasks"] += 1
-                    phase_info["completed"] += 1
-                elif status == "in_progress":
-                    summary["in_progress_subtasks"] += 1
-                elif status == "failed":
-                    summary["failed_subtasks"] += 1
-                else:
-                    summary["pending_subtasks"] += 1
-
-                phase_info["subtasks"].append(
-                    {
-                        "id": subtask.get("id"),
-                        "description": subtask.get("description"),
-                        "status": status,
-                        "service": subtask.get("service"),
-                    }
-                )
-
-            summary["phases"].append(phase_info)
-
-        return summary
-
-    except (OSError, json.JSONDecodeError):
-        return {
-            "workflow_type": None,
-            "total_phases": 0,
-            "total_subtasks": 0,
-            "completed_subtasks": 0,
-            "pending_subtasks": 0,
-            "in_progress_subtasks": 0,
-            "failed_subtasks": 0,
-            "phases": [],
-        }
+    return summary
 
 
 def get_current_phase(spec_dir: Path) -> dict | None:
     """Get the current phase being worked on."""
-    plan_file = spec_dir / "implementation_plan.json"
-
-    if not plan_file.exists():
+    plan = _load_plan(spec_dir)
+    if plan is None:
         return None
 
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
+    for phase in plan.get("phases", []):
+        subtasks = phase.get("subtasks", [])
+        # Phase is current if it has incomplete subtasks and dependencies are met
+        has_incomplete = any(s.get("status") != "completed" for s in subtasks)
+        if has_incomplete:
+            return {
+                "id": phase.get("id"),
+                "phase": phase.get("phase"),
+                "name": phase.get("name"),
+                "completed": sum(1 for s in subtasks if s.get("status") == "completed"),
+                "total": len(subtasks),
+            }
 
-        for phase in plan.get("phases", []):
-            subtasks = phase.get("subtasks", [])
-            # Phase is current if it has incomplete subtasks and dependencies are met
-            has_incomplete = any(s.get("status") != "completed" for s in subtasks)
-            if has_incomplete:
-                return {
-                    "id": phase.get("id"),
-                    "phase": phase.get("phase"),
-                    "name": phase.get("name"),
-                    "completed": sum(
-                        1 for s in subtasks if s.get("status") == "completed"
-                    ),
-                    "total": len(subtasks),
-                }
-
-        return None
-
-    except (OSError, json.JSONDecodeError):
-        return None
+    return None
 
 
 def get_next_subtask(spec_dir: Path) -> dict | None:
@@ -409,50 +377,40 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
     Returns:
         The next subtask dict to work on, or None if all complete
     """
-    plan_file = spec_dir / "implementation_plan.json"
-
-    if not plan_file.exists():
+    plan = _load_plan(spec_dir)
+    if plan is None:
         return None
 
-    try:
-        with open(plan_file) as f:
-            plan = json.load(f)
+    phases = plan.get("phases", [])
 
-        phases = plan.get("phases", [])
+    # Build a map of phase completion
+    phase_complete = {}
+    for phase in phases:
+        phase_id = phase.get("id") or phase.get("phase")
+        subtasks = phase.get("subtasks", [])
+        phase_complete[phase_id] = all(s.get("status") == "completed" for s in subtasks)
 
-        # Build a map of phase completion
-        phase_complete = {}
-        for phase in phases:
-            phase_id = phase.get("id") or phase.get("phase")
-            subtasks = phase.get("subtasks", [])
-            phase_complete[phase_id] = all(
-                s.get("status") == "completed" for s in subtasks
-            )
+    # Find next available subtask
+    for phase in phases:
+        phase_id = phase.get("id") or phase.get("phase")
+        depends_on = phase.get("depends_on", [])
 
-        # Find next available subtask
-        for phase in phases:
-            phase_id = phase.get("id") or phase.get("phase")
-            depends_on = phase.get("depends_on", [])
+        # Check if dependencies are satisfied
+        deps_satisfied = all(phase_complete.get(dep, False) for dep in depends_on)
+        if not deps_satisfied:
+            continue
 
-            # Check if dependencies are satisfied
-            deps_satisfied = all(phase_complete.get(dep, False) for dep in depends_on)
-            if not deps_satisfied:
-                continue
+        # Find first pending subtask in this phase
+        for subtask in phase.get("subtasks", []):
+            if subtask.get("status") == "pending":
+                return {
+                    "phase_id": phase_id,
+                    "phase_name": phase.get("name"),
+                    "phase_num": phase.get("phase"),
+                    **subtask,
+                }
 
-            # Find first pending subtask in this phase
-            for subtask in phase.get("subtasks", []):
-                if subtask.get("status") == "pending":
-                    return {
-                        "phase_id": phase_id,
-                        "phase_name": phase.get("name"),
-                        "phase_num": phase.get("phase"),
-                        **subtask,
-                    }
-
-        return None
-
-    except (OSError, json.JSONDecodeError):
-        return None
+    return None
 
 
 def format_duration(seconds: float) -> str:

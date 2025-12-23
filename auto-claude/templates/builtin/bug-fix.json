@@ -1,0 +1,46 @@
+{
+  "name": "bug-fix",
+  "title": "Bug Fix",
+  "description": "Template for documenting and fixing bugs with proper testing",
+  "category": "maintenance",
+  "complexity": "simple",
+  "variables": [
+    {
+      "name": "bug_title",
+      "description": "Brief title of the bug",
+      "required": true,
+      "example": "Login button unresponsive on mobile"
+    },
+    {
+      "name": "bug_description",
+      "description": "Detailed description of the bug",
+      "required": true,
+      "example": "Users cannot tap the login button on mobile devices, it doesn't respond to touch events"
+    },
+    {
+      "name": "expected_behavior",
+      "description": "What should happen",
+      "required": true,
+      "example": "Login button should respond to tap and submit the form"
+    },
+    {
+      "name": "actual_behavior",
+      "description": "What actually happens",
+      "required": true,
+      "example": "Nothing happens when tapping the button"
+    },
+    {
+      "name": "affected_area",
+      "description": "Part of the application affected",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "priority",
+      "description": "Bug priority (critical, high, medium, low)",
+      "required": false,
+      "default": "medium"
+    }
+  ],
+  "content": "# Bug Fix: {{bug_title}}\n\n## Bug Report\n\n### Description\n{{bug_description}}\n\n### Expected Behavior\n{{expected_behavior}}\n\n### Actual Behavior\n{{actual_behavior}}\n\n### Affected Area\n{{affected_area}}\n\n### Priority\n{{priority}}\n\n## Requirements\n\n### Investigation\n- Identify root cause of the bug\n- Document findings in code comments or issue\n\n### Fix\n- Implement minimal fix that addresses root cause\n- Avoid changing unrelated code\n- Follow existing code patterns\n\n### Testing\n- Add regression test to prevent recurrence\n- Verify fix works in affected scenarios\n- Test edge cases\n\n## Acceptance Criteria\n- [ ] Root cause identified and documented\n- [ ] Bug is fixed\n- [ ] Fix follows existing code patterns\n- [ ] Regression test added\n- [ ] No new bugs introduced\n- [ ] Fix verified in development environment\n\n## Out of Scope\n- Feature enhancements\n- Refactoring unrelated code\n- Performance optimizations (unless causing the bug)"
+}

@@ -3,13 +3,15 @@ Utility Functions for Agent System
 ===================================
 
 Helper functions for git operations, plan management, and file syncing.
+Uses caching for improved performance when accessing implementation plans frequently.
 """
 
-import json
 import logging
 import shutil
 import subprocess
 from pathlib import Path
+
+from core.cache import get_implementation_plan_cache
 
 logger = logging.getLogger(__name__)
 
@@ -45,15 +47,13 @@ def get_commit_count(project_dir: Path) -> int:
 
 
 def load_implementation_plan(spec_dir: Path) -> dict | None:
-    """Load the implementation plan JSON."""
+    """
+    Load the implementation plan JSON with caching.
+
+    Uses the global implementation plan cache for improved performance.
+    """
     plan_file = spec_dir / "implementation_plan.json"
-    if not plan_file.exists():
-        return None
-    try:
-        with open(plan_file) as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return None
+    return get_implementation_plan_cache().load(plan_file)
 
 
 def find_subtask_in_plan(plan: dict, subtask_id: str) -> dict | None:

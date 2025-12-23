@@ -1,0 +1,40 @@
+{
+  "name": "rest-api",
+  "title": "REST API Endpoint",
+  "description": "Template for adding a new REST API endpoint with standard patterns",
+  "category": "api",
+  "complexity": "standard",
+  "variables": [
+    {
+      "name": "endpoint",
+      "description": "API endpoint path (e.g., /users, /products/:id)",
+      "required": true,
+      "example": "/users"
+    },
+    {
+      "name": "method",
+      "description": "HTTP method (GET, POST, PUT, PATCH, DELETE)",
+      "required": true,
+      "example": "POST"
+    },
+    {
+      "name": "resource",
+      "description": "Resource name (singular, e.g., user, product)",
+      "required": true,
+      "example": "user"
+    },
+    {
+      "name": "description",
+      "description": "Brief description of what the endpoint does",
+      "required": true,
+      "example": "Create a new user"
+    },
+    {
+      "name": "auth_required",
+      "description": "Whether authentication is required (yes/no)",
+      "required": false,
+      "default": "yes"
+    }
+  ],
+  "content": "# {{method}} {{endpoint}}\n\n## Overview\n{{description}}\n\n## Requirements\n\n### Endpoint Details\n- **Method**: {{method}}\n- **Path**: {{endpoint}}\n- **Authentication**: {{auth_required}}\n\n### Request\n- Validate request body/parameters\n- Handle missing/invalid fields with appropriate error messages\n- Apply rate limiting if applicable\n\n### Response\n- Return appropriate HTTP status codes\n- Include resource data in response body\n- Handle errors with consistent error format\n\n### Business Logic\n- Implement {{resource}} business logic\n- Validate business rules\n- Handle edge cases\n\n## Acceptance Criteria\n- [ ] {{method}} {{endpoint}} endpoint is implemented\n- [ ] Request validation works correctly\n- [ ] Response format matches API standards\n- [ ] Error handling is consistent\n- [ ] Unit tests cover main scenarios\n- [ ] Integration tests verify end-to-end flow\n\n## Out of Scope\n- Changes to other endpoints\n- Database schema changes (unless required for this endpoint)\n- UI changes"
+}

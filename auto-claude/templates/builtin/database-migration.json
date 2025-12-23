@@ -1,0 +1,40 @@
+{
+  "name": "database-migration",
+  "title": "Database Migration",
+  "description": "Template for creating database schema migrations",
+  "category": "database",
+  "complexity": "standard",
+  "variables": [
+    {
+      "name": "migration_name",
+      "description": "Migration name in snake_case (e.g., add_user_avatar, create_orders_table)",
+      "required": true,
+      "example": "add_user_avatar"
+    },
+    {
+      "name": "description",
+      "description": "Brief description of the migration",
+      "required": true,
+      "example": "Add avatar_url column to users table"
+    },
+    {
+      "name": "tables",
+      "description": "Tables affected by this migration (comma-separated)",
+      "required": true,
+      "example": "users"
+    },
+    {
+      "name": "migration_type",
+      "description": "Type of migration (create, alter, drop, data)",
+      "required": false,
+      "default": "alter"
+    },
+    {
+      "name": "reversible",
+      "description": "Whether migration is reversible (yes/no)",
+      "required": false,
+      "default": "yes"
+    }
+  ],
+  "content": "# Migration: {{migration_name}}\n\n## Overview\n{{description}}\n\n## Requirements\n\n### Migration Details\n- **Type**: {{migration_type}}\n- **Tables**: {{tables}}\n- **Reversible**: {{reversible}}\n\n### Schema Changes\n- Define forward migration (up)\n- Define rollback migration (down) if reversible\n- Add appropriate indexes for new columns\n- Set proper defaults and constraints\n\n### Data Migration (if applicable)\n- Migrate existing data to new schema\n- Handle null values appropriately\n- Consider batch processing for large tables\n\n### Safety Considerations\n- Migration must be backward compatible if possible\n- Consider impact on running application\n- Test migration on copy of production data\n\n## Acceptance Criteria\n- [ ] Migration file created with proper naming\n- [ ] Forward migration (up) implemented\n- [ ] Rollback migration (down) implemented (if reversible)\n- [ ] Indexes added for new columns\n- [ ] Migration tested locally\n- [ ] Data migration handled (if applicable)\n- [ ] Documentation updated (if schema docs exist)\n\n## Out of Scope\n- Application code changes to use new schema\n- Other unrelated schema changes\n- Performance optimization of existing tables\n\n## Rollback Plan\n- Run rollback migration if issues arise\n- Verify data integrity after rollback"
+}

@@ -1,0 +1,40 @@
+{
+  "name": "react-component",
+  "title": "React Component",
+  "description": "Template for creating a new React component with tests",
+  "category": "component",
+  "complexity": "simple",
+  "variables": [
+    {
+      "name": "component_name",
+      "description": "Component name in PascalCase (e.g., UserProfile, Button)",
+      "required": true,
+      "example": "UserProfile"
+    },
+    {
+      "name": "component_type",
+      "description": "Type of component (functional, page, layout, form)",
+      "required": false,
+      "default": "functional"
+    },
+    {
+      "name": "description",
+      "description": "Brief description of the component's purpose",
+      "required": true,
+      "example": "Displays user profile information with avatar and stats"
+    },
+    {
+      "name": "props",
+      "description": "Main props the component will accept (comma-separated)",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "styling",
+      "description": "Styling approach (tailwind, css-modules, styled-components)",
+      "required": false,
+      "default": "tailwind"
+    }
+  ],
+  "content": "# {{component_name}} Component\n\n## Overview\n{{description}}\n\n## Requirements\n\n### Component Type\n- **Type**: {{component_type}} component\n- **Styling**: {{styling}}\n\n### Props\n{{props}}\n\n### Functionality\n- Implement {{component_name}} with proper TypeScript types\n- Handle loading and error states\n- Make component accessible (ARIA labels, keyboard navigation)\n- Follow existing component patterns in the codebase\n\n### Styling\n- Match existing design system\n- Responsive design (mobile, tablet, desktop)\n- Support dark/light theme if applicable\n\n## Acceptance Criteria\n- [ ] {{component_name}} component is created\n- [ ] TypeScript types are defined for props\n- [ ] Component renders correctly with all prop variations\n- [ ] Loading and error states are handled\n- [ ] Component is accessible\n- [ ] Unit tests cover main scenarios\n- [ ] Storybook story created (if using Storybook)\n\n## Out of Scope\n- Backend API changes\n- Changes to other components\n- New dependencies (unless absolutely necessary)"
+}

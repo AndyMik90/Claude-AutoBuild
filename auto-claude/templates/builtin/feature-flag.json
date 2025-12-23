@@ -1,0 +1,40 @@
+{
+  "name": "feature-flag",
+  "title": "Feature Flag Implementation",
+  "description": "Template for implementing a feature behind a feature flag",
+  "category": "feature",
+  "complexity": "standard",
+  "variables": [
+    {
+      "name": "flag_name",
+      "description": "Feature flag name in snake_case (e.g., new_checkout_flow)",
+      "required": true,
+      "example": "new_checkout_flow"
+    },
+    {
+      "name": "feature_description",
+      "description": "Description of the feature being flagged",
+      "required": true,
+      "example": "New streamlined checkout flow with fewer steps"
+    },
+    {
+      "name": "default_state",
+      "description": "Default flag state (enabled, disabled)",
+      "required": false,
+      "default": "disabled"
+    },
+    {
+      "name": "rollout_strategy",
+      "description": "Rollout strategy (percentage, user-based, environment)",
+      "required": false,
+      "default": "percentage"
+    },
+    {
+      "name": "affected_services",
+      "description": "Services that will check this flag (comma-separated)",
+      "required": false,
+      "default": ""
+    }
+  ],
+  "content": "# Feature Flag: {{flag_name}}\n\n## Overview\n{{feature_description}}\n\n## Requirements\n\n### Flag Configuration\n- **Name**: {{flag_name}}\n- **Default State**: {{default_state}}\n- **Rollout Strategy**: {{rollout_strategy}}\n- **Affected Services**: {{affected_services}}\n\n### Implementation\n\n#### Flag Definition\n- Add flag to feature flag configuration\n- Set appropriate default value\n- Configure rollout rules\n\n#### Code Changes\n- Wrap new feature code with flag check\n- Keep old code path for fallback\n- Ensure both paths are tested\n\n#### Monitoring\n- Add logging for flag evaluation\n- Track usage metrics for both variants\n- Set up alerts for unexpected behavior\n\n### Cleanup Plan\n- Remove flag after full rollout (or rollback)\n- Document removal timeline\n\n## Acceptance Criteria\n- [ ] Feature flag defined in configuration\n- [ ] New feature code wrapped with flag check\n- [ ] Old code path preserved for fallback\n- [ ] Both paths have test coverage\n- [ ] Logging added for flag evaluation\n- [ ] Documentation updated with flag details\n- [ ] Cleanup task created for flag removal\n\n## Out of Scope\n- Full feature rollout (this is just the flag implementation)\n- Removing old code path (done in cleanup phase)\n- Changes to feature flag infrastructure"
+}
