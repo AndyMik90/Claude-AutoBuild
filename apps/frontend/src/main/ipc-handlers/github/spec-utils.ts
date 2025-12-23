@@ -3,41 +3,16 @@
  */
 
 import path from 'path';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { Project, TaskMetadata } from '../../../shared/types';
+import { withSpecNumberLock } from '../../utils/spec-number-lock';
 
 export interface SpecCreationData {
   specId: string;
   specDir: string;
   taskDescription: string;
   metadata: TaskMetadata;
-}
-
-/**
- * Find the next available spec number
- */
-function getNextSpecNumber(specsDir: string): number {
-  if (!existsSync(specsDir)) {
-    return 1;
-  }
-
-  const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-    .filter(d => d.isDirectory())
-    .map(d => d.name);
-
-  const existingNumbers = existingDirs
-    .map(name => {
-      const match = name.match(/^(\d+)/);
-      return match ? parseInt(match[1], 10) : 0;
-    })
-    .filter(n => n > 0);
-
-  if (existingNumbers.length > 0) {
-    return Math.max(...existingNumbers) + 1;
-  }
-
-  return 1;
 }
 
 /**
@@ -105,15 +80,16 @@ function determineCategoryFromLabels(labels: string[]): 'feature' | 'bug_fix' | 
 
 /**
  * Create a new spec directory and initial files
+ * Uses coordinated spec numbering to prevent collisions across worktrees
  */
-export function createSpecForIssue(
+export async function createSpecForIssue(
   project: Project,
   issueNumber: number,
   issueTitle: string,
   taskDescription: string,
   githubUrl: string,
   labels: string[] = []
-): SpecCreationData {
+): Promise<SpecCreationData> {
   const specsBaseDir = getSpecsDir(project.autoBuildPath);
   const specsDir = path.join(project.path, specsBaseDir);
 
@@ -121,63 +97,66 @@ export function createSpecForIssue(
     mkdirSync(specsDir, { recursive: true });
   }
 
-  // Generate spec ID
-  const specNumber = getNextSpecNumber(specsDir);
-  const slugifiedTitle = slugifyTitle(issueTitle);
-  const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+  // Use coordinated spec numbering with lock to prevent collisions
+  return await withSpecNumberLock(project.path, async (lock) => {
+    // Get next spec number from global scan (main + all worktrees)
+    const specNumber = lock.getNextSpecNumber(project.autoBuildPath);
+    const slugifiedTitle = slugifyTitle(issueTitle);
+    const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
 
-  // Create spec directory
-  const specDir = path.join(specsDir, specId);
-  mkdirSync(specDir, { recursive: true });
+    // Create spec directory (inside lock to ensure atomicity)
+    const specDir = path.join(specsDir, specId);
+    mkdirSync(specDir, { recursive: true });
 
-  // Create initial files
-  const now = new Date().toISOString();
+    // Create initial files
+    const now = new Date().toISOString();
 
-  // implementation_plan.json
-  const implementationPlan = {
-    feature: issueTitle,
-    description: taskDescription,
-    created_at: now,
-    updated_at: now,
-    status: 'pending',
-    phases: []
-  };
-  writeFileSync(
-    path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-    JSON.stringify(implementationPlan, null, 2)
-  );
+    // implementation_plan.json
+    const implementationPlan = {
+      feature: issueTitle,
+      description: taskDescription,
+      created_at: now,
+      updated_at: now,
+      status: 'pending',
+      phases: []
+    };
+    writeFileSync(
+      path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+      JSON.stringify(implementationPlan, null, 2)
+    );
 
-  // requirements.json
-  const requirements = {
-    task_description: taskDescription,
-    workflow_type: 'feature'
-  };
-  writeFileSync(
-    path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
-    JSON.stringify(requirements, null, 2)
-  );
+    // requirements.json
+    const requirements = {
+      task_description: taskDescription,
+      workflow_type: 'feature'
+    };
+    writeFileSync(
+      path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
+      JSON.stringify(requirements, null, 2)
+    );
 
-  // Determine category from GitHub issue labels
-  const category = determineCategoryFromLabels(labels);
+    // Determine category from GitHub issue labels
+    const category = determineCategoryFromLabels(labels);
 
-  // task_metadata.json
-  const metadata: TaskMetadata = {
-    sourceType: 'github',
-    githubIssueNumber: issueNumber,
-    githubUrl,
-    category
-  };
-  writeFileSync(
-    path.join(specDir, 'task_metadata.json'),
-    JSON.stringify(metadata, null, 2)
-  );
+    // task_metadata.json
+    const metadata: TaskMetadata = {
+      sourceType: 'github',
+      githubIssueNumber: issueNumber,
+      githubUrl,
+      category
+    };
+    writeFileSync(
+      path.join(specDir, 'task_metadata.json'),
+      JSON.stringify(metadata, null, 2)
+    );
 
-  return {
-    specId,
-    specDir,
-    taskDescription,
-    metadata
-  };
+    return {
+      specId,
+      specDir,
+      taskDescription,
+      metadata
+    };
+  });
 }
 
 /**

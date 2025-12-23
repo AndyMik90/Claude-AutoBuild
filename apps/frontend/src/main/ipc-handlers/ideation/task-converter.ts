@@ -3,7 +3,7 @@
  */
 
 import path from 'path';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import type { IpcMainInvokeEvent } from 'electron';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type {
@@ -19,33 +19,7 @@ import type {
 import { projectStore } from '../../project-store';
 import { readIdeationFile, writeIdeationFile, updateIdeationTimestamp } from './file-utils';
 import type { RawIdea } from './types';
-
-/**
- * Find the next available spec number
- */
-function findNextSpecNumber(specsDir: string): number {
-  if (!existsSync(specsDir)) {
-    return 1;
-  }
-
-  try {
-    const existingSpecs = readdirSync(specsDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => {
-        const match = d.name.match(/^(\d+)-/);
-        return match ? parseInt(match[1], 10) : 0;
-      })
-      .filter(n => n > 0);
-
-    if (existingSpecs.length > 0) {
-      return Math.max(...existingSpecs) + 1;
-    }
-  } catch {
-    // Use default 1
-  }
-
-  return 1;
-}
+import { withSpecNumberLock } from '../../utils/spec-number-lock';
 
 /**
  * Create a slugified version of a title for use in directory names
@@ -241,45 +215,48 @@ export async function convertIdeaToTask(
       mkdirSync(specsDir, { recursive: true });
     }
 
-    // Find next spec number and create spec ID
-    const nextNum = findNextSpecNumber(specsDir);
-    const slugifiedTitle = slugifyTitle(idea.title);
-    const specId = `${String(nextNum).padStart(3, '0')}-${slugifiedTitle}`;
-    const specDir = path.join(specsDir, specId);
+    // Use coordinated spec numbering with lock to prevent collisions
+    return await withSpecNumberLock(project.path, async (lock) => {
+      // Get next spec number from global scan (main + all worktrees)
+      const nextNum = lock.getNextSpecNumber(project.autoBuildPath);
+      const slugifiedTitle = slugifyTitle(idea.title);
+      const specId = `${String(nextNum).padStart(3, '0')}-${slugifiedTitle}`;
+      const specDir = path.join(specsDir, specId);
 
-    // Build task description and metadata
-    const taskDescription = buildTaskDescription(idea);
-    const metadata = buildTaskMetadata(idea);
+      // Build task description and metadata
+      const taskDescription = buildTaskDescription(idea);
+      const metadata = buildTaskMetadata(idea);
 
-    // Create spec files
-    createSpecFiles(specDir, idea, taskDescription);
+      // Create spec files (inside lock to ensure atomicity)
+      createSpecFiles(specDir, idea, taskDescription);
 
-    // Save metadata
-    const metadataPath = path.join(specDir, 'task_metadata.json');
-    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+      // Save metadata
+      const metadataPath = path.join(specDir, 'task_metadata.json');
+      writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-    // Update idea status to archived (converted ideas are archived)
-    idea.status = 'archived';
-    idea.linked_task_id = specId;
-    updateIdeationTimestamp(ideation);
-    writeIdeationFile(ideationPath, ideation);
+      // Update idea status to archived (converted ideas are archived)
+      idea.status = 'archived';
+      idea.linked_task_id = specId;
+      updateIdeationTimestamp(ideation);
+      writeIdeationFile(ideationPath, ideation);
 
-    // Create task object to return
-    const task: Task = {
-      id: specId,
-      specId: specId,
-      projectId,
-      title: idea.title,
-      description: taskDescription,
-      status: 'backlog',
-      subtasks: [],
-      logs: [],
-      metadata,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+      // Create task object to return
+      const task: Task = {
+        id: specId,
+        specId: specId,
+        projectId,
+        title: idea.title,
+        description: taskDescription,
+        status: 'backlog',
+        subtasks: [],
+        logs: [],
+        metadata,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-    return { success: true, data: task };
+      return { success: true, data: task };
+    });
   } catch (error) {
     return {
       success: false,

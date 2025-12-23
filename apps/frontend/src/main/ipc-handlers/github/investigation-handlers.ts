@@ -140,8 +140,8 @@ export function registerInvestigateIssue(
           issueContext
         );
 
-        // Create spec directory and files
-        const specData = createSpecForIssue(
+        // Create spec directory and files (with coordinated numbering)
+        const specData = await createSpecForIssue(
           project,
           issue.number,
           issue.title,

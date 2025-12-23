@@ -5,14 +5,20 @@ Pipeline Models and Utilities
 Data structures, helper functions, and utilities for the spec creation pipeline.
 """
 
+from __future__ import annotations
+
 import json
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from init import init_auto_claude_dir
 from task_logger import update_task_logger_path
 from ui import Icons, highlight, print_status
+
+if TYPE_CHECKING:
+    from core.workspace.models import SpecNumberLock
 
 
 def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
@@ -78,29 +84,37 @@ def cleanup_orphaned_pending_folders(specs_dir: Path) -> None:
             pass
 
 
-def create_spec_dir(specs_dir: Path) -> Path:
+def create_spec_dir(specs_dir: Path, lock: SpecNumberLock | None = None) -> Path:
     """Create a new spec directory with incremented number and placeholder name.
 
     Args:
         specs_dir: The parent specs directory
+        lock: Optional SpecNumberLock for coordinated numbering across worktrees.
+              If provided, uses global scan to prevent spec number collisions.
+              If None, uses local scan only (legacy behavior for single process).
 
     Returns:
         Path to the new spec directory
     """
-    existing = list(specs_dir.glob("[0-9][0-9][0-9]-*"))
-
-    if existing:
-        # Find the HIGHEST folder number
-        numbers = []
-        for folder in existing:
-            try:
-                num = int(folder.name[:3])
-                numbers.append(num)
-            except ValueError:
-                pass
-        next_num = max(numbers) + 1 if numbers else 1
+    if lock is not None:
+        # Use global coordination via lock - scans main project + all worktrees
+        next_num = lock.get_next_spec_number()
     else:
-        next_num = 1
+        # Legacy local scan (fallback for cases without lock)
+        existing = list(specs_dir.glob("[0-9][0-9][0-9]-*"))
+
+        if existing:
+            # Find the HIGHEST folder number
+            numbers = []
+            for folder in existing:
+                try:
+                    num = int(folder.name[:3])
+                    numbers.append(num)
+                except ValueError:
+                    pass
+            next_num = max(numbers) + 1 if numbers else 1
+        else:
+            next_num = 1
 
     # Start with placeholder - will be renamed after requirements gathering
     name = "pending"

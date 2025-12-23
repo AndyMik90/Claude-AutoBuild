@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from analysis.analyzers import analyze_project
+from core.workspace.models import SpecNumberLock
 from phase_config import get_thinking_budget
 from prompts_pkg.project_context import should_refresh_project_index
 from review import run_review_checkpoint
@@ -96,12 +97,16 @@ class SpecOrchestrator:
         if spec_dir:
             # Use provided spec directory (from UI)
             self.spec_dir = Path(spec_dir)
+            self.spec_dir.mkdir(parents=True, exist_ok=True)
         elif spec_name:
             self.spec_dir = self.specs_dir / spec_name
+            self.spec_dir.mkdir(parents=True, exist_ok=True)
         else:
-            self.spec_dir = create_spec_dir(self.specs_dir)
-
-        self.spec_dir.mkdir(parents=True, exist_ok=True)
+            # Use lock for coordinated spec numbering across worktrees
+            with SpecNumberLock(self.project_dir) as lock:
+                self.spec_dir = create_spec_dir(self.specs_dir, lock)
+                # Create directory inside lock to ensure atomicity
+                self.spec_dir.mkdir(parents=True, exist_ok=True)
         self.validator = SpecValidator(self.spec_dir)
 
         # Agent runner (initialized when needed)

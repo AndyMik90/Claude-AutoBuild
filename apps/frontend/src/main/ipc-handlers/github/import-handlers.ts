@@ -59,8 +59,8 @@ ${labelsString ? `**Labels:** ${labelsString}` : ''}
 ${issue.body || 'No description provided.'}
 `;
 
-          // Create spec directory and files
-          const specData = createSpecForIssue(
+          // Create spec directory and files (with coordinated numbering)
+          const specData = await createSpecForIssue(
             project,
             issue.number,
             issue.title,
