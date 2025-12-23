@@ -618,7 +618,35 @@ export function registerTaskExecutionHandlers(
           // Add recovery note
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
-          // Reset in_progress and failed subtask statuses to 'pending' so they can be retried
+          // Check if task is actually stuck or just completed and waiting for merge
+          const allSubtasks = plan.phases?.flatMap(phase => (phase as { subtasks?: Array<{ status: string }> }).subtasks || []) || [];
+          const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
+          const totalCount = allSubtasks.length;
+          const allCompleted = totalCount > 0 && completedCount === totalCount;
+
+          if (allCompleted) {
+            console.log('[Recovery] Task is fully complete (all subtasks done), setting to human_review without restart');
+            // Don't reset any subtasks - task is done!
+            // Just update status in plan file
+            plan.status = 'human_review';
+            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+
+            // Update task status in project store
+            await projectStore.updateTaskStatus(taskId, 'human_review');
+
+            return {
+              success: true,
+              data: {
+                taskId,
+                recovered: true,
+                newStatus: 'human_review',
+                message: 'Task is complete and ready for review',
+                autoRestarted: false
+              }
+            };
+          }
+
+          // Task is not complete - reset only stuck subtasks for retry
           // Keep completed subtasks as-is so run.py can resume from where it left off
           if (plan.phases && Array.isArray(plan.phases)) {
             for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string; actual_output?: string; started_at?: string; completed_at?: string }> }>) {
@@ -632,6 +660,7 @@ export function registerTaskExecutionHandlers(
                     delete subtask.actual_output;
                     delete subtask.started_at;
                     delete subtask.completed_at;
+                    console.log(`[Recovery] Reset stuck subtask: ${subtask.status}`);
                   }
                   // Also reset failed subtasks so they can be retried
                   if (subtask.status === 'failed') {
@@ -640,6 +669,7 @@ export function registerTaskExecutionHandlers(
                     delete subtask.actual_output;
                     delete subtask.started_at;
                     delete subtask.completed_at;
+                    console.log(`[Recovery] Reset failed subtask for retry`);
                   }
                 }
               }
