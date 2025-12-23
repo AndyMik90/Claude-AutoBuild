@@ -4,7 +4,7 @@ Provides CRUD operations for agent profiles and credential management.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 from sqlalchemy import select
@@ -116,7 +116,7 @@ class AgentProfileService:
                     value = MemoryBackend(value)
                 setattr(profile, key, value)
 
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(profile)
 
@@ -362,7 +362,7 @@ class AgentProfileService:
         except CredentialEncryptionError as e:
             raise AgentProfileError(e.message, e.code)
 
-        credentials.updated_at = datetime.utcnow()
+        credentials.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(credentials)
 
