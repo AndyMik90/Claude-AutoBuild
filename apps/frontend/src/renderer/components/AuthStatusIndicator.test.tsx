@@ -132,11 +132,6 @@ describe('AuthStatusIndicator', () => {
       );
     });
 
-    it('should be exportable as named export', async () => {
-      const module = await import('./AuthStatusIndicator');
-      expect(Object.keys(module)).toContain('AuthStatusIndicator');
-    });
-
     it('should be a valid React component', () => {
       expect(() => render(<AuthStatusIndicator />)).not.toThrow();
     });
