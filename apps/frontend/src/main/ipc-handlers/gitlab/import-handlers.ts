@@ -1,0 +1,99 @@
+/**
+ * GitLab import handlers
+ * Handles bulk importing issues as tasks
+ */
+
+import { ipcMain } from 'electron';
+import { IPC_CHANNELS } from '../../../shared/constants';
+import type { IPCResult, Project, GitLabImportResult, Task } from '../../../shared/types';
+import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
+import type { GitLabAPIIssue } from './types';
+import { createSpecForIssue } from './spec-utils';
+
+// Debug logging helper
+const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+
+function debugLog(message: string, data?: unknown): void {
+  if (DEBUG) {
+    if (data !== undefined) {
+      console.warn(`[GitLab Import] ${message}`, data);
+    } else {
+      console.warn(`[GitLab Import] ${message}`);
+    }
+  }
+}
+
+/**
+ * Import multiple GitLab issues as tasks
+ */
+export function registerImportIssues(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITLAB_IMPORT_ISSUES,
+    async (_event, project: Project, issueIids: number[]): Promise<IPCResult<GitLabImportResult>> => {
+      debugLog('importGitLabIssues handler called', { issueIids });
+
+      const config = getGitLabConfig(project);
+      if (!config) {
+        return {
+          success: false,
+          error: 'GitLab not configured'
+        };
+      }
+
+      const tasks: Task[] = [];
+      const errors: string[] = [];
+      let imported = 0;
+      let failed = 0;
+
+      for (const iid of issueIids) {
+        try {
+          const encodedProject = encodeProjectPath(config.project);
+
+          // Fetch the issue
+          const apiIssue = await gitlabFetch(
+            config.token,
+            config.instanceUrl,
+            `/projects/${encodedProject}/issues/${iid}`
+          ) as GitLabAPIIssue;
+
+          // Create a spec/task from the issue
+          const task = await createSpecForIssue(project, apiIssue, config);
+
+          if (task) {
+            tasks.push(task);
+            imported++;
+            debugLog('Imported issue:', { iid, taskId: task.id });
+          } else {
+            failed++;
+            errors.push(`Failed to create task for issue #${iid}`);
+          }
+        } catch (error) {
+          failed++;
+          const errorMessage = error instanceof Error ? error.message : `Unknown error for issue #${iid}`;
+          errors.push(errorMessage);
+          debugLog('Failed to import issue:', { iid, error: errorMessage });
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          success: imported > 0,
+          imported,
+          failed,
+          errors: errors.length > 0 ? errors : undefined,
+          tasks
+        }
+      };
+    }
+  );
+}
+
+/**
+ * Register all import handlers
+ */
+export function registerImportHandlers(): void {
+  debugLog('Registering GitLab import handlers');
+  registerImportIssues();
+  debugLog('GitLab import handlers registered');
+}

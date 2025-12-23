@@ -205,6 +205,40 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
 
+  // GitLab integration
+  GITLAB_GET_PROJECTS: 'gitlab:getProjects',
+  GITLAB_GET_ISSUES: 'gitlab:getIssues',
+  GITLAB_GET_ISSUE: 'gitlab:getIssue',
+  GITLAB_GET_ISSUE_NOTES: 'gitlab:getIssueNotes',
+  GITLAB_CHECK_CONNECTION: 'gitlab:checkConnection',
+  GITLAB_INVESTIGATE_ISSUE: 'gitlab:investigateIssue',
+  GITLAB_IMPORT_ISSUES: 'gitlab:importIssues',
+  GITLAB_CREATE_RELEASE: 'gitlab:createRelease',
+
+  // GitLab Merge Requests (equivalent to GitHub PRs)
+  GITLAB_GET_MERGE_REQUESTS: 'gitlab:getMergeRequests',
+  GITLAB_GET_MERGE_REQUEST: 'gitlab:getMergeRequest',
+  GITLAB_CREATE_MERGE_REQUEST: 'gitlab:createMergeRequest',
+  GITLAB_UPDATE_MERGE_REQUEST: 'gitlab:updateMergeRequest',
+
+  // GitLab OAuth (glab CLI authentication)
+  GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
+  GITLAB_START_AUTH: 'gitlab:startAuth',
+  GITLAB_GET_TOKEN: 'gitlab:getToken',
+  GITLAB_GET_USER: 'gitlab:getUser',
+  GITLAB_LIST_USER_PROJECTS: 'gitlab:listUserProjects',
+  GITLAB_DETECT_PROJECT: 'gitlab:detectProject',
+  GITLAB_GET_BRANCHES: 'gitlab:getBranches',
+  GITLAB_CREATE_PROJECT: 'gitlab:createProject',
+  GITLAB_ADD_REMOTE: 'gitlab:addRemote',
+  GITLAB_LIST_GROUPS: 'gitlab:listGroups',
+
+  // GitLab events (main -> renderer)
+  GITLAB_INVESTIGATION_PROGRESS: 'gitlab:investigationProgress',
+  GITLAB_INVESTIGATION_COMPLETE: 'gitlab:investigationComplete',
+  GITLAB_INVESTIGATION_ERROR: 'gitlab:investigationError',
+
   // Memory Infrastructure status (LadybugDB - no Docker required)
   MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',

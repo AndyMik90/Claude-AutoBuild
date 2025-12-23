@@ -145,6 +145,134 @@ export interface GitHubInvestigationStatus {
 }
 
 // ============================================
+// GitLab Integration Types
+// ============================================
+
+export interface GitLabProject {
+  id: number;
+  name: string;
+  pathWithNamespace: string; // group/project format
+  description?: string;
+  webUrl: string;
+  defaultBranch: string;
+  visibility: 'private' | 'internal' | 'public';
+  namespace: {
+    id: number;
+    name: string;
+    path: string;
+    kind: 'group' | 'user';
+  };
+  avatarUrl?: string;
+}
+
+export interface GitLabIssue {
+  id: number;
+  iid: number; // Project-scoped ID (GitLab uses iid for display)
+  title: string;
+  description?: string;
+  state: 'opened' | 'closed';
+  labels: string[]; // GitLab uses string array, not objects
+  assignees: Array<{ username: string; avatarUrl?: string }>;
+  author: {
+    username: string;
+    avatarUrl?: string;
+  };
+  milestone?: {
+    id: number;
+    title: string;
+    state: 'active' | 'closed';
+  };
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  userNotesCount: number; // GitLab's comment count field
+  webUrl: string;
+  projectPathWithNamespace: string;
+}
+
+export interface GitLabMergeRequest {
+  id: number;
+  iid: number;
+  title: string;
+  description?: string;
+  state: 'opened' | 'closed' | 'merged' | 'locked';
+  sourceBranch: string;
+  targetBranch: string;
+  author: {
+    username: string;
+    avatarUrl?: string;
+  };
+  assignees: Array<{ username: string; avatarUrl?: string }>;
+  labels: string[];
+  webUrl: string;
+  createdAt: string;
+  updatedAt: string;
+  mergedAt?: string;
+  mergeStatus: string;
+}
+
+export interface GitLabNote {
+  id: number;
+  body: string;
+  author: {
+    username: string;
+    avatarUrl?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  system: boolean; // System-generated notes (status changes, etc.)
+}
+
+export interface GitLabGroup {
+  id: number;
+  name: string;
+  path: string;
+  fullPath: string;
+  description?: string;
+  avatarUrl?: string;
+}
+
+export interface GitLabSyncStatus {
+  connected: boolean;
+  instanceUrl?: string; // GitLab-specific: base URL of instance
+  projectPathWithNamespace?: string;
+  projectDescription?: string;
+  issueCount?: number;
+  lastSyncedAt?: string;
+  error?: string;
+}
+
+export interface GitLabImportResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors?: string[];
+  tasks?: import('./task').Task[];
+}
+
+export interface GitLabInvestigationResult {
+  success: boolean;
+  issueIid: number; // GitLab uses iid
+  analysis: {
+    summary: string;
+    proposedSolution: string;
+    affectedFiles: string[];
+    estimatedComplexity: 'simple' | 'standard' | 'complex';
+    acceptanceCriteria: string[];
+  };
+  taskId?: string;
+  error?: string;
+}
+
+export interface GitLabInvestigationStatus {
+  phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
+  issueIid?: number;
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+// ============================================
 // Roadmap Integration Types (Canny, etc.)
 // ============================================
 
