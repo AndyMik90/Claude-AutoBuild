@@ -16,6 +16,13 @@
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
 
+    // Escape HTML entities to prevent XSS attacks
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function connect() {
         ws = new WebSocket(wsUrl);
 
@@ -30,8 +37,9 @@
                 viewer.innerHTML = '';
             }
 
-            // Append the log line with ANSI color support (basic)
-            const line = event.data
+            // First escape HTML to prevent XSS, then apply ANSI color support
+            const escapedData = escapeHtml(event.data);
+            const line = escapedData
                 .replace(/\x1b\[32m/g, '<span class="text-green-400">')
                 .replace(/\x1b\[33m/g, '<span class="text-yellow-400">')
                 .replace(/\x1b\[31m/g, '<span class="text-red-400">')
