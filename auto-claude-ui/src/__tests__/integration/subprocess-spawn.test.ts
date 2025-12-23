@@ -6,15 +6,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 import { mkdirSync, rmSync, existsSync, writeFileSync } from 'fs';
 import path from 'path';
-import { findPythonCommand, parsePythonCommand } from '../../main/python-detector';
 
 // Test directories
 const TEST_DIR = '/tmp/subprocess-spawn-test';
 const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
-
-// Detect the Python command that will actually be used
-const DETECTED_PYTHON_CMD = findPythonCommand() || 'python';
-const [EXPECTED_PYTHON_COMMAND, EXPECTED_PYTHON_BASE_ARGS] = parsePythonCommand(DETECTED_PYTHON_CMD);
 
 // Mock child_process spawn
 const mockStdout = new EventEmitter();
@@ -40,6 +35,14 @@ vi.mock('../../main/claude-profile-manager', () => ({
     hasValidAuth: () => true,
     getActiveProfile: () => ({ profileId: 'default', profileName: 'Default' })
   })
+}));
+
+// Mock pythonEnvManager to return a valid venv Python path
+vi.mock('../../main/python-env-manager', () => ({
+  pythonEnvManager: {
+    getPythonPath: () => '/path/to/venv/bin/python',
+    isEnvReady: () => true
+  }
 }));
 
 // Auto-claude source path (for getAutoBuildSourcePath to find)
@@ -104,9 +107,8 @@ describe('Subprocess Spawn Integration', () => {
       manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test task description');
 
       expect(spawn).toHaveBeenCalledWith(
-        EXPECTED_PYTHON_COMMAND,
+        '/path/to/venv/bin/python',
         expect.arrayContaining([
-          ...EXPECTED_PYTHON_BASE_ARGS,
           expect.stringContaining('spec_runner.py'),
           '--task',
           'Test task description'
@@ -129,13 +131,8 @@ describe('Subprocess Spawn Integration', () => {
       manager.startTaskExecution('task-1', TEST_PROJECT_PATH, 'spec-001');
 
       expect(spawn).toHaveBeenCalledWith(
-        EXPECTED_PYTHON_COMMAND,
-        expect.arrayContaining([
-          ...EXPECTED_PYTHON_BASE_ARGS,
-          expect.stringContaining('run.py'),
-          '--spec',
-          'spec-001'
-        ]),
+        '/path/to/venv/bin/python',
+        expect.arrayContaining([expect.stringContaining('run.py'), '--spec', 'spec-001']),
         expect.objectContaining({
           cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
         })
@@ -151,9 +148,8 @@ describe('Subprocess Spawn Integration', () => {
       manager.startQAProcess('task-1', TEST_PROJECT_PATH, 'spec-001');
 
       expect(spawn).toHaveBeenCalledWith(
-        EXPECTED_PYTHON_COMMAND,
+        '/path/to/venv/bin/python',
         expect.arrayContaining([
-          ...EXPECTED_PYTHON_BASE_ARGS,
           expect.stringContaining('run.py'),
           '--spec',
           'spec-001',
@@ -179,13 +175,8 @@ describe('Subprocess Spawn Integration', () => {
 
       // Should spawn normally - parallel options don't affect CLI args anymore
       expect(spawn).toHaveBeenCalledWith(
-        EXPECTED_PYTHON_COMMAND,
-        expect.arrayContaining([
-          ...EXPECTED_PYTHON_BASE_ARGS,
-          expect.stringContaining('run.py'),
-          '--spec',
-          'spec-001'
-        ]),
+        '/path/to/venv/bin/python',
+        expect.arrayContaining([expect.stringContaining('run.py'), '--spec', 'spec-001']),
         expect.any(Object)
       );
     });
@@ -294,17 +285,19 @@ describe('Subprocess Spawn Integration', () => {
       expect(manager.getRunningTasks()).toHaveLength(2);
     });
 
-    it('should use configured Python path', async () => {
+    it('should use pythonEnvManager Python path (ignoring configure argument)', async () => {
       const { spawn } = await import('child_process');
       const { AgentManager } = await import('../../main/agent');
 
       const manager = new AgentManager();
+      // Even if a custom path is passed, it should use pythonEnvManager.getPythonPath()
       manager.configure('/custom/python3', AUTO_CLAUDE_SOURCE);
 
       manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test');
 
+      // Should use the mocked pythonEnvManager path, not the configure argument
       expect(spawn).toHaveBeenCalledWith(
-        '/custom/python3',
+        '/path/to/venv/bin/python',
         expect.any(Array),
         expect.any(Object)
       );

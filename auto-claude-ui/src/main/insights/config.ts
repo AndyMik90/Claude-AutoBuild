@@ -2,34 +2,30 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
-import { findPythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 /**
  * Configuration manager for insights service
  * Handles path detection and environment variable loading
  */
 export class InsightsConfig {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   /**
-   * Configure paths for Python and auto-claude source
+   * Configure paths for auto-claude source
    */
-  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
-    if (pythonPath) {
-      this.pythonPath = pythonPath;
-    }
+  configure(_pythonPath?: string, autoBuildSourcePath?: string): void {
+    // pythonPath is now managed by pythonEnvManager (ignored for backward compatibility)
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
   }
 
   /**
-   * Get configured Python path
+   * Get Python path from venv manager
    */
-  getPythonPath(): string {
-    return this.pythonPath;
+  getPythonPath(): string | null {
+    return pythonEnvManager.getPythonPath();
   }
 
   /**

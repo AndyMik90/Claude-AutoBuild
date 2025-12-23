@@ -9,7 +9,7 @@ import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 /**
  * Process spawning and lifecycle management
@@ -18,8 +18,6 @@ export class AgentProcessManager {
   private state: AgentState;
   private events: AgentEvents;
   private emitter: EventEmitter;
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
@@ -29,22 +27,20 @@ export class AgentProcessManager {
   }
 
   /**
-   * Configure paths for Python and auto-claude source
+   * Configure paths for auto-claude source
    */
-  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
-    if (pythonPath) {
-      this.pythonPath = pythonPath;
-    }
+  configure(_pythonPath?: string, autoBuildSourcePath?: string): void {
+    // pythonPath is now managed by pythonEnvManager (ignored for backward compatibility)
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
   }
 
   /**
-   * Get the configured Python path
+   * Get Python path from venv manager
    */
-  getPythonPath(): string {
-    return this.pythonPath;
+  getPythonPath(): string | null {
+    return pythonEnvManager.getPythonPath();
   }
 
   /**
@@ -163,9 +159,15 @@ export class AgentProcessManager {
     // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
     const profileEnv = getProfileEnv();
 
-    // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+    // Get Python path from venv manager (required for Claude SDK and other dependencies)
+    const pythonPath = pythonEnvManager.getPythonPath();
+    if (!pythonPath) {
+      this.emitter.emit('task-error', taskId, 'Python environment not ready. Please wait for initialization.');
+      return;
+    }
+
+    // Python path is already the full path to venv python
+    const childProcess = spawn(pythonPath, args, {
       cwd,
       env: {
         ...process.env,

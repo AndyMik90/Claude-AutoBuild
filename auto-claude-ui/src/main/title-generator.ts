@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { findPythonCommand, parsePythonCommand } from './python-detector';
+import { pythonEnvManager } from './python-env-manager';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -21,8 +21,6 @@ function debug(...args: unknown[]): void {
  * Service for generating task titles from descriptions using Claude AI
  */
 export class TitleGenerator extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
   constructor() {
@@ -31,12 +29,10 @@ export class TitleGenerator extends EventEmitter {
   }
 
   /**
-   * Configure paths for Python and auto-claude source
+   * Configure paths for auto-claude source
    */
-  configure(pythonPath?: string, autoBuildSourcePath?: string): void {
-    if (pythonPath) {
-      this.pythonPath = pythonPath;
-    }
+  configure(_pythonPath?: string, autoBuildSourcePath?: string): void {
+    // pythonPath is now managed by pythonEnvManager (ignored for backward compatibility)
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
@@ -131,9 +127,15 @@ export class TitleGenerator extends EventEmitter {
     const profileEnv = getProfileEnv();
 
     return new Promise((resolve) => {
-      // Parse Python command to handle space-separated commands like "py -3"
-      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
-      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+      // Get Python path from venv manager (required for claude_agent_sdk)
+      const pythonPath = pythonEnvManager.getPythonPath();
+      if (!pythonPath) {
+        debug('Python environment not ready');
+        resolve(null);
+        return;
+      }
+
+      const childProcess = spawn(pythonPath, ['-c', script], {
         cwd: autoBuildSource,
         env: {
           ...process.env,

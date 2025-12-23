@@ -73,6 +73,11 @@ export class InsightsExecutor extends EventEmitter {
       throw new Error('Auto Claude source not found');
     }
 
+    const pythonPath = this.config.getPythonPath();
+    if (!pythonPath) {
+      throw new Error('Python environment not ready. Please wait for initialization.');
+    }
+
     const runnerPath = path.join(autoBuildSource, 'runners', 'insights_runner.py');
     if (!existsSync(runnerPath)) {
       throw new Error('insights_runner.py not found in auto-claude directory');
@@ -118,7 +123,7 @@ export class InsightsExecutor extends EventEmitter {
     }
 
     // Spawn Python process
-    const proc = spawn(this.config.getPythonPath(), args, {
+    const proc = spawn(pythonPath, args, {
       cwd: autoBuildSource,
       env: processEnv
     });

@@ -21,6 +21,7 @@ import {
   buildMemoryStatus
 } from './memory-status-handlers';
 import { loadFileBasedMemories } from './memory-data-handlers';
+import { pythonEnvManager } from '../../python-env-manager';
 
 /**
  * Load project index from file
@@ -159,7 +160,12 @@ export function registerProjectContextHandlers(
 
         // Run analyzer
         await new Promise<void>((resolve, reject) => {
-          const proc = spawn('python', [
+          const pythonPath = pythonEnvManager.getPythonPath();
+          if (!pythonPath) {
+            reject(new Error('Python environment not ready. Please wait for initialization.'));
+            return;
+          }
+          const proc = spawn(pythonPath, [
             analyzerPath,
             '--project-dir', project.path,
             '--output', indexOutputPath

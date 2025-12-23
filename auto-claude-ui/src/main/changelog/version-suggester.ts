@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as os from 'os';
 import type { GitCommit } from '../../shared/types';
 import { getProfileEnv } from '../rate-limit-detector';
-import { parsePythonCommand } from '../python-detector';
 
 interface VersionSuggestion {
   version: string;
@@ -24,6 +23,9 @@ export class VersionSuggester {
     private autoBuildSourcePath: string,
     debugEnabled: boolean
   ) {
+    if (!pythonPath || pythonPath.trim() === '') {
+      throw new Error('Python path is required but not provided. Ensure the Python environment is initialized.');
+    }
     this.debugEnabled = debugEnabled;
   }
 
@@ -53,9 +55,8 @@ export class VersionSuggester {
     const spawnEnv = this.buildSpawnEnvironment();
 
     return new Promise((resolve, _reject) => {
-      // Parse Python command to handle space-separated commands like "py -3"
-      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
-      const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
+      // Python path is already the full path to venv python
+      const childProcess = spawn(this.pythonPath, ['-c', script], {
         cwd: this.autoBuildSourcePath,
         env: spawnEnv
       });

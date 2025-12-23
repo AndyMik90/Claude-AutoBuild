@@ -9,7 +9,6 @@ import { PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
-import { findPythonCommand, parsePythonCommand } from '../../python-detector';
 
 /**
  * Read the stored base branch from task_metadata.json
@@ -354,7 +353,10 @@ export function registerWorktreeHandlers(
           debug('Using stored base branch:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        const pythonPath = pythonEnvManager.getPythonPath();
+        if (!pythonPath) {
+          return { success: false, error: 'Python environment not ready. Please wait for initialization.' };
+        }
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
 
@@ -370,9 +372,8 @@ export function registerWorktreeHandlers(
           let timeoutId: NodeJS.Timeout | null = null;
           let resolved = false;
 
-          // Parse Python command to handle space-separated commands like "py -3"
-          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
-          const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+          // Spawn directly with venv Python path (no parsing needed for absolute paths)
+          const mergeProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
             env: {
               ...process.env,
@@ -711,16 +712,18 @@ export function registerWorktreeHandlers(
           console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        const pythonPath = pythonEnvManager.getPythonPath();
+        if (!pythonPath) {
+          return { success: false, error: 'Python environment not ready. Please wait for initialization.' };
+        }
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency
         const previewProfileEnv = getProfileEnv();
 
         return new Promise((resolve) => {
-          // Parse Python command to handle space-separated commands like "py -3"
-          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
-          const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+          // Python path is already the full path to venv python
+          const previewProcess = spawn(pythonPath, args, {
             cwd: sourcePath,
             env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', DEBUG: 'true' }
           });
