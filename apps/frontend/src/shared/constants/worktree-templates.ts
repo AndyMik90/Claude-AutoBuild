@@ -116,7 +116,7 @@ export function filterTemplatesByFiles(
     .filter(t => {
       if (t.alwaysShow) return true;
       if (!t.detectFiles || t.detectFiles.length === 0) return true;
-      return t.detectFiles.every(f => existingFiles.has(f));
+      return t.detectFiles.some(f => existingFiles.has(f));
     })
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 }

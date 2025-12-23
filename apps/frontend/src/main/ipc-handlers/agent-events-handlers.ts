@@ -201,6 +201,24 @@ export function registerAgenteventsHandlers(
               error: setupError.message
             };
 
+            // Persist error result to disk for consistency with success path
+            try {
+              const specsBaseDir = getSpecsDir(project.autoBuildPath);
+              const specDir = path.join(project.path, specsBaseDir, task.specId);
+              const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+              if (existsSync(planPath)) {
+                const planContent = readFileSync(planPath, 'utf-8');
+                const plan = JSON.parse(planContent);
+                plan.setupResult = errorResult;
+                plan.updated_at = new Date().toISOString();
+                writeFileSync(planPath, JSON.stringify(plan, null, 2));
+                console.log(`[Task ${taskId}] Saved setup error result to implementation_plan.json`);
+              }
+            } catch (saveError) {
+              console.error(`[Task ${taskId}] Failed to save setup error result:`, saveError);
+            }
+
             const currentWindow = getMainWindow();
             if (currentWindow) {
               currentWindow.webContents.send(IPC_CHANNELS.TASK_SETUP_RESULT, taskId, errorResult);

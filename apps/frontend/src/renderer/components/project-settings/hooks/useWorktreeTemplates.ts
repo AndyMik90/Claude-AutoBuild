@@ -12,6 +12,7 @@ export function useWorktreeTemplates(projectPath: string | undefined) {
   useEffect(() => {
     if (!projectPath) {
       setTemplates(WORKTREE_TEMPLATES.filter(t => t.alwaysShow));
+      setIsLoading(false);
       return;
     }
 

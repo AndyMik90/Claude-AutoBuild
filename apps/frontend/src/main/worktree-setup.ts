@@ -112,6 +112,7 @@ async function executeCommand(
           } catch {
             // Process may already be dead
           }
+          killTimeoutId = null;
         }, 5000);
 
         const durationMs = Date.now() - startTime;
