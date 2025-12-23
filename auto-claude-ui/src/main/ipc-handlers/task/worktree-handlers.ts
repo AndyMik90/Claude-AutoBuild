@@ -889,6 +889,69 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Delete worktree by path directly (for orphaned worktrees without a task)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DELETE_BY_PATH,
+    async (_, projectId: string, worktreePath: string, branch: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        if (!existsSync(worktreePath)) {
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'No worktree to discard'
+            }
+          };
+        }
+
+        try {
+          // Remove the worktree
+          execSync(`git worktree remove --force "${worktreePath}"`, {
+            cwd: project.path,
+            encoding: 'utf-8'
+          });
+
+          // Delete the branch
+          try {
+            execSync(`git branch -D "${branch}"`, {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
+          } catch {
+            // Branch might already be deleted or not exist
+          }
+
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree discarded successfully'
+            }
+          };
+        } catch (gitError) {
+          console.error('Git error discarding worktree:', gitError);
+          return {
+            success: false,
+            error: `Failed to discard worktree: ${gitError instanceof Error ? gitError.message : 'Unknown error'}`
+          };
+        }
+      } catch (error) {
+        console.error('Failed to discard worktree by path:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to discard worktree'
+        };
+      }
+    }
+  );
+
+  /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
    */

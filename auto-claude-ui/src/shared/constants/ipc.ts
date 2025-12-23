@@ -36,6 +36,7 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_DELETE_BY_PATH: 'task:worktreeDeleteByPath',
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
@@ -299,5 +300,12 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Blueprint operations (BMAD integration)
+  BLUEPRINT_LOAD: 'blueprint:load',
+  BLUEPRINT_START_BUILD: 'blueprint:startBuild',
+  BLUEPRINT_FIX_COMPONENT: 'blueprint:fixComponent',
+  BLUEPRINT_UPDATE_STATUS: 'blueprint:updateStatus',
+  BLUEPRINT_CREATE: 'blueprint:create'
 } as const;

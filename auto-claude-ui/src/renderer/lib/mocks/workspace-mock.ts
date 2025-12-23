@@ -62,6 +62,14 @@ export const workspaceMock = {
     }
   }),
 
+  deleteWorktreeByPath: async () => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Worktree discarded successfully'
+    }
+  }),
+
   listWorktrees: async () => ({
     success: true,
     data: {

@@ -108,6 +108,48 @@ import type {
   GitHubInvestigationStatus
 } from './integrations';
 
+// Blueprint types for BMAD integration
+export interface BlueprintComponentType {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'verifying' | 'verified' | 'failed' | 'blocked';
+  files: string[];
+  acceptance_criteria: {
+    description: string;
+    verified: boolean;
+    verified_at?: string;
+    notes?: string;
+  }[];
+  dependencies: string[];
+  started_at?: string;
+  completed_at?: string;
+  attempts: number;
+  notes: string[];
+  implementation_notes?: string;
+  key_decisions: string[];
+}
+
+export interface BlueprintType {
+  name: string;
+  version: string;
+  description: string;
+  created_at: string;
+  created_by: string;
+  project_path?: string;
+  spec_id?: string;
+  strictness: string;
+  components: BlueprintComponentType[];
+}
+
+export interface BlueprintResult {
+  success: boolean;
+  error?: string;
+  blueprint?: BlueprintType;
+  path?: string;
+  pid?: number;
+}
+
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
 export interface TabState {
@@ -149,6 +191,7 @@ export interface ElectronAPI {
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   discardWorktree: (taskId: string) => Promise<IPCResult<WorktreeDiscardResult>>;
+  deleteWorktreeByPath: (projectId: string, worktreePath: string, branch: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
 
   // Task archive operations
@@ -578,6 +621,23 @@ export interface ElectronAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+
+  // Blueprint operations (BMAD integration)
+  loadBlueprint: (projectPath: string, blueprintPath?: string) => Promise<BlueprintResult>;
+  startBlueprintBuild: (projectPath: string) => Promise<BlueprintResult>;
+  fixComponent: (projectPath: string, componentId: string) => Promise<BlueprintResult>;
+  updateComponentStatus: (
+    projectPath: string,
+    componentId: string,
+    status: string,
+    notes?: string
+  ) => Promise<BlueprintResult>;
+  createBlueprint: (
+    projectPath: string,
+    name: string,
+    description: string,
+    components: Partial<BlueprintComponentType>[]
+  ) => Promise<BlueprintResult>;
 }
 
 declare global {
