@@ -29,3 +29,6 @@ export * from './github';
 
 // Configuration and paths
 export * from './config';
+
+// Worktree setup templates
+export * from './worktree-templates';

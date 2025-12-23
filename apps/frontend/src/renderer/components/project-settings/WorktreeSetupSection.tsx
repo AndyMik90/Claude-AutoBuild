@@ -4,19 +4,13 @@ import { Switch } from '../ui/switch';
 import { Textarea } from '../ui/textarea';
 import type { ProjectSettings } from '../../../shared/types';
 import { DEFAULT_WORKTREE_SETUP_TIMEOUT_MS } from '../../../shared/constants';
+import { useWorktreeTemplates } from './hooks/useWorktreeTemplates';
 
 interface WorktreeSetupSectionProps {
   settings: ProjectSettings;
+  projectPath?: string;
   onUpdateSettings: (updates: Partial<ProjectSettings>) => void;
 }
-
-const TEMPLATES = [
-  { label: 'npm ci', cmd: 'npm ci' },
-  { label: 'pnpm install', cmd: 'pnpm install' },
-  { label: 'yarn', cmd: 'yarn' },
-  { label: 'copy .env', cmd: 'cp $PROJECT_PATH/.env .env' },
-  { label: 'pip install', cmd: 'pip install -r requirements.txt' },
-];
 
 function parseCommands(text: string): string[] {
   return text
@@ -29,7 +23,8 @@ function formatCommands(commands: string[]): string {
   return commands.join('\n');
 }
 
-export function WorktreeSetupSection({ settings, onUpdateSettings }: WorktreeSetupSectionProps) {
+export function WorktreeSetupSection({ settings, projectPath, onUpdateSettings }: WorktreeSetupSectionProps) {
+  const { templates } = useWorktreeTemplates(projectPath);
   const config = settings.worktreeSetup || {
     enabled: false,
     commands: [],
@@ -90,12 +85,12 @@ export function WorktreeSetupSection({ settings, onUpdateSettings }: WorktreeSet
                 Setup Commands
               </Label>
               <div className="flex flex-wrap gap-1">
-                {TEMPLATES.map(t => (
+                {templates.map(t => (
                   <button
-                    key={t.cmd}
+                    key={t.id}
                     type="button"
-                    onClick={() => addTemplate(t.cmd)}
-                    disabled={config.commands.includes(t.cmd)}
+                    onClick={() => addTemplate(t.command)}
+                    disabled={config.commands.includes(t.command)}
                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <Plus className="h-2.5 w-2.5" />

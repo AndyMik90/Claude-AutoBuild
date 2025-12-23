@@ -205,6 +205,7 @@ export function GeneralSettings({
 
           <WorktreeSetupSection
             settings={settings}
+            projectPath={project.path}
             onUpdateSettings={(updates) => setSettings({ ...settings, ...updates })}
           />
         </>

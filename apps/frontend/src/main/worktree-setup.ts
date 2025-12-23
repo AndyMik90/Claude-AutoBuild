@@ -54,25 +54,17 @@ function truncateOutput(output: string, maxLength: number = MAX_COMMAND_OUTPUT_L
   return truncatedPrefix + output.slice(-(maxLength - truncatedPrefix.length));
 }
 
-/**
- * Substitute variables in a command string
- */
 function substituteVariables(command: string, variables: SetupVariables): string {
-  let result = command;
+  const varMap: Record<string, string> = {
+    ROOT_WORKTREE_PATH: variables.ROOT_WORKTREE_PATH,
+    WORKTREE_PATH: variables.WORKTREE_PATH,
+    SPEC_NAME: variables.SPEC_NAME,
+    PROJECT_PATH: variables.PROJECT_PATH,
+  };
 
-  // Replace all supported variables
-  result = result.replace(/\$ROOT_WORKTREE_PATH/g, variables.ROOT_WORKTREE_PATH);
-  result = result.replace(/\$WORKTREE_PATH/g, variables.WORKTREE_PATH);
-  result = result.replace(/\$SPEC_NAME/g, variables.SPEC_NAME);
-  result = result.replace(/\$PROJECT_PATH/g, variables.PROJECT_PATH);
-
-  // Also support ${VAR} syntax
-  result = result.replace(/\$\{ROOT_WORKTREE_PATH\}/g, variables.ROOT_WORKTREE_PATH);
-  result = result.replace(/\$\{WORKTREE_PATH\}/g, variables.WORKTREE_PATH);
-  result = result.replace(/\$\{SPEC_NAME\}/g, variables.SPEC_NAME);
-  result = result.replace(/\$\{PROJECT_PATH\}/g, variables.PROJECT_PATH);
-
-  return result;
+  return command.replace(/\$\{?([A-Z_]+)\}?/g, (match, varName: string) => {
+    return varMap[varName] ?? match;
+  });
 }
 
 /**
@@ -107,14 +99,14 @@ async function executeCommand(
       stdio: ['ignore', 'pipe', 'pipe']
     });
 
-    // Set up timeout
+    let killTimeoutId: NodeJS.Timeout | null = null;
+
     timeoutId = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         proc.kill('SIGTERM');
 
-        // Force kill after 5 seconds if still running
-        setTimeout(() => {
+        killTimeoutId = setTimeout(() => {
           try {
             proc.kill('SIGKILL');
           } catch {
@@ -146,6 +138,7 @@ async function executeCommand(
       if (resolved) return;
       resolved = true;
       if (timeoutId) clearTimeout(timeoutId);
+      if (killTimeoutId) clearTimeout(killTimeoutId);
 
       const durationMs = Date.now() - startTime;
       resolve({
@@ -162,6 +155,7 @@ async function executeCommand(
       if (resolved) return;
       resolved = true;
       if (timeoutId) clearTimeout(timeoutId);
+      if (killTimeoutId) clearTimeout(killTimeoutId);
 
       const durationMs = Date.now() - startTime;
       resolve({

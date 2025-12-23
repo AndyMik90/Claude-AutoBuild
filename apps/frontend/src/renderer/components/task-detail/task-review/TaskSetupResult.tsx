@@ -23,6 +23,7 @@ function CommandResult({ result }: { result: WorktreeSetupCommandResult }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
+        type="button"
         onClick={() => hasOutput && setExpanded(!expanded)}
         className={cn(
           "w-full flex items-center gap-2 p-2 text-left",
