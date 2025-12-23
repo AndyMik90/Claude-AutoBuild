@@ -4,6 +4,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -51,6 +52,17 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         extra = "ignore"
+
+    @model_validator(mode="after")
+    def validate_jwt_secret_in_production(self) -> "Settings":
+        """Prevent using default insecure JWT secret in production."""
+        default_secret = "changeme-generate-a-secure-key"
+        if not self.debug and self.jwt_secret_key == default_secret:
+            raise ValueError(
+                "JWT_SECRET_KEY must be changed from the default value in production. "
+                "Set DEBUG=true for development or provide a secure JWT_SECRET_KEY."
+            )
+        return self
 
     @property
     def projects_dir(self) -> Path:
