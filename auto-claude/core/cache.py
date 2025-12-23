@@ -301,7 +301,9 @@ def lru_cache_method(maxsize: int = 128, ttl_seconds: float | None = None):
         def wrapper(self, *args, **kwargs):
             # Get or create cache for this instance
             if not hasattr(self, cache_attr):
-                setattr(self, cache_attr, LRUCache(maxsize=maxsize, ttl_seconds=ttl_seconds))
+                setattr(
+                    self, cache_attr, LRUCache(maxsize=maxsize, ttl_seconds=ttl_seconds)
+                )
             cache = getattr(self, cache_attr)
 
             # Create cache key from arguments

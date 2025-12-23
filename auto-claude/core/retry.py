@@ -234,7 +234,11 @@ def _retry_sync(
             logger.info(
                 f"{func.__name__} failed, retrying in {delay:.1f}s "
                 f"(attempt {attempt}/{config.max_attempts}): {e}",
-                extra={"attempt": attempt, "delay": delay, "error_type": type(e).__name__},
+                extra={
+                    "attempt": attempt,
+                    "delay": delay,
+                    "error_type": type(e).__name__,
+                },
             )
             time.sleep(delay)
 
@@ -276,7 +280,11 @@ async def _retry_async(
             logger.info(
                 f"{func.__name__} failed, retrying in {delay:.1f}s "
                 f"(attempt {attempt}/{config.max_attempts}): {e}",
-                extra={"attempt": attempt, "delay": delay, "error_type": type(e).__name__},
+                extra={
+                    "attempt": attempt,
+                    "delay": delay,
+                    "error_type": type(e).__name__,
+                },
             )
             await asyncio.sleep(delay)
 

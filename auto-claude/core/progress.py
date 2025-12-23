@@ -360,9 +360,7 @@ def get_current_phase(spec_dir: Path) -> dict | None:
                 "id": phase.get("id"),
                 "phase": phase.get("phase"),
                 "name": phase.get("name"),
-                "completed": sum(
-                    1 for s in subtasks if s.get("status") == "completed"
-                ),
+                "completed": sum(1 for s in subtasks if s.get("status") == "completed"),
                 "total": len(subtasks),
             }
 
@@ -390,9 +388,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
     for phase in phases:
         phase_id = phase.get("id") or phase.get("phase")
         subtasks = phase.get("subtasks", [])
-        phase_complete[phase_id] = all(
-            s.get("status") == "completed" for s in subtasks
-        )
+        phase_complete[phase_id] = all(s.get("status") == "completed" for s in subtasks)
 
     # Find next available subtask
     for phase in phases:

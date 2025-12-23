@@ -161,7 +161,19 @@ class Histogram:
         """
         self.name = name
         self.description = description
-        self._buckets = buckets or [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+        self._buckets = buckets or [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
+        ]
         self._values: dict[tuple, list[float]] = defaultdict(list)
         self._lock = threading.Lock()
 
