@@ -9,6 +9,21 @@ import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
 
+// GitLab environment variable keys
+const GITLAB_ENV_KEYS = {
+  TOKEN: 'GITLAB_TOKEN',
+  INSTANCE_URL: 'GITLAB_INSTANCE_URL',
+  PROJECT: 'GITLAB_PROJECT',
+  AUTO_SYNC: 'GITLAB_AUTO_SYNC'
+} as const;
+
+/**
+ * Helper to generate .env line (DRY)
+ */
+function envLine(vars: Record<string, string>, key: string, defaultVal: string = ''): string {
+  return vars[key] ? `${key}=${vars[key]}` : `# ${key}=${defaultVal}`;
+}
+
 
 /**
  * Register all env-related IPC handlers
@@ -64,16 +79,16 @@ export function registerEnvHandlers(
     }
     // GitLab Integration
     if (config.gitlabToken !== undefined) {
-      existingVars['GITLAB_TOKEN'] = config.gitlabToken;
+      existingVars[GITLAB_ENV_KEYS.TOKEN] = config.gitlabToken;
     }
     if (config.gitlabInstanceUrl !== undefined) {
-      existingVars['GITLAB_INSTANCE_URL'] = config.gitlabInstanceUrl;
+      existingVars[GITLAB_ENV_KEYS.INSTANCE_URL] = config.gitlabInstanceUrl;
     }
     if (config.gitlabProject !== undefined) {
-      existingVars['GITLAB_PROJECT'] = config.gitlabProject;
+      existingVars[GITLAB_ENV_KEYS.PROJECT] = config.gitlabProject;
     }
     if (config.gitlabAutoSync !== undefined) {
-      existingVars['GITLAB_AUTO_SYNC'] = config.gitlabAutoSync ? 'true' : 'false';
+      existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
     }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
@@ -150,10 +165,10 @@ ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingV
 # =============================================================================
 # GITLAB INTEGRATION (OPTIONAL)
 # =============================================================================
-${existingVars['GITLAB_INSTANCE_URL'] ? `GITLAB_INSTANCE_URL=${existingVars['GITLAB_INSTANCE_URL']}` : '# GITLAB_INSTANCE_URL=https://gitlab.com'}
-${existingVars['GITLAB_TOKEN'] ? `GITLAB_TOKEN=${existingVars['GITLAB_TOKEN']}` : '# GITLAB_TOKEN='}
-${existingVars['GITLAB_PROJECT'] ? `GITLAB_PROJECT=${existingVars['GITLAB_PROJECT']}` : '# GITLAB_PROJECT=group/project'}
-${existingVars['GITLAB_AUTO_SYNC'] !== undefined ? `GITLAB_AUTO_SYNC=${existingVars['GITLAB_AUTO_SYNC']}` : '# GITLAB_AUTO_SYNC=false'}
+${envLine(existingVars, GITLAB_ENV_KEYS.INSTANCE_URL, 'https://gitlab.com')}
+${envLine(existingVars, GITLAB_ENV_KEYS.TOKEN)}
+${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
+${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 
 # =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
@@ -296,17 +311,17 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
 
       // GitLab config
-      if (vars['GITLAB_TOKEN']) {
+      if (vars[GITLAB_ENV_KEYS.TOKEN]) {
         config.gitlabEnabled = true;
-        config.gitlabToken = vars['GITLAB_TOKEN'];
+        config.gitlabToken = vars[GITLAB_ENV_KEYS.TOKEN];
       }
-      if (vars['GITLAB_INSTANCE_URL']) {
-        config.gitlabInstanceUrl = vars['GITLAB_INSTANCE_URL'];
+      if (vars[GITLAB_ENV_KEYS.INSTANCE_URL]) {
+        config.gitlabInstanceUrl = vars[GITLAB_ENV_KEYS.INSTANCE_URL];
       }
-      if (vars['GITLAB_PROJECT']) {
-        config.gitlabProject = vars['GITLAB_PROJECT'];
+      if (vars[GITLAB_ENV_KEYS.PROJECT]) {
+        config.gitlabProject = vars[GITLAB_ENV_KEYS.PROJECT];
       }
-      if (vars['GITLAB_AUTO_SYNC']?.toLowerCase() === 'true') {
+      if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
       }
 
