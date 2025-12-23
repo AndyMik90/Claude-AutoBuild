@@ -153,7 +153,7 @@ class HealthChecker:
             self._history[name].append(result)
             # Trim history
             if len(self._history[name]) > self._history_limit:
-                self._history[name] = self._history[name][-self._history_limit:]
+                self._history[name] = self._history[name][-self._history_limit :]
 
         return result
 
@@ -246,10 +246,7 @@ class HealthChecker:
         """
         overall = self.get_status()
         with self._lock:
-            checks = {
-                name: result.to_dict()
-                for name, result in self._results.items()
-            }
+            checks = {name: result.to_dict() for name, result in self._results.items()}
 
         return {
             "status": overall.status.value,
@@ -313,9 +310,11 @@ def check_memory(max_usage_percent: float = 90.0) -> Callable[[], HealthCheckRes
     Returns:
         Health check function
     """
+
     def check() -> HealthCheckResult:
         try:
             import resource
+
             usage = resource.getrusage(resource.RUSAGE_SELF)
             # This is a simplified check - real production would use psutil
             return HealthCheckResult(

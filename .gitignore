@@ -87,3 +87,6 @@ _bmad
 _bmad-output
 
 .claude
+
+# Auto-generated metrics (from tests or builds)
+auto-claude/metrics/

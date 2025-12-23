@@ -136,7 +136,9 @@ class ConsoleFormatter(logging.Formatter):
         if hasattr(record, "duration_ms"):
             message += f" ({record.duration_ms:.1f}ms)"
 
-        return f"{color}{record.levelname:8}{reset}{context_str} {record.name}: {message}"
+        return (
+            f"{color}{record.levelname:8}{reset}{context_str} {record.name}: {message}"
+        )
 
 
 def get_logger(name: str) -> logging.Logger:

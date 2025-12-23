@@ -237,6 +237,27 @@ Environment Variables:
         help="Base branch for creating worktrees (default: auto-detect or current branch)",
     )
 
+    # Analytics
+    parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="Display build analytics dashboard",
+    )
+
+    # Provider selection
+    parser.add_argument(
+        "--provider",
+        type=str,
+        choices=["claude", "openai", "gemini", "ollama"],
+        default=None,
+        help="LLM provider to use (default: claude)",
+    )
+    parser.add_argument(
+        "--list-providers",
+        action="store_true",
+        help="List available LLM providers and their status",
+    )
+
     return parser.parse_args()
 
 
@@ -271,6 +292,34 @@ def main() -> None:
     if args.list:
         print_banner()
         print_specs_list(project_dir, args.dev)
+        return
+
+    # Handle --metrics command
+    if args.metrics:
+        from analytics import display_metrics_dashboard
+
+        print_banner()
+        display_metrics_dashboard()
+        return
+
+    # Handle --list-providers command
+    if args.list_providers:
+        from providers import list_providers
+
+        print_banner()
+        print("\nAvailable LLM Providers:")
+        print("-" * 60)
+        providers = list_providers()
+        for p in providers:
+            status = "✓ Available" if p.get("available", False) else "✗ Not configured"
+            print(f"  {p['name']:<12} {status}")
+            if not p.get("available") and p.get("validation_errors"):
+                for err in p["validation_errors"]:
+                    print(f"              → {err}")
+            if p.get("available") and p.get("model_info"):
+                info = p["model_info"]
+                print(f"              Model: {info.get('model', 'N/A')}")
+        print()
         return
 
     # Handle --list-worktrees command

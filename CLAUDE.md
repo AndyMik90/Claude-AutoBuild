@@ -30,11 +30,38 @@ python auto-claude/spec_runner.py --task "Add user authentication"
 # Force complexity level (simple/standard/complex)
 python auto-claude/spec_runner.py --task "Fix button" --complexity simple
 
+# Use a spec template
+python auto-claude/spec_runner.py --template rest-api --vars '{"endpoint": "/users", "method": "POST", "resource": "user", "description": "Create user"}'
+
+# List available templates
+python auto-claude/spec_runner.py --list-templates
+
 # Run autonomous build
 python auto-claude/run.py --spec 001
 
 # List all specs
 python auto-claude/run.py --list
+```
+
+### Multi-LLM Provider Support
+```bash
+# Use OpenAI instead of Claude
+python auto-claude/run.py --spec 001 --provider openai
+
+# Use Google Gemini
+python auto-claude/run.py --spec 001 --provider gemini
+
+# Use local Ollama
+python auto-claude/run.py --spec 001 --provider ollama
+
+# List available providers
+python auto-claude/run.py --list-providers
+```
+
+### Build Analytics
+```bash
+# View build metrics dashboard
+python auto-claude/run.py --metrics
 ```
 
 ### Workspace Management
