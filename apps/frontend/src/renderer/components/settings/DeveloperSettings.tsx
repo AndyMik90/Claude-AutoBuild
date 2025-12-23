@@ -4,7 +4,6 @@
  */
 
 import { useEffect } from 'react';
-import { Bug } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -35,7 +34,6 @@ export function DeveloperSettings({ settings, onSettingsChange }: DeveloperSetti
       <SettingsSection
         title="Debug Tools"
         description="Development and debugging features"
-        icon={Bug}
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between">
