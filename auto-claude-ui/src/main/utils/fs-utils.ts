@@ -35,8 +35,8 @@ export function isWritablePath(dirPath: string): boolean {
   }
 
   try {
-    // Try to create a test file
-    const testFile = path.join(dirPath, `.write-test-${Date.now()}`);
+    // Try to create a test file with timestamp + random suffix to prevent collisions
+    const testFile = path.join(dirPath, `.write-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
     writeFileSync(testFile, 'test', { flag: 'w' });
     unlinkSync(testFile);
     return true;

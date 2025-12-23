@@ -96,7 +96,7 @@ export function getProjectConfigDir(
   // Create unique hash of project path for global storage
   const projectHash = Buffer.from(projectPath)
     .toString('base64')
-    .replace(/[/+=]/g, ''); // Remove characters invalid for filenames
+    .replace(/[/+=]/g, ''); // Make base64 URL-safe and prevent path traversal
 
   const projectGlobalDir = path.join(globalDir, 'projects', projectHash);
 
