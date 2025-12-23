@@ -527,16 +527,20 @@ export function getIdeationSummary(session: IdeationSession | null): IdeationSum
     };
   }
 
+  const activeIdeas = session.ideas.filter(
+    (idea) => idea.status !== 'dismissed' && idea.status !== 'archived'
+  );
+
   const byType: Record<string, number> = {};
   const byStatus: Record<string, number> = {};
 
-  session.ideas.forEach((idea) => {
+  activeIdeas.forEach((idea) => {
     byType[idea.type] = (byType[idea.type] || 0) + 1;
     byStatus[idea.status] = (byStatus[idea.status] || 0) + 1;
   });
 
   return {
-    totalIdeas: session.ideas.length,
+    totalIdeas: activeIdeas.length,
     byType: byType as Record<IdeationType, number>,
     byStatus: byStatus as Record<IdeationStatus, number>,
     lastGenerated: session.generatedAt

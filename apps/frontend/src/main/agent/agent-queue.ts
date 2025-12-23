@@ -11,7 +11,7 @@ import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
-import { transformIdeaFromSnakeCase } from '../ipc-handlers/ideation/transformers';
+import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
 
 /**
@@ -424,7 +424,8 @@ export class AgentQueueManager {
             debugLog('[Agent Queue] Loading ideation session from:', ideationFilePath);
             if (existsSync(ideationFilePath)) {
               const content = readFileSync(ideationFilePath, 'utf-8');
-              const session = JSON.parse(content);
+              const rawSession = JSON.parse(content);
+              const session = transformSessionFromSnakeCase(rawSession, projectId);
               debugLog('[Agent Queue] Loaded ideation session:', {
                 totalIdeas: session.ideas?.length || 0
               });

@@ -145,3 +145,60 @@ export function transformIdeaFromSnakeCase(idea: RawIdea): Idea {
     implementationApproach: ''
   } as CodeImprovementIdea;
 }
+
+interface RawIdeationSession {
+  id?: string;
+  project_id?: string;
+  config?: {
+    enabled_types?: string[];
+    enabledTypes?: string[];
+    include_roadmap_context?: boolean;
+    includeRoadmapContext?: boolean;
+    include_kanban_context?: boolean;
+    includeKanbanContext?: boolean;
+    max_ideas_per_type?: number;
+    maxIdeasPerType?: number;
+  };
+  ideas?: RawIdea[];
+  project_context?: {
+    existing_features?: string[];
+    tech_stack?: string[];
+    target_audience?: string;
+    planned_features?: string[];
+  };
+  projectContext?: {
+    existingFeatures?: string[];
+    techStack?: string[];
+    targetAudience?: string;
+    plannedFeatures?: string[];
+  };
+  generated_at?: string;
+  updated_at?: string;
+}
+
+export function transformSessionFromSnakeCase(
+  rawSession: RawIdeationSession,
+  projectId: string
+): import('../../../shared/types').IdeationSession {
+  const enabledTypes = (rawSession.config?.enabled_types || rawSession.config?.enabledTypes || []) as import('../../../shared/types').IdeationType[];
+
+  return {
+    id: rawSession.id || `ideation-${Date.now()}`,
+    projectId,
+    config: {
+      enabledTypes,
+      includeRoadmapContext: rawSession.config?.include_roadmap_context ?? rawSession.config?.includeRoadmapContext ?? true,
+      includeKanbanContext: rawSession.config?.include_kanban_context ?? rawSession.config?.includeKanbanContext ?? true,
+      maxIdeasPerType: rawSession.config?.max_ideas_per_type || rawSession.config?.maxIdeasPerType || 5
+    },
+    ideas: (rawSession.ideas || []).map(idea => transformIdeaFromSnakeCase(idea)),
+    projectContext: {
+      existingFeatures: rawSession.project_context?.existing_features || rawSession.projectContext?.existingFeatures || [],
+      techStack: rawSession.project_context?.tech_stack || rawSession.projectContext?.techStack || [],
+      targetAudience: rawSession.project_context?.target_audience || rawSession.projectContext?.targetAudience,
+      plannedFeatures: rawSession.project_context?.planned_features || rawSession.projectContext?.plannedFeatures || []
+    },
+    generatedAt: rawSession.generated_at ? new Date(rawSession.generated_at) : new Date(),
+    updatedAt: rawSession.updated_at ? new Date(rawSession.updated_at) : new Date()
+  };
+}
