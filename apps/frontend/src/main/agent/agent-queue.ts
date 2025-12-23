@@ -307,7 +307,7 @@ export class AgentQueueManager {
           `${ideationType}_ideas.json`
         );
 
-        (async (): Promise<void> => {
+        const loadIdeationType = async (): Promise<void> => {
           try {
             const content = await fsPromises.readFile(typeFilePath, 'utf-8');
             const data: Record<string, RawIdea[]> = JSON.parse(content);
@@ -327,8 +327,14 @@ export class AgentQueueManager {
             }
             this.emitter.emit('ideation-type-complete', projectId, ideationType, []);
           }
-        })().catch((err: unknown) => {
-          debugError('[Agent Queue] Unhandled error in ideation-type-complete handler:', err);
+        };
+        loadIdeationType().catch((err: unknown) => {
+          debugError('[Agent Queue] Unhandled error loading ideation type:', {
+            ideationType,
+            projectId,
+            typeFilePath
+          }, err);
+          this.emitter.emit('ideation-type-complete', projectId, ideationType, []);
         });
       }
 

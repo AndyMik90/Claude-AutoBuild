@@ -12,7 +12,8 @@ import type {
   PerformanceOptimizationIdea,
   CodeQualityIdea,
   IdeationStatus,
-  IdeationType
+  IdeationType,
+  IdeationSession
 } from '../../../shared/types';
 import { debugLog } from '../../../shared/utils/debug-logger';
 import type { RawIdea } from './types';
@@ -213,7 +214,7 @@ interface RawIdeationSession {
 export function transformSessionFromSnakeCase(
   rawSession: RawIdeationSession,
   projectId: string
-): import('../../../shared/types').IdeationSession {
+): IdeationSession {
   const rawEnabledTypes = rawSession.config?.enabled_types || rawSession.config?.enabledTypes || [];
   const enabledTypes = validateEnabledTypes(rawEnabledTypes);
 

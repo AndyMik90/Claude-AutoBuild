@@ -20,6 +20,7 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
   const {
     session,
     generationStatus,
+    isGenerating,
     config,
     logs,
     typeStates,
@@ -64,8 +65,8 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
     getIdeasByType
   } = useIdeation(projectId, { onGoToTask });
 
-  // Show generation progress with streaming ideas
-  if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete' && generationStatus.phase !== 'error') {
+  // Show generation progress with streaming ideas (use isGenerating flag for reliable state)
+  if (isGenerating) {
     return (
       <GenerationProgressScreen
         generationStatus={generationStatus}

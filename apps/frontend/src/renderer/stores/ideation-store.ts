@@ -12,7 +12,15 @@ import { DEFAULT_IDEATION_CONFIG } from '../../shared/constants';
 
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
-let generationTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const generationTimeoutIds = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearGenerationTimeout(projectId: string): void {
+  const timeoutId = generationTimeoutIds.get(projectId);
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+    generationTimeoutIds.delete(projectId);
+  }
+}
 
 export type IdeationTypeState = 'pending' | 'generating' | 'completed' | 'failed';
 
@@ -373,10 +381,7 @@ export function generateIdeation(projectId: string): void {
     });
   }
 
-  if (generationTimeoutId) {
-    clearTimeout(generationTimeoutId);
-    generationTimeoutId = null;
-  }
+  clearGenerationTimeout(projectId);
 
   store.clearLogs();
   store.clearSession();
@@ -389,12 +394,13 @@ export function generateIdeation(projectId: string): void {
     message: `Generating ${config.enabledTypes.length} ideation types in parallel...`
   });
 
-  generationTimeoutId = setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     const currentState = useIdeationStore.getState();
     if (currentState.generationStatus.phase === 'generating') {
       if (window.DEBUG) {
         console.warn('[Ideation] Generation timed out after', GENERATION_TIMEOUT_MS, 'ms');
       }
+      clearGenerationTimeout(projectId);
       currentState.setIsGenerating(false);
       currentState.resetGeneratingTypes('failed');
       currentState.setGenerationStatus({
@@ -406,6 +412,7 @@ export function generateIdeation(projectId: string): void {
       currentState.addLog('⚠ Generation timed out');
     }
   }, GENERATION_TIMEOUT_MS);
+  generationTimeoutIds.set(projectId, timeoutId);
 
   window.electronAPI.generateIdeation(projectId, config);
 }
@@ -686,10 +693,7 @@ export function setupIdeationListeners(): () => void {
       });
     }
 
-    if (generationTimeoutId) {
-      clearTimeout(generationTimeoutId);
-      generationTimeoutId = null;
-    }
+    clearGenerationTimeout(_projectId);
 
     store().setIsGenerating(false);
     store().setSession(session);
@@ -707,10 +711,7 @@ export function setupIdeationListeners(): () => void {
       console.error('[Ideation] Error received:', { projectId: _projectId, error });
     }
 
-    if (generationTimeoutId) {
-      clearTimeout(generationTimeoutId);
-      generationTimeoutId = null;
-    }
+    clearGenerationTimeout(_projectId);
 
     store().setIsGenerating(false);
     store().resetGeneratingTypes('failed');
@@ -728,10 +729,7 @@ export function setupIdeationListeners(): () => void {
       console.log('[Ideation] Stopped:', { projectId: _projectId });
     }
 
-    if (generationTimeoutId) {
-      clearTimeout(generationTimeoutId);
-      generationTimeoutId = null;
-    }
+    clearGenerationTimeout(_projectId);
 
     store().setIsGenerating(false);
     store().resetGeneratingTypes('pending');
@@ -744,9 +742,8 @@ export function setupIdeationListeners(): () => void {
   });
 
   return () => {
-    if (generationTimeoutId) {
-      clearTimeout(generationTimeoutId);
-      generationTimeoutId = null;
+    for (const [projectId] of generationTimeoutIds) {
+      clearGenerationTimeout(projectId);
     }
 
     unsubProgress();

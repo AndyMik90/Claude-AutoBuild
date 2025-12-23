@@ -27,6 +27,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const { onGoToTask } = options;
   const session = useIdeationStore((state) => state.session);
   const generationStatus = useIdeationStore((state) => state.generationStatus);
+  const isGenerating = useIdeationStore((state) => state.isGenerating);
   const config = useIdeationStore((state) => state.config);
   const setConfig = useIdeationStore((state) => state.setConfig);
   const logs = useIdeationStore((state) => state.logs);
@@ -196,6 +197,7 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     // State
     session,
     generationStatus,
+    isGenerating,
     config,
     logs,
     typeStates,
