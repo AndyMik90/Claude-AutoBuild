@@ -206,7 +206,7 @@ export function App() {
         !hasAnyAuth) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, activeProfileId, claudeProfiles]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, claudeProfiles]);
 
   // Sync i18n language with settings
   const { t, i18n } = useTranslation('dialogs');
