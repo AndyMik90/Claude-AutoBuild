@@ -37,9 +37,18 @@ function getTokenFromGlabCli(instanceUrl?: string): string | null {
   }
 }
 
+// GitLab environment variable keys (must match env-handlers.ts)
+const GITLAB_ENV_KEYS = {
+  ENABLED: 'GITLAB_ENABLED',
+  TOKEN: 'GITLAB_TOKEN',
+  INSTANCE_URL: 'GITLAB_INSTANCE_URL',
+  PROJECT: 'GITLAB_PROJECT'
+} as const;
+
 /**
  * Get GitLab configuration from project environment file
  * Falls back to glab CLI token if GITLAB_TOKEN not in .env
+ * Returns null if GitLab is explicitly disabled via GITLAB_ENABLED=false
  */
 export function getGitLabConfig(project: Project): GitLabConfig | null {
   if (!project.autoBuildPath) return null;
@@ -49,9 +58,15 @@ export function getGitLabConfig(project: Project): GitLabConfig | null {
   try {
     const content = readFileSync(envPath, 'utf-8');
     const vars = parseEnvFile(content);
-    let token: string | undefined = vars['GITLAB_TOKEN'];
-    const projectRef = vars['GITLAB_PROJECT'];
-    const instanceUrl = vars['GITLAB_INSTANCE_URL'] || DEFAULT_GITLAB_URL;
+
+    // Check if GitLab is explicitly disabled
+    if (vars[GITLAB_ENV_KEYS.ENABLED]?.toLowerCase() === 'false') {
+      return null;
+    }
+
+    let token: string | undefined = vars[GITLAB_ENV_KEYS.TOKEN];
+    const projectRef = vars[GITLAB_ENV_KEYS.PROJECT];
+    const instanceUrl = vars[GITLAB_ENV_KEYS.INSTANCE_URL] || DEFAULT_GITLAB_URL;
 
     // If no token in .env, try to get it from glab CLI
     if (!token) {

@@ -11,6 +11,7 @@ import { parseEnvFile } from './utils';
 
 // GitLab environment variable keys
 const GITLAB_ENV_KEYS = {
+  ENABLED: 'GITLAB_ENABLED',
   TOKEN: 'GITLAB_TOKEN',
   INSTANCE_URL: 'GITLAB_INSTANCE_URL',
   PROJECT: 'GITLAB_PROJECT',
@@ -78,6 +79,9 @@ export function registerEnvHandlers(
       existingVars['GITHUB_AUTO_SYNC'] = config.githubAutoSync ? 'true' : 'false';
     }
     // GitLab Integration
+    if (config.gitlabEnabled !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.ENABLED] = config.gitlabEnabled ? 'true' : 'false';
+    }
     if (config.gitlabToken !== undefined) {
       existingVars[GITLAB_ENV_KEYS.TOKEN] = config.gitlabToken;
     }
@@ -165,6 +169,7 @@ ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingV
 # =============================================================================
 # GITLAB INTEGRATION (OPTIONAL)
 # =============================================================================
+${existingVars[GITLAB_ENV_KEYS.ENABLED] !== undefined ? `${GITLAB_ENV_KEYS.ENABLED}=${existingVars[GITLAB_ENV_KEYS.ENABLED]}` : `# ${GITLAB_ENV_KEYS.ENABLED}=true`}
 ${envLine(existingVars, GITLAB_ENV_KEYS.INSTANCE_URL, 'https://gitlab.com')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.TOKEN)}
 ${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
@@ -312,8 +317,9 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
 
       // GitLab config
       if (vars[GITLAB_ENV_KEYS.TOKEN]) {
-        config.gitlabEnabled = true;
         config.gitlabToken = vars[GITLAB_ENV_KEYS.TOKEN];
+        // Enable by default if token exists and GITLAB_ENABLED is not explicitly false
+        config.gitlabEnabled = vars[GITLAB_ENV_KEYS.ENABLED]?.toLowerCase() !== 'false';
       }
       if (vars[GITLAB_ENV_KEYS.INSTANCE_URL]) {
         config.gitlabInstanceUrl = vars[GITLAB_ENV_KEYS.INSTANCE_URL];
