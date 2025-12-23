@@ -451,11 +451,13 @@ export function registerListUserRepos(): void {
         // Use gh repo list to get user's repositories
         // Format: owner/repo, description, visibility
         debugLog('Running: gh repo list --limit 100 --json nameWithOwner,description,isPrivate');
+        const env = getAugmentedEnv();
         const output = execSync(
           'gh repo list --limit 100 --json nameWithOwner,description,isPrivate',
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env
           }
         );
 
@@ -556,12 +558,14 @@ export function registerGetGitHubBranches(): void {
         // Use execFileSync with separate arguments to avoid shell injection
         const apiEndpoint = `repos/${repo}/branches`;
         debugLog(`Running: gh api ${apiEndpoint} --paginate --jq '.[].name'`);
+        const env = getAugmentedEnv();
         const output = execFileSync(
           'gh',
           ['api', apiEndpoint, '--paginate', '--jq', '.[].name'],
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env
           }
         );
 
@@ -637,7 +641,6 @@ export function registerCreateGitHubRepo(): void {
         args.push('--push');
 
         debugLog('Running: gh', args);
-        const env = getAugmentedEnv();
         const output = execFileSync('gh', args, {
           encoding: 'utf-8',
           cwd: options.projectPath,
