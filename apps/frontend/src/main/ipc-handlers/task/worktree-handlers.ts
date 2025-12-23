@@ -718,6 +718,10 @@ export function registerWorktreeHandlers(
         const previewProfileEnv = getProfileEnv();
 
         return new Promise((resolve) => {
+          const PREVIEW_TIMEOUT_MS = 120000; // 2 minutes timeout for preview (faster than full merge)
+          let timeoutId: NodeJS.Timeout | null = null;
+          let resolved = false;
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
@@ -727,6 +731,33 @@ export function registerWorktreeHandlers(
 
           let stdout = '';
           let stderr = '';
+
+          // Set up timeout to kill hung processes
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              console.error('[IPC] PREVIEW TIMEOUT: Merge preview process exceeded', PREVIEW_TIMEOUT_MS, 'ms, killing...');
+              resolved = true;
+              try {
+                previewProcess.kill('SIGTERM');
+                // Give it a moment to clean up, then force kill
+                setTimeout(() => {
+                  try {
+                    previewProcess.kill('SIGKILL');
+                  } catch {
+                    // Process may already be dead
+                  }
+                }, 3000);
+              } catch (e) {
+                // Process may already be dead
+              }
+
+              // Resolve with timeout error
+              resolve({
+                success: false,
+                error: `Merge preview timed out after ${PREVIEW_TIMEOUT_MS / 1000} seconds. The conflict detection may have taken too long or the Python process may be unresponsive.`
+              });
+            }
+          }, PREVIEW_TIMEOUT_MS);
 
           previewProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString();
@@ -740,7 +771,11 @@ export function registerWorktreeHandlers(
             console.warn('[IPC] merge-preview stderr:', chunk);
           });
 
-          previewProcess.on('close', (code: number) => {
+          const handleProcessExit = (code: number | null) => {
+            if (resolved) return; // Prevent double-resolution
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+
             console.warn('[IPC] merge-preview process exited with code:', code);
             if (code === 0) {
               try {
@@ -790,9 +825,22 @@ export function registerWorktreeHandlers(
                 error: `Preview failed: ${stderr || stdout}`
               });
             }
+          };
+
+          previewProcess.on('close', (code: number | null) => {
+            handleProcessExit(code);
+          });
+
+          // Also listen to 'exit' event in case 'close' doesn't fire
+          previewProcess.on('exit', (code: number | null) => {
+            // Give close event a chance to fire first with complete output
+            setTimeout(() => handleProcessExit(code), 100);
           });
 
           previewProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.error('[IPC] merge-preview spawn error:', err);
             resolve({
               success: false,
