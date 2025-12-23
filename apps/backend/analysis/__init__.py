@@ -6,6 +6,9 @@ Code analysis and project scanning tools.
 """
 
 # Import from analyzers subpackage (these are the modular analyzers)
+
+from __future__ import annotations
+
 from .analyzers import (
     ProjectAnalyzer as ModularProjectAnalyzer,
 )

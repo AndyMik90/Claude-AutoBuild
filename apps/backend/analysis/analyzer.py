@@ -27,6 +27,8 @@ This module now serves as a facade to the modular analyzer system in the analyze
 All actual implementation is in focused submodules for better maintainability.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

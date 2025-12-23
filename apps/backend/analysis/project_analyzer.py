@@ -28,6 +28,9 @@ needed for the detected tech stack, while blocking dangerous operations.
 """
 
 # Re-export all public API from the project module
+
+from __future__ import annotations
+
 from project import (
     # Command registries
     BASE_COMMANDS,

@@ -10,6 +10,8 @@ Detects database migration tools and configurations:
 - Prisma
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 

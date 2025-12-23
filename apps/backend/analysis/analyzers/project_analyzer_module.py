@@ -5,6 +5,8 @@ Project Analyzer Module
 Analyzes entire projects, detecting monorepo structures, services, infrastructure, and conventions.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
