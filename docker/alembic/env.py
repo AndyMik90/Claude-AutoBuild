@@ -21,6 +21,7 @@ from db.models import (
     User,
     RefreshToken,
     Invitation,
+    UserCredentials,
     Project,
     ProjectAgentProfile,
     ProjectCredentials,
