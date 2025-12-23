@@ -231,7 +231,11 @@ describe('profile-handlers - testConnection', () => {
         success: true,
         data: mockResult
       });
-      expect(testConnection).toHaveBeenCalledWith('https://api.anthropic.com', 'sk-test-key-12chars');
+      expect(testConnection).toHaveBeenCalledWith(
+        'https://api.anthropic.com',
+        'sk-test-key-12chars',
+        expect.any(AbortSignal)
+      );
     });
   });
 

@@ -17,11 +17,10 @@ import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult } 
 import {
   loadProfilesFile,
   saveProfilesFile,
-  generateProfileId,
   validateFilePermissions,
   getProfilesFilePath
 } from '../utils/profile-manager';
-import { createProfile, updateProfile, testConnection } from '../services/profile-service';
+import { createProfile, updateProfile, deleteProfile, testConnection } from '../services/profile-service';
 
 /**
  * Register all profile-related IPC handlers
@@ -59,7 +58,9 @@ export function registerProfileHandlers(): void {
         const newProfile = await createProfile(profileData);
 
         // Set file permissions to user-readable only
-        await validateFilePermissions(getProfilesFilePath());
+        await validateFilePermissions(getProfilesFilePath()).catch((err) => {
+          console.warn('[profile-handlers] Failed to set secure file permissions:', err);
+        });
 
         return { success: true, data: newProfile };
       } catch (error) {
@@ -88,7 +89,9 @@ export function registerProfileHandlers(): void {
         });
 
         // Set file permissions to user-readable only
-        await validateFilePermissions(getProfilesFilePath());
+        await validateFilePermissions(getProfilesFilePath()).catch((err) => {
+          console.warn('[profile-handlers] Failed to set secure file permissions:', err);
+        });
 
         return { success: true, data: updatedProfile };
       } catch (error) {
@@ -107,38 +110,8 @@ export function registerProfileHandlers(): void {
     IPC_CHANNELS.PROFILES_DELETE,
     async (_, profileId: string): Promise<IPCResult> => {
       try {
-        const file = await loadProfilesFile();
-
-        // Check if profile exists
-        const profileIndex = file.profiles.findIndex((p) => p.id === profileId);
-        if (profileIndex === -1) {
-          return {
-            success: false,
-            error: 'Profile not found'
-          };
-        }
-
-        // Active Profile Check: Cannot delete active profile (AC3)
-        if (file.activeProfileId === profileId) {
-          return {
-            success: false,
-            error: 'Cannot delete active profile. Please switch to another profile or OAuth first.'
-          };
-        }
-
-        // Remove profile
-        file.profiles.splice(profileIndex, 1);
-
-        // Last Profile Fallback: If no profiles remain, set activeProfileId to null (AC4)
-        if (file.profiles.length === 0) {
-          file.activeProfileId = null;
-        }
-
-        // Save to disk
-        await saveProfilesFile(file);
-
-        // Set file permissions to user-readable only
-        await validateFilePermissions(getProfilesFilePath());
+        // Use deleteProfile from service layer (handles validation)
+        await deleteProfile(profileId);
 
         return { success: true };
       } catch (error) {
@@ -165,7 +138,9 @@ export function registerProfileHandlers(): void {
         if (profileId === null) {
           file.activeProfileId = null;
           await saveProfilesFile(file);
-          await validateFilePermissions(getProfilesFilePath());
+          await validateFilePermissions(getProfilesFilePath()).catch((err) => {
+            console.warn('[profile-handlers] Failed to set secure file permissions:', err);
+          });
           return { success: true };
         }
 
@@ -185,7 +160,9 @@ export function registerProfileHandlers(): void {
         await saveProfilesFile(file);
 
         // Set file permissions to user-readable only
-        await validateFilePermissions(getProfilesFilePath());
+        await validateFilePermissions(getProfilesFilePath()).catch((err) => {
+          console.warn('[profile-handlers] Failed to set secure file permissions:', err);
+        });
 
         return { success: true };
       } catch (error) {
@@ -201,13 +178,24 @@ export function registerProfileHandlers(): void {
    * Test API profile connection
    * - Tests credentials by making a minimal API request
    * - Returns detailed error information for different failure types
+   * - Includes 15-second timeout for the entire operation
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_TEST_CONNECTION,
     async (_event, baseUrl: string, apiKey: string): Promise<IPCResult<TestConnectionResult>> => {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutMs = 15000; // 15 seconds
+
+      // Set timeout to abort the request
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+
       try {
         // Validate inputs (null/empty checks)
         if (!baseUrl || baseUrl.trim() === '') {
+          clearTimeout(timeoutId);
           return {
             success: false,
             error: 'Base URL is required'
@@ -215,17 +203,32 @@ export function registerProfileHandlers(): void {
         }
 
         if (!apiKey || apiKey.trim() === '') {
+          clearTimeout(timeoutId);
           return {
             success: false,
             error: 'API key is required'
           };
         }
 
-        // Call testConnection from service layer
-        const result = await testConnection(baseUrl, apiKey);
+        // Call testConnection from service layer with abort signal
+        const result = await testConnection(baseUrl, apiKey, controller.signal);
+
+        // Clear timeout on success
+        clearTimeout(timeoutId);
 
         return { success: true, data: result };
       } catch (error) {
+        // Clear timeout on error
+        clearTimeout(timeoutId);
+
+        // Handle abort errors (timeout or explicit cancellation)
+        if (error instanceof Error && error.name === 'AbortError') {
+          return {
+            success: false,
+            error: 'Connection timeout. The request took too long to complete.'
+          };
+        }
+
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to test connection'
