@@ -26,8 +26,8 @@ jobs:
             🎉 Thanks for your first PR!
 
             A maintainer will review it soon. Please make sure:
-            - Your branch is synced with `main`
+            - Your branch is synced with `develop`
             - CI checks pass
-            - You've followed our [contribution guide](CONTRIBUTING.md)
+            - You've followed our [contribution guide](https://github.com/AndyMik90/Auto-Claude/blob/develop/CONTRIBUTING.md)
 
-            Welcome to the Auto-Claude community!
+            Welcome to the Auto Claude community!
