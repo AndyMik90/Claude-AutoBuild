@@ -29,13 +29,15 @@ const PHASE_CONFIG: Record<ExecutionPhase, { label: string; color: string; bgCol
  * - Stuck: Shows warning state with interrupted animation
  */
 export function PhaseProgressIndicator({
-  phase = 'idle',
+  phase: rawPhase,
   subtasks,
   phaseLogs,
   isStuck = false,
   isRunning = false,
   className,
 }: PhaseProgressIndicatorProps) {
+  // Default to 'planning' when running but phase not yet received (race condition protection)
+  const phase = rawPhase ?? (isRunning ? 'planning' : 'idle');
   // Calculate subtask-based progress (for coding phase)
   const completedSubtasks = subtasks.filter((c) => c.status === 'completed').length;
   const totalSubtasks = subtasks.length;

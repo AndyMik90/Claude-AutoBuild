@@ -50,11 +50,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // When status goes to backlog, reset execution progress to idle
-        // This ensures the planning/coding animation stops when task is stopped
-        const executionProgress = status === 'backlog'
-          ? { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 }
-          : t.executionProgress;
+        // Determine execution progress based on status transition
+        let executionProgress = t.executionProgress;
+        
+        if (status === 'backlog') {
+          // When status goes to backlog, reset execution progress to idle
+          // This ensures the planning/coding animation stops when task is stopped
+          executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+        } else if (status === 'in_progress' && !t.executionProgress?.phase) {
+          // When starting a task and no phase is set yet, default to planning
+          // This prevents the "no active phase" UI state during startup race condition
+          executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+        }
 
         return { ...t, status, executionProgress, updatedAt: new Date() };
       })

@@ -1,17 +1,21 @@
 import { ExecutionProgressData } from './types';
+import { parsePhaseEvent } from './phase-event-parser';
 
-/**
- * Event handling and progress parsing logic
- */
 export class AgentEvents {
-  /**
-   * Parse log output to detect execution phase transitions
-   */
   parseExecutionPhase(
     log: string,
     currentPhase: ExecutionProgressData['phase'],
     isSpecRunner: boolean
   ): { phase: ExecutionProgressData['phase']; message?: string; currentSubtask?: string } | null {
+    const structuredEvent = parsePhaseEvent(log);
+    if (structuredEvent) {
+      return {
+        phase: structuredEvent.phase,
+        message: structuredEvent.message,
+        currentSubtask: structuredEvent.subtask
+      };
+    }
+
     const lowerLog = log.toLowerCase();
 
     // Spec runner phase detection (all part of "planning")

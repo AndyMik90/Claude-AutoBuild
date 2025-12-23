@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
+from phase_event import ExecutionPhase, emit_phase
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -146,6 +147,7 @@ async def run_autonomous_agent(
 
         # Update status for planning phase
         status_manager.update(state=BuildState.PLANNING)
+        emit_phase(ExecutionPhase.PLANNING, "Creating implementation plan")
         is_planning_phase = True
         current_log_phase = LogPhase.PLANNING
 
@@ -172,6 +174,9 @@ async def run_autonomous_agent(
         # Start/continue coding phase in task logger
         if task_logger:
             task_logger.start_phase(LogPhase.CODING, "Continuing implementation...")
+
+        # Emit phase event when continuing build
+        emit_phase(ExecutionPhase.CODING, "Continuing implementation")
 
     # Show human intervention hint
     content = [
@@ -273,6 +278,7 @@ async def run_autonomous_agent(
             if is_planning_phase:
                 is_planning_phase = False
                 current_log_phase = LogPhase.CODING
+                emit_phase(ExecutionPhase.CODING, "Starting implementation")
                 if task_logger:
                     task_logger.end_phase(
                         LogPhase.PLANNING,
@@ -386,6 +392,7 @@ async def run_autonomous_agent(
 
         # Handle session status
         if status == "complete":
+            emit_phase(ExecutionPhase.COMPLETE, "Build completed successfully")
             print_build_complete_banner(spec_dir)
             status_manager.update(state=BuildState.COMPLETE)
 
@@ -432,6 +439,7 @@ async def run_autonomous_agent(
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
+            emit_phase(ExecutionPhase.FAILED, "Session encountered an error")
             print_status("Session encountered an error", "error")
             print(muted("Will retry with a fresh session..."))
             status_manager.update(state=BuildState.ERROR)
