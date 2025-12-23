@@ -44,8 +44,6 @@ vi.mock('fs', () => ({
 }));
 
 describe('profile-manager', () => {
-  const mockProfilesPath = '/mock/userdata/profiles.json';
-
   beforeEach(() => {
     vi.clearAllMocks();
   });

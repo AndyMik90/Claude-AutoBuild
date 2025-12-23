@@ -205,7 +205,7 @@ export function App() {
         !hasAnyAuth) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, activeProfileId, claudeProfiles]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, claudeProfiles]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {

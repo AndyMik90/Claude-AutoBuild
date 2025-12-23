@@ -13,6 +13,35 @@ vi.mock('../stores/settings-store', () => ({
   useSettingsStore: vi.fn()
 }));
 
+/**
+ * Creates a mock settings store with optional overrides
+ * @param overrides - Partial store state to override defaults
+ * @returns Complete mock settings store object
+ */
+function createUseSettingsStoreMock(overrides?: Partial<ReturnType<typeof useSettingsStore>>) {
+  return {
+    profiles: testProfiles,
+    activeProfileId: null,
+    deleteProfile: vi.fn().mockResolvedValue(true),
+    setActiveProfile: vi.fn().mockResolvedValue(true),
+    profilesLoading: false,
+    settings: {} as any,
+    isLoading: false,
+    error: null,
+    setSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    setLoading: vi.fn(),
+    setError: vi.fn(),
+    setProfiles: vi.fn(),
+    setProfilesLoading: vi.fn(),
+    setProfilesError: vi.fn(),
+    saveProfile: vi.fn().mockResolvedValue(true),
+    updateProfile: vi.fn().mockResolvedValue(true),
+    profilesError: null,
+    ...overrides
+  };
+}
+
 // Test profile data
 const testProfiles: APIProfile[] = [
   {
@@ -42,26 +71,9 @@ describe('AuthStatusIndicator', () => {
 
   describe('when using OAuth (no active profile)', () => {
     beforeEach(() => {
-      vi.mocked(useSettingsStore).mockReturnValue({
-        profiles: testProfiles,
-        activeProfileId: null, // No profile active = OAuth
-        deleteProfile: vi.fn().mockResolvedValue(true),
-        setActiveProfile: vi.fn().mockResolvedValue(true),
-        profilesLoading: false,
-        settings: {} as any,
-        isLoading: false,
-        error: null,
-        setSettings: vi.fn(),
-        updateSettings: vi.fn(),
-        setLoading: vi.fn(),
-        setError: vi.fn(),
-        setProfiles: vi.fn(),
-        setProfilesLoading: vi.fn(),
-        setProfilesError: vi.fn(),
-        saveProfile: vi.fn().mockResolvedValue(true),
-        updateProfile: vi.fn().mockResolvedValue(true),
-        profilesError: null
-      });
+      vi.mocked(useSettingsStore).mockReturnValue(
+        createUseSettingsStoreMock({ activeProfileId: null })
+      );
     });
 
     it('should display OAuth with Lock icon', () => {
@@ -80,26 +92,9 @@ describe('AuthStatusIndicator', () => {
 
   describe('when using API profile', () => {
     beforeEach(() => {
-      vi.mocked(useSettingsStore).mockReturnValue({
-        profiles: testProfiles,
-        activeProfileId: 'profile-1', // Active profile
-        deleteProfile: vi.fn().mockResolvedValue(true),
-        setActiveProfile: vi.fn().mockResolvedValue(true),
-        profilesLoading: false,
-        settings: {} as any,
-        isLoading: false,
-        error: null,
-        setSettings: vi.fn(),
-        updateSettings: vi.fn(),
-        setLoading: vi.fn(),
-        setError: vi.fn(),
-        setProfiles: vi.fn(),
-        setProfilesLoading: vi.fn(),
-        setProfilesError: vi.fn(),
-        saveProfile: vi.fn().mockResolvedValue(true),
-        updateProfile: vi.fn().mockResolvedValue(true),
-        profilesError: null
-      });
+      vi.mocked(useSettingsStore).mockReturnValue(
+        createUseSettingsStoreMock({ activeProfileId: 'profile-1' })
+      );
     });
 
     it('should display profile name with Key icon', () => {
@@ -118,26 +113,9 @@ describe('AuthStatusIndicator', () => {
 
   describe('when active profile ID references non-existent profile', () => {
     beforeEach(() => {
-      vi.mocked(useSettingsStore).mockReturnValue({
-        profiles: testProfiles,
-        activeProfileId: 'non-existent-id', // ID exists but profile doesn't
-        deleteProfile: vi.fn().mockResolvedValue(true),
-        setActiveProfile: vi.fn().mockResolvedValue(true),
-        profilesLoading: false,
-        settings: {} as any,
-        isLoading: false,
-        error: null,
-        setSettings: vi.fn(),
-        updateSettings: vi.fn(),
-        setLoading: vi.fn(),
-        setError: vi.fn(),
-        setProfiles: vi.fn(),
-        setProfilesLoading: vi.fn(),
-        setProfilesError: vi.fn(),
-        saveProfile: vi.fn().mockResolvedValue(true),
-        updateProfile: vi.fn().mockResolvedValue(true),
-        profilesError: null
-      });
+      vi.mocked(useSettingsStore).mockReturnValue(
+        createUseSettingsStoreMock({ activeProfileId: 'non-existent-id' })
+      );
     });
 
     it('should fallback to OAuth display', () => {
@@ -149,26 +127,9 @@ describe('AuthStatusIndicator', () => {
 
   describe('component structure', () => {
     beforeEach(() => {
-      vi.mocked(useSettingsStore).mockReturnValue({
-        profiles: testProfiles,
-        activeProfileId: null,
-        deleteProfile: vi.fn().mockResolvedValue(true),
-        setActiveProfile: vi.fn().mockResolvedValue(true),
-        profilesLoading: false,
-        settings: {} as any,
-        isLoading: false,
-        error: null,
-        setSettings: vi.fn(),
-        updateSettings: vi.fn(),
-        setLoading: vi.fn(),
-        setError: vi.fn(),
-        setProfiles: vi.fn(),
-        setProfilesLoading: vi.fn(),
-        setProfilesError: vi.fn(),
-        saveProfile: vi.fn().mockResolvedValue(true),
-        updateProfile: vi.fn().mockResolvedValue(true),
-        profilesError: null
-      });
+      vi.mocked(useSettingsStore).mockReturnValue(
+        createUseSettingsStoreMock()
+      );
     });
 
     it('should be exportable as named export', async () => {

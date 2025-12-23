@@ -5,7 +5,7 @@
  * Handles creating new profiles with validation.
  */
 
-import { loadProfilesFile, saveProfilesFile, generateProfileId } from '../utils/profile-manager';
+import { loadProfilesFile, saveProfilesFile, generateProfileId, validateFilePermissions, getProfilesFilePath } from '../utils/profile-manager';
 import type { APIProfile, TestConnectionResult } from '../../shared/types/profile';
 
 /**
@@ -107,6 +107,12 @@ export async function deleteProfile(id: string): Promise<void> {
 
   // Save to disk
   await saveProfilesFile(file);
+
+  // Set file permissions to user-readable only
+  const permissionsValid = await validateFilePermissions(getProfilesFilePath());
+  if (!permissionsValid) {
+    throw new Error('Failed to set secure file permissions');
+  }
 }
 
 /**
