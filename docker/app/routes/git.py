@@ -194,7 +194,7 @@ async def get_git_log(
         str(validated_path),
         "log",
         f"-{limit}",
-        "--format=%H|%s|%an|%ae|%aI",
+        "--format=%H%x00%s%x00%an%x00%ae%x00%aI",
     )
 
     if returncode != 0:
@@ -203,7 +203,7 @@ async def get_git_log(
     commits = []
     for line in stdout.split("\n"):
         if line:
-            parts = line.split("|", 4)
+            parts = line.split("\x00", 4)
             if len(parts) == 5:
                 commits.append({
                     "hash": parts[0],
