@@ -50,6 +50,8 @@ async def log_stream(
             await log_streamer.tail_file(latest_log, project_id, spec_id, follow=False)
         else:
             await websocket.send_text("No logs available yet. Start a build to see logs.\n")
+            await websocket.close()
+            return
 
     try:
         async for line in log_streamer.subscribe(project_id, spec_id):

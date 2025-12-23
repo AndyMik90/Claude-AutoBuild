@@ -19,15 +19,15 @@ depends_on = None
 
 def upgrade() -> None:
     # Add SMTP configuration columns to system_settings
-    op.add_column('system_settings', sa.Column('smtp_enabled', sa.Boolean(), nullable=False, server_default='false'))
+    op.add_column('system_settings', sa.Column('smtp_enabled', sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column('system_settings', sa.Column('smtp_host', sa.String(255), nullable=True))
-    op.add_column('system_settings', sa.Column('smtp_port', sa.Integer(), nullable=False, server_default='587'))
+    op.add_column('system_settings', sa.Column('smtp_port', sa.Integer(), nullable=False, server_default=sa.text('587')))
     op.add_column('system_settings', sa.Column('smtp_username', sa.String(255), nullable=True))
     op.add_column('system_settings', sa.Column('smtp_password_encrypted', sa.Text(), nullable=True))
-    op.add_column('system_settings', sa.Column('smtp_use_tls', sa.Boolean(), nullable=False, server_default='true'))
-    op.add_column('system_settings', sa.Column('smtp_use_ssl', sa.Boolean(), nullable=False, server_default='false'))
+    op.add_column('system_settings', sa.Column('smtp_use_tls', sa.Boolean(), nullable=False, server_default=sa.true()))
+    op.add_column('system_settings', sa.Column('smtp_use_ssl', sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column('system_settings', sa.Column('smtp_from_email', sa.String(255), nullable=True))
-    op.add_column('system_settings', sa.Column('smtp_from_name', sa.String(255), nullable=False, server_default='Auto-Claude'))
+    op.add_column('system_settings', sa.Column('smtp_from_name', sa.String(255), nullable=False, server_default=sa.text("'Auto-Claude'")))
 
 
 def downgrade() -> None:

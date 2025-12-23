@@ -1,9 +1,9 @@
 """Pydantic models for Auto-Claude Docker Web UI."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 import uuid
 
 
@@ -42,37 +42,37 @@ class ProjectSettings(BaseModel):
 
 class Project(BaseModel):
     """Project model representing a cloned repository."""
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     repo_url: str
     path: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_accessed: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: ProjectStatus = ProjectStatus.ACTIVE
     settings: ProjectSettings = Field(default_factory=ProjectSettings)
-
-    class Config:
-        use_enum_values = True
 
 
 class Spec(BaseModel):
     """Spec model representing a feature specification."""
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str
     name: str
     project_id: str
     status: SpecStatus = SpecStatus.DRAFT
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     description: Optional[str] = None
     has_implementation_plan: bool = False
     has_qa_report: bool = False
 
-    class Config:
-        use_enum_values = True
-
 
 class Build(BaseModel):
     """Build model representing a spec build execution."""
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     project_id: str
     spec_id: str
@@ -81,9 +81,6 @@ class Build(BaseModel):
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     log_file: Optional[str] = None
-
-    class Config:
-        use_enum_values = True
 
 
 class ProjectCreate(BaseModel):

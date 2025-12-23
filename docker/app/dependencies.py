@@ -67,7 +67,15 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id = uuid.UUID(payload["sub"])
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     auth_service = get_auth_service(db)
     user = await auth_service.get_user_by_id(user_id)
 
@@ -113,7 +121,11 @@ async def get_current_user_optional(
     except TokenError:
         return None
 
-    user_id = uuid.UUID(payload["sub"])
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except ValueError:
+        return None
+
     auth_service = get_auth_service(db)
     user = await auth_service.get_user_by_id(user_id)
 

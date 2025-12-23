@@ -33,10 +33,18 @@ class ConnectionManager:
             return
 
         # Spread payload into message (frontend expects {type, ...payload})
-        message = json.dumps({
-            "type": event_type,
-            **payload
-        })
+        # Validate payload is a dict before spreading to avoid TypeError
+        if isinstance(payload, dict):
+            message = json.dumps({
+                "type": event_type,
+                **payload
+            })
+        else:
+            # Wrap non-dict payload in a data field
+            message = json.dumps({
+                "type": event_type,
+                "data": payload
+            })
 
         async with self._lock:
             disconnected = []
@@ -54,10 +62,18 @@ class ConnectionManager:
     async def send_to(self, websocket: WebSocket, event_type: str, payload: Any):
         """Send an event to a specific client."""
         # Spread payload into message (frontend expects {type, ...payload})
-        message = json.dumps({
-            "type": event_type,
-            **payload
-        })
+        # Validate payload is a dict before spreading to avoid TypeError
+        if isinstance(payload, dict):
+            message = json.dumps({
+                "type": event_type,
+                **payload
+            })
+        else:
+            # Wrap non-dict payload in a data field
+            message = json.dumps({
+                "type": event_type,
+                "data": payload
+            })
         try:
             await websocket.send_text(message)
         except Exception:
