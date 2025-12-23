@@ -42,8 +42,7 @@ vi.mock('electron', () => ({
 vi.mock('proper-lockfile', () => ({
   default: {
     lock: vi.fn().mockResolvedValue(vi.fn().mockResolvedValue(undefined))
-  },
-  lock: vi.fn().mockResolvedValue(vi.fn().mockResolvedValue(undefined))
+  }
 }));
 
 // Mock fs module

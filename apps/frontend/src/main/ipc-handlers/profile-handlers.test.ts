@@ -9,6 +9,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { APIProfile, ProfilesFile } from '@auto-claude/profile-service';
 
+// Hoist mocked functions to avoid circular dependency in atomicModifyProfiles
+const { mockedLoadProfilesFile, mockedSaveProfilesFile } = vi.hoisted(() => ({
+  mockedLoadProfilesFile: vi.fn(),
+  mockedSaveProfilesFile: vi.fn()
+}));
+
 // Mock electron before importing
 vi.mock('electron', () => ({
   ipcMain: {
@@ -19,20 +25,17 @@ vi.mock('electron', () => ({
 
 // Mock profile-manager
 vi.mock('@auto-claude/profile-service', () => ({
-  loadProfilesFile: vi.fn(),
-  saveProfilesFile: vi.fn(),
+  loadProfilesFile: mockedLoadProfilesFile,
+  saveProfilesFile: mockedSaveProfilesFile,
   validateFilePermissions: vi.fn(),
   getProfilesFilePath: vi.fn(() => '/test/profiles.json'),
   createProfile: vi.fn(),
   updateProfile: vi.fn(),
   testConnection: vi.fn(),
   atomicModifyProfiles: vi.fn(async (modifier: (file: unknown) => unknown) => {
-    const { loadProfilesFile, saveProfilesFile } = await import(
-      '@auto-claude/profile-service'
-    );
-    const file = await loadProfilesFile();
+    const file = await mockedLoadProfilesFile();
     const modified = modifier(file);
-    await saveProfilesFile(modified as never);
+    await mockedSaveProfilesFile(modified as never);
     return modified;
   })
 }));
