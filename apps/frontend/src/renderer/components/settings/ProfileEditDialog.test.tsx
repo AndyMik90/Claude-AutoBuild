@@ -74,10 +74,7 @@ describe('ProfileEditDialog - Edit Mode', () => {
     });
 
     // Model fields should be pre-populated
-    // Find the default model input by its label
-    const defaultModelLabel = screen.getByText(/default model/i);
-    const defaultModelInput = defaultModelLabel.nextElementSibling as HTMLInputElement;
-    expect(defaultModelInput).toHaveValue('claude-3-5-sonnet-20241022');
+    expect(screen.getByLabelText(/default model/i)).toHaveValue('claude-3-5-sonnet-20241022');
   });
 
   // Test 6 from story: API key displays masked
@@ -97,7 +94,8 @@ describe('ProfileEditDialog - Edit Mode', () => {
       />
     );
 
-    // API key should show masked (•••• + last 4 chars only, so c123 not abc123)
+    // API key field displays four mask characters (••••) plus only the last four characters of the full key
+    // Example: full key "sk-ant-api123-test-key-abc123" => masked display "••••c123"
     await waitFor(() => {
       const maskedInput = screen.getByDisplayValue(/••••c123/);
       expect(maskedInput).toBeDisabled();
