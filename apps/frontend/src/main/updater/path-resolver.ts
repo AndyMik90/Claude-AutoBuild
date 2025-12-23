@@ -2,7 +2,7 @@
  * Path resolution utilities for Auto Claude updater
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { app } from 'electron';
 
@@ -43,9 +43,22 @@ export function getUpdateCachePath(): string {
 }
 
 /**
- * Get the effective source path (considers override from updates)
+ * Get the effective source path (considers override from updates and settings)
  */
 export function getEffectiveSourcePath(): string {
+  // First, check user settings for configured autoBuildPath
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.autoBuildPath && existsSync(settings.autoBuildPath)) {
+        return settings.autoBuildPath;
+      }
+    }
+  } catch {
+    // Ignore settings read errors
+  }
+
   if (app.isPackaged) {
     // Check for user-updated source first
     const overridePath = path.join(app.getPath('userData'), 'backend-source');

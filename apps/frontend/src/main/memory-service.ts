@@ -13,6 +13,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { app } from 'electron';
 import { findPythonCommand, parsePythonCommand } from './python-detector';
+import { getMemoriesDir } from './config-paths';
 import type { MemoryEpisode } from '../shared/types';
 
 interface MemoryServiceConfig {
@@ -82,24 +83,26 @@ interface StatusResult {
 
 /**
  * Get the default database path
+ * Uses XDG-compliant paths on Linux for AppImage/Flatpak/Snap support
  */
 export function getDefaultDbPath(): string {
-  return path.join(os.homedir(), '.auto-claude', 'memories');
+  return getMemoriesDir();
 }
 
 /**
  * Get the path to the query_memory.py script
  */
 function getQueryScriptPath(): string | null {
-  // Look for the script in auto-claude directory (sibling to auto-claude-ui)
+  // Look for the script in backend directory (new apps structure)
   const possiblePaths = [
-    // Dev mode: from dist/main -> ../../auto-claude
+    // New apps structure: from dist/main -> apps/backend
+    path.resolve(__dirname, '..', '..', '..', 'backend', 'query_memory.py'),
+    path.resolve(app.getAppPath(), '..', 'backend', 'query_memory.py'),
+    path.resolve(process.cwd(), 'apps', 'backend', 'query_memory.py'),
+    // Legacy paths for backwards compatibility
     path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'query_memory.py'),
-    // Packaged app: from app.getAppPath() (handles asar and resources correctly)
     path.resolve(app.getAppPath(), '..', 'auto-claude', 'query_memory.py'),
-    // Alternative: from app root
     path.resolve(process.cwd(), 'auto-claude', 'query_memory.py'),
-    // If running from repo root
     path.resolve(process.cwd(), '..', 'auto-claude', 'query_memory.py'),
   ];
 

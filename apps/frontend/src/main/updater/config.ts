@@ -8,7 +8,7 @@
 export const GITHUB_CONFIG = {
   owner: 'AndyMik90',
   repo: 'Auto-Claude',
-  autoBuildPath: 'auto-claude' // Path within repo where auto-claude lives
+  autoBuildPath: 'apps/backend' // Path within repo where auto-claude backend lives
 } as const;
 
 /**

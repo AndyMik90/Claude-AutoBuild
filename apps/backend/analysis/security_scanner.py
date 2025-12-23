@@ -21,6 +21,8 @@ Usage:
         print("Security issues found - blocking QA approval")
 """
 
+from __future__ import annotations
+
 import json
 import subprocess
 from dataclasses import dataclass, field

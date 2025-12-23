@@ -23,13 +23,16 @@ const detectAutoBuildSourcePath = (): string | null => {
 
   // Development mode paths
   if (is.dev) {
-    // In dev, __dirname is typically auto-claude-ui/out/main
-    // We need to go up to the project root to find auto-claude/
+    // In dev, __dirname is typically apps/frontend/out/main
+    // We need to go up to find apps/backend
     possiblePaths.push(
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // From out/main up 3 levels
-      path.resolve(__dirname, '..', '..', 'auto-claude'),        // From out/main up 2 levels
-      path.resolve(process.cwd(), 'auto-claude'),                // From cwd (project root)
-      path.resolve(process.cwd(), '..', 'auto-claude')           // From cwd parent (if running from auto-claude-ui/)
+      path.resolve(__dirname, '..', '..', '..', 'backend'),      // From out/main -> apps/backend
+      path.resolve(process.cwd(), 'apps', 'backend'),            // From cwd (repo root)
+      // Legacy paths for backwards compatibility
+      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // Legacy: from out/main up 3 levels
+      path.resolve(__dirname, '..', '..', 'auto-claude'),        // Legacy: from out/main up 2 levels
+      path.resolve(process.cwd(), 'auto-claude'),                // Legacy: from cwd (project root)
+      path.resolve(process.cwd(), '..', 'auto-claude')           // Legacy: from cwd parent
     );
   } else {
     // Production mode paths (packaged app)
@@ -37,6 +40,9 @@ const detectAutoBuildSourcePath = (): string | null => {
     // We check common locations relative to the app bundle
     const appPath = app.getAppPath();
     possiblePaths.push(
+      path.resolve(appPath, '..', 'backend'),                    // Sibling to app (new structure)
+      path.resolve(appPath, '..', '..', 'backend'),              // Up 2 from app
+      // Legacy paths for backwards compatibility
       path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
       path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
       path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
@@ -46,6 +52,7 @@ const detectAutoBuildSourcePath = (): string | null => {
   }
 
   // Add process.cwd() as last resort on all platforms
+  possiblePaths.push(path.resolve(process.cwd(), 'apps', 'backend'));
   possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
 
   // Enable debug logging with DEBUG=1

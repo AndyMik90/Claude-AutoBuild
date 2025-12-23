@@ -5,6 +5,8 @@ Base Analyzer Module
 Provides common constants, utilities, and base functionality shared across all analyzers.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

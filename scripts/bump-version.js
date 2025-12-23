@@ -189,7 +189,12 @@ function main() {
     error('New version is the same as current version');
   }
 
-  // 4. Update all version files
+  // 4. Validate release (check for branch/tag conflicts)
+  info('Validating release...');
+  exec(`node ${path.join(__dirname, 'validate-release.js')} v${newVersion}`);
+  success('Release validation passed');
+
+  // 5. Update all version files
   info('Updating package.json files...');
   updatePackageJson(newVersion);
   success('Updated package.json files');
@@ -204,18 +209,18 @@ function main() {
     success('Updated README.md');
   }
 
-  // 5. Create git commit
+  // 6. Create git commit
   info('Creating git commit...');
   exec('git add apps/frontend/package.json package.json apps/backend/__init__.py README.md');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 
-  // 6. Create git tag
+  // 7. Create git tag
   info('Creating git tag...');
   exec(`git tag -a v${newVersion} -m "Release v${newVersion}"`);
   success(`Created tag: v${newVersion}`);
 
-  // 7. Instructions
+  // 8. Instructions
   log('\n📋 Next steps:', colors.yellow);
   log(`   1. Review the changes: git log -1`, colors.yellow);
   log(`   2. Push the commit: git push origin <branch-name>`, colors.yellow);

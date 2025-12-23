@@ -13,6 +13,8 @@ Detects external service integrations based on dependencies:
 - Monitoring tools (Sentry, Datadog, New Relic)
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any

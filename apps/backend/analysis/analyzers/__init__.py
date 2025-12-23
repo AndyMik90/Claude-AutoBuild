@@ -11,6 +11,8 @@ Main exports:
 - analyze_service: Convenience function for service analysis
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 

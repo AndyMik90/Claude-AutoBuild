@@ -6,6 +6,8 @@ Main ServiceAnalyzer class that coordinates all analysis for a single service/pa
 Integrates framework detection, route analysis, database models, and context extraction.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any

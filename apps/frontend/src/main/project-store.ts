@@ -245,12 +245,68 @@ export class ProjectStore {
     }
     console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath);
 
-    // Get specs directory path
+    const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
-    const specsDir = path.join(project.path, specsBaseDir);
-    console.warn('[ProjectStore] specsDir:', specsDir, 'exists:', existsSync(specsDir));
-    if (!existsSync(specsDir)) return [];
 
+    // 1. Scan main project specs directory
+    const mainSpecsDir = path.join(project.path, specsBaseDir);
+    console.warn('[ProjectStore] Main specsDir:', mainSpecsDir, 'exists:', existsSync(mainSpecsDir));
+    if (existsSync(mainSpecsDir)) {
+      const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
+      allTasks.push(...mainTasks);
+      console.warn('[ProjectStore] Loaded', mainTasks.length, 'tasks from main project');
+    }
+
+    // 2. Scan worktree specs directories
+    const worktreesDir = path.join(project.path, '.worktrees');
+    if (existsSync(worktreesDir)) {
+      try {
+        const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
+        for (const worktree of worktrees) {
+          if (!worktree.isDirectory()) continue;
+
+          const worktreeSpecsDir = path.join(worktreesDir, worktree.name, specsBaseDir);
+          if (existsSync(worktreeSpecsDir)) {
+            const worktreeTasks = this.loadTasksFromSpecsDir(
+              worktreeSpecsDir,
+              path.join(worktreesDir, worktree.name),
+              'worktree',
+              projectId,
+              specsBaseDir
+            );
+            allTasks.push(...worktreeTasks);
+            console.warn('[ProjectStore] Loaded', worktreeTasks.length, 'tasks from worktree:', worktree.name);
+          }
+        }
+      } catch (error) {
+        console.error('[ProjectStore] Error scanning worktrees:', error);
+      }
+    }
+
+    // 3. Deduplicate tasks by ID (prefer worktree version if exists in both)
+    const taskMap = new Map<string, Task>();
+    for (const task of allTasks) {
+      const existing = taskMap.get(task.id);
+      if (!existing || task.location === 'worktree') {
+        taskMap.set(task.id, task);
+      }
+    }
+
+    const tasks = Array.from(taskMap.values());
+    console.warn('[ProjectStore] Returning', tasks.length, 'unique tasks (after deduplication)');
+    return tasks;
+  }
+
+  /**
+   * Load tasks from a specs directory (helper method for main project and worktrees)
+   */
+  private loadTasksFromSpecsDir(
+    specsDir: string,
+    basePath: string,
+    location: 'main' | 'worktree',
+    projectId: string,
+    specsBaseDir: string
+  ): Task[] {
     const tasks: Task[] = [];
     let specDirs: Dirent[] = [];
 
@@ -401,6 +457,8 @@ export class ProjectStore {
           metadata,
           stagedInMainProject,
           stagedAt,
+          location, // Add location metadata (main vs worktree)
+          specsPath: specPath, // Add full path to specs directory
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });
@@ -410,7 +468,6 @@ export class ProjectStore {
       }
     }
 
-    console.warn('[ProjectStore] Returning', tasks.length, 'tasks out of', specDirs.filter(d => d.isDirectory() && d.name !== '.gitkeep').length, 'spec directories');
     return tasks;
   }
 

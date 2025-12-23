@@ -41,6 +41,11 @@ export class InsightsConfig {
     }
 
     const possiblePaths = [
+      // New apps structure: from out/main -> apps/backend
+      path.resolve(__dirname, '..', '..', '..', 'backend'),
+      path.resolve(app.getAppPath(), '..', 'backend'),
+      path.resolve(process.cwd(), 'apps', 'backend'),
+      // Legacy paths for backwards compatibility
       path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
       path.resolve(app.getAppPath(), '..', 'auto-claude'),
       path.resolve(process.cwd(), 'auto-claude')

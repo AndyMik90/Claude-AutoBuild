@@ -231,12 +231,15 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 {EXECUTION_PHASE_LABELS[executionPhase]}
               </Badge>
             )}
-            <Badge
-              variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
-              className="text-[10px] px-1.5 py-0.5"
-            >
-              {isStuck ? 'Needs Recovery' : isIncomplete ? 'Needs Resume' : getStatusLabel(task.status)}
-            </Badge>
+            {/* Status badge - hide when execution phase badge is showing */}
+            {!hasActiveExecution && (
+              <Badge
+                variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
+                className="text-[10px] px-1.5 py-0.5"
+              >
+                {isStuck ? 'Needs Recovery' : isIncomplete ? 'Needs Resume' : getStatusLabel(task.status)}
+              </Badge>
+            )}
             {/* Review reason badge - explains why task needs human review */}
             {reviewReasonInfo && !isStuck && !isIncomplete && (
               <Badge

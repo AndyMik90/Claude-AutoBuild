@@ -172,14 +172,23 @@ export async function downloadAndApplyUpdate(
     debugLog('[Update] Error:', errorMessage);
     debugLog('[Update] ============================================');
 
+    // Provide user-friendly error message for HTTP 300 errors
+    let displayMessage = errorMessage;
+    if (errorMessage.includes('Multiple resources found')) {
+      displayMessage =
+        `Update failed due to repository configuration issue (HTTP 300). ` +
+        `Please download the latest version manually from: ` +
+        `https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/releases/latest`;
+    }
+
     onProgress?.({
       stage: 'error',
-      message: errorMessage
+      message: displayMessage
     });
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: displayMessage
     };
   }
 }

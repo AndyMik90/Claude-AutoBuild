@@ -55,13 +55,35 @@ export function getDefaultPythonCommand(): string {
  * @returns Tuple of [command, baseArgs] ready for use with spawn()
  */
 export function parsePythonCommand(pythonPath: string): [string, string[]] {
+  // Remove any surrounding quotes first
+  let cleanPath = pythonPath.trim();
+  if ((cleanPath.startsWith('"') && cleanPath.endsWith('"')) ||
+      (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+    cleanPath = cleanPath.slice(1, -1);
+  }
+
   // If the path points to an actual file, use it directly (handles paths with spaces)
-  if (existsSync(pythonPath)) {
-    return [pythonPath, []];
+  if (existsSync(cleanPath)) {
+    return [cleanPath, []];
+  }
+
+  // Check if it's a path (contains path separators but not just at the start)
+  // Paths with spaces should be treated as a single command, not split
+  const hasPathSeparators = cleanPath.includes('/') || cleanPath.includes('\\');
+  const isLikelyPath = hasPathSeparators && !cleanPath.startsWith('-');
+
+  if (isLikelyPath) {
+    // This looks like a file path, don't split it
+    // Even if the file doesn't exist (yet), treat the whole thing as the command
+    return [cleanPath, []];
   }
 
   // Otherwise, split on spaces for commands like "py -3"
-  const parts = pythonPath.split(' ');
+  const parts = cleanPath.split(' ').filter(p => p.length > 0);
+  if (parts.length === 0) {
+    // Return empty string for empty input, not the original uncleaned path
+    return [cleanPath, []];
+  }
   const command = parts[0];
   const baseArgs = parts.slice(1);
   return [command, baseArgs];

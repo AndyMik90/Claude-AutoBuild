@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell, nativeImage } from 'electron';
 import { join } from 'path';
+import { existsSync, readFileSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -119,6 +120,23 @@ app.whenReady().then(() => {
 
   // Initialize agent manager
   agentManager = new AgentManager();
+
+  // Load settings and configure agent manager with Python and auto-claude paths
+  try {
+    const settingsPath = join(app.getPath('userData'), 'settings.json');
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      if (settings.pythonPath || settings.autoBuildPath) {
+        console.warn('[main] Configuring AgentManager with settings:', {
+          pythonPath: settings.pythonPath,
+          autoBuildPath: settings.autoBuildPath
+        });
+        agentManager.configure(settings.pythonPath, settings.autoBuildPath);
+      }
+    }
+  } catch (error) {
+    console.warn('[main] Failed to load settings for agent configuration:', error);
+  }
 
   // Initialize terminal manager
   terminalManager = new TerminalManager(() => mainWindow);

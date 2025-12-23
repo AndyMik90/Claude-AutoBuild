@@ -9,6 +9,8 @@ Detects background job and task queue systems:
 - Scheduled tasks and cron jobs
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any

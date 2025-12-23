@@ -14,6 +14,8 @@ Orchestrates comprehensive project context analysis including:
 This module delegates to specialized detectors for clean separation of concerns.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 

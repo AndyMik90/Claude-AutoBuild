@@ -18,6 +18,7 @@ import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
 import type { Task, WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
+import { useTerminalHandler } from '../hooks/useTerminalHandler';
 
 interface WorkspaceStatusProps {
   task: Task;
@@ -55,6 +56,7 @@ export function WorkspaceStatus({
   onStageOnlyChange,
   onMerge
 }: WorkspaceStatusProps) {
+  const { openTerminal, error: terminalError, isOpening } = useTerminalHandler();
   const hasGitConflicts = mergePreview?.gitConflicts?.hasConflicts;
   const hasUncommittedChanges = mergePreview?.uncommittedChanges?.hasChanges;
   const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
@@ -92,14 +94,10 @@ export function WorkspaceStatus({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  window.electronAPI.createTerminal({
-                    id: `open-${task.id}`,
-                    cwd: worktreeStatus.worktreePath!
-                  });
-                }}
+                onClick={() => openTerminal(`open-${task.id}`, worktreeStatus.worktreePath!)}
                 className="h-7 px-2"
                 title="Open in terminal"
+                disabled={isOpening}
               >
                 <Terminal className="h-3.5 w-3.5" />
               </Button>
@@ -135,6 +133,20 @@ export function WorkspaceStatus({
             <code className="bg-background/80 px-1.5 py-0.5 rounded text-[11px]">{worktreeStatus.baseBranch || 'main'}</code>
           </div>
         )}
+
+        {/* Worktree path display */}
+        {worktreeStatus.worktreePath && (
+          <div className="mt-2 text-xs text-muted-foreground font-mono">
+            📁 {worktreeStatus.worktreePath}
+          </div>
+        )}
+
+        {/* Terminal error display */}
+        {terminalError && (
+          <div className="mt-2 text-sm text-red-600">
+            {terminalError}
+          </div>
+        )}
       </div>
 
       {/* Status/Warnings Section */}
@@ -162,15 +174,16 @@ export function WorkspaceStatus({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  window.electronAPI.createTerminal({
-                    id: `stash-${task.id}`,
-                    cwd: worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || undefined
-                  });
+                  const mainProjectPath = worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || '';
+                  if (mainProjectPath) {
+                    openTerminal(`stash-${task.id}`, mainProjectPath);
+                  }
                 }}
                 className="text-xs h-6 mt-2"
+                disabled={isOpening}
               >
                 <Terminal className="h-3 w-3 mr-1" />
-                Open Terminal
+                {isOpening ? 'Opening...' : 'Open Terminal'}
               </Button>
             </div>
           </div>

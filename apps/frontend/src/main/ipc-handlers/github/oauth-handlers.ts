@@ -7,6 +7,7 @@ import { ipcMain, shell } from 'electron';
 import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
+import { getAugmentedEnv, findExecutable } from '../../env-utils';
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -100,6 +101,7 @@ function parseDeviceFlowOutput(stdout: string, stderr: string): DeviceFlowInfo {
 
 /**
  * Check if gh CLI is installed
+ * Uses augmented PATH to find gh CLI in common locations (e.g., Homebrew on macOS)
  */
 export function registerCheckGhCli(): void {
   ipcMain.handle(
@@ -107,15 +109,24 @@ export function registerCheckGhCli(): void {
     async (): Promise<IPCResult<{ installed: boolean; version?: string }>> => {
       debugLog('checkGitHubCli handler called');
       try {
-        const checkCmd = process.platform === 'win32' ? 'where gh' : 'which gh';
-        debugLog(`Running command: ${checkCmd}`);
+        // Use findExecutable to check common locations including Homebrew paths
+        const ghPath = findExecutable('gh');
+        if (!ghPath) {
+          debugLog('gh CLI not found in PATH or common locations');
+          return {
+            success: true,
+            data: { installed: false }
+          };
+        }
+        debugLog('gh CLI found at:', ghPath);
 
-        const whichResult = execSync(checkCmd, { encoding: 'utf-8', stdio: 'pipe' });
-        debugLog('gh CLI found at:', whichResult.trim());
-
-        // Get version
+        // Get version using augmented environment
         debugLog('Getting gh version...');
-        const versionOutput = execSync('gh --version', { encoding: 'utf-8', stdio: 'pipe' });
+        const versionOutput = execSync('gh --version', {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+          env: getAugmentedEnv()
+        });
         const version = versionOutput.trim().split('\n')[0];
         debugLog('gh version:', version);
 
@@ -136,16 +147,18 @@ export function registerCheckGhCli(): void {
 
 /**
  * Check if user is authenticated with gh CLI
+ * Uses augmented PATH to find gh CLI in common locations (e.g., Homebrew on macOS)
  */
 export function registerCheckGhAuth(): void {
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_CHECK_AUTH,
     async (): Promise<IPCResult<{ authenticated: boolean; username?: string }>> => {
       debugLog('checkGitHubAuth handler called');
+      const env = getAugmentedEnv();
       try {
         // Check auth status
         debugLog('Running: gh auth status');
-        const authStatus = execSync('gh auth status', { encoding: 'utf-8', stdio: 'pipe' });
+        const authStatus = execSync('gh auth status', { encoding: 'utf-8', stdio: 'pipe', env });
         debugLog('Auth status output:', authStatus);
 
         // Get username if authenticated
@@ -153,7 +166,8 @@ export function registerCheckGhAuth(): void {
           debugLog('Getting username via: gh api user --jq .login');
           const username = execSync('gh api user --jq .login', {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env
           }).trim();
           debugLog('Username:', username);
 
