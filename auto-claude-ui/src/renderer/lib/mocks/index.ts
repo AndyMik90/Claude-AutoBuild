@@ -15,3 +15,4 @@ export { changelogMock } from './changelog-mock';
 export { insightsMock } from './insights-mock';
 export { infrastructureMock } from './infrastructure-mock';
 export { settingsMock } from './settings-mock';
+export { pluginMock } from './plugin-mock';

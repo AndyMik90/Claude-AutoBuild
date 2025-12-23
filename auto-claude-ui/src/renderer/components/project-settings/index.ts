@@ -21,3 +21,6 @@ export { PasswordInput } from './PasswordInput';
 export { StatusBadge } from './StatusBadge';
 export { ConnectionStatus } from './ConnectionStatus';
 export { InfrastructureStatus } from './InfrastructureStatus';
+
+// Boilerplate plugin integration
+export { BoilerplateTab } from './BoilerplateTab';

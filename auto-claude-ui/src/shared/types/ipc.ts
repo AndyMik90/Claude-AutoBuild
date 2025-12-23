@@ -107,6 +107,20 @@ import type {
   GitHubInvestigationResult,
   GitHubInvestigationStatus
 } from './integrations';
+import type {
+  Plugin,
+  PluginInstallOptions,
+  PluginInstallResult,
+  PluginUpdateCheck,
+  PluginUpdateOptions,
+  PluginUpdateResult,
+  PluginBackup,
+  PluginContext,
+  BoilerplateDetectionResult,
+  GitHubTokenValidation,
+  GitHubRepoAccess,
+  GitAvailability
+} from './plugin';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -590,6 +604,24 @@ export interface ElectronAPI {
   // Developer/Debug operations
   setBackendLogging: (enabled: boolean) => Promise<IPCResult>;
   onMainProcessLog: (callback: (data: { level: string; args: string[] }) => void) => () => void;
+
+  // Plugin operations
+  getPlugins: () => Promise<IPCResult<Plugin[]>>;
+  installPlugin: (options: PluginInstallOptions) => Promise<PluginInstallResult>;
+  uninstallPlugin: (pluginId: string) => Promise<IPCResult>;
+  checkPluginUpdates: (pluginId: string, token?: string) => Promise<IPCResult<PluginUpdateCheck>>;
+  applyPluginUpdates: (options: PluginUpdateOptions) => Promise<IPCResult<PluginUpdateResult>>;
+  getPluginFileDiff: (pluginId: string, filePath: string) => Promise<IPCResult<string | null>>;
+  listPluginBackups: (pluginId: string) => Promise<IPCResult<PluginBackup[]>>;
+  rollbackPlugin: (pluginId: string, backupPath: string) => Promise<IPCResult<PluginUpdateResult>>;
+  detectBoilerplate: (projectPath: string) => Promise<IPCResult<BoilerplateDetectionResult>>;
+  getPluginContext: (projectId: string) => Promise<IPCResult<PluginContext>>;
+  validateGitHubToken: (token: string) => Promise<GitHubTokenValidation>;
+  checkGitHubRepoAccess: (owner: string, repo: string, token?: string) => Promise<GitHubRepoAccess>;
+  checkGitAvailability: () => Promise<GitAvailability>;
+
+  // Plugin event listeners
+  onPluginInstallProgress: (callback: (progress: import('./plugin').PluginInstallProgress) => void) => () => void;
 }
 
 declare global {

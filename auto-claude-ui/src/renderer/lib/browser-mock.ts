@@ -18,7 +18,8 @@ import {
   changelogMock,
   insightsMock,
   infrastructureMock,
-  settingsMock
+  settingsMock,
+  pluginMock
 } from './mocks';
 
 // Check if we're in a browser (not Electron)
@@ -108,7 +109,10 @@ const browserMockAPI: ElectronAPI = {
   ...insightsMock,
 
   // Infrastructure & Docker Operations
-  ...infrastructureMock
+  ...infrastructureMock,
+
+  // Plugin Operations
+  ...pluginMock
 };
 
 /**

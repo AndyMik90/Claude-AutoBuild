@@ -9,7 +9,7 @@ import {
   type DragStartEvent,
   type DragEndEvent
 } from '@dnd-kit/core';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch, FileDown, File, Folder } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch, FileDown, File, Folder, Layers, Sparkles, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,9 @@ import { FileAutocomplete } from './FileAutocomplete';
 import { parseMarkdownTask, generateRichDescription, type ParsedTask } from '../lib/markdown-task-parser';
 import { createTask, createTaskWithChildren, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { useTaskPluginContext, usePluginContextSummary } from '../hooks/usePluginContext';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
 import { cn } from '../lib/utils';
 import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
@@ -93,12 +96,23 @@ export function TaskCreationWizard({
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
-  // Get project path from project store
+  // Get project path and boilerplate info from project store
   const projects = useProjectStore((state) => state.projects);
-  const projectPath = useMemo(() => {
-    const project = projects.find((p) => p.id === projectId);
-    return project?.path ?? null;
+  const project = useMemo(() => {
+    return projects.find((p) => p.id === projectId);
   }, [projects, projectId]);
+  const projectPath = project?.path ?? null;
+  const boilerplateInfo = project?.boilerplateInfo ?? null;
+
+  // Load plugin context for boilerplate projects
+  const { context: pluginContext, isLoading: isLoadingContext, isEnabled: isContextEnabled, contextString, hasContext } = useTaskPluginContext(
+    projectId,
+    boilerplateInfo
+  );
+  const contextSummary = usePluginContextSummary(pluginContext);
+
+  // Show plugin context section toggle
+  const [showPluginContext, setShowPluginContext] = useState(false);
 
   // Metadata fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -842,6 +856,13 @@ export function TaskCreationWizard({
       // Only include baseBranch if it's not the project default placeholder
       if (baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH) metadata.baseBranch = baseBranch;
 
+      // Inject plugin context if available and enabled
+      if (hasContext && contextString && pluginContext) {
+        metadata.pluginContext = contextString;
+        metadata.pluginId = pluginContext.pluginId;
+        metadata.pluginVersion = pluginContext.pluginVersion;
+      }
+
       // Check if we have parsed subtasks from markdown - create hierarchical task
       if (parsedSubtasks.length > 0) {
         console.log('[Create] Creating hierarchical task with', parsedSubtasks.length, 'children');
@@ -909,6 +930,7 @@ export function TaskCreationWizard({
     setShowAdvanced(false);
     setShowFileExplorer(false);
     setShowGitOptions(false);
+    setShowPluginContext(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
   };
@@ -1374,6 +1396,140 @@ export function TaskCreationWizard({
                 </p>
               </div>
             </div>
+          )}
+
+          {/* Boilerplate Context Section - Only show for boilerplate projects */}
+          {boilerplateInfo && (
+            <>
+              {/* Boilerplate Context Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowPluginContext(!showPluginContext)}
+                className={cn(
+                  'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+                  'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+                )}
+                disabled={isCreating}
+              >
+                <span className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Boilerplate Context
+                  {hasContext && (
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      {contextSummary.skillCount} skills
+                    </Badge>
+                  )}
+                </span>
+                {showPluginContext ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Boilerplate Context Preview */}
+              {showPluginContext && (
+                <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                  {isLoadingContext ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading boilerplate context...
+                    </div>
+                  ) : hasContext && pluginContext ? (
+                    <>
+                      {/* Context Header */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium text-foreground">
+                            {pluginContext.pluginName}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            v{pluginContext.pluginVersion}
+                          </p>
+                        </div>
+                        {isContextEnabled ? (
+                          <Badge variant="default" className="text-xs">
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Disabled
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Context Summary */}
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="bg-background px-2 py-1 rounded border border-border">
+                          {contextSummary.skillCount} skills
+                        </span>
+                        {contextSummary.patternCount > 0 && (
+                          <span className="bg-background px-2 py-1 rounded border border-border">
+                            {contextSummary.patternCount} patterns
+                          </span>
+                        )}
+                        {contextSummary.conventionCount > 0 && (
+                          <span className="bg-background px-2 py-1 rounded border border-border">
+                            {contextSummary.conventionCount} conventions
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Domains */}
+                      {contextSummary.domains.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {contextSummary.domains.map((domain) => (
+                            <Badge key={domain} variant="secondary" className="text-xs capitalize">
+                              {domain}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Skills Preview */}
+                      {contextSummary.skillCount > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Available Skills:</p>
+                          <ScrollArea className="h-[120px] rounded border border-border bg-background">
+                            <div className="p-2 space-y-1">
+                              {pluginContext.skills.slice(0, 20).map((skill) => (
+                                <div key={skill.id} className="flex items-start gap-2 text-xs">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                                    {skill.domain}
+                                  </Badge>
+                                  <span className="text-foreground">{skill.name}</span>
+                                </div>
+                              ))}
+                              {contextSummary.skillCount > 20 && (
+                                <p className="text-xs text-muted-foreground pt-1">
+                                  +{contextSummary.skillCount - 20} more skills...
+                                </p>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-muted-foreground">
+                        These skills and patterns will be automatically included in the task context to guide the AI.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p>Plugin context not available.</p>
+                        <p className="text-xs mt-1">
+                          The boilerplate plugin may not be installed or context injection is disabled in settings.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* Error */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Settings,
   Save,
@@ -14,7 +14,9 @@ import {
   Github,
   Database,
   Sparkles,
-  Bug
+  Bug,
+  Puzzle,
+  Layers
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -34,6 +36,7 @@ import { GeneralSettings } from './GeneralSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
 import { DeveloperSettings } from './DeveloperSettings';
+import { PluginsPanel } from './PluginsPanel';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -48,7 +51,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications' | 'developer';
+export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'plugins' | 'updates' | 'notifications' | 'developer';
 
 interface NavItem<T extends string> {
   id: T;
@@ -62,18 +65,28 @@ const appNavItems: NavItem<AppSection>[] = [
   { id: 'agent', label: 'Agent Settings', icon: Bot, description: 'Default model and framework' },
   { id: 'paths', label: 'Paths', icon: FolderOpen, description: 'Python and framework paths' },
   { id: 'integrations', label: 'Integrations', icon: Key, description: 'API keys & Claude accounts' },
+  { id: 'plugins', label: 'Plugins', icon: Puzzle, description: 'Manage boilerplate plugins' },
   { id: 'updates', label: 'Updates', icon: Package, description: 'Auto Claude updates' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert preferences' },
   { id: 'developer', label: 'Developer', icon: Bug, description: 'Debug and development tools' }
 ];
 
-const projectNavItems: NavItem<ProjectSettingsSection>[] = [
+// Base project nav items (always shown)
+const baseProjectNavItems: NavItem<ProjectSettingsSection>[] = [
   { id: 'general', label: 'General', icon: Settings2, description: 'Auto-Build and agent config' },
   { id: 'claude', label: 'Claude Auth', icon: Key, description: 'Claude authentication' },
   { id: 'linear', label: 'Linear', icon: Zap, description: 'Linear integration' },
   { id: 'github', label: 'GitHub', icon: Github, description: 'GitHub issues sync' },
   { id: 'memory', label: 'Memory', icon: Database, description: 'Graphiti memory backend' }
 ];
+
+// Boilerplate nav item (shown only for boilerplate projects)
+const boilerplateNavItem: NavItem<ProjectSettingsSection> = {
+  id: 'boilerplate',
+  label: 'Boilerplate',
+  icon: Layers,
+  description: 'Plugin skills and updates'
+};
 
 /**
  * Main application settings dialog container
@@ -106,6 +119,14 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Compute project nav items - include boilerplate tab only for boilerplate projects
+  const projectNavItems = useMemo(() => {
+    if (selectedProject?.boilerplateInfo) {
+      return [...baseProjectNavItems, boilerplateNavItem];
+    }
+    return baseProjectNavItems;
+  }, [selectedProject?.boilerplateInfo]);
 
   // Project settings hook state (lifted from child)
   const [projectSettingsHook, setProjectSettingsHook] = useState<UseProjectSettingsReturn | null>(null);
@@ -166,6 +187,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
       case 'integrations':
         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
+      case 'plugins':
+        return <PluginsPanel />;
       case 'updates':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':

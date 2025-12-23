@@ -69,11 +69,13 @@
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
+    "octokit": "^5.0.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^3.0.6",
     "remark-gfm": "^4.0.1",
+    "simple-git": "^3.30.0",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
     "zustand": "^5.0.9"

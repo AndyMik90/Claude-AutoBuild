@@ -2,9 +2,10 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, BoilerplateReference } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
+import { getPluginManager } from './plugin/PluginManager';
 
 interface TabState {
   openProjectIds: string[];
@@ -92,6 +93,21 @@ export class ProjectStore {
     // Determine auto-claude path (supports both 'auto-claude' and '.auto-claude')
     const autoBuildPath = getAutoBuildPath(projectPath) || '';
 
+    // Detect if this is a boilerplate project
+    let boilerplateInfo: BoilerplateReference | undefined;
+    try {
+      const pluginManager = getPluginManager();
+      if (pluginManager.isInitialized()) {
+        const detection = pluginManager.detectBoilerplate(projectPath);
+        if (detection.isBoilerplate && detection.reference) {
+          boilerplateInfo = detection.reference;
+        }
+      }
+    } catch (error) {
+      // Log error but continue - boilerplate detection is not critical
+      console.warn('[ProjectStore] Failed to detect boilerplate:', error);
+    }
+
     const project: Project = {
       id: uuidv4(),
       name: projectName,
@@ -99,7 +115,8 @@ export class ProjectStore {
       autoBuildPath,
       settings: { ...DEFAULT_PROJECT_SETTINGS },
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      boilerplateInfo
     };
 
     this.data.projects.push(project);
@@ -119,6 +136,66 @@ export class ProjectStore {
       this.save();
     }
     return project;
+  }
+
+  /**
+   * Update project's boilerplate info
+   * Called when a boilerplate plugin is installed or when re-detecting boilerplate
+   */
+  updateBoilerplateInfo(projectId: string, boilerplateInfo?: BoilerplateReference): Project | undefined {
+    const project = this.data.projects.find((p) => p.id === projectId);
+    if (project) {
+      project.boilerplateInfo = boilerplateInfo;
+      project.updatedAt = new Date();
+      this.save();
+    }
+    return project;
+  }
+
+  /**
+   * Detect boilerplate for a project and update its info
+   * Returns the detection result
+   */
+  detectAndUpdateBoilerplate(projectId: string): { updated: boolean; boilerplateInfo?: BoilerplateReference } {
+    const project = this.data.projects.find((p) => p.id === projectId);
+    if (!project) {
+      return { updated: false };
+    }
+
+    try {
+      const pluginManager = getPluginManager();
+      if (!pluginManager.isInitialized()) {
+        return { updated: false };
+      }
+
+      const detection = pluginManager.detectBoilerplate(project.path);
+      if (detection.isBoilerplate && detection.reference) {
+        // Only update if info changed
+        const currentInfo = project.boilerplateInfo;
+        const newInfo = detection.reference;
+        const hasChanged = !currentInfo ||
+          currentInfo.pluginId !== newInfo.pluginId ||
+          currentInfo.pluginVersion !== newInfo.pluginVersion;
+
+        if (hasChanged) {
+          project.boilerplateInfo = newInfo;
+          project.updatedAt = new Date();
+          this.save();
+          return { updated: true, boilerplateInfo: newInfo };
+        }
+        return { updated: false, boilerplateInfo: currentInfo };
+      } else if (project.boilerplateInfo) {
+        // Project is no longer a boilerplate - clear the info
+        project.boilerplateInfo = undefined;
+        project.updatedAt = new Date();
+        this.save();
+        return { updated: true };
+      }
+    } catch (error) {
+      console.warn('[ProjectStore] Failed to detect boilerplate for project:', projectId, error);
+    }
+
+    return { updated: false, boilerplateInfo: project.boilerplateInfo };
   }
 
   /**

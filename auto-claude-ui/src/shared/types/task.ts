@@ -232,6 +232,11 @@ export interface TaskMetadata {
   childTaskIds?: string[];  // IDs of child tasks
   parentTaskId?: string;  // ID of parent task (if this is a child)
   orderIndex?: number;  // Order index for sorting child tasks
+
+  // Plugin context (from boilerplate plugins)
+  pluginContext?: string;  // Formatted context string from boilerplate plugin (skills, patterns, conventions)
+  pluginId?: string;  // ID of the plugin providing context
+  pluginVersion?: string;  // Version of the plugin
 }
 
 export interface Task {
