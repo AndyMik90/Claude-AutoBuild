@@ -16,6 +16,50 @@ from config import get_settings, Settings
 router = APIRouter()
 
 
+def validate_path(path: str) -> Path:
+    """Validate and sanitize a path to prevent path traversal attacks.
+
+    Args:
+        path: The user-provided path string
+
+    Returns:
+        A validated, resolved Path object
+
+    Raises:
+        HTTPException: If path is invalid or contains traversal attempts
+    """
+    if not path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    # Check for null bytes which could be used for path injection
+    if '\x00' in path:
+        raise HTTPException(status_code=400, detail="Invalid path: null bytes not allowed")
+
+    # Normalize the path to resolve any .. or . components
+    try:
+        # Convert to Path and resolve to absolute path
+        resolved_path = Path(path).resolve()
+    except (ValueError, OSError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid path: {e}")
+
+    # Check for path traversal by comparing the resolved path with the original
+    # If the original path contained .. that escaped, the resolved path will differ
+    original_parts = Path(path).parts
+
+    # Detect explicit traversal attempts (.. in path)
+    if '..' in original_parts:
+        raise HTTPException(status_code=400, detail="Invalid path: path traversal not allowed")
+
+    # Ensure the path exists and is a directory
+    if not resolved_path.exists():
+        raise HTTPException(status_code=404, detail="Path not found")
+
+    if not resolved_path.is_dir():
+        raise HTTPException(status_code=400, detail="Path must be a directory")
+
+    return resolved_path
+
+
 class GitInit(BaseModel):
     """Request model for initializing a git repo."""
     path: str
@@ -40,10 +84,9 @@ async def get_branches(
     settings: Settings = Depends(get_settings),
 ) -> list[str]:
     """Get list of branches."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
-    returncode, stdout, stderr = await run_git_command(path, "branch", "-a", "--format=%(refname:short)")
+    returncode, stdout, stderr = await run_git_command(str(validated_path), "branch", "-a", "--format=%(refname:short)")
 
     if returncode != 0:
         raise HTTPException(status_code=400, detail=stderr or "Failed to get branches")
@@ -58,10 +101,9 @@ async def get_current_branch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get current branch name."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
-    returncode, stdout, stderr = await run_git_command(path, "rev-parse", "--abbrev-ref", "HEAD")
+    returncode, stdout, stderr = await run_git_command(str(validated_path), "rev-parse", "--abbrev-ref", "HEAD")
 
     if returncode != 0:
         return {"branch": None}
@@ -75,13 +117,12 @@ async def detect_main_branch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Detect the main branch (main, master, etc.)."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
     # Check for common main branch names
     for branch in ["main", "master", "develop"]:
         returncode, _, _ = await run_git_command(
-            path, "rev-parse", "--verify", f"refs/heads/{branch}"
+            str(validated_path), "rev-parse", "--verify", f"refs/heads/{branch}"
         )
         if returncode == 0:
             return {"branch": branch}
@@ -95,19 +136,18 @@ async def get_git_status(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get git status."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
     # Check if it's a git repo
-    returncode, _, _ = await run_git_command(path, "rev-parse", "--is-inside-work-tree")
+    returncode, _, _ = await run_git_command(str(validated_path), "rev-parse", "--is-inside-work-tree")
     if returncode != 0:
         return {"isRepo": False, "clean": False, "branch": None, "files": []}
 
     # Get current branch
-    _, branch, _ = await run_git_command(path, "rev-parse", "--abbrev-ref", "HEAD")
+    _, branch, _ = await run_git_command(str(validated_path), "rev-parse", "--abbrev-ref", "HEAD")
 
     # Get status
-    returncode, stdout, _ = await run_git_command(path, "status", "--porcelain")
+    returncode, stdout, _ = await run_git_command(str(validated_path), "status", "--porcelain")
 
     files = []
     if stdout:
@@ -131,10 +171,9 @@ async def init_repo(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Initialize a git repository."""
-    if not Path(data.path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(data.path)
 
-    returncode, stdout, stderr = await run_git_command(data.path, "init")
+    returncode, stdout, stderr = await run_git_command(str(validated_path), "init")
 
     if returncode != 0:
         raise HTTPException(status_code=400, detail=stderr or "Failed to initialize repository")
@@ -149,11 +188,10 @@ async def get_git_log(
     settings: Settings = Depends(get_settings),
 ) -> list[dict]:
     """Get recent commits."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
     returncode, stdout, stderr = await run_git_command(
-        path,
+        str(validated_path),
         "log",
         f"-{limit}",
         "--format=%H|%s|%an|%ae|%aI",
@@ -185,14 +223,13 @@ async def get_git_diff(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get git diff."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
     args = ["diff"]
     if staged:
         args.append("--cached")
 
-    returncode, stdout, stderr = await run_git_command(path, *args)
+    returncode, stdout, stderr = await run_git_command(str(validated_path), *args)
 
     return {"diff": stdout}
 
@@ -203,10 +240,9 @@ async def get_git_remote(
     settings: Settings = Depends(get_settings),
 ) -> list[dict]:
     """Get git remotes."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
-    returncode, stdout, _ = await run_git_command(path, "remote", "-v")
+    returncode, stdout, _ = await run_git_command(str(validated_path), "remote", "-v")
 
     if returncode != 0:
         return []
@@ -230,10 +266,9 @@ async def git_fetch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Fetch from remote."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
-    returncode, stdout, stderr = await run_git_command(path, "fetch", "--all")
+    returncode, stdout, stderr = await run_git_command(str(validated_path), "fetch", "--all")
 
     if returncode != 0:
         raise HTTPException(status_code=400, detail=stderr or "Failed to fetch")
@@ -247,10 +282,9 @@ async def git_pull(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pull from remote."""
-    if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="Path not found")
+    validated_path = validate_path(path)
 
-    returncode, stdout, stderr = await run_git_command(path, "pull")
+    returncode, stdout, stderr = await run_git_command(str(validated_path), "pull")
 
     if returncode != 0:
         raise HTTPException(status_code=400, detail=stderr or "Failed to pull")
