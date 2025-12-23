@@ -11,6 +11,25 @@ import { checkGitStatus } from '../../project-initializer';
 import { getClaudeProfileManager } from '../../claude-profile-manager';
 
 /**
+ * Helper function to check subtask completion status
+ */
+function checkSubtasksCompletion(plan: Record<string, unknown> | null): {
+  allSubtasks: Array<{ status: string }>;
+  completedCount: number;
+  totalCount: number;
+  allCompleted: boolean;
+} {
+  const allSubtasks = plan?.phases?.flatMap(phase =>
+    (phase as { subtasks?: Array<{ status: string }> }).subtasks || []
+  ) || [];
+  const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
+  const totalCount = allSubtasks.length;
+  const allCompleted = totalCount > 0 && completedCount === totalCount;
+
+  return { allSubtasks, completedCount, totalCount, allCompleted };
+}
+
+/**
  * Register task execution handlers (start, stop, review, status management, recovery)
  */
 export function registerTaskExecutionHandlers(
@@ -582,16 +601,9 @@ export function registerTaskExecutionHandlers(
 
         if (!targetStatus && plan?.phases && Array.isArray(plan.phases)) {
           // Analyze subtask statuses to determine appropriate recovery status
-          const allSubtasks: Array<{ status: string }> = [];
-          for (const phase of plan.phases as Array<{ subtasks?: Array<{ status: string }> }>) {
-            if (phase.subtasks && Array.isArray(phase.subtasks)) {
-              allSubtasks.push(...phase.subtasks);
-            }
-          }
+          const { completedCount, totalCount, allCompleted } = checkSubtasksCompletion(plan);
 
-          if (allSubtasks.length > 0) {
-            const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
-            const allCompleted = completedCount === allSubtasks.length;
+          if (totalCount > 0) {
 
             if (allCompleted) {
               // All subtasks completed - should go to review (ai_review or human_review based on source)
@@ -619,10 +631,7 @@ export function registerTaskExecutionHandlers(
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
           // Check if task is actually stuck or just completed and waiting for merge
-          const allSubtasks = plan.phases?.flatMap(phase => (phase as { subtasks?: Array<{ status: string }> }).subtasks || []) || [];
-          const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
-          const totalCount = allSubtasks.length;
-          const allCompleted = totalCount > 0 && completedCount === totalCount;
+          const { allCompleted } = checkSubtasksCompletion(plan);
 
           if (allCompleted) {
             console.log('[Recovery] Task is fully complete (all subtasks done), setting to human_review without restart');
