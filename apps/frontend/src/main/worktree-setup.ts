@@ -4,11 +4,14 @@
  * Executes user-defined setup commands in worktree directories when tasks
  * transition to Human Review status. Similar to Cursor's worktree setup feature.
  *
- * Supports variable substitution:
+ * Available environment variables in commands:
  * - $ROOT_WORKTREE_PATH: Path to .worktrees directory
  * - $WORKTREE_PATH: Full path to this specific worktree
  * - $SPEC_NAME: Name of the spec (e.g., "001-feature-name")
  * - $PROJECT_PATH: Path to the main project directory
+ *
+ * Variables are passed as environment variables, so paths with spaces work correctly.
+ * Use "$VAR" (with quotes) in your commands for paths that may contain spaces.
  */
 
 import { spawn } from 'child_process';
@@ -54,26 +57,13 @@ function truncateOutput(output: string, maxLength: number = MAX_COMMAND_OUTPUT_L
   return truncatedPrefix + output.slice(-(maxLength - truncatedPrefix.length));
 }
 
-function substituteVariables(command: string, variables: SetupVariables): string {
-  const varMap: Record<string, string> = {
-    ROOT_WORKTREE_PATH: variables.ROOT_WORKTREE_PATH,
-    WORKTREE_PATH: variables.WORKTREE_PATH,
-    SPEC_NAME: variables.SPEC_NAME,
-    PROJECT_PATH: variables.PROJECT_PATH,
-  };
 
-  return command.replace(/\$\{?([A-Z_]+)\}?/g, (match, varName: string) => {
-    return varMap[varName] ?? match;
-  });
-}
 
-/**
- * Execute a single command in the worktree directory
- */
 async function executeCommand(
   command: string,
   cwd: string,
-  timeoutMs: number
+  timeoutMs: number,
+  variables: SetupVariables
 ): Promise<WorktreeSetupCommandResult> {
   const startTime = Date.now();
 
@@ -83,7 +73,6 @@ async function executeCommand(
     let resolved = false;
     let timeoutId: NodeJS.Timeout | null = null;
 
-    // Use shell to execute the command (supports pipes, redirects, etc.)
     const isWindows = process.platform === 'win32';
     const shell = isWindows ? 'cmd.exe' : '/bin/sh';
     const shellArgs = isWindows ? ['/c', command] : ['-c', command];
@@ -92,7 +81,10 @@ async function executeCommand(
       cwd,
       env: {
         ...process.env,
-        // Ensure proper encoding
+        ROOT_WORKTREE_PATH: variables.ROOT_WORKTREE_PATH,
+        WORKTREE_PATH: variables.WORKTREE_PATH,
+        SPEC_NAME: variables.SPEC_NAME,
+        PROJECT_PATH: variables.PROJECT_PATH,
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1'
       },
@@ -186,14 +178,12 @@ export async function executeWorktreeSetup(
   const { projectPath, specId, config } = context;
   const startTime = Date.now();
 
-  // Validate config
   if (!config.enabled) {
     return {
       success: true,
       executedAt: new Date().toISOString(),
       commands: [],
-      totalDurationMs: 0,
-      error: 'Setup is disabled'
+      totalDurationMs: 0
     };
   }
 
@@ -239,12 +229,10 @@ export async function executeWorktreeSetup(
 
   console.log(`[WorktreeSetup] Executing ${config.commands.length} commands in ${worktreePath}`);
 
-  for (const rawCommand of config.commands) {
-    // Substitute variables
-    const command = substituteVariables(rawCommand, variables);
+  for (const command of config.commands) {
     console.log(`[WorktreeSetup] Running: ${command}`);
 
-    const result = await executeCommand(command, worktreePath, perCommandTimeout);
+    const result = await executeCommand(command, worktreePath, perCommandTimeout, variables);
     commandResults.push(result);
 
     if (!result.success) {

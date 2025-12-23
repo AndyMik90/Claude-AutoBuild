@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -25,11 +26,11 @@ function formatCommands(commands: string[]): string {
 
 export function WorktreeSetupSection({ settings, projectPath, onUpdateSettings }: WorktreeSetupSectionProps) {
   const { templates } = useWorktreeTemplates(projectPath);
-  const config = settings.worktreeSetup || {
+  const config = useMemo(() => settings.worktreeSetup || {
     enabled: false,
     commands: [],
     timeout: DEFAULT_WORKTREE_SETUP_TIMEOUT_MS
-  };
+  }, [settings.worktreeSetup]);
 
   const handleToggle = (enabled: boolean) => {
     onUpdateSettings({
