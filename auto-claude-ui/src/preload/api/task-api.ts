@@ -21,6 +21,13 @@ export interface TaskAPI {
     description: string,
     metadata?: TaskMetadata
   ) => Promise<IPCResult<Task>>;
+  createTaskWithChildren: (
+    projectId: string,
+    title: string,
+    description: string,
+    children: Array<{ title: string; description?: string; orderIndex: number }>,
+    metadata?: TaskMetadata
+  ) => Promise<IPCResult<{ parent: Task; children: Task[] }>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
   updateTask: (
     taskId: string,
@@ -82,6 +89,15 @@ export const createTaskAPI = (): TaskAPI => ({
     metadata?: TaskMetadata
   ): Promise<IPCResult<Task>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CREATE, projectId, title, description, metadata),
+
+  createTaskWithChildren: (
+    projectId: string,
+    title: string,
+    description: string,
+    children: Array<{ title: string; description?: string; orderIndex: number }>,
+    metadata?: TaskMetadata
+  ): Promise<IPCResult<{ parent: Task; children: Task[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_CREATE_WITH_CHILDREN, projectId, title, description, children, metadata),
 
   deleteTask: (taskId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_DELETE, taskId),

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, Link2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -36,9 +36,10 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  allTasks?: Task[]; // For calculating child task progress
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, allTasks }: TaskCardProps) {
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
 
@@ -48,6 +49,20 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
+
+  // Calculate child task progress
+  const childProgress = task.hasChildren && allTasks ? (() => {
+    const children = allTasks.filter((t) => t.parentTaskId === task.id);
+    const total = children.length;
+    const completed = children.filter((t) => t.status === 'done').length;
+    const inProgress = children.filter((t) => t.status === 'in_progress').length;
+    return { total, completed, inProgress };
+  })() : null;
+
+  // Get parent task info for child tasks
+  const parentTask = task.parentTaskId && allTasks
+    ? allTasks.find((t) => t.id === task.parentTaskId)
+    : null;
 
   // Check if task is stuck (status says in_progress but no actual process)
   // Add a grace period to avoid false positives during process spawn
@@ -171,23 +186,26 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   return (
     <Card
       className={cn(
-        'card-surface task-card-enhanced cursor-pointer',
+        'card-surface task-card-enhanced cursor-pointer w-full overflow-hidden',
         isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
         isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
         isArchived && 'opacity-60 hover:opacity-80'
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-4 overflow-hidden">
         {/* Header - improved visual hierarchy */}
-        <div className="flex items-start justify-between gap-3">
-          <h3
-            className="font-semibold text-sm text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
-            title={task.title}
-          >
-            {task.title}
-          </h3>
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[160px]">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              className="font-semibold text-sm text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
+              style={{ wordBreak: 'break-word', overflowWrap: 'break-word', hyphens: 'auto' }}
+              title={task.title}
+            >
+              {task.title}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -252,7 +270,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         {/* Description - sanitized to handle markdown content */}
         {task.description && (
           <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {sanitizeMarkdownForDisplay(task.description, 150)}
+            {sanitizeMarkdownForDisplay(task.description, 200)}
           </p>
         )}
 
@@ -308,6 +326,33 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 {task.metadata.securitySeverity} severity
+              </Badge>
+            )}
+            {/* Child task progress - show for parent tasks */}
+            {childProgress && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] px-1.5 py-0',
+                  childProgress.completed === childProgress.total
+                    ? 'bg-success/10 text-success border-success/30'
+                    : childProgress.inProgress > 0
+                    ? 'bg-info/10 text-info border-info/30'
+                    : 'bg-muted text-muted-foreground border-border'
+                )}
+              >
+                {childProgress.completed}/{childProgress.total} subtasks
+              </Badge>
+            )}
+            {/* Parent link indicator - show for child tasks */}
+            {parentTask && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-400 border-purple-500/30 flex items-center gap-1 max-w-[150px]"
+                title={`Part of: ${parentTask.title}`}
+              >
+                <Link2 className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{parentTask.title.substring(0, 20)}{parentTask.title.length > 20 ? '...' : ''}</span>
               </Badge>
             )}
           </div>

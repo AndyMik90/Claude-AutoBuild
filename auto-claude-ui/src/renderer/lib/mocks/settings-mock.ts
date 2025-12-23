@@ -24,5 +24,9 @@ export const settingsMock = {
   // App Update Event Listeners (no-op in browser mode)
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
-  onAppUpdateProgress: () => () => {}
+  onAppUpdateProgress: () => () => {},
+
+  // Backend logging (developer settings)
+  setBackendLogging: async (_enabled: boolean) => ({ success: true }),
+  onMainProcessLog: () => () => {}
 };

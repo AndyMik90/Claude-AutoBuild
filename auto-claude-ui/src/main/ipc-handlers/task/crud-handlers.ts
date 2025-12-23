@@ -9,6 +9,197 @@ import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
 
 /**
+ * Core task creation logic - shared between TASK_CREATE and TASK_CREATE_WITH_CHILDREN
+ */
+async function createTaskInternal(
+  projectId: string,
+  title: string,
+  description: string,
+  metadata?: TaskMetadata,
+  parentTaskId?: string,
+  orderIndex?: number
+): Promise<IPCResult<Task>> {
+  const project = projectStore.getProject(projectId);
+  if (!project) {
+    return { success: false, error: 'Project not found' };
+  }
+
+  // Auto-generate title if empty using Claude AI
+  let finalTitle = title;
+  if (!title || !title.trim()) {
+    console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
+    try {
+      const generatedTitle = await titleGenerator.generateTitle(description);
+      if (generatedTitle) {
+        finalTitle = generatedTitle;
+        console.warn('[TASK_CREATE] Generated title:', finalTitle);
+      } else {
+        // Fallback: create title from first line of description
+        finalTitle = description.split('\n')[0].substring(0, 60);
+        if (finalTitle.length === 60) finalTitle += '...';
+        console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+      }
+    } catch (err) {
+      console.error('[TASK_CREATE] Title generation error:', err);
+      // Fallback: create title from first line of description
+      finalTitle = description.split('\n')[0].substring(0, 60);
+      if (finalTitle.length === 60) finalTitle += '...';
+    }
+  }
+
+  // Generate a unique spec ID based on existing specs
+  const specsBaseDir = getSpecsDir(project.autoBuildPath);
+  const specsDir = path.join(project.path, specsBaseDir);
+
+  // Find next available spec number
+  let specNumber = 1;
+  if (existsSync(specsDir)) {
+    const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    // Extract numbers from spec directory names (e.g., "001-feature" -> 1)
+    const existingNumbers = existingDirs
+      .map(name => {
+        const match = name.match(/^(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+
+    if (existingNumbers.length > 0) {
+      specNumber = Math.max(...existingNumbers) + 1;
+    }
+  }
+
+  // Create spec ID with zero-padded number and slugified title
+  const slugifiedTitle = finalTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+  const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+  // Create spec directory
+  const specDir = path.join(specsDir, specId);
+  mkdirSync(specDir, { recursive: true });
+
+  // Build metadata with source type and hierarchical fields
+  const taskMetadata: TaskMetadata = {
+    sourceType: 'manual',
+    ...metadata
+  };
+
+  // Add hierarchical fields to metadata if provided
+  if (parentTaskId) {
+    taskMetadata.parentTaskId = parentTaskId;
+  }
+  if (orderIndex !== undefined) {
+    taskMetadata.orderIndex = orderIndex;
+  }
+
+  // Process and save attached images
+  if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
+    const attachmentsDir = path.join(specDir, 'attachments');
+    mkdirSync(attachmentsDir, { recursive: true });
+
+    const savedImages: typeof taskMetadata.attachedImages = [];
+
+    for (const image of taskMetadata.attachedImages) {
+      if (image.data) {
+        try {
+          // Decode base64 and save to file
+          const buffer = Buffer.from(image.data, 'base64');
+          const imagePath = path.join(attachmentsDir, image.filename);
+          writeFileSync(imagePath, buffer);
+
+          // Store relative path instead of base64 data
+          savedImages.push({
+            id: image.id,
+            filename: image.filename,
+            mimeType: image.mimeType,
+            size: image.size,
+            path: `attachments/${image.filename}`
+            // Don't include data or thumbnail to save space
+          });
+        } catch (err) {
+          console.error(`Failed to save image ${image.filename}:`, err);
+        }
+      }
+    }
+
+    // Update metadata with saved image paths (without base64 data)
+    taskMetadata.attachedImages = savedImages;
+  }
+
+  // Add parent task ID to requirements if this is a child task
+  const requirements: Record<string, unknown> = {
+    task_description: description,
+    workflow_type: taskMetadata.category || 'feature'
+  };
+
+  if (parentTaskId) {
+    requirements.parent_task = parentTaskId;
+  }
+
+  // Add attached images to requirements if present
+  if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
+    requirements.attached_images = taskMetadata.attachedImages.map(img => ({
+      filename: img.filename,
+      path: img.path,
+      description: '' // User can add descriptions later
+    }));
+  }
+
+  const requirementsPath = path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS);
+  writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
+
+  // Create initial implementation_plan.json (task is created but not started)
+  const now = new Date().toISOString();
+  const implementationPlan = {
+    feature: finalTitle,
+    description: description,
+    created_at: now,
+    updated_at: now,
+    status: 'pending',
+    phases: []
+  };
+
+  const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+  writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+
+  // Save task metadata if provided
+  if (taskMetadata) {
+    const metadataPath = path.join(specDir, 'task_metadata.json');
+    writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+  }
+
+  // Create the task object
+  const task: Task = {
+    id: specId,
+    specId: specId,
+    projectId,
+    title: finalTitle,
+    description,
+    status: 'backlog',
+    subtasks: [],
+    logs: [],
+    metadata: taskMetadata,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  // Add hierarchical task fields if provided
+  if (parentTaskId) {
+    task.parentTaskId = parentTaskId;
+  }
+  if (orderIndex !== undefined) {
+    task.orderIndex = orderIndex;
+  }
+
+  return { success: true, data: task };
+}
+
+/**
  * Register task CRUD (Create, Read, Update, Delete) handlers
  */
 export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
@@ -37,164 +228,115 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       description: string,
       metadata?: TaskMetadata
     ): Promise<IPCResult<Task>> => {
+      return createTaskInternal(projectId, title, description, metadata);
+    }
+  );
+
+  /**
+   * Create a parent task with child tasks (hierarchical tasks)
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CREATE_WITH_CHILDREN,
+    async (
+      _,
+      projectId: string,
+      title: string,
+      description: string,
+      children: Array<{ title: string; description?: string; orderIndex: number }>,
+      metadata?: TaskMetadata
+    ): Promise<IPCResult<{ parent: Task; children: Task[] }>> => {
+      console.log('[createTaskWithChildren] Starting hierarchical task creation...');
+      console.log('[createTaskWithChildren] Project ID:', projectId);
+      console.log('[createTaskWithChildren] Parent title:', title);
+      console.log('[createTaskWithChildren] Number of children:', children.length);
+
       const project = projectStore.getProject(projectId);
       if (!project) {
+        console.error('[createTaskWithChildren] ERROR: Project not found');
         return { success: false, error: 'Project not found' };
       }
 
-      // Auto-generate title if empty using Claude AI
-      let finalTitle = title;
-      if (!title || !title.trim()) {
-        console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
+      console.log('[createTaskWithChildren] Project found:', project.name);
+      console.log('[createTaskWithChildren] Creating parent task...');
+
+      // Create parent task using shared internal function
+      const parentResult = await createTaskInternal(projectId, title, description, metadata);
+
+      if (!parentResult.success || !parentResult.data) {
+        console.error('[createTaskWithChildren] ERROR: Failed to create parent task:', parentResult.error);
+        return { success: false, error: parentResult.error || 'Failed to create parent task' };
+      }
+
+      const parentTask = parentResult.data;
+      console.log('[createTaskWithChildren] ✓ Parent task created:', parentTask.id);
+
+      const childTasks: Task[] = [];
+      const childTaskIds: string[] = [];
+
+      console.log('[createTaskWithChildren] Creating child tasks...');
+
+      // Create each child task using shared internal function
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        console.log(`[createTaskWithChildren] Creating child ${i + 1}/${children.length}: "${child.title}"`);
+
         try {
-          const generatedTitle = await titleGenerator.generateTitle(description);
-          if (generatedTitle) {
-            finalTitle = generatedTitle;
-            console.warn('[TASK_CREATE] Generated title:', finalTitle);
-          } else {
-            // Fallback: create title from first line of description
-            finalTitle = description.split('\n')[0].substring(0, 60);
-            if (finalTitle.length === 60) finalTitle += '...';
-            console.warn('[TASK_CREATE] AI generation failed, using fallback:', finalTitle);
+          const childResult = await createTaskInternal(
+            projectId,
+            child.title,
+            child.description || '',
+            metadata,
+            parentTask.id,  // Link to parent
+            child.orderIndex
+          );
+
+          if (!childResult.success || !childResult.data) {
+            throw new Error(childResult.error || 'Failed to create child task');
           }
-        } catch (err) {
-          console.error('[TASK_CREATE] Title generation error:', err);
-          // Fallback: create title from first line of description
-          finalTitle = description.split('\n')[0].substring(0, 60);
-          if (finalTitle.length === 60) finalTitle += '...';
+
+          const childTask = childResult.data;
+          childTasks.push(childTask);
+          childTaskIds.push(childTask.id);
+          console.log(`[createTaskWithChildren] ✓ Child ${i + 1}/${children.length} created:`, childTask.id);
+
+        } catch (error) {
+          console.error(`[createTaskWithChildren] ERROR creating child ${i + 1}:`, error);
+          throw error;
         }
       }
 
-      // Generate a unique spec ID based on existing specs
-      const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specsDir = path.join(project.path, specsBaseDir);
+      console.log('[createTaskWithChildren] All children created. Updating parent task...');
 
-      // Find next available spec number
-      let specNumber = 1;
-      if (existsSync(specsDir)) {
-        const existingDirs = readdirSync(specsDir, { withFileTypes: true })
-          .filter(d => d.isDirectory())
-          .map(d => d.name);
+      // Update parent task with child references
+      parentTask.hasChildren = true;
+      parentTask.childTaskIds = childTaskIds;
 
-        // Extract numbers from spec directory names (e.g., "001-feature" -> 1)
-        const existingNumbers = existingDirs
-          .map(name => {
-            const match = name.match(/^(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(n => n > 0);
+      // Save parent task metadata with child references
+      const parentSpecDir = path.join(
+        project.path,
+        getSpecsDir(project.autoBuildPath),
+        parentTask.specId
+      );
+      const parentMetadataPath = path.join(parentSpecDir, 'task_metadata.json');
+      const updatedParentMetadata = {
+        ...parentTask.metadata,
+        hasChildren: true,
+        childTaskIds: childTaskIds
+      };
+      writeFileSync(parentMetadataPath, JSON.stringify(updatedParentMetadata, null, 2));
 
-        if (existingNumbers.length > 0) {
-          specNumber = Math.max(...existingNumbers) + 1;
+      console.log('[createTaskWithChildren] ✓ Parent metadata updated');
+      console.log('[createTaskWithChildren] ✅ SUCCESS: Created 1 parent + ' + childTasks.length + ' children');
+      console.log('[createTaskWithChildren] Parent ID:', parentTask.id);
+      console.log('[createTaskWithChildren] Child IDs:', childTaskIds);
+
+      return {
+        success: true,
+        data: {
+          parent: parentTask,
+          children: childTasks
         }
-      }
-
-      // Create spec ID with zero-padded number and slugified title
-      const slugifiedTitle = finalTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .substring(0, 50);
-      const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
-
-      // Create spec directory
-      const specDir = path.join(specsDir, specId);
-      mkdirSync(specDir, { recursive: true });
-
-      // Build metadata with source type
-      const taskMetadata: TaskMetadata = {
-        sourceType: 'manual',
-        ...metadata
       };
-
-      // Process and save attached images
-      if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
-        const attachmentsDir = path.join(specDir, 'attachments');
-        mkdirSync(attachmentsDir, { recursive: true });
-
-        const savedImages: typeof taskMetadata.attachedImages = [];
-
-        for (const image of taskMetadata.attachedImages) {
-          if (image.data) {
-            try {
-              // Decode base64 and save to file
-              const buffer = Buffer.from(image.data, 'base64');
-              const imagePath = path.join(attachmentsDir, image.filename);
-              writeFileSync(imagePath, buffer);
-
-              // Store relative path instead of base64 data
-              savedImages.push({
-                id: image.id,
-                filename: image.filename,
-                mimeType: image.mimeType,
-                size: image.size,
-                path: `attachments/${image.filename}`
-                // Don't include data or thumbnail to save space
-              });
-            } catch (err) {
-              console.error(`Failed to save image ${image.filename}:`, err);
-            }
-          }
-        }
-
-        // Update metadata with saved image paths (without base64 data)
-        taskMetadata.attachedImages = savedImages;
-      }
-
-      // Create initial implementation_plan.json (task is created but not started)
-      const now = new Date().toISOString();
-      const implementationPlan = {
-        feature: finalTitle,
-        description: description,
-        created_at: now,
-        updated_at: now,
-        status: 'pending',
-        phases: []
-      };
-
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
-
-      // Save task metadata if provided
-      if (taskMetadata) {
-        const metadataPath = path.join(specDir, 'task_metadata.json');
-        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
-      }
-
-      // Create requirements.json with attached images
-      const requirements: Record<string, unknown> = {
-        task_description: description,
-        workflow_type: taskMetadata.category || 'feature'
-      };
-
-      // Add attached images to requirements if present
-      if (taskMetadata.attachedImages && taskMetadata.attachedImages.length > 0) {
-        requirements.attached_images = taskMetadata.attachedImages.map(img => ({
-          filename: img.filename,
-          path: img.path,
-          description: '' // User can add descriptions later
-        }));
-      }
-
-      const requirementsPath = path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS);
-      writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
-
-      // Create the task object
-      const task: Task = {
-        id: specId,
-        specId: specId,
-        projectId,
-        title: finalTitle,
-        description,
-        status: 'backlog',
-        subtasks: [],
-        logs: [],
-        metadata: taskMetadata,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      return { success: true, data: task };
     }
   );
 
@@ -217,6 +359,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       const isRunning = agentManager.isRunning(taskId);
       if (isRunning) {
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
+      }
+
+      // Check if this is a parent task with children
+      if (task.hasChildren && task.childTaskIds && task.childTaskIds.length > 0) {
+        const childCount = task.childTaskIds.length;
+        return {
+          success: false,
+          error: `Cannot delete parent task with ${childCount} child task${childCount > 1 ? 's' : ''}. Delete child tasks first.`
+        };
       }
 
       // Delete the spec directory

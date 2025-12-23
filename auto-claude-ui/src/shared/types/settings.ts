@@ -106,6 +106,10 @@ export interface AppSettings {
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // Developer/Debug settings
+  enableBackendLogging?: boolean;  // Show backend logs in DevTools console (default: false)
+  // Plugin context injection preference
+  enablePluginContextInjection?: boolean;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
 }

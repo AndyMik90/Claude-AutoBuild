@@ -9,5 +9,6 @@ export { ThemeSelector } from './ThemeSelector';
 export { GeneralSettings } from './GeneralSettings';
 export { IntegrationSettings } from './IntegrationSettings';
 export { AdvancedSettings } from './AdvancedSettings';
+export { PluginsPanel } from './PluginsPanel';
 export { SettingsSection } from './SettingsSection';
 export { useSettings } from './hooks/useSettings';

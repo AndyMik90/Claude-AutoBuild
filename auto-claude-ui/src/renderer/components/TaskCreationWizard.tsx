@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent, type DragEvent } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch, FileDown, File, Folder, Layers, Sparkles, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,8 +40,12 @@ import {
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { AgentProfileSelector } from './AgentProfileSelector';
 import { FileAutocomplete } from './FileAutocomplete';
-import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
+import { parseMarkdownTask, generateRichDescription, type ParsedTask } from '../lib/markdown-task-parser';
+import { createTask, createTaskWithChildren, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { useTaskPluginContext, usePluginContextSummary } from '../hooks/usePluginContext';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
 import { cn } from '../lib/utils';
 import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
@@ -41,6 +55,7 @@ import {
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
   MAX_IMAGES_PER_TASK,
+  MAX_REFERENCED_FILES,
   ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
@@ -81,12 +96,23 @@ export function TaskCreationWizard({
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
-  // Get project path from project store
+  // Get project path and boilerplate info from project store
   const projects = useProjectStore((state) => state.projects);
-  const projectPath = useMemo(() => {
-    const project = projects.find((p) => p.id === projectId);
-    return project?.path ?? null;
+  const project = useMemo(() => {
+    return projects.find((p) => p.id === projectId);
   }, [projects, projectId]);
+  const projectPath = project?.path ?? null;
+  const boilerplateInfo = project?.boilerplateInfo ?? null;
+
+  // Load plugin context for boilerplate projects
+  const { context: pluginContext, isLoading: isLoadingContext, isEnabled: isContextEnabled, contextString, hasContext } = useTaskPluginContext(
+    projectId,
+    boilerplateInfo
+  );
+  const contextSummary = usePluginContextSummary(pluginContext);
+
+  // Show plugin context section toggle
+  const [showPluginContext, setShowPluginContext] = useState(false);
 
   // Metadata fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -113,6 +139,9 @@ export function TaskCreationWizard({
   // Referenced files from file explorer
   const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
 
+  // Parsed subtasks from markdown (for hierarchical task creation)
+  const [parsedSubtasks, setParsedSubtasks] = useState<Array<{ title: string; description?: string; orderIndex: number }>>([]);
+
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
 
@@ -128,6 +157,25 @@ export function TaskCreationWizard({
 
   // Drag-and-drop state for images over textarea
   const [isDragOverTextarea, setIsDragOverTextarea] = useState(false);
+
+  // Active drag data for file drop overlay
+  const [activeDragData, setActiveDragData] = useState<{
+    path: string;
+    name: string;
+    isDirectory: boolean;
+  } | null>(null);
+
+  // Setup drag sensors with distance constraint to prevent accidental drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    })
+  );
+
+  // Determine if drop zone is at capacity
+  const isAtMaxFiles = referencedFiles.length >= MAX_REFERENCED_FILES;
 
   // @ autocomplete state
   const [autocomplete, setAutocomplete] = useState<{
@@ -566,6 +614,180 @@ export function TaskCreationWizard({
   );
 
   /**
+   * Handle markdown file drop - parse and populate form
+   */
+  const handleMarkdownFileDrop = useCallback(async (filePath: string, filename: string) => {
+    try {
+      console.log('[Markdown] Reading file:', filePath);
+      const result = await window.electronAPI.readFileContent(filePath);
+
+      if (!result.success || !result.data) {
+        setError(`Failed to read file: ${result.error}`);
+        return;
+      }
+
+      console.log('[Markdown] Parsing content...');
+      const parsed = parseMarkdownTask(result.data, filename);
+      console.log('[Markdown] Parsed task:', parsed);
+
+      // Populate form with parsed data
+      setDescription(generateRichDescription(parsed));
+      setTitle(parsed.title);
+
+      // Add the markdown file as a referenced file
+      const newFile: ReferencedFile = {
+        id: crypto.randomUUID(),
+        path: filePath,
+        name: filename,
+        isDirectory: false,
+        addedAt: new Date()
+      };
+      setReferencedFiles(prev => [...prev, newFile]);
+
+      console.log('[Markdown] Form populated with task data');
+
+      // Store parsed subtasks for hierarchical task creation
+      if (parsed.subtasks.length > 0) {
+        console.log('[Markdown] Detected subtasks:', parsed.subtasks);
+        const children = parsed.subtasks.map((subtask, index) => ({
+          title: subtask.title,
+          description: subtask.description,
+          orderIndex: index
+        }));
+        setParsedSubtasks(children);
+        console.log('[Markdown] Stored subtasks for hierarchical creation:', children);
+      }
+
+      // TODO: Handle dependencies
+      if (parsed.dependencies.length > 0) {
+        console.log('[Markdown] Detected dependencies:', parsed.dependencies);
+        // Future: Link dependencies when that feature is available
+      }
+
+    } catch (error) {
+      console.error('[Markdown] Error parsing file:', error);
+      setError(`Failed to parse markdown file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
+  /**
+   * Handle drag start - capture file data for overlay
+   */
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    console.log('[DnD] Drag start:', event.active.id, event.active.data.current);
+    const data = event.active.data.current as {
+      type: string;
+      path: string;
+      name: string;
+      isDirectory: boolean;
+    } | undefined;
+
+    if (data?.type === 'file') {
+      console.log('[DnD] Setting active drag data:', data);
+      setActiveDragData({
+        path: data.path,
+        name: data.name,
+        isDirectory: data.isDirectory
+      });
+    }
+  }, []);
+
+  /**
+   * Handle drag end - insert @mention in description or add to referencedFiles
+   */
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    console.log('[DnD] Drag end:', { activeId: active.id, overId: over?.id, data: active.data.current });
+
+    // Clear drag state
+    setActiveDragData(null);
+
+    // If not dropped on a valid target, do nothing
+    if (!over) {
+      console.log('[DnD] No drop target');
+      return;
+    }
+
+    const data = active.data.current as {
+      type?: string;
+      path?: string;
+      name?: string;
+      isDirectory?: boolean;
+    } | undefined;
+
+    // Only process file drops
+    if (data?.type !== 'file' || !data.path || !data.name) {
+      console.log('[DnD] Invalid file data:', data);
+      return;
+    }
+
+    // Handle drop on description textarea - insert inline @mention
+    if (over.id === 'description-drop-zone') {
+      const textarea = descriptionRef.current;
+      if (!textarea) return;
+
+      const cursorPos = textarea.selectionStart || 0;
+      const textBefore = description.substring(0, cursorPos);
+      const textAfter = description.substring(cursorPos);
+
+      // Insert @mention at cursor position
+      const mention = `@${data.name}`;
+      const newDescription = textBefore + mention + textAfter;
+      setDescription(newDescription);
+
+      // Set cursor after the inserted mention
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = cursorPos + mention.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+
+      return;
+    }
+
+    // Handle drop on file-drop-zone - add to referenced files list
+    if (over.id === 'file-drop-zone') {
+      console.log('[DnD] Dropped on file-drop-zone');
+
+      // Check if this is a markdown planning document
+      const isMarkdown = data.name.endsWith('.md');
+
+      if (isMarkdown) {
+        console.log('[DnD] Markdown file detected, parsing content...');
+        // Read and parse markdown file
+        handleMarkdownFileDrop(data.path, data.name);
+        return;
+      }
+
+      // Check if we're at the max limit
+      if (referencedFiles.length >= MAX_REFERENCED_FILES) {
+        console.log('[DnD] Max files reached');
+        setError(`Maximum of ${MAX_REFERENCED_FILES} referenced files allowed`);
+        return;
+      }
+
+      // Check for duplicates
+      if (referencedFiles.some(f => f.path === data.path)) {
+        console.log('[DnD] Duplicate file, skipping');
+        // Silently skip duplicates
+        return;
+      }
+
+      // Add the file to referenced files
+      const newFile: ReferencedFile = {
+        id: crypto.randomUUID(),
+        path: data.path,
+        name: data.name,
+        isDirectory: data.isDirectory ?? false,
+        addedAt: new Date()
+      };
+
+      console.log('[DnD] Adding file to referenced files:', newFile);
+      setReferencedFiles(prev => [...prev, newFile]);
+    }
+  }, [referencedFiles, description]);
+
+  /**
    * Parse @mentions from description and create ReferencedFile entries
    * Merges with existing referencedFiles, avoiding duplicates
    */
@@ -634,16 +856,50 @@ export function TaskCreationWizard({
       // Only include baseBranch if it's not the project default placeholder
       if (baseBranch && baseBranch !== PROJECT_DEFAULT_BRANCH) metadata.baseBranch = baseBranch;
 
-      // Title is optional - if empty, it will be auto-generated by the backend
-      const task = await createTask(projectId, title.trim(), description.trim(), metadata);
-      if (task) {
-        // Clear draft on successful creation
-        clearDraft(projectId);
-        // Reset form and close
-        resetForm();
-        onOpenChange(false);
+      // Inject plugin context if available and enabled
+      if (hasContext && contextString && pluginContext) {
+        metadata.pluginContext = contextString;
+        metadata.pluginId = pluginContext.pluginId;
+        metadata.pluginVersion = pluginContext.pluginVersion;
+      }
+
+      // Check if we have parsed subtasks from markdown - create hierarchical task
+      if (parsedSubtasks.length > 0) {
+        console.log('[Create] Creating hierarchical task with', parsedSubtasks.length, 'children');
+        console.log('[Create] Subtasks:', parsedSubtasks);
+        const result = await createTaskWithChildren(
+          projectId,
+          title.trim(),
+          description.trim(),
+          parsedSubtasks,
+          metadata
+        );
+
+        console.log('[Create] createTaskWithChildren returned:', result);
+
+        if (result) {
+          console.log('[Create] Hierarchical task created successfully:', result);
+          // Clear draft on successful creation
+          clearDraft(projectId);
+          // Reset form and close
+          resetForm();
+          onOpenChange(false);
+        } else {
+          console.error('[Create] createTaskWithChildren returned null');
+          setError('Failed to create task with subtasks. Please try again.');
+        }
       } else {
-        setError('Failed to create task. Please try again.');
+        // Regular task creation (no subtasks)
+        const task = await createTask(projectId, title.trim(), description.trim(), metadata);
+        if (task) {
+          // Clear draft on successful creation
+          clearDraft(projectId);
+          // Reset form and close
+          resetForm();
+          onOpenChange(false);
+        } else {
+          setError('Failed to create task. Please try again.');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -667,12 +923,14 @@ export function TaskCreationWizard({
     setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
     setImages([]);
     setReferencedFiles([]);
+    setParsedSubtasks([]);  // Clear parsed subtasks
     setRequireReviewBeforeCoding(false);
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setError(null);
     setShowAdvanced(false);
     setShowFileExplorer(false);
     setShowGitOptions(false);
+    setShowPluginContext(false);
     setIsDraftRestored(false);
     setPasteSuccess(false);
   };
@@ -706,22 +964,55 @@ export function TaskCreationWizard({
     setError(null);
   };
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
-          showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
-        )}
-        hideCloseButton={showFileExplorer}
-      >
-        <div className="flex h-full min-h-0 overflow-hidden">
-          {/* Form content */}
-          <div
-            ref={formContainerRef}
-            onDragOver={handleContainerDragOver}
-            className="flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto relative"
-          >
+  // Inner component that uses droppable hooks - must be inside DndContext
+  const TaskFormWithDropZones = () => {
+    // Setup drop zone for file references (entire form)
+    const { setNodeRef: setDropRef, isOver: isOverDropZone } = useDroppable({
+      id: 'file-drop-zone',
+      data: { type: 'file-drop-zone' }
+    });
+
+    // Setup drop zone for description textarea (inline @mentions)
+    const { setNodeRef: setTextareaDropRef, isOver: isOverTextarea } = useDroppable({
+      id: 'description-drop-zone',
+      data: { type: 'description-drop-zone' }
+    });
+
+    return (
+      <div className="flex h-full min-h-0 overflow-hidden">
+        {/* Form content - Drop zone wrapper */}
+        <div
+          ref={setDropRef}
+              className={cn(
+                "flex-1 flex flex-col p-6 min-w-0 min-h-0 overflow-y-auto relative transition-all duration-150 ease-out",
+                // Default state - no border
+                !activeDragData && "",
+                // Subtle visual feedback when dragging - border on the entire form
+                activeDragData && !isOverDropZone && "border-2 border-dashed border-muted-foreground/40 rounded-lg",
+                // Clear drop target feedback when over the form
+                activeDragData && isOverDropZone && !isAtMaxFiles && "border-2 border-solid border-info rounded-lg bg-info/5",
+                // Warning state when at capacity
+                activeDragData && isOverDropZone && isAtMaxFiles && "border-2 border-solid border-warning rounded-lg bg-warning/5"
+              )}
+            >
+              {/* Drop zone indicator overlay - shows when dragging over form */}
+              {activeDragData && isOverDropZone && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none rounded-lg">
+                  <div className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow-lg",
+                    isAtMaxFiles
+                      ? "bg-warning text-warning-foreground"
+                      : "bg-info text-info-foreground"
+                  )}>
+                    <FileDown className="h-4 w-4" />
+                    <span>
+                      {isAtMaxFiles
+                        ? `Maximum ${MAX_REFERENCED_FILES} files reached`
+                        : 'Drop file to add reference'}
+                    </span>
+                  </div>
+                </div>
+              )}
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-foreground">Create New Task</DialogTitle>
@@ -1107,6 +1398,140 @@ export function TaskCreationWizard({
             </div>
           )}
 
+          {/* Boilerplate Context Section - Only show for boilerplate projects */}
+          {boilerplateInfo && (
+            <>
+              {/* Boilerplate Context Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowPluginContext(!showPluginContext)}
+                className={cn(
+                  'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+                  'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+                )}
+                disabled={isCreating}
+              >
+                <span className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Boilerplate Context
+                  {hasContext && (
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      {contextSummary.skillCount} skills
+                    </Badge>
+                  )}
+                </span>
+                {showPluginContext ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Boilerplate Context Preview */}
+              {showPluginContext && (
+                <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                  {isLoadingContext ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading boilerplate context...
+                    </div>
+                  ) : hasContext && pluginContext ? (
+                    <>
+                      {/* Context Header */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium text-foreground">
+                            {pluginContext.pluginName}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            v{pluginContext.pluginVersion}
+                          </p>
+                        </div>
+                        {isContextEnabled ? (
+                          <Badge variant="default" className="text-xs">
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Disabled
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Context Summary */}
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="bg-background px-2 py-1 rounded border border-border">
+                          {contextSummary.skillCount} skills
+                        </span>
+                        {contextSummary.patternCount > 0 && (
+                          <span className="bg-background px-2 py-1 rounded border border-border">
+                            {contextSummary.patternCount} patterns
+                          </span>
+                        )}
+                        {contextSummary.conventionCount > 0 && (
+                          <span className="bg-background px-2 py-1 rounded border border-border">
+                            {contextSummary.conventionCount} conventions
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Domains */}
+                      {contextSummary.domains.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {contextSummary.domains.map((domain) => (
+                            <Badge key={domain} variant="secondary" className="text-xs capitalize">
+                              {domain}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Skills Preview */}
+                      {contextSummary.skillCount > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Available Skills:</p>
+                          <ScrollArea className="h-[120px] rounded border border-border bg-background">
+                            <div className="p-2 space-y-1">
+                              {pluginContext.skills.slice(0, 20).map((skill) => (
+                                <div key={skill.id} className="flex items-start gap-2 text-xs">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                                    {skill.domain}
+                                  </Badge>
+                                  <span className="text-foreground">{skill.name}</span>
+                                </div>
+                              ))}
+                              {contextSummary.skillCount > 20 && (
+                                <p className="text-xs text-muted-foreground pt-1">
+                                  +{contextSummary.skillCount - 20} more skills...
+                                </p>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-muted-foreground">
+                        These skills and patterns will be automatically included in the task context to guide the AI.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p>Plugin context not available.</p>
+                        <p className="text-xs mt-1">
+                          The boilerplate plugin may not be installed or context injection is disabled in settings.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
           {/* Error */}
           {error && (
             <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
@@ -1149,18 +1574,53 @@ export function TaskCreationWizard({
             </Button>
           </div>
         </DialogFooter>
-          </div>
+            </div>
 
-          {/* File Explorer Drawer */}
-          {projectPath && (
-            <TaskFileExplorerDrawer
-              isOpen={showFileExplorer}
-              onClose={() => setShowFileExplorer(false)}
-              projectPath={projectPath}
-            />
+        {/* File Explorer Drawer */}
+        {projectPath && (
+          <TaskFileExplorerDrawer
+            isOpen={showFileExplorer}
+            onClose={() => setShowFileExplorer(false)}
+            projectPath={projectPath}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent
+          className={cn(
+            "max-h-[90vh] p-0 overflow-hidden transition-all duration-300 ease-out",
+            showFileExplorer ? "sm:max-w-[900px]" : "sm:max-w-[550px]"
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          hideCloseButton={showFileExplorer}
+        >
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <TaskFormWithDropZones />
+
+            {/* Drag overlay - shows what's being dragged */}
+            <DragOverlay>
+            {activeDragData && (
+              <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 shadow-lg">
+                {activeDragData.isDirectory ? (
+                  <Folder className="h-4 w-4 text-warning" />
+                ) : (
+                  <File className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm">{activeDragData.name}</span>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

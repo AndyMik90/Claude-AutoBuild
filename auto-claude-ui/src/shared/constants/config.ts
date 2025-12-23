@@ -31,7 +31,9 @@ export const DEFAULT_APP_SETTINGS = {
   // Changelog preferences (persisted between sessions)
   changelogFormat: 'keep-a-changelog' as const,
   changelogAudience: 'user-facing' as const,
-  changelogEmojiLevel: 'none' as const
+  changelogEmojiLevel: 'none' as const,
+  // Plugin context injection (enabled by default for boilerplate projects)
+  enablePluginContextInjection: true
 };
 
 // ============================================

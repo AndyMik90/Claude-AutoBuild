@@ -7,3 +7,8 @@ export { useGitHubConnection } from './useGitHubConnection';
 export { useInfrastructureStatus } from './useInfrastructureStatus';
 export { useIpcListeners } from './useIpc';
 export { useVirtualizedTree } from './useVirtualizedTree';
+export {
+  usePluginContext,
+  usePluginContextSummary,
+  useTaskPluginContext
+} from './usePluginContext';

@@ -226,6 +226,17 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // Hierarchical task fields (for parent/child relationships)
+  hasChildren?: boolean;  // True if this task has child tasks
+  childTaskIds?: string[];  // IDs of child tasks
+  parentTaskId?: string;  // ID of parent task (if this is a child)
+  orderIndex?: number;  // Order index for sorting child tasks
+
+  // Plugin context (from boilerplate plugins)
+  pluginContext?: string;  // Formatted context string from boilerplate plugin (skills, patterns, conventions)
+  pluginId?: string;  // ID of the plugin providing context
+  pluginVersion?: string;  // Version of the plugin
 }
 
 export interface Task {
@@ -246,6 +257,12 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   createdAt: Date;
   updatedAt: Date;
+
+  // Hierarchical task support
+  parentTaskId?: string;  // Reference to parent task if this is a child task
+  hasChildren?: boolean;  // True if this task has child tasks (cached for performance)
+  childTaskIds?: string[];  // Array of child task IDs (cached for performance)
+  orderIndex?: number;  // Order within siblings (for maintaining subtask order)
 }
 
 // Implementation Plan (from auto-claude)

@@ -136,10 +136,19 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
       {/* Description - Primary Content */}
       {task.description && (
-        <div>
-          <p className="text-sm text-foreground/90 leading-relaxed">
-            {sanitizeMarkdownForDisplay(task.description, 800)}
-          </p>
+        <div className="w-full overflow-hidden">
+          <div className="section-divider mb-3">
+            <FileCode className="h-3 w-3" />
+            Description
+          </div>
+          <div className="text-sm text-muted-foreground leading-relaxed w-full" style={{
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            whiteSpace: 'pre-wrap',
+            maxWidth: '100%'
+          }}>
+            {sanitizeMarkdownForDisplay(task.description, 5000)}
+          </div>
         </div>
       )}
 

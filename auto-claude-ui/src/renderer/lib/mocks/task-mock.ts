@@ -91,5 +91,52 @@ export const taskMock = {
   onTaskStatusChange: () => () => {},
   onTaskExecutionProgress: () => () => {},
   onTaskLogsChanged: () => () => {},
-  onTaskLogsStream: () => () => {}
+  onTaskLogsStream: () => () => {},
+
+  // Hierarchical task operations
+  createTaskWithChildren: async (
+    projectId: string,
+    title: string,
+    description: string,
+    children: Array<{ title: string; description?: string; orderIndex: number }>,
+    _metadata?: unknown
+  ) => ({
+    success: true,
+    data: {
+      parent: {
+        id: `task-${Date.now()}`,
+        projectId,
+        specId: `00${mockTasks.length + 1}-parent-task`,
+        title,
+        description,
+        status: 'backlog' as const,
+        subtasks: [],
+        logs: [],
+        hasChildren: true,
+        childTaskIds: children.map((_, i) => `task-${Date.now()}-child-${i}`),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      children: children.map((child) => ({
+        id: `task-${Date.now()}-child-${child.orderIndex}`,
+        projectId,
+        specId: `00${mockTasks.length + 1}-child-${child.orderIndex}`,
+        title: child.title,
+        description: child.description || '',
+        status: 'backlog' as const,
+        subtasks: [],
+        logs: [],
+        parentTaskId: `task-${Date.now()}`,
+        orderIndex: child.orderIndex,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }))
+    }
+  }),
+
+  // File content reading
+  readFileContent: async (_filePath: string) => ({
+    success: true,
+    data: '[Browser Mock] File content not available in browser mode'
+  })
 };

@@ -31,12 +31,34 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    console.log('[TaskStore] setTasks called with', tasks.length, 'tasks');
+    tasks.forEach(task => {
+      if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
+        console.log(`[TaskStore] Task ${task.id}:`, {
+          hasChildren: task.hasChildren,
+          childTaskIds: task.childTaskIds,
+          parentTaskId: task.parentTaskId,
+          orderIndex: task.orderIndex
+        });
+      }
+    });
+    set({ tasks });
+  },
 
-  addTask: (task) =>
+  addTask: (task) => {
+    if (task.hasChildren || task.childTaskIds || task.parentTaskId) {
+      console.log(`[TaskStore] addTask ${task.id}:`, {
+        hasChildren: task.hasChildren,
+        childTaskIds: task.childTaskIds,
+        parentTaskId: task.parentTaskId,
+        orderIndex: task.orderIndex
+      });
+    }
     set((state) => ({
       tasks: [...state.tasks, task]
-    })),
+    }));
+  },
 
   updateTask: (taskId, updates) =>
     set((state) => ({
@@ -167,11 +189,29 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   }
 }));
 
+// Track current loading project to prevent concurrent/duplicate loads
+let currentLoadingProjectId: string | null = null;
+
 /**
  * Load tasks for a project
+ * Prevents concurrent loads for the same project to avoid race conditions
  */
 export async function loadTasks(projectId: string): Promise<void> {
   const store = useTaskStore.getState();
+
+  // Skip if already loading tasks for this project
+  if (currentLoadingProjectId === projectId) {
+    console.log(`[loadTasks] Already loading tasks for project ${projectId}, skipping`);
+    return;
+  }
+
+  // Skip if loading is in progress for any project (prevents race conditions)
+  if (store.isLoading) {
+    console.log(`[loadTasks] Load in progress, skipping request for ${projectId}`);
+    return;
+  }
+
+  currentLoadingProjectId = projectId;
   store.setLoading(true);
   store.setError(null);
 
@@ -185,6 +225,7 @@ export async function loadTasks(projectId: string): Promise<void> {
   } catch (error) {
     store.setError(error instanceof Error ? error.message : 'Unknown error');
   } finally {
+    currentLoadingProjectId = null;
     store.setLoading(false);
   }
 }
@@ -210,6 +251,62 @@ export async function createTask(
       return null;
     }
   } catch (error) {
+    store.setError(error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
+}
+
+/**
+ * Create a parent task with child tasks (for hierarchical tasks)
+ */
+export async function createTaskWithChildren(
+  projectId: string,
+  title: string,
+  description: string,
+  children: Array<{ title: string; description?: string; orderIndex: number }>,
+  metadata?: TaskMetadata
+): Promise<{ parent: Task; children: Task[] } | null> {
+  const store = useTaskStore.getState();
+
+  console.log('[Store] createTaskWithChildren called');
+  console.log('[Store] Project ID:', projectId);
+  console.log('[Store] Title:', title);
+  console.log('[Store] Children count:', children.length);
+
+  try {
+    console.log('[Store] Calling IPC createTaskWithChildren...');
+    const result = await window.electronAPI.createTaskWithChildren(
+      projectId,
+      title,
+      description,
+      children,
+      metadata
+    );
+
+    console.log('[Store] IPC call completed, result:', result);
+
+    if (result.success && result.data) {
+      console.log('[Store] Success! Adding tasks to store...');
+      console.log('[Store] Parent task hasChildren:', result.data.parent.hasChildren);
+      console.log('[Store] Parent task childTaskIds:', result.data.parent.childTaskIds);
+
+      // Add parent task
+      store.addTask(result.data.parent);
+
+      // Add all child tasks
+      result.data.children.forEach((child: Task) => {
+        store.addTask(child);
+      });
+
+      console.log('[Store] All tasks added to store');
+      return result.data;
+    } else {
+      console.error('[Store] IPC call failed:', result.error);
+      store.setError(result.error || 'Failed to create task with children');
+      return null;
+    }
+  } catch (error) {
+    console.error('[Store] Exception caught:', error);
     store.setError(error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
@@ -260,6 +357,13 @@ export async function persistTaskStatus(
 ): Promise<boolean> {
   const store = useTaskStore.getState();
 
+  // Verify the task exists in local state before updating
+  const taskExists = store.tasks.some((t) => t.id === taskId || t.specId === taskId);
+  if (!taskExists) {
+    console.warn(`[persistTaskStatus] Task not found in local state: ${taskId}`);
+    console.warn(`[persistTaskStatus] Current tasks:`, store.tasks.map(t => ({ id: t.id, specId: t.specId })));
+  }
+
   try {
     // Update local state first for immediate feedback
     store.updateTaskStatus(taskId, status);
@@ -268,11 +372,14 @@ export async function persistTaskStatus(
     const result = await window.electronAPI.updateTaskStatus(taskId, status);
     if (!result.success) {
       console.error('Failed to persist task status:', result.error);
+      // Show error to user via the store's error mechanism
+      store.setError(`Failed to update task: ${result.error}`);
       return false;
     }
     return true;
   } catch (error) {
     console.error('Error persisting task status:', error);
+    store.setError(error instanceof Error ? error.message : 'Failed to update task status');
     return false;
   }
 }

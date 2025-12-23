@@ -58,6 +58,7 @@ import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
+import { ProjectSwitcher } from './components/ProjectSwitcher';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -98,6 +99,10 @@ export function App() {
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
 
+  // Project switcher state (Cmd+P command palette)
+  const [isProjectSwitcherOpen, setIsProjectSwitcherOpen] = useState(false);
+  const [recentProjectIds, setRecentProjectIds] = useState<string[]>([]);
+
   // Setup drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -119,6 +124,47 @@ export function App() {
     loadProjects();
     loadSettings();
   }, []);
+
+  // Keyboard shortcut for full window reload (Cmd+Shift+R / Ctrl+Shift+R)
+  // This reloads the entire UI to pick up new builds without restarting the app
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+Shift+R (macOS) or Ctrl+Shift+R (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toUpperCase() === 'R') {
+        e.preventDefault();
+        console.warn('[App] Reloading window to pick up new build...');
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Keyboard shortcut for project switcher (Cmd+P / Ctrl+P)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+P (macOS) or Ctrl+P (Windows/Linux) - Project switcher
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setIsProjectSwitcherOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Track recent projects when switching
+  useEffect(() => {
+    if (activeProjectId) {
+      setRecentProjectIds((prev) => {
+        // Move to front, keep max 10 recent
+        const filtered = prev.filter((id) => id !== activeProjectId);
+        return [activeProjectId, ...filtered].slice(0, 10);
+      });
+    }
+  }, [activeProjectId]);
 
   // Restore tab state and open tabs for loaded projects
   useEffect(() => {
@@ -404,6 +450,15 @@ export function App() {
     setActiveProject(projectId);
   };
 
+  // Handle project selection from switcher - opens tab if needed
+  const handleProjectSwitcherSelect = (projectId: string) => {
+    // Open tab if not already open
+    if (!openProjectIds.includes(projectId)) {
+      openProjectTab(projectId);
+    }
+    setActiveProject(projectId);
+  };
+
   const handleProjectTabClose = (projectId: string) => {
     closeProjectTab(projectId);
   };
@@ -547,7 +602,12 @@ export function App() {
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
-          onSettingsClick={() => setIsSettingsDialogOpen(true)}
+          onSettingsClick={(section) => {
+            if (section) {
+              setSettingsInitialSection(section);
+            }
+            setIsSettingsDialogOpen(true);
+          }}
           onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
           onViewChange={setActiveView}
@@ -820,6 +880,17 @@ export function App() {
 
         {/* SDK Rate Limit Modal - shows when SDK/CLI operations hit limits (changelog, tasks, etc.) */}
         <SDKRateLimitModal />
+
+        {/* Project Switcher - command palette for quickly switching projects (Cmd+P) */}
+        <ProjectSwitcher
+          open={isProjectSwitcherOpen}
+          onOpenChange={setIsProjectSwitcherOpen}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          recentProjectIds={recentProjectIds}
+          onProjectSelect={handleProjectSwitcherSelect}
+          onAddProject={handleAddProject}
+        />
 
         {/* Onboarding Wizard - shows on first launch when onboardingCompleted is false */}
         <OnboardingWizard
