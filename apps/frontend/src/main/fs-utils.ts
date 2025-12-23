@@ -62,7 +62,8 @@ export function getWritablePath(originalPath: string, filename: string): string 
       // Try to write a test file
       const testFile = path.join(dir, `.write-test-${Date.now()}`);
       fs.writeFileSync(testFile, '');
-      fs.unlinkSync(testFile);
+      // Cleanup test file - ignore errors (e.g., file locked on Windows)
+      try { fs.unlinkSync(testFile); } catch { /* ignore cleanup failure */ }
       return originalPath;
     } else {
       // Try to create the directory
@@ -108,20 +109,29 @@ export function safeWriteFile(filePath: string, content: string): string {
  * Read a file, checking both original and XDG fallback locations
  *
  * @param originalPath - The expected file path
- * @returns The file content or null if not found
+ * @returns The file content or null if not found or on error
  */
 export function safeReadFile(originalPath: string): string | null {
   // Try original path first
-  if (fs.existsSync(originalPath)) {
-    return fs.readFileSync(originalPath, 'utf-8');
+  try {
+    if (fs.existsSync(originalPath)) {
+      return fs.readFileSync(originalPath, 'utf-8');
+    }
+  } catch (error) {
+    console.error(`[fs-utils] Failed to read file ${originalPath}:`, error);
+    // Fall through to try XDG fallback
   }
 
   // Try XDG fallback path
   if (isImmutableEnvironment()) {
     const filename = path.basename(originalPath);
     const fallbackPath = path.join(getAppPath('data'), filename);
-    if (fs.existsSync(fallbackPath)) {
-      return fs.readFileSync(fallbackPath, 'utf-8');
+    try {
+      if (fs.existsSync(fallbackPath)) {
+        return fs.readFileSync(fallbackPath, 'utf-8');
+      }
+    } catch (error) {
+      console.error(`[fs-utils] Failed to read fallback file ${fallbackPath}:`, error);
     }
   }
 

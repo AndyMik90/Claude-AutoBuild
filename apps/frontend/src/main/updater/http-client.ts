@@ -39,7 +39,7 @@ export function fetchJson<T>(url: string): Promise<T> {
           reject(new Error(
             `Multiple resources found for ${url}. ` +
             `This usually means a branch and tag have the same name. ` +
-            `Please report this issue at https://github.com/AndyMik90/Auto-Claude/issues`
+            `Please report this issue at https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/issues`
           ));
         });
         response.on('error', reject);

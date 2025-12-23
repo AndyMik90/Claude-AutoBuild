@@ -52,7 +52,7 @@ function validateRelease(version) {
       .toString()
       .split('\n')
       .map(b => b.trim())
-      .filter(Boolean);
+      .filter(b => b && !b.includes(' -> ')); // Exclude symbolic refs like origin/HEAD -> origin/main
     if (remoteBranches.includes(`origin/${version}`) || remoteBranches.includes(`fork/${version}`)) {
       console.error(`\u274C Remote branch "${version}" already exists!`);
       console.error('   This will cause HTTP 300 errors during updates.');

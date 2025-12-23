@@ -81,7 +81,8 @@ export function parsePythonCommand(pythonPath: string): [string, string[]] {
   // Otherwise, split on spaces for commands like "py -3"
   const parts = cleanPath.split(' ').filter(p => p.length > 0);
   if (parts.length === 0) {
-    return [pythonPath, []];
+    // Return empty string for empty input, not the original uncleaned path
+    return [cleanPath, []];
   }
   const command = parts[0];
   const baseArgs = parts.slice(1);
