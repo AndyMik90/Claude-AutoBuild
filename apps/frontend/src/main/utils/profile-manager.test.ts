@@ -28,20 +28,24 @@ vi.mock('electron', () => ({
   }
 }));
 
-// Mock fs.promises
-vi.mock('fs', () => ({
-  promises: {
+// Mock fs module - mock the promises export which is used by profile-manager.ts
+vi.mock('fs', () => {
+  const promises = {
     readFile: vi.fn(),
     writeFile: vi.fn(),
     mkdir: vi.fn(),
     chmod: vi.fn()
-  },
-  existsSync: vi.fn(),
-  constants: {
-    O_RDONLY: 0,
-    S_IRUSR: 0o400
-  }
-}));
+  };
+  return {
+    default: { promises }, // Default export contains promises
+    promises, // Named export for promises
+    existsSync: vi.fn(),
+    constants: {
+      O_RDONLY: 0,
+      S_IRUSR: 0o400
+    }
+  };
+});
 
 describe('profile-manager', () => {
   beforeEach(() => {
