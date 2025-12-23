@@ -176,12 +176,12 @@ export interface GraphitiConnectionTestResult {
 }
 
 // Memory Provider Types
-// Embedding Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama (local), Google
+// Embedding Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama (local), Google, OpenRouter
 // Note: LLM provider removed - Claude SDK handles RAG queries
-export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google';
+export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter';
 
 // Legacy type aliases for backward compatibility
-export type GraphitiLLMProvider = 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq';
+export type GraphitiLLMProvider = 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq' | 'openrouter';
 export type GraphitiProviderType = GraphitiLLMProvider;
 
 export interface GraphitiProviderConfig {
@@ -205,6 +205,12 @@ export interface GraphitiProviderConfig {
   // Google AI Embeddings
   googleApiKey?: string;
   googleEmbeddingModel?: string;
+
+  // OpenRouter (multi-provider aggregator)
+  openrouterApiKey?: string;
+  openrouterBaseUrl?: string;  // Default: https://openrouter.ai/api/v1
+  openrouterLlmModel?: string;  // Legacy: for backward compatibility
+  openrouterEmbeddingModel?: string;
 
   // Ollama Embeddings (local, no API key required)
   ollamaBaseUrl?: string;  // Default: http://localhost:11434

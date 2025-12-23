@@ -44,6 +44,7 @@ const LLM_PROVIDERS: Array<{
   { id: 'anthropic', name: 'Anthropic', description: 'Claude models', requiresApiKey: true },
   { id: 'google', name: 'Google AI', description: 'Gemini models', requiresApiKey: true },
   { id: 'groq', name: 'Groq', description: 'Llama models (fast inference)', requiresApiKey: true },
+  { id: 'openrouter', name: 'OpenRouter', description: 'Multi-provider aggregator', requiresApiKey: true },
   { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure deployment', requiresApiKey: true },
   { id: 'ollama', name: 'Ollama', description: 'Local models (free)', requiresApiKey: false }
 ];
@@ -58,6 +59,7 @@ const EMBEDDING_PROVIDERS: Array<{
   { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small (recommended)', requiresApiKey: true },
   { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (great with Anthropic)', requiresApiKey: true },
   { id: 'google', name: 'Google AI', description: 'Gemini text-embedding-004', requiresApiKey: true },
+  { id: 'openrouter', name: 'OpenRouter', description: 'OpenAI-compatible embeddings', requiresApiKey: true },
   { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise Azure embeddings', requiresApiKey: true }
 ];
 
@@ -82,6 +84,11 @@ interface GraphitiConfig {
   googleApiKey: string;
   // Groq
   groqApiKey: string;
+  // OpenRouter
+  openrouterApiKey: string;
+  openrouterBaseUrl: string;
+  openrouterLlmModel: string;
+  openrouterEmbeddingModel: string;
   // HuggingFace
   huggingfaceApiKey: string;
   // Ollama
@@ -118,6 +125,10 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     voyageApiKey: '',
     googleApiKey: settings.globalGoogleApiKey || '',
     groqApiKey: settings.globalGroqApiKey || '',
+    openrouterApiKey: '',
+    openrouterBaseUrl: 'https://openrouter.ai/api/v1',
+    openrouterLlmModel: 'anthropic/claude-3.5-sonnet',
+    openrouterEmbeddingModel: 'openai/text-embedding-3-small',
     huggingfaceApiKey: '',
     ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',
     ollamaLlmModel: '',
@@ -194,6 +205,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     if (llmProvider === 'groq') {
       if (!config.groqApiKey.trim()) return 'Groq API key';
     }
+    if (llmProvider === 'openrouter' || embeddingProvider === 'openrouter') {
+      if (!config.openrouterApiKey.trim()) return 'OpenRouter API key';
+    }
     if (llmProvider === 'ollama') {
       if (!config.ollamaLlmModel.trim()) return 'Ollama LLM model name';
     }
@@ -221,9 +235,11 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                      config.llmProvider === 'anthropic' ? config.anthropicApiKey :
                      config.llmProvider === 'google' ? config.googleApiKey :
                      config.llmProvider === 'groq' ? config.groqApiKey :
+                     config.llmProvider === 'openrouter' ? config.openrouterApiKey :
                      config.llmProvider === 'azure_openai' ? config.azureOpenaiApiKey :
                      config.llmProvider === 'ollama' ? '' :  // Ollama doesn't need API key
-                     config.embeddingProvider === 'openai' ? config.openaiApiKey : '';
+                     config.embeddingProvider === 'openai' ? config.openaiApiKey :
+                     config.embeddingProvider === 'openrouter' ? config.openrouterApiKey : '';
 
       const result = await window.electronAPI.testGraphitiConnection({
         dbPath: config.dbPath || undefined,
@@ -303,6 +319,9 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
       if (config.groqApiKey.trim()) {
         settingsToSave.globalGroqApiKey = config.groqApiKey.trim();
       }
+      if (config.openrouterApiKey.trim()) {
+        settingsToSave.globalOpenRouterApiKey = config.openrouterApiKey.trim();
+      }
       if (config.ollamaBaseUrl.trim()) {
         settingsToSave.ollamaBaseUrl = config.ollamaBaseUrl.trim();
       }
@@ -355,6 +374,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
     const needsVoyage = embeddingProvider === 'voyage';
     const needsGoogle = llmProvider === 'google' || embeddingProvider === 'google';
     const needsGroq = llmProvider === 'groq';
+    const needsOpenRouter = llmProvider === 'openrouter' || embeddingProvider === 'openrouter';
     const needsOllama = llmProvider === 'ollama' || embeddingProvider === 'ollama';
 
     return (
@@ -601,6 +621,39 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
               Get your key from{' '}
               <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
                 Groq Console
+              </a>
+            </p>
+          </div>
+        )}
+
+        {/* OpenRouter API Key */}
+        {needsOpenRouter && (
+          <div className="space-y-2">
+            <Label htmlFor="openrouter-key" className="text-sm font-medium text-foreground">
+              OpenRouter API Key
+            </Label>
+            <div className="relative">
+              <Input
+                id="openrouter-key"
+                type={showApiKey['openrouter'] ? 'text' : 'password'}
+                value={config.openrouterApiKey}
+                onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
+                placeholder="sk-or-..."
+                className="pr-10 font-mono text-sm"
+                disabled={isSaving || isValidating}
+              />
+              <button
+                type="button"
+                onClick={() => toggleShowApiKey('openrouter')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Get your key from{' '}
+              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                OpenRouter Dashboard
               </a>
             </p>
           </div>
