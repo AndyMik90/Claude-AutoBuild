@@ -8,7 +8,6 @@ Integrates framework detection, route analysis, database models, and context ext
 
 from __future__ import annotations
 
-
 import re
 from pathlib import Path
 from typing import Any

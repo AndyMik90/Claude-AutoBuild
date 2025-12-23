@@ -11,7 +11,6 @@ Detects API routes and endpoints across different frameworks:
 
 from __future__ import annotations
 
-
 import re
 from pathlib import Path
 

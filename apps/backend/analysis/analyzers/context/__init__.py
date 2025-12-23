@@ -7,7 +7,6 @@ Contains specialized detectors for comprehensive project context analysis.
 
 from __future__ import annotations
 
-
 from .api_docs_detector import ApiDocsDetector
 from .auth_detector import AuthDetector
 from .env_detector import EnvironmentDetector

@@ -8,7 +8,6 @@ Supports Python, Node.js/TypeScript, Go, Rust, and Ruby frameworks.
 
 from __future__ import annotations
 
-
 from pathlib import Path
 from typing import Any
 

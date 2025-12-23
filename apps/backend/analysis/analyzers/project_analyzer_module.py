@@ -7,7 +7,6 @@ Analyzes entire projects, detecting monorepo structures, services, infrastructur
 
 from __future__ import annotations
 
-
 from pathlib import Path
 from typing import Any
 

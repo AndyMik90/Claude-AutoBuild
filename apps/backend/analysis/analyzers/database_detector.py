@@ -9,7 +9,6 @@ Detects database models and schemas across different ORMs:
 
 from __future__ import annotations
 
-
 import re
 from pathlib import Path
 
