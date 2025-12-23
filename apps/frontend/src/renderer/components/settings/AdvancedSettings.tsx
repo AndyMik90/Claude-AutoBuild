@@ -419,6 +419,21 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
               }
             />
           </div>
+
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border">
+            <div className="space-y-1">
+              <Label className="font-medium text-foreground">Beta Updates</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive pre-release beta versions with new features (may be less stable)
+              </p>
+            </div>
+            <Switch
+              checked={settings.betaUpdates ?? false}
+              onCheckedChange={(checked) =>
+                onSettingsChange({ ...settings, betaUpdates: checked })
+              }
+            />
+          </div>
         </div>
       </SettingsSection>
     );

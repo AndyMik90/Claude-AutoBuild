@@ -1,5 +1,5 @@
 import { ipcMain, dialog, app, shell } from 'electron';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
@@ -11,8 +11,10 @@ import type {
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveVersion } from '../auto-claude-updater';
+import { setUpdateChannel } from '../app-updater';
+import { getSettingsPath, readSettingsFile } from '../settings-utils';
 
-const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+const settingsPath = getSettingsPath();
 
 /**
  * Auto-detect the auto-claude source path relative to the app location.
@@ -101,17 +103,10 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_GET,
     async (): Promise<IPCResult<AppSettings>> => {
-      let settings: AppSettings = { ...DEFAULT_APP_SETTINGS };
+      // Load settings using shared helper and merge with defaults
+      const savedSettings = readSettingsFile();
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
       let needsSave = false;
-
-      if (existsSync(settingsPath)) {
-        try {
-          const content = readFileSync(settingsPath, 'utf-8');
-          settings = { ...settings, ...JSON.parse(content) };
-        } catch {
-          // Use defaults
-        }
-      }
 
       // Migration: Set agent profile to 'auto' for users who haven't made a selection (one-time)
       // This ensures new users get the optimized 'auto' profile as the default
@@ -151,18 +146,21 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.SETTINGS_SAVE,
     async (_, settings: Partial<AppSettings>): Promise<IPCResult> => {
       try {
-        let currentSettings = DEFAULT_APP_SETTINGS;
-        if (existsSync(settingsPath)) {
-          const content = readFileSync(settingsPath, 'utf-8');
-          currentSettings = { ...currentSettings, ...JSON.parse(content) };
-        }
-
+        // Load current settings using shared helper
+        const savedSettings = readSettingsFile();
+        const currentSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
         const newSettings = { ...currentSettings, ...settings };
         writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
 
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {
           agentManager.configure(settings.pythonPath, settings.autoBuildPath);
+        }
+
+        // Update auto-updater channel if betaUpdates setting changed
+        if (settings.betaUpdates !== undefined) {
+          const channel = settings.betaUpdates ? 'beta' : 'latest';
+          setUpdateChannel(channel);
         }
 
         return { success: true };

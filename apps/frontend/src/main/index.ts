@@ -9,6 +9,18 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater } from './app-updater';
+import { DEFAULT_APP_SETTINGS } from '../shared/constants';
+import { readSettingsFile } from './settings-utils';
+import type { AppSettings } from '../shared/types';
+
+/**
+ * Load app settings synchronously (for use during startup).
+ * This is a simple merge with defaults - no migrations or auto-detection.
+ */
+function loadSettingsSync(): AppSettings {
+  const savedSettings = readSettingsFile();
+  return { ...DEFAULT_APP_SETTINGS, ...savedSettings } as AppSettings;
+}
 
 // Get icon path based on platform
 function getIconPath(): string {
@@ -168,8 +180,13 @@ app.whenReady().then(() => {
     // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
     const forceUpdater = process.env.DEBUG_UPDATER === 'true';
     if (app.isPackaged || forceUpdater) {
-      initializeAppUpdater(mainWindow);
+      // Load settings to get beta updates preference
+      const settings = loadSettingsSync();
+      const betaUpdates = settings.betaUpdates ?? false;
+
+      initializeAppUpdater(mainWindow, betaUpdates);
       console.warn('[main] App auto-updater initialized');
+      console.warn(`[main] Beta updates: ${betaUpdates ? 'enabled' : 'disabled'}`);
       if (forceUpdater && !app.isPackaged) {
         console.warn('[main] Updater forced in dev mode via DEBUG_UPDATER=true');
         console.warn('[main] Note: Updates won\'t actually work in dev mode');

@@ -431,3 +431,52 @@ jobs:
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update README with new version after successful release
+  update-readme:
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true) }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Extract version from tag (v2.7.2 -> 2.7.2)
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Updating README to version: $VERSION"
+
+      - name: Update README.md
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Update version badge: version-X.Y.Z-blue
+          sed -i "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-${VERSION}-blue/g" README.md
+
+          # Update download links: Auto-Claude-X.Y.Z
+          sed -i "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-${VERSION}/g" README.md
+
+          echo "README.md updated to version $VERSION"
+          grep -E "(version-|Auto-Claude-)" README.md | head -10
+
+      - name: Commit and push README update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are changes to commit
+          if git diff --quiet README.md; then
+            echo "No changes to README.md, skipping commit"
+            exit 0
+          fi
+
+          git add README.md
+          git commit -m "docs: update README to v${{ steps.version.outputs.version }} [skip ci]"
+          git push origin main

@@ -42,7 +42,9 @@ export const DEFAULT_APP_SETTINGS = {
   changelogAudience: 'user-facing' as const,
   changelogEmojiLevel: 'none' as const,
   // UI Scale (default 100% - standard size)
-  uiScale: UI_SCALE_DEFAULT
+  uiScale: UI_SCALE_DEFAULT,
+  // Beta updates opt-in (receive pre-release versions)
+  betaUpdates: false
 };
 
 // ============================================

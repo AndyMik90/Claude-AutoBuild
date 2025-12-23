@@ -491,6 +491,35 @@ git branch -d release/v2.8.0
 git push origin --delete release/v2.8.0
 ```
 
+### Beta Release Process (Maintainers)
+
+Beta releases allow users to test new features before they're included in a stable release. Beta releases are published from the `develop` branch.
+
+**Creating a Beta Release:**
+
+1. Go to **Actions** → **Beta Release** workflow in GitHub
+2. Click **Run workflow**
+3. Enter the beta version (e.g., `2.8.0-beta.1`)
+4. Optionally enable dry run to test without publishing
+5. Click **Run workflow**
+
+The workflow will:
+- Validate the version format
+- Update `package.json` on develop
+- Create and push a tag (e.g., `v2.8.0-beta.1`)
+- Build installers for all platforms
+- Create a GitHub pre-release
+
+**Version Format:**
+```
+X.Y.Z-beta.N   (e.g., 2.8.0-beta.1, 2.8.0-beta.2)
+X.Y.Z-alpha.N  (e.g., 2.8.0-alpha.1)
+X.Y.Z-rc.N     (e.g., 2.8.0-rc.1)
+```
+
+**For Users:**
+Users can opt into beta updates in Settings → Updates → "Beta Updates" toggle. When enabled, the app will check for and install beta versions. Users can switch back to stable at any time.
+
 ### Hotfix Workflow
 
 For urgent production fixes that can't wait for the normal release cycle:

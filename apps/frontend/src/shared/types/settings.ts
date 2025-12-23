@@ -108,6 +108,8 @@ export interface AppSettings {
   changelogEmojiLevel?: ChangelogEmojiLevel;
   // UI Scale setting (75-200%, default 100)
   uiScale?: number;
+  // Beta updates opt-in (receive pre-release updates)
+  betaUpdates?: boolean;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
 }

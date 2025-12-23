@@ -103,15 +103,20 @@ python apps/backend/validate_spec.py --spec-dir apps/backend/specs/001-feature -
 
 ### Releases
 ```bash
-# Automated version bump and release (recommended)
+# 1. Bump version on your branch (creates commit, no tag)
 node scripts/bump-version.js patch   # 2.8.0 -> 2.8.1
 node scripts/bump-version.js minor   # 2.8.0 -> 2.9.0
 node scripts/bump-version.js major   # 2.8.0 -> 3.0.0
-node scripts/bump-version.js 2.9.0   # Set specific version
 
-# Then push to trigger GitHub release workflows
-git push origin main
-git push origin v2.9.0
+# 2. Push and create PR to main
+git push origin your-branch
+gh pr create --base main
+
+# 3. Merge PR → GitHub Actions automatically:
+#    - Creates tag
+#    - Builds all platforms
+#    - Creates release with changelog
+#    - Updates README
 ```
 
 See [RELEASE.md](RELEASE.md) for detailed release process documentation.

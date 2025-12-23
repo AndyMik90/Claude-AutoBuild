@@ -3,8 +3,8 @@
 /**
  * Version Bump Script
  *
- * Automatically bumps the version in package.json and creates a git tag.
- * This ensures version consistency between package.json and git tags.
+ * Bumps the version in package.json files. When this commit is merged to main,
+ * GitHub Actions will automatically create the tag and trigger the release.
  *
  * Usage:
  *   node scripts/bump-version.js <major|minor|patch|x.y.z>
@@ -14,6 +14,17 @@
  *   node scripts/bump-version.js minor   # 2.5.5 -> 2.6.0
  *   node scripts/bump-version.js major   # 2.5.5 -> 3.0.0
  *   node scripts/bump-version.js 2.6.0   # Set to specific version
+ *
+ * Release Flow:
+ *   1. Run this script on develop branch
+ *   2. Push to develop
+ *   3. Create PR: develop → main
+ *   4. Merge PR
+ *   5. GitHub Actions automatically:
+ *      - Creates git tag
+ *      - Builds binaries
+ *      - Creates GitHub release
+ *      - Updates README
  */
 
 const fs = require('fs');
@@ -138,27 +149,6 @@ function updateBackendInit(newVersion) {
   return true;
 }
 
-// Update README.md version references
-function updateReadme(newVersion, oldVersion) {
-  const readmePath = path.join(__dirname, '..', 'README.md');
-
-  if (!fs.existsSync(readmePath)) {
-    warning(`README.md not found at ${readmePath}, skipping`);
-    return false;
-  }
-
-  let content = fs.readFileSync(readmePath, 'utf8');
-
-  // Update version badge: version-X.Y.Z-blue
-  content = content.replace(/version-[\d.]+(-\w+)?-blue/g, `version-${newVersion}-blue`);
-
-  // Update download links: Auto-Claude-X.Y.Z
-  content = content.replace(/Auto-Claude-[\d.]+/g, `Auto-Claude-${newVersion}`);
-
-  fs.writeFileSync(readmePath, content);
-  return true;
-}
-
 // Main function
 function main() {
   const bumpType = process.argv[2];
@@ -204,31 +194,33 @@ function main() {
     success('Updated apps/backend/__init__.py');
   }
 
-  info('Updating README.md...');
-  if (updateReadme(newVersion, currentVersion)) {
-    success('Updated README.md');
-  }
+  // Note: README.md is NOT updated here - it gets updated by the release workflow
+  // after the GitHub release is successfully published. This prevents version
+  // mismatches where README shows a version that doesn't exist yet.
 
   // 6. Create git commit
   info('Creating git commit...');
-  exec('git add apps/frontend/package.json package.json apps/backend/__init__.py README.md');
+  exec('git add apps/frontend/package.json package.json apps/backend/__init__.py');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
   success(`Created commit: "chore: bump version to ${newVersion}"`);
 
-  // 7. Create git tag
-  info('Creating git tag...');
-  exec(`git tag -a v${newVersion} -m "Release v${newVersion}"`);
-  success(`Created tag: v${newVersion}`);
+  // Note: Tags are NOT created here anymore. GitHub Actions will create the tag
+  // when this commit is merged to main, ensuring releases only happen after
+  // successful builds.
 
-  // 8. Instructions
+  // 7. Instructions
   log('\n📋 Next steps:', colors.yellow);
   log(`   1. Review the changes: git log -1`, colors.yellow);
-  log(`   2. Push the commit: git push origin <branch-name>`, colors.yellow);
-  log(`   3. Push the tag: git push origin v${newVersion}`, colors.yellow);
-  log(`   4. Create a GitHub release from the tag\n`, colors.yellow);
+  log(`   2. Push to your branch: git push origin <branch-name>`, colors.yellow);
+  log(`   3. Create PR to main (or merge develop → main)`, colors.yellow);
+  log(`   4. When merged, GitHub Actions will automatically:`, colors.yellow);
+  log(`      - Create tag v${newVersion}`, colors.yellow);
+  log(`      - Build binaries for all platforms`, colors.yellow);
+  log(`      - Create GitHub release with changelog`, colors.yellow);
+  log(`      - Update README with new version\n`, colors.yellow);
 
-  warning('Note: The commit and tag have been created locally but NOT pushed.');
-  warning('Please review and push manually when ready.');
+  warning('Note: The commit has been created locally but NOT pushed.');
+  info('Tags are created automatically by GitHub Actions when merged to main.');
 
   log('\n✨ Version bump complete!\n', colors.green);
 }

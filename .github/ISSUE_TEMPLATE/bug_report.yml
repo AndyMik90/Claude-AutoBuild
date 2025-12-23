@@ -1,74 +1,26 @@
-name: Bug Report
-description: Report a bug or unexpected behavior
-labels: ["bug", "triage"]
+name: 🐛 Bug Report
+description: Something isn't working
+labels: ["bug", "needs-triage"]
 body:
-  - type: markdown
+  - type: checkboxes
+    id: checklist
     attributes:
-      value: |
-        Thanks for taking the time to report a bug! Please fill out the sections below.
-
-  - type: textarea
-    id: description
-    attributes:
-      label: Bug Description
-      description: A clear and concise description of the bug.
-      placeholder: What happened?
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: What did you expect to happen?
-      placeholder: What should have happened?
-    validations:
-      required: true
-
-  - type: textarea
-    id: reproduce
-    attributes:
-      label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
-      placeholder: |
-        1. Run command '...'
-        2. Click on '...'
-        3. See error
-    validations:
-      required: true
-
-  - type: textarea
-    id: logs
-    attributes:
-      label: Error Messages / Logs
-      description: If applicable, paste any error messages or logs.
-      render: shell
-
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots
-      description: If applicable, add screenshots to help explain the problem.
+      label: Checklist
+      options:
+        - label: I searched existing issues and this hasn't been reported
+          required: true
 
   - type: dropdown
-    id: component
+    id: area
     attributes:
-      label: Component
-      description: Which part of Auto Claude is affected?
+      label: Area
       options:
-        - Python Backend (apps/backend/)
-        - Electron UI (apps/frontend/)
-        - Both
+        - Frontend
+        - Backend
+        - Fullstack
         - Not sure
     validations:
       required: true
-
-  - type: input
-    id: version
-    attributes:
-      label: Auto Claude Version
-      description: What version are you running? (check package.json or git tag)
-      placeholder: "v2.0.1"
 
   - type: dropdown
     id: os
@@ -78,26 +30,47 @@ body:
         - macOS
         - Windows
         - Linux
-        - Other
     validations:
       required: true
 
   - type: input
-    id: python-version
+    id: version
     attributes:
-      label: Python Version
-      description: Output of `python --version`
-      placeholder: "3.12.0"
-
-  - type: input
-    id: node-version
-    attributes:
-      label: Node.js Version (for UI issues)
-      description: Output of `node --version`
-      placeholder: "20.10.0"
+      label: Version
+      placeholder: "e.g., 2.5.5"
+    validations:
+      required: true
 
   - type: textarea
-    id: additional
+    id: description
     attributes:
-      label: Additional Context
-      description: Any other context about the problem.
+      label: What happened?
+      placeholder: Describe the bug clearly and concisely. Include any error messages you encountered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run command '...' or click on '...'
+        2. Observe behavior '...'
+        3. See error or unexpected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen instead? Describe the correct behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Required for UI bugs. Attach relevant logs, screenshots, or error output.
+      render: shell
