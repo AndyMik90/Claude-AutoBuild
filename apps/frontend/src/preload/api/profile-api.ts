@@ -6,7 +6,7 @@ import type {
   ProfileFormData,
   ProfilesFile,
   TestConnectionResult
-} from '../../shared/types/profile';
+} from '@auto-claude/profile-service';
 
 export interface ProfileAPI {
   // Get all profiles
@@ -31,7 +31,8 @@ export interface ProfileAPI {
   // Test API profile connection
   testConnection: (
     baseUrl: string,
-    apiKey: string
+    apiKey: string,
+    signal?: AbortSignal
   ) => Promise<IPCResult<TestConnectionResult>>;
 }
 
@@ -63,7 +64,8 @@ export const createProfileAPI = (): ProfileAPI => ({
   // Test API profile connection
   testConnection: (
     baseUrl: string,
-    apiKey: string
+    apiKey: string,
+    signal?: AbortSignal
   ): Promise<IPCResult<TestConnectionResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_TEST_CONNECTION, baseUrl, apiKey)
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILES_TEST_CONNECTION, baseUrl, apiKey, signal)
 });

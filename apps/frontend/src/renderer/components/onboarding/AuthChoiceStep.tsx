@@ -18,11 +18,13 @@ interface AuthOptionCardProps {
   description: string;
   onClick: () => void;
   variant?: 'default' | 'oauth';
+  'data-testid'?: string;
 }
 
-function AuthOptionCard({ icon, title, description, onClick, variant = 'default' }: AuthOptionCardProps) {
+function AuthOptionCard({ icon, title, description, onClick, variant = 'default', 'data-testid': dataTestId }: AuthOptionCardProps) {
   return (
     <Card
+      data-testid={dataTestId}
       className={`border border-border bg-card/50 backdrop-blur-sm cursor-pointer transition-all hover:border-primary/50 hover:shadow-md ${
         variant === 'oauth' ? 'hover:bg-accent/5' : ''
       }`}
@@ -126,12 +128,14 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
               description="Use your Anthropic account to authenticate. Simple and secure OAuth flow."
               onClick={handleOAuthChoice}
               variant="oauth"
+              data-testid="auth-option-oauth"
             />
             <AuthOptionCard
               icon={<Key className="h-6 w-6" />}
               title="Use Custom API Key"
               description="Bring your own API key from Anthropic or a compatible API provider."
               onClick={handleAPIKeyChoice}
+              data-testid="auth-option-apikey"
             />
           </div>
 

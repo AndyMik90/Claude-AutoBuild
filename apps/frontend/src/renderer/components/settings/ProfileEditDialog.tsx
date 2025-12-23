@@ -14,7 +14,7 @@
  * - Edit mode: API key masked with "Change" button
  */
 import { useState, useEffect, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,11 +28,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useSettingsStore } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
-import type { APIProfile } from '../../../shared/types/profile';
-import type { ProfileFormData } from '../../../shared/types/profile';
-import type { TestConnectionResult } from '../../../shared/types/profile';
+import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
+import type { APIProfile } from '@auto-claude/profile-service';
+import type { ProfileFormData } from '@auto-claude/profile-service';
+import type { TestConnectionResult } from '@auto-claude/profile-service';
 import { maskApiKey } from '../../lib/profile-utils';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface ProfileEditDialogProps {
   /** Whether the dialog is open */
@@ -516,31 +516,4 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       </DialogContent>
     </Dialog>
   );
-}
-
-// Import validation utilities (defined below to avoid circular dependency)
-function isValidUrl(url: string): boolean {
-  if (!url || url.trim() === '') {
-    return false;
-  }
-
-  try {
-    const urlObj = new URL(url);
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function isValidApiKey(key: string): boolean {
-  if (!key || key.trim() === '') {
-    return false;
-  }
-
-  const trimmed = key.trim();
-  if (trimmed.length < 12) {
-    return false;
-  }
-
-  return /^[a-zA-Z0-9\-_+.]+$/.test(trimmed);
 }

@@ -7,7 +7,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileList } from './ProfileList';
 import { maskApiKey } from '../../lib/profile-utils';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { APIProfile } from '@shared/types/profile';
+import type { APIProfile } from '@auto-claude/profile-service';
 import { TooltipProvider } from '../ui/tooltip';
 
 // Wrapper for components that need TooltipProvider
@@ -53,6 +53,37 @@ const testProfiles: APIProfile[] = [
     updatedAt: Date.now()
   }
 ];
+
+/**
+ * Factory function to create a default settings store mock
+ * Override properties by spreading with custom values
+ */
+function createSettingsStoreMock(overrides: Partial<ReturnType<typeof useSettingsStore>> = {}) {
+  const mockDeleteProfile = vi.fn().mockResolvedValue(true);
+  const mockSetActiveProfile = vi.fn().mockResolvedValue(true);
+
+  return {
+    profiles: testProfiles,
+    activeProfileId: 'profile-1' as string | null,
+    deleteProfile: mockDeleteProfile,
+    setActiveProfile: mockSetActiveProfile,
+    profilesLoading: false,
+    settings: {} as any,
+    isLoading: false,
+    error: null,
+    setSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    setLoading: vi.fn(),
+    setError: vi.fn(),
+    setProfiles: vi.fn(),
+    setProfilesLoading: vi.fn(),
+    setProfilesError: vi.fn(),
+    saveProfile: vi.fn().mockResolvedValue(true),
+    updateProfile: vi.fn().mockResolvedValue(true),
+    profilesError: null,
+    ...overrides
+  };
+}
 
 describe('ProfileList - maskApiKey Utility', () => {
   it('should mask API key showing only last 4 characters', () => {
@@ -168,43 +199,16 @@ describe('ProfileList - Active Profile Logic', () => {
 
 // Test 1: Delete confirmation dialog shows profile name correctly
 describe('ProfileList - Delete Confirmation Dialog', () => {
-  let mockDeleteProfile: ReturnType<typeof vi.fn>;
-  let mockSetActiveProfile: ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
-    mockDeleteProfile = vi.fn().mockResolvedValue(true);
-    mockSetActiveProfile = vi.fn().mockResolvedValue(true);
-
-    vi.mocked(useSettingsStore).mockReturnValue({
-      profiles: testProfiles,
-      activeProfileId: 'profile-1',
-      deleteProfile: mockDeleteProfile,
-      setActiveProfile: mockSetActiveProfile,
-      profilesLoading: false,
-      settings: {} as any,
-      isLoading: false,
-      error: null,
-      setSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setLoading: vi.fn(),
-      setError: vi.fn(),
-      setProfiles: vi.fn(),
-      setProfilesLoading: vi.fn(),
-      setProfilesError: vi.fn(),
-      saveProfile: vi.fn().mockResolvedValue(true),
-      updateProfile: vi.fn().mockResolvedValue(true),
-      profilesError: null
-    });
+    vi.mocked(useSettingsStore).mockReturnValue(createSettingsStoreMock());
   });
 
   it('should show delete confirmation dialog with profile name', () => {
     renderWithWrapper(<ProfileList />);
 
-    // Click delete button on first profile (find by destructive styling)
-    const deleteButtons = screen.getAllByRole('button').filter(
-      btn => btn.className.includes('text-destructive')
-    );
-    fireEvent.click(deleteButtons[0]);
+    // Click delete button on first profile (find by test id)
+    const deleteButton = screen.getByTestId('profile-delete-button-profile-1');
+    fireEvent.click(deleteButton);
 
     // Check dialog appears with profile name
     expect(screen.getByText(/Delete Profile\?/i)).toBeInTheDocument();
@@ -216,13 +220,14 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
 
   // Test 5: Cancel delete → dialog closes, profile remains in list
   it('should close dialog when cancel is clicked', () => {
+    const mockStore = createSettingsStoreMock();
+    vi.mocked(useSettingsStore).mockReturnValue(mockStore);
+
     renderWithWrapper(<ProfileList />);
 
-    // Click delete button (find by destructive styling)
-    const deleteButtons = screen.getAllByRole('button').filter(
-      btn => btn.className.includes('text-destructive')
-    );
-    fireEvent.click(deleteButtons[0]);
+    // Click delete button (find by test id)
+    const deleteButton = screen.getByTestId('profile-delete-button-profile-1');
+    fireEvent.click(deleteButton);
 
     // Click cancel
     fireEvent.click(screen.getByText(/Cancel/i));
@@ -231,39 +236,20 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
     expect(screen.queryByText(/Delete Profile\?/i)).not.toBeInTheDocument();
     // Profiles should still be visible
     expect(screen.getByText('Production API')).toBeInTheDocument();
-    expect(mockDeleteProfile).not.toHaveBeenCalled();
+    expect(mockStore.deleteProfile).not.toHaveBeenCalled();
   });
 
   // Test 6: Delete confirmation dialog has delete action button
   it('should show delete action button in confirmation dialog', () => {
-    vi.mocked(useSettingsStore).mockReturnValue({
-      profiles: testProfiles,
-      activeProfileId: 'profile-2',
-      deleteProfile: mockDeleteProfile,
-      setActiveProfile: mockSetActiveProfile,
-      profilesLoading: false,
-      settings: {} as any,
-      isLoading: false,
-      error: null,
-      setSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setLoading: vi.fn(),
-      setError: vi.fn(),
-      setProfiles: vi.fn(),
-      setProfilesLoading: vi.fn(),
-      setProfilesError: vi.fn(),
-      saveProfile: vi.fn().mockResolvedValue(true),
-      updateProfile: vi.fn().mockResolvedValue(true),
-      profilesError: null
-    });
+    vi.mocked(useSettingsStore).mockReturnValue(
+      createSettingsStoreMock({ activeProfileId: 'profile-2' })
+    );
 
     renderWithWrapper(<ProfileList />);
 
-    // Click delete button on inactive profile (find by destructive styling)
-    const deleteButtons = screen.getAllByRole('button').filter(
-      btn => btn.className.includes('text-destructive')
-    );
-    fireEvent.click(deleteButtons[0]);
+    // Click delete button on inactive profile (find by test id)
+    const deleteButton = screen.getByTestId('profile-delete-button-profile-1');
+    fireEvent.click(deleteButton);
 
     // Dialog should have Delete elements (title "Delete Profile?" and "Delete" button)
     const deleteElements = screen.getAllByText(/Delete/i);
@@ -272,33 +258,8 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
 });
 
 describe('ProfileList - Switch to OAuth Button', () => {
-  let mockDeleteProfile: ReturnType<typeof vi.fn>;
-  let mockSetActiveProfile: ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
-    mockDeleteProfile = vi.fn().mockResolvedValue(true);
-    mockSetActiveProfile = vi.fn().mockResolvedValue(true);
-
-    vi.mocked(useSettingsStore).mockReturnValue({
-      profiles: testProfiles,
-      activeProfileId: 'profile-1', // Profile is active
-      deleteProfile: mockDeleteProfile,
-      setActiveProfile: mockSetActiveProfile,
-      profilesLoading: false,
-      settings: {} as any,
-      isLoading: false,
-      error: null,
-      setSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setLoading: vi.fn(),
-      setError: vi.fn(),
-      setProfiles: vi.fn(),
-      setProfilesLoading: vi.fn(),
-      setProfilesError: vi.fn(),
-      saveProfile: vi.fn().mockResolvedValue(true),
-      updateProfile: vi.fn().mockResolvedValue(true),
-      profilesError: null
-    });
+    vi.mocked(useSettingsStore).mockReturnValue(createSettingsStoreMock());
   });
 
   it('should show "Switch to OAuth" button when a profile is active', () => {
@@ -309,26 +270,9 @@ describe('ProfileList - Switch to OAuth Button', () => {
   });
 
   it('should NOT show "Switch to OAuth" button when no profile is active', () => {
-    vi.mocked(useSettingsStore).mockReturnValue({
-      profiles: testProfiles,
-      activeProfileId: null, // No profile active
-      deleteProfile: mockDeleteProfile,
-      setActiveProfile: mockSetActiveProfile,
-      profilesLoading: false,
-      settings: {} as any,
-      isLoading: false,
-      error: null,
-      setSettings: vi.fn(),
-      updateSettings: vi.fn(),
-      setLoading: vi.fn(),
-      setError: vi.fn(),
-      setProfiles: vi.fn(),
-      setProfilesLoading: vi.fn(),
-      setProfilesError: vi.fn(),
-      saveProfile: vi.fn().mockResolvedValue(true),
-      updateProfile: vi.fn().mockResolvedValue(true),
-      profilesError: null
-    });
+    vi.mocked(useSettingsStore).mockReturnValue(
+      createSettingsStoreMock({ activeProfileId: null })
+    );
 
     renderWithWrapper(<ProfileList />);
 
@@ -337,6 +281,9 @@ describe('ProfileList - Switch to OAuth Button', () => {
   });
 
   it('should call setActiveProfile with null when "Switch to OAuth" is clicked', () => {
+    const mockStore = createSettingsStoreMock();
+    vi.mocked(useSettingsStore).mockReturnValue(mockStore);
+
     renderWithWrapper(<ProfileList />);
 
     // Click the "Switch to OAuth" button
@@ -344,6 +291,6 @@ describe('ProfileList - Switch to OAuth Button', () => {
     fireEvent.click(switchButton);
 
     // Should call setActiveProfile with null to switch to OAuth
-    expect(mockSetActiveProfile).toHaveBeenCalledWith(null);
+    expect(mockStore.setActiveProfile).toHaveBeenCalledWith(null);
   });
 });

@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ProfileEditDialog } from './ProfileEditDialog';
-import type { APIProfile } from '../../../shared/types/profile';
+import type { APIProfile } from '@auto-claude/profile-service';
 
 // Mock the settings store
 vi.mock('../../stores/settings-store', () => ({

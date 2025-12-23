@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { APIProfile, ProfilesFile } from '../../shared/types/profile';
+import type { APIProfile, ProfilesFile } from '@auto-claude/profile-service';
 
 // Mock electron before importing
 vi.mock('electron', () => ({
@@ -17,15 +17,11 @@ vi.mock('electron', () => ({
 }));
 
 // Mock profile-manager
-vi.mock('../utils/profile-manager', () => ({
+vi.mock('@auto-claude/profile-service', () => ({
   loadProfilesFile: vi.fn(),
   saveProfilesFile: vi.fn(),
   validateFilePermissions: vi.fn(),
-  getProfilesFilePath: vi.fn(() => '/test/profiles.json')
-}));
-
-// Mock profile-service
-vi.mock('../services/profile-service', () => ({
+  getProfilesFilePath: vi.fn(() => '/test/profiles.json'),
   createProfile: vi.fn(),
   updateProfile: vi.fn(),
   testConnection: vi.fn()
@@ -37,10 +33,10 @@ import { IPC_CHANNELS } from '../../shared/constants';
 import {
   loadProfilesFile,
   saveProfilesFile,
-  validateFilePermissions
-} from '../utils/profile-manager';
-import { testConnection } from '../services/profile-service';
-import type { TestConnectionResult } from '../../shared/types/profile';
+  validateFilePermissions,
+  testConnection
+} from '@auto-claude/profile-service';
+import type { TestConnectionResult } from '@auto-claude/profile-service';
 
 // Get the handler function for testing
 function getSetActiveHandler() {

@@ -14,7 +14,7 @@ import { ProfileEditDialog } from './ProfileEditDialog';
 import { maskApiKey } from '../../lib/profile-utils';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
-import type { APIProfile } from '../../../shared/types/profile';
+import type { APIProfile } from '@auto-claude/profile-service';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -248,6 +248,8 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
                       size="sm"
                       onClick={() => setDeleteConfirmProfile(profile)}
                       className="text-destructive hover:text-destructive"
+                      data-testid={`profile-delete-button-${profile.id}`}
+                      aria-label={`Delete profile ${profile.name}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

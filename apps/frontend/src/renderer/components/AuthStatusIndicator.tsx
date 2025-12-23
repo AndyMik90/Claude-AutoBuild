@@ -41,6 +41,7 @@ export function AuthStatusIndicator() {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            type="button"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-primary/10 text-primary border-primary/20 transition-all hover:opacity-80 hover:bg-primary/15"
             aria-label={`Authentication method: ${authStatus.name}`}
           >

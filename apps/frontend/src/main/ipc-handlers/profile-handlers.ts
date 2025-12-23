@@ -13,14 +13,14 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
-import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult } from '../../shared/types/profile';
+import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult } from '@auto-claude/profile-service';
 import {
   loadProfilesFile,
   saveProfilesFile,
   validateFilePermissions,
   getProfilesFilePath
-} from '../utils/profile-manager';
-import { createProfile, updateProfile, deleteProfile, testConnection } from '../services/profile-service';
+} from '@auto-claude/profile-service';
+import { createProfile, updateProfile, deleteProfile, testConnection } from '@auto-claude/profile-service';
 
 /**
  * Register all profile-related IPC handlers
@@ -178,11 +178,13 @@ export function registerProfileHandlers(): void {
    * Test API profile connection
    * - Tests credentials by making a minimal API request
    * - Returns detailed error information for different failure types
-   * - Includes 15-second timeout for the entire operation
+   * - Includes configurable timeout (defaults to 15 seconds)
+   * - Note: AbortSignal from renderer is not serializable through IPC;
+   *   timeout is managed internally by the handler
    */
   ipcMain.handle(
     IPC_CHANNELS.PROFILES_TEST_CONNECTION,
-    async (_event, baseUrl: string, apiKey: string): Promise<IPCResult<TestConnectionResult>> => {
+    async (_event, baseUrl: string, apiKey: string, _signal?: AbortSignal): Promise<IPCResult<TestConnectionResult>> => {
       // Create AbortController for timeout
       const controller = new AbortController();
       const timeoutMs = 15000; // 15 seconds

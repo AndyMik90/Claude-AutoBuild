@@ -142,8 +142,16 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
-  setActiveAPIProfile: async (_profileId: string) => ({
+  setActiveAPIProfile: async (_profileId: string | null) => ({
     success: true
+  }),
+
+  testConnection: async (_baseUrl: string, _apiKey: string, _signal?: AbortSignal) => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Connection successful (mock)'
+    }
   })
 };
 

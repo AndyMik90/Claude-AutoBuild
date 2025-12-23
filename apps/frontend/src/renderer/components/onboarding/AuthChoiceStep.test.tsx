@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AuthChoiceStep } from './AuthChoiceStep';
+import type { APIProfile } from '@auto-claude/profile-service';
 
 // Mock the settings store
 const mockGoToNext = vi.fn();
@@ -17,7 +18,7 @@ const mockSkipWizard = vi.fn();
 const mockOnAPIKeyPathComplete = vi.fn();
 
 // Dynamic profiles state for testing
-let mockProfiles: any[] = [];
+let mockProfiles: APIProfile[] = [];
 
 const mockUseSettingsStore = (selector?: any) => {
   const state = {
@@ -48,7 +49,7 @@ vi.mock('../settings/ProfileEditDialog', () => ({
     if (!open) return null;
     return (
       <div data-testid="profile-edit-dialog">
-        <button onClick={() => onOpenChange(false)}>Close Dialog</button>
+        <button type="button" onClick={() => onOpenChange(false)}>Close Dialog</button>
       </div>
     );
   }
@@ -57,6 +58,8 @@ vi.mock('../settings/ProfileEditDialog', () => ({
 describe('AuthChoiceStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset profiles state to ensure clean state for each test
+    mockProfiles = [];
   });
 
   describe('Rendering', () => {
@@ -187,7 +190,15 @@ describe('AuthChoiceStep', () => {
 
       // Now simulate that profiles were added while dialog was open
       // (this happens when user creates a profile in ProfileEditDialog)
-      mockProfiles = [{ id: 'test-1', name: 'Test Profile', baseUrl: '', apiKey: 'sk-test', models: { default: 'claude-3' } }];
+      const now = Date.now();
+      mockProfiles = [{
+        id: 'test-1',
+        name: 'Test Profile',
+        baseUrl: '',
+        apiKey: 'sk-test',
+        createdAt: now,
+        updatedAt: now
+      }];
 
       // Close the dialog - this should trigger the profile creation detection
       const closeButton = screen.getByText('Close Dialog');

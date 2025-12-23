@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
-import type { APIProfile, ProfileFormData, TestConnectionResult } from '../../shared/types/profile';
+import type { APIProfile, ProfileFormData, TestConnectionResult } from '@auto-claude/profile-service';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
 
@@ -33,10 +33,10 @@ interface SettingsState {
   updateProfile: (profile: APIProfile) => Promise<boolean>;
   deleteProfile: (profileId: string) => Promise<boolean>;
   setActiveProfile: (profileId: string | null) => Promise<boolean>;
-  testConnection: (baseUrl: string, apiKey: string) => Promise<TestConnectionResult | null>;
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
 }
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
+export const useSettingsStore = create<SettingsState>((set) => ({
   settings: DEFAULT_APP_SETTINGS as AppSettings,
   isLoading: true,  // Start as true since we load settings on app init
   error: null,
@@ -170,10 +170,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  testConnection: async (baseUrl: string, apiKey: string): Promise<TestConnectionResult | null> => {
+  testConnection: async (baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<TestConnectionResult | null> => {
     set({ isTestingConnection: true, testConnectionResult: null });
     try {
-      const result = await window.electronAPI.testConnection(baseUrl, apiKey);
+      const result = await window.electronAPI.testConnection(baseUrl, apiKey, signal);
 
       // Type narrowing pattern
       if (result.success && result.data) {

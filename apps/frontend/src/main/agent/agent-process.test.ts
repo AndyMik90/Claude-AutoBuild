@@ -82,7 +82,7 @@ vi.mock('../claude-profile-manager', () => ({
 }));
 
 // Mock dependencies
-vi.mock('../services/profile-service', () => ({
+vi.mock('@auto-claude/profile-service', () => ({
   getAPIProfileEnv: vi.fn()
 }));
 
@@ -108,7 +108,7 @@ vi.mock('electron', () => ({
 import { AgentProcessManager } from './agent-process';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
-import * as profileService from '../services/profile-service';
+import * as profileService from '@auto-claude/profile-service';
 import * as rateLimitDetector from '../rate-limit-detector';
 
 describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
