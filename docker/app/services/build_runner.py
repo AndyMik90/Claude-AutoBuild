@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional, Dict
 from dataclasses import dataclass, field
@@ -95,7 +95,7 @@ class BuildRunner:
             project_id=project_path,
             spec_id=spec_id,
             status=BuildStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
 
         # Create log file
@@ -177,7 +177,7 @@ class BuildRunner:
             )
             logger.error(f"Build failed with code {active_build.process.returncode}: {build_key}")
 
-        active_build.build.completed_at = datetime.utcnow()
+        active_build.build.completed_at = datetime.now(timezone.utc)
 
         # Remove from active builds (check first to avoid race condition with stop_build)
         if build_key in self.active_builds:
@@ -200,7 +200,7 @@ class BuildRunner:
             active_build.process.kill()
 
         active_build.build.status = BuildStatus.CANCELLED
-        active_build.build.completed_at = datetime.utcnow()
+        active_build.build.completed_at = datetime.now(timezone.utc)
 
         # Check first to avoid race condition with _stream_logs
         if build_key in self.active_builds:
