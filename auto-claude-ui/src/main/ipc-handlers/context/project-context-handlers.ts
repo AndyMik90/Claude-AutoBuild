@@ -160,7 +160,8 @@ export function registerProjectContextHandlers(
         const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
 
         // Get Python command from agentManager (already loaded from settings at startup)
-        let pythonCmd = 'python3';  // Default fallback for macOS
+        // Default fallback: 'python' on Windows, 'python3' on macOS/Linux
+        let pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
         try {
           const configuredPath = agentManager.getPythonPath();
           if (configuredPath) {
