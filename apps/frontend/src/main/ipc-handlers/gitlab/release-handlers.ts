@@ -15,9 +15,9 @@ const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'developm
 function debugLog(message: string, data?: unknown): void {
   if (DEBUG) {
     if (data !== undefined) {
-      console.warn(`[GitLab Release] ${message}`, data);
+      console.debug(`[GitLab Release] ${message}`, data);
     } else {
-      console.warn(`[GitLab Release] ${message}`);
+      console.debug(`[GitLab Release] ${message}`);
     }
   }
 }

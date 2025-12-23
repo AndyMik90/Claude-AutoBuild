@@ -18,9 +18,9 @@ const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'developm
 function debugLog(message: string, data?: unknown): void {
   if (DEBUG) {
     if (data !== undefined) {
-      console.warn(`[GitLab OAuth] ${message}`, data);
+      console.debug(`[GitLab OAuth] ${message}`, data);
     } else {
-      console.warn(`[GitLab OAuth] ${message}`);
+      console.debug(`[GitLab OAuth] ${message}`);
     }
   }
 }

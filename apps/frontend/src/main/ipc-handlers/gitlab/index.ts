@@ -20,7 +20,7 @@ const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'developm
 
 function debugLog(message: string): void {
   if (DEBUG) {
-    console.warn(`[GitLab] ${message}`);
+    console.debug(`[GitLab] ${message}`);
   }
 }
 
