@@ -20,7 +20,8 @@
     "switch": "Changer",
     "add": "Ajouter",
     "gotIt": "Compris",
-    "continue": "Continuer"
+    "continue": "Continuer",
+    "saving": "Enregistrement..."
   },
   "labels": {
     "loading": "Chargement...",

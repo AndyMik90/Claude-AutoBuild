@@ -20,7 +20,8 @@
     "switch": "Switch",
     "add": "Add",
     "gotIt": "Got it",
-    "continue": "Continue"
+    "continue": "Continue",
+    "saving": "Saving..."
   },
   "labels": {
     "loading": "Loading...",
