@@ -84,13 +84,16 @@ export class AgentEvents {
       };
     }
 
+    // QA phases require at least coding phase first (prevents false positives from early logs)
+    const canEnterQAPhase = currentPhase === 'coding' || currentPhase === 'qa_review' || currentPhase === 'qa_fixing';
+
     // QA Review phase
-    if (lowerLog.includes('qa reviewer') || lowerLog.includes('qa_reviewer') || lowerLog.includes('starting qa')) {
+    if (canEnterQAPhase && (lowerLog.includes('qa reviewer') || lowerLog.includes('qa_reviewer') || lowerLog.includes('starting qa'))) {
       return { phase: 'qa_review', message: 'Running QA review...' };
     }
 
     // QA Fixer phase
-    if (lowerLog.includes('qa fixer') || lowerLog.includes('qa_fixer') || lowerLog.includes('fixing issues')) {
+    if (canEnterQAPhase && (lowerLog.includes('qa fixer') || lowerLog.includes('qa_fixer') || lowerLog.includes('fixing issues'))) {
       return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
     }
 

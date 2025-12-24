@@ -153,20 +153,26 @@ export class ExecutionPhaseParser extends BasePhaseParser<ExecutionPhase> {
       };
     }
 
+    // QA phases require at least coding phase to be completed first
+    // This prevents false positives from early log messages mentioning QA
+    const canEnterQAPhase = currentPhase === 'coding' || currentPhase === 'qa_review' || currentPhase === 'qa_fixing';
+
     // QA Fixer phase (check before QA reviewer - more specific pattern)
     if (
-      lowerLog.includes('qa fixer') ||
-      lowerLog.includes('qa_fixer') ||
-      lowerLog.includes('fixing issues')
+      canEnterQAPhase &&
+      (lowerLog.includes('qa fixer') ||
+       lowerLog.includes('qa_fixer') ||
+       lowerLog.includes('fixing issues'))
     ) {
       return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
     }
 
     // QA Review phase
     if (
-      lowerLog.includes('qa reviewer') ||
-      lowerLog.includes('qa_reviewer') ||
-      lowerLog.includes('starting qa')
+      canEnterQAPhase &&
+      (lowerLog.includes('qa reviewer') ||
+       lowerLog.includes('qa_reviewer') ||
+       lowerLog.includes('starting qa'))
     ) {
       return { phase: 'qa_review', message: 'Running QA review...' };
     }
