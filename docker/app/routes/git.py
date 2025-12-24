@@ -16,17 +16,19 @@ from config import get_settings, Settings
 router = APIRouter()
 
 
-def validate_path(path: str) -> Path:
+def validate_path(path: str, settings: Settings) -> Path:
     """Validate and sanitize a path to prevent path traversal attacks.
 
     Args:
         path: The user-provided path string
+        settings: Application settings containing allowed base directories
 
     Returns:
         A validated, resolved Path object
 
     Raises:
-        HTTPException: If path is invalid or contains traversal attempts
+        HTTPException: If path is invalid, contains traversal attempts,
+                       or is outside allowed directories
     """
     if not path:
         raise HTTPException(status_code=400, detail="Path is required")
@@ -50,6 +52,17 @@ def validate_path(path: str) -> Path:
     if '..' in original_parts:
         raise HTTPException(status_code=400, detail="Invalid path: path traversal not allowed")
 
+    # Verify path is within allowed base directory (projects_dir)
+    # This prevents arbitrary filesystem access
+    base_dir = settings.projects_dir.resolve()
+    try:
+        resolved_path.relative_to(base_dir)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied: path must be within {base_dir}"
+        )
+
     # Ensure the path exists and is a directory
     if not resolved_path.exists():
         raise HTTPException(status_code=404, detail="Path not found")
@@ -65,8 +78,20 @@ class GitInit(BaseModel):
     path: str
 
 
-async def run_git_command(cwd: str, *args: str) -> tuple[int, str, str]:
-    """Run a git command and return (returncode, stdout, stderr)."""
+async def run_git_command(cwd: str, *args: str, timeout: float = 60.0) -> tuple[int, str, str]:
+    """Run a git command and return (returncode, stdout, stderr).
+
+    Args:
+        cwd: Working directory for the git command
+        *args: Git command arguments
+        timeout: Maximum time in seconds to wait for the command (default: 60)
+
+    Returns:
+        Tuple of (returncode, stdout, stderr)
+
+    Raises:
+        asyncio.TimeoutError: If the command exceeds the timeout
+    """
     process = await asyncio.create_subprocess_exec(
         "git",
         *args,
@@ -74,8 +99,14 @@ async def run_git_command(cwd: str, *args: str) -> tuple[int, str, str]:
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
     )
-    stdout, stderr = await process.communicate()
-    return process.returncode, stdout.decode().strip(), stderr.decode().strip()
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        return process.returncode, stdout.decode().strip(), stderr.decode().strip()
+    except asyncio.TimeoutError:
+        # Kill the process if it times out
+        process.kill()
+        await process.wait()
+        return -1, "", f"Git command timed out after {timeout} seconds"
 
 
 @router.get("/branches")
@@ -84,7 +115,7 @@ async def get_branches(
     settings: Settings = Depends(get_settings),
 ) -> list[str]:
     """Get list of branches."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, stderr = await run_git_command(str(validated_path), "branch", "-a", "--format=%(refname:short)")
 
@@ -101,7 +132,7 @@ async def get_current_branch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get current branch name."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, stderr = await run_git_command(str(validated_path), "rev-parse", "--abbrev-ref", "HEAD")
 
@@ -117,7 +148,7 @@ async def detect_main_branch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Detect the main branch (main, master, etc.)."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     # Check for common main branch names
     for branch in ["main", "master", "develop"]:
@@ -136,7 +167,7 @@ async def get_git_status(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get git status."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     # Check if it's a git repo
     returncode, _, _ = await run_git_command(str(validated_path), "rev-parse", "--is-inside-work-tree")
@@ -171,7 +202,7 @@ async def init_repo(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Initialize a git repository."""
-    validated_path = validate_path(data.path)
+    validated_path = validate_path(data.path, settings)
 
     returncode, stdout, stderr = await run_git_command(str(validated_path), "init")
 
@@ -188,7 +219,7 @@ async def get_git_log(
     settings: Settings = Depends(get_settings),
 ) -> list[dict]:
     """Get recent commits."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, stderr = await run_git_command(
         str(validated_path),
@@ -223,7 +254,7 @@ async def get_git_diff(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Get git diff."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     args = ["diff"]
     if staged:
@@ -240,7 +271,7 @@ async def get_git_remote(
     settings: Settings = Depends(get_settings),
 ) -> list[dict]:
     """Get git remotes."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, _ = await run_git_command(str(validated_path), "remote", "-v")
 
@@ -266,7 +297,7 @@ async def git_fetch(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Fetch from remote."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, stderr = await run_git_command(str(validated_path), "fetch", "--all")
 
@@ -282,7 +313,7 @@ async def git_pull(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pull from remote."""
-    validated_path = validate_path(path)
+    validated_path = validate_path(path, settings)
 
     returncode, stdout, stderr = await run_git_command(str(validated_path), "pull")
 

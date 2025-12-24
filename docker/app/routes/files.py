@@ -32,11 +32,55 @@ class FileNode(BaseModel):
 
 
 def is_safe_path(base_path: str, target_path: str) -> bool:
-    """Check if target_path is safely within base_path."""
+    """Check if target_path is safely within base_path.
+
+    This function detects symlink traversal attacks by:
+    1. Resolving the base path to get the canonical allowed directory
+    2. Walking through each component of the target path
+    3. Checking if any symlink along the way points outside the base
+    4. Verifying the final resolved path is within the base directory
+    """
     base = Path(base_path).resolve()
-    target = Path(target_path).resolve()
+
+    # Handle absolute vs relative target paths
+    target = Path(target_path)
+    if not target.is_absolute():
+        target = base / target
+
+    # First check: resolve the full path and verify it's within base
     try:
-        target.relative_to(base)
+        resolved_target = target.resolve()
+        resolved_target.relative_to(base)
+    except ValueError:
+        return False
+
+    # Second check: walk each component to detect symlink escapes
+    # Start from the base and incrementally check each path component
+    current_path = base
+    try:
+        relative_parts = resolved_target.relative_to(base).parts
+    except ValueError:
+        return False
+
+    for part in relative_parts:
+        next_path = current_path / part
+
+        # Check if this component exists and is a symlink
+        if next_path.is_symlink():
+            # Resolve the symlink target
+            try:
+                symlink_target = next_path.resolve()
+                # Verify the symlink target is within the base directory
+                symlink_target.relative_to(base)
+            except (ValueError, OSError):
+                # Symlink points outside base or is broken
+                return False
+
+        current_path = next_path
+
+    # Final verification: ensure the completely resolved path is within base
+    try:
+        target.resolve().relative_to(base)
         return True
     except ValueError:
         return False

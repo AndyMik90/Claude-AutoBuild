@@ -4,6 +4,7 @@ Handles the OIDC authentication flow for enterprise SSO.
 """
 
 import os
+import urllib.parse
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -138,7 +139,7 @@ async def oidc_callback(
     if error:
         error_msg = error_description or error
         return RedirectResponse(
-            url=f"{base_url}/login?error={error_msg}",
+            url=f"{base_url}/login?error={urllib.parse.quote(error_msg, safe='')}",
             status_code=302,
         )
 

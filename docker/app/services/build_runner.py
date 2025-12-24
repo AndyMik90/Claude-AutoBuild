@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional, Dict
 from dataclasses import dataclass, field
@@ -21,6 +21,7 @@ class ActiveBuild:
     process: asyncio.subprocess.Process
     log_file: Path
     subscribers: list[Callable[[str], None]] = field(default_factory=list)
+    _log_task: Optional[asyncio.Task] = field(default=None)
 
 
 class BuildRunner:
@@ -95,7 +96,7 @@ class BuildRunner:
             project_id=project_path,
             spec_id=spec_id,
             status=BuildStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
 
         # Create log file
@@ -137,8 +138,8 @@ class BuildRunner:
         self.active_builds[build_key] = active_build
         logger.info(f"Build process started with PID: {process.pid}")
 
-        # Start log streaming task
-        asyncio.create_task(self._stream_logs(build_key))
+        # Start log streaming task (store reference to prevent GC collection)
+        active_build._log_task = asyncio.create_task(self._stream_logs(build_key))
 
         return build
 
@@ -177,7 +178,7 @@ class BuildRunner:
             )
             logger.error(f"Build failed with code {active_build.process.returncode}: {build_key}")
 
-        active_build.build.completed_at = datetime.utcnow()
+        active_build.build.completed_at = datetime.now(timezone.utc)
 
         # Remove from active builds (check first to avoid race condition with stop_build)
         if build_key in self.active_builds:
@@ -200,7 +201,7 @@ class BuildRunner:
             active_build.process.kill()
 
         active_build.build.status = BuildStatus.CANCELLED
-        active_build.build.completed_at = datetime.utcnow()
+        active_build.build.completed_at = datetime.now(timezone.utc)
 
         # Check first to avoid race condition with _stream_logs
         if build_key in self.active_builds:

@@ -152,7 +152,17 @@ async def merge_spec(
         cwd=project.path,
     )
 
-    stdout, _ = await process.communicate()
+    try:
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(),
+            timeout=300.0,  # 5 minute timeout
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        raise HTTPException(
+            status_code=504,
+            detail="Merge operation timed out",
+        )
 
     if process.returncode != 0:
         raise HTTPException(
@@ -193,7 +203,17 @@ async def discard_spec(
         cwd=project.path,
     )
 
-    stdout, _ = await process.communicate()
+    try:
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(),
+            timeout=300.0,  # 5 minute timeout
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        raise HTTPException(
+            status_code=504,
+            detail="Discard operation timed out",
+        )
 
     if process.returncode != 0:
         raise HTTPException(

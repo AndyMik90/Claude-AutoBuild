@@ -16,6 +16,25 @@ from services.credential_service import CredentialService
 logger = logging.getLogger(__name__)
 
 
+def _mask_email(email: str) -> str:
+    """Mask email address for logging to protect PII.
+
+    Args:
+        email: The email address to mask
+
+    Returns:
+        Masked email (e.g., 'j***@example.com')
+    """
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.rsplit("@", 1)
+    if len(local) <= 1:
+        masked_local = "*"
+    else:
+        masked_local = local[0] + "***"
+    return f"{masked_local}@{domain}"
+
+
 @dataclass
 class SMTPConfig:
     """SMTP configuration data class."""
@@ -234,7 +253,8 @@ class EmailService:
             await smtp.send_message(msg)
             await smtp.quit()
 
-            logger.info(f"Email sent successfully to {to_email}")
+            masked_recipient = _mask_email(to_email)
+            logger.info(f"Email sent successfully to {masked_recipient}")
             return EmailResult(
                 success=True,
                 message=f"Email sent to {to_email}",

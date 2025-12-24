@@ -100,6 +100,7 @@ else
   "autoUpdaterStatus": "disabled"
 }
 EOF
+    chmod 600 "$HOME/.claude.json"
     echo "Claude CLI configuration created with onboarding complete"
 
     # Create credentials file for Claude CLI interactive mode (OAuth token auth)
@@ -113,6 +114,7 @@ EOF
   "expiresAt": null
 }
 EOF
+        chmod 600 "$HOME/.claude/.credentials.json"
         echo "Claude CLI credentials configured"
     fi
 fi

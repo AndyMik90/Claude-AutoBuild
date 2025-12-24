@@ -5,7 +5,7 @@ Handles OpenID Connect authentication flow for enterprise SSO.
 
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -298,8 +298,13 @@ class OIDCService:
                 response.raise_for_status()
                 data = response.json()
 
+                # Validate 'sub' claim - required per OIDC spec
+                subject = data.get("sub")
+                if not subject:
+                    return None
+
                 return OIDCUserInfo(
-                    subject=data.get("sub", ""),
+                    subject=subject,
                     email=data.get(config.email_claim),
                     username=data.get(config.username_claim),
                     name=data.get("name"),
@@ -340,7 +345,7 @@ class OIDCService:
         user = await self.find_user_by_oidc_subject(user_info.subject)
         if user:
             # Update last login
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
             await self.db.commit()
             return user
 
@@ -352,7 +357,7 @@ class OIDCService:
                 user.oidc_subject = user_info.subject
                 user.oidc_provider = config.provider_name
                 user.auth_method = "oidc"
-                user.last_login = datetime.utcnow()
+                user.last_login = datetime.now(timezone.utc)
                 await self.db.commit()
                 return user
 
@@ -378,8 +383,12 @@ class OIDCService:
             username = f"{base_username}{counter}"
             counter += 1
 
-        # Determine role
-        role = UserRole(config.default_role)
+        # Determine role with validation
+        try:
+            role = UserRole(config.default_role)
+        except ValueError:
+            # Invalid role value, fall back to USER role
+            role = UserRole.USER
 
         # Create the user
         user = User(
@@ -391,7 +400,7 @@ class OIDCService:
             oidc_subject=user_info.subject,
             oidc_provider=config.provider_name,
             auth_method="oidc",
-            last_login=datetime.utcnow(),
+            last_login=datetime.now(timezone.utc),
         )
 
         self.db.add(user)

@@ -5,10 +5,11 @@ expected by the frontend while internally working with specs.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Any
 
+import aiofiles
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,26 @@ from routes.websocket import broadcast_task_status, broadcast_task_progress
 
 
 router = APIRouter()
+
+
+def validate_task_id(task_id: str) -> None:
+    """Validate task_id doesn't contain path traversal characters.
+
+    Raises HTTPException if task_id contains dangerous characters.
+    """
+    # Check for path traversal patterns
+    if ".." in task_id or "/" in task_id or "\\" in task_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid task ID: contains path traversal characters"
+        )
+
+    # Check for null bytes which could be used for injection
+    if "\x00" in task_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid task ID: contains null bytes"
+        )
 
 
 # Dependency to get project service with user context
@@ -91,7 +112,9 @@ async def load_implementation_plan(project_path: str, spec_id: str) -> Optional[
 
     if plan_file.exists():
         try:
-            return json.loads(plan_file.read_text())
+            async with aiofiles.open(plan_file, mode='r') as f:
+                content = await f.read()
+            return json.loads(content)
         except json.JSONDecodeError:
             return None
     return None
@@ -104,7 +127,9 @@ async def load_task_logs(project_path: str, spec_id: str) -> Optional[dict]:
 
     if logs_file.exists():
         try:
-            return json.loads(logs_file.read_text())
+            async with aiofiles.open(logs_file, mode='r') as f:
+                content = await f.read()
+            return json.loads(content)
         except json.JSONDecodeError:
             return None
     return None
@@ -272,7 +297,17 @@ async def create_task(
         cwd=project.path,
     )
 
-    stdout, _ = await process.communicate()
+    try:
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(),
+            timeout=600.0,  # 10 minute timeout
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        raise HTTPException(
+            status_code=504,
+            detail="Task creation timed out",
+        )
 
     if process.returncode != 0:
         raise HTTPException(
@@ -337,7 +372,7 @@ async def update_task(
             try:
                 plan = json.loads(plan_file.read_text())
                 plan["status"] = data.status
-                plan["updated_at"] = datetime.utcnow().isoformat()
+                plan["updated_at"] = datetime.now(timezone.utc).isoformat()
                 plan_file.write_text(json.dumps(plan, indent=2))
             except (json.JSONDecodeError, IOError):
                 pass
@@ -355,6 +390,9 @@ async def delete_task(
 ) -> dict:
     """Delete a task."""
     import shutil
+
+    # Validate task_id to prevent path traversal attacks
+    validate_task_id(task_id)
 
     project = await project_service.get_project(project_id)
     if not project:

@@ -1,16 +1,67 @@
 """Log streaming WebSocket routes."""
 
+import uuid
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 
-from config import get_settings, Settings
+from config import get_settings
+from database import async_session_maker
+from db.models import User
 from services.project_service import ProjectService
 from services.log_streamer import get_log_streamer
 from services.build_runner import get_build_runner
+from services.jwt_service import get_jwt_service, TokenError
+from services.auth_service import get_auth_service
 
 
 router = APIRouter()
+
+
+async def authenticate_websocket(
+    websocket: WebSocket,
+    token: Optional[str] = None,
+) -> Optional[User]:
+    """Authenticate WebSocket connection using JWT token.
+
+    For WebSocket connections, the token must be passed as a query parameter
+    since HTTP Authorization headers are not reliably available.
+
+    Args:
+        websocket: WebSocket connection
+        token: JWT access token from query parameter
+
+    Returns:
+        Authenticated user or None if authentication fails
+    """
+    if token is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return None
+
+    jwt_service = get_jwt_service()
+
+    try:
+        payload = jwt_service.decode_access_token(token)
+    except TokenError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return None
+
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (ValueError, KeyError):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return None
+
+    async with async_session_maker() as db:
+        auth_service = get_auth_service(db)
+        user = await auth_service.get_user_by_id(user_id)
+
+        if user is None or not user.is_active:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return None
+
+    return user
 
 
 @router.websocket("/logs/{project_id}/{spec_id}")
@@ -18,8 +69,18 @@ async def log_stream(
     websocket: WebSocket,
     project_id: str,
     spec_id: str,
+    token: Optional[str] = Query(default=None),
 ):
-    """WebSocket endpoint for streaming build logs."""
+    """WebSocket endpoint for streaming build logs.
+
+    Requires JWT authentication via query parameter.
+    Example: ws://host/logs/{project_id}/{spec_id}?token=<jwt_token>
+    """
+    # Authenticate before accepting the connection
+    user = await authenticate_websocket(websocket, token)
+    if user is None:
+        return
+
     await websocket.accept()
 
     settings = get_settings()
@@ -66,8 +127,18 @@ async def log_stream(
 async def build_log_stream(
     websocket: WebSocket,
     build_id: str,
+    token: Optional[str] = Query(default=None),
 ):
-    """WebSocket endpoint for streaming logs by build ID."""
+    """WebSocket endpoint for streaming logs by build ID.
+
+    Requires JWT authentication via query parameter.
+    Example: ws://host/logs/build/{build_id}?token=<jwt_token>
+    """
+    # Authenticate before accepting the connection
+    user = await authenticate_websocket(websocket, token)
+    if user is None:
+        return
+
     await websocket.accept()
 
     settings = get_settings()
