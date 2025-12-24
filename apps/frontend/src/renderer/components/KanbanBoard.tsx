@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragOverlay,
@@ -45,47 +46,48 @@ interface DroppableColumnProps {
 }
 
 // Empty state content for each column
-const getEmptyStateContent = (status: TaskStatus): { icon: React.ReactNode; message: string; subtext?: string } => {
+const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): { icon: React.ReactNode; message: string; subtext?: string } => {
   switch (status) {
     case 'backlog':
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'No tasks planned',
-        subtext: 'Add a task to get started'
+        message: t('kanban.emptyBacklog'),
+        subtext: t('kanban.emptyBacklogHint')
       };
     case 'in_progress':
       return {
         icon: <Loader2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'Nothing running',
-        subtext: 'Start a task from Planning'
+        message: t('kanban.emptyInProgress'),
+        subtext: t('kanban.emptyInProgressHint')
       };
     case 'ai_review':
       return {
         icon: <Eye className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'No tasks in review',
-        subtext: 'AI will review completed tasks'
+        message: t('kanban.emptyAiReview'),
+        subtext: t('kanban.emptyAiReviewHint')
       };
     case 'human_review':
       return {
         icon: <Eye className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'Nothing to review',
-        subtext: 'Tasks await your approval here'
+        message: t('kanban.emptyHumanReview'),
+        subtext: t('kanban.emptyHumanReviewHint')
       };
     case 'done':
       return {
         icon: <CheckCircle2 className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'No completed tasks',
-        subtext: 'Approved tasks appear here'
+        message: t('kanban.emptyDone'),
+        subtext: t('kanban.emptyDoneHint')
       };
     default:
       return {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
-        message: 'No tasks'
+        message: t('kanban.emptyDefault')
       };
   }
 };
 
 function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
+  const { t } = useTranslation('tasks');
   const { setNodeRef } = useDroppable({
     id: status
   });
@@ -109,7 +111,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
     }
   };
 
-  const emptyState = getEmptyStateContent(status);
+  const emptyState = getEmptyStateContent(status, t);
 
   return (
     <div
@@ -148,7 +150,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
               size="icon"
               className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
               onClick={onArchiveAll}
-              title="Archive all done tasks"
+              title={t('tooltips.archiveAllDone')}
             >
               <Archive className="h-4 w-4" />
             </Button>
@@ -176,7 +178,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                       <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center mb-2">
                         <Plus className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-sm font-medium text-primary">Drop here</span>
+                      <span className="text-sm font-medium text-primary">{t('kanban.dropHere')}</span>
                     </>
                   ) : (
                     <>
@@ -210,6 +212,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
 }
 
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
+  const { t } = useTranslation('tasks');
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -349,7 +352,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
             className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer"
           >
             <Archive className="h-3.5 w-3.5" />
-            Show archived
+            {t('kanban.showArchived')}
             {archivedCount > 0 && (
               <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-muted">
                 {archivedCount}

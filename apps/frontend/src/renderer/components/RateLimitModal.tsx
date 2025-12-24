@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ExternalLink, Clock, RefreshCw, User, ChevronDown, Check, Zap, Star, Plus } from 'lucide-react';
 import {
   Dialog,
@@ -25,6 +26,7 @@ import { useClaudeProfileStore, loadClaudeProfiles, switchTerminalToProfile } fr
 const CLAUDE_UPGRADE_URL = 'https://claude.ai/upgrade';
 
 export function RateLimitModal() {
+  const { t } = useTranslation('common');
   const { isModalOpen, rateLimitInfo, hideRateLimitModal, clearPendingRateLimit } = useRateLimitStore();
   const { profiles, activeProfileId, isSwitching } = useClaudeProfileStore();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -168,12 +170,12 @@ export function RateLimitModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-warning">
             <AlertCircle className="h-5 w-5" />
-            Claude Code Usage Limit Reached
+            {t('rateLimit.modalTitle')}
           </DialogTitle>
           <DialogDescription>
-            You've reached your Claude Code usage limit for this period.
+            {t('rateLimit.modalDescription')}
             {currentProfile && !currentProfile.isDefault && (
-              <span className="text-muted-foreground"> (Profile: {currentProfile.name})</span>
+              <span className="text-muted-foreground"> ({t('rateLimit.profile', { name: currentProfile.name })})</span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -185,10 +187,10 @@ export function RateLimitModal() {
               <Zap className="h-5 w-5 text-green-500 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Auto-switching to {suggestedProfile?.name}
+                  {t('rateLimit.autoSwitching', { name: suggestedProfile?.name })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Claude will restart with your other account automatically
+                  {t('rateLimit.autoSwitchingDescription')}
                 </p>
               </div>
             </div>
@@ -200,10 +202,10 @@ export function RateLimitModal() {
               <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Resets {rateLimitInfo.resetTime}
+                  {t('rateLimit.resetsTime', { time: rateLimitInfo.resetTime })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Your usage will be restored at this time
+                  {t('rateLimit.usageRestored')}
                 </p>
               </div>
             </div>
@@ -214,16 +216,16 @@ export function RateLimitModal() {
             <div className="rounded-lg border border-accent/50 bg-accent/10 p-4">
               <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                 <User className="h-4 w-4" />
-                {hasMultipleProfiles ? 'Switch Claude Account' : 'Use Another Account'}
+                {hasMultipleProfiles ? t('rateLimit.switchAccount') : t('rateLimit.useAnotherAccount')}
               </h4>
 
               {hasMultipleProfiles ? (
                 <>
                   <p className="text-sm text-muted-foreground mb-3">
                     {suggestedProfile ? (
-                      <>Recommended: <strong>{suggestedProfile.name}</strong> has more capacity available.</>
+                      t('rateLimit.recommended', { name: suggestedProfile.name })
                     ) : (
-                      'You have other Claude subscriptions configured. Switch to continue working:'
+                      t('rateLimit.otherSubscriptions')
                     )}
                   </p>
 
@@ -232,7 +234,7 @@ export function RateLimitModal() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="flex-1 justify-between">
                           <span className="truncate flex items-center gap-2">
-                            {selectedProfile?.name || 'Select account...'}
+                            {selectedProfile?.name || t('rateLimit.selectAccount')}
                             {selectedProfileId === rateLimitInfo?.suggestedProfileId && (
                               <Star className="h-3 w-3 text-yellow-500" />
                             )}
@@ -268,7 +270,7 @@ export function RateLimitModal() {
                           className="flex items-center gap-2 text-muted-foreground"
                         >
                           <Plus className="h-4 w-4" />
-                          Add new account...
+                          {t('rateLimit.addNewAccount')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -283,12 +285,12 @@ export function RateLimitModal() {
                       {isSwitching ? (
                         <>
                           <RefreshCw className="h-4 w-4 animate-spin" />
-                          Switching...
+                          {t('rateLimit.switching')}
                         </>
                       ) : (
                         <>
                           <RefreshCw className="h-4 w-4" />
-                          Switch
+                          {t('buttons.switch')}
                         </>
                       )}
                     </Button>
@@ -304,7 +306,7 @@ export function RateLimitModal() {
                   {availableProfiles.length > 0 && (
                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                       <Label htmlFor="auto-switch" className="text-xs text-muted-foreground cursor-pointer">
-                        Auto-switch on rate limit
+                        {t('rateLimit.autoSwitchOnRateLimit')}
                       </Label>
                       <Switch
                         id="auto-switch"
@@ -317,18 +319,18 @@ export function RateLimitModal() {
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground mb-3">
-                  Add another Claude subscription to automatically switch when you hit rate limits.
+                  {t('rateLimit.addAnotherSubscription')}
                 </p>
               )}
 
               {/* Add new account section */}
               <div className={hasMultipleProfiles ? "mt-4 pt-3 border-t border-border/50" : ""}>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {hasMultipleProfiles ? 'Add another account:' : 'Connect a Claude account:'}
+                  {hasMultipleProfiles ? t('rateLimit.addAnotherAccount') : t('rateLimit.connectAccount')}
                 </p>
                 <div className="flex items-center gap-2">
                   <Input
-                    placeholder="Account name (e.g., Work, Personal)"
+                    placeholder={t('rateLimit.accountNamePlaceholder')}
                     value={newProfileName}
                     onChange={(e) => setNewProfileName(e.target.value)}
                     className="flex-1 h-8 text-sm"
@@ -350,11 +352,11 @@ export function RateLimitModal() {
                     ) : (
                       <Plus className="h-3 w-3" />
                     )}
-                    Add
+                    {t('buttons.add')}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  This will open Claude login to authenticate the new account.
+                  {t('rateLimit.willOpenLogin')}
                 </p>
               </div>
             </div>
@@ -363,10 +365,10 @@ export function RateLimitModal() {
           {/* Upgrade prompt */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <h4 className="text-sm font-medium text-foreground mb-2">
-              Upgrade for more usage
+              {t('rateLimit.upgradeTitle')}
             </h4>
             <p className="text-sm text-muted-foreground mb-3">
-              Upgrade your Claude subscription for higher usage limits.
+              {t('rateLimit.upgradeDescription')}
             </p>
             <Button
               variant="outline"
@@ -375,14 +377,14 @@ export function RateLimitModal() {
               onClick={handleUpgrade}
             >
               <ExternalLink className="h-4 w-4" />
-              Upgrade Subscription
+              {t('rateLimit.upgradeSubscription')}
             </Button>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={hideRateLimitModal}>
-            {autoSwitchHappened ? 'Continue' : hasMultipleProfiles ? 'Close' : 'Got it'}
+            {autoSwitchHappened ? t('buttons.continue') : hasMultipleProfiles ? t('buttons.close') : t('buttons.gotIt')}
           </Button>
         </DialogFooter>
       </DialogContent>

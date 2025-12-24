@@ -1,0 +1,68 @@
+{
+  "wizard": {
+    "title": "Assistant de configuration",
+    "description": "Configurez votre environnement Auto Claude en quelques étapes simples",
+    "helpText": "Cet assistant vous aidera à configurer votre environnement en quelques étapes. Vous pouvez configurer votre token OAuth Claude, activer les fonctionnalités de mémoire et créer votre première tâche."
+  },
+  "welcome": {
+    "title": "Bienvenue sur Auto Claude",
+    "subtitle": "Construisez des logiciels de manière autonome avec des agents IA",
+    "getStarted": "Commencer",
+    "skip": "Passer la configuration",
+    "features": {
+      "aiPowered": {
+        "title": "Développement assisté par IA",
+        "description": "Générez du code et construisez des fonctionnalités avec les agents Claude Code"
+      },
+      "specDriven": {
+        "title": "Workflow basé sur les specs",
+        "description": "Définissez des tâches avec des spécifications claires et laissez Auto Claude gérer l'implémentation"
+      },
+      "memory": {
+        "title": "Mémoire & Contexte",
+        "description": "Mémoire persistante entre les sessions avec Graphiti"
+      },
+      "parallel": {
+        "title": "Exécution parallèle",
+        "description": "Exécutez plusieurs agents en parallèle pour des cycles de développement plus rapides"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Authentification Claude",
+    "description": "Connectez votre compte Claude pour activer les fonctionnalités IA"
+  },
+  "memory": {
+    "title": "Mémoire",
+    "description": "La mémoire Auto Claude aide à retenir le contexte entre vos sessions de code"
+  },
+  "completion": {
+    "title": "Vous êtes prêt !",
+    "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",
+    "setupComplete": "Configuration terminée",
+    "setupCompleteDescription": "Votre environnement est configuré et prêt. Vous pouvez commencer à créer des tâches immédiatement ou explorer l'application à votre rythme.",
+    "whatsNext": "Et maintenant ?",
+    "createTask": {
+      "title": "Créer une tâche",
+      "description": "Commencez par créer votre première tâche pour voir Auto Claude en action.",
+      "action": "Ouvrir le créateur de tâches"
+    },
+    "customizeSettings": {
+      "title": "Personnaliser les paramètres",
+      "description": "Affinez vos préférences, configurez les intégrations ou relancez cet assistant.",
+      "action": "Ouvrir les paramètres"
+    },
+    "exploreDocs": {
+      "title": "Explorer la documentation",
+      "description": "En savoir plus sur les fonctionnalités avancées, les bonnes pratiques et le dépannage."
+    },
+    "finish": "Terminer et commencer à construire",
+    "rerunHint": "Vous pouvez toujours relancer cet assistant depuis Paramètres → Application"
+  },
+  "steps": {
+    "welcome": "Bienvenue",
+    "auth": "Auth",
+    "memory": "Mémoire",
+    "done": "Terminé"
+  }
+}
