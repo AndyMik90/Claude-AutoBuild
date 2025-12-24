@@ -89,6 +89,7 @@ class PRContext:
     author: str
     base_branch: str
     head_branch: str
+    state: str  # PR state: open, closed, merged
     changed_files: list[ChangedFile]
     diff: str
     repo_structure: str  # Description of monorepo layout
@@ -165,6 +166,7 @@ class PRContextGatherer:
             author=pr_data["author"]["login"],
             base_branch=pr_data["baseRefName"],
             head_branch=pr_data["headRefName"],
+            state=pr_data.get("state", "open"),
             changed_files=changed_files,
             diff=diff,
             repo_structure=repo_structure,
@@ -224,7 +226,9 @@ class PRContextGatherer:
             base_content = await self._read_file_content(path, pr_data["baseRefName"])
 
             # Get the patch for this specific file
-            patch = await self._get_file_patch(path)
+            patch = await self._get_file_patch(
+                path, pr_data["baseRefName"], pr_data["headRefName"]
+            )
 
             changed_files.append(
                 ChangedFile(
@@ -289,17 +293,46 @@ class PRContextGatherer:
             print(f"[Context] Error reading {path} from {ref}: {e}", flush=True)
             return ""
 
-    async def _get_file_patch(self, path: str) -> str:
-        """Get the diff patch for a specific file.
-
-        Note: We don't fetch individual file patches as `gh pr diff` doesn't support
-        file filtering. The full diff is fetched separately and individual file diffs
-        can be extracted from the ChangedFile.patch field if needed.
+    async def _get_file_patch(self, path: str, base_ref: str, head_ref: str) -> str:
         """
-        # gh pr diff doesn't support file filtering, so we return empty here
-        # The full diff is available via _fetch_pr_diff() and file-level patches
-        # are populated when we parse the PR files API response
-        return ""
+        Get the diff patch for a specific file using git diff.
+
+        Args:
+            path: File path relative to repo root
+            base_ref: Base branch ref
+            head_ref: Head branch ref
+
+        Returns:
+            Unified diff patch for this file
+        """
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "diff",
+                f"{base_ref}...{head_ref}",
+                "--",
+                path,
+                cwd=self.project_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+
+            if proc.returncode != 0:
+                print(
+                    f"[Context] Failed to get patch for {path}: {stderr.decode('utf-8')}",
+                    flush=True,
+                )
+                return ""
+
+            return stdout.decode("utf-8")
+        except asyncio.TimeoutError:
+            print(f"[Context] Timeout getting patch for {path}", flush=True)
+            return ""
+        except Exception as e:
+            print(f"[Context] Error getting patch for {path}: {e}", flush=True)
+            return ""
 
     async def _fetch_pr_diff(self) -> str:
         """

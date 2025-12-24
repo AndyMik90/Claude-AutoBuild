@@ -162,11 +162,37 @@ class PRReviewEngine:
 {chr(10).join(commits_list)}
 """
 
-        # NEW: Diff with warning if truncated
-        diff_size = len(context.diff)
-        diff_content = context.diff[:50000]
+        # NEW: Handle diff - use individual patches if full diff unavailable
+        diff_content = context.diff
         diff_truncated_warning = ""
+
+        # If diff is empty/truncated, build composite from individual file patches
+        if context.diff_truncated or not context.diff:
+            print(
+                f"[AI] Building composite diff from {len(context.changed_files)} file patches...",
+                flush=True,
+            )
+            patches = []
+            for file in context.changed_files[:50]:  # Limit to 50 files for large PRs
+                if file.patch:
+                    patches.append(file.patch)
+            diff_content = "\n".join(patches)
+
+            if len(context.changed_files) > 50:
+                diff_truncated_warning = (
+                    f"\n⚠️ **WARNING**: PR has {len(context.changed_files)} changed files. "
+                    "Showing patches for first 50 files only. Review may be incomplete.\n"
+                )
+            else:
+                diff_truncated_warning = (
+                    "\n⚠️ **NOTE**: Full PR diff unavailable (PR > 20,000 lines). "
+                    "Using individual file patches instead.\n"
+                )
+
+        # Truncate very large diffs
+        diff_size = len(diff_content)
         if diff_size > 50000:
+            diff_content = diff_content[:50000]
             diff_truncated_warning = f"\n⚠️ **WARNING**: Diff truncated from {diff_size} to 50,000 characters. Review may be incomplete.\n"
 
         pr_context = f"""
@@ -530,6 +556,15 @@ class PRReviewEngine:
             files_list.append(f"- ... and {len(context.changed_files) - 30} more files")
         files_str = "\n".join(files_list)
 
+        # Handle diff - use individual patches if full diff unavailable
+        diff_content = context.diff
+        if context.diff_truncated or not context.diff:
+            patches = []
+            for file in context.changed_files[:50]:
+                if file.patch:
+                    patches.append(file.patch)
+            diff_content = "\n".join(patches)
+
         return f"""
 ## Pull Request #{context.pr_number}
 
@@ -547,6 +582,6 @@ class PRReviewEngine:
 
 ### Full Diff
 ```diff
-{context.diff[:100000]}
+{diff_content[:100000]}
 ```
 """
