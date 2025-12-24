@@ -1,6 +1,6 @@
 {
   "status": {
-    "backlog": "Planification",
+    "backlog": "Backlog",
     "todo": "À faire",
     "in_progress": "En cours",
     "review": "Révision",
@@ -50,7 +50,7 @@
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
     "emptyInProgress": "Rien en cours",
-    "emptyInProgressHint": "Démarrez une tâche depuis Planification",
+    "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
     "emptyAiReview": "Aucune tâche en révision",
     "emptyAiReviewHint": "L'IA révisera les tâches terminées",
     "emptyHumanReview": "Rien à réviser",

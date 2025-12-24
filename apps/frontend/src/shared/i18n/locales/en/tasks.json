@@ -1,6 +1,6 @@
 {
   "status": {
-    "backlog": "Planning",
+    "backlog": "Backlog",
     "todo": "To Do",
     "in_progress": "In Progress",
     "review": "Review",
@@ -50,7 +50,7 @@
     "emptyBacklog": "No tasks planned",
     "emptyBacklogHint": "Add a task to get started",
     "emptyInProgress": "Nothing running",
-    "emptyInProgressHint": "Start a task from Planning",
+    "emptyInProgressHint": "Start a task from Backlog",
     "emptyAiReview": "No tasks in review",
     "emptyAiReviewHint": "AI will review completed tasks",
     "emptyHumanReview": "Nothing to review",
