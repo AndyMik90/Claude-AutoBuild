@@ -17,6 +17,7 @@ interface ProjectState {
   openProjectIds: string[]; // Array of open project IDs
   activeProjectId: string | null; // Currently active tab
   tabOrder: string[]; // Order of tabs for drag and drop
+  userClosedAllTabs: boolean; // Flag to track if user intentionally closed all tabs
 
   // Actions
   setProjects: (projects: Project[]) => void;
@@ -51,6 +52,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   openProjectIds: [],
   activeProjectId: null,
   tabOrder: [],
+  userClosedAllTabs: false,
 
   setProjects: (projects) => set({ projects }),
 
@@ -115,7 +117,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({
         openProjectIds: newOpenProjectIds,
         tabOrder: newTabOrder,
-        activeProjectId: projectId
+        activeProjectId: projectId,
+        // Reset userClosedAllTabs since user is opening a tab
+        userClosedAllTabs: false
       });
 
       // Save to main process (debounced)
@@ -128,25 +132,50 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   closeProjectTab: (projectId) => {
+    console.log('[ProjectStore] closeProjectTab called for:', projectId);
     const state = get();
+    console.log('[ProjectStore] Current state:', {
+      openProjectIds: state.openProjectIds,
+      tabOrder: state.tabOrder,
+      activeProjectId: state.activeProjectId,
+      selectedProjectId: state.selectedProjectId
+    });
+
     const newOpenProjectIds = state.openProjectIds.filter(id => id !== projectId);
     const newTabOrder = state.tabOrder.filter(id => id !== projectId);
 
     // If closing the active project, select another one or null
     let newActiveProjectId = state.activeProjectId;
+    let newSelectedProjectId = state.selectedProjectId;
+
     if (state.activeProjectId === projectId) {
       const remainingTabs = newTabOrder.length > 0 ? newTabOrder : [];
       newActiveProjectId = remainingTabs.length > 0 ? remainingTabs[0] : null;
+      // Also clear selectedProjectId if no tabs remain
+      if (remainingTabs.length === 0) {
+        newSelectedProjectId = null;
+      } else {
+        newSelectedProjectId = newActiveProjectId;
+      }
     }
+
+    console.log('[ProjectStore] New state will be:', {
+      openProjectIds: newOpenProjectIds,
+      tabOrder: newTabOrder,
+      activeProjectId: newActiveProjectId,
+      selectedProjectId: newSelectedProjectId
+    });
 
     set({
       openProjectIds: newOpenProjectIds,
       tabOrder: newTabOrder,
-      activeProjectId: newActiveProjectId
+      activeProjectId: newActiveProjectId,
+      selectedProjectId: newSelectedProjectId
     });
 
     // Save to main process (debounced)
     saveTabStateToMain();
+    console.log('[ProjectStore] closeProjectTab completed');
   },
 
   setActiveProject: (projectId) => {
@@ -220,7 +249,9 @@ function saveTabStateToMain(): void {
     const tabState = {
       openProjectIds: store.openProjectIds,
       activeProjectId: store.activeProjectId,
-      tabOrder: store.tabOrder
+      tabOrder: store.tabOrder,
+      // Flag to indicate user intentionally closed all tabs (don't auto-reopen on reload)
+      userClosedAllTabs: store.openProjectIds.length === 0 && store.activeProjectId === null
     };
     console.log('[ProjectStore] Saving tab state to main process:', tabState);
     try {
@@ -248,7 +279,8 @@ export async function loadProjects(): Promise<void> {
       useProjectStore.setState({
         openProjectIds: tabStateResult.data.openProjectIds || [],
         activeProjectId: tabStateResult.data.activeProjectId || null,
-        tabOrder: tabStateResult.data.tabOrder || []
+        tabOrder: tabStateResult.data.tabOrder || [],
+        userClosedAllTabs: tabStateResult.data.userClosedAllTabs || false
       });
     }
 
@@ -303,10 +335,10 @@ export async function loadProjects(): Promise<void> {
         console.log('[ProjectStore] Tab state is valid, no cleanup needed');
       }
 
-      // Restore last selected project from localStorage for backward compatibility,
-      // or fall back to active project, or first project
+      // Only restore selected project if there are tabs open
+      // If no tabs are open, don't select any project - user sees WelcomeScreen
       const updatedState = useProjectStore.getState();
-      if (!updatedState.selectedProjectId && result.data.length > 0) {
+      if (validOpenProjectIds.length > 0 && !updatedState.selectedProjectId && result.data.length > 0) {
         const lastSelectedId = localStorage.getItem(LAST_SELECTED_PROJECT_KEY);
         const projectExists = lastSelectedId && result.data.some((p) => p.id === lastSelectedId);
 
@@ -317,6 +349,10 @@ export async function loadProjects(): Promise<void> {
         } else {
           store.selectProject(result.data[0].id);
         }
+      } else if (validOpenProjectIds.length === 0) {
+        // No tabs open - ensure selectedProjectId is also null
+        console.log('[ProjectStore] No tabs open, clearing selectedProjectId');
+        store.selectProject(null);
       }
     } else {
       store.setError(result.error || 'Failed to load projects');
