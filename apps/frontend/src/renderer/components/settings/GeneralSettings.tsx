@@ -73,7 +73,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-foreground">Feature Model Settings</Label>
                 <p className="text-sm text-muted-foreground">
-                  Model and thinking level for each feature
+                  Model and thinking level for Insights, Ideation, and Roadmap
                 </p>
               </div>
 

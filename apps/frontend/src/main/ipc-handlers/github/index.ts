@@ -9,7 +9,6 @@
  * - import-handlers: Bulk issue import
  * - release-handlers: GitHub release creation
  * - oauth-handlers: GitHub CLI OAuth authentication
- * - autofix-handlers: Automatic issue fixing with label triggers
  */
 
 import type { BrowserWindow } from 'electron';
@@ -20,9 +19,6 @@ import { registerInvestigationHandlers } from './investigation-handlers';
 import { registerImportHandlers } from './import-handlers';
 import { registerReleaseHandlers } from './release-handlers';
 import { registerGithubOAuthHandlers } from './oauth-handlers';
-import { registerAutoFixHandlers } from './autofix-handlers';
-import { registerPRHandlers } from './pr-handlers';
-import { registerTriageHandlers } from './triage-handlers';
 
 /**
  * Register all GitHub-related IPC handlers
@@ -37,9 +33,6 @@ export function registerGithubHandlers(
   registerImportHandlers(agentManager);
   registerReleaseHandlers();
   registerGithubOAuthHandlers();
-  registerAutoFixHandlers(getMainWindow);
-  registerPRHandlers(getMainWindow);
-  registerTriageHandlers(getMainWindow);
 }
 
 // Re-export utilities for potential external use

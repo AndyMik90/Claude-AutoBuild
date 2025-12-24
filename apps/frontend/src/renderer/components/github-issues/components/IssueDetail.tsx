@@ -9,19 +9,9 @@ import {
   GITHUB_COMPLEXITY_COLORS
 } from '../../../../shared/constants';
 import { formatDate } from '../utils';
-import { AutoFixButton } from './AutoFixButton';
 import type { IssueDetailProps } from '../types';
 
-export function IssueDetail({
-  issue,
-  onInvestigate,
-  investigationResult,
-  linkedTaskId,
-  onViewTask,
-  projectId,
-  autoFixConfig,
-  autoFixQueueItem,
-}: IssueDetailProps) {
+export function IssueDetail({ issue, onInvestigate, investigationResult, linkedTaskId, onViewTask }: IssueDetailProps) {
   // Determine which task ID to use - either already linked or just created
   const taskId = linkedTaskId || (investigationResult?.success ? investigationResult.taskId : undefined);
   const hasLinkedTask = !!taskId;
@@ -103,20 +93,10 @@ export function IssueDetail({
               View Task
             </Button>
           ) : (
-            <>
-              <Button onClick={onInvestigate} className="flex-1">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Create Task
-              </Button>
-              {projectId && autoFixConfig?.enabled && (
-                <AutoFixButton
-                  issue={issue}
-                  projectId={projectId}
-                  config={autoFixConfig}
-                  queueItem={autoFixQueueItem ?? null}
-                />
-              )}
-            </>
+            <Button onClick={onInvestigate} className="flex-1">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Create Task
+            </Button>
           )}
         </div>
 

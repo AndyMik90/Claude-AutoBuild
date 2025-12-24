@@ -1,9 +1,7 @@
-import { Github, RefreshCw, Search, Filter, Wand2, Loader2, Layers } from 'lucide-react';
+import { Github, RefreshCw, Search, Filter } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Switch } from '../../ui/switch';
-import { Label } from '../../ui/label';
 import {
   Select,
   SelectContent,
@@ -11,12 +9,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '../../ui/select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../../ui/tooltip';
 import type { IssueListHeaderProps } from '../types';
 
 export function IssueListHeader({
@@ -27,13 +19,7 @@ export function IssueListHeader({
   filterState,
   onSearchChange,
   onFilterChange,
-  onRefresh,
-  autoFixEnabled,
-  autoFixRunning,
-  autoFixProcessing,
-  onAutoFixToggle,
-  onAnalyzeAndGroup,
-  isAnalyzing,
+  onRefresh
 }: IssueListHeaderProps) {
   return (
     <div className="shrink-0 p-4 border-b border-border">
@@ -64,70 +50,6 @@ export function IssueListHeader({
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-      </div>
-
-      {/* Issue Management Actions */}
-      <div className="flex items-center gap-3 mb-4">
-        {/* Analyze & Group Button (Proactive) */}
-        {onAnalyzeAndGroup && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onAnalyzeAndGroup}
-                  disabled={isAnalyzing || isLoading}
-                  className="flex-1"
-                >
-                  {isAnalyzing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Layers className="h-4 w-4 mr-2" />
-                  )}
-                  Analyze & Group Issues
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <p>Analyze up to 200 open issues, group similar ones, and review proposed batches before creating tasks.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Auto-Fix Toggle (Reactive) */}
-        {onAutoFixToggle && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    {autoFixRunning ? (
-                      <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                    ) : (
-                      <Wand2 className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <Label htmlFor="auto-fix-toggle" className="text-sm cursor-pointer whitespace-nowrap">
-                      Auto-Fix New
-                    </Label>
-                    <Switch
-                      id="auto-fix-toggle"
-                      checked={autoFixEnabled ?? false}
-                      onCheckedChange={onAutoFixToggle}
-                      disabled={autoFixRunning}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p>Automatically fix new issues as they come in.</p>
-                  {autoFixRunning && autoFixProcessing !== undefined && autoFixProcessing > 0 && (
-                    <p className="mt-1 text-primary">Processing {autoFixProcessing} issue{autoFixProcessing > 1 ? 's' : ''}...</p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
       </div>
 
       {/* Filters */}

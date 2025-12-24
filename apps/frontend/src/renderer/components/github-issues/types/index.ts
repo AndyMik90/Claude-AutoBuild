@@ -1,5 +1,4 @@
 import type { GitHubIssue, GitHubInvestigationResult } from '../../../../shared/types';
-import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
 
 export type FilterState = 'open' | 'closed' | 'all';
 
@@ -24,12 +23,6 @@ export interface IssueDetailProps {
   linkedTaskId?: string;
   /** Handler to navigate to view the linked task */
   onViewTask?: (taskId: string) => void;
-  /** Project ID for auto-fix functionality */
-  projectId?: string;
-  /** Auto-fix configuration */
-  autoFixConfig?: AutoFixConfig | null;
-  /** Auto-fix queue item for this issue */
-  autoFixQueueItem?: AutoFixQueueItem | null;
 }
 
 export interface InvestigationDialogProps {
@@ -56,14 +49,6 @@ export interface IssueListHeaderProps {
   onSearchChange: (query: string) => void;
   onFilterChange: (state: FilterState) => void;
   onRefresh: () => void;
-  // Auto-fix toggle (reactive - for new issues)
-  autoFixEnabled?: boolean;
-  autoFixRunning?: boolean;
-  autoFixProcessing?: number; // Number of issues being processed
-  onAutoFixToggle?: (enabled: boolean) => void;
-  // Analyze & Group (proactive - for existing issues)
-  onAnalyzeAndGroup?: () => void;
-  isAnalyzing?: boolean;
 }
 
 export interface IssueListProps {

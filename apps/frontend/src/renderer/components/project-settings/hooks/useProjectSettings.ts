@@ -5,7 +5,7 @@ import {
   initializeProject,
   updateProjectAutoBuild
 } from '../../../stores/project-store';
-import { checkGitHubConnection as checkGitHubConnectionGlobal } from '../../../stores/github';
+import { checkGitHubConnection as checkGitHubConnectionGlobal } from '../../../stores/github-store';
 import type {
   Project,
   ProjectSettings as ProjectSettingsType,

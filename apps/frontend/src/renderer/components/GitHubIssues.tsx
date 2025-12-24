@@ -1,16 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
-import { useGitHubIssues, useGitHubInvestigation, useIssueFiltering, useAutoFix } from './github-issues/hooks';
-import { useAnalyzePreview } from './github-issues/hooks/useAnalyzePreview';
+import { useGitHubIssues, useGitHubInvestigation, useIssueFiltering } from './github-issues/hooks';
 import {
   NotConnectedState,
   EmptyState,
   IssueListHeader,
   IssueList,
   IssueDetail,
-  InvestigationDialog,
-  BatchReviewWizard
+  InvestigationDialog
 } from './github-issues/components';
 import type { GitHubIssue } from '../../shared/types';
 import type { GitHubIssuesProps } from './github-issues/types';
@@ -43,28 +41,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   } = useGitHubInvestigation(selectedProject?.id);
 
   const { searchQuery, setSearchQuery, filteredIssues } = useIssueFiltering(getFilteredIssues());
-
-  const {
-    config: autoFixConfig,
-    getQueueItem: getAutoFixQueueItem,
-    isBatchRunning,
-    batchProgress,
-    toggleAutoFix,
-  } = useAutoFix(selectedProject?.id);
-
-  // Analyze & Group Issues (proactive workflow)
-  const {
-    isWizardOpen,
-    isAnalyzing,
-    isApproving,
-    analysisProgress,
-    analysisResult,
-    analysisError,
-    openWizard,
-    closeWizard,
-    startAnalysis,
-    approveBatches,
-  } = useAnalyzePreview({ projectId: selectedProject?.id || '' });
 
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
   const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] = useState<GitHubIssue | null>(null);
@@ -120,12 +96,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         onSearchChange={setSearchQuery}
         onFilterChange={handleFilterChange}
         onRefresh={handleRefresh}
-        autoFixEnabled={autoFixConfig?.enabled}
-        autoFixRunning={isBatchRunning}
-        autoFixProcessing={batchProgress?.totalIssues}
-        onAutoFixToggle={toggleAutoFix}
-        onAnalyzeAndGroup={openWizard}
-        isAnalyzing={isAnalyzing}
       />
 
       {/* Content */}
@@ -155,9 +125,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               }
               linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
               onViewTask={onNavigateToTask}
-              projectId={selectedProject?.id}
-              autoFixConfig={autoFixConfig}
-              autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
@@ -174,20 +141,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         onStartInvestigation={handleStartInvestigation}
         onClose={handleCloseDialog}
         projectId={selectedProject?.id}
-      />
-
-      {/* Batch Review Wizard (Proactive workflow) */}
-      <BatchReviewWizard
-        isOpen={isWizardOpen}
-        onClose={closeWizard}
-        projectId={selectedProject?.id || ''}
-        onStartAnalysis={startAnalysis}
-        onApproveBatches={approveBatches}
-        analysisProgress={analysisProgress}
-        analysisResult={analysisResult}
-        analysisError={analysisError}
-        isAnalyzing={isAnalyzing}
-        isApproving={isApproving}
       />
     </div>
   );

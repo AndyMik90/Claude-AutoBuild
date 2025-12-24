@@ -10,7 +10,7 @@
     "install:all": "npm run install:backend && npm run install:frontend",
     "start": "cd apps/frontend && npm run build && npm run start",
     "dev": "cd apps/frontend && npm run dev",
-    "dev:debug": "cd apps/frontend && npm run dev:debug",
+    "dev:debug": "DEBUG=true cd apps/frontend && npm run dev",
     "dev:mcp": "cd apps/frontend && npm run dev:mcp",
     "build": "cd apps/frontend && npm run build",
     "lint": "cd apps/frontend && npm run lint",

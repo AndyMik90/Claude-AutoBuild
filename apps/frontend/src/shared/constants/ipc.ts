@@ -205,57 +205,6 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
 
-  // GitHub Auto-Fix operations
-  GITHUB_AUTOFIX_START: 'github:autofix:start',
-  GITHUB_AUTOFIX_STOP: 'github:autofix:stop',
-  GITHUB_AUTOFIX_GET_QUEUE: 'github:autofix:getQueue',
-  GITHUB_AUTOFIX_CHECK_LABELS: 'github:autofix:checkLabels',
-  GITHUB_AUTOFIX_GET_CONFIG: 'github:autofix:getConfig',
-  GITHUB_AUTOFIX_SAVE_CONFIG: 'github:autofix:saveConfig',
-  GITHUB_AUTOFIX_BATCH: 'github:autofix:batch',
-  GITHUB_AUTOFIX_GET_BATCHES: 'github:autofix:getBatches',
-
-  // GitHub Auto-Fix events (main -> renderer)
-  GITHUB_AUTOFIX_PROGRESS: 'github:autofix:progress',
-  GITHUB_AUTOFIX_COMPLETE: 'github:autofix:complete',
-  GITHUB_AUTOFIX_ERROR: 'github:autofix:error',
-  GITHUB_AUTOFIX_BATCH_PROGRESS: 'github:autofix:batchProgress',
-  GITHUB_AUTOFIX_BATCH_COMPLETE: 'github:autofix:batchComplete',
-  GITHUB_AUTOFIX_BATCH_ERROR: 'github:autofix:batchError',
-
-  // GitHub Issue Analysis Preview (proactive batch workflow)
-  GITHUB_AUTOFIX_ANALYZE_PREVIEW: 'github:autofix:analyzePreview',
-  GITHUB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS: 'github:autofix:analyzePreviewProgress',
-  GITHUB_AUTOFIX_ANALYZE_PREVIEW_COMPLETE: 'github:autofix:analyzePreviewComplete',
-  GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR: 'github:autofix:analyzePreviewError',
-  GITHUB_AUTOFIX_APPROVE_BATCHES: 'github:autofix:approveBatches',
-
-  // GitHub PR Review operations
-  GITHUB_PR_LIST: 'github:pr:list',
-  GITHUB_PR_GET: 'github:pr:get',
-  GITHUB_PR_GET_DIFF: 'github:pr:getDiff',
-  GITHUB_PR_REVIEW: 'github:pr:review',
-  GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
-  GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
-  GITHUB_PR_FIX: 'github:pr:fix',
-
-  // GitHub PR Review events (main -> renderer)
-  GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',
-  GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
-  GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
-
-  // GitHub Issue Triage operations
-  GITHUB_TRIAGE_RUN: 'github:triage:run',
-  GITHUB_TRIAGE_GET_RESULTS: 'github:triage:getResults',
-  GITHUB_TRIAGE_APPLY_LABELS: 'github:triage:applyLabels',
-  GITHUB_TRIAGE_GET_CONFIG: 'github:triage:getConfig',
-  GITHUB_TRIAGE_SAVE_CONFIG: 'github:triage:saveConfig',
-
-  // GitHub Issue Triage events (main -> renderer)
-  GITHUB_TRIAGE_PROGRESS: 'github:triage:progress',
-  GITHUB_TRIAGE_COMPLETE: 'github:triage:complete',
-  GITHUB_TRIAGE_ERROR: 'github:triage:error',
-
   // Memory Infrastructure status (LadybugDB - no Docker required)
   MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',

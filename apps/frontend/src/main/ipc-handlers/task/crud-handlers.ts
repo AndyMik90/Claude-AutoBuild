@@ -219,16 +219,14 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         return { success: false, error: 'Cannot delete a running task. Stop the task first.' };
       }
 
-      // Delete the spec directory - use task.specsPath if available (handles worktree tasks)
-      const specDir = task.specsPath || path.join(project.path, getSpecsDir(project.autoBuildPath), task.specId);
+      // Delete the spec directory
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(project.path, specsBaseDir, task.specId);
 
       try {
-        console.warn(`[TASK_DELETE] Attempting to delete: ${specDir} (location: ${task.location || 'unknown'})`);
         if (existsSync(specDir)) {
           await rm(specDir, { recursive: true, force: true });
           console.warn(`[TASK_DELETE] Deleted spec directory: ${specDir}`);
-        } else {
-          console.warn(`[TASK_DELETE] Spec directory not found: ${specDir}`);
         }
         return { success: true };
       } catch (error) {
