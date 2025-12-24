@@ -146,7 +146,7 @@ async def oidc_callback(
     # Validate state
     if not state or state not in _state_store:
         return RedirectResponse(
-            url=f"{base_url}/login?error=Invalid+state+parameter",
+            url=f"{base_url}/login?error={urllib.parse.quote('Invalid state parameter', safe='')}",
             status_code=302,
         )
 
@@ -155,7 +155,7 @@ async def oidc_callback(
     # Validate code
     if not code:
         return RedirectResponse(
-            url=f"{base_url}/login?error=No+authorization+code",
+            url=f"{base_url}/login?error={urllib.parse.quote('No authorization code', safe='')}",
             status_code=302,
         )
 
@@ -171,7 +171,7 @@ async def oidc_callback(
 
     if not token_response:
         return RedirectResponse(
-            url=f"{base_url}/login?error=Token+exchange+failed",
+            url=f"{base_url}/login?error={urllib.parse.quote('Token exchange failed', safe='')}",
             status_code=302,
         )
 
@@ -179,7 +179,7 @@ async def oidc_callback(
     user_info = await oidc_service.get_user_info(token_response.access_token)
     if not user_info:
         return RedirectResponse(
-            url=f"{base_url}/login?error=Failed+to+get+user+info",
+            url=f"{base_url}/login?error={urllib.parse.quote('Failed to get user info', safe='')}",
             status_code=302,
         )
 
@@ -187,14 +187,14 @@ async def oidc_callback(
     user = await oidc_service.provision_or_login_user(user_info)
     if not user:
         return RedirectResponse(
-            url=f"{base_url}/login?error=User+provisioning+disabled+or+email+required",
+            url=f"{base_url}/login?error={urllib.parse.quote('User provisioning disabled or email required', safe='')}",
             status_code=302,
         )
 
     # Check if user is active
     if not user.is_active:
         return RedirectResponse(
-            url=f"{base_url}/login?error=Account+is+disabled",
+            url=f"{base_url}/login?error={urllib.parse.quote('Account is disabled', safe='')}",
             status_code=302,
         )
 
