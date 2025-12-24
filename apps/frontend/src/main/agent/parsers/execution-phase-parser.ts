@@ -41,7 +41,7 @@ export class ExecutionPhaseParser extends BasePhaseParser<ExecutionPhase> {
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
       return {
-        phase: structuredEvent.phase,
+        phase: structuredEvent.phase as ExecutionPhase,
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };

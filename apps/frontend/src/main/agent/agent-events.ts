@@ -16,7 +16,7 @@ export class AgentEvents {
     const structuredEvent = parsePhaseEvent(log);
     if (structuredEvent) {
       return {
-        phase: structuredEvent.phase,
+        phase: structuredEvent.phase as ExecutionProgressData['phase'],
         message: structuredEvent.message,
         currentSubtask: structuredEvent.subtask
       };
