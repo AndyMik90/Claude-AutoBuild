@@ -197,8 +197,19 @@ export function SecretsManager({}: SecretsManagerProps) {
   return (
     <>
       <div className="space-y-6">
+        {/* Description */}
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <h3 className="font-medium text-sm mb-2">About Secrets</h3>
+          <p className="text-sm text-muted-foreground">
+            Secrets are securely encrypted credentials that auto-populate into your generated projects.
+            Create secret groups with multiple accounts, then reference them in your template files using
+            secret parameters. When creating projects, select which account to use and the values are
+            automatically injected.
+          </p>
+        </div>
+
         {/* Add Group Button */}
-        <div className="mb-6">
+        <div>
           <Button onClick={() => setIsAddGroupDialogOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Secret Group
