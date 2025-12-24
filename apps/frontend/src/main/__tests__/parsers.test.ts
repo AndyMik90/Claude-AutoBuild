@@ -168,7 +168,7 @@ describe('ExecutionPhaseParser', () => {
       expect(result).toBeNull();
     });
 
-    it('should not regress from qa_fixing to qa_review', () => {
+    it('should allow qa_fixing to qa_review transition (re-review after fix)', () => {
       const log = 'Starting QA Reviewer...';
       const result = parser.parse(log, makeContext('qa_fixing'));
 
