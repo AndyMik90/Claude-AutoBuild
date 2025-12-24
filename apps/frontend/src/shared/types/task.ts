@@ -367,6 +367,13 @@ export interface MergeStats {
   hasGitConflicts?: boolean; // True if there are git-level conflicts requiring rebase
 }
 
+// Options for worktree merge operation
+export interface MergeOptions {
+  noCommit?: boolean;         // Stage changes but don't commit (for review)
+  targetBranch?: string;      // Merge into this existing branch
+  createBranch?: string;      // Create and merge into a new branch with this name
+}
+
 export interface WorktreeMergeResult {
   success: boolean;
   message: string;

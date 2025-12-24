@@ -357,21 +357,52 @@ export async function persistTaskStatus(
 ): Promise<boolean> {
   const store = useTaskStore.getState();
 
+  // Find the task
+  const task = store.tasks.find((t) => t.id === taskId || t.specId === taskId);
+
   // Verify the task exists in local state before updating
-  const taskExists = store.tasks.some((t) => t.id === taskId || t.specId === taskId);
-  if (!taskExists) {
+  if (!task) {
     console.warn(`[persistTaskStatus] Task not found in local state: ${taskId}`);
     console.warn(`[persistTaskStatus] Current tasks:`, store.tasks.map(t => ({ id: t.id, specId: t.specId })));
+    store.setError('Task not found');
+    return false;
+  }
+
+  // Store original status for rollback if persist fails
+  const originalStatus = task.status;
+
+  // Validate parent task status changes - block moving past in_progress if children not done
+  const reviewStatuses: TaskStatus[] = ['ai_review', 'human_review', 'done'];
+  if (task.hasChildren || (task.childTaskIds && task.childTaskIds.length > 0)) {
+    if (reviewStatuses.includes(status)) {
+      // Get all child tasks
+      const childIds = task.childTaskIds || [];
+      const childTasks = store.tasks.filter(t => childIds.includes(t.id) || t.parentTaskId === task.id);
+
+      // Check if all children are done
+      const incompleteChildren = childTasks.filter(child => child.status !== 'done');
+
+      if (incompleteChildren.length > 0) {
+        const completedCount = childTasks.length - incompleteChildren.length;
+        const errorMsg = `Cannot move parent task to "${status}". Complete all subtasks first (${completedCount}/${childTasks.length} done).`;
+        console.warn(`[persistTaskStatus] ${errorMsg}`);
+        store.setError(errorMsg);
+        return false;
+      }
+    }
   }
 
   try {
-    // Update local state first for immediate feedback
+    // Update local state first for immediate feedback (optimistic update)
     store.updateTaskStatus(taskId, status);
 
     // Persist to file
     const result = await window.electronAPI.updateTaskStatus(taskId, status);
     if (!result.success) {
       console.error('Failed to persist task status:', result.error);
+      // Rollback local state to original status
+      console.warn(`[persistTaskStatus] Rolling back status from ${status} to ${originalStatus}`);
+      store.updateTaskStatus(taskId, originalStatus);
       // Show error to user via the store's error mechanism
       store.setError(`Failed to update task: ${result.error}`);
       return false;
@@ -379,6 +410,9 @@ export async function persistTaskStatus(
     return true;
   } catch (error) {
     console.error('Error persisting task status:', error);
+    // Rollback local state to original status
+    console.warn(`[persistTaskStatus] Rolling back status from ${status} to ${originalStatus}`);
+    store.updateTaskStatus(taskId, originalStatus);
     store.setError(error instanceof Error ? error.message : 'Failed to update task status');
     return false;
   }
@@ -513,8 +547,25 @@ export async function archiveTasks(
     const result = await window.electronAPI.archiveTasks(projectId, taskIds, version);
 
     if (result.success) {
-      // Reload tasks to update the UI (archived tasks will be filtered out by default)
-      await loadTasks(projectId);
+      // Update local state directly instead of reloading from disk
+      // This preserves the current task status (which may have been set via drag-and-drop)
+      // Reloading from disk would recalculate status which might give different results
+      const store = useTaskStore.getState();
+      const archivedAt = new Date().toISOString();
+
+      taskIds.forEach(taskId => {
+        const task = store.tasks.find(t => t.id === taskId || t.specId === taskId);
+        if (task) {
+          store.updateTask(taskId, {
+            metadata: {
+              ...task.metadata,
+              archivedAt,
+              archivedInVersion: version
+            }
+          });
+        }
+      });
+
       return { success: true };
     }
 

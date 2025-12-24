@@ -474,6 +474,63 @@ export function TaskCreationWizard({
   }, []);
 
   /**
+   * Handle markdown file drop - parse and populate form
+   */
+  const handleMarkdownFileDrop = useCallback(async (filePath: string, filename: string) => {
+    try {
+      console.log('[Markdown] Reading file:', filePath);
+      const result = await window.electronAPI.readFileContent(filePath);
+
+      if (!result.success || !result.data) {
+        setError(`Failed to read file: ${result.error}`);
+        return;
+      }
+
+      console.log('[Markdown] Parsing content...');
+      const parsed = parseMarkdownTask(result.data, filename);
+      console.log('[Markdown] Parsed task:', parsed);
+
+      // Populate form with parsed data
+      setDescription(generateRichDescription(parsed));
+      setTitle(parsed.title);
+
+      // Add the markdown file as a referenced file
+      const newFile: ReferencedFile = {
+        id: crypto.randomUUID(),
+        path: filePath,
+        name: filename,
+        isDirectory: false,
+        addedAt: new Date()
+      };
+      setReferencedFiles(prev => [...prev, newFile]);
+
+      console.log('[Markdown] Form populated with task data');
+
+      // Store parsed subtasks for hierarchical task creation
+      if (parsed.subtasks.length > 0) {
+        console.log('[Markdown] Detected subtasks:', parsed.subtasks);
+        const children = parsed.subtasks.map((subtask, index) => ({
+          title: subtask.title,
+          description: subtask.description,
+          orderIndex: index
+        }));
+        setParsedSubtasks(children);
+        console.log('[Markdown] Stored subtasks for hierarchical creation:', children);
+      }
+
+      // TODO: Handle dependencies
+      if (parsed.dependencies.length > 0) {
+        console.log('[Markdown] Detected dependencies:', parsed.dependencies);
+        // Future: Link dependencies when that feature is available
+      }
+
+    } catch (error) {
+      console.error('[Markdown] Error parsing file:', error);
+      setError(`Failed to parse markdown file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
+  /**
    * Handle drop on textarea for file references and images
    */
   const handleTextareaDrop = useCallback(
@@ -490,6 +547,14 @@ export function TaskCreationWizard({
         try {
           const data = JSON.parse(jsonData);
           if (data.type === 'file-reference' && data.name) {
+            // Check if it's a markdown file - parse it instead of inserting @mention
+            const isMarkdown = data.name.endsWith('.md');
+            if (isMarkdown && data.path) {
+              console.log('[Drop] Markdown file detected, parsing content:', data.name);
+              handleMarkdownFileDrop(data.path, data.name);
+              return;
+            }
+
             // Insert @mention at cursor position in the textarea
             const textarea = descriptionRef.current;
             if (textarea) {
@@ -583,51 +648,8 @@ export function TaskCreationWizard({
         setTimeout(() => setPasteSuccess(false), 2000);
       }
     },
-    [images, isCreating, description]
+    [images, isCreating, description, handleMarkdownFileDrop]
   );
-
-  /**
-   * Import a markdown planning document and populate the form fields.
-   */
-  const handleMarkdownFileDrop = useCallback(async (filePath: string, filename: string) => {
-    try {
-      const result = await window.electronAPI.readFileContent(filePath);
-
-      if (!result.success || !result.data) {
-        setError(result.error ? `Failed to read file: ${result.error}` : 'Failed to read file');
-        return;
-      }
-
-      const parsed = parseMarkdownTask(result.data, filename);
-
-      setDescription(generateRichDescription(parsed));
-      setTitle(parsed.title);
-
-      if (parsed.subtasks.length > 0) {
-        setParsedSubtasks(
-          parsed.subtasks.map((subtask, index) => ({
-            title: subtask.title,
-            description: subtask.description,
-            orderIndex: index
-          }))
-        );
-      } else {
-        setParsedSubtasks([]);
-      }
-
-      const newFile: ReferencedFile = {
-        id: crypto.randomUUID(),
-        path: filePath,
-        name: filename,
-        isDirectory: false,
-        addedAt: new Date()
-      };
-
-      setReferencedFiles((prev) => (prev.some((f) => f.path === filePath) ? prev : [...prev, newFile]));
-    } catch (error) {
-      setError(`Failed to parse markdown file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, []);
 
   /**
    * Handle drop on the form container (e.g. importing markdown plans).

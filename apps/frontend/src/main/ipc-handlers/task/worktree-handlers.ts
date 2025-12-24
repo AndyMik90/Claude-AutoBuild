@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, MergeOptions } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
@@ -247,11 +247,11 @@ export function registerWorktreeHandlers(
   );
 
   /**
-   * Merge the worktree changes into the main branch
+   * Merge the worktree changes into the main branch (or specified target branch)
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
-    async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
+    async (_, taskId: string, options?: MergeOptions): Promise<IPCResult<WorktreeMergeResult>> => {
       // Always log merge operations for debugging
       const debug = (...args: unknown[]) => {
         console.warn('[MERGE DEBUG]', ...args);
@@ -299,6 +299,58 @@ export function registerWorktreeHandlers(
         // Check worktree exists before merge
         const worktreePath = path.join(project.path, '.worktrees', task.specId);
         debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
+
+        // Handle branch target selection (create new or switch to existing)
+        let originalBranch: string | null = null;
+        if (options?.createBranch || options?.targetBranch) {
+          try {
+            // Store original branch in case we need to revert
+            originalBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+              cwd: project.path,
+              encoding: 'utf-8'
+            }).trim();
+            debug('Original branch:', originalBranch);
+
+            if (options.createBranch) {
+              // Check if branch already exists
+              const branchExists = spawnSync('git', ['rev-parse', '--verify', options.createBranch], {
+                cwd: project.path,
+                encoding: 'utf-8',
+                stdio: ['pipe', 'pipe', 'pipe']
+              });
+
+              if (branchExists.status === 0) {
+                return {
+                  success: false,
+                  error: `Branch "${options.createBranch}" already exists. Choose a different name or select it from existing branches.`
+                };
+              }
+
+              // Create and checkout new branch
+              debug('Creating new branch:', options.createBranch);
+              execSync(`git checkout -b "${options.createBranch}"`, {
+                cwd: project.path,
+                encoding: 'utf-8'
+              });
+              debug('Created and checked out new branch:', options.createBranch);
+            } else if (options.targetBranch && options.targetBranch !== originalBranch) {
+              // Switch to target branch
+              debug('Switching to target branch:', options.targetBranch);
+              execSync(`git checkout "${options.targetBranch}"`, {
+                cwd: project.path,
+                encoding: 'utf-8'
+              });
+              debug('Switched to target branch:', options.targetBranch);
+            }
+          } catch (branchError) {
+            const errorMsg = branchError instanceof Error ? branchError.message : String(branchError);
+            debug('Branch operation failed:', errorMsg);
+            return {
+              success: false,
+              error: `Failed to switch branch: ${errorMsg}`
+            };
+          }
+        }
 
         // Check if changes are already staged (for stage-only mode)
         if (options?.noCommit) {

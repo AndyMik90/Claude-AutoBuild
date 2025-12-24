@@ -108,60 +108,18 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      // ENHANCEMENT 2: Auto-start parent when first child starts
-      // If this task has a parent, move the parent to "in_progress" if it's in backlog
+      // NOTE: Parent tasks are NOT auto-started when a child starts.
+      // Parent tasks stay in their original status (backlog/planning) while children are worked on.
+      // The parent's child progress is shown via the "X/Y subtasks" badge on the card.
+      // Parent only auto-moves to "done" when ALL children are complete.
       if (task.parentTaskId) {
         const parentTask = findParentTask(task, project.id);
-        if (parentTask && parentTask.status === 'backlog') {
-          console.warn('[TASK_START] Auto-starting parent task:', parentTask.specId);
-
-          // Update parent's implementation_plan.json to in_progress
-          const parentSpecDir = path.join(
-            project.path,
-            getSpecsDir(project.autoBuildPath),
-            parentTask.specId
-          );
-          const parentPlanPath = path.join(parentSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-
-          try {
-            // Ensure parent spec directory exists
-            if (!existsSync(parentSpecDir)) {
-              mkdirSync(parentSpecDir, { recursive: true });
-            }
-
-            let parentPlan: Record<string, unknown> = {};
-            if (existsSync(parentPlanPath)) {
-              const content = readFileSync(parentPlanPath, 'utf-8');
-              parentPlan = JSON.parse(content);
-            } else {
-              // Create basic plan for parent
-              parentPlan = {
-                feature: parentTask.title,
-                description: parentTask.description || '',
-                created_at: parentTask.createdAt.toISOString(),
-                phases: []
-              };
-            }
-
-            parentPlan.status = 'in_progress';
-            parentPlan.planStatus = 'in_progress';
-            parentPlan.updated_at = new Date().toISOString();
-            parentPlan.autoStartedByChild = task.specId;
-
-            writeFileSync(parentPlanPath, JSON.stringify(parentPlan, null, 2));
-
-            // Notify UI about parent status change
-            mainWindow.webContents.send(
-              IPC_CHANNELS.TASK_STATUS_CHANGE,
-              parentTask.id,
-              'in_progress'
-            );
-
-            console.warn('[TASK_START] Parent task auto-started:', parentTask.specId);
-          } catch (error) {
-            console.error('[TASK_START] Failed to auto-start parent task:', error);
-            // Continue with child task start - parent auto-start is not critical
-          }
+        if (parentTask) {
+          console.log('[TASK_START] Starting child task of parent:', {
+            childSpec: task.specId,
+            parentSpec: parentTask.specId,
+            parentStatus: parentTask.status
+          });
         }
       }
 
@@ -561,9 +519,14 @@ export function registerTaskExecutionHandlers(
       // Validate status transition - 'done' can only be set through merge handler
       // UNLESS there's no worktree (limbo state - already merged/discarded or failed)
       if (status === 'done') {
-        // Check if worktree exists
-        const worktreePath = path.join(project.path, '.worktrees', taskId);
+        // Check if worktree exists - worktrees are named by specId, not taskId
+        const worktreePath = path.join(project.path, '.worktrees', task.specId);
         const hasWorktree = existsSync(worktreePath);
+
+        console.log(`[TASK_UPDATE_STATUS] Checking worktree for task ${taskId} (specId: ${task.specId}):`, {
+          worktreePath,
+          hasWorktree
+        });
 
         if (hasWorktree) {
           // Worktree exists - must use merge workflow

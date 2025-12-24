@@ -19,7 +19,9 @@ import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
 import { TaskReview } from './TaskReview';
-import type { Task } from '../../../shared/types';
+import { MergeTargetDialog } from './task-review/MergeTargetDialog';
+import type { Task, MergeOptions } from '../../../shared/types';
+import { useProjectStore } from '../../stores/project-store';
 
 // Panel size constants
 const MIN_WIDTH = 384; // w-96
@@ -44,6 +46,10 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
   const state = useTaskDetail({ task });
   const _progress = calculateProgress(task.subtasks);
   const allTasks = useTaskStore((state) => state.tasks);
+  const selectedProject = useProjectStore((state) => state.getSelectedProject());
+
+  // Merge target dialog state
+  const [showMergeTargetDialog, setShowMergeTargetDialog] = useState(false);
 
   // Panel resize state
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -174,18 +180,19 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
     state.setIsDeleting(false);
   };
 
-  const handleMerge = async () => {
-    console.warn('[TaskDetailPanel] handleMerge called, stageOnly:', state.stageOnly);
+  const handleMerge = async (options: MergeOptions) => {
+    console.warn('[TaskDetailPanel] handleMerge called with options:', options);
+    setShowMergeTargetDialog(false);
     state.setIsMerging(true);
     state.setWorkspaceError(null);
     try {
       console.warn('[TaskDetailPanel] Calling mergeWorktree...');
-      const result = await window.electronAPI.mergeWorktree(task.id, { noCommit: state.stageOnly });
+      const result = await window.electronAPI.mergeWorktree(task.id, options);
       console.warn('[TaskDetailPanel] mergeWorktree result:', JSON.stringify(result, null, 2));
       if (result.success && result.data?.success) {
         // For stage-only: don't close the panel, show success message
         // For full merge: close the panel
-        if (state.stageOnly && result.data.staged) {
+        if (options.noCommit && result.data.staged) {
           // Changes are staged in main project - show success but keep panel open
           console.warn('[TaskDetailPanel] Stage-only success, showing success message');
           state.setWorkspaceError(null);
@@ -207,6 +214,11 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
       console.warn('[TaskDetailPanel] Setting isMerging to false');
       state.setIsMerging(false);
     }
+  };
+
+  // Open merge target dialog instead of merging directly
+  const handleOpenMergeDialog = () => {
+    setShowMergeTargetDialog(true);
   };
 
   const handleDiscard = async () => {
@@ -393,7 +405,7 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
                     showConflictDialog={state.showConflictDialog}
                     onFeedbackChange={state.setFeedback}
                     onReject={handleReject}
-                    onMerge={handleMerge}
+                    onMerge={handleOpenMergeDialog}
                     onDiscard={handleDiscard}
                     onShowDiscardDialog={state.setShowDiscardDialog}
                     onShowDiffDialog={state.setShowDiffDialog}
@@ -451,6 +463,16 @@ export function TaskDetailPanel({ task, onClose, onSelectTask }: TaskDetailPanel
           task={task}
           open={state.isEditDialogOpen}
           onOpenChange={state.setIsEditDialogOpen}
+        />
+
+        {/* Merge Target Dialog */}
+        <MergeTargetDialog
+          open={showMergeTargetDialog}
+          projectPath={selectedProject?.path || ''}
+          currentBranch={state.worktreeStatus?.baseBranch || 'main'}
+          isMerging={state.isMerging}
+          onOpenChange={setShowMergeTargetDialog}
+          onMerge={handleMerge}
         />
       </div>
     </TooltipProvider>

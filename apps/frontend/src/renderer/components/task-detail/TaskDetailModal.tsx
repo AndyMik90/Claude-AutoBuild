@@ -34,10 +34,12 @@ import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
 import { TaskMetadata } from './TaskMetadata';
+import { TaskHierarchy } from './TaskHierarchy';
 import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
 import { TaskReview } from './TaskReview';
+import { useTaskStore } from '../../stores/task-store';
 import type { Task } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -64,6 +66,8 @@ export function TaskDetailModal({ open, task, onOpenChange }: TaskDetailModalPro
 // Separate component to use hooks only when task exists
 function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void }) {
   const state = useTaskDetail({ task });
+  const allTasks = useTaskStore((s) => s.tasks);
+  const selectTask = useTaskStore((s) => s.selectTask);
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = task.subtasks.length;
@@ -374,6 +378,17 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                     <div className="p-5 space-y-5">
                       {/* Metadata */}
                       <TaskMetadata task={task} />
+
+                      {/* Hierarchical Task Relationships */}
+                      <TaskHierarchy
+                        task={task}
+                        allTasks={allTasks}
+                        onTaskClick={(clickedTask) => {
+                          // Select the clicked task and close modal
+                          selectTask(clickedTask.id);
+                          onOpenChange(false);
+                        }}
+                      />
 
                       {/* Human Review Section */}
                       {state.needsReview && (

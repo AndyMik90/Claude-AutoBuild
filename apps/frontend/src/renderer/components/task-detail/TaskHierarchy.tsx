@@ -21,9 +21,12 @@ export function TaskHierarchy({ task, allTasks, onTaskClick }: TaskHierarchyProp
     ? allTasks.find((t) => t.id === task.parentTaskId)
     : null;
 
-  // Get child tasks if this is a parent
-  const childTasks = task.hasChildren
-    ? allTasks.filter((t) => t.parentTaskId === task.id).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+  // Get child tasks if this is a parent - check both hasChildren flag and childTaskIds array
+  const hasChildIndicator = task.hasChildren || (task.childTaskIds && task.childTaskIds.length > 0);
+  const childTasks = hasChildIndicator
+    ? allTasks
+        .filter((t) => t.parentTaskId === task.id || (task.childTaskIds && task.childTaskIds.includes(t.id)))
+        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
     : [];
 
   // Don't render if no hierarchy

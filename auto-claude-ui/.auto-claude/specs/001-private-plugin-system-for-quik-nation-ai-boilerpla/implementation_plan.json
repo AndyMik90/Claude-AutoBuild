@@ -953,9 +953,9 @@
     "verified_by": "qa_agent"
   },
   "last_updated": "2025-12-21T22:38:30.781982+00:00",
-  "status": "ai_review",
+  "status": "human_review",
   "planStatus": "review",
-  "updated_at": "2025-12-22T06:11:10.603Z",
+  "updated_at": "2025-12-24T00:14:37.066Z",
   "recoveryNote": "Task recovered from stuck state at 2025-12-22T01:14:15.518Z",
   "qa_iteration_history": [
     {
