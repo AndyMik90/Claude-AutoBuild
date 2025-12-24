@@ -22,6 +22,7 @@ import { registerContextHandlers } from './context-handlers';
 import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
+import { registerGitlabHandlers } from './gitlab-handlers';
 import { registerAutobuildSourceHandlers } from './autobuild-source-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
@@ -31,12 +32,12 @@ import { registerAppUpdateHandlers } from './app-update-handlers';
 import { notificationService } from '../notification-service';
 
 /**
- * Setup all IPC handlers across all domains
+ * Register all IPC handlers for the application's domains.
  *
- * @param agentManager - The agent manager instance
- * @param terminalManager - The terminal manager instance
- * @param getMainWindow - Function to get the main BrowserWindow
- * @param pythonEnvManager - The Python environment manager instance
+ * @param agentManager - Manager responsible for agent lifecycle and events
+ * @param terminalManager - Manager responsible for terminal sessions
+ * @param getMainWindow - Function that returns the main BrowserWindow or `null`
+ * @param pythonEnvManager - Manager for Python environment configuration and tooling
  */
 export function setupIpcHandlers(
   agentManager: AgentManager,
@@ -80,6 +81,9 @@ export function setupIpcHandlers(
   // GitHub integration handlers
   registerGithubHandlers(agentManager, getMainWindow);
 
+  // GitLab integration handlers
+  registerGitlabHandlers(agentManager, getMainWindow);
+
   // Auto-build source update handlers
   registerAutobuildSourceHandlers(getMainWindow);
 
@@ -114,6 +118,7 @@ export {
   registerEnvHandlers,
   registerLinearHandlers,
   registerGithubHandlers,
+  registerGitlabHandlers,
   registerAutobuildSourceHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,

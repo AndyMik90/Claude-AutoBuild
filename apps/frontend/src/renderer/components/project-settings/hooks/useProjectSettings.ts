@@ -12,7 +12,8 @@ import type {
   AutoBuildVersionInfo,
   ProjectEnvConfig,
   LinearSyncStatus,
-  GitHubSyncStatus
+  GitHubSyncStatus,
+  GitLabSyncStatus
 } from '../../../../shared/types';
 
 export interface UseProjectSettingsReturn {
@@ -55,6 +56,12 @@ export interface UseProjectSettingsReturn {
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
 
+  // GitLab state
+  showGitLabToken: boolean;
+  setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
+  gitLabConnectionStatus: GitLabSyncStatus | null;
+  isCheckingGitLab: boolean;
+
   // Claude auth state
   isCheckingClaudeAuth: boolean;
   claudeAuthStatus: 'checking' | 'authenticated' | 'not_authenticated' | 'error';
@@ -74,6 +81,15 @@ export interface UseProjectSettingsReturn {
   handleSave: (onClose: () => void) => Promise<void>;
 }
 
+/**
+ * Manages project settings state, environment config, connection statuses, and related action handlers used by the project settings UI.
+ *
+ * Provides local state and setter functions for settings, environment configuration, visibility toggles, connection statuses (GitHub, GitLab, Linear, Claude), loading/saving flags, and action handlers for initialize, update, save environment, Claude setup, and saving settings.
+ *
+ * @param project - The project whose settings and environment are being managed.
+ * @param open - Whether the project settings UI is currently open; controls lazy-loading and status checks that run only when open.
+ * @returns An object containing state values, setters, connection statuses, and action handler functions required by the project settings UI.
+ */
 export function useProjectSettings(
   project: Project,
   open: boolean
@@ -108,6 +124,11 @@ export function useProjectSettings(
   const [showGitHubToken, setShowGitHubToken] = useState(false);
   const [gitHubConnectionStatus, setGitHubConnectionStatus] = useState<GitHubSyncStatus | null>(null);
   const [isCheckingGitHub, setIsCheckingGitHub] = useState(false);
+
+  // GitLab state
+  const [showGitLabToken, setShowGitLabToken] = useState(false);
+  const [gitLabConnectionStatus, setGitLabConnectionStatus] = useState<GitLabSyncStatus | null>(null);
+  const [isCheckingGitLab, setIsCheckingGitLab] = useState(false);
 
   // Claude auth state
   const [isCheckingClaudeAuth, setIsCheckingClaudeAuth] = useState(false);
@@ -235,6 +256,32 @@ export function useProjectSettings(
       checkGitHubConnection();
     }
   }, [envConfig?.githubEnabled, envConfig?.githubToken, envConfig?.githubRepo, project.id]);
+
+  // Check GitLab connection when token/project changes
+  useEffect(() => {
+    const checkGitLabConnection = async () => {
+      if (!envConfig?.gitlabEnabled || !envConfig.gitlabToken || !envConfig.gitlabProject) {
+        setGitLabConnectionStatus(null);
+        return;
+      }
+
+      setIsCheckingGitLab(true);
+      try {
+        const status = await window.electronAPI.checkGitLabConnection(project.id);
+        if (status.success && status.data) {
+          setGitLabConnectionStatus(status.data);
+        }
+      } catch {
+        setGitLabConnectionStatus({ connected: false, error: 'Failed to check connection' });
+      } finally {
+        setIsCheckingGitLab(false);
+      }
+    };
+
+    if (envConfig?.gitlabEnabled && envConfig.gitlabToken && envConfig.gitlabProject) {
+      checkGitLabConnection();
+    }
+  }, [envConfig?.gitlabEnabled, envConfig?.gitlabToken, envConfig?.gitlabProject, project.id]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -389,6 +436,10 @@ export function useProjectSettings(
     toggleSection,
     gitHubConnectionStatus,
     isCheckingGitHub,
+    showGitLabToken,
+    setShowGitLabToken,
+    gitLabConnectionStatus,
+    isCheckingGitLab,
     isCheckingClaudeAuth,
     claudeAuthStatus,
     setClaudeAuthStatus,

@@ -9,7 +9,7 @@ import { SectionRouter } from './sections/SectionRouter';
 import { createHookProxy } from './utils/hookProxyFactory';
 import type { Project } from '../../../shared/types';
 
-export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'github' | 'memory';
+export type ProjectSettingsSection = 'general' | 'claude' | 'linear' | 'github' | 'gitlab' | 'memory';
 
 interface ProjectSettingsContentProps {
   project: Project | undefined;
@@ -51,8 +51,9 @@ export function ProjectSettingsContent({
 }
 
 /**
- * Inner component that uses the project settings hook.
- * Separated to ensure the hook is only called when a project is selected.
+ * Render the project settings UI for a selected project and expose the project's settings hook to the parent when the settings dialog opens.
+ *
+ * @param onHookReady - Callback invoked with a proxy of the internal settings hook when `isOpen` becomes true, and invoked with `null` on cleanup (when the dialog closes or the component unmounts).
  */
 function ProjectSettingsContentInner({
   project,
@@ -93,6 +94,10 @@ function ProjectSettingsContentInner({
     toggleSection: _toggleSection,
     gitHubConnectionStatus,
     isCheckingGitHub,
+    showGitLabToken,
+    setShowGitLabToken,
+    gitLabConnectionStatus,
+    isCheckingGitLab,
     isCheckingClaudeAuth,
     claudeAuthStatus,
     showLinearImportModal,
@@ -141,6 +146,10 @@ function ProjectSettingsContentInner({
         setShowGitHubToken={setShowGitHubToken}
         gitHubConnectionStatus={gitHubConnectionStatus}
         isCheckingGitHub={isCheckingGitHub}
+        showGitLabToken={showGitLabToken}
+        setShowGitLabToken={setShowGitLabToken}
+        gitLabConnectionStatus={gitLabConnectionStatus}
+        isCheckingGitLab={isCheckingGitLab}
         isCheckingClaudeAuth={isCheckingClaudeAuth}
         claudeAuthStatus={claudeAuthStatus}
         linearConnectionStatus={linearConnectionStatus}

@@ -1,10 +1,11 @@
-import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus } from '../../../../shared/types';
+import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { EnvironmentSettings } from '../../project-settings/EnvironmentSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
+import { GitLabIntegration } from '../integrations/GitLabIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -30,6 +31,10 @@ interface SectionRouterProps {
   setShowGitHubToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
+  showGitLabToken: boolean;
+  setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
+  gitLabConnectionStatus: GitLabSyncStatus | null;
+  isCheckingGitLab: boolean;
   isCheckingClaudeAuth: boolean;
   claudeAuthStatus: 'checking' | 'authenticated' | 'not_authenticated' | 'error';
   linearConnectionStatus: LinearSyncStatus | null;
@@ -41,8 +46,12 @@ interface SectionRouterProps {
 }
 
 /**
- * Routes to the appropriate settings section based on activeSection.
- * Handles initialization guards and section-specific configurations.
+ * Render the settings UI for the currently selected section, applying initialization guards where required.
+ *
+ * Renders the appropriate settings section (general, claude, linear, github, gitlab, memory) configured
+ * with the provided project, environment, integration, and visibility props.
+ *
+ * @returns The React element for the active settings section, or `null` if the section is unrecognized.
  */
 export function SectionRouter({
   activeSection,
@@ -66,6 +75,10 @@ export function SectionRouter({
   setShowGitHubToken,
   gitHubConnectionStatus,
   isCheckingGitHub,
+  showGitLabToken,
+  setShowGitLabToken,
+  gitLabConnectionStatus,
+  isCheckingGitLab,
   isCheckingClaudeAuth,
   claudeAuthStatus,
   linearConnectionStatus,
@@ -165,6 +178,30 @@ export function SectionRouter({
               setShowGitHubToken={setShowGitHubToken}
               gitHubConnectionStatus={gitHubConnectionStatus}
               isCheckingGitHub={isCheckingGitHub}
+              projectPath={project.path}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'gitlab':
+      return (
+        <SettingsSection
+          title="GitLab Integration"
+          description="Connect to GitLab for issue tracking"
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title="GitLab Integration"
+            description="Sync with GitLab Issues"
+          >
+            <GitLabIntegration
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
+              showGitLabToken={showGitLabToken}
+              setShowGitLabToken={setShowGitLabToken}
+              gitLabConnectionStatus={gitLabConnectionStatus}
+              isCheckingGitLab={isCheckingGitLab}
               projectPath={project.path}
             />
           </InitializationGuard>
