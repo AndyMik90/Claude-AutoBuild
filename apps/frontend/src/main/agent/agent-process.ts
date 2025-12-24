@@ -191,6 +191,10 @@ export class AgentProcessManager {
     let lastMessage: string | undefined;
     // Collect all output for rate limit detection
     let allOutput = '';
+    
+    // Line buffers to handle split chunks (Node.js data events don't guarantee complete lines)
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
 
     // Emit initial progress
     this.emitter.emit('execution-progress', taskId, {
@@ -200,14 +204,29 @@ export class AgentProcessManager {
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...'
     });
 
-    const processLog = (log: string) => {
-      // Collect output for rate limit detection (keep last 10KB)
-      allOutput = (allOutput + log).slice(-10000);
-      // Parse for phase transitions
-      const phaseUpdate = this.events.parseExecutionPhase(log, currentPhase, isSpecRunner);
+    const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
+    
+    const processLog = (line: string) => {
+      allOutput = (allOutput + line).slice(-10000);
+      
+      const hasMarker = line.includes('__EXEC_PHASE__');
+      if (isDebug && hasMarker) {
+        console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
+      }
+      
+      const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
+
+      if (isDebug && hasMarker) {
+        console.log(`[PhaseDebug:${taskId}] Parse result:`, phaseUpdate);
+      }
 
       if (phaseUpdate) {
         const phaseChanged = phaseUpdate.phase !== currentPhase;
+        
+        if (isDebug) {
+          console.log(`[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`);
+        }
+        
         currentPhase = phaseUpdate.phase;
 
         if (phaseUpdate.currentSubtask) {
@@ -217,14 +236,17 @@ export class AgentProcessManager {
           lastMessage = phaseUpdate.message;
         }
 
-        // Reset phase progress on phase change, otherwise increment
         if (phaseChanged) {
-          phaseProgress = 10; // Start new phase at 10%
+          phaseProgress = 10;
         } else {
-          phaseProgress = Math.min(90, phaseProgress + 5); // Increment within phase
+          phaseProgress = Math.min(90, phaseProgress + 5);
         }
 
         const overallProgress = this.events.calculateOverallProgress(currentPhase, phaseProgress);
+
+        if (isDebug) {
+          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress });
+        }
 
         this.emitter.emit('execution-progress', taskId, {
           phase: currentPhase,
@@ -236,36 +258,53 @@ export class AgentProcessManager {
       }
     };
 
-    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
+    const processBufferedOutput = (buffer: string, newData: string): string => {
+      if (isDebug && newData.includes('__EXEC_PHASE__')) {
+        console.log(`[PhaseDebug:${taskId}] Raw chunk with marker (${newData.length} bytes): "${newData.substring(0, 300)}"`);
+        console.log(`[PhaseDebug:${taskId}] Current buffer before append (${buffer.length} bytes): "${buffer.substring(0, 100)}"`);
+      }
+      
+      buffer += newData;
+      const lines = buffer.split('\n');
+      const remaining = lines.pop() || '';
+      
+      if (isDebug && newData.includes('__EXEC_PHASE__')) {
+        console.log(`[PhaseDebug:${taskId}] Split into ${lines.length} complete lines, remaining buffer: "${remaining.substring(0, 100)}"`);
+      }
+      
+      for (const line of lines) {
+        if (line.trim()) {
+          this.emitter.emit('log', taskId, line + '\n');
+          processLog(line);
+          if (isDebug) {
+            console.log(`[Agent:${taskId}] ${line}`);
+          }
+        }
+      }
+      
+      return remaining;
+    };
+
     childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
-      this.emitter.emit('log', taskId, log);
-      processLog(log);
-      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
-      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
-        console.log(`[Agent:${taskId}] ${log.trim()}`);
-      }
+      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
     });
 
-    // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
     childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString('utf8');
-      // Some Python output goes to stderr (like progress bars)
-      // so we treat it as log, not error
-      this.emitter.emit('log', taskId, log);
-      processLog(log);
-      // Print to console when DEBUG is enabled (visible in pnpm dev terminal)
-      if (['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '')) {
-        console.log(`[Agent:${taskId}] ${log.trim()}`);
-      }
+      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
     });
 
-    // Handle process exit
     childProcess.on('exit', (code: number | null) => {
+      if (stdoutBuffer.trim()) {
+        this.emitter.emit('log', taskId, stdoutBuffer + '\n');
+        processLog(stdoutBuffer);
+      }
+      if (stderrBuffer.trim()) {
+        this.emitter.emit('log', taskId, stderrBuffer + '\n');
+        processLog(stderrBuffer);
+      }
+      
       this.state.deleteProcess(taskId);
 
-      // Check if this specific spawn was killed (vs exited naturally)
-      // If killed, don't emit exit event to prevent race condition with new process
       if (this.state.wasSpawnKilled(spawnId)) {
         this.state.clearKilledSpawn(spawnId);
         return;
@@ -361,14 +400,17 @@ export class AgentProcessManager {
         }
       }
 
-      // Emit final progress
-      const finalPhase = code === 0 ? 'complete' : 'failed';
-      this.emitter.emit('execution-progress', taskId, {
-        phase: finalPhase,
-        phaseProgress: 100,
-        overallProgress: code === 0 ? 100 : this.events.calculateOverallProgress(currentPhase, phaseProgress),
-        message: code === 0 ? 'Process completed successfully' : `Process exited with code ${code}`
-      });
+      // Only emit 'failed' phase on non-zero exit code.
+      // Don't emit 'complete' here - that should only come from Python's
+      // emit_phase(COMPLETE) when QA actually approves the build.
+      if (code !== 0) {
+        this.emitter.emit('execution-progress', taskId, {
+          phase: 'failed',
+          phaseProgress: 0,
+          overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
+          message: `Process exited with code ${code}`
+        });
+      }
 
       this.emitter.emit('exit', taskId, code, processType);
     });

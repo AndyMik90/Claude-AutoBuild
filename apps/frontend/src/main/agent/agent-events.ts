@@ -16,6 +16,27 @@ export class AgentEvents {
       };
     }
 
+    // Don't let fallback text matching regress to earlier phases
+    // Phase order: planning -> coding -> qa_review/qa_fixing -> complete/failed
+    const phaseOrder = ['planning', 'coding', 'qa_review', 'qa_fixing', 'complete', 'failed'];
+    const currentPhaseIndex = phaseOrder.indexOf(currentPhase);
+    
+    // Terminal states can't be changed by fallback matching
+    if (currentPhase === 'complete' || currentPhase === 'failed') {
+      return null;
+    }
+    
+    // Ignore internal task logger events - they're not phase transitions
+    if (log.includes('__TASK_LOG_')) {
+      return null;
+    }
+    
+    // Helper to check if fallback result would be a regression
+    const wouldRegress = (newPhase: string): boolean => {
+      const newPhaseIndex = phaseOrder.indexOf(newPhase);
+      return newPhaseIndex < currentPhaseIndex;
+    };
+
     const lowerLog = log.toLowerCase();
 
     // Spec runner phase detection (all part of "planning")
@@ -43,19 +64,19 @@ export class AgentEvents {
       return { phase: 'planning', message: 'Creating implementation plan...' };
     }
 
-    // Coder agent running
-    if (lowerLog.includes('coder agent') || lowerLog.includes('starting coder')) {
+    // Coder agent running - don't regress from QA phases
+    if (!wouldRegress('coding') && (lowerLog.includes('coder agent') || lowerLog.includes('starting coder'))) {
       return { phase: 'coding', message: 'Implementing code changes...' };
     }
 
-    // Subtask progress detection
+    // Subtask progress detection - only when in coding phase
     const subtaskMatch = log.match(/subtask[:\s]+(\d+(?:\/\d+)?|\w+[-_]\w+)/i);
     if (subtaskMatch && currentPhase === 'coding') {
       return { phase: 'coding', currentSubtask: subtaskMatch[1], message: `Working on subtask ${subtaskMatch[1]}...` };
     }
 
-    // Subtask completion detection
-    if (lowerLog.includes('subtask completed') || lowerLog.includes('subtask done')) {
+    // Subtask completion detection - don't regress from QA phases
+    if (!wouldRegress('coding') && (lowerLog.includes('subtask completed') || lowerLog.includes('subtask done'))) {
       const completedSubtask = log.match(/subtask[:\s]+"?([^"]+)"?\s+completed/i);
       return {
         phase: 'coding',
@@ -74,27 +95,20 @@ export class AgentEvents {
       return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
     }
 
-    // Completion detection - be conservative, require explicit success markers
-    // The AI agent prints "=== BUILD COMPLETE ===" when truly done (from coder.md)
-    // Only trust this pattern, not generic "all subtasks completed" which could be false positive
-    if (lowerLog.includes('=== build complete ===') || lowerLog.includes('qa passed')) {
-      return { phase: 'complete', message: 'Build completed successfully' };
-    }
+    // IMPORTANT: Don't set 'complete' phase via fallback text matching!
+    // The "=== BUILD COMPLETE ===" banner is printed when SUBTASKS finish,
+    // but QA hasn't run yet. Only the structured emit_phase(COMPLETE) from
+    // QA approval (in qa/loop.py) should set the complete phase.
+    // Removing this prevents the brief "Completed" flash before QA review.
 
-    // "All subtasks completed" is informational - don't change phase based on this alone
-    // The coordinator may print this even when subtasks are blocked, so we stay in coding phase
-    // and let the actual implementation_plan.json status drive the UI
-    if (lowerLog.includes('all subtasks completed')) {
-      return { phase: 'coding', message: 'Subtasks marked complete' };
-    }
-
-    // Incomplete build detection - when coordinator exits with pending subtasks
-    if (lowerLog.includes('build incomplete') || lowerLog.includes('subtasks still pending')) {
+    // Incomplete build detection - don't regress from QA phases
+    if (!wouldRegress('coding') && (lowerLog.includes('build incomplete') || lowerLog.includes('subtasks still pending'))) {
       return { phase: 'coding', message: 'Build paused - subtasks still pending' };
     }
 
-    // Error/failure detection
-    if (lowerLog.includes('build failed') || lowerLog.includes('error:') || lowerLog.includes('fatal')) {
+    // Error/failure detection - be specific to avoid false positives from tool errors
+    const isToolError = lowerLog.includes('tool error') || lowerLog.includes('tool_use_error');
+    if (!isToolError && (lowerLog.includes('build failed') || lowerLog.includes('fatal error') || lowerLog.includes('agent failed'))) {
       return { phase: 'failed', message: log.trim().substring(0, 200) };
     }
 

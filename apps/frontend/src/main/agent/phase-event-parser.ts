@@ -36,9 +36,20 @@ export function parsePhaseEvent(line: string): PhaseEvent | null {
     return null;
   }
 
+  if (DEBUG) {
+    console.log('[phase-event-parser] Found marker at index', markerIndex, 'in line:', line.substring(0, 200));
+  }
+
   const jsonStr = line.slice(markerIndex + PHASE_MARKER_PREFIX.length).trim();
   if (!jsonStr) {
+    if (DEBUG) {
+      console.log('[phase-event-parser] Empty JSON string after marker');
+    }
     return null;
+  }
+
+  if (DEBUG) {
+    console.log('[phase-event-parser] Attempting to parse JSON:', jsonStr.substring(0, 200));
   }
 
   try {
@@ -46,7 +57,7 @@ export function parsePhaseEvent(line: string): PhaseEvent | null {
 
     if (typeof payload.phase !== 'string' || !VALID_PHASES.includes(payload.phase)) {
       if (DEBUG) {
-        console.log('[phase-event-parser] Invalid phase:', payload.phase);
+        console.log('[phase-event-parser] Invalid phase:', payload.phase, 'valid phases:', VALID_PHASES);
       }
       return null;
     }
@@ -64,10 +75,15 @@ export function parsePhaseEvent(line: string): PhaseEvent | null {
       event.subtask = payload.subtask;
     }
 
+    if (DEBUG) {
+      console.log('[phase-event-parser] Successfully parsed event:', event);
+    }
+
     return event;
   } catch (e) {
     if (DEBUG) {
-      console.log('[phase-event-parser] JSON parse failed:', jsonStr, e);
+      console.log('[phase-event-parser] JSON parse FAILED for:', jsonStr);
+      console.log('[phase-event-parser] Error:', e);
     }
     return null;
   }

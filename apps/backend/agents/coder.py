@@ -392,11 +392,11 @@ async def run_autonomous_agent(
 
         # Handle session status
         if status == "complete":
-            emit_phase(ExecutionPhase.COMPLETE, "Build completed successfully")
+            # Don't emit COMPLETE here - subtasks are done but QA hasn't run yet
+            # QA loop will emit COMPLETE after actual approval
             print_build_complete_banner(spec_dir)
             status_manager.update(state=BuildState.COMPLETE)
 
-            # End coding phase in task logger
             if task_logger:
                 task_logger.end_phase(
                     LogPhase.CODING,
@@ -404,7 +404,6 @@ async def run_autonomous_agent(
                     message="All subtasks completed successfully",
                 )
 
-            # Notify Linear that build is complete (moving to QA)
             if linear_task and linear_task.task_id:
                 await linear_build_complete(spec_dir)
                 print_status("Linear notified: build complete, ready for QA", "success")

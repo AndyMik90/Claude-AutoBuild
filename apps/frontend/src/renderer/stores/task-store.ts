@@ -72,7 +72,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // Extract subtasks from plan
         const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
           phase.subtasks.map((subtask) => ({
             id: subtask.id,
@@ -84,32 +83,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           }))
         );
 
-        // Determine status and reviewReason based on subtasks
-        // This logic must match the backend (project-store.ts) exactly
-        const allCompleted = subtasks.length > 0 && subtasks.every((s) => s.status === 'completed');
-        const anyInProgress = subtasks.some((s) => s.status === 'in_progress');
         const anyFailed = subtasks.some((s) => s.status === 'failed');
-        const anyCompleted = subtasks.some((s) => s.status === 'completed');
 
         let status: TaskStatus = t.status;
         let reviewReason: ReviewReason | undefined = t.reviewReason;
 
-        if (allCompleted) {
-          // Manual tasks skip AI review and go directly to human review
-          status = t.metadata?.sourceType === 'manual' ? 'human_review' : 'ai_review';
-          if (t.metadata?.sourceType === 'manual') {
-            reviewReason = 'completed';
-          } else {
-            reviewReason = undefined;
-          }
-        } else if (anyFailed) {
-          // Some subtasks failed - needs human attention
+        if (anyFailed) {
           status = 'human_review';
           reviewReason = 'errors';
-        } else if (anyInProgress || anyCompleted) {
-          // Work in progress
-          status = 'in_progress';
-          reviewReason = undefined;
         }
 
         return {
