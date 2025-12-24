@@ -1,6 +1,7 @@
 """Build execution API routes with authentication and per-project configuration."""
 
 import asyncio
+import logging
 import uuid
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from services.credential_service import get_credential_service
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+logger = logging.getLogger(__name__)
 
 
 async def get_project_service(
@@ -164,10 +166,17 @@ async def merge_spec(
             detail="Merge operation timed out",
         )
 
+    output = stdout.decode("utf-8") if stdout else ""
     if process.returncode != 0:
+        logger.error(
+            "Merge failed for spec %s in project %s: %s",
+            spec_id,
+            project_id,
+            output,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Merge failed: {stdout.decode()}",
+            detail="Merge failed. Check server logs for details.",
         )
 
     return {"success": True, "message": "Changes merged successfully"}
@@ -215,10 +224,17 @@ async def discard_spec(
             detail="Discard operation timed out",
         )
 
+    output = stdout.decode("utf-8") if stdout else ""
     if process.returncode != 0:
+        logger.error(
+            "Discard failed for spec %s in project %s: %s",
+            spec_id,
+            project_id,
+            output,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Discard failed: {stdout.decode()}",
+            detail="Discard failed. Check server logs for details.",
         )
 
     return {"success": True, "message": "Changes discarded"}
