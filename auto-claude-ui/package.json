@@ -1,32 +1,22 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.1",
+  "version": "2.5.6",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
-  "homepage": "https://github.com/AndyMik90/Auto-Claude",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
-  },
   "main": "./out/main/index.js",
-  "author": {
-    "name": "Auto Claude Team",
-    "email": "119136210+AndyMik90@users.noreply.github.com"
-  },
+  "author": "Auto Claude Team",
   "license": "AGPL-3.0",
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "dev": "electron-vite dev",
-    "dev:mcp": "electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",
     "start": "electron .",
-    "start:mcp": "electron . --remote-debugging-port=9222",
     "preview": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
     "package:mac": "electron-vite build && electron-builder --mac",
     "package:win": "electron-vite build && electron-builder --win",
     "package:linux": "electron-vite build && electron-builder --linux",
-    "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
-    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
+    "start:packaged:mac": "open dist/mac-arm64/Auto\\ Claude.app || open dist/mac/Auto\\ Claude.app",
+    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -67,6 +57,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
+    "ioredis": "^5.8.2",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
     "react": "^19.2.3",
@@ -86,6 +77,8 @@
     "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/react": "^16.1.0",
+    "@types/ioredis": "^4.28.10",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -116,7 +109,6 @@
       "node-pty": "npm:@lydell/node-pty@^1.1.0"
     },
     "onlyBuiltDependencies": [
-      "@lydell/node-pty",
       "electron",
       "electron-winstaller",
       "esbuild"
@@ -124,8 +116,7 @@
   },
   "build": {
     "appId": "com.autoclaude.ui",
-    "productName": "Auto-Claude",
-    "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
+    "productName": "Auto Claude",
     "publish": [
       {
         "provider": "github",
@@ -159,23 +150,13 @@
           "!**/*.pyc",
           "!**/specs",
           "!**/.venv",
-          "!**/.venv-*",
-          "!**/venv",
-          "!**/.env",
-          "!**/tests",
-          "!**/*.egg-info",
-          "!**/.pytest_cache",
-          "!**/.mypy_cache"
+          "!**/.env"
         ]
       }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "resources/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "resources/entitlements.mac.plist",
-      "entitlementsInherit": "resources/entitlements.mac.plist",
       "target": [
         "dmg",
         "zip"
