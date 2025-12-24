@@ -74,13 +74,13 @@ const projectNavItems: NavItem[] = [
   { id: 'ideation', label: 'Ideation', icon: Lightbulb, shortcut: 'I' },
   { id: 'changelog', label: 'Changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', label: 'Context', icon: BookOpen, shortcut: 'C' },
-  { id: 'code-editor', label: 'Code Editor', icon: Code2 }
+  { id: 'code-editor', label: 'Code Editor', icon: Code2, shortcut: 'X' }
 ];
 
 const toolsNavItems: NavItem[] = [
   { id: 'github-issues', label: 'GitHub Issues', icon: Github, shortcut: 'G' },
   { id: 'worktrees', label: 'Worktrees', icon: GitBranch, shortcut: 'W' },
-  { id: 'unity', label: 'Unity', icon: Box }
+  { id: 'unity', label: 'Unity', icon: Box, shortcut: 'U' }
 ];
 
 export function Sidebar({
