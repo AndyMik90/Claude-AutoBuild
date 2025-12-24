@@ -21,6 +21,7 @@ class ActiveBuild:
     process: asyncio.subprocess.Process
     log_file: Path
     subscribers: list[Callable[[str], None]] = field(default_factory=list)
+    _log_task: Optional[asyncio.Task] = field(default=None)
 
 
 class BuildRunner:
@@ -137,8 +138,8 @@ class BuildRunner:
         self.active_builds[build_key] = active_build
         logger.info(f"Build process started with PID: {process.pid}")
 
-        # Start log streaming task
-        asyncio.create_task(self._stream_logs(build_key))
+        # Start log streaming task (store reference to prevent GC collection)
+        active_build._log_task = asyncio.create_task(self._stream_logs(build_key))
 
         return build
 
