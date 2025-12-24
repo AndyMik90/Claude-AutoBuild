@@ -4,7 +4,6 @@
  * Defines types for the plugin management system including:
  * - Plugin manifest and metadata
  * - Plugin installation and updates
- * - Boilerplate detection and context injection
  * - GitHub authentication for private repos
  */
 
@@ -233,46 +232,6 @@ export interface PluginBackup {
   path: string;
   version: string;
   files: string[];
-}
-
-// ============================================
-// Boilerplate Detection Types
-// ============================================
-
-/** Reference to a boilerplate/plugin in a project */
-export interface BoilerplateReference {
-  pluginId: string;
-  pluginName: string;
-  pluginVersion: string;
-  /** When the project was linked to this plugin */
-  linkedAt: string;
-}
-
-/** Boilerplate project detection result */
-export interface BoilerplateDetectionResult {
-  isBoilerplate: boolean;
-  reference?: BoilerplateReference;
-  /** Associated plugin (if installed) */
-  plugin?: Plugin;
-}
-
-// ============================================
-// Context Injection Types
-// ============================================
-
-/** Plugin context for task creation */
-export interface PluginContext {
-  pluginId: string;
-  pluginName: string;
-  pluginVersion: string;
-  /** Skills available from the plugin */
-  skills: PluginSkill[];
-  /** Patterns available from the plugin */
-  patterns: PluginPattern[];
-  /** Conventions available from the plugin */
-  conventions: PluginConvention[];
-  /** Combined context string for injection */
-  contextString?: string;
 }
 
 // ============================================

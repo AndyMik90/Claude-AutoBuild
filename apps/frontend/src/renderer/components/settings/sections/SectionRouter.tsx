@@ -3,7 +3,6 @@ import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { EnvironmentSettings } from '../../project-settings/EnvironmentSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
-import { BoilerplateTab } from '../../project-settings/BoilerplateTab';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
@@ -194,23 +193,6 @@ export function SectionRouter({
               onToggle={() => {}}
             />
           </InitializationGuard>
-        </SettingsSection>
-      );
-
-    case 'boilerplate':
-      // Only render if project has boilerplate info
-      if (!project.boilerplateInfo) {
-        return null;
-      }
-      return (
-        <SettingsSection
-          title="Boilerplate Plugin"
-          description="View boilerplate skills and check for updates"
-        >
-          <BoilerplateTab
-            project={project}
-            boilerplateInfo={project.boilerplateInfo}
-          />
         </SettingsSection>
       );
 

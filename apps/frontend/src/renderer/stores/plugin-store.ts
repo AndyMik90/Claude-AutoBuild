@@ -5,9 +5,7 @@ import type {
   PluginInstallProgress,
   PluginUpdateCheck,
   PluginUpdateOptions,
-  PluginUpdateResult,
-  PluginContext,
-  BoilerplateDetectionResult
+  PluginUpdateResult
 } from '../../shared/types';
 
 // ============================================
@@ -299,40 +297,6 @@ export async function applyPluginUpdates(
   } finally {
     store.setApplyingUpdate(false);
     store.setUpdateCheck(null);
-  }
-}
-
-/**
- * Detect if a project is a boilerplate project
- */
-export async function detectBoilerplate(
-  projectPath: string
-): Promise<BoilerplateDetectionResult | null> {
-  try {
-    const result = await window.electronAPI.detectBoilerplate(projectPath);
-    if (result.success && result.data) {
-      return result.data;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Get plugin context for a project (for task context injection)
- */
-export async function getPluginContext(
-  projectId: string
-): Promise<PluginContext | null> {
-  try {
-    const result = await window.electronAPI.getPluginContext(projectId);
-    if (result.success && result.data) {
-      return result.data;
-    }
-    return null;
-  } catch {
-    return null;
   }
 }
 

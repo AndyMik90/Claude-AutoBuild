@@ -206,30 +206,13 @@ export function InstallPluginDialog({
     setIsValidatingPath(true);
     setError(null);
 
-    try {
-      // Try to detect if this path contains a plugin by looking for plugin.json
-      const result = await window.electronAPI.detectBoilerplate(localPath.trim());
-
-      if (result.success && result.data?.isBoilerplate) {
-        // Path is valid and contains a plugin
-        setStep('validating');
-        setTimeout(() => {
-          setStep('input');
-          setIsValidatingPath(false);
-        }, 1500);
-      } else {
-        // Path doesn't look like a plugin, but we'll still allow installation
-        // The PluginManager will do the final validation
-        setStep('validating');
-        setTimeout(() => {
-          setStep('input');
-          setIsValidatingPath(false);
-        }, 1500);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to validate path');
+    // Show validating state briefly, then proceed
+    // The PluginManager will do the final validation during installation
+    setStep('validating');
+    setTimeout(() => {
+      setStep('input');
       setIsValidatingPath(false);
-    }
+    }, 1500);
   };
 
   /**

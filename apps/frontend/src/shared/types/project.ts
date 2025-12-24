@@ -2,8 +2,6 @@
  * Project-related types
  */
 
-import type { BoilerplateReference } from './plugin';
-
 export interface Project {
   id: string;
   name: string;
@@ -12,8 +10,6 @@ export interface Project {
   settings: ProjectSettings;
   createdAt: Date;
   updatedAt: Date;
-  /** Boilerplate reference if this project is linked to a boilerplate plugin */
-  boilerplateInfo?: BoilerplateReference;
 }
 
 export interface ProjectSettings {

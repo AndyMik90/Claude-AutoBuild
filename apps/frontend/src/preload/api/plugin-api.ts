@@ -9,8 +9,6 @@ import type {
   PluginUpdateOptions,
   PluginUpdateResult,
   PluginBackup,
-  PluginContext,
-  BoilerplateDetectionResult,
   GitHubTokenValidation,
   GitHubRepoAccess,
   GitAvailability,
@@ -31,12 +29,6 @@ export interface PluginAPI {
   // Plugin Backup & Rollback
   listPluginBackups: (pluginId: string) => Promise<IPCResult<PluginBackup[]>>;
   rollbackPlugin: (pluginId: string, backupPath: string) => Promise<IPCResult<PluginUpdateResult>>;
-
-  // Boilerplate Detection
-  detectBoilerplate: (projectPath: string) => Promise<IPCResult<BoilerplateDetectionResult>>;
-
-  // Plugin Context (for task injection)
-  getPluginContext: (projectId: string) => Promise<IPCResult<PluginContext>>;
 
   // GitHub Validation (for plugin installation)
   validateGitHubToken: (token: string) => Promise<GitHubTokenValidation>;
@@ -74,14 +66,6 @@ export const createPluginAPI = (): PluginAPI => ({
 
   rollbackPlugin: (pluginId: string, backupPath: string): Promise<IPCResult<PluginUpdateResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_ROLLBACK, pluginId, backupPath),
-
-  // Boilerplate Detection
-  detectBoilerplate: (projectPath: string): Promise<IPCResult<BoilerplateDetectionResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_DETECT_BOILERPLATE, projectPath),
-
-  // Plugin Context
-  getPluginContext: (projectId: string): Promise<IPCResult<PluginContext>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_GET_CONTEXT, projectId),
 
   // GitHub Validation
   validateGitHubToken: (token: string): Promise<GitHubTokenValidation> =>

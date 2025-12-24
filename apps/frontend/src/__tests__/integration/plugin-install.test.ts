@@ -181,8 +181,6 @@ describe('Plugin Install Flow Integration', () => {
       expect(IPC_CHANNELS.PLUGIN_UNINSTALL).toBe('plugin:uninstall');
       expect(IPC_CHANNELS.PLUGIN_CHECK_UPDATES).toBe('plugin:checkUpdates');
       expect(IPC_CHANNELS.PLUGIN_APPLY_UPDATES).toBe('plugin:applyUpdates');
-      expect(IPC_CHANNELS.PLUGIN_DETECT_BOILERPLATE).toBe('plugin:detectBoilerplate');
-      expect(IPC_CHANNELS.PLUGIN_GET_CONTEXT).toBe('plugin:getContext');
       expect(IPC_CHANNELS.PLUGIN_INSTALL_PROGRESS).toBe('plugin:installProgress');
       expect(IPC_CHANNELS.PLUGIN_VALIDATE_GITHUB_TOKEN).toBe('plugin:validateGitHubToken');
       expect(IPC_CHANNELS.PLUGIN_CHECK_GITHUB_REPO_ACCESS).toBe('plugin:checkGitHubRepoAccess');

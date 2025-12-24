@@ -6,8 +6,6 @@
  * - Installing plugins from GitHub or local paths
  * - Uninstalling plugins
  * - Checking for updates
- * - Detecting boilerplate projects
- * - Getting plugin context for task creation
  */
 
 import { ipcMain } from 'electron';
@@ -20,8 +18,6 @@ import type {
   PluginInstallOptions,
   PluginInstallResult,
   PluginInstallProgress,
-  BoilerplateDetectionResult,
-  PluginContext,
   PluginUpdateCheck,
   PluginUpdateOptions,
   PluginUpdateResult,
@@ -338,48 +334,6 @@ export function registerPluginHandlers(
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('[plugin-handlers] Failed to apply updates:', message);
-        return { success: false, error: message };
-      }
-    }
-  );
-
-  // ============================================
-  // Boilerplate Detection
-  // ============================================
-
-  /**
-   * Detect if a project is a boilerplate project
-   */
-  ipcMain.handle(
-    IPC_CHANNELS.PLUGIN_DETECT_BOILERPLATE,
-    async (_, projectPath: string): Promise<IPCResult<BoilerplateDetectionResult>> => {
-      try {
-        const result = pluginManager.detectBoilerplate(projectPath);
-        return { success: true, data: result };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[plugin-handlers] Failed to detect boilerplate:', message);
-        return { success: false, error: message };
-      }
-    }
-  );
-
-  // ============================================
-  // Plugin Context
-  // ============================================
-
-  /**
-   * Get plugin context for task creation
-   */
-  ipcMain.handle(
-    IPC_CHANNELS.PLUGIN_GET_CONTEXT,
-    async (_, pluginId: string): Promise<IPCResult<PluginContext | null>> => {
-      try {
-        const context = pluginManager.getPluginContext(pluginId);
-        return { success: true, data: context };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[plugin-handlers] Failed to get plugin context:', message);
         return { success: false, error: message };
       }
     }

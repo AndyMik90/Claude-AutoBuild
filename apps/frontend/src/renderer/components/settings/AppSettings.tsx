@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Settings,
@@ -18,8 +18,7 @@ import {
   Monitor,
   Globe,
   Bug,
-  Puzzle,
-  Layers
+  Puzzle
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -76,19 +75,13 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'developer', icon: Bug }
 ];
 
-const baseProjectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
+const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'general', icon: Settings2 },
   { id: 'claude', icon: Key },
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'memory', icon: Database }
 ];
-
-const boilerplateNavItemConfig: NavItemConfig<ProjectSettingsSection> = {
-  id: 'boilerplate',
-  icon: Layers
-};
-
 /**
  * Main application settings dialog container
  * Coordinates app and project settings sections
@@ -121,20 +114,6 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-
-  // Compute project nav items - include boilerplate tab only for boilerplate projects
-  const projectNavItemsConfig = useMemo(() => {
-    if (selectedProject?.boilerplateInfo) {
-      return [...baseProjectNavItemsConfig, boilerplateNavItemConfig];
-    }
-    return baseProjectNavItemsConfig;
-  }, [selectedProject?.boilerplateInfo]);
-
-  useEffect(() => {
-    if (projectSection === 'boilerplate' && !selectedProject?.boilerplateInfo) {
-      setProjectSection('general');
-    }
-  }, [projectSection, selectedProject?.boilerplateInfo]);
 
   // Project settings hook state (lifted from child)
   const [projectSettingsHook, setProjectSettingsHook] = useState<UseProjectSettingsReturn | null>(null);

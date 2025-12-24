@@ -4,8 +4,6 @@
  * Tests the core plugin management functionality:
  * - Loading and saving manifest
  * - Registering and unregistering plugins
- * - Detecting boilerplate projects
- * - Providing plugin context for task creation
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
@@ -96,18 +94,6 @@ function createTestPlugin(
   writeFileSync(
     path.join(pluginDir, 'plugin.json'),
     JSON.stringify(metadata, null, 2)
-  );
-}
-
-// Create a boilerplate reference file
-function createBoilerplateRef(
-  projectDir: string,
-  reference: Record<string, unknown>
-): void {
-  mkdirSync(projectDir, { recursive: true });
-  writeFileSync(
-    path.join(projectDir, 'boilerplate-ref.json'),
-    JSON.stringify(reference, null, 2)
   );
 }
 
@@ -410,180 +396,6 @@ describe('PluginManager', () => {
       const result = await manager.unregisterPlugin('nonexistent');
 
       expect(result).toBe(false);
-    });
-  });
-
-  describe('detectBoilerplate', () => {
-    it('should detect boilerplate-ref.json in project', async () => {
-      const reference = {
-        pluginId: 'quik-nation-boilerplate',
-        pluginName: 'Quik Nation AI Boilerplate',
-        pluginVersion: '1.8.0',
-        linkedAt: '2024-01-01T00:00:00.000Z'
-      };
-      createBoilerplateRef(TEST_PROJECT_DIR, reference);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-
-      const result = manager.detectBoilerplate(TEST_PROJECT_DIR);
-
-      expect(result.isBoilerplate).toBe(true);
-      expect(result.reference).toMatchObject({
-        pluginId: 'quik-nation-boilerplate',
-        pluginName: 'Quik Nation AI Boilerplate',
-        pluginVersion: '1.8.0'
-      });
-    });
-
-    it('should detect plugin.json in project', async () => {
-      const metadata = createTestPluginMetadata({
-        id: 'boilerplate-project',
-        name: 'Boilerplate Project'
-      });
-      createTestPlugin(TEST_PROJECT_DIR, metadata);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-
-      const result = manager.detectBoilerplate(TEST_PROJECT_DIR);
-
-      expect(result.isBoilerplate).toBe(true);
-      expect(result.reference?.pluginId).toBe('boilerplate-project');
-    });
-
-    it('should link to installed plugin if detected', async () => {
-      // Install plugin first
-      const metadata = createTestPluginMetadata({ id: 'my-plugin' });
-      const sourceDir = path.join(TEST_DIR, 'source-plugin');
-      createTestPlugin(sourceDir, metadata);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-      await manager.registerLocalPlugin(sourceDir);
-
-      // Create project with reference to installed plugin
-      const reference = {
-        pluginId: 'my-plugin',
-        pluginName: 'Test Plugin',
-        pluginVersion: '1.0.0',
-        linkedAt: new Date().toISOString()
-      };
-      createBoilerplateRef(TEST_PROJECT_DIR, reference);
-
-      const result = manager.detectBoilerplate(TEST_PROJECT_DIR);
-
-      expect(result.isBoilerplate).toBe(true);
-      expect(result.plugin).toBeDefined();
-      expect(result.plugin?.id).toBe('my-plugin');
-    });
-
-    it('should return isBoilerplate false for non-boilerplate project', async () => {
-      // Create empty project directory
-      mkdirSync(TEST_PROJECT_DIR, { recursive: true });
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-
-      const result = manager.detectBoilerplate(TEST_PROJECT_DIR);
-
-      expect(result.isBoilerplate).toBe(false);
-      expect(result.reference).toBeUndefined();
-      expect(result.plugin).toBeUndefined();
-    });
-
-    it('should handle corrupted boilerplate-ref.json gracefully', async () => {
-      mkdirSync(TEST_PROJECT_DIR, { recursive: true });
-      writeFileSync(
-        path.join(TEST_PROJECT_DIR, 'boilerplate-ref.json'),
-        'invalid json {{{'
-      );
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-
-      const result = manager.detectBoilerplate(TEST_PROJECT_DIR);
-
-      // Should not crash, just return false
-      expect(result.isBoilerplate).toBe(false);
-    });
-  });
-
-  describe('getPluginContext', () => {
-    it('should return plugin context with skills, patterns, conventions', async () => {
-      const metadata = createTestPluginMetadata();
-      const sourceDir = path.join(TEST_DIR, 'source-plugin');
-      createTestPlugin(sourceDir, metadata);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-      await manager.registerLocalPlugin(sourceDir);
-
-      const context = manager.getPluginContext('test-plugin');
-
-      expect(context).not.toBeNull();
-      expect(context?.pluginId).toBe('test-plugin');
-      expect(context?.pluginName).toBe('Test Plugin');
-      expect(context?.pluginVersion).toBe('1.0.0');
-      expect(context?.skills).toHaveLength(2);
-      expect(context?.patterns).toHaveLength(1);
-      expect(context?.conventions).toHaveLength(1);
-    });
-
-    it('should build context string for injection', async () => {
-      const metadata = createTestPluginMetadata();
-      const sourceDir = path.join(TEST_DIR, 'source-plugin');
-      createTestPlugin(sourceDir, metadata);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-      await manager.registerLocalPlugin(sourceDir);
-
-      const context = manager.getPluginContext('test-plugin');
-
-      expect(context?.contextString).toContain('# Available Skills (2)');
-      expect(context?.contextString).toContain('Test Skill 1');
-      expect(context?.contextString).toContain('# Available Patterns (1)');
-      expect(context?.contextString).toContain('Test Pattern');
-      expect(context?.contextString).toContain('# Conventions (1)');
-      expect(context?.contextString).toContain('Test Convention');
-    });
-
-    it('should return null for non-existent plugin', async () => {
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-
-      const context = manager.getPluginContext('nonexistent');
-
-      expect(context).toBeNull();
-    });
-
-    it('should handle plugin with no content gracefully', async () => {
-      const metadata = createTestPluginMetadata({
-        content: undefined
-      });
-      const sourceDir = path.join(TEST_DIR, 'source-plugin');
-      createTestPlugin(sourceDir, metadata);
-
-      const { PluginManager } = await import('../PluginManager');
-      const manager = new PluginManager();
-      await manager.initialize();
-      await manager.registerLocalPlugin(sourceDir);
-
-      const context = manager.getPluginContext('test-plugin');
-
-      expect(context).not.toBeNull();
-      expect(context?.skills).toEqual([]);
-      expect(context?.patterns).toEqual([]);
-      expect(context?.conventions).toEqual([]);
     });
   });
 

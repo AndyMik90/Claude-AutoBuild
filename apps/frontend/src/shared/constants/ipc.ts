@@ -309,8 +309,6 @@ export const IPC_CHANNELS = {
   PLUGIN_UNINSTALL: 'plugin:uninstall',
   PLUGIN_CHECK_UPDATES: 'plugin:checkUpdates',
   PLUGIN_APPLY_UPDATES: 'plugin:applyUpdates',
-  PLUGIN_DETECT_BOILERPLATE: 'plugin:detectBoilerplate',
-  PLUGIN_GET_CONTEXT: 'plugin:getContext',
   PLUGIN_VALIDATE_GITHUB_TOKEN: 'plugin:validateGitHubToken',
   PLUGIN_CHECK_GITHUB_REPO_ACCESS: 'plugin:checkGitHubRepoAccess',
   PLUGIN_CHECK_GIT_AVAILABILITY: 'plugin:checkGitAvailability',

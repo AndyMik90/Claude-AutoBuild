@@ -10,8 +10,6 @@ import type {
   IPCResult,
   PluginUpdateCheck,
   PluginUpdateResult,
-  PluginContext,
-  BoilerplateDetectionResult,
   GitHubTokenValidation,
   GitHubRepoAccess,
   GitAvailability
@@ -59,20 +57,6 @@ export const pluginMock = {
   rollbackPlugin: async (_pluginId: string, _backupPath: string): Promise<IPCResult<PluginUpdateResult>> => ({
     success: false,
     error: 'Plugin rollback not available in browser mode'
-  }),
-
-  // Boilerplate Detection
-  detectBoilerplate: async (): Promise<IPCResult<BoilerplateDetectionResult>> => ({
-    success: true,
-    data: {
-      isBoilerplate: false
-    }
-  }),
-
-  // Plugin Context
-  getPluginContext: async (): Promise<IPCResult<PluginContext>> => ({
-    success: true
-    // data is optional in IPCResult, omitting means no plugin context
   }),
 
   // GitHub Validation (for plugin installation)

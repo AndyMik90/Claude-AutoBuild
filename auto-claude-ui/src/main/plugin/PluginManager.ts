@@ -7,12 +7,8 @@ import type {
   PluginManifestEntry,
   PluginMetadata,
   PluginContent,
-  PluginInstallOptions,
   PluginInstallResult,
-  PluginSourceType,
-  BoilerplateDetectionResult,
-  BoilerplateReference,
-  PluginContext
+  PluginSourceType
 } from '../../shared/types';
 
 /** Manifest version for future compatibility */
@@ -20,7 +16,6 @@ const MANIFEST_VERSION = '1.0.0';
 
 /** File names for plugin detection */
 const PLUGIN_CONFIG_FILE = 'plugin.json';
-const BOILERPLATE_REF_FILE = 'boilerplate-ref.json';
 
 /**
  * Plugin Manager
@@ -28,8 +23,6 @@ const BOILERPLATE_REF_FILE = 'boilerplate-ref.json';
  * Manages the lifecycle of plugins in Auto Claude:
  * - Loading and saving the plugin manifest
  * - Registering and unregistering plugins
- * - Detecting boilerplate projects
- * - Providing plugin context for task creation
  *
  * Plugins are stored in ~/.auto-claude/plugins/ with a manifest.json
  * that tracks all installed plugins.
@@ -380,111 +373,6 @@ export class PluginManager {
       console.error(`[PluginManager] Failed to unregister plugin ${pluginId}:`, error);
       return false;
     }
-  }
-
-  /**
-   * Detect if a project is a boilerplate project
-   * Checks for plugin.json or boilerplate-ref.json in the project root
-   */
-  detectBoilerplate(projectPath: string): BoilerplateDetectionResult {
-    // Check for boilerplate-ref.json first (indicates project was created from boilerplate)
-    const refPath = path.join(projectPath, BOILERPLATE_REF_FILE);
-    if (existsSync(refPath)) {
-      try {
-        const content = readFileSync(refPath, 'utf-8');
-        const reference = JSON.parse(content) as BoilerplateReference;
-
-        // Find the associated plugin
-        const plugin = this.plugins.get(reference.pluginId);
-
-        return {
-          isBoilerplate: true,
-          reference,
-          plugin
-        };
-      } catch (error) {
-        console.error('[PluginManager] Error reading boilerplate-ref.json:', error);
-      }
-    }
-
-    // Check for plugin.json (indicates project IS a boilerplate/plugin)
-    const pluginPath = path.join(projectPath, PLUGIN_CONFIG_FILE);
-    if (existsSync(pluginPath)) {
-      try {
-        const content = readFileSync(pluginPath, 'utf-8');
-        const metadata = JSON.parse(content) as PluginMetadata;
-
-        // Create a reference from the plugin.json
-        const reference: BoilerplateReference = {
-          pluginId: metadata.id,
-          pluginName: metadata.name,
-          pluginVersion: metadata.version,
-          linkedAt: new Date().toISOString()
-        };
-
-        // Find if this plugin is installed
-        const plugin = this.plugins.get(metadata.id);
-
-        return {
-          isBoilerplate: true,
-          reference,
-          plugin
-        };
-      } catch (error) {
-        console.error('[PluginManager] Error reading plugin.json:', error);
-      }
-    }
-
-    return { isBoilerplate: false };
-  }
-
-  /**
-   * Get plugin context for task creation
-   * Returns the skills, patterns, and conventions from a plugin
-   */
-  getPluginContext(pluginId: string): PluginContext | null {
-    const plugin = this.plugins.get(pluginId);
-    if (!plugin) return null;
-
-    const content = plugin.metadata.content || {
-      skills: [],
-      patterns: [],
-      conventions: []
-    };
-
-    // Build context string for injection
-    const contextParts: string[] = [];
-
-    if (content.skills.length > 0) {
-      contextParts.push(`# Available Skills (${content.skills.length})`);
-      for (const skill of content.skills) {
-        contextParts.push(`- ${skill.name}: ${skill.description}`);
-      }
-    }
-
-    if (content.patterns.length > 0) {
-      contextParts.push(`\n# Available Patterns (${content.patterns.length})`);
-      for (const pattern of content.patterns) {
-        contextParts.push(`- ${pattern.name}: ${pattern.description}`);
-      }
-    }
-
-    if (content.conventions.length > 0) {
-      contextParts.push(`\n# Conventions (${content.conventions.length})`);
-      for (const convention of content.conventions) {
-        contextParts.push(`- ${convention.name}: ${convention.description}`);
-      }
-    }
-
-    return {
-      pluginId: plugin.id,
-      pluginName: plugin.name,
-      pluginVersion: plugin.version,
-      skills: content.skills,
-      patterns: content.patterns,
-      conventions: content.conventions,
-      contextString: contextParts.join('\n')
-    };
   }
 
   /**
