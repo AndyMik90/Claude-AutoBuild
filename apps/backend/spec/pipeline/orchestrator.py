@@ -173,10 +173,11 @@ class SpecOrchestrator:
                 return
 
             # Summarize the output
+            # Use sonnet shorthand - will resolve via API Profile if configured
             summary = await summarize_phase_output(
                 phase_name,
                 phase_output,
-                model="claude-sonnet-4-5-20250929",  # Use Sonnet for efficiency
+                model="sonnet",
                 target_words=500,
             )
 
