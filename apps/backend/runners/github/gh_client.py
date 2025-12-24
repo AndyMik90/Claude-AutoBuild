@@ -41,6 +41,12 @@ class GHCommandError(Exception):
     pass
 
 
+class PRTooLargeError(Exception):
+    """Raised when PR diff exceeds GitHub's 20,000 line limit."""
+
+    pass
+
+
 @dataclass
 class GHCommandResult:
     """Result of a gh CLI command execution."""
@@ -341,10 +347,27 @@ class GHClient:
 
         Returns:
             Unified diff string
+
+        Raises:
+            PRTooLargeError: If PR exceeds GitHub's 20,000 line diff limit
         """
         args = ["pr", "diff", str(pr_number)]
-        result = await self.run(args)
-        return result.stdout
+        try:
+            result = await self.run(args)
+            return result.stdout
+        except GHCommandError as e:
+            # Check if error is due to PR being too large
+            error_msg = str(e)
+            if (
+                "diff exceeded the maximum number of lines" in error_msg
+                or "HTTP 406" in error_msg
+            ):
+                raise PRTooLargeError(
+                    f"PR #{pr_number} exceeds GitHub's 20,000 line diff limit. "
+                    "Consider splitting into smaller PRs or review files individually."
+                ) from e
+            # Re-raise other command errors
+            raise
 
     async def pr_review(
         self,

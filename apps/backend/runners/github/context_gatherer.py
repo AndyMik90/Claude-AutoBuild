@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
-    from .gh_client import GHClient
+    from .gh_client import GHClient, PRTooLargeError
 except (ImportError, ValueError, SystemError):
-    from gh_client import GHClient
+    from gh_client import GHClient, PRTooLargeError
 
 
 @dataclass
@@ -99,6 +99,8 @@ class PRContext:
     total_deletions: int = 0
     # NEW: AI tool comments for triage
     ai_bot_comments: list[AIBotComment] = field(default_factory=list)
+    # Flag indicating if full diff was skipped (PR > 20K lines)
+    diff_truncated: bool = False
 
 
 class PRContextGatherer:
@@ -153,6 +155,9 @@ class PRContextGatherer:
         ai_bot_comments = await self._fetch_ai_bot_comments()
         print(f"[Context] Fetched {len(ai_bot_comments)} AI bot comments", flush=True)
 
+        # Check if diff was truncated (empty diff but files were changed)
+        diff_truncated = len(diff) == 0 and len(changed_files) > 0
+
         return PRContext(
             pr_number=self.pr_number,
             title=pr_data["title"],
@@ -169,6 +174,7 @@ class PRContextGatherer:
             total_additions=pr_data.get("additions", 0),
             total_deletions=pr_data.get("deletions", 0),
             ai_bot_comments=ai_bot_comments,
+            diff_truncated=diff_truncated,
         )
 
     async def _fetch_pr_metadata(self) -> dict:
@@ -296,8 +302,21 @@ class PRContextGatherer:
         return ""
 
     async def _fetch_pr_diff(self) -> str:
-        """Fetch complete PR diff from GitHub."""
-        return await self.gh_client.pr_diff(self.pr_number)
+        """
+        Fetch complete PR diff from GitHub.
+
+        Returns empty string if PR exceeds GitHub's 20K line limit.
+        In this case, individual file patches from ChangedFile.patch should be used instead.
+        """
+        try:
+            return await self.gh_client.pr_diff(self.pr_number)
+        except PRTooLargeError as e:
+            print(f"[Context] Warning: {str(e)}", flush=True)
+            print(
+                "[Context] Skipping full diff - will use individual file patches",
+                flush=True,
+            )
+            return ""
 
     async def _fetch_commits(self) -> list[dict]:
         """Fetch commit history for this PR."""
