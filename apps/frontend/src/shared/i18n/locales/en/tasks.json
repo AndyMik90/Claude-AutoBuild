@@ -1,0 +1,37 @@
+{
+  "status": {
+    "backlog": "Planning",
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "review": "Review",
+    "complete": "Complete",
+    "archived": "Archived"
+  },
+  "actions": {
+    "start": "Start",
+    "stop": "Stop",
+    "recover": "Recover",
+    "resume": "Resume",
+    "archive": "Archive",
+    "delete": "Delete",
+    "view": "View Details"
+  },
+  "labels": {
+    "running": "Running",
+    "aiReview": "AI Review",
+    "needsReview": "Needs Review",
+    "pending": "Pending",
+    "stuck": "Stuck",
+    "incomplete": "Incomplete",
+    "recovering": "Recovering..."
+  },
+  "creation": {
+    "title": "Create New Task",
+    "description": "Describe what you want to build",
+    "placeholder": "Describe your task..."
+  },
+  "empty": {
+    "title": "No tasks yet",
+    "description": "Create your first task to get started"
+  }
+}

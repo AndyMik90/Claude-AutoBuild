@@ -1,4 +1,5 @@
 import { FolderOpen, FolderPlus, Clock, ChevronRight, Folder } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
@@ -18,6 +19,8 @@ export function WelcomeScreen({
   onOpenProject,
   onSelectProject
 }: WelcomeScreenProps) {
+  const { t } = useTranslation(['welcome', 'common']);
+
   // Sort projects by updatedAt (most recent first)
   const recentProjects = [...projects]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -30,10 +33,10 @@ export function WelcomeScreen({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('common:time.justNow');
+    if (diffMins < 60) return t('common:time.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('common:time.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('common:time.daysAgo', { count: diffDays });
     return new Date(date).toLocaleDateString();
   };
 
@@ -43,10 +46,10 @@ export function WelcomeScreen({
         {/* Hero Section */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-foreground tracking-tight">
-            Welcome to Auto Claude
+            {t('welcome:hero.title')}
           </h1>
           <p className="mt-3 text-muted-foreground">
-            Build software autonomously with AI-powered agents
+            {t('welcome:hero.subtitle')}
           </p>
         </div>
 
@@ -58,7 +61,7 @@ export function WelcomeScreen({
             className="gap-2 px-6"
           >
             <FolderPlus className="h-5 w-5" />
-            New Project
+            {t('welcome:actions.newProject')}
           </Button>
           <Button
             size="lg"
@@ -67,7 +70,7 @@ export function WelcomeScreen({
             className="gap-2 px-6"
           >
             <FolderOpen className="h-5 w-5" />
-            Open Project
+            {t('welcome:actions.openProject')}
           </Button>
         </div>
 
@@ -77,7 +80,7 @@ export function WelcomeScreen({
             <div className="p-4 pb-3">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                Recent Projects
+                {t('welcome:recentProjects.title')}
               </div>
             </div>
             <Separator />
@@ -126,9 +129,9 @@ export function WelcomeScreen({
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20 mx-auto mb-4">
               <Folder className="h-6 w-6 text-accent-foreground" />
             </div>
-            <h3 className="font-medium text-foreground mb-1">No projects yet</h3>
+            <h3 className="font-medium text-foreground mb-1">{t('welcome:recentProjects.empty')}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Create a new project or open an existing one to get started
+              {t('welcome:recentProjects.emptyDescription')}
             </p>
           </Card>
         )}

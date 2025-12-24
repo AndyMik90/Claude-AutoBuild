@@ -1,0 +1,66 @@
+{
+  "title": "Settings",
+  "tabs": {
+    "app": "App Settings",
+    "project": "Project Settings"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize how Auto Claude looks"
+    },
+    "display": {
+      "title": "Display",
+      "description": "Adjust the size of UI elements"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Choose your preferred language"
+    },
+    "agent": {
+      "title": "Agent Settings",
+      "description": "Default model and framework"
+    },
+    "paths": {
+      "title": "Paths",
+      "description": "Python and framework paths"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "description": "API keys & Claude accounts"
+    },
+    "updates": {
+      "title": "Updates",
+      "description": "Auto Claude updates"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Alert preferences"
+    }
+  },
+  "language": {
+    "label": "Interface Language",
+    "description": "Select the language for the application interface"
+  },
+  "scale": {
+    "presets": "Scale Presets",
+    "presetsDescription": "Quick scale options for common preferences",
+    "fineTune": "Fine-tune Scale",
+    "fineTuneDescription": "Adjust from 75% to 200% in 5% increments",
+    "default": "Default",
+    "comfortable": "Comfortable",
+    "large": "Large",
+    "preview": "Changes preview immediately. Click Save Settings to persist."
+  },
+  "general": {
+    "agentFramework": "Agent Framework",
+    "trioAutoPath": "Auto Claude Path",
+    "pythonPath": "Python Path",
+    "autoNameTerminals": "Automatically name terminals",
+    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
+  },
+  "actions": {
+    "save": "Save Settings",
+    "rerunWizard": "Re-run Setup Wizard"
+  }
+}

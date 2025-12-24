@@ -1,0 +1,43 @@
+{
+  "buttons": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "skip": "Passer",
+    "next": "Suivant",
+    "back": "Retour",
+    "close": "Fermer",
+    "initialize": "Initialiser",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "retry": "Réessayer",
+    "create": "Créer",
+    "open": "Ouvrir",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "refresh": "Actualiser",
+    "merge": "Fusionner",
+    "discard": "Abandonner"
+  },
+  "labels": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "initializing": "Initialisation...",
+    "saving": "Enregistrement...",
+    "noData": "Aucune donnée",
+    "optional": "Optionnel",
+    "required": "Requis"
+  },
+  "time": {
+    "justNow": "À l'instant",
+    "minutesAgo": "Il y a {{count}} min",
+    "hoursAgo": "Il y a {{count}}h",
+    "daysAgo": "Il y a {{count}}j"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite",
+    "networkError": "Erreur réseau",
+    "notFound": "Non trouvé",
+    "unauthorized": "Non autorisé"
+  }
+}

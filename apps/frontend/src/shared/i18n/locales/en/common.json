@@ -1,0 +1,43 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "close": "Close",
+    "initialize": "Initialize",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "create": "Create",
+    "open": "Open",
+    "start": "Start",
+    "stop": "Stop",
+    "refresh": "Refresh",
+    "merge": "Merge",
+    "discard": "Discard"
+  },
+  "labels": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "initializing": "Initializing...",
+    "saving": "Saving...",
+    "noData": "No data",
+    "optional": "Optional",
+    "required": "Required"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "networkError": "Network error",
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized"
+  }
+}

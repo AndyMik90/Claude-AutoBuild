@@ -1,0 +1,37 @@
+{
+  "status": {
+    "backlog": "Planification",
+    "todo": "À faire",
+    "in_progress": "En cours",
+    "review": "Révision",
+    "complete": "Terminé",
+    "archived": "Archivé"
+  },
+  "actions": {
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "recover": "Récupérer",
+    "resume": "Reprendre",
+    "archive": "Archiver",
+    "delete": "Supprimer",
+    "view": "Voir les détails"
+  },
+  "labels": {
+    "running": "En cours",
+    "aiReview": "Révision IA",
+    "needsReview": "À réviser",
+    "pending": "En attente",
+    "stuck": "Bloqué",
+    "incomplete": "Incomplet",
+    "recovering": "Récupération..."
+  },
+  "creation": {
+    "title": "Créer une nouvelle tâche",
+    "description": "Décrivez ce que vous voulez construire",
+    "placeholder": "Décrivez votre tâche..."
+  },
+  "empty": {
+    "title": "Aucune tâche",
+    "description": "Créez votre première tâche pour commencer"
+  }
+}

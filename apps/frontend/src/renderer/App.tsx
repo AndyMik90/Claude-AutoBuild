@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Settings2, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   DndContext,
@@ -184,6 +185,14 @@ export function App() {
       setIsOnboardingWizardOpen(true);
     }
   }, [settingsHaveLoaded, settings.onboardingCompleted]);
+
+  // Sync i18n language with settings
+  const { t, i18n } = useTranslation('dialogs');
+  useEffect(() => {
+    if (settings.language && settings.language !== i18n.language) {
+      i18n.changeLanguage(settings.language);
+    }
+  }, [settings.language, i18n]);
 
   // Listen for open-app-settings events (e.g., from project settings)
   useEffect(() => {
@@ -746,19 +755,19 @@ export function App() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Initialize Auto Claude
+                {t('initialize.title')}
               </DialogTitle>
               <DialogDescription>
-                This project doesn't have Auto Claude initialized. Would you like to set it up now?
+                {t('initialize.description')}
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <div className="rounded-lg bg-muted p-4 text-sm">
-                <p className="font-medium mb-2">This will:</p>
+                <p className="font-medium mb-2">{t('initialize.willDo')}</p>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Create a <code className="text-xs bg-background px-1 py-0.5 rounded">.auto-claude</code> folder in your project</li>
-                  <li>Copy the Auto Claude framework files</li>
-                  <li>Set up the specs directory for your tasks</li>
+                  <li>{t('initialize.createFolder')}</li>
+                  <li>{t('initialize.copyFramework')}</li>
+                  <li>{t('initialize.setupSpecs')}</li>
                 </ul>
               </div>
               {!settings.autoBuildPath && (
@@ -766,9 +775,9 @@ export function App() {
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                     <div>
-                      <p className="font-medium text-warning">Source path not configured</p>
+                      <p className="font-medium text-warning">{t('initialize.sourcePathNotConfigured')}</p>
                       <p className="text-muted-foreground mt-1">
-                        Please set the Auto Claude source path in App Settings before initializing.
+                        {t('initialize.sourcePathNotConfiguredDescription')}
                       </p>
                     </div>
                   </div>
@@ -779,7 +788,7 @@ export function App() {
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                     <div>
-                      <p className="font-medium text-destructive">Initialization Failed</p>
+                      <p className="font-medium text-destructive">{t('initialize.initFailed')}</p>
                       <p className="text-muted-foreground mt-1">
                         {initError}
                       </p>
@@ -790,7 +799,7 @@ export function App() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
-                Skip
+                {t('common:buttons.skip', { ns: 'common' })}
               </Button>
               <Button
                 onClick={handleInitialize}
@@ -799,12 +808,12 @@ export function App() {
                 {isInitializing ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Initializing...
+                    {t('common:labels.initializing', { ns: 'common' })}
                   </>
                 ) : (
                   <>
                     <Download className="mr-2 h-4 w-4" />
-                    Initialize
+                    {t('common:buttons.initialize', { ns: 'common' })}
                   </>
                 )}
               </Button>

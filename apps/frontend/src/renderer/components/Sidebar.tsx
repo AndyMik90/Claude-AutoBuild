@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Settings,
@@ -59,24 +60,24 @@ interface SidebarProps {
 
 interface NavItem {
   id: SidebarView;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   shortcut?: string;
 }
 
 const projectNavItems: NavItem[] = [
-  { id: 'kanban', label: 'Kanban Board', icon: LayoutGrid, shortcut: 'K' },
-  { id: 'terminals', label: 'Agent Terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'insights', label: 'Insights', icon: Sparkles, shortcut: 'N' },
-  { id: 'roadmap', label: 'Roadmap', icon: Map, shortcut: 'D' },
-  { id: 'ideation', label: 'Ideation', icon: Lightbulb, shortcut: 'I' },
-  { id: 'changelog', label: 'Changelog', icon: FileText, shortcut: 'L' },
-  { id: 'context', label: 'Context', icon: BookOpen, shortcut: 'C' }
+  { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
+  { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
+  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
+  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
+  { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
+  { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
+  { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' }
 ];
 
 const toolsNavItems: NavItem[] = [
-  { id: 'github-issues', label: 'GitHub Issues', icon: Github, shortcut: 'G' },
-  { id: 'worktrees', label: 'Worktrees', icon: GitBranch, shortcut: 'W' }
+  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
 ];
 
 export function Sidebar({
@@ -85,6 +86,7 @@ export function Sidebar({
   activeView = 'kanban',
   onViewChange
 }: SidebarProps) {
+  const { t } = useTranslation('navigation');
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
@@ -269,7 +271,7 @@ export function Sidebar({
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 text-left">{item.label}</span>
+        <span className="flex-1 text-left">{t(item.labelKey)}</span>
         {item.shortcut && (
           <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
             {item.shortcut}
@@ -298,7 +300,7 @@ export function Sidebar({
             {/* Project Section */}
             <div className="mb-6">
               <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Project
+                {t('sections.project')}
               </h3>
               <nav className="space-y-1">
                 {projectNavItems.map(renderNavItem)}
@@ -308,7 +310,7 @@ export function Sidebar({
             {/* Tools Section */}
             <div>
               <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Tools
+                {t('sections.tools')}
               </h3>
               <nav className="space-y-1">
                 {toolsNavItems.map(renderNavItem)}
@@ -335,10 +337,10 @@ export function Sidebar({
                   onClick={onSettingsClick}
                 >
                   <Settings className="h-4 w-4" />
-                  Settings
+                  {t('actions.settings')}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">Application Settings</TooltipContent>
+              <TooltipContent side="top">{t('tooltips.settings')}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -350,7 +352,7 @@ export function Sidebar({
                   <HelpCircle className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">Help & Feedback</TooltipContent>
+              <TooltipContent side="top">{t('tooltips.help')}</TooltipContent>
             </Tooltip>
           </div>
 
@@ -361,11 +363,11 @@ export function Sidebar({
             disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
           >
             <Plus className="mr-2 h-4 w-4" />
-            New Task
+            {t('actions.newTask')}
           </Button>
           {selectedProject && !selectedProject.autoBuildPath && (
             <p className="mt-2 text-xs text-muted-foreground text-center">
-              Initialize Auto Claude to create tasks
+              {t('messages.initializeToCreateTasks')}
             </p>
           )}
         </div>

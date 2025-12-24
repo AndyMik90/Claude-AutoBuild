@@ -1,0 +1,66 @@
+{
+  "title": "Paramètres",
+  "tabs": {
+    "app": "Paramètres de l'app",
+    "project": "Paramètres du projet"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Apparence",
+      "description": "Personnalisez l'apparence de Auto Claude"
+    },
+    "display": {
+      "title": "Affichage",
+      "description": "Ajustez la taille des éléments de l'interface"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez votre langue préférée"
+    },
+    "agent": {
+      "title": "Paramètres de l'agent",
+      "description": "Modèle par défaut et framework"
+    },
+    "paths": {
+      "title": "Chemins",
+      "description": "Chemins Python et framework"
+    },
+    "integrations": {
+      "title": "Intégrations",
+      "description": "Clés API & comptes Claude"
+    },
+    "updates": {
+      "title": "Mises à jour",
+      "description": "Mises à jour Auto Claude"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Préférences d'alertes"
+    }
+  },
+  "language": {
+    "label": "Langue de l'interface",
+    "description": "Sélectionnez la langue de l'interface de l'application"
+  },
+  "scale": {
+    "presets": "Préréglages d'échelle",
+    "presetsDescription": "Options d'échelle rapides pour les préférences courantes",
+    "fineTune": "Ajustement fin",
+    "fineTuneDescription": "Ajustez de 75% à 200% par incréments de 5%",
+    "default": "Par défaut",
+    "comfortable": "Confortable",
+    "large": "Grand",
+    "preview": "Les changements sont prévisualisés immédiatement. Cliquez sur Enregistrer pour les conserver."
+  },
+  "general": {
+    "agentFramework": "Framework de l'agent",
+    "trioAutoPath": "Chemin Auto Claude",
+    "pythonPath": "Chemin Python",
+    "autoNameTerminals": "Nommer automatiquement les terminaux",
+    "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
+  },
+  "actions": {
+    "save": "Enregistrer les paramètres",
+    "rerunWizard": "Relancer l'assistant de configuration"
+  }
+}

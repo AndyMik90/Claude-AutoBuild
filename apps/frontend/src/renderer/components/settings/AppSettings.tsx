@@ -14,7 +14,8 @@ import {
   Github,
   Database,
   Sparkles,
-  Monitor
+  Monitor,
+  Globe
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -31,6 +32,7 @@ import { cn } from '../../lib/utils';
 import { useSettings } from './hooks/useSettings';
 import { ThemeSettings } from './ThemeSettings';
 import { DisplaySettings } from './DisplaySettings';
+import { LanguageSettings } from './LanguageSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
@@ -48,7 +50,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
+export type AppSection = 'appearance' | 'display' | 'language' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
 
 interface NavItem<T extends string> {
   id: T;
@@ -60,6 +62,7 @@ interface NavItem<T extends string> {
 const appNavItems: NavItem<AppSection>[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette, description: 'Theme and visual preferences' },
   { id: 'display', label: 'Display', icon: Monitor, description: 'UI scale and zoom' },
+  { id: 'language', label: 'Language', icon: Globe, description: 'Interface language' },
   { id: 'agent', label: 'Agent Settings', icon: Bot, description: 'Default model and framework' },
   { id: 'paths', label: 'Paths', icon: FolderOpen, description: 'Python and framework paths' },
   { id: 'integrations', label: 'Integrations', icon: Key, description: 'API keys & Claude accounts' },
@@ -162,6 +165,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <ThemeSettings settings={settings} onSettingsChange={setSettings} />;
       case 'display':
         return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
+      case 'language':
+        return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':
