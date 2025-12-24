@@ -6,8 +6,6 @@ Utilities for reading and parsing project configuration files
 (package.json, pyproject.toml, composer.json, etc.).
 """
 
-from __future__ import annotations
-
 import json
 import sys
 from pathlib import Path

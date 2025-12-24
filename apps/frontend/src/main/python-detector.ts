@@ -2,6 +2,27 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
 /**
+ * Find the first existing Homebrew Python installation.
+ * Checks common Homebrew paths for Python 3.
+ *
+ * @returns The path to Homebrew Python, or null if not found
+ */
+function findHomebrewPython(): string | null {
+  const homebrewPaths = [
+    '/opt/homebrew/bin/python3',  // Apple Silicon (M1/M2/M3)
+    '/usr/local/bin/python3'      // Intel Mac
+  ];
+
+  for (const path of homebrewPaths) {
+    if (existsSync(path)) {
+      return path;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Detect and return the best available Python command.
  * Tries multiple candidates and returns the first one that works with Python 3.
  *
@@ -10,20 +31,16 @@ import { existsSync } from 'fs';
 export function findPythonCommand(): string | null {
   const isWindows = process.platform === 'win32';
 
-  // On Windows, try py launcher first (most reliable), then python, then python3
-  // On Unix, try Homebrew paths FIRST (to avoid old system Python), then python3, then python
-  const candidates = isWindows
-    ? ['py -3', 'python', 'python3', 'py']
-    : [
-        // Homebrew Python (Intel and Apple Silicon) - PRIORITY
-        '/opt/homebrew/bin/python3',        // Apple Silicon (M1/M2/M3)
-        '/opt/homebrew/bin/python3.12',
-        '/usr/local/bin/python3',           // Intel Mac
-        '/usr/local/bin/python3.12',
-        // PATH-based (may find old system Python)
-        'python3',
-        'python'
-      ];
+  // Build candidate list prioritizing Homebrew Python on macOS
+  let candidates: string[];
+  if (isWindows) {
+    candidates = ['py -3', 'python', 'python3', 'py'];
+  } else {
+    const homebrewPython = findHomebrewPython();
+    candidates = homebrewPython
+      ? [homebrewPython, 'python3', 'python']
+      : ['python3', 'python'];
+  }
 
   for (const cmd of candidates) {
     try {
@@ -43,18 +60,11 @@ export function findPythonCommand(): string | null {
     }
   }
 
-  // Fallback to platform-specific default (prefer Homebrew on macOS)
+  // Fallback to platform-specific default
   if (isWindows) {
     return 'python';
   }
-  // On macOS, prefer Homebrew Python over system Python
-  if (existsSync('/opt/homebrew/bin/python3')) {
-    return '/opt/homebrew/bin/python3';
-  }
-  if (existsSync('/usr/local/bin/python3')) {
-    return '/usr/local/bin/python3';
-  }
-  return 'python3';
+  return findHomebrewPython() || 'python3';
 }
 
 /**
@@ -132,14 +142,7 @@ export function getDefaultPythonCommand(): string {
   if (process.platform === 'win32') {
     return 'python';
   }
-  // On macOS, prefer Homebrew Python over system Python
-  if (existsSync('/opt/homebrew/bin/python3')) {
-    return '/opt/homebrew/bin/python3';
-  }
-  if (existsSync('/usr/local/bin/python3')) {
-    return '/usr/local/bin/python3';
-  }
-  return 'python3';
+  return findHomebrewPython() || 'python3';
 }
 
 /**
