@@ -74,6 +74,24 @@ class AgentProfileResponse(BaseModel):
         from_attributes = True
 
 
+class AgentProfileUpdate(BaseModel):
+    """Request model for updating agent profile."""
+    default_model: Optional[str] = None
+    thinking_level: Optional[str] = None
+    phase_models: Optional[dict] = None
+    default_complexity: Optional[str] = None
+    auto_detect_complexity: Optional[bool] = None
+    memory_backend: Optional[str] = None
+    graphiti_config: Optional[dict] = None
+    default_branch: Optional[str] = None
+    auto_commit: Optional[bool] = None
+    auto_push: Optional[bool] = None
+    max_parallel_subtasks: Optional[int] = None
+    qa_strict_mode: Optional[bool] = None
+    recovery_attempts: Optional[int] = None
+    custom_prompts: Optional[dict] = None
+
+
 class CredentialsStatusResponse(BaseModel):
     """Response model for credentials status (no secrets)."""
     project_id: uuid.UUID
@@ -192,10 +210,12 @@ async def get_agent_profile(
 @router.patch("/{project_id}/agent-profile", response_model=AgentProfileResponse)
 async def update_agent_profile(
     project_id: uuid.UUID,
-    updates: dict,
+    data: AgentProfileUpdate,
     service: ProjectService = Depends(get_project_service),
 ) -> AgentProfileResponse:
     """Update agent profile for a project."""
+    # Only pass non-None values to the service
+    updates = {k: v for k, v in data.model_dump().items() if v is not None}
     profile = await service.update_agent_profile(project_id, **updates)
     if not profile:
         raise HTTPException(status_code=404, detail="Agent profile not found")
