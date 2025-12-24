@@ -81,6 +81,7 @@ export interface AppSettings {
   agentFramework: string;
   pythonPath?: string;
   autoBuildPath?: string;
+  projectPath?: string;
   autoUpdateAutoBuild: boolean;
   autoNameTerminals: boolean;
   notifications: NotificationSettings;
