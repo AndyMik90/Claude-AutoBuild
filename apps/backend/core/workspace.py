@@ -1241,6 +1241,7 @@ async def _merge_file_with_ai_async(
             # Call Claude Haiku for fast merge
             try:
                 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+                from phase_config import resolve_model_id
             except ImportError:
                 return ParallelMergeResult(
                     file_path=task.file_path,
@@ -1251,7 +1252,7 @@ async def _merge_file_with_ai_async(
 
             client = ClaudeSDKClient(
                 options=ClaudeAgentOptions(
-                    model="claude-haiku-4-5-20251001",
+                    model=resolve_model_id("haiku"),  # Resolves via API Profile if configured
                     system_prompt=AI_MERGE_SYSTEM_PROMPT,
                     allowed_tools=[],
                     max_turns=1,

@@ -198,13 +198,14 @@ async def _call_claude_haiku(prompt: str) -> str:
 
     try:
         from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+        from phase_config import resolve_model_id
     except ImportError:
         logger.warning("claude_agent_sdk not installed")
         return ""
 
     client = ClaudeSDKClient(
         options=ClaudeAgentOptions(
-            model="claude-haiku-4-5-20251001",
+            model=resolve_model_id("haiku"),  # Resolves via API Profile if configured
             system_prompt=SYSTEM_PROMPT,
             allowed_tools=[],
             max_turns=1,
