@@ -8,6 +8,8 @@ if [ -n "$GITHUB_TOKEN" ]; then
     echo "Configuring git with GitHub token..."
     git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
     git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
+    # Secure git config file since it contains embedded credentials
+    chmod 600 "$HOME/.gitconfig"
     echo "Git configured for authenticated HTTPS cloning"
 else
     echo "Warning: GITHUB_TOKEN not set - only public repos can be cloned"
@@ -74,8 +76,9 @@ if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
     echo "Warning: No Claude authentication configured"
     echo "Set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY to use Auto-Claude"
 else
-    # Create ~/.claude directory
+    # Create ~/.claude directory with restricted permissions (owner only)
     mkdir -p "$HOME/.claude"
+    chmod 700 "$HOME/.claude"
 
     # Create ~/.claude.json with hasCompletedOnboarding=true to skip first-run wizard
     # This is required for interactive mode in headless/Docker environments
