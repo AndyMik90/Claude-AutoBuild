@@ -395,6 +395,10 @@ class OIDCService:
             role = UserRole(config.default_role)
         except ValueError:
             # Invalid role value, fall back to USER role
+            logger.warning(
+                "Invalid OIDC default_role '%s' configured, falling back to USER role",
+                config.default_role,
+            )
             role = UserRole.USER
 
         # Create the user
