@@ -369,13 +369,13 @@ export function Sidebar({
           </Button>
           {selectedProject && !selectedProject.autoBuildPath && (
             <p className="mt-2 text-xs text-muted-foreground text-center">
-              Initialize Auto Claude to create tasks
+              Initialize Jungle Assistant to create tasks
             </p>
           )}
         </div>
       </div>
 
-      {/* Initialize Auto Claude Dialog */}
+      {/* Initialize Jungle Assistant Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
         // Only allow closing if user manually closes (not during initialization)
         if (!open && !isInitializing) {
@@ -386,10 +386,10 @@ export function Sidebar({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5" />
-              Initialize Auto Claude
+              Initialize Jungle Assistant
             </DialogTitle>
             <DialogDescription>
-              This project doesn't have Auto Claude initialized. Would you like to set it up now?
+              This project doesn't have Jungle Assistant initialized. Would you like to set it up now?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -397,7 +397,7 @@ export function Sidebar({
               <p className="font-medium mb-2">This will:</p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 <li>Create a <code className="text-xs bg-background px-1 py-0.5 rounded">.auto-claude</code> folder in your project</li>
-                <li>Copy the Auto Claude framework files</li>
+                <li>Copy the Jungle Assistant framework files</li>
                 <li>Set up the specs directory for your tasks</li>
               </ul>
             </div>
@@ -408,7 +408,7 @@ export function Sidebar({
                   <div>
                     <p className="font-medium text-warning">Source path not configured</p>
                     <p className="text-muted-foreground mt-1">
-                      Please set the Auto Claude source path in App Settings before initializing.
+                      Please set the Jungle Assistant source path in App Settings before initializing.
                     </p>
                   </div>
                 </div>
@@ -439,13 +439,13 @@ export function Sidebar({
         </DialogContent>
       </Dialog>
 
-      {/* Update Auto Claude Dialog - Deprecated, updateAvailable is always false now */}
+      {/* Update Jungle Assistant Dialog - Deprecated, updateAvailable is always false now */}
       <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5" />
-              Auto Claude
+              Jungle Assistant
             </DialogTitle>
             <DialogDescription>
               Project is initialized.
