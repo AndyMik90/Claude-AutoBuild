@@ -5,6 +5,8 @@ Discovery Module
 Project structure analysis and indexing.
 """
 
+from __future__ import annotations
+
 import json
 import shutil
 import subprocess
