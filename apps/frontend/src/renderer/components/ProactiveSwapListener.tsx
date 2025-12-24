@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -17,6 +18,7 @@ interface SwapNotification {
 }
 
 export function ProactiveSwapListener() {
+  const { t } = useTranslation('common');
   const [notification, setNotification] = useState<SwapNotification | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -61,13 +63,13 @@ export function ProactiveSwapListener() {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">Account Switched</p>
+            <p className="text-sm font-semibold text-foreground">{t('notification.accountSwitched')}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Switched from <strong>{notification.fromProfile}</strong> to{' '}
+              {t('notification.swapFrom')} <strong>{notification.fromProfile}</strong> {t('notification.swapTo')}{' '}
               <strong>{notification.toProfile}</strong>
               <br />
               <span className="text-[10px]">
-                ({notification.reason} swap)
+                {t('notification.swapReason', { reason: notification.reason })}
               </span>
             </p>
           </div>

@@ -1,4 +1,5 @@
 import { Monitor, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
@@ -11,11 +12,11 @@ interface DisplaySettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-// Preset scale values (100%, 125%, 150%)
+// Preset scale values with translation keys
 const SCALE_PRESETS = [
-  { value: UI_SCALE_DEFAULT, label: '100%', description: 'Default' },
-  { value: 125, label: '125%', description: 'Comfortable' },
-  { value: 150, label: '150%', description: 'Large' }
+  { value: UI_SCALE_DEFAULT, label: '100%', descriptionKey: 'scale.default' },
+  { value: 125, label: '125%', descriptionKey: 'scale.comfortable' },
+  { value: 150, label: '150%', descriptionKey: 'scale.large' }
 ] as const;
 
 /**
@@ -24,6 +25,7 @@ const SCALE_PRESETS = [
  * Changes apply immediately for live preview (like theme), saved on "Save Settings"
  */
 export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsProps) {
+  const { t } = useTranslation('settings');
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
 
   const currentScale = settings.uiScale ?? UI_SCALE_DEFAULT;
@@ -45,15 +47,15 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
 
   return (
     <SettingsSection
-      title="Display"
-      description="Adjust the size of UI elements"
+      title={t('sections.display.title')}
+      description={t('sections.display.description')}
     >
       <div className="space-y-6">
         {/* Preset Buttons */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-foreground">Scale Presets</Label>
+          <Label className="text-sm font-medium text-foreground">{t('scale.presets')}</Label>
           <p className="text-sm text-muted-foreground">
-            Quick scale options for common preferences
+            {t('scale.presetsDescription')}
           </p>
           <div className="grid grid-cols-3 gap-3 max-w-md pt-1">
             {SCALE_PRESETS.map((preset) => {
@@ -73,7 +75,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                   <Monitor className="h-4 w-4" />
                   <div className="text-center">
                     <div className="text-sm font-medium">{preset.label}</div>
-                    <div className="text-xs text-muted-foreground">{preset.description}</div>
+                    <div className="text-xs text-muted-foreground">{t(preset.descriptionKey)}</div>
                   </div>
                 </button>
               );
@@ -84,7 +86,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
         {/* Fine-tune Slider */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium text-foreground">Fine-tune Scale</Label>
+            <Label className="text-sm font-medium text-foreground">{t('scale.fineTune')}</Label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-mono text-muted-foreground">
                 {currentScale}%
@@ -105,7 +107,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Adjust from {UI_SCALE_MIN}% to {UI_SCALE_MAX}% in {UI_SCALE_STEP}% increments
+            {t('scale.fineTuneDescription')}
           </p>
 
           {/* Slider with icons */}
@@ -154,7 +156,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
         {/* Preview hint */}
         <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm">
           <p className="text-muted-foreground">
-            Changes preview immediately. Click <strong className="text-foreground">Save Settings</strong> to persist your preferences.
+            {t('scale.preview')}
           </p>
         </div>
       </div>

@@ -1,0 +1,30 @@
+{
+  "sections": {
+    "project": "Project",
+    "tools": "Tools"
+  },
+  "items": {
+    "kanban": "Kanban Board",
+    "terminals": "Agent Terminals",
+    "insights": "Insights",
+    "roadmap": "Roadmap",
+    "ideation": "Ideation",
+    "changelog": "Changelog",
+    "context": "Context",
+    "githubIssues": "GitHub Issues",
+    "gitlabIssues": "GitLab Issues",
+    "worktrees": "Worktrees"
+  },
+  "actions": {
+    "settings": "Settings",
+    "help": "Help & Feedback",
+    "newTask": "New Task"
+  },
+  "tooltips": {
+    "settings": "Application Settings",
+    "help": "Help & Feedback"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
+  }
+}

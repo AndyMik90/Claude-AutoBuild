@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -31,12 +32,7 @@ const iconMap: Record<string, React.ElementType> = {
   Sparkles
 };
 
-const PHASE_LABELS: Record<keyof PhaseModelConfig, { label: string; description: string }> = {
-  spec: { label: 'Spec Creation', description: 'Discovery, requirements, context gathering' },
-  planning: { label: 'Planning', description: 'Implementation planning and architecture' },
-  coding: { label: 'Coding', description: 'Actual code implementation' },
-  qa: { label: 'QA Review', description: 'Quality assurance and validation' }
-};
+const PHASE_KEYS: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
 
 /**
  * Agent Profile Settings component
@@ -44,6 +40,7 @@ const PHASE_LABELS: Record<keyof PhaseModelConfig, { label: string; description:
  * Used in the Settings page under Agent Settings
  */
 export function AgentProfileSettings() {
+  const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
   const selectedProfileId = settings.selectedAgentProfile || 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(selectedProfileId === 'auto');
@@ -102,8 +99,7 @@ export function AgentProfileSettings() {
    * Check if current phase config differs from defaults
    */
   const hasCustomConfig = (): boolean => {
-    const phases: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
-    return phases.some(
+    return PHASE_KEYS.some(
       phase =>
         currentPhaseModels[phase] !== DEFAULT_PHASE_MODELS[phase] ||
         currentPhaseThinking[phase] !== DEFAULT_PHASE_THINKING[phase]
@@ -164,7 +160,7 @@ export function AgentProfileSettings() {
                 {getModelLabel(profile.model)}
               </span>
               <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {getThinkingLabel(profile.thinkingLevel)} Thinking
+                {getThinkingLabel(profile.thinkingLevel)} {t('agentProfile.thinking')}
               </span>
             </div>
           </div>
@@ -175,16 +171,14 @@ export function AgentProfileSettings() {
 
   return (
     <SettingsSection
-      title="Default Agent Profile"
-      description="Select a preset configuration for model and thinking level"
+      title={t('agentProfile.title')}
+      description={t('agentProfile.sectionDescription')}
     >
       <div className="space-y-4">
         {/* Description */}
         <div className="rounded-lg bg-muted/50 p-3">
           <p className="text-xs text-muted-foreground">
-            Agent profiles provide preset configurations for Claude model and thinking level.
-            When you create a new task, these settings will be used as defaults. You can always
-            override them in the task creation wizard.
+            {t('agentProfile.profilesInfo')}
           </p>
         </div>
 
@@ -203,9 +197,9 @@ export function AgentProfileSettings() {
               className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors rounded-t-lg"
             >
               <div>
-                <h4 className="font-medium text-sm text-foreground">Phase Configuration</h4>
+                <h4 className="font-medium text-sm text-foreground">{t('agentProfile.phaseConfiguration')}</h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Customize model and thinking level for each phase
+                  {t('agentProfile.phaseConfigurationDescription')}
                 </p>
               </div>
               {showPhaseConfig ? (
@@ -228,27 +222,27 @@ export function AgentProfileSettings() {
                       className="text-xs h-7"
                     >
                       <RotateCcw className="h-3 w-3 mr-1.5" />
-                      Reset to defaults
+                      {t('agentProfile.resetToDefaults')}
                     </Button>
                   </div>
                 )}
 
                 {/* Phase Configuration Grid */}
                 <div className="space-y-4">
-                  {(Object.keys(PHASE_LABELS) as Array<keyof PhaseModelConfig>).map((phase) => (
+                  {PHASE_KEYS.map((phase) => (
                     <div key={phase} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium text-foreground">
-                          {PHASE_LABELS[phase].label}
+                          {t(`agentProfile.phases.${phase}.label`)}
                         </Label>
                         <span className="text-xs text-muted-foreground">
-                          {PHASE_LABELS[phase].description}
+                          {t(`agentProfile.phases.${phase}.description`)}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         {/* Model Select */}
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Model</Label>
+                          <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
                           <Select
                             value={currentPhaseModels[phase]}
                             onValueChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
@@ -267,7 +261,7 @@ export function AgentProfileSettings() {
                         </div>
                         {/* Thinking Level Select */}
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Thinking Level</Label>
+                          <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
                           <Select
                             value={currentPhaseThinking[phase]}
                             onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
@@ -291,8 +285,7 @@ export function AgentProfileSettings() {
 
                 {/* Info note */}
                 <p className="text-[10px] text-muted-foreground mt-4 pt-3 border-t border-border">
-                  These settings will be used as defaults when creating new tasks with the Auto profile.
-                  You can override them per-task in the task creation wizard.
+                  {t('agentProfile.phaseConfigNote')}
                 </p>
               </div>
             )}
