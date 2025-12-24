@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch, Server } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -50,6 +51,7 @@ export function GitLabIntegration({
   isCheckingGitLab,
   projectPath
 }: GitLabIntegrationProps) {
+  const { t } = useTranslation('gitlab');
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
   const [oauthUsername, setOauthUsername] = useState<string | null>(null);
   const [projects, setProjects] = useState<GitLabProject[]>([]);
@@ -213,9 +215,9 @@ export function GitLabIntegration({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label className="font-normal text-foreground">Enable GitLab Issues</Label>
+          <Label className="font-normal text-foreground">{t('settings.enableIssues')}</Label>
           <p className="text-xs text-muted-foreground">
-            Sync issues from GitLab and create tasks automatically
+            {t('settings.enableIssuesDescription')}
           </p>
         </div>
         <Switch
@@ -240,11 +242,11 @@ export function GitLabIntegration({
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-success" />
                     <div>
-                      <p className="text-sm font-medium text-success">Connected via GitLab CLI</p>
+                      <p className="text-sm font-medium text-success">{t('settings.connectedVia')}</p>
                       {oauthUsername && (
                         <p className="text-xs text-success/80 flex items-center gap-1 mt-0.5">
                           <User className="h-3 w-3" />
-                          Authenticated as {oauthUsername}
+                          {t('settings.authenticatedAs')} {oauthUsername}
                         </p>
                       )}
                     </div>
@@ -255,7 +257,7 @@ export function GitLabIntegration({
                     onClick={handleSwitchToManual}
                     className="text-xs"
                   >
-                    Use Different Token
+                    {t('settings.useDifferentToken')}
                   </Button>
                 </div>
               </div>
@@ -277,22 +279,22 @@ export function GitLabIntegration({
           {authMode === 'oauth' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-foreground">GitLab Authentication</Label>
+                <Label className="text-sm font-medium text-foreground">{t('settings.authentication')}</Label>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleSwitchToManual}
                 >
-                  Use Manual Token
+                  {t('settings.useManualToken')}
                 </Button>
               </div>
               <div className="rounded-lg border border-info/30 bg-info/10 p-4">
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 text-info animate-spin" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">Authenticating with glab CLI...</p>
+                    <p className="text-sm font-medium text-foreground">{t('settings.authenticating')}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      A browser window should open for you to log in.
+                      {t('settings.browserWindow')}
                     </p>
                   </div>
                 </div>
@@ -305,7 +307,7 @@ export function GitLabIntegration({
             <>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-foreground">Personal Access Token</Label>
+                  <Label className="text-sm font-medium text-foreground">{t('settings.personalAccessToken')}</Label>
                   <Button
                     variant="outline"
                     size="sm"
@@ -313,18 +315,18 @@ export function GitLabIntegration({
                     className="gap-2"
                   >
                     <KeyRound className="h-3 w-3" />
-                    Use OAuth Instead
+                    {t('settings.useOAuth')}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Create a token with <code className="px-1 bg-muted rounded">api</code> scope from{' '}
+                  {t('settings.tokenScope')} <code className="px-1 bg-muted rounded">{t('settings.scopeApi')}</code> {t('settings.scopeFrom')}{' '}
                   <a
                     href={`${envConfig.gitlabInstanceUrl || 'https://gitlab.com'}/-/user_settings/personal_access_tokens`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-info hover:underline"
                   >
-                    GitLab Settings
+                    {t('settings.gitlabSettings')}
                   </a>
                 </p>
                 <PasswordInput
@@ -382,14 +384,16 @@ interface InstanceUrlInputProps {
 }
 
 function InstanceUrlInput({ value, onChange }: InstanceUrlInputProps) {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <Server className="h-4 w-4 text-muted-foreground" />
-        <Label className="text-sm font-medium text-foreground">GitLab Instance</Label>
+        <Label className="text-sm font-medium text-foreground">{t('settings.instance')}</Label>
       </div>
       <p className="text-xs text-muted-foreground">
-        Use <code className="px-1 bg-muted rounded">https://gitlab.com</code> or your self-hosted instance URL
+        {t('settings.instanceDescription')}
       </p>
       <Input
         placeholder="https://gitlab.com"
@@ -419,6 +423,7 @@ function ProjectDropdown({
   onRefresh,
   onManualEntry
 }: ProjectDropdownProps) {
+  const { t } = useTranslation('gitlab');
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('');
 
@@ -432,7 +437,7 @@ function ProjectDropdown({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium text-foreground">Project</Label>
+        <Label className="text-sm font-medium text-foreground">{t('settings.project')}</Label>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -449,7 +454,7 @@ function ProjectDropdown({
             onClick={onManualEntry}
             className="h-7 text-xs"
           >
-            Enter Manually
+            {t('settings.enterManually')}
           </Button>
         </div>
       </div>
@@ -471,7 +476,7 @@ function ProjectDropdown({
           {isLoading ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading projects...
+              {t('settings.loadingProjects')}
             </span>
           ) : selectedProject ? (
             <span className="flex items-center gap-2">
@@ -483,7 +488,7 @@ function ProjectDropdown({
               {selectedProject}
             </span>
           ) : (
-            <span className="text-muted-foreground">Select a project...</span>
+            <span className="text-muted-foreground">{t('settings.selectProject')}</span>
           )}
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -492,7 +497,7 @@ function ProjectDropdown({
           <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-hidden">
             <div className="p-2 border-b border-border">
               <Input
-                placeholder="Search projects..."
+                placeholder={t('settings.searchProjects')}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="h-8 text-sm"
@@ -503,7 +508,7 @@ function ProjectDropdown({
             <div className="max-h-48 overflow-y-auto">
               {filteredProjects.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  {filter ? 'No matching projects' : 'No projects found'}
+                  {filter ? t('settings.noMatchingProjects') : t('settings.noProjectsFound')}
                 </div>
               ) : (
                 filteredProjects.map((project) => (
@@ -540,7 +545,7 @@ function ProjectDropdown({
 
       {selectedProject && (
         <p className="text-xs text-muted-foreground">
-          Selected: <code className="px-1 bg-muted rounded">{selectedProject}</code>
+          {t('settings.selected')}: <code className="px-1 bg-muted rounded">{selectedProject}</code>
         </p>
       )}
     </div>
@@ -553,11 +558,13 @@ interface ProjectInputProps {
 }
 
 function ProjectInput({ value, onChange }: ProjectInputProps) {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium text-foreground">Project</Label>
+      <Label className="text-sm font-medium text-foreground">{t('settings.project')}</Label>
       <p className="text-xs text-muted-foreground">
-        Format: <code className="px-1 bg-muted rounded">group/project</code> (e.g., gitlab-org/gitlab)
+        {t('settings.projectFormat')} <code className="px-1 bg-muted rounded">group/project</code> {t('settings.projectFormatExample')}
       </p>
       <Input
         placeholder="group/project"
@@ -574,16 +581,18 @@ interface ConnectionStatusProps {
 }
 
 function ConnectionStatus({ isChecking, connectionStatus }: ConnectionStatusProps) {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-foreground">Connection Status</p>
+          <p className="text-sm font-medium text-foreground">{t('settings.connectionStatus')}</p>
           <p className="text-xs text-muted-foreground">
-            {isChecking ? 'Checking...' :
+            {isChecking ? t('settings.checking') :
               connectionStatus?.connected
-                ? `Connected to ${connectionStatus.projectPathWithNamespace}`
-                : connectionStatus?.error || 'Not connected'}
+                ? `${t('settings.connectedTo')} ${connectionStatus.projectPathWithNamespace}`
+                : connectionStatus?.error || t('settings.notConnected')}
           </p>
           {connectionStatus?.connected && connectionStatus.projectDescription && (
             <p className="text-xs text-muted-foreground mt-1 italic">
@@ -604,6 +613,8 @@ function ConnectionStatus({ isChecking, connectionStatus }: ConnectionStatusProp
 }
 
 function IssuesAvailableInfo() {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="rounded-lg border border-info/30 bg-info/5 p-3">
       <div className="flex items-start gap-3">
@@ -611,9 +622,9 @@ function IssuesAvailableInfo() {
           <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"/>
         </svg>
         <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">Issues Available</p>
+          <p className="text-sm font-medium text-foreground">{t('settings.issuesAvailable')}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Access GitLab Issues from the sidebar to view, investigate, and create tasks from issues.
+            {t('settings.issuesAvailableDescription')}
           </p>
         </div>
       </div>
@@ -627,15 +638,17 @@ interface AutoSyncToggleProps {
 }
 
 function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="flex items-center justify-between">
       <div className="space-y-0.5">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-info" />
-          <Label className="font-normal text-foreground">Auto-Sync on Load</Label>
+          <Label className="font-normal text-foreground">{t('settings.autoSyncOnLoad')}</Label>
         </div>
         <p className="text-xs text-muted-foreground pl-6">
-          Automatically fetch issues when the project loads
+          {t('settings.autoSyncDescription')}
         </p>
       </div>
       <Switch checked={enabled} onCheckedChange={onToggle} />
@@ -660,6 +673,7 @@ function BranchSelector({
   onSelect,
   onRefresh
 }: BranchSelectorProps) {
+  const { t } = useTranslation('gitlab');
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('');
 
@@ -673,10 +687,10 @@ function BranchSelector({
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-info" />
-            <Label className="text-sm font-medium text-foreground">Default Branch</Label>
+            <Label className="text-sm font-medium text-foreground">{t('settings.defaultBranch')}</Label>
           </div>
           <p className="text-xs text-muted-foreground pl-6">
-            Base branch for creating task worktrees
+            {t('settings.defaultBranchDescription')}
           </p>
         </div>
         <Button
@@ -707,7 +721,7 @@ function BranchSelector({
           {isLoading ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading branches...
+              {t('settings.loadingBranches')}
             </span>
           ) : selectedBranch ? (
             <span className="flex items-center gap-2">
@@ -715,7 +729,7 @@ function BranchSelector({
               {selectedBranch}
             </span>
           ) : (
-            <span className="text-muted-foreground">Auto-detect (main/master)</span>
+            <span className="text-muted-foreground">{t('settings.autoDetect')}</span>
           )}
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -724,7 +738,7 @@ function BranchSelector({
           <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-hidden">
             <div className="p-2 border-b border-border">
               <Input
-                placeholder="Search branches..."
+                placeholder={t('settings.searchBranches')}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="h-8 text-sm"
@@ -743,13 +757,13 @@ function BranchSelector({
                 !selectedBranch ? 'bg-accent' : ''
               }`}
             >
-              <span className="text-sm text-muted-foreground italic">Auto-detect (main/master)</span>
+              <span className="text-sm text-muted-foreground italic">{t('settings.autoDetect')}</span>
             </button>
 
             <div className="max-h-40 overflow-y-auto border-t border-border">
               {filteredBranches.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  {filter ? 'No matching branches' : 'No branches found'}
+                  {filter ? t('settings.noMatchingBranches') : t('settings.noBranchesFound')}
                 </div>
               ) : (
                 filteredBranches.map((branch) => (
@@ -777,7 +791,7 @@ function BranchSelector({
 
       {selectedBranch && (
         <p className="text-xs text-muted-foreground pl-6">
-          All new tasks will branch from <code className="px-1 bg-muted rounded">{selectedBranch}</code>
+          {t('settings.branchFromNote')} <code className="px-1 bg-muted rounded">{selectedBranch}</code>
         </p>
       )}
     </div>

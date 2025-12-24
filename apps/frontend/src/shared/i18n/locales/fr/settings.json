@@ -143,6 +143,10 @@
       "title": "GitHub",
       "description": "Synchronisation issues GitHub"
     },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Synchronisation issues GitLab"
+    },
     "memory": {
       "title": "Mémoire",
       "description": "Backend mémoire Graphiti"

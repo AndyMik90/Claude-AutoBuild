@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, Loader2, CheckCircle2, MessageCircle } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
@@ -25,6 +26,7 @@ export function InvestigationDialog({
   onClose,
   projectId
 }: InvestigationDialogProps) {
+  const { t } = useTranslation('gitlab');
   const [notes, setNotes] = useState<GitLabNote[]>([]);
   const [selectedNoteIds, setSelectedNoteIds] = useState<number[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -96,12 +98,12 @@ export function InvestigationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-info" />
-            Create Task from Issue
+            {t('investigation.title')}
           </DialogTitle>
           <DialogDescription>
             {selectedIssue && (
               <span>
-                Issue #{selectedIssue.iid}: {selectedIssue.title}
+                {t('investigation.issuePrefix')} #{selectedIssue.iid}: {selectedIssue.title}
               </span>
             )}
           </DialogDescription>
@@ -110,7 +112,7 @@ export function InvestigationDialog({
         {investigationStatus.phase === 'idle' ? (
           <div className="space-y-4 flex-1 min-h-0 flex flex-col">
             <p className="text-sm text-muted-foreground">
-              Create a task from this GitLab issue. The task will be added to your Kanban board in the Backlog column.
+              {t('investigation.description')}
             </p>
 
             {/* Notes section */}
@@ -120,7 +122,7 @@ export function InvestigationDialog({
               </div>
             ) : fetchNotesError ? (
               <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-4">
-                <p className="text-sm text-destructive font-medium">Failed to load notes</p>
+                <p className="text-sm text-destructive font-medium">{t('investigation.failedToLoadNotes')}</p>
                 <p className="text-xs text-destructive/80 mt-1">{fetchNotesError}</p>
               </div>
             ) : notes.length > 0 ? (
@@ -128,7 +130,7 @@ export function InvestigationDialog({
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium flex items-center gap-2">
                     <MessageCircle className="h-4 w-4" />
-                    Select Notes to Include ({selectedNoteIds.length}/{notes.length})
+                    {t('investigation.selectNotes')} ({selectedNoteIds.length}/{notes.length})
                   </h4>
                   <Button
                     variant="ghost"
@@ -136,7 +138,7 @@ export function InvestigationDialog({
                     onClick={toggleAllNotes}
                     className="text-xs"
                   >
-                    {selectedNoteIds.length === notes.length ? 'Deselect All' : 'Select All'}
+                    {selectedNoteIds.length === notes.length ? t('investigation.deselectAll') : t('investigation.selectAll')}
                   </Button>
                 </div>
                 <ScrollArea className="flex-1 min-h-0 border rounded-md">
@@ -177,12 +179,12 @@ export function InvestigationDialog({
               </div>
             ) : (
               <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <h4 className="text-sm font-medium mb-2">The task will include:</h4>
+                <h4 className="text-sm font-medium mb-2">{t('investigation.willInclude')}</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Issue title and description</li>
-                  <li>• Link back to the GitLab issue</li>
-                  <li>• Labels and metadata from the issue</li>
-                  <li>• No notes (this issue has no notes)</li>
+                  <li>• {t('investigation.includeTitle')}</li>
+                  <li>• {t('investigation.includeLink')}</li>
+                  <li>• {t('investigation.includeLabels')}</li>
+                  <li>• {t('investigation.noNotes')}</li>
                 </ul>
               </div>
             )}
@@ -206,7 +208,7 @@ export function InvestigationDialog({
             {investigationStatus.phase === 'complete' && (
               <div className="rounded-lg bg-success/10 border border-success/30 p-3 flex items-center gap-2 text-sm text-success">
                 <CheckCircle2 className="h-4 w-4" />
-                Task created! View it in your Kanban board.
+                {t('investigation.taskCreated')}
               </div>
             )}
           </div>
@@ -216,28 +218,28 @@ export function InvestigationDialog({
           {investigationStatus.phase === 'idle' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('investigation.cancel')}
               </Button>
               <Button onClick={handleStartInvestigation}>
                 <Sparkles className="h-4 w-4 mr-2" />
-                Create Task
+                {t('detail.createTask')}
               </Button>
             </>
           )}
           {investigationStatus.phase !== 'idle' && investigationStatus.phase !== 'complete' && investigationStatus.phase !== 'error' && (
             <Button variant="outline" disabled>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Creating...
+              {t('investigation.creating')}
             </Button>
           )}
           {investigationStatus.phase === 'error' && (
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('investigation.close')}
             </Button>
           )}
           {investigationStatus.phase === 'complete' && (
             <Button onClick={onClose}>
-              Done
+              {t('investigation.done')}
             </Button>
           )}
         </DialogFooter>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { GitlabIcon, RefreshCw, Search, Filter } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -21,6 +22,8 @@ export function IssueListHeader({
   onFilterChange,
   onRefresh
 }: IssueListHeaderProps) {
+  const { t } = useTranslation('gitlab');
+
   return (
     <div className="shrink-0 p-4 border-b border-border">
       <div className="flex items-center justify-between mb-4">
@@ -30,7 +33,7 @@ export function IssueListHeader({
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              GitLab Issues
+              {t('title')}
             </h2>
             <p className="text-xs text-muted-foreground">
               {projectPath}
@@ -39,7 +42,7 @@ export function IssueListHeader({
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs">
-            {openIssuesCount} open
+            {openIssuesCount} {t('header.open')}
           </Badge>
           <Button
             variant="ghost"
@@ -57,7 +60,7 @@ export function IssueListHeader({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search issues..."
+            placeholder={t('header.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
@@ -69,9 +72,9 @@ export function IssueListHeader({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="opened">Open</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="opened">{t('filters.opened')}</SelectItem>
+            <SelectItem value="closed">{t('filters.closed')}</SelectItem>
+            <SelectItem value="all">{t('filters.all')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

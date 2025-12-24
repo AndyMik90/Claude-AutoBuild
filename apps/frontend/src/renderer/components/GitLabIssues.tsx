@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
 import { useGitLabIssues, useGitLabInvestigation, useIssueFiltering } from './gitlab-issues/hooks';
@@ -14,6 +15,7 @@ import type { GitLabIssue } from '../../shared/types';
 import type { GitLabIssuesProps } from './gitlab-issues/types';
 
 export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesProps) {
+  const { t } = useTranslation('gitlab');
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -127,7 +129,7 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
               onViewTask={onNavigateToTask}
             />
           ) : (
-            <EmptyState message="Select an issue to view details" />
+            <EmptyState message={t('empty.selectIssue')} />
           )}
         </div>
       </div>

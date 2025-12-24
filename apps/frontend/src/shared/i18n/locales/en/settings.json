@@ -143,6 +143,10 @@
       "title": "GitHub",
       "description": "GitHub issues sync"
     },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "GitLab issues sync"
+    },
     "memory": {
       "title": "Memory",
       "description": "Graphiti memory backend"

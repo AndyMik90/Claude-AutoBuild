@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, User, Clock, MessageCircle, Sparkles, CheckCircle2, Eye } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -6,15 +7,10 @@ import { ScrollArea } from '../../ui/scroll-area';
 import { formatDate } from '../utils';
 import type { IssueDetailProps } from '../types';
 
-// GitLab issue state colors and labels
+// GitLab issue state colors
 const GITLAB_ISSUE_STATE_COLORS: Record<string, string> = {
   opened: 'bg-green-500/10 text-green-500 border-green-500/20',
   closed: 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-};
-
-const GITLAB_ISSUE_STATE_LABELS: Record<string, string> = {
-  opened: 'Open',
-  closed: 'Closed'
 };
 
 const GITLAB_COMPLEXITY_COLORS: Record<string, string> = {
@@ -24,6 +20,7 @@ const GITLAB_COMPLEXITY_COLORS: Record<string, string> = {
 };
 
 export function IssueDetail({ issue, onInvestigate, investigationResult, linkedTaskId, onViewTask }: IssueDetailProps) {
+  const { t } = useTranslation('gitlab');
   // Determine which task ID to use - either already linked or just created
   const taskId = linkedTaskId || (investigationResult?.success ? investigationResult.taskId : undefined);
   const hasLinkedTask = !!taskId;
@@ -45,7 +42,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
                 variant="outline"
                 className={`${GITLAB_ISSUE_STATE_COLORS[issue.state] || ''}`}
               >
-                {GITLAB_ISSUE_STATE_LABELS[issue.state] || issue.state}
+                {t(`states.${issue.state}`)}
               </Badge>
               <span className="text-sm text-muted-foreground">#{issue.iid}</span>
             </div>
@@ -73,7 +70,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
           {issue.userNotesCount > 0 && (
             <div className="flex items-center gap-1">
               <MessageCircle className="h-4 w-4" />
-              {issue.userNotesCount} notes
+              {issue.userNotesCount} {t('detail.notes')}
             </div>
           )}
         </div>
@@ -98,12 +95,12 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
           {hasLinkedTask ? (
             <Button onClick={handleViewTask} className="flex-1" variant="secondary">
               <Eye className="h-4 w-4 mr-2" />
-              View Task
+              {t('detail.viewTask')}
             </Button>
           ) : (
             <Button onClick={onInvestigate} className="flex-1">
               <Sparkles className="h-4 w-4 mr-2" />
-              Create Task
+              {t('detail.createTask')}
             </Button>
           )}
         </div>
@@ -114,7 +111,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-4 w-4" />
-                Task Linked
+                {t('detail.taskLinked')}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-2">
@@ -123,17 +120,17 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
                   <p className="text-foreground">{investigationResult.analysis.summary}</p>
                   <div className="flex items-center gap-2">
                     <Badge className={GITLAB_COMPLEXITY_COLORS[investigationResult.analysis.estimatedComplexity]}>
-                      {investigationResult.analysis.estimatedComplexity}
+                      {t(`complexity.${investigationResult.analysis.estimatedComplexity}`)}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      Task ID: {taskId}
+                      {t('detail.taskId')}: {taskId}
                     </span>
                   </div>
                 </>
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    Task ID: {taskId}
+                    {t('detail.taskId')}: {taskId}
                   </span>
                 </div>
               )}
@@ -144,7 +141,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
         {/* Body */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Description</CardTitle>
+            <CardTitle className="text-sm">{t('detail.description')}</CardTitle>
           </CardHeader>
           <CardContent>
             {issue.description ? (
@@ -155,7 +152,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
               </div>
             ) : (
               <p className="text-sm text-muted-foreground italic">
-                No description provided.
+                {t('detail.noDescription')}
               </p>
             )}
           </CardContent>
@@ -165,7 +162,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
         {issue.assignees.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Assignees</CardTitle>
+              <CardTitle className="text-sm">{t('detail.assignees')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
@@ -184,7 +181,7 @@ export function IssueDetail({ issue, onInvestigate, investigationResult, linkedT
         {issue.milestone && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Milestone</CardTitle>
+              <CardTitle className="text-sm">{t('detail.milestone')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Badge variant="outline">{issue.milestone.title}</Badge>
