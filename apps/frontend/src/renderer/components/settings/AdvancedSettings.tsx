@@ -21,7 +21,8 @@ import type {
   AutoBuildSourceUpdateCheck,
   AutoBuildSourceUpdateProgress,
   AppUpdateAvailableEvent,
-  AppUpdateProgress
+  AppUpdateProgress,
+  NotificationSettings
 } from '../../../shared/types';
 
 /**
@@ -443,7 +444,11 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
   }
 
   // notifications section
-  const notificationItems = [
+  const notificationItems: Array<{
+    key: keyof NotificationSettings;
+    labelKey: string;
+    descriptionKey: string;
+  }> = [
     { key: 'onTaskComplete', labelKey: 'notifications.onTaskComplete', descriptionKey: 'notifications.onTaskCompleteDescription' },
     { key: 'onTaskFailed', labelKey: 'notifications.onTaskFailed', descriptionKey: 'notifications.onTaskFailedDescription' },
     { key: 'onReviewNeeded', labelKey: 'notifications.onReviewNeeded', descriptionKey: 'notifications.onReviewNeededDescription' },
@@ -463,7 +468,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
               <p className="text-sm text-muted-foreground">{t(item.descriptionKey)}</p>
             </div>
             <Switch
-              checked={settings.notifications[item.key as keyof typeof settings.notifications]}
+              checked={settings.notifications[item.key]}
               onCheckedChange={(checked) =>
                 onSettingsChange({
                   ...settings,
