@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Diff Analysis and Markdown Parsing
 ===================================

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backward compatibility shim - import from implementation_plan package instead."""
 
 from implementation_plan import *  # noqa: F403

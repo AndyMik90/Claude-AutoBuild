@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Plan generation logic for different workflow types.
 """

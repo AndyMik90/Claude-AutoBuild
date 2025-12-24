@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Cache management for AI analysis results.
 """

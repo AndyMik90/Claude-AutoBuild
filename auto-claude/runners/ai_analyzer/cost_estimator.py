@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Cost estimation for AI analysis operations.
 """

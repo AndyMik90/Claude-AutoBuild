@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Idea validation and prioritization.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Streaming marker functionality for real-time UI updates.
 """

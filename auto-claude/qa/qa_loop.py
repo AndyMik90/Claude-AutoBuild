@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 QA Validation Loop (Facade)
 ============================

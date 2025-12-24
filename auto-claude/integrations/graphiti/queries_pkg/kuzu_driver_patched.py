@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Patched KuzuDriver that properly creates FTS indexes and fixes parameter handling.
 

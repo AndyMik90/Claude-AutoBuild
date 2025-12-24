@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 File Evolution Tracker - Backward Compatibility Module
 =======================================================

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Main TaskLogger class for logging task execution.
 """

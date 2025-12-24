@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graph database client wrapper for Graphiti memory.
 

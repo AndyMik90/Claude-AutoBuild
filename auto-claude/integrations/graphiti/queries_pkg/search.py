@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Semantic search operations for Graphiti memory.
 

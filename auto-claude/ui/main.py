@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 UI Utilities for Auto-Build
 ===========================

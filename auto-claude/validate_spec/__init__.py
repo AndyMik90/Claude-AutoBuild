@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Backward compatibility shim for validate_spec package.
 

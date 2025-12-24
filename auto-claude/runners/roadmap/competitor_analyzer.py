@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Competitor analysis functionality for roadmap generation.
 """

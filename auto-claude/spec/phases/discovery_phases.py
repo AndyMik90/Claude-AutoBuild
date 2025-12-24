@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Discovery and Context Phase Implementations
 ============================================

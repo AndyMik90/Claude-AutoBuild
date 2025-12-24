@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graph query operations for Graphiti memory.
 

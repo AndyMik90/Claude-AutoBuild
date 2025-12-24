@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Semantic analyzer package for AST-based code analysis.
 

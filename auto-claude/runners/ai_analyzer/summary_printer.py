@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Summary printing and output formatting for analysis results.
 """

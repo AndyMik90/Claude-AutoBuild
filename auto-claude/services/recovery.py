@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Smart Rollback and Recovery System
 ===================================

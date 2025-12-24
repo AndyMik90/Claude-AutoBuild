@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graphiti integration for retrieving graph hints during roadmap generation.
 """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Custom MCP Tools for Auto-Claude Agents
 ========================================

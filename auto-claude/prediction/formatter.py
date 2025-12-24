@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Markdown formatting for pre-implementation checklists.
 """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Streaming log capture for agent sessions.
 """

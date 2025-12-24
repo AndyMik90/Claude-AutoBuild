@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Memory Management for Agent System
 ===================================

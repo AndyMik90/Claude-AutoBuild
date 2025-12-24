@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Output streaming and reporting utilities.
 

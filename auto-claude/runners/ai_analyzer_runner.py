@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """
 AI-Enhanced Project Analyzer - CLI Entry Point

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Risk analysis and similarity detection for subtasks.
 Analyzes subtasks to predict issues based on work type and historical failures.

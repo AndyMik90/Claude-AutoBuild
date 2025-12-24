@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Individual analyzer implementations for different aspects of code analysis.
 """

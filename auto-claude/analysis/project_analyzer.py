@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Smart Project Analyzer for Dynamic Security Profiles
 =====================================================

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Checklist generation logic for pre-implementation planning.
 """

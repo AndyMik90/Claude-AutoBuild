@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Spec Writing and Critique Phase Implementations
 ================================================

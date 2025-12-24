@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Project context analysis for ideation generation.
 

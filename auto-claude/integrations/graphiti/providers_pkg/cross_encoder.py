@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Cross-Encoder / Reranker Provider
 ==================================

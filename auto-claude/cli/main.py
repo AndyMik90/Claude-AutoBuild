@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Auto Claude CLI - Main Entry Point
 ===================================

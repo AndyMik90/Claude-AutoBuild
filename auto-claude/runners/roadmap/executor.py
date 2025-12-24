@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Execution layer for agents and scripts in the roadmap generation process.
 """

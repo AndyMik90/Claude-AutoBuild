@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Main orchestrator for AI-powered project analysis.
 """

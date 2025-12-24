@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Common issue patterns and work type detection for bug prediction.
 """

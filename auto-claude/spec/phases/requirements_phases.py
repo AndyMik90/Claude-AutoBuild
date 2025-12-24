@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Requirements and Research Phase Implementations
 ================================================

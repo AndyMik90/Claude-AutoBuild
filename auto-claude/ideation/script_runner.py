@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Script execution utilities for ideation generation.
 

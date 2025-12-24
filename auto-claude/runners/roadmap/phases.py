@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Core phases for roadmap generation.
 """

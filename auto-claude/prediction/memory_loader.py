@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Memory loading utilities for bug prediction.
 Loads historical data from gotchas, patterns, and attempt history.

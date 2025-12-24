@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Provider Validators and Health Checks
 ======================================

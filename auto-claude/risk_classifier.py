@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backward compatibility shim - import from analysis.risk_classifier instead."""
 
 from analysis.risk_classifier import (

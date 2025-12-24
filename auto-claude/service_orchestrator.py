@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backward compatibility shim - import from services.orchestrator instead."""
 
 from services.orchestrator import (

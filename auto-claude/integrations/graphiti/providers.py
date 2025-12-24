@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graphiti Multi-Provider Entry Point
 ====================================

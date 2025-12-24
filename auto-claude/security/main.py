@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Security Hooks for Auto-Build Framework
 =======================================

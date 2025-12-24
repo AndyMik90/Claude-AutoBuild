@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backward compatibility shim - import from agents.tools_pkg instead."""
 
 # Direct import to avoid triggering agents.__init__ circular dependencies

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Ollama LLM Provider
 ===================

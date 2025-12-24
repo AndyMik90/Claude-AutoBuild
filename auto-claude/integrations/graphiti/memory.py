@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Graphiti Memory Integration V2 - Backward Compatibility Facade
 ================================================================

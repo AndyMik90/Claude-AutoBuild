@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backward compatibility shim - import from qa package instead."""
 
 from qa import (

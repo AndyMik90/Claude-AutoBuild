@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Claude SDK client wrapper for AI analysis.
 """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Phase execution logic for ideation generation.
 

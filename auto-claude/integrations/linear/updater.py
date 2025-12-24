@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Linear Updater - Python-Orchestrated Linear Updates
 ====================================================
