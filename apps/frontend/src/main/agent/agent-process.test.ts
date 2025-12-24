@@ -215,6 +215,18 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
   });
 
   describe('AC2: OAuth Mode (No Active Profile)', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      // Save original environment before each test
+      originalEnv = { ...process.env };
+    });
+
+    afterEach(() => {
+      // Restore original environment after each test
+      process.env = originalEnv;
+    });
+
     it('should NOT set ANTHROPIC_AUTH_TOKEN when no active profile (OAuth mode)', async () => {
       // Return empty object = OAuth mode
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
@@ -229,7 +241,8 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       expect(spawnCalls).toHaveLength(1);
       const envArg = spawnCalls[0].options.env as Record<string, unknown>;
       expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token-123');
-      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+      // OAuth mode clears ANTHROPIC_AUTH_TOKEN with empty string (not undefined)
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
     });
 
     it('should return empty object from getAPIProfileEnv when activeProfileId is null', async () => {
@@ -237,6 +250,77 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       const result = await profileService.getAPIProfileEnv();
       expect(result).toEqual({});
+    });
+
+    it('should clear stale ANTHROPIC_AUTH_TOKEN from process.env when switching to OAuth mode', async () => {
+      // Simulate process.env having stale ANTHROPIC_* vars from previous session
+      process.env = {
+        ...originalEnv,
+        ANTHROPIC_AUTH_TOKEN: 'stale-token-from-env',
+        ANTHROPIC_BASE_URL: 'https://stale.example.com'
+      };
+
+      // OAuth mode - no active API profile
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+
+      // Set OAuth token
+      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
+        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+      
+      // OAuth token should be present
+      expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token-456');
+      
+      // Stale ANTHROPIC_* vars should be cleared (empty string overrides process.env)
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('');
+    });
+
+    it('should clear stale ANTHROPIC_BASE_URL when switching to OAuth mode', async () => {
+      process.env = {
+        ...originalEnv,
+        ANTHROPIC_BASE_URL: 'https://old-custom-endpoint.com'
+      };
+
+      // OAuth mode
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
+        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789'
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+      
+      // Should clear the base URL (so Python uses default api.anthropic.com)
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('');
+      expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBe('oauth-token-789');
+    });
+
+    it('should NOT clear ANTHROPIC_* vars when API Profile is active', async () => {
+      process.env = {
+        ...originalEnv,
+        ANTHROPIC_AUTH_TOKEN: 'old-token-in-env'
+      };
+
+      // API Profile mode - active profile
+      const mockApiProfileEnv = {
+        ANTHROPIC_AUTH_TOKEN: 'sk-profile-active',
+        ANTHROPIC_BASE_URL: 'https://active-profile.com'
+      };
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(mockApiProfileEnv);
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+      
+      // Should use API profile vars, NOT clear them
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('sk-profile-active');
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('https://active-profile.com');
     });
   });
 
@@ -335,6 +419,38 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       expect(envArg.PYTHONUNBUFFERED).toBe('1');
       expect(envArg.PYTHONIOENCODING).toBe('utf-8');
       expect(envArg.PYTHONUTF8).toBe('1');
+    });
+
+    it('should call getOAuthModeClearVars and apply clearing when in OAuth mode', async () => {
+      // OAuth mode - empty API profile
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Verify clearing vars are applied (empty strings for ANTHROPIC_* vars)
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('');
+      expect(envArg.ANTHROPIC_MODEL).toBe('');
+      expect(envArg.ANTHROPIC_DEFAULT_CHAT_MODEL).toBe('');
+      expect(envArg.ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL).toBe('');
+    });
+
+    it('should handle getAPIProfileEnv errors gracefully', async () => {
+      // Simulate service error
+      vi.mocked(profileService.getAPIProfileEnv).mockRejectedValue(new Error('Service unavailable'));
+
+      // Should not throw - should fall back to OAuth mode
+      await expect(
+        processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution')
+      ).resolves.not.toThrow();
+
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // Should have clearing vars (falls back to OAuth mode on error)
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('');
     });
   });
 });
