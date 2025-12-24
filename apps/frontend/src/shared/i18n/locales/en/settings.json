@@ -123,7 +123,30 @@
   },
   "actions": {
     "save": "Save Settings",
-    "rerunWizard": "Re-run Setup Wizard"
+    "rerunWizard": "Re-run Wizard",
+    "rerunWizardDescription": "Start the setup wizard again"
+  },
+  "projectSections": {
+    "general": {
+      "title": "General",
+      "description": "Auto-Build and agent config"
+    },
+    "claude": {
+      "title": "Claude Auth",
+      "description": "Claude authentication"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Linear integration"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "GitHub issues sync"
+    },
+    "memory": {
+      "title": "Memory",
+      "description": "Graphiti memory backend"
+    }
   },
   "agentProfile": {
     "label": "Agent Profile",
