@@ -237,6 +237,9 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW: 'github:pr:review',
   GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
   GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
+  GITHUB_PR_MERGE: 'github:pr:merge',
+  GITHUB_PR_ASSIGN: 'github:pr:assign',
+  GITHUB_PR_POST_COMMENT: 'github:pr:postComment',
   GITHUB_PR_FIX: 'github:pr:fix',
 
   // GitHub PR Review events (main -> renderer)

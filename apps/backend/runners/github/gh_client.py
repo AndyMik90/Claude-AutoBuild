@@ -528,3 +528,76 @@ class GHClient:
 
         result = await self.run(args)
         return json.loads(result.stdout)
+
+    async def pr_merge(
+        self,
+        pr_number: int,
+        merge_method: str = "squash",
+        commit_title: str | None = None,
+        commit_message: str | None = None,
+    ) -> None:
+        """
+        Merge a pull request.
+
+        Args:
+            pr_number: PR number to merge
+            merge_method: Merge method - "merge", "squash", or "rebase" (default: "squash")
+            commit_title: Custom commit title (optional)
+            commit_message: Custom commit message (optional)
+        """
+        args = ["pr", "merge", str(pr_number), f"--{merge_method}"]
+
+        if commit_title:
+            args.extend(["--subject", commit_title])
+        if commit_message:
+            args.extend(["--body", commit_message])
+
+        await self.run(args)
+
+    async def pr_comment(self, pr_number: int, body: str) -> None:
+        """
+        Post a comment on a pull request.
+
+        Args:
+            pr_number: PR number
+            body: Comment body
+        """
+        args = ["pr", "comment", str(pr_number), "--body", body]
+        await self.run(args)
+
+    async def pr_get_assignees(self, pr_number: int) -> list[str]:
+        """
+        Get assignees for a pull request.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of assignee logins
+        """
+        data = await self.pr_get(pr_number, json_fields=["assignees"])
+        assignees = data.get("assignees", [])
+        return [a["login"] for a in assignees]
+
+    async def pr_assign(self, pr_number: int, assignees: list[str]) -> None:
+        """
+        Assign users to a pull request.
+
+        Args:
+            pr_number: PR number
+            assignees: List of GitHub usernames to assign
+        """
+        if not assignees:
+            return
+
+        # Use gh api to add assignees
+        endpoint = f"/repos/{{owner}}/{{repo}}/issues/{pr_number}/assignees"
+        args = [
+            "api",
+            endpoint,
+            "-X",
+            "POST",
+            "-f",
+            f"assignees={','.join(assignees)}",
+        ]
+        await self.run(args)

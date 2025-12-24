@@ -26,6 +26,9 @@ interface UseGitHubPRsResult {
   refresh: () => Promise<void>;
   runReview: (prNumber: number) => Promise<void>;
   postReview: (prNumber: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postComment: (prNumber: number, body: string) => Promise<boolean>;
+  mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignPR: (prNumber: number, username: string) => Promise<boolean>;
   getReviewStateForPR: (prNumber: number) => { isReviewing: boolean; progress: PRReviewProgress | null; result: PRReviewResult | null; error: string | null } | null;
 }
 
@@ -156,6 +159,49 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     }
   }, [projectId]);
 
+  const postComment = useCallback(async (prNumber: number, body: string): Promise<boolean> => {
+    if (!projectId) return false;
+
+    try {
+      return await window.electronAPI.github.postPRComment(projectId, prNumber, body);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to post comment');
+      return false;
+    }
+  }, [projectId]);
+
+  const mergePR = useCallback(async (prNumber: number, mergeMethod: 'merge' | 'squash' | 'rebase' = 'squash'): Promise<boolean> => {
+    if (!projectId) return false;
+
+    try {
+      const success = await window.electronAPI.github.mergePR(projectId, prNumber, mergeMethod);
+      if (success) {
+        // Refresh PR list after merge
+        await fetchPRs();
+      }
+      return success;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to merge PR');
+      return false;
+    }
+  }, [projectId, fetchPRs]);
+
+  const assignPR = useCallback(async (prNumber: number, username: string): Promise<boolean> => {
+    if (!projectId) return false;
+
+    try {
+      const success = await window.electronAPI.github.assignPR(projectId, prNumber, username);
+      if (success) {
+        // Refresh PR list to update assignees
+        await fetchPRs();
+      }
+      return success;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to assign user');
+      return false;
+    }
+  }, [projectId, fetchPRs]);
+
   return {
     prs,
     isLoading,
@@ -172,6 +218,9 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     refresh,
     runReview,
     postReview,
+    postComment,
+    mergePR,
+    assignPR,
     getReviewStateForPR,
   };
 }

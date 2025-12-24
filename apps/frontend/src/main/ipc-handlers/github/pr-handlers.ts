@@ -76,6 +76,7 @@ export interface PRData {
   additions: number;
   deletions: number;
   changedFiles: number;
+  assignees: Array<{ login: string }>;
   files: Array<{
     path: string;
     additions: number;
@@ -273,6 +274,7 @@ export function registerPRHandlers(
             additions: number;
             deletions: number;
             changed_files: number;
+            assignees?: Array<{ login: string }>;
             created_at: string;
             updated_at: string;
             html_url: string;
@@ -290,6 +292,7 @@ export function registerPRHandlers(
             additions: pr.additions,
             deletions: pr.deletions,
             changedFiles: pr.changed_files,
+            assignees: pr.assignees?.map((a: { login: string }) => ({ login: a.login })) ?? [],
             files: [],
             createdAt: pr.created_at,
             updatedAt: pr.updated_at,
@@ -328,6 +331,7 @@ export function registerPRHandlers(
             additions: number;
             deletions: number;
             changed_files: number;
+            assignees?: Array<{ login: string }>;
             created_at: string;
             updated_at: string;
             html_url: string;
@@ -354,6 +358,7 @@ export function registerPRHandlers(
             additions: pr.additions,
             deletions: pr.deletions,
             changedFiles: pr.changed_files,
+            assignees: pr.assignees?.map((a: { login: string }) => ({ login: a.login })) ?? [],
             files: files.map(f => ({
               path: f.filename,
               additions: f.additions,
@@ -427,6 +432,37 @@ export function registerPRHandlers(
           );
 
           debugLog('Starting PR review', { prNumber });
+          sendProgress({
+            phase: 'fetching',
+            prNumber,
+            progress: 5,
+            message: 'Assigning you to PR...',
+          });
+
+          // Auto-assign current user to PR
+          const config = getGitHubConfig(project);
+          if (config) {
+            try {
+              // Get current user
+              const user = await githubFetch(config.token, '/user') as { login: string };
+              debugLog('Auto-assigning user to PR', { prNumber, username: user.login });
+
+              // Assign to PR
+              await githubFetch(
+                config.token,
+                `/repos/${config.repo}/issues/${prNumber}/assignees`,
+                {
+                  method: 'POST',
+                  body: JSON.stringify({ assignees: [user.login] }),
+                }
+              );
+              debugLog('User assigned successfully', { prNumber, username: user.login });
+            } catch (assignError) {
+              // Don't fail the review if assignment fails, just log it
+              debugLog('Failed to auto-assign user', { prNumber, error: assignError instanceof Error ? assignError.message : assignError });
+            }
+          }
+
           sendProgress({
             phase: 'fetching',
             prNumber,
@@ -536,6 +572,82 @@ export function registerPRHandlers(
         }
       });
       return postResult ?? false;
+    }
+  );
+
+  // Post comment to PR
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_POST_COMMENT,
+    async (_, projectId: string, prNumber: number, body: string): Promise<boolean> => {
+      debugLog('postPRComment handler called', { projectId, prNumber });
+      const postResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execSync } = await import('child_process');
+          debugLog('Posting comment to PR', { prNumber });
+          execSync(`gh pr comment ${prNumber} --body "${body.replace(/"/g, '\\"')}"`, {
+            cwd: project.path,
+          });
+          debugLog('Comment posted successfully', { prNumber });
+          return true;
+        } catch (error) {
+          debugLog('Failed to post comment', { prNumber, error: error instanceof Error ? error.message : error });
+          return false;
+        }
+      });
+      return postResult ?? false;
+    }
+  );
+
+  // Merge PR
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MERGE,
+    async (_, projectId: string, prNumber: number, mergeMethod: 'merge' | 'squash' | 'rebase' = 'squash'): Promise<boolean> => {
+      debugLog('mergePR handler called', { projectId, prNumber, mergeMethod });
+      const mergeResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execSync } = await import('child_process');
+          debugLog('Merging PR', { prNumber, method: mergeMethod });
+          execSync(`gh pr merge ${prNumber} --${mergeMethod}`, {
+            cwd: project.path,
+          });
+          debugLog('PR merged successfully', { prNumber });
+          return true;
+        } catch (error) {
+          debugLog('Failed to merge PR', { prNumber, error: error instanceof Error ? error.message : error });
+          return false;
+        }
+      });
+      return mergeResult ?? false;
+    }
+  );
+
+  // Assign user to PR
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_ASSIGN,
+    async (_, projectId: string, prNumber: number, username: string): Promise<boolean> => {
+      debugLog('assignPR handler called', { projectId, prNumber, username });
+      const assignResult = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) return false;
+
+        try {
+          // Use GitHub API to add assignee
+          await githubFetch(
+            config.token,
+            `/repos/${config.repo}/issues/${prNumber}/assignees`,
+            {
+              method: 'POST',
+              body: JSON.stringify({ assignees: [username] }),
+            }
+          );
+          debugLog('User assigned successfully', { prNumber, username });
+          return true;
+        } catch (error) {
+          debugLog('Failed to assign user', { prNumber, username, error: error instanceof Error ? error.message : error });
+          return false;
+        }
+      });
+      return assignResult ?? false;
     }
   );
 

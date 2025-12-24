@@ -63,6 +63,9 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     selectPR,
     runReview,
     postReview,
+    postComment,
+    mergePR,
+    assignPR,
     refresh,
     isConnected,
     repoFullName,
@@ -82,6 +85,24 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
       postReview(selectedPRNumber, selectedFindingIds);
     }
   }, [selectedPRNumber, reviewResult, postReview]);
+
+  const handlePostComment = useCallback(async (body: string) => {
+    if (selectedPRNumber) {
+      await postComment(selectedPRNumber, body);
+    }
+  }, [selectedPRNumber, postComment]);
+
+  const handleMergePR = useCallback(async (mergeMethod?: 'merge' | 'squash' | 'rebase') => {
+    if (selectedPRNumber) {
+      await mergePR(selectedPRNumber, mergeMethod);
+    }
+  }, [selectedPRNumber, mergePR]);
+
+  const handleAssignPR = useCallback(async (username: string) => {
+    if (selectedPRNumber) {
+      await assignPR(selectedPRNumber, username);
+    }
+  }, [selectedPRNumber, assignPR]);
 
   // Not connected state
   if (!isConnected) {
@@ -147,6 +168,9 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               isReviewing={isReviewing}
               onRunReview={handleRunReview}
               onPostReview={handlePostReview}
+              onPostComment={handlePostComment}
+              onMergePR={handleMergePR}
+              onAssignPR={handleAssignPR}
             />
           ) : (
             <EmptyState message="Select a pull request to view details" />
