@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { AuthStatusIndicator } from './AuthStatusIndicator';
 import { useSettingsStore } from '../stores/settings-store';
-import type { APIProfile } from '@auto-claude/profile-service';
+import type { APIProfile } from '@shared/types/profile';
 
 // Mock the settings store
 vi.mock('../stores/settings-store', () => ({

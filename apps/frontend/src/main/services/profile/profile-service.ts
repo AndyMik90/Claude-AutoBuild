@@ -13,8 +13,18 @@ import Anthropic, {
   APIConnectionTimeoutError
 } from '@anthropic-ai/sdk';
 
-import { loadProfilesFile, saveProfilesFile, generateProfileId, validateFilePermissions, getProfilesFilePath, atomicModifyProfiles } from '../utils/profile-manager.js';
-import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '../types/profile.js';
+import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './profile-manager';
+import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
+
+/**
+ * Input type for creating a profile (without id, createdAt, updatedAt)
+ */
+export type CreateProfileInput = Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>;
+
+/**
+ * Input type for updating a profile (with id, without createdAt, updatedAt)
+ */
+export type UpdateProfileInput = Pick<APIProfile, 'id'> & CreateProfileInput;
 
 /**
  * Validate base URL format
@@ -78,16 +88,6 @@ export async function validateProfileNameUnique(name: string): Promise<boolean> 
 
   return !exists;
 }
-
-/**
- * Input type for creating a profile (without id, createdAt, updatedAt)
- */
-export type CreateProfileInput = Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>;
-
-/**
- * Input type for updating a profile (with id, without createdAt, updatedAt)
- */
-export type UpdateProfileInput = Pick<APIProfile, 'id'> & CreateProfileInput;
 
 /**
  * Delete a profile with validation

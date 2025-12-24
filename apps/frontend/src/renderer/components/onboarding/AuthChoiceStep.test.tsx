@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AuthChoiceStep } from './AuthChoiceStep';
-import type { APIProfile } from '@auto-claude/profile-service';
+import type { APIProfile } from '@shared/types/profile';
 
 // Mock the settings store
 const mockGoToNext = vi.fn();

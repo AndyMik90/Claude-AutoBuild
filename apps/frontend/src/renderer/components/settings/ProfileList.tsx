@@ -14,7 +14,7 @@ import { ProfileEditDialog } from './ProfileEditDialog';
 import { maskApiKey } from '../../lib/profile-utils';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
-import type { APIProfile } from '@auto-claude/profile-service';
+import type { APIProfile } from '@shared/types/profile';
 import {
   AlertDialog,
   AlertDialogAction,

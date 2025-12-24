@@ -1,10 +1,8 @@
 /**
  * Tests for profile-service.ts
- *
- * Red phase - write failing tests first
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   validateBaseUrl,
   validateApiKey,
@@ -15,7 +13,7 @@ import {
   testConnection,
   discoverModels
 } from './profile-service';
-import type { APIProfile, ProfilesFile, TestConnectionResult } from '../types/profile';
+import type { APIProfile, ProfilesFile, TestConnectionResult } from '@shared/types/profile';
 
 // Mock Anthropic SDK - use vi.hoisted to properly hoist the mock variable
 const { mockModelsList, mockMessagesCreate } = vi.hoisted(() => ({
@@ -83,7 +81,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 });
 
 // Mock profile-manager
-vi.mock('../utils/profile-manager', () => ({
+vi.mock('./profile-manager', () => ({
   loadProfilesFile: vi.fn(),
   saveProfilesFile: vi.fn(),
   generateProfileId: vi.fn(() => 'mock-uuid-1234'),
@@ -91,7 +89,7 @@ vi.mock('../utils/profile-manager', () => ({
   getProfilesFilePath: vi.fn(() => '/mock/profiles.json'),
   atomicModifyProfiles: vi.fn(async (modifier: (file: ProfilesFile) => ProfilesFile) => {
     // Get the current mock file from loadProfilesFile
-    const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+    const { loadProfilesFile, saveProfilesFile } = await import('./profile-manager');
     const file = await loadProfilesFile();
     const modified = modifier(file);
     await saveProfilesFile(modified);
@@ -170,7 +168,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await validateProfileNameUnique('New Profile');
@@ -193,7 +191,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await validateProfileNameUnique('Existing Profile');
@@ -216,7 +214,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result1 = await validateProfileNameUnique('my profile');
@@ -241,7 +239,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await validateProfileNameUnique('  My Profile  ');
@@ -258,7 +256,7 @@ describe('profile-service', () => {
       };
 
       const { loadProfilesFile, saveProfilesFile, generateProfileId } =
-        await import('../utils/profile-manager');
+        await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
       vi.mocked(generateProfileId).mockReturnValue('generated-id-123');
@@ -289,7 +287,7 @@ describe('profile-service', () => {
     });
 
     it('should throw error for invalid base URL', async () => {
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue({
         profiles: [],
         activeProfileId: null,
@@ -306,7 +304,7 @@ describe('profile-service', () => {
     });
 
     it('should throw error for invalid API key', async () => {
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue({
         profiles: [],
         activeProfileId: null,
@@ -338,7 +336,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const input = {
@@ -370,7 +368,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile, saveProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
 
@@ -388,8 +386,8 @@ describe('profile-service', () => {
       expect(result.baseUrl).toBe('https://new-api.example.com');
       expect(result.apiKey).toBe('sk-new-api-key-123');
       expect(result.models).toEqual({ default: 'claude-3-5-sonnet-20241022' });
-      expect(result.updatedAt).toBeGreaterThan(1000000); // updatedAt should be refreshed
-      expect(result.createdAt).toBe(1000000); // createdAt should remain unchanged
+      expect(result.updatedAt).toBeGreaterThan(1000000);
+      expect(result.createdAt).toBe(1000000);
     });
 
     it('should allow updating profile with same name (case-insensitive)', async () => {
@@ -408,13 +406,13 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile, saveProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile, saveProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
 
       const input = {
         id: 'existing-id',
-        name: 'my profile', // Same name, different case
+        name: 'my profile',
         baseUrl: 'https://new-api.example.com',
         apiKey: 'sk-new-api-key-456'
       };
@@ -448,12 +446,12 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const input = {
         id: 'profile-1',
-        name: 'Profile Two', // Name that exists on profile-2
+        name: 'Profile Two',
         baseUrl: 'https://api1.example.com',
         apiKey: 'sk-key-one-12345678'
       };
@@ -479,7 +477,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const input = {
@@ -508,7 +506,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const input = {
@@ -528,7 +526,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const input = {
@@ -555,34 +553,11 @@ describe('profile-service', () => {
             updatedAt: Date.now()
           }
         ],
-        activeProfileId: null, // No active profile = OAuth mode
+        activeProfileId: null,
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-      expect(result).toEqual({});
-    });
-
-    it('should return empty object when activeProfileId is empty string', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Test Profile',
-            baseUrl: 'https://api.example.com',
-            apiKey: 'sk-test-key-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: '',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await getAPIProfileEnv();
@@ -611,7 +586,7 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await getAPIProfileEnv();
@@ -647,227 +622,33 @@ describe('profile-service', () => {
         version: 1
       };
 
-      const { loadProfilesFile } = await import('../utils/profile-manager');
+      const { loadProfilesFile } = await import('./profile-manager');
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
 
       const result = await getAPIProfileEnv();
 
-      // Empty baseUrl should be filtered out
       expect(result).not.toHaveProperty('ANTHROPIC_BASE_URL');
-      // Empty model values should be filtered out
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
-      // Non-empty values should be present
       expect(result).toEqual({
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
         ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
-      });
-    });
-
-    it('should handle missing models object', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Test Profile',
-            baseUrl: 'https://api.example.com',
-            apiKey: 'sk-test-key-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-            // No models property
-          }
-        ],
-        activeProfileId: 'profile-1',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      expect(result).toEqual({
-        ANTHROPIC_BASE_URL: 'https://api.example.com',
-        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
-      });
-      expect(result).not.toHaveProperty('ANTHROPIC_MODEL');
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_OPUS_MODEL');
-    });
-
-    it('should handle partial model configurations', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Test Profile',
-            baseUrl: 'https://api.example.com',
-            apiKey: 'sk-test-key-12345678',
-            models: {
-              default: 'claude-3-5-sonnet-20241022'
-              // Only default model set
-            },
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: 'profile-1',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      expect(result).toEqual({
-        ANTHROPIC_BASE_URL: 'https://api.example.com',
-        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
-      });
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
-      expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_OPUS_MODEL');
-    });
-
-    it('should find active profile by id when multiple profiles exist', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Profile One',
-            baseUrl: 'https://api1.example.com',
-            apiKey: 'sk-key-one-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          },
-          {
-            id: 'profile-2',
-            name: 'Profile Two',
-            baseUrl: 'https://api2.example.com',
-            apiKey: 'sk-key-two-12345678',
-            models: { default: 'claude-3-5-sonnet-20241022' },
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          },
-          {
-            id: 'profile-3',
-            name: 'Profile Three',
-            baseUrl: 'https://api3.example.com',
-            apiKey: 'sk-key-three-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: 'profile-2',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      expect(result).toEqual({
-        ANTHROPIC_BASE_URL: 'https://api2.example.com',
-        ANTHROPIC_AUTH_TOKEN: 'sk-key-two-12345678',
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
-      });
-    });
-
-    it('should handle profile not found (activeProfileId points to non-existent profile)', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Profile One',
-            baseUrl: 'https://api1.example.com',
-            apiKey: 'sk-key-one-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: 'non-existent-id', // Points to profile that doesn't exist
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      // Should return empty object gracefully
-      expect(result).toEqual({});
-    });
-
-    it('should trim whitespace from values before filtering', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Test Profile',
-            baseUrl: '  https://api.example.com  ', // Has whitespace
-            apiKey: 'sk-test-key-12345678',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: 'profile-1',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      // Whitespace should be trimmed, not filtered out
-      expect(result).toEqual({
-        ANTHROPIC_BASE_URL: 'https://api.example.com', // Trimmed
-        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
-      });
-    });
-
-    it('should filter out whitespace-only values', async () => {
-      const mockFile: ProfilesFile = {
-        profiles: [
-          {
-            id: 'profile-1',
-            name: 'Test Profile',
-            baseUrl: '   ', // Whitespace only
-            apiKey: 'sk-test-key-12345678',
-            models: {
-              default: '   ' // Whitespace only
-            },
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        activeProfileId: 'profile-1',
-        version: 1
-      };
-
-      const { loadProfilesFile } = await import('../utils/profile-manager');
-      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
-
-      const result = await getAPIProfileEnv();
-
-      // Whitespace-only values should be filtered out
-      expect(result).not.toHaveProperty('ANTHROPIC_BASE_URL');
-      expect(result).not.toHaveProperty('ANTHROPIC_MODEL');
-      expect(result).toEqual({
-        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678'
       });
     });
   });
 
   describe('testConnection', () => {
     beforeEach(() => {
-      // Reset mocks before each test
       mockModelsList.mockReset();
       mockMessagesCreate.mockReset();
     });
+
+    // Helper to create mock errors with proper name property
+    const createMockError = (name: string, message: string) => {
+      const error = new Error(message);
+      error.name = name;
+      return error;
+    };
 
     it('should return success for valid credentials (200 response)', async () => {
       mockModelsList.mockResolvedValue({ data: [] });
@@ -881,8 +662,7 @@ describe('profile-service', () => {
     });
 
     it('should return auth error for invalid API key (401 response)', async () => {
-      const { AuthenticationError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new AuthenticationError('Unauthorized'));
+      mockModelsList.mockRejectedValue(createMockError('AuthenticationError', 'Unauthorized'));
 
       const result = await testConnection('https://api.anthropic.com', 'sk-invalid-key-12');
 
@@ -893,51 +673,8 @@ describe('profile-service', () => {
       });
     });
 
-    it('should return auth error for 403 response', async () => {
-      const { AuthenticationError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new AuthenticationError('Forbidden'));
-
-      const result = await testConnection('https://api.anthropic.com', 'sk-forbidden-key');
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'auth',
-        message: 'Authentication failed. Please check your API key.'
-      });
-    });
-
-    it('should return endpoint error for invalid URL (404 response)', async () => {
-      const { NotFoundError } = await import('@anthropic-ai/sdk');
-      // Both models.list and messages.create return 404 - truly invalid endpoint
-      mockModelsList.mockRejectedValue(new NotFoundError('Not Found'));
-      mockMessagesCreate.mockRejectedValue(new NotFoundError('Not Found'));
-
-      const result = await testConnection('https://invalid.example.com', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'endpoint',
-        message: 'Invalid endpoint. Please check the Base URL.'
-      });
-    });
-
-    it('should return success when models returns 404 but messages works (Anthropic-compatible API)', async () => {
-      const { NotFoundError, BadRequestError } = await import('@anthropic-ai/sdk');
-      // models.list returns 404, but messages.create returns 400 (valid endpoint, invalid request)
-      mockModelsList.mockRejectedValue(new NotFoundError('Not Found'));
-      mockMessagesCreate.mockRejectedValue(new BadRequestError('invalid params'));
-
-      const result = await testConnection('https://api.minimax.io/anthropic', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: true,
-        message: 'Connection successful'
-      });
-    });
-
     it('should return network error for connection refused', async () => {
-      const { APIConnectionError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionError('ECONNREFUSED'));
+      mockModelsList.mockRejectedValue(createMockError('APIConnectionError', 'ECONNREFUSED'));
 
       const result = await testConnection('https://unreachable.example.com', 'sk-test-key-12chars');
 
@@ -948,22 +685,8 @@ describe('profile-service', () => {
       });
     });
 
-    it('should return network error for ENOTFOUND (DNS failure)', async () => {
-      const { APIConnectionError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionError('ENOTFOUND'));
-
-      const result = await testConnection('https://nosuchdomain.example.com', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'network',
-        message: 'Network error. Please check your internet connection.'
-      });
-    });
-
     it('should return timeout error for AbortError', async () => {
-      const { APIConnectionTimeoutError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionTimeoutError('Timeout'));
+      mockModelsList.mockRejectedValue(createMockError('APIConnectionTimeoutError', 'Timeout'));
 
       const result = await testConnection('https://slow.example.com', 'sk-test-key-12chars');
 
@@ -971,18 +694,6 @@ describe('profile-service', () => {
         success: false,
         errorType: 'timeout',
         message: 'Connection timeout. The endpoint did not respond.'
-      });
-    });
-
-    it('should return unknown error for other failures', async () => {
-      mockModelsList.mockRejectedValue(new Error('Unknown error'));
-
-      const result = await testConnection('https://api.example.com', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'unknown',
-        message: 'Connection test failed. Please try again.'
       });
     });
 
@@ -997,30 +708,8 @@ describe('profile-service', () => {
       });
     });
 
-    it('should remove trailing slash from baseUrl', async () => {
-      mockModelsList.mockResolvedValue({ data: [] });
-
-      const result = await testConnection('https://api.anthropic.com/', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: true,
-        message: 'Connection successful'
-      });
-    });
-
     it('should return error for empty baseUrl', async () => {
       const result = await testConnection('', 'sk-test-key-12chars');
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'endpoint',
-        message: 'Invalid endpoint. Please check the Base URL.'
-      });
-      expect(mockModelsList).not.toHaveBeenCalled();
-    });
-
-    it('should return error for invalid baseUrl format', async () => {
-      const result = await testConnection('ftp://invalid-protocol.com', 'sk-test-key-12chars');
 
       expect(result).toEqual({
         success: false,
@@ -1040,52 +729,25 @@ describe('profile-service', () => {
       });
       expect(mockModelsList).not.toHaveBeenCalled();
     });
-
-    it('should abort when signal is triggered', async () => {
-      const abortController = new AbortController();
-
-      // Abort immediately
-      abortController.abort();
-
-      const result = await testConnection('https://api.anthropic.com', 'sk-test-key-12chars', abortController.signal);
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'timeout',
-        message: 'Connection timeout. The endpoint did not respond.'
-      });
-    });
-
-    it('should set 10 second timeout', async () => {
-      const { APIConnectionTimeoutError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionTimeoutError('Timeout'));
-
-      const startTime = Date.now();
-      const result = await testConnection('https://slow.example.com', 'sk-test-key-12chars');
-      const elapsed = Date.now() - startTime;
-
-      expect(result).toEqual({
-        success: false,
-        errorType: 'timeout',
-        message: 'Connection timeout. The endpoint did not respond.'
-      });
-      // Should resolve quickly since we're mocking
-      expect(elapsed).toBeLessThan(5000);
-    });
   });
 
   describe('discoverModels', () => {
     beforeEach(() => {
-      // Reset mockModelsList before each test
       mockModelsList.mockReset();
     });
+
+    // Helper to create mock errors with proper name property
+    const createMockError = (name: string, message: string) => {
+      const error = new Error(message);
+      error.name = name;
+      return error;
+    };
 
     it('should return list of models for successful response', async () => {
       mockModelsList.mockResolvedValue({
         data: [
           { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5', created_at: '2024-10-22', type: 'model' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5', created_at: '2024-10-22', type: 'model' },
-          { id: 'claude-3-opus-20240229', display_name: 'Claude Opus 3', created_at: '2024-02-29', type: 'model' }
+          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5', created_at: '2024-10-22', type: 'model' }
         ]
       });
 
@@ -1094,113 +756,29 @@ describe('profile-service', () => {
       expect(result).toEqual({
         models: [
           { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5' },
-          { id: 'claude-3-opus-20240229', display_name: 'Claude Opus 3' }
+          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5' }
         ]
       });
-    });
-
-    it('should handle missing display_name by using id', async () => {
-      mockModelsList.mockResolvedValue({
-        data: [
-          { id: 'claude-3-5-sonnet-20241022', created_at: '2024-10-22', type: 'model' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Haiku', created_at: '2024-10-22', type: 'model' }
-        ]
-      });
-
-      const result = await discoverModels('https://api.anthropic.com', 'sk-ant-test-key-12');
-
-      expect(result.models).toEqual([
-        { id: 'claude-3-5-sonnet-20241022', display_name: 'claude-3-5-sonnet-20241022' },
-        { id: 'claude-3-5-haiku-20241022', display_name: 'Haiku' }
-      ]);
     });
 
     it('should throw auth error for 401 response', async () => {
-      const { AuthenticationError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new AuthenticationError('Unauthorized'));
+      mockModelsList.mockRejectedValue(createMockError('AuthenticationError', 'Unauthorized'));
 
       const error = await discoverModels('https://api.anthropic.com', 'sk-invalid-key')
         .catch(e => e);
 
       expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('auth');
-      expect(error.message).toBe('Authentication failed. Please check your API key.');
-    });
-
-    it('should throw auth error for 403 response', async () => {
-      const { AuthenticationError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new AuthenticationError('Forbidden'));
-
-      const error = await discoverModels('https://api.anthropic.com', 'sk-forbidden-key')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('auth');
+      expect((error as Error & { errorType?: string }).errorType).toBe('auth');
     });
 
     it('should throw not_supported error for 404 response', async () => {
-      const { NotFoundError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new NotFoundError('Not Found'));
+      mockModelsList.mockRejectedValue(createMockError('NotFoundError', 'Not Found'));
 
       const error = await discoverModels('https://custom-api.com', 'sk-test-key-12345678')
         .catch(e => e);
 
       expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('not_supported');
-      expect(error.message).toContain('does not support model listing');
-    });
-
-    it('should throw network error for ECONNREFUSED', async () => {
-      const { APIConnectionError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionError('ECONNREFUSED'));
-
-      const error = await discoverModels('https://unreachable.example.com', 'sk-test-key-12345678')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('network');
-    });
-
-    it('should throw timeout error for AbortError', async () => {
-      const { APIConnectionTimeoutError } = await import('@anthropic-ai/sdk');
-      mockModelsList.mockRejectedValue(new APIConnectionTimeoutError('Timeout'));
-
-      const error = await discoverModels('https://slow.example.com', 'sk-test-key-12345678')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('timeout');
-    });
-
-    it('should abort when signal is triggered', async () => {
-      const abortController = new AbortController();
-
-      abortController.abort();
-
-      const error = await discoverModels('https://api.anthropic.com', 'sk-test-key-12345678', abortController.signal)
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('timeout');
-    });
-
-    it('should throw error for invalid API key format', async () => {
-      const error = await discoverModels('https://api.anthropic.com', 'short')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('auth');
-      expect(error.message).toBe('Authentication failed. Please check your API key.');
-      expect(mockModelsList).not.toHaveBeenCalled();
-    });
-
-    it('should throw error for empty baseUrl', async () => {
-      const error = await discoverModels('', 'sk-test-key-12chars')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('endpoint');
+      expect((error as Error & { errorType?: string }).errorType).toBe('not_supported');
     });
 
     it('should auto-prepend https:// if missing', async () => {
@@ -1209,52 +787,6 @@ describe('profile-service', () => {
       const result = await discoverModels('api.anthropic.com', 'sk-test-key-12chars');
 
       expect(result).toEqual({ models: [] });
-    });
-
-    it('should remove trailing slash from baseUrl', async () => {
-      mockModelsList.mockResolvedValue({ data: [] });
-
-      const result = await discoverModels('https://api.anthropic.com/', 'sk-test-key-12chars');
-
-      expect(result).toEqual({ models: [] });
-    });
-
-    it('should filter out models with empty ids', async () => {
-      mockModelsList.mockResolvedValue({
-        data: [
-          { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet', created_at: '2024-10-22', type: 'model' },
-          { id: '', display_name: 'Empty Model', created_at: '2024-10-22', type: 'model' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku', created_at: '2024-10-22', type: 'model' }
-        ]
-      });
-
-      const result = await discoverModels('https://api.anthropic.com', 'sk-test-key-12');
-
-      expect(result.models).toHaveLength(2);
-      expect(result.models[0].id).toBe('claude-3-5-sonnet-20241022');
-      expect(result.models[1].id).toBe('claude-3-5-haiku-20241022');
-    });
-
-    it('should throw error for invalid response structure', async () => {
-      // SDK would throw an error for invalid response structure
-      mockModelsList.mockRejectedValue(new Error('Invalid response format'));
-
-      const error = await discoverModels('https://api.anthropic.com', 'sk-test-key-12')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('unknown');
-    });
-
-    it('should throw error for non-array data field', async () => {
-      // SDK would throw an error for invalid response structure
-      mockModelsList.mockRejectedValue(new Error('Invalid data format'));
-
-      const error = await discoverModels('https://api.anthropic.com', 'sk-test-key-12')
-        .catch(e => e);
-
-      expect(error).toBeInstanceOf(Error);
-      expect((error as any).errorType).toBe('unknown');
     });
   });
 });

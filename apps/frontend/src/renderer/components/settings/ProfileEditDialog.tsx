@@ -30,9 +30,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 import { ModelSearchableSelect } from './ModelSearchableSelect';
 import { useToast } from '../../hooks/use-toast';
 import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
-import type { APIProfile } from '@auto-claude/profile-service';
-import type { ProfileFormData } from '@auto-claude/profile-service';
-import type { TestConnectionResult } from '@auto-claude/profile-service';
+import type { APIProfile, ProfileFormData, TestConnectionResult } from '@shared/types/profile';
 import { maskApiKey } from '../../lib/profile-utils';
 
 interface ProfileEditDialogProps {

@@ -9,9 +9,9 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { app } from 'electron';
-// @ts-ignore - no types available
+// @ts-expect-error - no types available for proper-lockfile
 import * as lockfile from 'proper-lockfile';
-import type { APIProfile, ProfilesFile } from '../types/profile.js';
+import type { APIProfile, ProfilesFile } from '@shared/types/profile';
 
 /**
  * Get the path to profiles.json in the auto-claude directory
@@ -102,7 +102,7 @@ export async function loadProfilesFile(): Promise<ProfilesFile> {
 
     // Validation failed - return default
     return getDefaultProfilesFile();
-  } catch (error) {
+  } catch {
     // File doesn't exist or read/parse error - return default
     return getDefaultProfilesFile();
   }
@@ -186,9 +186,9 @@ export async function withProfilesLock<T>(fn: () => Promise<T>): Promise<T> {
     const defaultData = getDefaultProfilesFile();
     try {
       await fs.writeFile(filePath, JSON.stringify(defaultData, null, 2), { encoding: 'utf-8', flag: 'wx' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // If file was created by another process (race condition), that's fine
-      if (err.code !== 'EEXIST') {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw err;
       }
       // EEXIST means another process won the race, proceed normally

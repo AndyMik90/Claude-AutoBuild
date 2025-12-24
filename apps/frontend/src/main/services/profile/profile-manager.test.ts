@@ -1,7 +1,5 @@
 /**
  * Tests for profile-manager.ts
- *
- * Red phase - write failing tests first
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -11,7 +9,7 @@ import {
   generateProfileId,
   validateFilePermissions
 } from './profile-manager';
-import type { ProfilesFile } from '../types/profile';
+import type { ProfilesFile } from '@shared/types/profile';
 
 // Use vi.hoisted to define mock functions that need to be accessible in vi.mock
 const { fsMocks } = vi.hoisted(() => ({

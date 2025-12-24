@@ -7,7 +7,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileList } from './ProfileList';
 import { maskApiKey } from '../../lib/profile-utils';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { APIProfile } from '@auto-claude/profile-service';
+import type { APIProfile } from '@shared/types/profile';
 import { TooltipProvider } from '../ui/tooltip';
 
 // Wrapper for components that need TooltipProvider
