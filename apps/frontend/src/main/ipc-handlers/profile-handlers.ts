@@ -13,15 +13,19 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
-import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from '@auto-claude/profile-service';
+import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from '@shared/types/profile';
 import {
   loadProfilesFile,
   saveProfilesFile,
   validateFilePermissions,
   getProfilesFilePath,
-  atomicModifyProfiles
-} from '@auto-claude/profile-service';
-import { createProfile, updateProfile, deleteProfile, testConnection, discoverModels } from '@auto-claude/profile-service';
+  atomicModifyProfiles,
+  createProfile,
+  updateProfile,
+  deleteProfile,
+  testConnection,
+  discoverModels
+} from '../services/profile';
 
 // Track active test connection requests for cancellation
 const activeTestConnections = new Map<number, AbortController>();

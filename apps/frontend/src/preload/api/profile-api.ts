@@ -7,7 +7,7 @@ import type {
   ProfilesFile,
   TestConnectionResult,
   DiscoverModelsResult
-} from '@auto-claude/profile-service';
+} from '@shared/types/profile';
 
 export interface ProfileAPI {
   // Get all profiles

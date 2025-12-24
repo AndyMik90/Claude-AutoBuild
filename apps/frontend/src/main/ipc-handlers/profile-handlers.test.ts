@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { APIProfile, ProfilesFile } from '@auto-claude/profile-service';
+import type { APIProfile, ProfilesFile } from '@shared/types/profile';
 
 // Hoist mocked functions to avoid circular dependency in atomicModifyProfiles
 const { mockedLoadProfilesFile, mockedSaveProfilesFile } = vi.hoisted(() => ({
@@ -23,15 +23,17 @@ vi.mock('electron', () => ({
   }
 }));
 
-// Mock profile-manager
-vi.mock('@auto-claude/profile-service', () => ({
+// Mock profile service
+vi.mock('../services/profile', () => ({
   loadProfilesFile: mockedLoadProfilesFile,
   saveProfilesFile: mockedSaveProfilesFile,
   validateFilePermissions: vi.fn(),
   getProfilesFilePath: vi.fn(() => '/test/profiles.json'),
   createProfile: vi.fn(),
   updateProfile: vi.fn(),
+  deleteProfile: vi.fn(),
   testConnection: vi.fn(),
+  discoverModels: vi.fn(),
   atomicModifyProfiles: vi.fn(async (modifier: (file: unknown) => unknown) => {
     const file = await mockedLoadProfilesFile();
     const modified = modifier(file);
@@ -48,8 +50,8 @@ import {
   saveProfilesFile,
   validateFilePermissions,
   testConnection
-} from '@auto-claude/profile-service';
-import type { TestConnectionResult } from '@auto-claude/profile-service';
+} from '../services/profile';
+import type { TestConnectionResult } from '@shared/types/profile';
 
 // Get the handler function for testing
 function getSetActiveHandler() {
@@ -103,7 +105,7 @@ describe('profile-handlers - setActiveProfile', () => {
 
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
-      vi.mocked(validateFilePermissions).mockResolvedValue(undefined);
+      vi.mocked(validateFilePermissions).mockResolvedValue(true);
 
       const handler = getSetActiveHandler();
       const result = await handler({}, 'profile-1');
@@ -145,7 +147,7 @@ describe('profile-handlers - setActiveProfile', () => {
 
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
-      vi.mocked(validateFilePermissions).mockResolvedValue(undefined);
+      vi.mocked(validateFilePermissions).mockResolvedValue(true);
 
       const handler = getSetActiveHandler();
       const result = await handler({}, null);
@@ -168,7 +170,7 @@ describe('profile-handlers - setActiveProfile', () => {
 
       vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
       vi.mocked(saveProfilesFile).mockResolvedValue(undefined);
-      vi.mocked(validateFilePermissions).mockResolvedValue(undefined);
+      vi.mocked(validateFilePermissions).mockResolvedValue(true);
 
       const handler = getSetActiveHandler();
       const result = await handler({}, null);

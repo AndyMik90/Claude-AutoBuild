@@ -48,7 +48,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auto-claude/profile-service": "*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -84,6 +83,7 @@
     "i18next": "^25.7.3",
     "lucide-react": "^0.562.0",
     "motion": "^12.23.26",
+    "proper-lockfile": "^4.1.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-i18next": "^16.5.0",

@@ -21,7 +21,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { cn } from '../../lib/utils';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { ModelInfo } from '@auto-claude/profile-service';
+import type { ModelInfo } from '@shared/types/profile';
 
 interface ModelSearchableSelectProps {
   /** Currently selected model ID */

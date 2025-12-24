@@ -24,10 +24,10 @@ function createMockProcess() {
 }
 
 // Mock child_process - must be BEFORE imports of modules that use it
-const spawnCalls: Array<{ command: string; args: string[]; options: Record<string, unknown> }> = [];
+const spawnCalls: Array<{ command: string; args: string[]; options: { env: Record<string, string>; cwd?: string; [key: string]: unknown } }> = [];
 
 vi.mock('child_process', () => {
-  const mockSpawn = vi.fn((command: string, args: string[], options: Record<string, unknown>) => {
+  const mockSpawn = vi.fn((command: string, args: string[], options: { env: Record<string, string>; cwd?: string; [key: string]: unknown }) => {
     // Record the call for test assertions
     spawnCalls.push({ command, args, options });
     return createMockProcess();
@@ -82,7 +82,7 @@ vi.mock('../claude-profile-manager', () => ({
 }));
 
 // Mock dependencies
-vi.mock('@auto-claude/profile-service', () => ({
+vi.mock('../services/profile', () => ({
   getAPIProfileEnv: vi.fn()
 }));
 
@@ -108,7 +108,7 @@ vi.mock('electron', () => ({
 import { AgentProcessManager } from './agent-process';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
-import * as profileService from '@auto-claude/profile-service';
+import * as profileService from '../services/profile';
 import * as rateLimitDetector from '../rate-limit-detector';
 
 describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
