@@ -92,6 +92,7 @@ export function ProjectTabBar({
             tabIndex={index}
             onSelect={() => onProjectSelect(project.id)}
             onClose={(e) => {
+              console.log('[ProjectTabBar] onClose called for project:', project.id);
               e.stopPropagation();
               onProjectClose(project.id);
             }}

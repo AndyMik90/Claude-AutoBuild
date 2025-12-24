@@ -10,6 +10,7 @@ interface TabState {
   openProjectIds: string[];
   activeProjectId: string | null;
   tabOrder: string[];
+  userClosedAllTabs?: boolean;
 }
 
 interface StoreData {
@@ -148,7 +149,8 @@ export class ProjectStore {
     return this.data.tabState || {
       openProjectIds: [],
       activeProjectId: null,
-      tabOrder: []
+      tabOrder: [],
+      userClosedAllTabs: false
     };
   }
 
@@ -163,7 +165,8 @@ export class ProjectStore {
       activeProjectId: tabState.activeProjectId && validProjectIds.includes(tabState.activeProjectId)
         ? tabState.activeProjectId
         : null,
-      tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id))
+      tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id)),
+      userClosedAllTabs: tabState.userClosedAllTabs || false
     };
     console.log('[ProjectStore] Saving tab state:', this.data.tabState);
     this.save();
