@@ -96,15 +96,15 @@ export function Unity({ projectId }: UnityProps) {
   }, [projectInfo?.version, editors]);
 
   // Detect Unity project
-  const detectUnityProject = useCallback(async () => {
+  const detectUnityProject = useCallback(async (overridePath?: string) => {
     if (!selectedProject) return;
 
     setIsDetecting(true);
     setDetectError(null);
 
     try {
-      // Use custom Unity path if set, otherwise use project root
-      const pathToCheck = customUnityPath || selectedProject.path;
+      // Use override path, custom Unity path if set, or project root
+      const pathToCheck = overridePath || customUnityPath || selectedProject.path;
       const result = await window.electronAPI.detectUnityProject(pathToCheck);
       if (result.success && result.data) {
         setProjectInfo(result.data);
@@ -318,7 +318,8 @@ export function Unity({ projectId }: UnityProps) {
         });
         if (result.success) {
           // Re-detect Unity project with new path and refresh editors
-          await detectUnityProject();
+          // Pass the path directly to avoid stale state
+          await detectUnityProject(path);
           await loadUnityEditors();
         }
       }
