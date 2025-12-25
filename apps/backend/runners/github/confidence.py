@@ -369,7 +369,13 @@ class ConfidenceScorer:
                 # Not enough data, return neutral with penalty
                 return 0.5 * (stats.total_predictions / self.MIN_SAMPLE_SIZE)
 
-        except Exception:
+        except Exception as e:
+            # Log the error for debugging while returning neutral score
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"Error scoring history for category '{category}': {e}"
+            )
             return 0.5
 
     def _score_category(

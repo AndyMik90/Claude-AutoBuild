@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -141,17 +142,19 @@ class BotDetector:
 
         try:
             # Use gh api to get authenticated user
+            # Pass token via environment variable to avoid exposing it in process listings
+            env = os.environ.copy()
+            env["GH_TOKEN"] = self.bot_token
             result = subprocess.run(
                 [
                     "gh",
                     "api",
                     "user",
-                    "--header",
-                    f"Authorization: token {self.bot_token}",
                 ],
                 capture_output=True,
                 text=True,
                 timeout=5,
+                env=env,
             )
 
             if result.returncode == 0:

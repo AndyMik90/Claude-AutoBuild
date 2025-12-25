@@ -308,20 +308,22 @@ class LearningTracker:
                 continue
 
     def _save_outcomes(self, repo: str) -> None:
-        """Save outcomes for a repo to disk."""
+        """Save outcomes for a repo to disk with file locking for concurrency safety."""
+        from .file_lock import FileLock, atomic_write
+
         file = self._get_outcomes_file(repo)
         repo_outcomes = [o for o in self._outcomes.values() if o.repo == repo]
 
-        with open(file, "w") as f:
-            json.dump(
-                {
-                    "repo": repo,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                    "outcomes": [o.to_dict() for o in repo_outcomes],
-                },
-                f,
-                indent=2,
-            )
+        data = {
+            "repo": repo,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "outcomes": [o.to_dict() for o in repo_outcomes],
+        }
+
+        # Use file locking and atomic write for safe concurrent access
+        with FileLock(file, timeout=5.0):
+            with atomic_write(file) as f:
+                json.dump(data, f, indent=2)
 
     def record_prediction(
         self,

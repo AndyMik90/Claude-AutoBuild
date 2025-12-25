@@ -99,6 +99,12 @@ class ContentSanitizer:
     USER_CONTENT_START = "<user_content>"
     USER_CONTENT_END = "</user_content>"
 
+    # Pattern to detect delimiter variations (including spaces, unicode homoglyphs)
+    USER_CONTENT_TAG_PATTERN = re.compile(
+        r"<\s*/?\s*user_content\s*>",
+        re.IGNORECASE,
+    )
+
     def __init__(
         self,
         max_issue_body: int = MAX_ISSUE_BODY_CHARS,
@@ -198,11 +204,13 @@ class ContentSanitizer:
                     if self.log_truncation:
                         logger.warning(f"{content_type}: {warning}")
 
-        # Step 4: Escape our delimiters if present in content
-        if self.USER_CONTENT_START in content or self.USER_CONTENT_END in content:
-            content = content.replace(
-                self.USER_CONTENT_START, "&lt;user_content&gt;"
-            ).replace(self.USER_CONTENT_END, "&lt;/user_content&gt;")
+        # Step 4: Escape our delimiters if present in content (handles variations)
+        if self.USER_CONTENT_TAG_PATTERN.search(content):
+            # Use regex to catch all variations including spacing and case
+            content = self.USER_CONTENT_TAG_PATTERN.sub(
+                lambda m: m.group(0).replace("<", "&lt;").replace(">", "&gt;"),
+                content,
+            )
             was_modified = True
             warnings.append("Escaped delimiter tags in content")
 

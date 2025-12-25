@@ -53,9 +53,24 @@ export function runPythonSubprocess<T = unknown>(
 ): { process: ChildProcess; promise: Promise<SubprocessResult<T>> } {
   // Don't set PYTHONPATH - let runner.py manage its own import paths
   // Setting PYTHONPATH can interfere with runner.py's sys.path manipulation
+  // Filter environment variables to only include necessary ones (prevent leaking secrets)
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP'];
+  const filteredEnv: Record<string, string> = {};
+  for (const key of safeEnvVars) {
+    if (process.env[key]) {
+      filteredEnv[key] = process.env[key]!;
+    }
+  }
+  // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
+  for (const [key, value] of Object.entries(process.env)) {
+    if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
+      filteredEnv[key] = value;
+    }
+  }
+
   const child = spawn(options.pythonPath, options.args, {
     cwd: options.cwd,
-    env: process.env,
+    env: filteredEnv,
   });
 
   const promise = new Promise<SubprocessResult<T>>((resolve) => {
@@ -102,11 +117,13 @@ export function runPythonSubprocess<T = unknown>(
     child.on('close', (code: number) => {
       const exitCode = code ?? 0;
 
-      // Debug: log raw stdout and stderr
-      console.log('[DEBUG] Process exited with code:', exitCode);
-      console.log('[DEBUG] Raw stdout length:', stdout.length);
-      console.log('[DEBUG] Raw stdout (first 1000 chars):', stdout.substring(0, 1000));
-      console.log('[DEBUG] Raw stderr (first 500 chars):', stderr.substring(0, 500));
+      // Debug logging only in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG] Process exited with code:', exitCode);
+        console.log('[DEBUG] Raw stdout length:', stdout.length);
+        console.log('[DEBUG] Raw stdout (first 1000 chars):', stdout.substring(0, 1000));
+        console.log('[DEBUG] Raw stderr (first 500 chars):', stderr.substring(0, 500));
+      }
 
       if (exitCode === 0) {
         try {

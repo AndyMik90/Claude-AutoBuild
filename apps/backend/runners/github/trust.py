@@ -430,11 +430,20 @@ class TrustManager:
         return state
 
     def save_state(self, repo: str) -> None:
-        """Save trust state for a repository."""
+        """Save trust state for a repository with secure file permissions."""
+        import os
+
         state = self.get_state(repo)
         state_file = self._get_state_file(repo)
-        with open(state_file, "w") as f:
-            json.dump(state.to_dict(), f, indent=2)
+
+        # Write with restrictive permissions (0o600 = owner read/write only)
+        fd = os.open(str(state_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(state.to_dict(), f, indent=2)
+        except Exception:
+            os.close(fd)
+            raise
 
     def get_trust_level(self, repo: str) -> TrustLevel:
         """Get current trust level for a repository."""

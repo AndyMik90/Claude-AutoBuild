@@ -19,6 +19,7 @@ try:
         ReviewPass,
         StructuralIssue,
     )
+    from ..orchestrator import ProgressCallback
     from .prompt_manager import PromptManager
     from .response_parsers import ResponseParser
 except (ImportError, ValueError, SystemError):
@@ -30,6 +31,7 @@ except (ImportError, ValueError, SystemError):
         ReviewPass,
         StructuralIssue,
     )
+    from orchestrator import ProgressCallback
     from services.prompt_manager import PromptManager
     from services.response_parsers import ResponseParser
 
@@ -54,18 +56,7 @@ class PRReviewEngine:
     def _report_progress(self, phase: str, progress: int, message: str, **kwargs):
         """Report progress if callback is set."""
         if self.progress_callback:
-            # Import at module level to avoid circular import issues
-            import sys
-
-            if "orchestrator" in sys.modules:
-                ProgressCallback = sys.modules["orchestrator"].ProgressCallback
-            else:
-                # Fallback: try relative import
-                try:
-                    from ..orchestrator import ProgressCallback
-                except ImportError:
-                    from orchestrator import ProgressCallback
-
+            # ProgressCallback is imported at module level
             self.progress_callback(
                 ProgressCallback(
                     phase=phase, progress=progress, message=message, **kwargs

@@ -614,7 +614,11 @@ class AutoFixState:
         )
 
     def update_status(self, status: AutoFixStatus) -> None:
-        """Update status and timestamp."""
+        """Update status and timestamp with transition validation."""
+        if not self.status.can_transition_to(status):
+            raise ValueError(
+                f"Invalid state transition: {self.status.value} -> {status.value}"
+            )
         self.status = status
         self.updated_at = datetime.now().isoformat()
 

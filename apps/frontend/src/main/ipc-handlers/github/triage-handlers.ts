@@ -420,10 +420,28 @@ export function registerTriageHandlers(
 
             if (result && result.labelsToAdd.length > 0) {
               debugLog('Applying labels to issue', { issueNumber, labels: result.labelsToAdd });
-              const { execSync } = await import('child_process');
-              execSync(`gh issue edit ${issueNumber} --add-label "${result.labelsToAdd.join(',')}"`, {
-                cwd: project.path,
-              });
+
+              // Validate issueNumber to prevent command injection
+              if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+                throw new Error('Invalid issue number');
+              }
+
+              // Validate labels - reject any that contain shell metacharacters
+              const safeLabels = result.labelsToAdd.filter((label: string) => /^[\w\s\-.:]+$/.test(label));
+              if (safeLabels.length !== result.labelsToAdd.length) {
+                debugLog('Some labels were filtered due to invalid characters', {
+                  original: result.labelsToAdd,
+                  filtered: safeLabels
+                });
+              }
+
+              if (safeLabels.length > 0) {
+                const { execFileSync } = await import('child_process');
+                // Use execFileSync with arguments array to prevent command injection
+                execFileSync('gh', ['issue', 'edit', String(issueNumber), '--add-label', safeLabels.join(',')], {
+                  cwd: project.path,
+                });
+              }
             }
           }
           debugLog('Labels applied successfully');

@@ -415,8 +415,13 @@ export function registerPRHandlers(
         if (!config) return null;
 
         try {
-          const { execSync } = await import('child_process');
-          const diff = execSync(`gh pr diff ${prNumber}`, {
+          const { execFileSync } = await import('child_process');
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error('Invalid PR number');
+          }
+          // Use execFileSync with arguments array to prevent command injection
+          const diff = execFileSync('gh', ['pr', 'diff', String(prNumber)], {
             cwd: project.path,
             encoding: 'utf-8',
           });
@@ -667,17 +672,23 @@ export function registerPRHandlers(
       debugLog('postPRComment handler called', { projectId, prNumber });
       const postResult = await withProjectOrNull(projectId, async (project) => {
         try {
-          const { execSync } = await import('child_process');
+          const { execFileSync } = await import('child_process');
           const { writeFileSync, unlinkSync } = await import('fs');
           const { join } = await import('path');
 
           debugLog('Posting comment to PR', { prNumber });
 
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error('Invalid PR number');
+          }
+
           // Use temp file to avoid shell escaping issues
           const tmpFile = join(project.path, '.auto-claude', 'tmp_comment_body.txt');
           try {
             writeFileSync(tmpFile, body, 'utf-8');
-            execSync(`gh pr comment ${prNumber} --body-file "${tmpFile}"`, {
+            // Use execFileSync with arguments array to prevent command injection
+            execFileSync('gh', ['pr', 'comment', String(prNumber), '--body-file', tmpFile], {
               cwd: project.path,
             });
             unlinkSync(tmpFile);
@@ -761,9 +772,22 @@ export function registerPRHandlers(
       debugLog('mergePR handler called', { projectId, prNumber, mergeMethod });
       const mergeResult = await withProjectOrNull(projectId, async (project) => {
         try {
-          const { execSync } = await import('child_process');
+          const { execFileSync } = await import('child_process');
           debugLog('Merging PR', { prNumber, method: mergeMethod });
-          execSync(`gh pr merge ${prNumber} --${mergeMethod}`, {
+
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error('Invalid PR number');
+          }
+
+          // Validate mergeMethod to prevent command injection
+          const validMethods = ['merge', 'squash', 'rebase'];
+          if (!validMethods.includes(mergeMethod)) {
+            throw new Error('Invalid merge method');
+          }
+
+          // Use execFileSync with arguments array to prevent command injection
+          execFileSync('gh', ['pr', 'merge', String(prNumber), `--${mergeMethod}`], {
             cwd: project.path,
           });
           debugLog('PR merged successfully', { prNumber });

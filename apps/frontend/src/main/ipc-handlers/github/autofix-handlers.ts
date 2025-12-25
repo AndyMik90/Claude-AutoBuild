@@ -813,9 +813,11 @@ export function registerAutoFixHandlers(
           }
 
           const backendPath = validation.backendPath!;
-          const { execSync } = await import('child_process');
-          execSync(
-            `"${getPythonPath(backendPath)}" "${getRunnerPath(backendPath)}" --project "${project.path}" approve-batches "${tempFile}"`,
+          const { execFileSync } = await import('child_process');
+          // Use execFileSync with arguments array to prevent command injection
+          execFileSync(
+            getPythonPath(backendPath),
+            [getRunnerPath(backendPath), '--project', project.path, 'approve-batches', tempFile],
             { cwd: backendPath, encoding: 'utf-8' }
           );
 
