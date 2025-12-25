@@ -59,12 +59,16 @@ def get_config(args) -> GitLabRunnerConfig:
         # Try to get from glab CLI
         import subprocess
 
-        result = subprocess.run(
-            ["glab", "auth", "status", "-t"],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
+        try:
+            result = subprocess.run(
+                ["glab", "auth", "status", "-t"],
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            result = None
+
+        if result and result.returncode == 0:
             # Parse token from output
             for line in result.stdout.split("\n"):
                 if "Token:" in line:

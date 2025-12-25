@@ -267,7 +267,16 @@ export const integrationMock = {
     error: 'Not available in browser mock'
   }),
 
-  createGitLabMergeRequest: async () => ({
+  createGitLabMergeRequest: async (_projectId: string, _options: {
+    title: string;
+    description?: string;
+    sourceBranch: string;
+    targetBranch: string;
+    labels?: string[];
+    assigneeIds?: number[];
+    removeSourceBranch?: boolean;
+    squash?: boolean;
+  }) => ({
     success: false,
     error: 'Not available in browser mock'
   }),

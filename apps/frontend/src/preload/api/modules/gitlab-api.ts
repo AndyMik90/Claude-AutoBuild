@@ -67,25 +67,25 @@ export interface GitLabAPI {
   ) => Promise<IPCResult<GitLabMergeRequest>>;
 
   // MR Review operations (AI-powered)
-  getMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
-  runMRReview: (projectId: string, mrIid: number) => void;
-  runFollowupMRReview: (projectId: string, mrIid: number) => void;
-  postMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
-  postMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
-  mergeMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
-  assignMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
-  approveMR: (projectId: string, mrIid: number) => Promise<boolean>;
-  cancelMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
-  checkMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
+  getGitLabMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
+  runGitLabMRReview: (projectId: string, mrIid: number) => void;
+  runGitLabMRFollowupReview: (projectId: string, mrIid: number) => void;
+  postGitLabMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postGitLabMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
+  mergeGitLabMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignGitLabMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
+  approveGitLabMR: (projectId: string, mrIid: number) => Promise<boolean>;
+  cancelGitLabMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
+  checkGitLabMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
 
   // MR Review Event Listeners
-  onMRReviewProgress: (
+  onGitLabMRReviewProgress: (
     callback: (projectId: string, progress: GitLabMRReviewProgress) => void
   ) => IpcListenerCleanup;
-  onMRReviewComplete: (
+  onGitLabMRReviewComplete: (
     callback: (projectId: string, result: GitLabMRReviewResult) => void
   ) => IpcListenerCleanup;
-  onMRReviewError: (
+  onGitLabMRReviewError: (
     callback: (projectId: string, data: { mrIid: number; error: string }) => void
   ) => IpcListenerCleanup;
 
@@ -243,48 +243,48 @@ export const createGitLabAPI = (): GitLabAPI => ({
     invokeIpc(IPC_CHANNELS.GITLAB_UPDATE_MERGE_REQUEST, projectId, mrIid, updates),
 
   // MR Review operations (AI-powered)
-  getMRReview: (projectId: string, mrIid: number): Promise<GitLabMRReviewResult | null> =>
+  getGitLabMRReview: (projectId: string, mrIid: number): Promise<GitLabMRReviewResult | null> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_GET_REVIEW, projectId, mrIid),
 
-  runMRReview: (projectId: string, mrIid: number): void =>
+  runGitLabMRReview: (projectId: string, mrIid: number): void =>
     sendIpc(IPC_CHANNELS.GITLAB_MR_REVIEW, projectId, mrIid),
 
-  runFollowupMRReview: (projectId: string, mrIid: number): void =>
+  runGitLabMRFollowupReview: (projectId: string, mrIid: number): void =>
     sendIpc(IPC_CHANNELS.GITLAB_MR_FOLLOWUP_REVIEW, projectId, mrIid),
 
-  postMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]): Promise<boolean> =>
+  postGitLabMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_POST_REVIEW, projectId, mrIid, selectedFindingIds),
 
-  postMRNote: (projectId: string, mrIid: number, body: string): Promise<boolean> =>
+  postGitLabMRNote: (projectId: string, mrIid: number, body: string): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_POST_NOTE, projectId, mrIid, body),
 
-  mergeMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase'): Promise<boolean> =>
+  mergeGitLabMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase'): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_MERGE, projectId, mrIid, mergeMethod),
 
-  assignMR: (projectId: string, mrIid: number, userIds: number[]): Promise<boolean> =>
+  assignGitLabMR: (projectId: string, mrIid: number, userIds: number[]): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_ASSIGN, projectId, mrIid, userIds),
 
-  approveMR: (projectId: string, mrIid: number): Promise<boolean> =>
+  approveGitLabMR: (projectId: string, mrIid: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_APPROVE, projectId, mrIid),
 
-  cancelMRReview: (projectId: string, mrIid: number): Promise<boolean> =>
+  cancelGitLabMRReview: (projectId: string, mrIid: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_REVIEW_CANCEL, projectId, mrIid),
 
-  checkMRNewCommits: (projectId: string, mrIid: number): Promise<GitLabNewCommitsCheck> =>
+  checkGitLabMRNewCommits: (projectId: string, mrIid: number): Promise<GitLabNewCommitsCheck> =>
     invokeIpc(IPC_CHANNELS.GITLAB_MR_CHECK_NEW_COMMITS, projectId, mrIid),
 
   // MR Review Event Listeners
-  onMRReviewProgress: (
+  onGitLabMRReviewProgress: (
     callback: (projectId: string, progress: GitLabMRReviewProgress) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_PROGRESS, callback),
 
-  onMRReviewComplete: (
+  onGitLabMRReviewComplete: (
     callback: (projectId: string, result: GitLabMRReviewResult) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_COMPLETE, callback),
 
-  onMRReviewError: (
+  onGitLabMRReviewError: (
     callback: (projectId: string, data: { mrIid: number; error: string }) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_ERROR, callback),

@@ -47,13 +47,12 @@ export function CreateMergeRequestDialog({
     setError(null);
 
     try {
-      const result = await window.electronAPI.createGitLabMergeRequest(
-        projectId,
-        sourceBranch.trim(),
-        targetBranch.trim(),
-        title.trim(),
-        { description: description.trim() || undefined }
-      );
+      const result = await window.electronAPI.createGitLabMergeRequest(projectId, {
+        sourceBranch: sourceBranch.trim(),
+        targetBranch: targetBranch.trim(),
+        title: title.trim(),
+        description: description.trim() || undefined,
+      });
 
       if (result.success && result.data) {
         onSuccess?.(result.data.iid);

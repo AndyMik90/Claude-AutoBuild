@@ -49,6 +49,9 @@ const { debug: debugLog } = createContextLogger('GitLab MR');
  */
 const runningReviews = new Map<string, import('child_process').ChildProcess>();
 
+const REBASE_POLL_INTERVAL_MS = 1000;
+const REBASE_TIMEOUT_MS = 30000;
+
 /**
  * Get the registry key for an MR review
  */
@@ -61,6 +64,31 @@ function getReviewKey(projectId: string, mrIid: number): string {
  */
 function getGitLabDir(project: Project): string {
   return path.join(project.path, '.auto-claude', 'gitlab');
+}
+
+async function waitForRebaseCompletion(
+  token: string,
+  instanceUrl: string,
+  encodedProject: string,
+  mrIid: number
+): Promise<void> {
+  const deadline = Date.now() + REBASE_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const mrData = await gitlabFetch(
+      token,
+      instanceUrl,
+      `/projects/${encodedProject}/merge_requests/${mrIid}`
+    ) as { rebase_in_progress?: boolean };
+
+    if (!mrData.rebase_in_progress) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, REBASE_POLL_INTERVAL_MS));
+  }
+
+  throw new Error('Rebase did not complete before timeout');
 }
 
 /**
@@ -516,8 +544,19 @@ export function registerMRReviewHandlers(
           if (mergeMethod === 'squash') {
             mergeOptions.squash = true;
           } else if (mergeMethod === 'rebase') {
-            // GitLab uses merge_when_pipeline_succeeds or rebase before merge
-            mergeOptions.merge_when_pipeline_succeeds = false;
+            debugLog('Rebasing MR before merge', { mrIid });
+            await gitlabFetch(
+              config.token,
+              config.instanceUrl,
+              `/projects/${encodedProject}/merge_requests/${mrIid}/rebase`,
+              { method: 'POST' }
+            );
+            await waitForRebaseCompletion(
+              config.token,
+              config.instanceUrl,
+              encodedProject,
+              mrIid
+            );
           }
 
           debugLog('Merging MR', { mrIid, method: mergeMethod, options: mergeOptions });

@@ -395,10 +395,16 @@ export interface ElectronAPI {
   getGitLabMergeRequest: (projectId: string, mrIid: number) => Promise<IPCResult<GitLabMergeRequest>>;
   createGitLabMergeRequest: (
     projectId: string,
-    sourceBranch: string,
-    targetBranch: string,
-    title: string,
-    options?: { description?: string; labels?: string[]; assigneeIds?: number[] }
+    options: {
+      title: string;
+      description?: string;
+      sourceBranch: string;
+      targetBranch: string;
+      labels?: string[];
+      assigneeIds?: number[];
+      removeSourceBranch?: boolean;
+      squash?: boolean;
+    }
   ) => Promise<IPCResult<GitLabMergeRequest>>;
   updateGitLabMergeRequest: (
     projectId: string,
