@@ -19,14 +19,21 @@ Example Usage:
 from __future__ import annotations
 
 import asyncio
-import fcntl
-import json
 import os
+import json
 import tempfile
 import time
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    fcntl = None
+
+if os.name == "nt":
+    import msvcrt
 
 
 class FileLockError(Exception):
@@ -89,15 +96,20 @@ class FileLock:
         self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
 
         # Try to acquire lock with timeout
-        lock_mode = fcntl.LOCK_EX if self.exclusive else fcntl.LOCK_SH
         start_time = time.time()
 
         while True:
             try:
                 # Non-blocking lock attempt
-                fcntl.flock(self._fd, lock_mode | fcntl.LOCK_NB)
+                if os.name == "nt":
+                    msvcrt.locking(self._fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    if fcntl is None:
+                        raise FileLockError("fcntl is required for file locking on non-Windows platforms")
+                    lock_mode = fcntl.LOCK_EX if self.exclusive else fcntl.LOCK_SH
+                    fcntl.flock(self._fd, lock_mode | fcntl.LOCK_NB)
                 return  # Lock acquired
-            except BlockingIOError:
+            except (BlockingIOError, OSError):
                 # Lock held by another process
                 elapsed = time.time() - start_time
                 if elapsed >= self.timeout:
@@ -114,7 +126,11 @@ class FileLock:
         """Release the file lock."""
         if self._fd is not None:
             try:
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
+                if os.name == "nt":
+                    msvcrt.locking(self._fd, msvcrt.LK_UNLCK, 1)
+                else:
+                    if fcntl is not None:
+                        fcntl.flock(self._fd, fcntl.LOCK_UN)
                 os.close(self._fd)
             except Exception:
                 pass  # Best effort cleanup
