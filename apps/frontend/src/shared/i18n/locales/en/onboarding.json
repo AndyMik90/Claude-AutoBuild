@@ -61,6 +61,7 @@
   },
   "steps": {
     "welcome": "Welcome",
+    "authChoice": "Auth Method",
     "auth": "Auth",
     "memory": "Memory",
     "done": "Done"

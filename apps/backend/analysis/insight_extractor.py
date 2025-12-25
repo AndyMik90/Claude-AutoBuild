@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 # Check for Claude SDK availability
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    from phase_config import resolve_model_id
+
+    SDK_AVAILABLE = True
 
     SDK_AVAILABLE = True
 except ImportError:
@@ -370,7 +373,7 @@ async def run_insight_extraction(
         # No tools needed - just text generation
         client = ClaudeSDKClient(
             options=ClaudeAgentOptions(
-                model=model,
+                model=resolve_model_id(model),  # Resolve via API Profile if configured
                 system_prompt=(
                     "You are an expert code analyst. You extract structured insights from coding sessions. "
                     "Always respond with valid JSON only, no markdown formatting or explanations."

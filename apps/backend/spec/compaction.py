@@ -11,12 +11,13 @@ from pathlib import Path
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from core.auth import get_sdk_env_vars, require_auth_token
+from phase_config import resolve_model_id
 
 
 async def summarize_phase_output(
     phase_name: str,
     phase_output: str,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     target_words: int = 500,
 ) -> str:
     """
@@ -60,7 +61,7 @@ Be concise and use bullet points. Skip boilerplate and meta-commentary.
 
     client = ClaudeSDKClient(
         options=ClaudeAgentOptions(
-            model=model,
+            model=resolve_model_id(model),  # Resolve via API Profile if configured
             system_prompt=(
                 "You are a concise technical summarizer. Extract only the most "
                 "critical information from phase outputs. Use bullet points. "

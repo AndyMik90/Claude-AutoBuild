@@ -56,7 +56,7 @@ class IdeationGenerator:
         self,
         project_dir: Path,
         output_dir: Path,
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "opus",
         thinking_level: str = "medium",
         max_ideas_per_type: int = 5,
     ):

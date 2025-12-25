@@ -41,7 +41,7 @@ class IdeationOrchestrator:
         include_roadmap_context: bool = True,
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "opus",
         thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,
