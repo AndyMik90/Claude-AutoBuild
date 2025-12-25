@@ -22,6 +22,7 @@ import {
 } from './memory-status-handlers';
 import { loadFileBasedMemories } from './memory-data-handlers';
 import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+import { getAugmentedEnv } from '../../env-utils';
 
 /**
  * Load project index from file
@@ -187,7 +188,7 @@ export function registerProjectContextHandlers(
             '--output', indexOutputPath
           ], {
             cwd: project.path,
-            env: { ...process.env }
+            env: getAugmentedEnv()
           });
 
           proc.stdout?.on('data', (data) => {

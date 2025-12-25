@@ -12,7 +12,7 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 
 **Requirements:**
 - Python 3.12+ (required for backend)
-- Node.js (for frontend)
+- Node.js 24+ (for frontend)
 
 ```bash
 # Install all dependencies from root
@@ -28,6 +28,9 @@ cd apps/frontend && npm install
 # Set up OAuth token
 claude setup-token
 # Add to apps/backend/.env: CLAUDE_CODE_OAUTH_TOKEN=your-token
+
+# Set up pre-commit hooks (recommended)
+pip install pre-commit && pre-commit install
 ```
 
 ### Creating and Running Specs
@@ -92,8 +95,27 @@ apps/backend/.venv/bin/pytest tests/test_security.py::test_bash_command_validati
 # Skip slow tests
 apps/backend/.venv/bin/pytest tests/ -m "not slow"
 
+# Skip integration tests
+apps/backend/.venv/bin/pytest tests/ -m "not integration"
+
 # Or from root
 npm run test:backend
+```
+
+### Linting
+```bash
+# Python (ruff) - from apps/backend/
+cd apps/backend
+ruff check . --fix    # Lint with auto-fix
+ruff format .         # Format code
+
+# Frontend (ESLint + TypeScript) - from apps/frontend/
+cd apps/frontend
+npm run lint          # ESLint
+npm run typecheck     # TypeScript type checking
+
+# Run all pre-commit checks manually
+pre-commit run --all-files
 ```
 
 ### Spec Validation
@@ -164,7 +186,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 
 ### Spec Directory Structure
 
-Each spec in `.auto-claude/specs/XXX-name/` contains:
+When running Auto Claude on a target project, specs are stored in that project's `.auto-claude/specs/XXX-name/` directory (gitignored). Each spec contains:
 - `spec.md` - Feature specification
 - `requirements.json` - Structured user requirements
 - `context.json` - Discovered codebase context
@@ -245,4 +267,7 @@ npm start        # Build and run desktop app
 npm run dev      # Run in development mode
 ```
 
+When Auto Claude runs on a target project:
 - `.auto-claude/specs/` - Per-project data (specs, plans, QA reports) - gitignored
+- `.worktrees/{spec-name}/` - Isolated git worktrees for builds
+- `.auto-claude-security.json` - Cached security profile
