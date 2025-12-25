@@ -130,7 +130,7 @@ export function registerInvestigateIssue(
         });
 
         // Build context for investigation
-        let context = buildIssueContext(issue, config.project);
+        let context = buildIssueContext(issue, config.project, config.instanceUrl);
 
         if (selectedNotes.length > 0) {
           context += '\n\n## Selected Comments\n';

@@ -331,18 +331,6 @@ async function startAutoFix(
     web_url: string;
   };
 
-  // Fetch notes (comments)
-  const notes = await gitlabFetch(
-    glConfig.token,
-    glConfig.instanceUrl,
-    `/projects/${encodedProject}/issues/${issueIid}/notes`
-  ) as Array<{
-    id: number;
-    body: string;
-    author: { username: string };
-    system: boolean;
-  }>;
-
   sendProgress(mainWindow, project.id, {
     phase: 'analyzing',
     issueIid,

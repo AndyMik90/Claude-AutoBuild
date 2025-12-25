@@ -26,12 +26,87 @@ function debugLog(message: string, ...args: unknown[]): void {
   console.log(`[GitLab Triage] ${message}`, ...args);
 }
 
-function normalizeIssueIid(value: unknown): number | null {
+const TRIAGE_CATEGORIES: GitLabTriageCategory[] = [
+  'bug',
+  'feature',
+  'documentation',
+  'question',
+  'duplicate',
+  'spam',
+  'feature_creep',
+];
+
+function stripControlChars(value: string): string {
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  return sanitized;
+}
+
+function sanitizeIssueIid(value: unknown): number | null {
   const issueIid = typeof value === 'number' ? value : Number(value);
   if (!Number.isInteger(issueIid) || issueIid <= 0) {
     return null;
   }
   return issueIid;
+}
+
+function sanitizeCategory(value: unknown): GitLabTriageCategory {
+  return TRIAGE_CATEGORIES.includes(value as GitLabTriageCategory) ? (value as GitLabTriageCategory) : 'feature';
+}
+
+function sanitizeLabel(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const sanitized = stripControlChars(value).trim();
+  return sanitized.length > 50 ? sanitized.substring(0, 50) : sanitized;
+}
+
+function sanitizeLabels(values: string[]): string[] {
+  const sanitized = values.map(label => sanitizeLabel(label)).filter(label => Boolean(label));
+  return sanitized.length > 50 ? sanitized.slice(0, 50) : sanitized;
+}
+
+function sanitizeConfidence(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function sanitizePriority(value: unknown): 'high' | 'medium' | 'low' {
+  if (value === 'high' || value === 'low') return value;
+  return 'medium';
+}
+
+function sanitizeTriagedAt(value: unknown): string {
+  if (typeof value !== 'string') return new Date().toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function sanitizeTriageResult(result: GitLabTriageResult): {
+  issue_iid: number;
+  category: GitLabTriageCategory;
+  confidence: number;
+  labels_to_add: string[];
+  labels_to_remove: string[];
+  priority: 'high' | 'medium' | 'low';
+  triaged_at: string;
+} | null {
+  const issueIid = sanitizeIssueIid(result.issueIid);
+  if (!issueIid) return null;
+  return {
+    issue_iid: issueIid,
+    category: sanitizeCategory(result.category),
+    confidence: sanitizeConfidence(result.confidence),
+    labels_to_add: sanitizeLabels(result.labelsToAdd),
+    labels_to_remove: sanitizeLabels(result.labelsToRemove),
+    priority: sanitizePriority(result.priority),
+    triaged_at: sanitizeTriagedAt(result.triagedAt),
+  };
 }
 
 /**
@@ -340,7 +415,7 @@ export function registerTriageHandlers(
               category = 'question';
             }
 
-            const issueIid = normalizeIssueIid(issue.iid);
+            const issueIid = sanitizeIssueIid(issue.iid);
             if (!issueIid) {
               debugLog('Skipping issue with invalid IID', { issueIid: issue.iid });
               continue;
@@ -356,18 +431,16 @@ export function registerTriageHandlers(
               triagedAt: new Date().toISOString(),
             };
 
+            const sanitizedResult = sanitizeTriageResult(result);
+            if (!sanitizedResult) {
+              debugLog('Skipping triage result with invalid IID', { issueIid: result.issueIid });
+              continue;
+            }
+
             // Save result
             fs.writeFileSync(
-              path.join(triageDir, `triage_${issueIid}.json`),
-              JSON.stringify({
-                issue_iid: issueIid,
-                category: result.category,
-                confidence: result.confidence,
-                labels_to_add: result.labelsToAdd,
-                labels_to_remove: result.labelsToRemove,
-                priority: result.priority,
-                triaged_at: result.triagedAt,
-              }, null, 2)
+              path.join(triageDir, `triage_${sanitizedResult.issue_iid}.json`),
+              JSON.stringify(sanitizedResult, null, 2)
             );
 
             results.push(result);

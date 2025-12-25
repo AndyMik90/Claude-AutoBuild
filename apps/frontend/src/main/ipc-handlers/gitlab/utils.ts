@@ -12,17 +12,58 @@ import { getAugmentedEnv } from '../../env-utils';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
-function normalizeInstanceUrl(value: string | undefined): string | null {
-  const candidate = value || DEFAULT_GITLAB_URL;
+function parseInstanceUrl(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate) return null;
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return null;
+    }
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+    if (!parsed.hostname) {
       return null;
     }
     return parsed.origin;
   } catch {
     return null;
   }
+}
+
+function normalizeInstanceUrl(value: string | undefined): string | null {
+  const candidate = value || DEFAULT_GITLAB_URL;
+  return parseInstanceUrl(candidate);
+}
+
+function sanitizeToken(value: string | undefined): string | null {
+  if (!value) return null;
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  const trimmed = sanitized.trim();
+  if (!trimmed) return null;
+  return trimmed.length > 512 ? trimmed.substring(0, 512) : trimmed;
+}
+
+function sanitizeProjectRef(value: string | undefined): string | null {
+  if (!value) return null;
+  let sanitized = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1F || code === 0x7F) {
+      continue;
+    }
+    sanitized += value[i];
+  }
+  const trimmed = sanitized.trim();
+  return trimmed ? trimmed : null;
 }
 
 /**
@@ -33,10 +74,15 @@ function getTokenFromGlabCli(instanceUrl?: string): string | null {
   try {
     // glab auth token outputs the token for the current authenticated host
     const args = ['auth', 'token'];
-    if (instanceUrl && !instanceUrl.includes('gitlab.com')) {
-      // For self-hosted, specify the hostname
-      const hostname = new URL(instanceUrl).hostname;
-      args.push('--hostname', hostname);
+    if (instanceUrl) {
+      const normalized = parseInstanceUrl(instanceUrl);
+      if (normalized) {
+        const hostname = new URL(normalized).hostname;
+        if (hostname !== 'gitlab.com') {
+          // For self-hosted, specify the hostname
+          args.push('--hostname', hostname);
+        }
+      }
     }
 
     const token = execSync(`glab ${args.join(' ')}`, {
@@ -89,14 +135,14 @@ export async function getGitLabConfig(project: Project): Promise<GitLabConfig | 
       return null;
     }
 
-    let token: string | undefined = vars[GITLAB_ENV_KEYS.TOKEN];
-    const projectRef = vars[GITLAB_ENV_KEYS.PROJECT];
+    let token = sanitizeToken(vars[GITLAB_ENV_KEYS.TOKEN]);
+    const projectRef = sanitizeProjectRef(vars[GITLAB_ENV_KEYS.PROJECT]);
     const instanceUrl = normalizeInstanceUrl(vars[GITLAB_ENV_KEYS.INSTANCE_URL]);
     if (!instanceUrl) return null;
 
     // If no token in .env, try to get it from glab CLI
     if (!token) {
-      const glabToken = getTokenFromGlabCli(instanceUrl);
+      const glabToken = sanitizeToken(getTokenFromGlabCli(instanceUrl) ?? undefined);
       if (glabToken) {
         token = glabToken;
       }
@@ -177,15 +223,18 @@ export async function gitlabFetch(
   options: RequestInit = {}
 ): Promise<unknown> {
   // Ensure instanceUrl doesn't have trailing slash
-  let baseUrl = instanceUrl.replace(/\/$/, '');
-  try {
-    baseUrl = new URL(baseUrl).origin;
-  } catch {
+  const baseUrl = parseInstanceUrl(instanceUrl);
+  if (!baseUrl) {
     throw new Error('Invalid GitLab instance URL');
   }
-  const url = endpoint.startsWith('http')
-    ? endpoint
-    : `${baseUrl}/api/v4${endpoint}`;
+  if (!endpoint.startsWith('/')) {
+    throw new Error('GitLab endpoint must be a relative path');
+  }
+  const url = `${baseUrl}/api/v4${endpoint}`;
+  const safeToken = sanitizeToken(token);
+  if (!safeToken) {
+    throw new Error('Invalid GitLab token');
+  }
 
   // Create abort controller for timeout
   const controller = new AbortController();
@@ -197,8 +246,8 @@ export async function gitlabFetch(
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        'PRIVATE-TOKEN': token,
-        ...options.headers
+        ...options.headers,
+        'PRIVATE-TOKEN': safeToken
       }
     });
 
@@ -229,15 +278,18 @@ export async function gitlabFetchWithCount(
   options: RequestInit = {}
 ): Promise<{ data: unknown; totalCount: number }> {
   // Ensure instanceUrl doesn't have trailing slash
-  let baseUrl = instanceUrl.replace(/\/$/, '');
-  try {
-    baseUrl = new URL(baseUrl).origin;
-  } catch {
+  const baseUrl = parseInstanceUrl(instanceUrl);
+  if (!baseUrl) {
     throw new Error('Invalid GitLab instance URL');
   }
-  const url = endpoint.startsWith('http')
-    ? endpoint
-    : `${baseUrl}/api/v4${endpoint}`;
+  if (!endpoint.startsWith('/')) {
+    throw new Error('GitLab endpoint must be a relative path');
+  }
+  const url = `${baseUrl}/api/v4${endpoint}`;
+  const safeToken = sanitizeToken(token);
+  if (!safeToken) {
+    throw new Error('Invalid GitLab token');
+  }
 
   // Create abort controller for timeout
   const controller = new AbortController();
@@ -249,8 +301,8 @@ export async function gitlabFetchWithCount(
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        'PRIVATE-TOKEN': token,
-        ...options.headers
+        ...options.headers,
+        'PRIVATE-TOKEN': safeToken
       }
     });
 
