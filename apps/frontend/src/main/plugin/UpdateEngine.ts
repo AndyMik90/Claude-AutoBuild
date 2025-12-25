@@ -531,8 +531,18 @@ export class UpdateEngine {
 
       // Create timestamped backup directory
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupName = `backup-${plugin.version}-${timestamp}`;
-      const backupPath = path.join(backupsDir, backupName);
+      const backupNameBase = `backup-${plugin.version}-${timestamp}`;
+      let backupName = backupNameBase;
+      let backupPath = path.join(backupsDir, backupName);
+
+      // Avoid collisions when multiple backups are created within the same millisecond
+      // (e.g., createBackup() called and then rollback() immediately creates another backup).
+      let suffix = 1;
+      while (existsSync(backupPath)) {
+        backupName = `${backupNameBase}-${suffix}`;
+        backupPath = path.join(backupsDir, backupName);
+        suffix += 1;
+      }
 
       // Copy plugin files (excluding .git and .backups)
       this.copyDirExcluding(plugin.path, backupPath, ['.git', BACKUPS_DIR]);
