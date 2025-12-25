@@ -443,3 +443,67 @@ export interface TaskStartOptions {
   model?: string;
   baseBranch?: string; // Override base branch for worktree creation
 }
+
+// =============================================================================
+// Conflict Resolution Types
+// =============================================================================
+
+/** Resolution strategy for a single conflict item */
+export type ConflictResolution = 'ours' | 'theirs' | 'both' | 'ai' | 'custom';
+
+/** A single change hunk within a file conflict */
+export interface ConflictHunk {
+  id: string;                    // Unique identifier for this hunk
+  startLineOurs: number;         // Start line in "ours" version
+  endLineOurs: number;           // End line in "ours" version
+  startLineTheirs: number;       // Start line in "theirs" version
+  endLineTheirs: number;         // End line in "theirs" version
+  contentOurs: string;           // Content from spec branch
+  contentTheirs: string;         // Content from main branch
+  contentBase?: string;          // Content from merge-base (common ancestor)
+  resolution?: ConflictResolution;
+  customContent?: string;        // For 'custom' resolution
+}
+
+/** File-level conflict with detailed content and hunks */
+export interface FileConflict {
+  filePath: string;
+  fileType: string;              // Extension for syntax highlighting
+  contentOurs: string;           // Full file content from spec branch
+  contentTheirs: string;         // Full file content from main branch
+  contentBase?: string;          // Full file content from merge-base
+  hunks: ConflictHunk[];         // Individual change hunks
+  resolution?: ConflictResolution; // File-level resolution (overrides hunks)
+  customContent?: string;        // Full custom content if resolution is 'custom'
+}
+
+/** User's resolution choices to send to backend */
+export interface ConflictResolutionRequest {
+  taskId: string;
+  resolutions: Array<{
+    filePath: string;
+    resolution: ConflictResolution;
+    customContent?: string;      // For 'custom' or per-hunk resolutions
+    hunkResolutions?: Array<{
+      hunkId: string;
+      resolution: ConflictResolution;
+      customContent?: string;
+    }>;
+  }>;
+}
+
+/** Response from backend after applying resolutions */
+export interface ConflictResolutionResult {
+  success: boolean;
+  message: string;
+  resolvedFiles: string[];
+  failedFiles?: Array<{
+    filePath: string;
+    error: string;
+  }>;
+}
+
+/** Extended GitConflictInfo with file contents for conflict resolver UI */
+export interface DetailedGitConflictInfo extends GitConflictInfo {
+  fileContents: FileConflict[];
+}

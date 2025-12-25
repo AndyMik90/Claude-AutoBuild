@@ -40,6 +40,10 @@ export const IPC_CHANNELS = {
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
 
+  // Conflict resolution (interactive merge UI)
+  TASK_GET_CONFLICT_DETAILS: 'task:getConflictDetails',  // Get file contents for conflict resolver
+  TASK_APPLY_RESOLUTIONS: 'task:applyResolutions',       // Apply user's conflict resolution choices
+
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',
   TASK_ERROR: 'task:error',

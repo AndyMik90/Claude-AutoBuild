@@ -36,7 +36,10 @@ import type {
   TaskRecoveryOptions,
   TaskMetadata,
   TaskLogs,
-  TaskLogStreamChunk
+  TaskLogStreamChunk,
+  DetailedGitConflictInfo,
+  ConflictResolutionRequest,
+  ConflictResolutionResult
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -150,6 +153,8 @@ export interface ElectronAPI {
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   discardWorktree: (taskId: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
+  getConflictDetails: (taskId: string) => Promise<IPCResult<DetailedGitConflictInfo>>;
+  applyResolutions: (taskId: string, resolutions: ConflictResolutionRequest) => Promise<IPCResult<ConflictResolutionResult>>;
 
   // Task archive operations
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;

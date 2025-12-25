@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   CheckCircle,
   GitCommit,
-  Terminal
+  Terminal,
+  Settings2
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
@@ -32,6 +33,7 @@ interface WorkspaceStatusProps {
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
+  onShowConflictResolver: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
   onMerge: () => void;
@@ -52,6 +54,7 @@ export function WorkspaceStatus({
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
+  onShowConflictResolver,
   onLoadMergePreview,
   onStageOnlyChange,
   onMerge
@@ -234,6 +237,17 @@ export function WorkspaceStatus({
               )}
             </div>
             <div className="flex items-center gap-1">
+              {hasGitConflicts && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onShowConflictResolver(true)}
+                  className="h-7 text-xs gap-1"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Resolve
+                </Button>
+              )}
               {(hasGitConflicts || hasAIConflicts) && (
                 <Button
                   variant="ghost"

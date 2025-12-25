@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { TooltipProvider } from '../ui/tooltip';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask } from '../../stores/task-store';
+import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
 import { TaskHeader } from './TaskHeader';
@@ -24,6 +24,7 @@ interface TaskDetailPanelProps {
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const state = useTaskDetail({ task });
   const _progress = calculateProgress(task.subtasks);
+  const updateTask = useTaskStore((s) => s.updateTask);
 
   // Event Handlers
   const handleStartStop = () => {
@@ -85,6 +86,9 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           state.setStagedSuccess(result.data.message || 'Changes staged in main project');
           state.setStagedProjectPath(result.data.projectPath);
           state.setSuggestedCommitMessage(result.data.suggestedCommitMessage);
+          // Update task store to persist stagedInMainProject flag
+          // This ensures the flag survives panel close/reopen without full reload
+          updateTask(task.id, { stagedInMainProject: true, stagedAt: new Date().toISOString() });
         } else {
           console.warn('[TaskDetailPanel] Full merge success, closing panel');
           onClose();
@@ -201,6 +205,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     mergePreview={state.mergePreview}
                     isLoadingPreview={state.isLoadingPreview}
                     showConflictDialog={state.showConflictDialog}
+                    showConflictResolver={state.showConflictResolver}
                     onFeedbackChange={state.setFeedback}
                     onReject={handleReject}
                     onMerge={handleMerge}
@@ -209,6 +214,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     onShowDiffDialog={state.setShowDiffDialog}
                     onStageOnlyChange={state.setStageOnly}
                     onShowConflictDialog={state.setShowConflictDialog}
+                    onShowConflictResolver={state.setShowConflictResolver}
                     onLoadMergePreview={state.loadMergePreview}
                   />
                 )}

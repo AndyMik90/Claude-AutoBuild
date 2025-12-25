@@ -9,7 +9,10 @@ import type {
   ImplementationPlan,
   TaskMetadata,
   TaskLogs,
-  TaskLogStreamChunk
+  TaskLogStreamChunk,
+  DetailedGitConflictInfo,
+  ConflictResolutionRequest,
+  ConflictResolutionResult
 } from '../../shared/types';
 
 export interface TaskAPI {
@@ -52,6 +55,10 @@ export interface TaskAPI {
   listWorktrees: (projectId: string) => Promise<IPCResult<import('../../shared/types').WorktreeListResult>>;
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+
+  // Conflict Resolution (interactive merge UI)
+  getConflictDetails: (taskId: string) => Promise<IPCResult<DetailedGitConflictInfo>>;
+  applyResolutions: (taskId: string, resolutions: ConflictResolutionRequest) => Promise<IPCResult<ConflictResolutionResult>>;
 
   // Task Event Listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
@@ -144,6 +151,13 @@ export const createTaskAPI = (): TaskAPI => ({
 
   unarchiveTasks: (projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UNARCHIVE, projectId, taskIds),
+
+  // Conflict Resolution (interactive merge UI)
+  getConflictDetails: (taskId: string): Promise<IPCResult<DetailedGitConflictInfo>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_GET_CONFLICT_DETAILS, taskId),
+
+  applyResolutions: (taskId: string, resolutions: ConflictResolutionRequest): Promise<IPCResult<ConflictResolutionResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_APPLY_RESOLUTIONS, taskId, resolutions),
 
   // Task Event Listeners
   onTaskProgress: (

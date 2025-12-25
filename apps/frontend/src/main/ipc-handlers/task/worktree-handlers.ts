@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, DetailedGitConflictInfo, ConflictResolutionRequest, ConflictResolutionResult } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
@@ -310,6 +310,26 @@ export function registerWorktreeHandlers(
           if (stagedResult.status === 0 && stagedResult.stdout?.trim()) {
             const stagedFiles = stagedResult.stdout.trim().split('\n');
             debug('Changes already staged:', stagedFiles.length, 'files');
+
+            // Persist stagedInMainProject to implementation_plan.json
+            const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+            try {
+              if (existsSync(planPath)) {
+                const { readFileSync, writeFileSync } = require('fs');
+                const planContent = readFileSync(planPath, 'utf-8');
+                const plan = JSON.parse(planContent);
+                if (!plan.stagedInMainProject) {
+                  plan.stagedInMainProject = true;
+                  plan.stagedAt = new Date().toISOString();
+                  plan.updated_at = new Date().toISOString();
+                  writeFileSync(planPath, JSON.stringify(plan, null, 2));
+                  debug('Persisted stagedInMainProject flag for already-staged changes');
+                }
+              }
+            } catch (persistError) {
+              console.error('Failed to persist stagedInMainProject for already-staged:', persistError);
+            }
+
             // Return success - changes are already staged
             return {
               success: true,
@@ -805,6 +825,299 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to preview merge'
+        };
+      }
+    }
+  );
+
+  /**
+   * Get detailed conflict information with file contents for the conflict resolver UI
+   * Returns ours/theirs/base content for each conflicting file along with diff hunks
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_GET_CONFLICT_DETAILS,
+    async (_, taskId: string): Promise<IPCResult<DetailedGitConflictInfo>> => {
+      console.warn('[IPC] TASK_GET_CONFLICT_DETAILS called with taskId:', taskId);
+      try {
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          console.warn('[IPC] Python environment not ready, initializing...');
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              console.error('[IPC] Python environment failed to initialize:', status.error);
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            console.error('[IPC] Auto Claude source not found');
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          console.error('[IPC] Task not found:', taskId);
+          return { success: false, error: 'Task not found' };
+        }
+        console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
+
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          console.error('[IPC] Auto Claude source not found');
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--conflict-details'
+        ];
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          console.warn('[IPC] Using stored base branch for conflict details:', taskBaseBranch);
+        }
+
+        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        console.warn('[IPC] Running conflict details:', pythonPath, args.join(' '));
+
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const detailsProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: { ...process.env, ...profileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          detailsProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            console.warn('[IPC] conflict-details stdout chunk length:', chunk.length);
+          });
+
+          detailsProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            console.warn('[IPC] conflict-details stderr:', chunk);
+          });
+
+          detailsProcess.on('close', (code: number) => {
+            console.warn('[IPC] conflict-details process exited with code:', code);
+            if (code === 0) {
+              try {
+                const result = JSON.parse(stdout.trim());
+                console.warn('[IPC] conflict-details parsed successfully, files:', result.fileContents?.length || 0);
+                resolve({
+                  success: true,
+                  data: result as DetailedGitConflictInfo
+                });
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse conflict details result:', parseError);
+                console.error('[IPC] stdout:', stdout.substring(0, 500));
+                resolve({
+                  success: false,
+                  error: `Failed to parse conflict details: ${stderr || 'Invalid JSON'}`
+                });
+              }
+            } else {
+              console.error('[IPC] Conflict details failed with exit code:', code);
+              resolve({
+                success: false,
+                error: `Failed to get conflict details: ${stderr || stdout}`
+              });
+            }
+          });
+
+          detailsProcess.on('error', (err: Error) => {
+            console.error('[IPC] conflict-details spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run conflict details: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[IPC] TASK_GET_CONFLICT_DETAILS error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get conflict details'
+        };
+      }
+    }
+  );
+
+  /**
+   * Apply user's conflict resolution choices and stage the resolved files
+   * Supports per-file and per-hunk resolution with ours/theirs/both/custom/ai options
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_APPLY_RESOLUTIONS,
+    async (_, taskId: string, resolutions: ConflictResolutionRequest): Promise<IPCResult<ConflictResolutionResult>> => {
+      console.warn('[IPC] TASK_APPLY_RESOLUTIONS called with taskId:', taskId);
+      try {
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          console.warn('[IPC] Python environment not ready, initializing...');
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              console.error('[IPC] Python environment failed to initialize:', status.error);
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            console.error('[IPC] Auto Claude source not found');
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          console.error('[IPC] Task not found:', taskId);
+          return { success: false, error: 'Task not found' };
+        }
+        console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
+
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          console.error('[IPC] Auto Claude source not found');
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+
+        // Serialize resolutions to JSON
+        const resolutionsJson = JSON.stringify(resolutions);
+        console.warn('[IPC] Resolutions JSON length:', resolutionsJson.length);
+
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--apply-resolutions', resolutionsJson
+        ];
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          console.warn('[IPC] Using stored base branch for apply resolutions:', taskBaseBranch);
+        }
+
+        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        console.warn('[IPC] Running apply resolutions:', pythonPath);
+
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          const RESOLUTION_TIMEOUT_MS = 300000; // 5 minutes for AI resolutions
+          let timeoutId: NodeJS.Timeout | null = null;
+          let resolved = false;
+
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const applyProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...process.env,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONIOENCODING: 'utf-8',
+              PYTHONUTF8: '1'
+            }
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              console.warn('[IPC] TIMEOUT: Apply resolutions process exceeded timeout, killing...');
+              resolved = true;
+              applyProcess.kill('SIGTERM');
+              setTimeout(() => {
+                try {
+                  applyProcess.kill('SIGKILL');
+                } catch {
+                  // Process may already be dead
+                }
+              }, 5000);
+
+              resolve({
+                success: false,
+                error: 'Resolution process timed out. Some files may have been resolved - check git status.'
+              });
+            }
+          }, RESOLUTION_TIMEOUT_MS);
+
+          applyProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            console.warn('[IPC] apply-resolutions stdout chunk length:', chunk.length);
+          });
+
+          applyProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            console.warn('[IPC] apply-resolutions stderr:', chunk);
+          });
+
+          applyProcess.on('close', (code: number) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+
+            console.warn('[IPC] apply-resolutions process exited with code:', code);
+            if (code === 0) {
+              try {
+                const result = JSON.parse(stdout.trim());
+                console.warn('[IPC] apply-resolutions result:', result);
+                resolve({
+                  success: true,
+                  data: result as ConflictResolutionResult
+                });
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse resolution result:', parseError);
+                resolve({
+                  success: false,
+                  error: `Failed to parse resolution result: ${stderr || 'Invalid JSON'}`
+                });
+              }
+            } else {
+              console.error('[IPC] Apply resolutions failed with exit code:', code);
+              resolve({
+                success: false,
+                error: `Failed to apply resolutions: ${stderr || stdout}`
+              });
+            }
+          });
+
+          applyProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            console.error('[IPC] apply-resolutions spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run apply resolutions: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[IPC] TASK_APPLY_RESOLUTIONS error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to apply resolutions'
         };
       }
     }

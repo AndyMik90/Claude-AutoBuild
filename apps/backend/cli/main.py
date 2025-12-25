@@ -42,6 +42,8 @@ from .utils import (
 )
 from .workspace_commands import (
     handle_cleanup_worktrees_command,
+    handle_conflict_details_command,
+    handle_apply_resolutions_command,
     handle_discard_command,
     handle_list_worktrees_command,
     handle_merge_command,
@@ -168,6 +170,18 @@ Environment Variables:
         "--merge-preview",
         action="store_true",
         help="Preview merge conflicts without actually merging (returns JSON)",
+    )
+    parser.add_argument(
+        "--conflict-details",
+        action="store_true",
+        help="Get detailed conflict information with file contents for conflict resolver UI (returns JSON)",
+    )
+    parser.add_argument(
+        "--apply-resolutions",
+        type=str,
+        default=None,
+        metavar="JSON",
+        help="Apply manual conflict resolutions (JSON payload with file resolutions)",
     )
 
     # QA options
@@ -359,6 +373,31 @@ def main() -> None:
         # Output as JSON for the UI to parse
         import json
 
+        print(json.dumps(result))
+        return
+
+    if args.conflict_details:
+        result = handle_conflict_details_command(
+            project_dir, spec_dir.name, base_branch=args.base_branch
+        )
+        # Output as JSON for the UI to parse
+        import json
+
+        print(json.dumps(result))
+        return
+
+    if args.apply_resolutions:
+        import json
+
+        try:
+            resolutions = json.loads(args.apply_resolutions)
+        except json.JSONDecodeError as e:
+            print(json.dumps({"success": False, "error": f"Invalid JSON: {e}"}))
+            sys.exit(1)
+
+        result = handle_apply_resolutions_command(
+            project_dir, spec_dir.name, resolutions, base_branch=args.base_branch
+        )
         print(json.dumps(result))
         return
 

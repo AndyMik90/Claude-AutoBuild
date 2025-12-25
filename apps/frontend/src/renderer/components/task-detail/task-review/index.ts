@@ -12,5 +12,6 @@ export { QAFeedbackSection } from './QAFeedbackSection';
 export { DiscardDialog } from './DiscardDialog';
 export { DiffViewDialog } from './DiffViewDialog';
 export { ConflictDetailsDialog } from './ConflictDetailsDialog';
+export { ConflictResolverDialog } from './ConflictResolver';
 export { LoadingMessage, NoWorkspaceMessage, StagedInProjectMessage } from './WorkspaceMessages';
 export { getSeverityIcon, getSeverityVariant } from './utils';

@@ -67,5 +67,27 @@ export const workspaceMock = {
     data: {
       worktrees: []
     }
+  }),
+
+  getConflictDetails: async () => ({
+    success: true,
+    data: {
+      hasConflicts: false,
+      conflictingFiles: [],
+      needsRebase: false,
+      commitsBehind: 0,
+      baseBranch: 'main',
+      specBranch: 'auto-claude/test',
+      fileContents: []
+    }
+  }),
+
+  applyResolutions: async () => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Resolutions applied successfully',
+      resolvedFiles: []
+    }
   })
 };

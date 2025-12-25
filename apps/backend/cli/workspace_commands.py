@@ -738,3 +738,434 @@ def handle_merge_preview_command(
                 "autoMergeable": 0,
             },
         }
+
+
+def _parse_diff_hunks(
+    project_dir: Path,
+    base_branch: str,
+    spec_branch: str,
+    file_path: str,
+) -> list[dict]:
+    """
+    Parse diff hunks from git diff output for a specific file.
+
+    Args:
+        project_dir: Project root directory
+        base_branch: Base branch (theirs)
+        spec_branch: Spec branch (ours)
+        file_path: Path to the file
+
+    Returns:
+        List of hunk dictionaries with line ranges and content
+    """
+    import re
+    import uuid
+
+    hunks = []
+
+    try:
+        # Get unified diff for the file
+        result = subprocess.run(
+            ["git", "diff", "-U3", f"{base_branch}...{spec_branch}", "--", file_path],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            return hunks
+
+        diff_output = result.stdout
+
+        # Parse unified diff format
+        # @@ -start,count +start,count @@ context
+        hunk_header_pattern = re.compile(
+            r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@"
+        )
+
+        lines = diff_output.split("\n")
+        current_hunk = None
+        ours_lines = []
+        theirs_lines = []
+
+        for line in lines:
+            header_match = hunk_header_pattern.match(line)
+            if header_match:
+                # Save previous hunk
+                if current_hunk and (ours_lines or theirs_lines):
+                    current_hunk["contentOurs"] = "\n".join(ours_lines)
+                    current_hunk["contentTheirs"] = "\n".join(theirs_lines)
+                    hunks.append(current_hunk)
+
+                # Start new hunk
+                theirs_start = int(header_match.group(1))
+                theirs_count = int(header_match.group(2) or 1)
+                ours_start = int(header_match.group(3))
+                ours_count = int(header_match.group(4) or 1)
+
+                current_hunk = {
+                    "id": str(uuid.uuid4())[:8],
+                    "startLineTheirs": theirs_start,
+                    "endLineTheirs": theirs_start + theirs_count - 1,
+                    "startLineOurs": ours_start,
+                    "endLineOurs": ours_start + ours_count - 1,
+                }
+                ours_lines = []
+                theirs_lines = []
+
+            elif current_hunk:
+                if line.startswith("+") and not line.startswith("+++"):
+                    # Line added in ours (spec branch)
+                    ours_lines.append(line[1:])
+                elif line.startswith("-") and not line.startswith("---"):
+                    # Line removed from theirs (base branch)
+                    theirs_lines.append(line[1:])
+                elif line.startswith(" "):
+                    # Context line (in both)
+                    ours_lines.append(line[1:])
+                    theirs_lines.append(line[1:])
+
+        # Don't forget the last hunk
+        if current_hunk and (ours_lines or theirs_lines):
+            current_hunk["contentOurs"] = "\n".join(ours_lines)
+            current_hunk["contentTheirs"] = "\n".join(theirs_lines)
+            hunks.append(current_hunk)
+
+    except Exception as e:
+        debug_error(MODULE, f"Failed to parse diff hunks for {file_path}: {e}")
+
+    return hunks
+
+
+def handle_conflict_details_command(
+    project_dir: Path,
+    spec_name: str,
+    base_branch: str | None = None,
+) -> dict:
+    """
+    Get detailed conflict information including file contents for the conflict resolver UI.
+
+    This provides the content from both branches (ours/theirs) for each conflicting file,
+    allowing the UI to display a side-by-side diff view.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+        base_branch: Branch to compare against (default: auto-detect)
+
+    Returns:
+        Dictionary with detailed conflict information and file contents
+    """
+    from core.workspace.git_utils import get_file_content_from_ref
+
+    debug_section(MODULE, "Conflict Details Command")
+    debug(
+        MODULE,
+        "handle_conflict_details_command() called",
+        project_dir=str(project_dir),
+        spec_name=spec_name,
+    )
+
+    spec_branch = f"auto-claude/{spec_name}"
+
+    # Get current branch as the target
+    target_branch = base_branch
+    if not target_branch:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            target_branch = result.stdout.strip()
+        else:
+            target_branch = _detect_default_branch(project_dir)
+
+    # Get merge base
+    merge_base = None
+    merge_base_result = subprocess.run(
+        ["git", "merge-base", target_branch, spec_branch],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    if merge_base_result.returncode == 0:
+        merge_base = merge_base_result.stdout.strip()
+
+    # Get git conflict info
+    git_conflicts = _check_git_merge_conflicts(project_dir, spec_name)
+
+    if not git_conflicts.get("has_conflicts"):
+        return {
+            "hasConflicts": False,
+            "conflictingFiles": [],
+            "needsRebase": False,
+            "commitsBehind": 0,
+            "baseBranch": target_branch,
+            "specBranch": spec_branch,
+            "fileContents": [],
+        }
+
+    # Build detailed file contents
+    file_contents = []
+    for file_path in git_conflicts.get("conflicting_files", []):
+        # Skip lock files
+        if is_lock_file(file_path):
+            continue
+
+        # Get file extension for syntax highlighting
+        file_type = Path(file_path).suffix.lstrip(".") or "text"
+
+        # Get content from both branches
+        content_ours = get_file_content_from_ref(project_dir, spec_branch, file_path)
+        content_theirs = get_file_content_from_ref(project_dir, target_branch, file_path)
+        content_base = None
+        if merge_base:
+            content_base = get_file_content_from_ref(project_dir, merge_base, file_path)
+
+        # Parse diff hunks
+        hunks = _parse_diff_hunks(project_dir, target_branch, spec_branch, file_path)
+
+        file_contents.append(
+            {
+                "filePath": file_path,
+                "fileType": file_type,
+                "contentOurs": content_ours or "",
+                "contentTheirs": content_theirs or "",
+                "contentBase": content_base,
+                "hunks": hunks,
+            }
+        )
+
+    result = {
+        "hasConflicts": git_conflicts["has_conflicts"],
+        "conflictingFiles": git_conflicts["conflicting_files"],
+        "needsRebase": git_conflicts["needs_rebase"],
+        "commitsBehind": git_conflicts["commits_behind"],
+        "baseBranch": target_branch,
+        "specBranch": spec_branch,
+        "fileContents": file_contents,
+    }
+
+    debug_success(
+        MODULE,
+        "Conflict details retrieved",
+        num_files=len(file_contents),
+        total_hunks=sum(len(f["hunks"]) for f in file_contents),
+    )
+
+    return result
+
+
+def handle_apply_resolutions_command(
+    project_dir: Path,
+    spec_name: str,
+    resolutions: list[dict],
+    base_branch: str | None = None,
+) -> dict:
+    """
+    Apply user's manual conflict resolution choices.
+
+    This takes the resolution choices from the conflict resolver UI and applies them
+    to the conflicting files, then stages the changes.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+        resolutions: List of resolution choices:
+            - filePath: str
+            - resolution: 'ours' | 'theirs' | 'both' | 'ai' | 'custom'
+            - customContent: Optional custom content
+            - hunkResolutions: Optional per-hunk resolutions
+        base_branch: Branch to compare against (default: auto-detect)
+
+    Returns:
+        Dictionary with resolution result
+    """
+    from core.workspace.git_utils import get_file_content_from_ref
+
+    debug_section(MODULE, "Apply Resolutions Command")
+    debug(
+        MODULE,
+        "handle_apply_resolutions_command() called",
+        project_dir=str(project_dir),
+        spec_name=spec_name,
+        num_resolutions=len(resolutions),
+    )
+
+    spec_branch = f"auto-claude/{spec_name}"
+
+    # Get current branch as the target
+    target_branch = base_branch
+    if not target_branch:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            target_branch = result.stdout.strip()
+        else:
+            target_branch = _detect_default_branch(project_dir)
+
+    resolved_files = []
+    failed_files = []
+    ai_files = []
+
+    for res in resolutions:
+        file_path = res.get("filePath")
+        resolution = res.get("resolution")
+        custom_content = res.get("customContent")
+
+        if not file_path or not resolution:
+            failed_files.append(
+                {"filePath": file_path or "unknown", "error": "Missing filePath or resolution"}
+            )
+            continue
+
+        try:
+            content = None
+
+            if resolution == "ours":
+                # Use content from spec branch
+                content = get_file_content_from_ref(project_dir, spec_branch, file_path)
+                if content is None:
+                    # File might be newly added, check worktree
+                    worktree_path = project_dir / ".worktrees" / spec_name / file_path
+                    if worktree_path.exists():
+                        content = worktree_path.read_text(encoding="utf-8")
+
+            elif resolution == "theirs":
+                # Use content from base branch
+                content = get_file_content_from_ref(project_dir, target_branch, file_path)
+
+            elif resolution == "both":
+                # Concatenate both versions (theirs first, then ours)
+                theirs = get_file_content_from_ref(project_dir, target_branch, file_path) or ""
+                ours = get_file_content_from_ref(project_dir, spec_branch, file_path) or ""
+                # Add separator comment based on file type
+                ext = Path(file_path).suffix.lower()
+                if ext in {".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".rb"}:
+                    separator = f"\n\n# ===== Content from {spec_branch} below =====\n\n"
+                elif ext in {".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".cpp", ".go", ".rs"}:
+                    separator = f"\n\n// ===== Content from {spec_branch} below =====\n\n"
+                elif ext in {".html", ".xml", ".svg"}:
+                    separator = f"\n\n<!-- ===== Content from {spec_branch} below ===== -->\n\n"
+                elif ext in {".css", ".scss", ".less"}:
+                    separator = f"\n\n/* ===== Content from {spec_branch} below ===== */\n\n"
+                else:
+                    separator = "\n\n"
+                content = theirs + separator + ours
+
+            elif resolution == "custom":
+                # Use custom content provided by user
+                if custom_content is None:
+                    failed_files.append(
+                        {"filePath": file_path, "error": "Custom resolution requires customContent"}
+                    )
+                    continue
+                content = custom_content
+
+            elif resolution == "ai":
+                # Collect for batch AI processing
+                ai_files.append(file_path)
+                continue
+
+            else:
+                failed_files.append(
+                    {"filePath": file_path, "error": f"Unknown resolution type: {resolution}"}
+                )
+                continue
+
+            if content is None:
+                failed_files.append(
+                    {"filePath": file_path, "error": "Could not get content for resolution"}
+                )
+                continue
+
+            # Write the resolved content
+            target_path = project_dir / file_path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(content, encoding="utf-8")
+
+            # Stage the file
+            stage_result = subprocess.run(
+                ["git", "add", file_path],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            if stage_result.returncode != 0:
+                failed_files.append(
+                    {"filePath": file_path, "error": f"Failed to stage: {stage_result.stderr}"}
+                )
+            else:
+                resolved_files.append(file_path)
+                debug_success(MODULE, f"Resolved and staged: {file_path}")
+
+        except Exception as e:
+            debug_error(MODULE, f"Failed to resolve {file_path}: {e}")
+            failed_files.append({"filePath": file_path, "error": str(e)})
+
+    # Handle AI resolutions (delegate to existing AI merge system)
+    if ai_files:
+        debug(MODULE, f"Delegating {len(ai_files)} files to AI merge...")
+        try:
+            from core.workspace import _resolve_git_conflicts_with_ai
+            from merge import MergeOrchestrator
+
+            orchestrator = MergeOrchestrator(project_dir, enable_ai=True, dry_run=False)
+
+            # Get worktree path
+            worktree_path = project_dir / ".worktrees" / spec_name
+
+            # Build git conflicts dict for the AI files only
+            ai_git_conflicts = {
+                "has_conflicts": True,
+                "conflicting_files": ai_files,
+                "base_branch": target_branch,
+                "spec_branch": spec_branch,
+            }
+
+            ai_result = _resolve_git_conflicts_with_ai(
+                project_dir,
+                spec_name,
+                worktree_path,
+                ai_git_conflicts,
+                orchestrator,
+                no_commit=True,
+            )
+
+            if ai_result.get("success"):
+                resolved_files.extend(ai_result.get("resolved_files", []))
+            else:
+                for f in ai_files:
+                    if f not in ai_result.get("resolved_files", []):
+                        failed_files.append(
+                            {"filePath": f, "error": ai_result.get("error", "AI merge failed")}
+                        )
+
+        except Exception as e:
+            debug_error(MODULE, f"AI merge failed: {e}")
+            for f in ai_files:
+                failed_files.append({"filePath": f, "error": f"AI merge error: {e}"})
+
+    result = {
+        "success": len(failed_files) == 0,
+        "message": f"Resolved {len(resolved_files)} file(s)"
+        + (f", {len(failed_files)} failed" if failed_files else ""),
+        "resolvedFiles": resolved_files,
+        "failedFiles": failed_files if failed_files else None,
+    }
+
+    debug_success(
+        MODULE,
+        "Apply resolutions complete",
+        resolved=len(resolved_files),
+        failed=len(failed_files),
+    )
+
+    return result

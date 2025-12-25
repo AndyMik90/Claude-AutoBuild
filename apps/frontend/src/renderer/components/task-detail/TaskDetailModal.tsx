@@ -398,6 +398,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                             mergePreview={state.mergePreview}
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}
+                            showConflictResolver={state.showConflictResolver}
                             onFeedbackChange={state.setFeedback}
                             onReject={handleReject}
                             onMerge={handleMerge}
@@ -406,6 +407,7 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                             onShowDiffDialog={state.setShowDiffDialog}
                             onStageOnlyChange={state.setStageOnly}
                             onShowConflictDialog={state.setShowConflictDialog}
+                            onShowConflictResolver={state.setShowConflictResolver}
                             onLoadMergePreview={state.loadMergePreview}
                             onClose={handleClose}
                           />

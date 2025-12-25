@@ -6,6 +6,7 @@ import {
   DiscardDialog,
   DiffViewDialog,
   ConflictDetailsDialog,
+  ConflictResolverDialog,
   LoadingMessage,
   NoWorkspaceMessage,
   StagedInProjectMessage
@@ -30,6 +31,7 @@ interface TaskReviewProps {
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
+  showConflictResolver: boolean;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
   onMerge: () => void;
@@ -38,6 +40,7 @@ interface TaskReviewProps {
   onShowDiffDialog: (show: boolean) => void;
   onStageOnlyChange: (value: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
+  onShowConflictResolver: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onClose?: () => void;
 }
@@ -70,6 +73,7 @@ export function TaskReview({
   mergePreview,
   isLoadingPreview,
   showConflictDialog,
+  showConflictResolver,
   onFeedbackChange,
   onReject,
   onMerge,
@@ -78,6 +82,7 @@ export function TaskReview({
   onShowDiffDialog,
   onStageOnlyChange,
   onShowConflictDialog,
+  onShowConflictResolver,
   onLoadMergePreview,
   onClose
 }: TaskReviewProps) {
@@ -96,10 +101,23 @@ export function TaskReview({
         />
       )}
 
-      {/* Workspace Status - hide if staging was successful (worktree is deleted after staging) */}
+      {/* Workspace Status - show appropriate component based on staging state and worktree existence */}
+      {/* Don't show anything in this section if stagedSuccess is shown (avoids duplicate messaging) */}
       {isLoadingWorktree ? (
         <LoadingMessage />
-      ) : worktreeStatus?.exists && !stagedSuccess ? (
+      ) : stagedSuccess ? (
+        // Staging just succeeded - StagedSuccessMessage is already shown above, don't show anything else
+        null
+      ) : task.stagedInMainProject ? (
+        // Changes were previously staged - show staged message with worktree cleanup option
+        <StagedInProjectMessage
+          task={task}
+          projectPath={stagedProjectPath}
+          hasWorktree={worktreeStatus?.exists || false}
+          onClose={onClose}
+        />
+      ) : worktreeStatus?.exists ? (
+        // Worktree exists and not yet staged - show full workspace status
         <WorkspaceStatus
           task={task}
           worktreeStatus={worktreeStatus}
@@ -112,18 +130,13 @@ export function TaskReview({
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
+          onShowConflictResolver={onShowConflictResolver}
           onLoadMergePreview={onLoadMergePreview}
           onStageOnlyChange={onStageOnlyChange}
           onMerge={onMerge}
         />
-      ) : task.stagedInMainProject && !stagedSuccess ? (
-        <StagedInProjectMessage
-          task={task}
-          projectPath={stagedProjectPath}
-          hasWorktree={worktreeStatus?.exists || false}
-          onClose={onClose}
-        />
       ) : (
+        // No worktree and not staged - allow marking as done
         <NoWorkspaceMessage task={task} onClose={onClose} />
       )}
 
@@ -159,6 +172,14 @@ export function TaskReview({
         stageOnly={stageOnly}
         onOpenChange={onShowConflictDialog}
         onMerge={onMerge}
+      />
+
+      {/* Interactive Conflict Resolver Dialog */}
+      <ConflictResolverDialog
+        open={showConflictResolver}
+        taskId={task.id}
+        onOpenChange={onShowConflictResolver}
+        onResolved={onLoadMergePreview}
       />
     </div>
   );
