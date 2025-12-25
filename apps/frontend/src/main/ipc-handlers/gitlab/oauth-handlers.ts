@@ -109,7 +109,7 @@ export function registerCheckGlabAuth(): void {
         }
 
         debugLog('Running: glab', args);
-        execSync(`glab ${args.join(' ')}`, { encoding: 'utf-8', stdio: 'pipe', env });
+        execFileSync('glab', args, { encoding: 'utf-8', stdio: 'pipe', env });
 
         // Get username if authenticated
         try {
@@ -117,7 +117,7 @@ export function registerCheckGlabAuth(): void {
           if (hostname !== 'gitlab.com') {
             userArgs.push('--hostname', hostname);
           }
-          const username = execSync(`glab ${userArgs.join(' ')}`, {
+          const username = execFileSync('glab', userArgs, {
             encoding: 'utf-8',
             stdio: 'pipe',
             env
@@ -268,7 +268,7 @@ export function registerGetGlabToken(): void {
           args.push('--hostname', hostname);
         }
 
-        const token = execSync(`glab ${args.join(' ')}`, {
+        const token = execFileSync('glab', args, {
           encoding: 'utf-8',
           stdio: 'pipe',
           env: getAugmentedEnv()
@@ -312,7 +312,7 @@ export function registerGetGlabUser(): void {
           args.push('--hostname', hostname);
         }
 
-        const userJson = execSync(`glab ${args.join(' ')}`, {
+        const userJson = execFileSync('glab', args, {
           encoding: 'utf-8',
           stdio: 'pipe',
           env: getAugmentedEnv()
@@ -355,7 +355,7 @@ export function registerListUserProjects(): void {
           args.push('--hostname', hostname);
         }
 
-        const output = execSync(`glab ${args.join(' ')}`, {
+        const output = execFileSync('glab', args, {
           encoding: 'utf-8',
           stdio: 'pipe',
           env: getAugmentedEnv()
@@ -645,7 +645,7 @@ export function registerListGitLabGroups(): void {
           args.push('--hostname', hostname);
         }
 
-        const output = execSync(`glab ${args.join(' ')}`, {
+        const output = execFileSync('glab', args, {
           encoding: 'utf-8',
           stdio: 'pipe',
           env: getAugmentedEnv()

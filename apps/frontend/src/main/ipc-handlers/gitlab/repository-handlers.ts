@@ -7,8 +7,8 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitLabSyncStatus } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
-import type { GitLabAPIProject, GitLabAPIIssue } from './types';
+import { getGitLabConfig, gitlabFetch, gitlabFetchWithCount, encodeProjectPath } from './utils';
+import type { GitLabAPIProject } from './types';
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -61,15 +61,12 @@ export function registerCheckConnection(): void {
 
         debugLog('Project info retrieved:', { name: projectInfo.name });
 
-        // Get issue count
-        const issues = await gitlabFetch(
+        // Get issue count from X-Total header
+        const { totalCount: issueCount } = await gitlabFetchWithCount(
           config.token,
           config.instanceUrl,
           `/projects/${encodedProject}/issues?state=opened&per_page=1`
-        ) as GitLabAPIIssue[];
-
-        // GitLab returns total count in headers, but for simplicity we just count opened
-        const issueCount = Array.isArray(issues) ? issues.length : 0;
+        );
 
         return {
           success: true,

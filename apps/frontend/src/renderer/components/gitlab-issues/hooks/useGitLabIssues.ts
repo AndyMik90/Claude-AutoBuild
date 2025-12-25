@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useGitLabStore, loadGitLabIssues, checkGitLabConnection } from '../../../stores/gitlab-store';
 import type { FilterState } from '../types';
 
@@ -16,15 +16,11 @@ export function useGitLabIssues(projectId: string | undefined) {
     getOpenIssuesCount
   } = useGitLabStore();
 
-  // Track if we've checked connection for this mount
-  const hasCheckedRef = useRef(false);
-
   // Always check connection when component mounts or projectId changes
   useEffect(() => {
     if (projectId) {
       // Always check connection on mount (in case settings changed)
       checkGitLabConnection(projectId);
-      hasCheckedRef.current = true;
     }
   }, [projectId]);
 

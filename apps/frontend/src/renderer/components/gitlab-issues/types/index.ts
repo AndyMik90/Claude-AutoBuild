@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import type { GitLabIssue, GitLabInvestigationResult } from '../../../../shared/types';
 
 export type FilterState = 'opened' | 'closed' | 'all';
@@ -62,7 +63,7 @@ export interface IssueListProps {
 
 export interface EmptyStateProps {
   searchQuery?: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   message: string;
 }
 

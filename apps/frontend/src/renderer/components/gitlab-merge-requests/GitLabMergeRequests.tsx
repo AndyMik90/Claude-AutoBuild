@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { MergeRequestList } from './components/MergeRequestList';
@@ -17,7 +17,7 @@ export function GitLabMergeRequests({ projectId }: GitLabMergeRequestsProps) {
   const [stateFilter, setStateFilter] = useState<'opened' | 'closed' | 'merged' | 'all'>('opened');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const fetchMergeRequests = async () => {
+  const fetchMergeRequests = useCallback(async (): Promise<GitLabMergeRequest[]> => {
     setIsLoading(true);
     setError(null);
 
@@ -25,29 +25,31 @@ export function GitLabMergeRequests({ projectId }: GitLabMergeRequestsProps) {
       const result = await window.electronAPI.getGitLabMergeRequests(projectId, stateFilter);
       if (result.success && result.data) {
         setMergeRequests(result.data);
+        return result.data;
       } else {
         setError(result.error || 'Failed to fetch merge requests');
+        return [];
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch merge requests');
+      return [];
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId, stateFilter]);
 
   useEffect(() => {
     fetchMergeRequests();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, stateFilter]);
+  }, [fetchMergeRequests]);
 
   const handleSelectMr = (mr: GitLabMergeRequest) => {
     setSelectedMr(mr);
   };
 
-  const handleCreateSuccess = (mrIid: number) => {
-    fetchMergeRequests();
-    // Select the newly created MR
-    const newMr = mergeRequests.find(mr => mr.iid === mrIid);
+  const handleCreateSuccess = async (mrIid: number) => {
+    // Fetch fresh data and then select the newly created MR
+    const freshData = await fetchMergeRequests();
+    const newMr = freshData.find(mr => mr.iid === mrIid);
     if (newMr) {
       setSelectedMr(newMr);
     }

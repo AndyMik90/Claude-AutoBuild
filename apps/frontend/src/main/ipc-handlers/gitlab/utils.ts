@@ -117,10 +117,18 @@ export function normalizeProjectReference(project: string, instanceUrl: string =
   let normalized = project.replace(/\.git$/, '');
 
   // Extract hostname for comparison
-  const gitlabHostname = new URL(instanceUrl).hostname;
+  let gitlabHostname: string;
+  try {
+    gitlabHostname = new URL(instanceUrl).hostname;
+  } catch {
+    gitlabHostname = 'gitlab.com';
+  }
+
+  // Escape special regex characters in hostname to prevent ReDoS
+  const escapedHostname = gitlabHostname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Handle full GitLab URLs
-  const httpsPattern = new RegExp(`https?://${gitlabHostname}/`);
+  const httpsPattern = new RegExp(`^https?://${escapedHostname}/`);
   if (httpsPattern.test(normalized)) {
     normalized = normalized.replace(httpsPattern, '');
   } else if (normalized.startsWith(`git@${gitlabHostname}:`)) {
@@ -181,6 +189,58 @@ export async function gitlabFetch(
     }
 
     return response.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Make a request to the GitLab API and return both data and total count from headers
+ * Useful for paginated endpoints where we need the total count
+ */
+export async function gitlabFetchWithCount(
+  token: string,
+  instanceUrl: string,
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ data: unknown; totalCount: number }> {
+  // Ensure instanceUrl doesn't have trailing slash
+  const baseUrl = instanceUrl.replace(/\/$/, '');
+  const url = endpoint.startsWith('http')
+    ? endpoint
+    : `${baseUrl}/api/v4${endpoint}`;
+
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GITLAB_API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'PRIVATE-TOKEN': token,
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`);
+    }
+
+    // Get total count from X-Total header (GitLab's pagination header)
+    const totalCountHeader = response.headers.get('X-Total');
+    const totalCount = totalCountHeader ? parseInt(totalCountHeader, 10) : 0;
+
+    const data = await response.json();
+    return { data, totalCount };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);

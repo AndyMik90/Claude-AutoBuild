@@ -51,14 +51,14 @@ function transformIssue(apiIssue: GitLabAPIIssue, projectPath: string): GitLabIs
     title: apiIssue.title,
     description: apiIssue.description,
     state: apiIssue.state,
-    labels: apiIssue.labels,
-    assignees: apiIssue.assignees.map(a => ({
-      username: a.username,
-      avatarUrl: a.avatar_url
+    labels: apiIssue.labels ?? [],
+    assignees: (apiIssue.assignees ?? []).map(a => ({
+      username: a?.username ?? 'unknown',
+      avatarUrl: a?.avatar_url
     })),
     author: {
-      username: apiIssue.author.username,
-      avatarUrl: apiIssue.author.avatar_url
+      username: apiIssue.author?.username ?? 'unknown',
+      avatarUrl: apiIssue.author?.avatar_url
     },
     milestone,
     createdAt: apiIssue.created_at,

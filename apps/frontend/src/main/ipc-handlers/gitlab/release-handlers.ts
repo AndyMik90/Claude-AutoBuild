@@ -61,8 +61,10 @@ export function registerCreateRelease(): void {
           ref: options?.ref || 'main'
         };
 
-        if (options?.milestones) {
-          releaseBody.milestones = options.milestones;
+        if (options?.milestones && Array.isArray(options.milestones)) {
+          releaseBody.milestones = options.milestones.filter(
+            (m): m is string => typeof m === 'string' && m.length > 0
+          );
         }
 
         const release = await gitlabFetch(
@@ -73,13 +75,31 @@ export function registerCreateRelease(): void {
             method: 'POST',
             body: JSON.stringify(releaseBody)
           }
-        ) as { _links: { self: string } };
+        ) as unknown;
 
-        debugLog('Release created:', { tagName, url: release._links.self });
+        // Safely extract URL from response
+        const releaseUrl = (
+          release &&
+          typeof release === 'object' &&
+          '_links' in release &&
+          release._links &&
+          typeof release._links === 'object' &&
+          'self' in release._links &&
+          typeof release._links.self === 'string'
+        ) ? release._links.self : null;
+
+        if (!releaseUrl) {
+          return {
+            success: false,
+            error: 'Unexpected response format from GitLab API'
+          };
+        }
+
+        debugLog('Release created:', { tagName, url: releaseUrl });
 
         return {
           success: true,
-          data: { url: release._links.self }
+          data: { url: releaseUrl }
         };
       } catch (error) {
         debugLog('Failed to create release:', error instanceof Error ? error.message : error);
