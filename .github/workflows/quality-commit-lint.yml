@@ -3,6 +3,7 @@ name: Quality Commit Lint
 on:
   pull_request:
     branches: [main, develop]
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
@@ -14,88 +15,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Validate commit messages
+      - name: Validate PR title
         uses: actions/github-script@v7
         with:
           retries: 3
           script: |
-            const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
+            const pr = context.payload.pull_request;
+            const title = pr.title;
 
-            console.log(`::group::PR #${prNumber} - Validating commit messages`);
+            console.log(`::group::PR #${pr.number} - Validating PR title`);
+            console.log(`Title: ${title}`);
 
-            // Conventional Commits pattern
+            // Conventional Commits pattern for PR title
             // type(scope)?: description (max 100 chars)
             // Optional ! for breaking changes: feat!: or feat(scope)!:
             const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{1,100}$/;
 
-            // Fetch all commits in this PR
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner,
-              repo,
-              pull_number: prNumber,
-              per_page: 100
-            });
-
-            console.log(`Found ${commits.length} commits to validate`);
-            console.log('');
-
-            const results = [];
-            let hasInvalid = false;
-
-            for (const commit of commits) {
-              const message = commit.commit.message.split('\n')[0];
-              const sha = commit.sha.substring(0, 7);
-
-              // Skip merge commits
-              if (message.startsWith('Merge ')) {
-                results.push({ sha, message, status: '⏭️ Skipped (merge)', valid: true });
-                continue;
-              }
-
-              // Skip revert commits
-              if (message.startsWith('Revert "')) {
-                results.push({ sha, message, status: '⏭️ Skipped (revert)', valid: true });
-                continue;
-              }
-
-              // Skip dependabot commits
-              if (commit.author?.login === 'dependabot[bot]') {
-                results.push({ sha, message, status: '⏭️ Skipped (dependabot)', valid: true });
-                continue;
-              }
-
-              // Validate
-              if (pattern.test(message)) {
-                results.push({ sha, message, status: '✅ Valid', valid: true });
-              } else {
-                results.push({ sha, message, status: '❌ Invalid', valid: false });
-                hasInvalid = true;
-              }
-            }
-
-            // Print results
-            console.log('Validation Results:');
-            console.log('─'.repeat(80));
-            for (const r of results) {
-              const truncatedMsg = r.message.length > 60 ? r.message.substring(0, 57) + '...' : r.message;
-              console.log(`  ${r.status.padEnd(20)} ${r.sha}  ${truncatedMsg}`);
-            }
-            console.log('─'.repeat(80));
+            const isValid = pattern.test(title);
+            console.log(`Valid: ${isValid}`);
             console.log('::endgroup::');
 
-            if (hasInvalid) {
-              const invalid = results.filter(r => !r.valid);
-
-              // Build error message
-              let errorMsg = '## ❌ Commit Message Validation Failed\n\n';
-              errorMsg += `Found ${invalid.length} commit(s) that do not follow [Conventional Commits](https://www.conventionalcommits.org/) format:\n\n`;
-
-              for (const commit of invalid) {
-                errorMsg += `- \`${commit.sha}\`: \`${commit.message}\`\n`;
-              }
-
-              errorMsg += '\n### Expected Format\n\n';
+            if (!isValid) {
+              let errorMsg = '## ❌ PR Title Validation Failed\n\n';
+              errorMsg += `Your PR title does not follow [Conventional Commits](https://www.conventionalcommits.org/) format:\n\n`;
+              errorMsg += `> \`${title}\`\n\n`;
+              errorMsg += '### Expected Format\n\n';
               errorMsg += '```\ntype(scope): description\n```\n\n';
               errorMsg += '| Type | Description |\n';
               errorMsg += '|------|-------------|\n';
@@ -113,19 +57,17 @@ jobs:
               errorMsg += '### Examples\n\n';
               errorMsg += '```\nfeat(auth): add OAuth2 login support\nfix(api): handle null response correctly\ndocs: update README installation steps\nci: add automated release workflow\n```\n\n';
               errorMsg += '### How to Fix\n\n';
-              errorMsg += 'You can amend your commit message with:\n';
-              errorMsg += '```bash\ngit commit --amend -m "type(scope): your message"\ngit push --force-with-lease\n```\n';
+              errorMsg += 'Edit your PR title to follow the format above.\n';
 
-              // Write to job summary
               core.summary.addRaw(errorMsg);
               await core.summary.write();
 
-              core.setFailed(`${invalid.length} commit(s) do not follow Conventional Commits format`);
+              core.setFailed('PR title does not follow Conventional Commits format');
             } else {
-              console.log(`✅ All ${commits.length} commits follow Conventional Commits format`);
+              console.log(`✅ PR title follows Conventional Commits format`);
 
               core.summary
-                .addHeading('✅ Commit Lint Passed', 3)
-                .addRaw(`All ${commits.length} commits follow Conventional Commits format.`);
+                .addHeading('✅ PR Title Valid', 3)
+                .addRaw(`PR title follows Conventional Commits format: \`${title}\``);
               await core.summary.write();
             }
