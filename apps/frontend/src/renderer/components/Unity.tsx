@@ -77,6 +77,7 @@ export function Unity({ projectId }: UnityProps) {
 
   const [buildExecuteMethod, setBuildExecuteMethod] = useState<string>('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [customUnityPath, setCustomUnityPath] = useState<string>('');
 
   const [runs, setRuns] = useState<UnityRun[]>([]);
   const [selectedRun, setSelectedRun] = useState<UnityRun | null>(null);
@@ -92,7 +93,9 @@ export function Unity({ projectId }: UnityProps) {
     setDetectError(null);
 
     try {
-      const result = await window.electronAPI.detectUnityProject(selectedProject.path);
+      // Use custom Unity path if set, otherwise use project root
+      const pathToCheck = customUnityPath || selectedProject.path;
+      const result = await window.electronAPI.detectUnityProject(pathToCheck);
       if (result.success && result.data) {
         setProjectInfo(result.data);
       } else {
@@ -103,7 +106,7 @@ export function Unity({ projectId }: UnityProps) {
     } finally {
       setIsDetecting(false);
     }
-  }, [selectedProject]);
+  }, [selectedProject, customUnityPath]);
 
   // Load Unity editors from settings or scan from folder
   const loadUnityEditors = useCallback(async () => {
@@ -135,6 +138,9 @@ export function Unity({ projectId }: UnityProps) {
     try {
       const result = await window.electronAPI.getUnitySettings(selectedProject.id);
       if (result.success && result.data) {
+        if (result.data.unityProjectPath) {
+          setCustomUnityPath(result.data.unityProjectPath);
+        }
         if (result.data.buildExecuteMethod) {
           setBuildExecuteMethod(result.data.buildExecuteMethod);
         }
@@ -182,6 +188,7 @@ export function Unity({ projectId }: UnityProps) {
 
     try {
       const result = await window.electronAPI.saveUnitySettings(selectedProject.id, {
+        unityProjectPath: customUnityPath,
         buildExecuteMethod
       });
 
@@ -291,6 +298,29 @@ export function Unity({ projectId }: UnityProps) {
   const projectEditorInstalled = projectInfo?.version
     ? editors.some(e => e.version === projectInfo.version)
     : true;
+
+  // Handle selecting Unity project folder
+  const handleSelectUnityFolder = async () => {
+    if (!selectedProject) return;
+
+    try {
+      const path = await window.electronAPI.selectDirectory();
+      if (path) {
+        setCustomUnityPath(path);
+        // Save immediately
+        const result = await window.electronAPI.saveUnitySettings(selectedProject.id, {
+          unityProjectPath: path,
+          buildExecuteMethod
+        });
+        if (result.success) {
+          // Re-detect Unity project with new path
+          await detectUnityProject();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to select Unity folder:', err);
+    }
+  };
 
   // Handle editor version change
   const handleEditorVersionChange = async (newVersion: string) => {
@@ -458,6 +488,21 @@ export function Unity({ projectId }: UnityProps) {
                   <li>Assets/ directory</li>
                   <li>Packages/manifest.json</li>
                 </ul>
+                <div className="mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={handleSelectUnityFolder}
+                    className="gap-2"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    Select Unity Project Folder
+                  </Button>
+                  {customUnityPath && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Selected: {customUnityPath}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

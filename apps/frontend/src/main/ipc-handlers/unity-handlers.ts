@@ -18,6 +18,7 @@ interface UnityEditorInfo {
 }
 
 interface UnitySettings {
+  unityProjectPath?: string;  // Custom Unity project path (if not at root)
   editorPath?: string;
   buildExecuteMethod?: string;
 }
@@ -351,6 +352,10 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
     throw new Error('Project not found');
   }
 
+  // Get Unity settings to check for custom Unity project path
+  const settings = getUnitySettings(projectId);
+  const unityPath = settings.unityProjectPath || project.path;
+
   const { id, dir: runDir } = createRunDir(projectId, 'editmode-tests');
 
   const logFile = join(runDir, 'unity-editor.log');
@@ -361,7 +366,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
   const args = [
     '-runTests',
     '-batchmode',
-    '-projectPath', project.path,
+    '-projectPath', unityPath,
     '-testPlatform', 'EditMode',
     '-testResults', testResultsFile,
     '-logFile', logFile
@@ -390,7 +395,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
 
   return new Promise((resolve, reject) => {
     const process = spawn(editorPath, args, {
-      cwd: project.path
+      cwd: unityPath
     });
 
     let stdoutData = '';
@@ -448,6 +453,10 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
     throw new Error('Project not found');
   }
 
+  // Get Unity settings to check for custom Unity project path
+  const settings = getUnitySettings(projectId);
+  const unityPath = settings.unityProjectPath || project.path;
+
   const { id, dir: runDir } = createRunDir(projectId, 'build');
 
   const logFile = join(runDir, 'unity-editor.log');
@@ -457,7 +466,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
   const args = [
     '-batchmode',
     '-quit',
-    '-projectPath', project.path,
+    '-projectPath', unityPath,
     '-executeMethod', executeMethod,
     '-logFile', logFile
   ];
@@ -484,7 +493,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
 
   return new Promise((resolve, reject) => {
     const process = spawn(editorPath, args, {
-      cwd: project.path
+      cwd: unityPath
     });
 
     let stdoutData = '';
@@ -562,7 +571,12 @@ export function registerUnityHandlers(): void {
         if (!project) {
           throw new Error('Project not found');
         }
-        updateUnityProjectVersion(project.path, newVersion);
+
+        // Get Unity settings to check for custom Unity project path
+        const settings = getUnitySettings(projectId);
+        const unityPath = settings.unityProjectPath || project.path;
+
+        updateUnityProjectVersion(unityPath, newVersion);
         return { success: true, data: undefined };
       } catch (error) {
         return {
