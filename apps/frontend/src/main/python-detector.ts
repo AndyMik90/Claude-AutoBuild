@@ -1,5 +1,36 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
+import path from 'path';
+import { app } from 'electron';
+
+/**
+ * Get the path to the bundled Python executable.
+ * For packaged apps, Python is bundled in the resources directory.
+ *
+ * @returns The path to bundled Python, or null if not found/not packaged
+ */
+export function getBundledPythonPath(): string | null {
+  // Only check for bundled Python in packaged apps
+  if (!app.isPackaged) {
+    return null;
+  }
+
+  const resourcesPath = process.resourcesPath;
+  const isWindows = process.platform === 'win32';
+
+  // Bundled Python location in packaged app
+  const pythonPath = isWindows
+    ? path.join(resourcesPath, 'python', 'python.exe')
+    : path.join(resourcesPath, 'python', 'bin', 'python3');
+
+  if (existsSync(pythonPath)) {
+    console.log(`[Python] Found bundled Python at: ${pythonPath}`);
+    return pythonPath;
+  }
+
+  console.log(`[Python] Bundled Python not found at: ${pythonPath}`);
+  return null;
+}
 
 /**
  * Find the first existing Homebrew Python installation.
@@ -13,9 +44,9 @@ function findHomebrewPython(): string | null {
     '/usr/local/bin/python3'      // Intel Mac
   ];
 
-  for (const path of homebrewPaths) {
-    if (existsSync(path)) {
-      return path;
+  for (const pythonPath of homebrewPaths) {
+    if (existsSync(pythonPath)) {
+      return pythonPath;
     }
   }
 
@@ -24,12 +55,33 @@ function findHomebrewPython(): string | null {
 
 /**
  * Detect and return the best available Python command.
- * Tries multiple candidates and returns the first one that works with Python 3.
+ * Priority order:
+ *   1. Bundled Python (for packaged apps)
+ *   2. System Python (Homebrew on macOS, standard paths on other platforms)
  *
  * @returns The Python command to use, or null if none found
  */
 export function findPythonCommand(): string | null {
   const isWindows = process.platform === 'win32';
+
+  // 1. Check for bundled Python first (packaged apps only)
+  const bundledPython = getBundledPythonPath();
+  if (bundledPython) {
+    try {
+      const validation = validatePythonVersion(bundledPython);
+      if (validation.valid) {
+        console.log(`[Python] Using bundled Python: ${bundledPython} (${validation.version})`);
+        return bundledPython;
+      } else {
+        console.warn(`[Python] Bundled Python version issue: ${validation.message}`);
+      }
+    } catch (err) {
+      console.warn(`[Python] Bundled Python error: ${err}`);
+    }
+  }
+
+  // 2. Fall back to system Python
+  console.log(`[Python] Searching for system Python...`);
 
   // Build candidate list prioritizing Homebrew Python on macOS
   let candidates: string[];
@@ -47,7 +99,7 @@ export function findPythonCommand(): string | null {
       // Validate version meets minimum requirement (Python 3.10+)
       const validation = validatePythonVersion(cmd);
       if (validation.valid) {
-        console.log(`[Python] Found valid Python: ${cmd} (${validation.version})`);
+        console.log(`[Python] Found valid system Python: ${cmd} (${validation.version})`);
         return cmd;
       } else {
         console.warn(`[Python] ${cmd} version too old: ${validation.message}`);
@@ -134,11 +186,18 @@ function validatePythonVersion(pythonCmd: string): {
 
 /**
  * Get the default Python command for the current platform.
- * This is a synchronous fallback that doesn't test if Python actually exists.
+ * Prioritizes bundled Python in packaged apps, then falls back to system Python.
  *
  * @returns The default Python command for this platform
  */
 export function getDefaultPythonCommand(): string {
+  // Check for bundled Python first
+  const bundledPython = getBundledPythonPath();
+  if (bundledPython) {
+    return bundledPython;
+  }
+
+  // Fall back to system Python
   if (process.platform === 'win32') {
     return 'python';
   }

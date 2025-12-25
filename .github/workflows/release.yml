@@ -43,6 +43,12 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
@@ -111,6 +117,12 @@ jobs:
 
       - name: Install dependencies
         run: cd apps/frontend && npm ci
+
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-arm64-3.12.8
 
       - name: Build application
         run: cd apps/frontend && npm run build
@@ -181,6 +193,12 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
@@ -225,6 +243,12 @@ jobs:
 
       - name: Install dependencies
         run: cd apps/frontend && npm ci
+
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
 
       - name: Build application
         run: cd apps/frontend && npm run build
