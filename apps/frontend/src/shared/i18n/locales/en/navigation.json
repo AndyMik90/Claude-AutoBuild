@@ -12,6 +12,7 @@
     "changelog": "Changelog",
     "context": "Context",
     "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
     "gitlabIssues": "GitLab Issues",
     "worktrees": "Worktrees"
   },

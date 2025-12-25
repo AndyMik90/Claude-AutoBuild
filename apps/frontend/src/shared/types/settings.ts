@@ -51,6 +51,8 @@ export interface FeatureModelConfig {
   insights: ModelTypeShort;    // Insights chat feature
   ideation: ModelTypeShort;    // Ideation generation
   roadmap: ModelTypeShort;     // Roadmap generation
+  githubIssues: ModelTypeShort; // GitHub Issues automation
+  githubPrs: ModelTypeShort;    // GitHub PR review automation
 }
 
 // Feature-specific thinking level configuration
@@ -58,6 +60,8 @@ export interface FeatureThinkingConfig {
   insights: ThinkingLevel;
   ideation: ThinkingLevel;
   roadmap: ThinkingLevel;
+  githubIssues: ThinkingLevel;
+  githubPrs: ThinkingLevel;
 }
 
 // Agent profile for preset model/thinking configurations

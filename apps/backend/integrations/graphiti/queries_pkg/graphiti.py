@@ -108,7 +108,7 @@ class GraphitiMemory:
         if self.group_id_mode == GroupIdMode.PROJECT:
             project_name = self.project_dir.name
             path_hash = hashlib.md5(
-                str(self.project_dir.resolve()).encode()
+                str(self.project_dir.resolve()).encode(), usedforsecurity=False
             ).hexdigest()[:8]
             return f"project_{project_name}_{path_hash}"
         else:

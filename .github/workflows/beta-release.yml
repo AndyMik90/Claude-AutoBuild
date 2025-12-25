@@ -87,7 +87,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -154,7 +155,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -220,7 +222,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -264,7 +267,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

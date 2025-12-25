@@ -88,5 +88,15 @@
       "titleGenerator": "Générateur de titre",
       "claude": "Claude"
     }
+  },
+  "prReview": {
+    "reviewing": "En révision",
+    "reviewed": "Révisé",
+    "approved": "Approuvé",
+    "changesRequested": "Modifications demandées",
+    "commented": "Commenté",
+    "readyForFollowup": "Prêt pour suivi",
+    "readyToMerge": "Prêt à fusionner",
+    "pendingPost": "En attente de publication"
   }
 }

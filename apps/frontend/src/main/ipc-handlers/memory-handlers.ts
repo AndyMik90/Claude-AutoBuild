@@ -112,7 +112,7 @@ async function executeOllamaDetector(
   // Find the ollama_model_detector.py script
   const possiblePaths = [
     // Development paths
-    path.resolve(__dirname, '..', '..', '..', '..', 'backend', 'ollama_model_detector.py'),
+    path.resolve(__dirname, '..', '..', '..', 'backend', 'ollama_model_detector.py'),
     path.resolve(process.cwd(), 'apps', 'backend', 'ollama_model_detector.py'),
     // Legacy paths (for backwards compatibility)
     path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'ollama_model_detector.py'),
@@ -540,7 +540,7 @@ export function registerMemoryHandlers(): void {
         // Find the ollama_model_detector.py script
         const possiblePaths = [
           // New apps structure
-          path.resolve(__dirname, '..', '..', '..', '..', 'backend', 'ollama_model_detector.py'),
+          path.resolve(__dirname, '..', '..', '..', 'backend', 'ollama_model_detector.py'),
           path.resolve(process.cwd(), 'apps', 'backend', 'ollama_model_detector.py'),
           // Legacy paths for backwards compatibility
           path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'ollama_model_detector.py'),

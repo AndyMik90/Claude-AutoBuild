@@ -21,7 +21,15 @@ IMPLEMENTATION_PLAN_SCHEMA = {
         "workflow_rationale",
         "status",
     ],
-    "workflow_types": ["feature", "refactor", "investigation", "migration", "simple"],
+    "workflow_types": [
+        "feature",
+        "refactor",
+        "investigation",
+        "migration",
+        "simple",
+        "bugfix",
+        "bug_fix",
+    ],
     "phase_schema": {
         # Support both old format ("phase" number) and new format ("id" string)
         "required_fields_either": [["phase", "id"]],  # At least one of these

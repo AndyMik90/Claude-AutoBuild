@@ -1,5 +1,9 @@
 import { useEffect, useCallback } from 'react';
-import { useGitHubStore, investigateGitHubIssue } from '../../../stores/github-store';
+import {
+  useInvestigationStore,
+  useIssuesStore,
+  investigateGitHubIssue
+} from '../../../stores/github';
 import { loadTasks } from '../../../stores/task-store';
 import type { GitHubIssue } from '../../../../shared/types';
 
@@ -8,9 +12,10 @@ export function useGitHubInvestigation(projectId: string | undefined) {
     investigationStatus,
     lastInvestigationResult,
     setInvestigationStatus,
-    setInvestigationResult,
-    setError
-  } = useGitHubStore();
+    setInvestigationResult
+  } = useInvestigationStore();
+
+  const { setError } = useIssuesStore();
 
   // Set up event listeners for investigation progress
   useEffect(() => {
