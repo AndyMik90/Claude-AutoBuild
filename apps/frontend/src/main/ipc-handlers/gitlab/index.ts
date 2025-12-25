@@ -14,6 +14,7 @@ import { registerInvestigationHandlers } from './investigation-handlers';
 import { registerImportHandlers } from './import-handlers';
 import { registerReleaseHandlers } from './release-handlers';
 import { registerMergeRequestHandlers } from './merge-request-handlers';
+import { registerMRReviewHandlers } from './mr-review-handlers';
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -54,6 +55,9 @@ export function registerGitlabHandlers(
   // Merge request handlers
   registerMergeRequestHandlers();
 
+  // MR Review handlers (AI-powered)
+  registerMRReviewHandlers(getMainWindow);
+
   debugLog('All GitLab handlers registered');
 }
 
@@ -65,5 +69,6 @@ export {
   registerInvestigationHandlers,
   registerImportHandlers,
   registerReleaseHandlers,
-  registerMergeRequestHandlers
+  registerMergeRequestHandlers,
+  registerMRReviewHandlers
 };

@@ -277,6 +277,23 @@ export const integrationMock = {
     error: 'Not available in browser mock'
   }),
 
+  // GitLab MR Review Operations (AI-powered)
+  getGitLabMRReview: async () => null,
+  runGitLabMRReview: () => {},
+  runGitLabMRFollowupReview: () => {},
+  postGitLabMRReview: async () => false,
+  postGitLabMRNote: async () => false,
+  mergeGitLabMR: async () => false,
+  assignGitLabMR: async () => false,
+  approveGitLabMR: async () => false,
+  cancelGitLabMRReview: async () => false,
+  checkGitLabMRNewCommits: async () => ({ hasNewCommits: false }),
+
+  // GitLab MR Review Event Listeners
+  onGitLabMRReviewProgress: () => () => {},
+  onGitLabMRReviewComplete: () => () => {},
+  onGitLabMRReviewError: () => () => {},
+
   // GitLab OAuth Operations (glab CLI)
   checkGitLabCli: async () => ({
     success: true,

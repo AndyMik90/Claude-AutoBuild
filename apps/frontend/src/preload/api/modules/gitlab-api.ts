@@ -8,6 +8,9 @@ import type {
   GitLabImportResult,
   GitLabInvestigationStatus,
   GitLabInvestigationResult,
+  GitLabMRReviewResult,
+  GitLabMRReviewProgress,
+  GitLabNewCommitsCheck,
   GitLabGroup,
   IPCResult
 } from '../../../shared/types';
@@ -55,6 +58,29 @@ export interface GitLabAPI {
       assigneeIds?: number[];
     }
   ) => Promise<IPCResult<GitLabMergeRequest>>;
+
+  // MR Review operations (AI-powered)
+  getMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
+  runMRReview: (projectId: string, mrIid: number) => void;
+  runFollowupMRReview: (projectId: string, mrIid: number) => void;
+  postMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
+  mergeMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
+  approveMR: (projectId: string, mrIid: number) => Promise<boolean>;
+  cancelMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
+  checkMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
+
+  // MR Review Event Listeners
+  onMRReviewProgress: (
+    callback: (projectId: string, progress: GitLabMRReviewProgress) => void
+  ) => IpcListenerCleanup;
+  onMRReviewComplete: (
+    callback: (projectId: string, result: GitLabMRReviewResult) => void
+  ) => IpcListenerCleanup;
+  onMRReviewError: (
+    callback: (projectId: string, data: { mrIid: number; error: string }) => void
+  ) => IpcListenerCleanup;
 
   // Release operations
   createGitLabRelease: (
@@ -159,6 +185,53 @@ export const createGitLabAPI = (): GitLabAPI => ({
     }
   ): Promise<IPCResult<GitLabMergeRequest>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_UPDATE_MERGE_REQUEST, projectId, mrIid, updates),
+
+  // MR Review operations (AI-powered)
+  getMRReview: (projectId: string, mrIid: number): Promise<GitLabMRReviewResult | null> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_GET_REVIEW, projectId, mrIid),
+
+  runMRReview: (projectId: string, mrIid: number): void =>
+    sendIpc(IPC_CHANNELS.GITLAB_MR_REVIEW, projectId, mrIid),
+
+  runFollowupMRReview: (projectId: string, mrIid: number): void =>
+    sendIpc(IPC_CHANNELS.GITLAB_MR_FOLLOWUP_REVIEW, projectId, mrIid),
+
+  postMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_POST_REVIEW, projectId, mrIid, selectedFindingIds),
+
+  postMRNote: (projectId: string, mrIid: number, body: string): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_POST_NOTE, projectId, mrIid, body),
+
+  mergeMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase'): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_MERGE, projectId, mrIid, mergeMethod),
+
+  assignMR: (projectId: string, mrIid: number, userIds: number[]): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_ASSIGN, projectId, mrIid, userIds),
+
+  approveMR: (projectId: string, mrIid: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_APPROVE, projectId, mrIid),
+
+  cancelMRReview: (projectId: string, mrIid: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_REVIEW_CANCEL, projectId, mrIid),
+
+  checkMRNewCommits: (projectId: string, mrIid: number): Promise<GitLabNewCommitsCheck> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_MR_CHECK_NEW_COMMITS, projectId, mrIid),
+
+  // MR Review Event Listeners
+  onMRReviewProgress: (
+    callback: (projectId: string, progress: GitLabMRReviewProgress) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_PROGRESS, callback),
+
+  onMRReviewComplete: (
+    callback: (projectId: string, result: GitLabMRReviewResult) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_COMPLETE, callback),
+
+  onMRReviewError: (
+    callback: (projectId: string, data: { mrIid: number; error: string }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITLAB_MR_REVIEW_ERROR, callback),
 
   // Release operations
   createGitLabRelease: (

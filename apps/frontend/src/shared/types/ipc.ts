@@ -114,7 +114,10 @@ import type {
   GitLabSyncStatus,
   GitLabImportResult,
   GitLabInvestigationResult,
-  GitLabInvestigationStatus
+  GitLabInvestigationStatus,
+  GitLabMRReviewResult,
+  GitLabMRReviewProgress,
+  GitLabNewCommitsCheck
 } from './integrations';
 
 // Electron API exposed via contextBridge
@@ -402,6 +405,29 @@ export interface ElectronAPI {
     mrIid: number,
     updates: { title?: string; description?: string; labels?: string[]; state_event?: 'close' | 'reopen' }
   ) => Promise<IPCResult<GitLabMergeRequest>>;
+
+  // GitLab MR Review operations (AI-powered)
+  getGitLabMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
+  runGitLabMRReview: (projectId: string, mrIid: number) => void;
+  runGitLabMRFollowupReview: (projectId: string, mrIid: number) => void;
+  postGitLabMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postGitLabMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
+  mergeGitLabMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignGitLabMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
+  approveGitLabMR: (projectId: string, mrIid: number) => Promise<boolean>;
+  cancelGitLabMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
+  checkGitLabMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
+
+  // GitLab MR Review event listeners
+  onGitLabMRReviewProgress: (
+    callback: (projectId: string, progress: GitLabMRReviewProgress) => void
+  ) => () => void;
+  onGitLabMRReviewComplete: (
+    callback: (projectId: string, result: GitLabMRReviewResult) => void
+  ) => () => void;
+  onGitLabMRReviewError: (
+    callback: (projectId: string, data: { mrIid: number; error: string }) => void
+  ) => () => void;
 
   // GitLab OAuth operations (glab CLI)
   checkGitLabCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
