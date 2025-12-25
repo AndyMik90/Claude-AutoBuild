@@ -116,7 +116,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.49.0",
     "vite": "^7.2.7",
-    "vitest": "^4.0.15"
+    "vitest": "^4.0.16"
   },
   "overrides": {
     "electron-builder-squirrel-windows": "^26.0.12",
