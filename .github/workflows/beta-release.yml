@@ -112,7 +112,7 @@ jobs:
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd apps/frontend && npm run package:mac -- --arch=x64
+        run: cd apps/frontend && npm run package:mac -- --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -180,7 +180,7 @@ jobs:
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Apple Silicon)
-        run: cd apps/frontend && npm run package:mac -- --arch=arm64
+        run: cd apps/frontend && npm run package:mac -- --arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
