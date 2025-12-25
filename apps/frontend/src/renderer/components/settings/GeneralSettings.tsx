@@ -2,6 +2,8 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
+import { Button } from '../ui/button';
+import { FolderOpen } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
 import {
@@ -175,6 +177,56 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             value={settings.autoBuildPath || ''}
             onChange={(e) => onSettingsChange({ ...settings, autoBuildPath: e.target.value })}
           />
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="unityHubPath" className="text-sm font-medium text-foreground">Unity Hub Path</Label>
+          <p className="text-sm text-muted-foreground">Path to Unity Hub installation (auto-detected on first run)</p>
+          <div className="flex gap-2 w-full max-w-lg">
+            <Input
+              id="unityHubPath"
+              placeholder="Auto-detect"
+              className="flex-1"
+              value={settings.unityHubPath || ''}
+              onChange={(e) => onSettingsChange({ ...settings, unityHubPath: e.target.value })}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={async () => {
+                const path = await window.electronAPI.selectDirectory();
+                if (path) {
+                  onSettingsChange({ ...settings, unityHubPath: path });
+                }
+              }}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="unityEditorsFolder" className="text-sm font-medium text-foreground">Unity Editors Folder</Label>
+          <p className="text-sm text-muted-foreground">Folder containing all Unity Editor installations (auto-detected on first run)</p>
+          <div className="flex gap-2 w-full max-w-lg">
+            <Input
+              id="unityEditorsFolder"
+              placeholder="Auto-detect"
+              className="flex-1"
+              value={settings.unityEditorsFolder || ''}
+              onChange={(e) => onSettingsChange({ ...settings, unityEditorsFolder: e.target.value })}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={async () => {
+                const path = await window.electronAPI.selectDirectory();
+                if (path) {
+                  onSettingsChange({ ...settings, unityEditorsFolder: path });
+                }
+              }}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </SettingsSection>

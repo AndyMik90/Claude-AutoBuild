@@ -589,6 +589,60 @@ export interface ElectronAPI {
       percentage: number;
     }) => void
   ) => () => void;
+
+  // Unity operations
+  detectUnityProject: (projectPath: string) => Promise<IPCResult<{
+    isUnityProject: boolean;
+    version?: string;
+    projectPath: string;
+  }>>;
+  updateUnityProjectVersion: (projectId: string, newVersion: string) => Promise<IPCResult<void>>;
+  discoverUnityEditors: () => Promise<IPCResult<{
+    editors: Array<{
+      version: string;
+      path: string;
+    }>;
+  }>>;
+  autoDetectUnityHub: () => Promise<IPCResult<{ path: string | null }>>;
+  autoDetectUnityEditorsFolder: () => Promise<IPCResult<{ path: string | null }>>;
+  scanUnityEditorsFolder: (editorsFolder: string) => Promise<IPCResult<{
+    editors: Array<{
+      version: string;
+      path: string;
+    }>;
+  }>>;
+  getUnitySettings: (projectId: string) => Promise<IPCResult<{
+    unityProjectPath?: string;
+    editorPath?: string;
+    buildExecuteMethod?: string;
+  }>>;
+  saveUnitySettings: (projectId: string, settings: {
+    unityProjectPath?: string;
+    editorPath?: string;
+    buildExecuteMethod?: string;
+  }) => Promise<IPCResult<void>>;
+  runUnityEditModeTests: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
+  runUnityBuild: (projectId: string, editorPath: string, executeMethod: string) => Promise<IPCResult<void>>;
+  loadUnityRuns: (projectId: string) => Promise<IPCResult<{
+    runs: Array<{
+      id: string;
+      action: 'editmode-tests' | 'build';
+      startedAt: string;
+      endedAt?: string;
+      durationMs?: number;
+      status: 'running' | 'success' | 'failed';
+      exitCode?: number;
+      command: string;
+      artifactPaths: {
+        runDir: string;
+        log?: string;
+        testResults?: string;
+        stdout?: string;
+        stderr?: string;
+      };
+    }>;
+  }>>;
+  openPath: (path: string) => Promise<IPCResult<void>>;
 }
 
 declare global {

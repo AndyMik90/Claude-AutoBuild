@@ -60,6 +60,39 @@ function migrateOnboardingCompleted(settings: AppSettings): AppSettings {
 }
 
 /**
+ * Auto-detect Unity paths on first run
+ */
+async function autoDetectUnityPaths(settings: AppSettings): Promise<Partial<AppSettings>> {
+  const updates: Partial<AppSettings> = {};
+
+  // Auto-detect Unity Hub path if not set
+  if (!settings.unityHubPath) {
+    try {
+      const hubResult = await window.electronAPI.autoDetectUnityHub();
+      if (hubResult.success && hubResult.data?.path) {
+        updates.unityHubPath = hubResult.data.path;
+      }
+    } catch (error) {
+      console.error('Failed to auto-detect Unity Hub:', error);
+    }
+  }
+
+  // Auto-detect Unity Editors folder if not set
+  if (!settings.unityEditorsFolder) {
+    try {
+      const folderResult = await window.electronAPI.autoDetectUnityEditorsFolder();
+      if (folderResult.success && folderResult.data?.path) {
+        updates.unityEditorsFolder = folderResult.data.path;
+      }
+    } catch (error) {
+      console.error('Failed to auto-detect Unity Editors folder:', error);
+    }
+  }
+
+  return updates;
+}
+
+/**
  * Load settings from main process
  */
 export async function loadSettings(): Promise<void> {
@@ -70,7 +103,16 @@ export async function loadSettings(): Promise<void> {
     const result = await window.electronAPI.getSettings();
     if (result.success && result.data) {
       // Apply migration for onboardingCompleted flag
-      const migratedSettings = migrateOnboardingCompleted(result.data);
+      let migratedSettings = migrateOnboardingCompleted(result.data);
+
+      // Auto-detect Unity paths if not already set (first run only)
+      const unityUpdates = await autoDetectUnityPaths(migratedSettings);
+      if (Object.keys(unityUpdates).length > 0) {
+        migratedSettings = { ...migratedSettings, ...unityUpdates };
+        // Persist auto-detected paths
+        await window.electronAPI.saveSettings(unityUpdates);
+      }
+
       store.setSettings(migratedSettings);
 
       // If migration changed the settings, persist them
