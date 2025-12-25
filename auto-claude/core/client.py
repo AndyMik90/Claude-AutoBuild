@@ -337,30 +337,37 @@ def create_client(
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
 
-    return ClaudeSDKClient(
-        options=ClaudeAgentOptions(
-            model=model,
-            system_prompt=(
-                f"You are an expert full-stack developer building production-quality software. "
-                f"Your working directory is: {project_dir.resolve()}\n"
-                f"Your filesystem access is RESTRICTED to this directory only. "
-                f"Use relative paths (starting with ./) for all file operations. "
-                f"Never use absolute paths or try to access files outside your working directory.\n\n"
-                f"You follow existing code patterns, write clean maintainable code, and verify "
-                f"your work through thorough testing. You communicate progress through Git commits "
-                f"and build-progress.txt updates."
-            ),
-            allowed_tools=allowed_tools_list,
-            mcp_servers=mcp_servers,
-            hooks={
-                "PreToolUse": [
-                    HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
-                ],
-            },
-            max_turns=1000,
-            cwd=str(project_dir.resolve()),
-            settings=str(settings_file.resolve()),
-            env=sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
-            max_thinking_tokens=max_thinking_tokens,  # Extended thinking budget
+    # Create client with cleanup on failure
+    try:
+        return ClaudeSDKClient(
+            options=ClaudeAgentOptions(
+                model=model,
+                system_prompt=(
+                    f"You are an expert full-stack developer building production-quality software. "
+                    f"Your working directory is: {project_dir.resolve()}\n"
+                    f"Your filesystem access is RESTRICTED to this directory only. "
+                    f"Use relative paths (starting with ./) for all file operations. "
+                    f"Never use absolute paths or try to access files outside your working directory.\n\n"
+                    f"You follow existing code patterns, write clean maintainable code, and verify "
+                    f"your work through thorough testing. You communicate progress through Git commits "
+                    f"and build-progress.txt updates."
+                ),
+                allowed_tools=allowed_tools_list,
+                mcp_servers=mcp_servers,
+                hooks={
+                    "PreToolUse": [
+                        HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
+                    ],
+                },
+                max_turns=1000,
+                cwd=str(project_dir.resolve()),
+                settings=str(settings_file.resolve()),
+                env=sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
+                max_thinking_tokens=max_thinking_tokens,  # Extended thinking budget
+            )
         )
-    )
+    except Exception:
+        # Clean up settings file on failure
+        if settings_file.exists():
+            settings_file.unlink()
+        raise

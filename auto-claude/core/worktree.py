@@ -16,11 +16,11 @@ This allows:
 4. Clear 1:1:1 mapping: spec → worktree → branch
 """
 
-import asyncio
 import os
 import re
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,7 +58,7 @@ class WorktreeManager:
         self.project_dir = project_dir
         self.base_branch = base_branch or self._detect_base_branch()
         self.worktrees_dir = project_dir / ".worktrees"
-        self._merge_lock = asyncio.Lock()
+        self._merge_lock = threading.Lock()
 
     def _detect_base_branch(self) -> str:
         """
@@ -82,7 +82,7 @@ class WorktreeManager:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                errors="replace",
+                errors="backslashreplace",
             )
             if result.returncode == 0:
                 return env_branch
@@ -99,7 +99,7 @@ class WorktreeManager:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                errors="replace",
+                errors="backslashreplace",
             )
             if result.returncode == 0:
                 return branch
@@ -128,14 +128,20 @@ class WorktreeManager:
     def _run_git(
         self, args: list[str], cwd: Path | None = None
     ) -> subprocess.CompletedProcess:
-        """Run a git command and return the result."""
+        """
+        Run a git command and return the result.
+
+        Uses 'backslashreplace' error handling which preserves invalid UTF-8 characters
+        as escape sequences (e.g., \\xe9) instead of silently replacing them with '�'.
+        This allows debugging encoding issues without data loss.
+        """
         return subprocess.run(
             ["git"] + args,
             cwd=cwd or self.project_dir,
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace",
+            errors="backslashreplace",  # Preserve invalid chars as escape sequences
         )
 
     def _unstage_gitignored_files(self) -> None:
@@ -166,7 +172,7 @@ class WorktreeManager:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace",
+            errors="backslashreplace",  # Preserve invalid chars as escape sequences
         )
 
         if result.stdout.strip():
@@ -190,9 +196,8 @@ class WorktreeManager:
             print(
                 f"Unstaging {len(files_to_unstage)} auto-claude/gitignored file(s)..."
             )
-            # Unstage each file
-            for file in files_to_unstage:
-                self._run_git(["reset", "HEAD", "--", file])
+            # Batch unstage all files in one command for performance
+            self._run_git(["reset", "HEAD", "--"] + list(files_to_unstage))
 
     def setup(self) -> None:
         """Create worktrees directory if needed."""
@@ -273,7 +278,12 @@ class WorktreeManager:
             ["rev-list", "--count", f"{self.base_branch}..HEAD"], cwd=worktree_path
         )
         if result.returncode == 0:
-            stats["commit_count"] = int(result.stdout.strip() or "0")
+            try:
+                count_str = result.stdout.strip()
+                stats["commit_count"] = int(count_str) if count_str else 0
+            except ValueError:
+                # If git output is corrupted/unexpected, default to 0
+                stats["commit_count"] = 0
 
         # Diff stats
         result = self._run_git(
@@ -326,8 +336,27 @@ class WorktreeManager:
         if worktree_path.exists():
             self._run_git(["worktree", "remove", "--force", str(worktree_path)])
 
-        # Delete branch if it exists (from previous attempt)
-        self._run_git(["branch", "-D", branch_name])
+        # Check if branch exists and has unmerged commits before deleting
+        branch_exists = self._run_git(["rev-parse", "--verify", branch_name])
+        if branch_exists.returncode == 0:
+            # Check if branch has unmerged commits
+            unmerged = self._run_git(
+                ["log", f"{self.base_branch}..{branch_name}", "--oneline"]
+            )
+            if unmerged.returncode == 0 and unmerged.stdout.strip():
+                # Branch has unmerged commits - warn user
+                commit_count = len(unmerged.stdout.strip().split("\n"))
+                print(f"⚠️  WARNING: Branch '{branch_name}' has {commit_count} unmerged commit(s)!")
+                print("These commits will be lost if you continue:")
+                print(unmerged.stdout.strip()[:500])  # Show first 500 chars
+                response = input("\nDelete branch anyway? (yes/no): ")
+                if response.lower() != "yes":
+                    raise WorktreeError(
+                        f"Cancelled - branch '{branch_name}' has unmerged work. "
+                        f"Merge it first or use a different spec name."
+                    )
+            # Delete branch (either no unmerged commits or user confirmed)
+            self._run_git(["branch", "-D", branch_name])
 
         # Create worktree with new branch from base
         result = self._run_git(
@@ -407,55 +436,57 @@ class WorktreeManager:
         Returns:
             True if merge succeeded
         """
-        info = self.get_worktree_info(spec_name)
-        if not info:
-            print(f"No worktree found for spec: {spec_name}")
-            return False
+        # Use lock to prevent concurrent merges that could corrupt git state
+        with self._merge_lock:
+            info = self.get_worktree_info(spec_name)
+            if not info:
+                print(f"No worktree found for spec: {spec_name}")
+                return False
 
-        if no_commit:
-            print(
-                f"Merging {info.branch} into {self.base_branch} (staged, not committed)..."
-            )
-        else:
-            print(f"Merging {info.branch} into {self.base_branch}...")
+            if no_commit:
+                print(
+                    f"Merging {info.branch} into {self.base_branch} (staged, not committed)..."
+                )
+            else:
+                print(f"Merging {info.branch} into {self.base_branch}...")
 
-        # Switch to base branch in main project
-        result = self._run_git(["checkout", self.base_branch])
-        if result.returncode != 0:
-            print(f"Error: Could not checkout base branch: {result.stderr}")
-            return False
+            # Switch to base branch in main project
+            result = self._run_git(["checkout", self.base_branch])
+            if result.returncode != 0:
+                print(f"Error: Could not checkout base branch: {result.stderr}")
+                return False
 
-        # Merge the spec branch
-        merge_args = ["merge", "--no-ff", info.branch]
-        if no_commit:
-            # --no-commit stages the merge but doesn't create the commit
-            merge_args.append("--no-commit")
-        else:
-            merge_args.extend(["-m", f"auto-claude: Merge {info.branch}"])
+            # Merge the spec branch
+            merge_args = ["merge", "--no-ff", info.branch]
+            if no_commit:
+                # --no-commit stages the merge but doesn't create the commit
+                merge_args.append("--no-commit")
+            else:
+                merge_args.extend(["-m", f"auto-claude: Merge {info.branch}"])
 
-        result = self._run_git(merge_args)
+            result = self._run_git(merge_args)
 
-        if result.returncode != 0:
-            print("Merge conflict! Aborting merge...")
-            self._run_git(["merge", "--abort"])
-            return False
+            if result.returncode != 0:
+                print("Merge conflict! Aborting merge...")
+                self._run_git(["merge", "--abort"])
+                return False
 
-        if no_commit:
-            # Unstage any files that are gitignored in the main branch
-            # These get staged during merge because they exist in the worktree branch
-            self._unstage_gitignored_files()
-            print(
-                f"Changes from {info.branch} are now staged in your working directory."
-            )
-            print("Review the changes, then commit when ready:")
-            print("  git commit -m 'your commit message'")
-        else:
-            print(f"Successfully merged {info.branch}")
+            if no_commit:
+                # Unstage any files that are gitignored in the main branch
+                # These get staged during merge because they exist in the worktree branch
+                self._unstage_gitignored_files()
+                print(
+                    f"Changes from {info.branch} are now staged in your working directory."
+                )
+                print("Review the changes, then commit when ready:")
+                print("  git commit -m 'your commit message'")
+            else:
+                print(f"Successfully merged {info.branch}")
 
-        if delete_after:
-            self.remove_worktree(spec_name, delete_branch=True)
+            if delete_after:
+                self.remove_worktree(spec_name, delete_branch=True)
 
-        return True
+            return True
 
     def commit_in_worktree(self, spec_name: str, message: str) -> bool:
         """Commit all changes in a spec's worktree."""

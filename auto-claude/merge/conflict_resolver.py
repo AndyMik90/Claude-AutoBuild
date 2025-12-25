@@ -49,7 +49,13 @@ class ConflictResolver:
             auto_merger: AutoMerger instance for deterministic resolution
             ai_resolver: Optional AIResolver instance for AI-based resolution
             enable_ai: Whether to use AI for ambiguous conflicts
+
+        Raises:
+            ValueError: If enable_ai is True but ai_resolver is None
         """
+        if enable_ai and ai_resolver is None:
+            raise ValueError("ai_resolver is required when enable_ai=True")
+
         self.auto_merger = auto_merger
         self.ai_resolver = ai_resolver
         self.enable_ai = enable_ai

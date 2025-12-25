@@ -36,7 +36,7 @@ async def bash_security_hook(
     Args:
         input_data: Dict containing tool_name and tool_input
         tool_use_id: Optional tool use ID
-        context: Optional context
+        context: Optional context (unused, kept for SDK compatibility)
 
     Returns:
         Empty dict to allow, or {"decision": "block", "reason": "..."} to block
@@ -48,11 +48,9 @@ async def bash_security_hook(
     if not command:
         return {}
 
-    # Get the working directory from context or use current directory
-    # In the actual client, this would be set by the ClaudeSDKClient
+    # Get the working directory - use current directory
+    # The cwd is set by ClaudeSDKClient when launching the agent
     cwd = os.getcwd()
-    if context and hasattr(context, "cwd"):
-        cwd = context.cwd
 
     # Get or create security profile
     # Note: In actual use, spec_dir would be passed through context
@@ -60,7 +58,9 @@ async def bash_security_hook(
         profile = get_security_profile(Path(cwd))
     except Exception as e:
         # If profile creation fails, fall back to base commands only
-        print(f"Warning: Could not load security profile: {e}")
+        print("⚠️  WARNING: Security profile failed to load - using BASE COMMANDS ONLY")
+        print(f"Cause: {e}")
+        print("Project-specific commands will be blocked. Restart the agent to retry.")
         profile = SecurityProfile()
         profile.base_commands = BASE_COMMANDS.copy()
 
