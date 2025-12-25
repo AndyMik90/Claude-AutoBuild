@@ -14,6 +14,7 @@ import {
   ChevronRight,
   AlertTriangle
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -67,6 +68,7 @@ export function Unity({ projectId }: UnityProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const settings = useSettingsStore((state) => state.settings);
+  const { t } = useTranslation('unity');
 
   const [projectInfo, setProjectInfo] = useState<UnityProjectInfo | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -106,14 +108,14 @@ export function Unity({ projectId }: UnityProps) {
       if (result.success && result.data) {
         setProjectInfo(result.data);
       } else {
-        setDetectError(result.error || 'Failed to detect Unity project');
+        setDetectError(result.error || t('errors.detect'));
       }
     } catch (err) {
-      setDetectError(err instanceof Error ? err.message : 'Failed to detect Unity project');
+      setDetectError(err instanceof Error ? err.message : t('errors.detect'));
     } finally {
       setIsDetecting(false);
     }
-  }, [selectedProject, customUnityPath]);
+  }, [selectedProject, customUnityPath, t]);
 
   // Load Unity editors from settings or scan from folder
   const loadUnityEditors = useCallback(async () => {
@@ -223,10 +225,10 @@ export function Unity({ projectId }: UnityProps) {
         // Refresh runs
         await loadRuns();
       } else {
-        setRunError(result.error || 'Failed to run EditMode tests');
+        setRunError(result.error || t('errors.runTests'));
       }
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'Failed to run EditMode tests');
+      setRunError(err instanceof Error ? err.message : t('errors.runTests'));
     } finally {
       setIsRunning(false);
     }
@@ -249,10 +251,10 @@ export function Unity({ projectId }: UnityProps) {
         // Refresh runs
         await loadRuns();
       } else {
-        setRunError(result.error || 'Failed to run build');
+        setRunError(result.error || t('errors.runBuild'));
       }
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'Failed to run build');
+      setRunError(err instanceof Error ? err.message : t('errors.runBuild'));
     } finally {
       setIsRunning(false);
     }
@@ -260,7 +262,7 @@ export function Unity({ projectId }: UnityProps) {
 
   // Format duration
   const formatDuration = (ms?: number) => {
-    if (!ms) return 'N/A';
+    if (!ms) return t('history.durationUnavailable');
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -287,7 +289,7 @@ export function Unity({ projectId }: UnityProps) {
   if (!selectedProject) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Select a project to view Unity tools</p>
+        <p className="text-muted-foreground">{t('messages.selectProject')}</p>
       </div>
     );
   }
@@ -335,10 +337,10 @@ export function Unity({ projectId }: UnityProps) {
         // Refresh project info to show new version
         await detectUnityProject();
       } else {
-        setRunError(result.error || 'Failed to update Unity version');
+        setRunError(result.error || t('errors.updateVersion'));
       }
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'Failed to update Unity version');
+      setRunError(err instanceof Error ? err.message : t('errors.updateVersion'));
     }
   };
 
@@ -349,10 +351,10 @@ export function Unity({ projectId }: UnityProps) {
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Box className="h-6 w-6" />
-            Unity
+            {t('header.title')}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Run Unity tests and builds for your project
+            {t('header.subtitle')}
           </p>
         </div>
         <Button
@@ -366,7 +368,7 @@ export function Unity({ projectId }: UnityProps) {
           disabled={isDetecting || isDiscovering}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isDetecting || isDiscovering ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('header.refresh')}
         </Button>
       </div>
 
@@ -376,7 +378,7 @@ export function Unity({ projectId }: UnityProps) {
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-destructive">Error</p>
+              <p className="font-medium text-destructive">{t('messages.errorTitle')}</p>
               <p className="text-muted-foreground mt-1">{detectError || runError}</p>
             </div>
           </div>
@@ -399,20 +401,20 @@ export function Unity({ projectId }: UnityProps) {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Box className="h-5 w-5" />
-                  Project
+                  {t('project.cardTitle')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Detected</span>
+                  <span className="text-sm text-muted-foreground">{t('project.detected')}</span>
                   {projectInfo.isUnityProject ? (
                     <Badge variant="outline" className="bg-success/10 text-success border-success/30">
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      Yes
+                      {t('project.yes')}
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="bg-muted">
-                      No
+                      {t('project.no')}
                     </Badge>
                   )}
                 </div>
@@ -420,7 +422,7 @@ export function Unity({ projectId }: UnityProps) {
                   <>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-muted-foreground shrink-0">Unity Editor</span>
+                        <span className="text-sm text-muted-foreground shrink-0">{t('project.unityEditor')}</span>
                         <div className="flex items-center gap-2">
                           <Select
                             value={projectInfo.version || ''}
@@ -428,7 +430,7 @@ export function Unity({ projectId }: UnityProps) {
                             disabled={isDiscovering || editors.length === 0}
                           >
                             <SelectTrigger className="h-8 text-xs font-mono w-[180px] text-left">
-                              <SelectValue placeholder={isDiscovering ? 'Loading...' : 'No editors'} />
+                              <SelectValue placeholder={isDiscovering ? t('project.loadingEditors') : t('project.noEditors')} />
                             </SelectTrigger>
                             <SelectContent>
                               {editors.map((editor) => (
@@ -438,7 +440,7 @@ export function Unity({ projectId }: UnityProps) {
                               ))}
                               {editors.length === 0 && !isDiscovering && (
                                 <SelectItem value="__none__" disabled className="text-xs">
-                                  Configure in Settings
+                                  {t('project.configureSettings')}
                                 </SelectItem>
                               )}
                             </SelectContent>
@@ -450,7 +452,7 @@ export function Unity({ projectId }: UnityProps) {
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 shrink-0" />
                           <span className="text-xs text-muted-foreground">
-                            Editor not installed
+                            {t('project.editorNotInstalled')}
                           </span>
                           <Button
                             variant="outline"
@@ -458,14 +460,14 @@ export function Unity({ projectId }: UnityProps) {
                             className="h-6 text-xs px-2 ml-auto bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
                             onClick={() => window.electronAPI.openExternal(`https://unity.com/releases/editor/archive`)}
                           >
-                            Install {projectInfo.version}
+                            {t('project.installVersion', { version: projectInfo.version })}
                           </Button>
                         </div>
                       )}
                     </div>
 
                     <div className="flex items-start justify-between">
-                      <span className="text-sm text-muted-foreground">Project Path</span>
+                      <span className="text-sm text-muted-foreground">{t('project.projectPath')}</span>
                       <span className="text-sm font-mono text-right break-all max-w-[60%]">
                         {projectInfo.projectPath}
                       </span>
@@ -481,14 +483,14 @@ export function Unity({ projectId }: UnityProps) {
                 <div className="rounded-full bg-muted p-4 mb-4">
                   <AlertTriangle className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">Not a Unity Project</h3>
+                <h3 className="text-lg font-semibold text-foreground">{t('emptyState.title')}</h3>
                 <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                  This workspace doesn't appear to be a Unity project. Unity projects are detected by:
+                  {t('emptyState.description')}
                 </p>
                 <ul className="text-sm text-muted-foreground mt-2 text-left list-disc list-inside">
-                  <li>ProjectSettings/ProjectVersion.txt (required)</li>
-                  <li>Assets/ directory</li>
-                  <li>Packages/manifest.json</li>
+                  <li>{t('emptyState.requirements.projectVersion')}</li>
+                  <li>{t('emptyState.requirements.assets')}</li>
+                  <li>{t('emptyState.requirements.manifest')}</li>
                 </ul>
                 <div className="mt-6">
                   <Button
@@ -497,11 +499,11 @@ export function Unity({ projectId }: UnityProps) {
                     className="gap-2"
                   >
                     <FolderOpen className="h-4 w-4" />
-                    Select Unity Project Folder
+                    {t('emptyState.selectFolder')}
                   </Button>
                   {customUnityPath && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Selected: {customUnityPath}
+                      {t('emptyState.selectedPath', { path: customUnityPath })}
                     </p>
                   )}
                 </div>
@@ -514,7 +516,7 @@ export function Unity({ projectId }: UnityProps) {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Play className="h-5 w-5" />
-                    Actions
+                    {t('actions.title')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -528,35 +530,35 @@ export function Unity({ projectId }: UnityProps) {
                       {isRunning ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Running...
+                          {t('actions.runningTests')}
                         </>
                       ) : (
                         <>
                           <Play className="h-4 w-4 mr-2" />
-                          Run EditMode Tests
+                          {t('actions.runTests')}
                         </>
                       )}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Runs Unity Test Framework in EditMode via CLI (batchmode, no -quit flag)
+                      {t('actions.testsDescription')}
                     </p>
                     {!effectiveEditorPath && (
                       <p className="text-xs text-warning flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        Select or specify Unity Editor path to enable
+                        {t('actions.selectEditorPrompt')}
                       </p>
                     )}
                   </div>
 
                   {/* Build (Custom) */}
                   <div className="space-y-2">
-                    <Label htmlFor="execute-method">Build executeMethod</Label>
+                    <Label htmlFor="execute-method">{t('actions.buildExecuteMethod')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="execute-method"
                         value={buildExecuteMethod}
                         onChange={(e) => setBuildExecuteMethod(e.target.value)}
-                        placeholder="Company.Project.Build.PerformBuild"
+                        placeholder={t('actions.buildPlaceholder')}
                         className="flex-1"
                       />
                       <Button
@@ -565,7 +567,7 @@ export function Unity({ projectId }: UnityProps) {
                         onClick={saveSettings}
                         disabled={isSavingSettings}
                       >
-                        {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                        {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : t('actions.save')}
                       </Button>
                     </div>
                     <Button
@@ -577,22 +579,22 @@ export function Unity({ projectId }: UnityProps) {
                       {isRunning ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Building...
+                          {t('actions.runningBuild')}
                         </>
                       ) : (
                         <>
                           <Settings className="h-4 w-4 mr-2" />
-                          Build (Custom)
+                          {t('actions.buildButton')}
                         </>
                       )}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Runs Unity with -batchmode -quit -executeMethod (your custom build script)
+                      {t('actions.buildDescription')}
                     </p>
                     {!buildExecuteMethod && (
                       <p className="text-xs text-warning flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        Configure executeMethod above to enable builds
+                        {t('actions.configureExecute')}
                       </p>
                     )}
                   </div>
@@ -606,10 +608,10 @@ export function Unity({ projectId }: UnityProps) {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Clock className="h-5 w-5" />
-                    Run History
+                    {t('history.title')}
                   </CardTitle>
                   <CardDescription>
-                    Last {runs.length} runs for this project
+                    {t('history.description', { count: runs.length })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -619,7 +621,7 @@ export function Unity({ projectId }: UnityProps) {
                     </div>
                   ) : runs.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">No runs yet</p>
+                      <p className="text-sm text-muted-foreground">{t('history.empty')}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -633,7 +635,7 @@ export function Unity({ projectId }: UnityProps) {
                             <div className="flex items-center gap-2">
                               {getStatusIcon(run.status)}
                               <span className="text-sm font-medium">
-                                {run.action === 'editmode-tests' ? 'EditMode Tests' : 'Build'}
+                                {t(`history.actionLabels.${run.action}`)}
                               </span>
                               <Badge variant="outline" className="text-xs">
                                 {run.status}
@@ -652,14 +654,14 @@ export function Unity({ projectId }: UnityProps) {
                           {selectedRun?.id === run.id && (
                             <div className="mt-4 pt-4 border-t border-border space-y-3">
                               <div>
-                                <p className="text-xs font-medium mb-1">Command</p>
+                                <p className="text-xs font-medium mb-1">{t('history.command')}</p>
                                 <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
                                   {run.command}
                                 </pre>
                               </div>
 
                               <div>
-                                <p className="text-xs font-medium mb-1">Artifacts</p>
+                                <p className="text-xs font-medium mb-1">{t('history.artifacts')}</p>
                                 <div className="space-y-1">
                                   <Button
                                     variant="ghost"
@@ -671,7 +673,7 @@ export function Unity({ projectId }: UnityProps) {
                                     }}
                                   >
                                     <FolderOpen className="h-3 w-3 mr-1" />
-                                    Open Run Directory
+                                    {t('history.openRunDirectory')}
                                   </Button>
                                   {run.artifactPaths.log && (
                                     <Button
@@ -680,11 +682,14 @@ export function Unity({ projectId }: UnityProps) {
                                       className="h-7 text-xs w-full justify-start"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.electronAPI.openPath(run.artifactPaths.log);
+                                        const logPath = run.artifactPaths.log;
+                                        if (logPath) {
+                                          window.electronAPI.openPath(logPath);
+                                        }
                                       }}
                                     >
                                       <TerminalIcon className="h-3 w-3 mr-1" />
-                                      Unity Log
+                                      {t('history.unityLog')}
                                     </Button>
                                   )}
                                   {run.artifactPaths.testResults && (
@@ -694,11 +699,14 @@ export function Unity({ projectId }: UnityProps) {
                                       className="h-7 text-xs w-full justify-start"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.electronAPI.openPath(run.artifactPaths.testResults);
+                                        const testResultsPath = run.artifactPaths.testResults;
+                                        if (testResultsPath) {
+                                          window.electronAPI.openPath(testResultsPath);
+                                        }
                                       }}
                                     >
                                       <ChevronRight className="h-3 w-3 mr-1" />
-                                      Test Results XML
+                                      {t('history.testResults')}
                                     </Button>
                                   )}
                                 </div>

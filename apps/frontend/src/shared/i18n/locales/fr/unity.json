@@ -1,0 +1,70 @@
+{
+  "header": {
+    "title": "Unity",
+    "subtitle": "Exécutez les tests et builds Unity pour votre projet",
+    "refresh": "Rafraîchir"
+  },
+  "errors": {
+    "detect": "Échec de la détection du projet Unity",
+    "updateVersion": "Échec de la mise à jour de la version Unity",
+    "runTests": "Échec de l'exécution des tests EditMode",
+    "runBuild": "Échec de l'exécution du build"
+  },
+  "messages": {
+    "selectProject": "Sélectionnez un projet pour accéder aux outils Unity",
+    "errorTitle": "Erreur"
+  },
+  "project": {
+    "cardTitle": "Projet",
+    "detected": "Détecté",
+    "yes": "Oui",
+    "no": "Non",
+    "unityEditor": "Éditeur Unity",
+    "loadingEditors": "Chargement...",
+    "noEditors": "Aucun éditeur",
+    "configureSettings": "Configurer dans Paramètres",
+    "editorNotInstalled": "Éditeur non installé",
+    "installVersion": "Installer {{version}}",
+    "projectPath": "Chemin du projet"
+  },
+  "emptyState": {
+    "title": "Pas un projet Unity",
+    "description": "Cet espace de travail ne semble pas être un projet Unity. Les projets Unity sont détectés par :",
+    "requirements": {
+      "projectVersion": "ProjectSettings/ProjectVersion.txt (requis)",
+      "assets": "Dossier Assets/",
+      "manifest": "Packages/manifest.json"
+    },
+    "selectFolder": "Sélectionner le dossier du projet Unity",
+    "selectedPath": "Sélectionné : {{path}}"
+  },
+  "actions": {
+    "title": "Actions",
+    "runTests": "Lancer les tests EditMode",
+    "runningTests": "Exécution...",
+    "testsDescription": "Lance Unity Test Framework en EditMode via la CLI (batchmode, sans -quit)",
+    "selectEditorPrompt": "Sélectionnez ou indiquez un chemin d'éditeur Unity pour activer",
+    "buildExecuteMethod": "Méthode executeMethod du build",
+    "buildPlaceholder": "Company.Project.Build.PerformBuild",
+    "save": "Sauvegarder",
+    "runningBuild": "Compilation...",
+    "buildButton": "Build (personnalisé)",
+    "buildDescription": "Exécute Unity avec -batchmode -quit -executeMethod (votre script de build personnalisé)",
+    "configureExecute": "Configurez executeMethod ci-dessus pour activer les builds"
+  },
+  "history": {
+    "title": "Historique des exécutions",
+    "description": "Dernières {{count}} exécutions pour ce projet",
+    "empty": "Aucune exécution pour le moment",
+    "actionLabels": {
+      "editmode-tests": "Tests EditMode",
+      "build": "Build"
+    },
+    "command": "Commande",
+    "artifacts": "Artéfacts",
+    "openRunDirectory": "Ouvrir le dossier d'exécution",
+    "unityLog": "Log Unity",
+    "testResults": "Résultats de test XML",
+    "durationUnavailable": "N/A"
+  }
+}

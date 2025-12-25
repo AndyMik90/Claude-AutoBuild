@@ -1,0 +1,70 @@
+{
+  "header": {
+    "title": "Unity",
+    "subtitle": "Run Unity tests and builds for your project",
+    "refresh": "Refresh"
+  },
+  "errors": {
+    "detect": "Failed to detect Unity project",
+    "updateVersion": "Failed to update Unity version",
+    "runTests": "Failed to run EditMode tests",
+    "runBuild": "Failed to run build"
+  },
+  "messages": {
+    "selectProject": "Select a project to view Unity tools",
+    "errorTitle": "Error"
+  },
+  "project": {
+    "cardTitle": "Project",
+    "detected": "Detected",
+    "yes": "Yes",
+    "no": "No",
+    "unityEditor": "Unity Editor",
+    "loadingEditors": "Loading...",
+    "noEditors": "No editors",
+    "configureSettings": "Configure in Settings",
+    "editorNotInstalled": "Editor not installed",
+    "installVersion": "Install {{version}}",
+    "projectPath": "Project Path"
+  },
+  "emptyState": {
+    "title": "Not a Unity Project",
+    "description": "This workspace doesn't appear to be a Unity project. Unity projects are detected by:",
+    "requirements": {
+      "projectVersion": "ProjectSettings/ProjectVersion.txt (required)",
+      "assets": "Assets/ directory",
+      "manifest": "Packages/manifest.json"
+    },
+    "selectFolder": "Select Unity Project Folder",
+    "selectedPath": "Selected: {{path}}"
+  },
+  "actions": {
+    "title": "Actions",
+    "runTests": "Run EditMode Tests",
+    "runningTests": "Running...",
+    "testsDescription": "Runs Unity Test Framework in EditMode via CLI (batchmode, no -quit flag)",
+    "selectEditorPrompt": "Select or specify Unity Editor path to enable",
+    "buildExecuteMethod": "Build executeMethod",
+    "buildPlaceholder": "Company.Project.Build.PerformBuild",
+    "save": "Save",
+    "runningBuild": "Building...",
+    "buildButton": "Build (Custom)",
+    "buildDescription": "Runs Unity with -batchmode -quit -executeMethod (your custom build script)",
+    "configureExecute": "Configure executeMethod above to enable builds"
+  },
+  "history": {
+    "title": "Run History",
+    "description": "Last {{count}} runs for this project",
+    "empty": "No runs yet",
+    "actionLabels": {
+      "editmode-tests": "EditMode Tests",
+      "build": "Build"
+    },
+    "command": "Command",
+    "artifacts": "Artifacts",
+    "openRunDirectory": "Open Run Directory",
+    "unityLog": "Unity Log",
+    "testResults": "Test Results XML",
+    "durationUnavailable": "N/A"
+  }
+}

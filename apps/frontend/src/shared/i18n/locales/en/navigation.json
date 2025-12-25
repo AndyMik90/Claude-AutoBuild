@@ -13,7 +13,9 @@
     "context": "Context",
     "githubIssues": "GitHub Issues",
     "gitlabIssues": "GitLab Issues",
-    "worktrees": "Worktrees"
+    "worktrees": "Worktrees",
+    "codeEditor": "Code Editor",
+    "unity": "Unity"
   },
   "actions": {
     "settings": "Settings",
