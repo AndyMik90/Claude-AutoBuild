@@ -3,6 +3,7 @@ import { parsePhaseEvent } from './phase-event-parser';
 import {
   wouldPhaseRegress,
   isTerminalPhase,
+  isValidExecutionPhase,
   type ExecutionPhase
 } from '../../shared/constants/phase-protocol';
 import { EXECUTION_PHASE_WEIGHTS } from '../../shared/constants/task';
@@ -32,9 +33,11 @@ export class AgentEvents {
       return null;
     }
 
-    // Helper to check if fallback result would be a regression
     const checkRegression = (newPhase: string): boolean => {
-      return wouldPhaseRegress(currentPhase as ExecutionPhase, newPhase as ExecutionPhase);
+      if (!isValidExecutionPhase(currentPhase) || !isValidExecutionPhase(newPhase)) {
+        return true;
+      }
+      return wouldPhaseRegress(currentPhase, newPhase);
     };
 
     const lowerLog = log.toLowerCase();
@@ -118,7 +121,11 @@ export class AgentEvents {
   }
 
   calculateOverallProgress(phase: ExecutionProgressData['phase'], phaseProgress: number): number {
-    const phaseWeight = EXECUTION_PHASE_WEIGHTS[phase] || { start: 0, end: 0 };
+    const phaseWeight = EXECUTION_PHASE_WEIGHTS[phase];
+    if (!phaseWeight) {
+      console.warn(`[AgentEvents] Unknown phase "${phase}" in calculateOverallProgress - defaulting to 0%`);
+      return 0;
+    }
     const phaseRange = phaseWeight.end - phaseWeight.start;
     return Math.round(phaseWeight.start + ((phaseRange * phaseProgress) / 100));
   }

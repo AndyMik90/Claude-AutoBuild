@@ -54,13 +54,13 @@ export type BackendPhase = (typeof BACKEND_PHASES)[number];
  * Used to prevent fallback text matching from regressing phases.
  */
 export const PHASE_ORDER_INDEX: Readonly<Record<ExecutionPhase, number>> = {
-  idle: -1, // Special: not in normal flow
+  idle: -1,
   planning: 0,
   coding: 1,
   qa_review: 2,
   qa_fixing: 3,
   complete: 4,
-  failed: 5 // Terminal state (can occur at any point)
+  failed: 99
 } as const;
 
 /**
