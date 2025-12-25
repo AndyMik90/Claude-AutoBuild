@@ -2,24 +2,24 @@ import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 
-interface UnityProjectInfo {
+export interface UnityProjectInfo {
   isUnityProject: boolean;
   version?: string;
   projectPath: string;
 }
 
-interface UnityEditorInfo {
+export interface UnityEditorInfo {
   version: string;
   path: string;
 }
 
-interface UnitySettings {
+export interface UnitySettings {
   unityProjectPath?: string;
   editorPath?: string;
   buildExecuteMethod?: string;
 }
 
-interface UnityRun {
+export interface UnityRun {
   id: string;
   action: 'editmode-tests' | 'build';
   startedAt: string;

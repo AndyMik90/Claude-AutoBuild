@@ -1,8 +1,9 @@
 /**
  * Mock implementation for Unity operations
  */
+import type { UnityAPI } from '../../../preload/api/unity-api';
 
-export const unityMock = {
+export const unityMock: UnityAPI = {
   // Unity project detection
   detectUnityProject: async (projectPath: string) => ({
     success: true,
