@@ -25,7 +25,8 @@
     "configureSettings": "Configurer dans Paramètres",
     "editorNotInstalled": "Éditeur non installé",
     "installVersion": "Installer {{version}}",
-    "projectPath": "Chemin du projet"
+    "projectPath": "Chemin du projet",
+    "openProject": "Ouvrir"
   },
   "emptyState": {
     "title": "Pas un projet Unity",

@@ -55,6 +55,7 @@ export interface UnityAPI {
   // Unity actions
   runUnityEditModeTests: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
   runUnityBuild: (projectId: string, editorPath: string, executeMethod: string) => Promise<IPCResult<void>>;
+  openUnityProject: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
 
   // Unity runs
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{ runs: UnityRun[] }>>;
@@ -93,6 +94,9 @@ export const createUnityAPI = (): UnityAPI => ({
 
   runUnityBuild: (projectId: string, editorPath: string, executeMethod: string): Promise<IPCResult<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_RUN_BUILD, projectId, editorPath, executeMethod),
+
+  openUnityProject: (projectId: string, editorPath: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PROJECT, projectId, editorPath),
 
   loadUnityRuns: (projectId: string): Promise<IPCResult<{ runs: UnityRun[] }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_LOAD_RUNS, projectId),

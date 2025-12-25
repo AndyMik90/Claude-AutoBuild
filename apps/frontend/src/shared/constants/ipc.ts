@@ -313,5 +313,6 @@ export const IPC_CHANNELS = {
   UNITY_RUN_EDITMODE_TESTS: 'unity:runEditModeTests',
   UNITY_RUN_BUILD: 'unity:runBuild',
   UNITY_LOAD_RUNS: 'unity:loadRuns',
-  UNITY_OPEN_PATH: 'unity:openPath'
+  UNITY_OPEN_PATH: 'unity:openPath',
+  UNITY_OPEN_PROJECT: 'unity:openProject'
 } as const;

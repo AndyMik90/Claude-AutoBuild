@@ -12,7 +12,8 @@ import {
   Clock,
   Terminal as TerminalIcon,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
@@ -344,6 +345,20 @@ export function Unity({ projectId }: UnityProps) {
     }
   };
 
+  // Handle opening Unity project
+  const handleOpenUnityProject = async () => {
+    if (!selectedProject || !effectiveEditorPath) return;
+
+    try {
+      const result = await window.electronAPI.openUnityProject(selectedProject.id, effectiveEditorPath);
+      if (!result.success) {
+        setRunError(result.error || 'Failed to open Unity project');
+      }
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : 'Failed to open Unity project');
+    }
+  };
+
   return (
     <div className="flex h-full flex-col p-6">
       {/* Header */}
@@ -445,6 +460,18 @@ export function Unity({ projectId }: UnityProps) {
                               )}
                             </SelectContent>
                           </Select>
+                          {projectEditorInstalled && effectiveEditorPath && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3"
+                              onClick={handleOpenUnityProject}
+                              title={t('project.openProject')}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                              {t('project.openProject')}
+                            </Button>
+                          )}
                         </div>
                       </div>
 

@@ -707,6 +707,39 @@ export function registerUnityHandlers(): void {
     }
   );
 
+  // Open Unity project
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_OPEN_PROJECT,
+    async (_, projectId: string, editorPath: string): Promise<IPCResult<void>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+
+        // Get Unity settings to check for custom Unity project path
+        const settings = getUnitySettings(projectId);
+        const unityPath = settings.unityProjectPath || project.path;
+
+        // Open Unity in editor mode (not batch mode)
+        const args = ['-projectPath', unityPath];
+
+        spawn(editorPath, args, {
+          cwd: unityPath,
+          detached: true,
+          stdio: 'ignore'
+        }).unref();
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to open Unity project'
+        };
+      }
+    }
+  );
+
   // Auto-detect Unity Hub
   ipcMain.handle(
     IPC_CHANNELS.UNITY_AUTO_DETECT_HUB,
