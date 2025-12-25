@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent, type DragEvent } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch, Camera } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ import {
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { AgentProfileSelector } from './AgentProfileSelector';
 import { FileAutocomplete } from './FileAutocomplete';
+import { ScreenshotCapture } from './ScreenshotCapture';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
@@ -72,6 +73,7 @@ export function TaskCreationWizard({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
+  const [showScreenshotCapture, setShowScreenshotCapture] = useState(false);
 
   // Git options state
   // Use a special value to represent "use project default" since Radix UI Select doesn't allow empty string values
@@ -598,6 +600,49 @@ export function TaskCreationWizard({
     return [...existingFiles, ...newFiles];
   }, []);
 
+  /**
+   * Handle screenshot capture
+   */
+  const handleScreenshotCapture = useCallback(async (dataUrl: string, filename: string) => {
+    // Check if we can add more images
+    if (images.length >= MAX_IMAGES_PER_TASK) {
+      setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
+      return;
+    }
+
+    try {
+      const thumbnail = await createThumbnail(dataUrl);
+      const existingFilenames = images.map(img => img.filename);
+      const resolvedFilename = resolveFilename(filename, existingFilenames);
+
+      // Determine MIME type from data URL
+      const mimeMatch = dataUrl.match(/^data:([^;]+);/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+
+      // Estimate size (rough estimate from base64 length)
+      const base64Data = dataUrl.split(',')[1];
+      const size = Math.floor((base64Data.length * 3) / 4);
+
+      const newImage: ImageAttachment = {
+        id: generateImageId(),
+        filename: resolvedFilename,
+        mimeType,
+        size,
+        data: base64Data,
+        thumbnail
+      };
+
+      setImages(prev => [...prev, newImage]);
+      setError(null);
+
+      // Show success feedback
+      setPasteSuccess(true);
+      setTimeout(() => setPasteSuccess(false), 2000);
+    } catch (err) {
+      setError('Failed to process screenshot');
+    }
+  }, [images]);
+
   const handleCreate = async () => {
     if (!description.trim()) {
       setError('Please provide a description');
@@ -814,9 +859,22 @@ export function TaskCreationWizard({
                 />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Files and images can be copy/pasted or dragged & dropped into the description.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Files and images can be copy/pasted or dragged & dropped into the description.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowScreenshotCapture(true)}
+                disabled={isCreating || images.length >= MAX_IMAGES_PER_TASK}
+                className="gap-1.5"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Capture Screenshot
+              </Button>
+            </div>
 
             {/* Image Thumbnails - displayed inline below description */}
             {images.length > 0 && (
@@ -1159,6 +1217,13 @@ export function TaskCreationWizard({
               projectPath={projectPath}
             />
           )}
+
+          {/* Screenshot Capture Modal */}
+          <ScreenshotCapture
+            open={showScreenshotCapture}
+            onOpenChange={setShowScreenshotCapture}
+            onCapture={handleScreenshotCapture}
+          />
         </div>
       </DialogContent>
     </Dialog>
