@@ -74,6 +74,7 @@ export function TaskCreationWizard({
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
   const [showScreenshotCapture, setShowScreenshotCapture] = useState(false);
+  const [showImages, setShowImages] = useState(false);
 
   // Git options state
   // Use a special value to represent "use project default" since Radix UI Select doesn't allow empty string values
@@ -165,6 +166,8 @@ export function TaskCreationWizard({
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
           setShowAdvanced(true);
         }
+        // Auto-expand images section if draft has images
+        setShowImages(draft.images.length > 0);
       } else {
         // No draft - initialize from selected profile and custom settings
         setProfileId(settings.selectedAgentProfile || 'auto');
@@ -314,6 +317,8 @@ export function TaskCreationWizard({
 
     if (newImages.length > 0) {
       setImages(prev => [...prev, ...newImages]);
+      // Auto-expand images section
+      setShowImages(true);
       // Show success feedback
       setPasteSuccess(true);
       setTimeout(() => setPasteSuccess(false), 2000);
@@ -559,6 +564,8 @@ export function TaskCreationWizard({
 
       if (newImages.length > 0) {
         setImages(prev => [...prev, ...newImages]);
+        // Auto-expand images section
+        setShowImages(true);
         // Show success feedback
         setPasteSuccess(true);
         setTimeout(() => setPasteSuccess(false), 2000);
@@ -634,6 +641,9 @@ export function TaskCreationWizard({
 
       setImages(prev => [...prev, newImage]);
       setError(null);
+
+      // Auto-expand images section
+      setShowImages(true);
 
       // Show success feedback
       setPasteSuccess(true);
@@ -859,64 +869,9 @@ export function TaskCreationWizard({
                 />
               )}
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Files and images can be copy/pasted or dragged & dropped into the description.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowScreenshotCapture(true)}
-                disabled={isCreating || images.length >= MAX_IMAGES_PER_TASK}
-                className="gap-1.5"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                Capture Screenshot
-              </Button>
-            </div>
-
-            {/* Image Thumbnails - displayed inline below description */}
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {images.map((image) => (
-                  <div
-                    key={image.id}
-                    className="relative group rounded-md border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                    style={{ width: '64px', height: '64px' }}
-                    onClick={() => {
-                      // Open full-size image in a new window/modal could be added here
-                    }}
-                    title={image.filename}
-                  >
-                    {image.thumbnail ? (
-                      <img
-                        src={image.thumbnail}
-                        alt={image.filename}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted">
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                    {/* Remove button */}
-                    {!isCreating && (
-                      <button
-                        type="button"
-                        className="absolute top-0.5 right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setImages(prev => prev.filter(img => img.id !== image.id));
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Files and images can be copy/pasted or dragged & dropped into the description.
+            </p>
           </div>
 
           {/* Title (Optional - Auto-generated if empty) */}
@@ -960,6 +915,59 @@ export function TaskCreationWizard({
             <div className="flex items-center gap-2 text-sm text-success animate-in fade-in slide-in-from-top-1 duration-200">
               <ImageIcon className="h-4 w-4" />
               Image added successfully!
+            </div>
+          )}
+
+          {/* Reference Images Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowImages(!showImages)}
+            className={cn(
+              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+            )}
+            disabled={isCreating}
+          >
+            <span className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Reference Images (optional)
+              {images.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  {images.length}
+                </span>
+              )}
+            </span>
+            {showImages ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* Image Upload Section */}
+          {showImages && (
+            <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Attach screenshots, mockups, or diagrams to provide visual context for the AI.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowScreenshotCapture(true)}
+                  disabled={isCreating || images.length >= MAX_IMAGES_PER_TASK}
+                  className="gap-1.5 shrink-0"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Capture
+                </Button>
+              </div>
+              <ImageUpload
+                images={images}
+                onImagesChange={setImages}
+                disabled={isCreating}
+              />
             </div>
           )}
 
