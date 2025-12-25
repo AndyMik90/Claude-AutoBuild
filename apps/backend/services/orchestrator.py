@@ -221,7 +221,7 @@ class ServiceOrchestrator:
                         self._services.append(
                             ServiceConfig(
                                 name=item.name,
-                                path=str(item.relative_to(self.project_dir)),
+                                path=item.relative_to(self.project_dir).as_posix(),
                                 type="local",
                             )
                         )

@@ -11,6 +11,26 @@ from implementation_plan import WorkflowType
 from .models import PlannerContext
 
 
+def _normalize_workflow_type(value: str) -> str:
+    """Normalize workflow type strings for consistent mapping.
+
+    Strips whitespace, lowercases the value and removes underscores so variants
+    like 'bug_fix' or 'BugFix' map to the same key.
+    """
+    normalized = (value or "").strip().lower()
+    return normalized.replace("_", "")
+
+
+_WORKFLOW_TYPE_MAPPING: dict[str, WorkflowType] = {
+    "feature": WorkflowType.FEATURE,
+    "refactor": WorkflowType.REFACTOR,
+    "investigation": WorkflowType.INVESTIGATION,
+    "migration": WorkflowType.MIGRATION,
+    "simple": WorkflowType.SIMPLE,
+    "bugfix": WorkflowType.INVESTIGATION,
+}
+
+
 class ContextLoader:
     """Loads context files and determines workflow type."""
 
@@ -64,13 +84,6 @@ class ContextLoader:
         3. spec.md explicit declaration - Spec writer's declaration
         4. Keyword-based detection - Last resort fallback
         """
-        type_mapping = {
-            "feature": WorkflowType.FEATURE,
-            "refactor": WorkflowType.REFACTOR,
-            "investigation": WorkflowType.INVESTIGATION,
-            "migration": WorkflowType.MIGRATION,
-            "simple": WorkflowType.SIMPLE,
-        }
 
         # 1. Check requirements.json (user's explicit intent)
         requirements_file = self.spec_dir / "requirements.json"
@@ -78,9 +91,11 @@ class ContextLoader:
             try:
                 with open(requirements_file) as f:
                     requirements = json.load(f)
-                declared_type = requirements.get("workflow_type", "").lower()
-                if declared_type in type_mapping:
-                    return type_mapping[declared_type]
+                declared_type = _normalize_workflow_type(
+                    requirements.get("workflow_type", "")
+                )
+                if declared_type in _WORKFLOW_TYPE_MAPPING:
+                    return _WORKFLOW_TYPE_MAPPING[declared_type]
             except (json.JSONDecodeError, KeyError):
                 pass
 
@@ -90,9 +105,11 @@ class ContextLoader:
             try:
                 with open(assessment_file) as f:
                     assessment = json.load(f)
-                declared_type = assessment.get("workflow_type", "").lower()
-                if declared_type in type_mapping:
-                    return type_mapping[declared_type]
+                declared_type = _normalize_workflow_type(
+                    assessment.get("workflow_type", "")
+                )
+                if declared_type in _WORKFLOW_TYPE_MAPPING:
+                    return _WORKFLOW_TYPE_MAPPING[declared_type]
             except (json.JSONDecodeError, KeyError):
                 pass
 
@@ -108,14 +125,6 @@ class ContextLoader:
         """
         content_lower = spec_content.lower()
 
-        type_mapping = {
-            "feature": WorkflowType.FEATURE,
-            "refactor": WorkflowType.REFACTOR,
-            "investigation": WorkflowType.INVESTIGATION,
-            "migration": WorkflowType.MIGRATION,
-            "simple": WorkflowType.SIMPLE,
-        }
-
         # Check for explicit workflow type declaration in spec
         # Look for patterns like "**Type**: feature" or "Type: refactor"
         explicit_type_patterns = [
@@ -127,9 +136,9 @@ class ContextLoader:
         for pattern in explicit_type_patterns:
             match = re.search(pattern, content_lower)
             if match:
-                declared_type = match.group(1).strip()
-                if declared_type in type_mapping:
-                    return type_mapping[declared_type]
+                declared_type = _normalize_workflow_type(match.group(1))
+                if declared_type in _WORKFLOW_TYPE_MAPPING:
+                    return _WORKFLOW_TYPE_MAPPING[declared_type]
 
         # FALLBACK: Keyword-based detection (only if no explicit type found)
         # Investigation indicators

@@ -180,8 +180,8 @@ class EvolutionStorage:
             try:
                 # Resolve both paths to handle symlinks (e.g., /var -> /private/var on macOS)
                 resolved_path = path.resolve()
-                return str(resolved_path.relative_to(self.project_dir))
+                return resolved_path.relative_to(self.project_dir).as_posix()
             except ValueError:
                 # Path is not under project_dir, return as-is
-                return str(path)
-        return str(path)
+                return path.as_posix()
+        return path.as_posix()
