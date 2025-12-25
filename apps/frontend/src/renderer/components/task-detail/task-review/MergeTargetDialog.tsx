@@ -93,7 +93,7 @@ export function MergeTargetDialog({
       return false;
     }
     // Basic git branch name validation
-    if (/[\s~^:?*\[\]\\]/.test(name)) {
+    if (/[\s~^:?*[\]\\]/.test(name)) {
       setError('Branch name contains invalid characters');
       return false;
     }

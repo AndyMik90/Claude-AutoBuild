@@ -116,7 +116,7 @@ export function parseMarkdownTask(content: string, filename: string): ParsedTask
         descriptionLines.push(line);
         break;
 
-      case 'subtasks':
+      case 'subtasks': {
         // Check if this line starts a new subtask
         // IMPORTANT: Only H3/H4 headers are treated as new subtasks
         // Bullets and numbered lists under headers are part of the description
@@ -137,16 +137,19 @@ export function parseMarkdownTask(content: string, filename: string): ParsedTask
           currentSubtask.lines.push(line);
         }
         break;
+      }
 
-      case 'dependencies':
+      case 'dependencies': {
         const dep = extractDependency(line);
         if (dep) result.dependencies.push(dep);
         break;
+      }
 
-      case 'criteria':
+      case 'criteria': {
         const criterion = extractListItem(line);
         if (criterion) result.acceptanceCriteria.push(criterion);
         break;
+      }
 
       case 'notes':
         result.implementationNotes.push(line);
