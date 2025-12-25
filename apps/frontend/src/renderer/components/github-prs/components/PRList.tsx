@@ -8,13 +8,22 @@ import { useTranslation } from 'react-i18next';
 
 /**
  * Determine the secondary status label for a PR based on its review state
- * and cached new commits check from the store
+ * and cached new commits check from the store.
+ *
+ * Status priority:
+ * 1. "Ready for Follow-up" - new commits detected since last review (highest priority)
+ * 2. "Changes Requested" - review posted with blocking issues
+ * 3. "Ready to Merge" - review posted with no blocking issues
+ *
+ * Note: We only show "Changes Requested" or "Ready to Merge" AFTER the review
+ * has been posted to GitHub (reviewId exists or hasPostedFindings is true).
+ * Before posting, we just show "Reviewed" via the primary badge.
  */
 function getSecondaryStatus(
   reviewResult: PRReviewResult | null | undefined,
   newCommitsCheck: NewCommitsCheck | null | undefined
 ): {
-  type: 'changes_requested' | 'ready_to_merge' | 'ready_for_followup' | null;
+  type: 'changes_requested' | 'ready_to_merge' | 'ready_for_followup' | 'pending_post' | null;
   label: string;
   description?: string;
 } | null {
@@ -24,15 +33,33 @@ function getSecondaryStatus(
   const hasBlockingFindings = reviewResult.findings?.some(
     f => f.severity === 'critical' || f.severity === 'high'
   );
+  // Check if review has been posted to GitHub
+  const hasBeenPosted = Boolean(reviewResult.reviewId) || Boolean(reviewResult.hasPostedFindings);
 
   // If we have cached new commits check and there are new commits - ready for follow-up
-  if (newCommitsCheck?.hasNewCommits && hasFindings) {
+  // Only show this if the review was previously posted
+  if (hasBeenPosted && newCommitsCheck?.hasNewCommits && hasFindings) {
     return {
       type: 'ready_for_followup',
       label: 'Ready for Follow-up',
       description: `${newCommitsCheck.newCommitCount} new commit(s)`
     };
   }
+
+  // Only show status badges AFTER the review has been posted to GitHub
+  if (!hasBeenPosted) {
+    // If there are findings but not yet posted, show "pending post" indicator
+    if (hasFindings) {
+      return {
+        type: 'pending_post',
+        label: 'Pending Post',
+        description: `${reviewResult.findings.length} finding(s) to post`
+      };
+    }
+    return null;
+  }
+
+  // Review has been posted - show appropriate status
 
   // If there are blocking findings (critical/high) - show changes requested
   if (hasFindings && hasBlockingFindings) {
@@ -200,7 +227,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                         )}
                       </>
                     )}
-                    {/* Secondary status badge - shows action needed (only if not already showing via reviewId) */}
+                    {/* Secondary status badge - shows action needed */}
                     {!isReviewingPR && secondaryStatus && (
                       <>
                         {secondaryStatus.type === 'ready_for_followup' && (
@@ -209,10 +236,10 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                             {t('prReview.readyForFollowup')}
                           </Badge>
                         )}
-                        {secondaryStatus.type === 'changes_requested' && !reviewState?.result?.reviewId && (
-                          <Badge className="text-xs flex items-center gap-1 bg-warning/20 text-warning border-warning/50">
-                            <AlertCircle className="h-3 w-3" />
-                            {t('prReview.changesRequested')}
+                        {secondaryStatus.type === 'pending_post' && (
+                          <Badge className="text-xs flex items-center gap-1 bg-muted/50 text-muted-foreground border-muted-foreground/50">
+                            <Clock className="h-3 w-3" />
+                            {t('prReview.pendingPost')}
                           </Badge>
                         )}
                         {secondaryStatus.type === 'ready_to_merge' && (

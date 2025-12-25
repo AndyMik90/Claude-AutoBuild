@@ -96,6 +96,7 @@
     "changesRequested": "Modifications demandées",
     "commented": "Commenté",
     "readyForFollowup": "Prêt pour suivi",
-    "readyToMerge": "Prêt à fusionner"
+    "readyToMerge": "Prêt à fusionner",
+    "pendingPost": "En attente de publication"
   }
 }
