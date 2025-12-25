@@ -419,7 +419,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
       // Update run record
       run.endedAt = endTime.toISOString();
       run.durationMs = endTime.getTime() - startTime.getTime();
-      run.exitCode = code || 0;
+      run.exitCode = code ?? undefined;
       run.status = code === 0 ? 'success' : 'failed';
 
       saveRunRecord(projectId, run);
@@ -517,7 +517,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
       // Update run record
       run.endedAt = endTime.toISOString();
       run.durationMs = endTime.getTime() - startTime.getTime();
-      run.exitCode = code || 0;
+      run.exitCode = code ?? undefined;
       run.status = code === 0 ? 'success' : 'failed';
 
       saveRunRecord(projectId, run);
