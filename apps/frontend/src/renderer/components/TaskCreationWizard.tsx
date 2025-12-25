@@ -21,6 +21,7 @@ import {
   SelectValue
 } from './ui/select';
 import {
+  ImageUpload,
   generateImageId,
   blobToBase64,
   createThumbnail,
