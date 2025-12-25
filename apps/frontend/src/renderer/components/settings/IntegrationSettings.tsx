@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Key,
   Eye,
@@ -38,6 +39,8 @@ interface IntegrationSettingsProps {
  * Integration settings for Claude accounts and API keys
  */
 export function IntegrationSettings({ settings, onSettingsChange, isOpen }: IntegrationSettingsProps) {
+  const { t } = useTranslation('settings');
+  const { t: tCommon } = useTranslation('common');
   // Password visibility toggle for global API keys
   const [showGlobalOpenAIKey, setShowGlobalOpenAIKey] = useState(false);
 
@@ -291,20 +294,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
 
   return (
     <SettingsSection
-      title="Integrations"
-      description="Manage Claude accounts and API keys"
+      title={t('integrations.title')}
+      description={t('integrations.description')}
     >
       <div className="space-y-6">
         {/* Claude Accounts Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <h4 className="text-sm font-semibold text-foreground">Claude Accounts</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t('integrations.claudeAccounts')}</h4>
           </div>
 
           <div className="rounded-lg bg-muted/30 border border-border p-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.
+              {t('integrations.claudeAccountsDescription')}
             </p>
 
             {/* Accounts list */}
@@ -314,7 +317,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
               </div>
             ) : claudeProfiles.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border p-4 text-center mb-4">
-                <p className="text-sm text-muted-foreground">No accounts configured yet</p>
+                <p className="text-sm text-muted-foreground">{t('integrations.noAccountsYet')}</p>
               </div>
             ) : (
               <div className="space-y-2 mb-4">
@@ -376,22 +379,22 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-medium text-foreground">{profile.name}</span>
                                 {profile.isDefault && (
-                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Default</span>
+                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('integrations.default')}</span>
                                 )}
                                 {profile.id === activeProfileId && (
                                   <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <Star className="h-3 w-3" />
-                                    Active
+                                    {t('integrations.active')}
                                   </span>
                                 )}
                                 {(profile.oauthToken || (profile.isDefault && profile.configDir)) ? (
                                   <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
                                     <Check className="h-3 w-3" />
-                                    Authenticated
+                                    {t('integrations.authenticated')}
                                   </span>
                                 ) : (
                                   <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
-                                    Needs Auth
+                                    {t('integrations.needsAuth')}
                                   </span>
                                 )}
                               </div>
@@ -419,7 +422,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               ) : (
                                 <LogIn className="h-3 w-3" />
                               )}
-                              Authenticate
+                              {t('integrations.authenticate')}
                             </Button>
                           ) : (
                             /* Re-authenticate button for already authenticated profiles */
@@ -446,7 +449,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               className="gap-1 h-7 text-xs"
                             >
                               <Check className="h-3 w-3" />
-                              Set Active
+                              {t('integrations.setActive')}
                             </Button>
                           )}
                           {/* Toggle token entry button */}
@@ -498,10 +501,10 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                         <div className="bg-muted/30 rounded-lg p-3 mt-3 space-y-3">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs font-medium text-muted-foreground">
-                              Manual Token Entry
+                              {t('integrations.manualTokenEntry')}
                             </Label>
                             <span className="text-xs text-muted-foreground">
-                              Run <code className="px-1 py-0.5 bg-muted rounded font-mono text-xs">claude setup-token</code> to get your token
+                              {t('integrations.runSetupToken')}
                             </span>
                           </div>
 
@@ -509,7 +512,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             <div className="relative">
                               <Input
                                 type={showManualToken ? 'text' : 'password'}
-                                placeholder="sk-ant-oat01-..."
+                                placeholder={t('integrations.tokenPlaceholder')}
                                 value={manualToken}
                                 onChange={(e) => setManualToken(e.target.value)}
                                 className="pr-10 font-mono text-xs h-8"
@@ -525,7 +528,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
 
                             <Input
                               type="email"
-                              placeholder="Email (optional, for display)"
+                              placeholder={t('integrations.emailPlaceholder')}
                               value={manualTokenEmail}
                               onChange={(e) => setManualTokenEmail(e.target.value)}
                               className="text-xs h-8"
@@ -539,7 +542,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               onClick={() => toggleTokenEntry(profile.id)}
                               className="h-7 text-xs"
                             >
-                              Cancel
+                              {tCommon('buttons.cancel')}
                             </Button>
                             <Button
                               size="sm"
@@ -552,7 +555,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                               ) : (
                                 <Check className="h-3 w-3" />
                               )}
-                              Save Token
+                              {t('integrations.saveToken')}
                             </Button>
                           </div>
                         </div>
@@ -566,7 +569,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
             {/* Add new account */}
             <div className="flex items-center gap-2">
               <Input
-                placeholder="Account name (e.g., Work, Personal)"
+                placeholder={t('integrations.accountNamePlaceholder')}
                 value={newProfileName}
                 onChange={(e) => setNewProfileName(e.target.value)}
                 className="flex-1 h-8 text-sm"
@@ -587,7 +590,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                 ) : (
                   <Plus className="h-3 w-3" />
                 )}
-                Add
+                {tCommon('buttons.add')}
               </Button>
             </div>
           </div>
@@ -598,21 +601,20 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           <div className="space-y-4 pt-6 border-t border-border">
             <div className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm font-semibold text-foreground">Automatic Account Switching</h4>
+              <h4 className="text-sm font-semibold text-foreground">{t('integrations.autoSwitching')}</h4>
             </div>
 
             <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Automatically switch between Claude accounts to avoid interruptions.
-                Configure proactive monitoring to switch before hitting limits.
+                {t('integrations.autoSwitchingDescription')}
               </p>
 
               {/* Master toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium">Enable automatic switching</Label>
+                  <Label className="text-sm font-medium">{t('integrations.enableAutoSwitching')}</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Master switch for all auto-swap features
+                    {t('integrations.masterSwitch')}
                   </p>
                 </div>
                 <Switch
@@ -630,10 +632,10 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                       <div>
                         <Label className="text-sm font-medium flex items-center gap-2">
                           <Activity className="h-3.5 w-3.5" />
-                          Proactive Monitoring
+                          {t('integrations.proactiveMonitoring')}
                         </Label>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Check usage regularly and swap before hitting limits
+                          {t('integrations.proactiveDescription')}
                         </p>
                       </div>
                       <Switch
@@ -647,24 +649,24 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                       <>
                         {/* Check interval */}
                         <div className="space-y-2">
-                          <Label className="text-sm">Check usage every</Label>
+                          <Label className="text-sm">{t('integrations.checkUsageEvery')}</Label>
                           <select
                             className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm"
                             value={autoSwitchSettings?.usageCheckInterval ?? 30000}
                             onChange={(e) => handleUpdateAutoSwitch({ usageCheckInterval: parseInt(e.target.value) })}
                             disabled={isLoadingAutoSwitch}
                           >
-                            <option value={15000}>15 seconds</option>
-                            <option value={30000}>30 seconds (recommended)</option>
-                            <option value={60000}>1 minute</option>
-                            <option value={0}>Disabled</option>
+                            <option value={15000}>{t('integrations.seconds15')}</option>
+                            <option value={30000}>{t('integrations.seconds30')}</option>
+                            <option value={60000}>{t('integrations.minute1')}</option>
+                            <option value={0}>{t('integrations.disabled')}</option>
                           </select>
                         </div>
 
                         {/* Session threshold */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-sm">Session usage threshold</Label>
+                            <Label className="text-sm">{t('integrations.sessionThreshold')}</Label>
                             <span className="text-sm font-mono">{autoSwitchSettings?.sessionThreshold ?? 95}%</span>
                           </div>
                           <input
@@ -678,14 +680,14 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             className="w-full"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Switch when session usage reaches this level (recommended: 95%)
+                            {t('integrations.sessionThresholdDescription')}
                           </p>
                         </div>
 
                         {/* Weekly threshold */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-sm">Weekly usage threshold</Label>
+                            <Label className="text-sm">{t('integrations.weeklyThreshold')}</Label>
                             <span className="text-sm font-mono">{autoSwitchSettings?.weeklyThreshold ?? 99}%</span>
                           </div>
                           <input
@@ -699,7 +701,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             className="w-full"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Switch when weekly usage reaches this level (recommended: 99%)
+                            {t('integrations.weeklyThresholdDescription')}
                           </p>
                         </div>
                       </>
@@ -712,10 +714,10 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                       <div>
                         <Label className="text-sm font-medium flex items-center gap-2">
                           <AlertCircle className="h-3.5 w-3.5" />
-                          Reactive Recovery
+                          {t('integrations.reactiveRecovery')}
                         </Label>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Auto-swap when unexpected rate limit is hit
+                          {t('integrations.reactiveDescription')}
                         </p>
                       </div>
                       <Switch
@@ -735,14 +737,14 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         <div className="space-y-4 pt-4 border-t border-border">
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-muted-foreground" />
-            <h4 className="text-sm font-semibold text-foreground">API Keys</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t('integrations.apiKeys')}</h4>
           </div>
 
           <div className="rounded-lg bg-info/10 border border-info/30 p-3">
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 text-info shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground">
-                Keys set here are used as defaults. Individual projects can override these in their settings.
+                {t('integrations.apiKeysInfo')}
               </p>
             </div>
           </div>
@@ -750,10 +752,10 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="globalOpenAIKey" className="text-sm font-medium text-foreground">
-                OpenAI API Key
+                {t('integrations.openaiKey')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                Required for Graphiti memory backend (embeddings)
+                {t('integrations.openaiKeyDescription')}
               </p>
               <div className="relative max-w-lg">
                 <Input

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderOpen, FolderPlus, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -24,6 +25,7 @@ interface AddProjectModalProps {
 }
 
 export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProjectModalProps) {
+  const { t } = useTranslation('dialogs');
   const [step, setStep] = useState<ModalStep>('choose');
   const [projectName, setProjectName] = useState('');
   const [projectLocation, setProjectLocation] = useState('');
@@ -79,7 +81,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to open project');
+      setError(err instanceof Error ? err.message : t('addProject.failedToOpen'));
     }
   };
 
@@ -96,11 +98,11 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
 
   const handleCreateProject = async () => {
     if (!projectName.trim()) {
-      setError('Please enter a project name');
+      setError(t('addProject.nameRequired'));
       return;
     }
     if (!projectLocation.trim()) {
-      setError('Please select a location');
+      setError(t('addProject.locationRequired'));
       return;
     }
 
@@ -141,7 +143,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
         onOpenChange(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project');
+      setError(err instanceof Error ? err.message : t('addProject.failedToCreate'));
     } finally {
       setIsCreating(false);
     }
@@ -150,9 +152,9 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
   const renderChooseStep = () => (
     <>
       <DialogHeader>
-        <DialogTitle>Add Project</DialogTitle>
+        <DialogTitle>{t('addProject.title')}</DialogTitle>
         <DialogDescription>
-          Choose how you'd like to add a project
+          {t('addProject.description')}
         </DialogDescription>
       </DialogHeader>
 
@@ -170,9 +172,9 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             <FolderOpen className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-foreground">Open Existing Folder</h3>
+            <h3 className="font-medium text-foreground">{t('addProject.openExisting')}</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Browse to an existing project on your computer
+              {t('addProject.openExistingDescription')}
             </p>
           </div>
           <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -191,9 +193,9 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             <FolderPlus className="h-6 w-6 text-success" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-foreground">Create New Project</h3>
+            <h3 className="font-medium text-foreground">{t('addProject.createNew')}</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Start fresh with a new project folder
+              {t('addProject.createNewDescription')}
             </p>
           </div>
           <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -211,46 +213,46 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
   const renderCreateForm = () => (
     <>
       <DialogHeader>
-        <DialogTitle>Create New Project</DialogTitle>
+        <DialogTitle>{t('addProject.createNewTitle')}</DialogTitle>
         <DialogDescription>
-          Set up a new project folder
+          {t('addProject.createNewSubtitle')}
         </DialogDescription>
       </DialogHeader>
 
       <div className="py-4 space-y-4">
         {/* Project Name */}
         <div className="space-y-2">
-          <Label htmlFor="project-name">Project Name</Label>
+          <Label htmlFor="project-name">{t('addProject.projectName')}</Label>
           <Input
             id="project-name"
-            placeholder="my-awesome-project"
+            placeholder={t('addProject.projectNamePlaceholder')}
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             autoFocus
           />
           <p className="text-xs text-muted-foreground">
-            This will be the folder name. Use lowercase with hyphens.
+            {t('addProject.projectNameHelp')}
           </p>
         </div>
 
         {/* Location */}
         <div className="space-y-2">
-          <Label htmlFor="project-location">Location</Label>
+          <Label htmlFor="project-location">{t('addProject.location')}</Label>
           <div className="flex gap-2">
             <Input
               id="project-location"
-              placeholder="Select a folder..."
+              placeholder={t('addProject.locationPlaceholder')}
               value={projectLocation}
               onChange={(e) => setProjectLocation(e.target.value)}
               className="flex-1"
             />
             <Button variant="outline" onClick={handleSelectLocation}>
-              Browse
+              {t('addProject.browse')}
             </Button>
           </div>
           {projectLocation && projectName && (
             <p className="text-xs text-muted-foreground">
-              Will create: <code className="bg-muted px-1 py-0.5 rounded">{projectLocation}/{projectName}</code>
+              {t('addProject.willCreate')} <code className="bg-muted px-1 py-0.5 rounded">{projectLocation}/{projectName}</code>
             </p>
           )}
         </div>
@@ -265,7 +267,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             className="h-4 w-4 rounded border-border bg-background"
           />
           <Label htmlFor="init-git" className="text-sm font-normal cursor-pointer">
-            Initialize git repository
+            {t('addProject.initGit')}
           </Label>
         </div>
 
@@ -278,10 +280,10 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
 
       <DialogFooter>
         <Button variant="outline" onClick={() => setStep('choose')} disabled={isCreating}>
-          Back
+          {t('addProject.back')}
         </Button>
         <Button onClick={handleCreateProject} disabled={isCreating}>
-          {isCreating ? 'Creating...' : 'Create Project'}
+          {isCreating ? t('addProject.creating') : t('addProject.createProject')}
         </Button>
       </DialogFooter>
     </>

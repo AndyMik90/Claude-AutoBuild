@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -39,6 +40,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onClick }: TaskCardProps) {
+  const { t } = useTranslation('tasks');
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
 
@@ -136,15 +138,15 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'in_progress':
-        return 'Running';
+        return t('labels.running');
       case 'ai_review':
-        return 'AI Review';
+        return t('labels.aiReview');
       case 'human_review':
-        return 'Needs Review';
+        return t('labels.needsReview');
       case 'done':
-        return 'Complete';
+        return t('status.complete');
       default:
-        return 'Pending';
+        return t('labels.pending');
     }
   };
 
@@ -152,13 +154,13 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     if (!reason) return null;
     switch (reason) {
       case 'completed':
-        return { label: 'Completed', variant: 'success' };
+        return { label: t('reviewReason.completed'), variant: 'success' };
       case 'errors':
-        return { label: 'Has Errors', variant: 'destructive' };
+        return { label: t('reviewReason.hasErrors'), variant: 'destructive' };
       case 'qa_rejected':
-        return { label: 'QA Issues', variant: 'warning' };
+        return { label: t('reviewReason.qaIssues'), variant: 'warning' };
       case 'plan_review':
-        return { label: 'Approve Plan', variant: 'warning' };
+        return { label: t('reviewReason.approvePlan'), variant: 'warning' };
       default:
         return null;
     }
@@ -195,7 +197,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-warning/10 text-warning border-warning/30 badge-priority-urgent"
               >
                 <AlertTriangle className="h-2.5 w-2.5" />
-                Stuck
+                {t('labels.stuck')}
               </Badge>
             )}
             {/* Incomplete indicator - task in human_review but no subtasks completed */}
@@ -205,7 +207,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-orange-500/10 text-orange-400 border-orange-500/30"
               >
                 <AlertTriangle className="h-2.5 w-2.5" />
-                Incomplete
+                {t('labels.incomplete')}
               </Badge>
             )}
             {/* Archived indicator - task has been released */}
@@ -215,7 +217,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-muted text-muted-foreground border-border"
               >
                 <Archive className="h-2.5 w-2.5" />
-                Archived
+                {t('status.archived')}
               </Badge>
             )}
             {/* Execution phase badge - shown when actively running */}
@@ -237,7 +239,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
                 className="text-[10px] px-1.5 py-0.5"
               >
-                {isStuck ? 'Needs Recovery' : isIncomplete ? 'Needs Resume' : getStatusLabel(task.status)}
+                {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
               </Badge>
             )}
             {/* Review reason badge - explains why task needs human review */}
@@ -347,12 +349,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
               {isRecovering ? (
                 <>
                   <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                  Recovering...
+                  {t('labels.recovering')}
                 </>
               ) : (
                 <>
                   <RotateCcw className="mr-1.5 h-3 w-3" />
-                  Recover
+                  {t('actions.recover')}
                 </>
               )}
             </Button>
@@ -364,7 +366,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
               onClick={handleStartStop}
             >
               <Play className="mr-1.5 h-3 w-3" />
-              Resume
+              {t('actions.resume')}
             </Button>
           ) : task.status === 'done' && !task.metadata?.archivedAt ? (
             <Button
@@ -372,10 +374,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
               size="sm"
               className="h-7 px-2.5 hover:bg-muted-foreground/10"
               onClick={handleArchive}
-              title="Archive task"
+              title={t('tooltips.archiveTask')}
             >
               <Archive className="mr-1.5 h-3 w-3" />
-              Archive
+              {t('actions.archive')}
             </Button>
           ) : (task.status === 'backlog' || task.status === 'in_progress') && (
             <Button
@@ -387,12 +389,12 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
               {isRunning ? (
                 <>
                   <Square className="mr-1.5 h-3 w-3" />
-                  Stop
+                  {t('actions.stop')}
                 </>
               ) : (
                 <>
                   <Play className="mr-1.5 h-3 w-3" />
-                  Start
+                  {t('actions.start')}
                 </>
               )}
             </Button>

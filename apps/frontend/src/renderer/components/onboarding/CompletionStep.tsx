@@ -6,6 +6,7 @@ import {
   BookOpen,
   ArrowRight
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 
@@ -62,25 +63,27 @@ export function CompletionStep({
   onOpenTaskCreator,
   onOpenSettings
 }: CompletionStepProps) {
+  const { t } = useTranslation('onboarding');
+
   const nextSteps = [
     {
       icon: <FileText className="h-5 w-5" />,
-      title: 'Create a Task',
-      description: 'Start by creating your first task to see Auto Claude in action.',
+      title: t('completion.createTask.title'),
+      description: t('completion.createTask.description'),
       action: onOpenTaskCreator,
-      actionLabel: 'Open Task Creator'
+      actionLabel: t('completion.createTask.action')
     },
     {
       icon: <Settings className="h-5 w-5" />,
-      title: 'Customize Settings',
-      description: 'Fine-tune your preferences, configure integrations, or re-run this wizard.',
+      title: t('completion.customizeSettings.title'),
+      description: t('completion.customizeSettings.description'),
       action: onOpenSettings,
-      actionLabel: 'Open Settings'
+      actionLabel: t('completion.customizeSettings.action')
     },
     {
       icon: <BookOpen className="h-5 w-5" />,
-      title: 'Explore Documentation',
-      description: 'Learn more about advanced features, best practices, and troubleshooting.'
+      title: t('completion.exploreDocs.title'),
+      description: t('completion.exploreDocs.description')
     }
   ];
 
@@ -100,10 +103,10 @@ export function CompletionStep({
             </div>
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">
-            You&apos;re All Set!
+            {t('completion.title')}
           </h1>
           <p className="mt-3 text-muted-foreground text-lg">
-            Auto Claude is ready to help you build amazing software
+            {t('completion.subtitle')}
           </p>
         </div>
 
@@ -114,11 +117,10 @@ export function CompletionStep({
               <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-success">
-                  Setup Complete
+                  {t('completion.setupComplete')}
                 </h3>
                 <p className="mt-1 text-sm text-success/80">
-                  Your environment is configured and ready. You can start creating tasks
-                  immediately or explore the application at your own pace.
+                  {t('completion.setupCompleteDescription')}
                 </p>
               </div>
             </div>
@@ -129,7 +131,7 @@ export function CompletionStep({
         <div className="space-y-4 mb-10">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Rocket className="h-4 w-4" />
-            What&apos;s Next?
+            {t('completion.whatsNext')}
           </div>
           <div className="grid grid-cols-1 gap-3">
             {nextSteps.map((step, index) => (
@@ -153,10 +155,10 @@ export function CompletionStep({
             className="gap-2 px-10"
           >
             <Rocket className="h-5 w-5" />
-            Finish & Start Building
+            {t('completion.finish')}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            You can always re-run this wizard from Settings &rarr; Application
+            {t('completion.rerunHint')}
           </p>
         </div>
       </div>

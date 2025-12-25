@@ -22,7 +22,7 @@ def _compute_file_hash(file_path: Path) -> str:
         return ""
     try:
         content = file_path.read_text(encoding="utf-8")
-        return hashlib.md5(content.encode("utf-8")).hexdigest()
+        return hashlib.md5(content.encode("utf-8"), usedforsecurity=False).hexdigest()
     except (OSError, UnicodeDecodeError):
         return ""
 
@@ -35,7 +35,7 @@ def _compute_spec_hash(spec_dir: Path) -> str:
     spec_hash = _compute_file_hash(spec_dir / "spec.md")
     plan_hash = _compute_file_hash(spec_dir / "implementation_plan.json")
     combined = f"{spec_hash}:{plan_hash}"
-    return hashlib.md5(combined.encode("utf-8")).hexdigest()
+    return hashlib.md5(combined.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 @dataclass

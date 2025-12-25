@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ interface CustomModelModalProps {
 }
 
 export function CustomModelModal({ currentConfig, onSave, onClose, open = true }: CustomModelModalProps) {
+  const { t } = useTranslation('dialogs');
   const [model, setModel] = useState<ModelType>(
     currentConfig?.model || 'sonnet'
   );
@@ -55,15 +57,15 @@ export function CustomModelModal({ currentConfig, onSave, onClose, open = true }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Custom Model Configuration</DialogTitle>
+          <DialogTitle>{t('customModel.title')}</DialogTitle>
           <DialogDescription>
-            Configure the model and thinking level for this chat session.
+            {t('customModel.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="model-select">Model</Label>
+            <Label htmlFor="model-select">{t('customModel.model')}</Label>
             <Select value={model} onValueChange={(v) => setModel(v as ModelType)}>
               <SelectTrigger id="model-select">
                 <SelectValue />
@@ -79,7 +81,7 @@ export function CustomModelModal({ currentConfig, onSave, onClose, open = true }
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="thinking-select">Thinking Level</Label>
+            <Label htmlFor="thinking-select">{t('customModel.thinkingLevel')}</Label>
             <Select value={thinkingLevel} onValueChange={(v) => setThinkingLevel(v as ThinkingLevel)}>
               <SelectTrigger id="thinking-select">
                 <SelectValue />
@@ -102,10 +104,10 @@ export function CustomModelModal({ currentConfig, onSave, onClose, open = true }
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('customModel.cancel')}
           </Button>
           <Button onClick={handleSave}>
-            Apply
+            {t('customModel.apply')}
           </Button>
         </DialogFooter>
       </DialogContent>

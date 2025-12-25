@@ -50,7 +50,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=30
 
       - name: Upload coverage reports
         if: matrix.python-version == '3.12'

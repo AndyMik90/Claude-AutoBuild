@@ -21,6 +21,7 @@ Usage:
 """
 
 import json
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -178,9 +179,13 @@ class ServiceOrchestrator:
                 ports = config.get("ports", [])
                 port = None
                 if ports:
-                    port_mapping = str(ports[0])
-                    if ":" in port_mapping:
-                        port = int(port_mapping.split(":")[0])
+                    try:
+                        port_mapping = str(ports[0])
+                        if ":" in port_mapping:
+                            port = int(port_mapping.split(":")[0])
+                    except (ValueError, IndexError):
+                        # Skip malformed port mappings (e.g., environment variables)
+                        port = None
 
                 # Determine health check URL
                 health_url = None
@@ -331,9 +336,11 @@ class ServiceOrchestrator:
         for service in self._services:
             if service.startup_command:
                 try:
+                    # Use shlex.split() for safe parsing of shell-like syntax
+                    # shell=False prevents shell injection vulnerabilities
                     proc = subprocess.Popen(
-                        service.startup_command,
-                        shell=True,
+                        shlex.split(service.startup_command),
+                        shell=False,
                         cwd=self.project_dir / service.path
                         if service.path
                         else self.project_dir,

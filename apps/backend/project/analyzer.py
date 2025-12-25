@@ -112,7 +112,7 @@ class ProjectAnalyzer:
             "docker-compose.yaml",
         ]
 
-        hasher = hashlib.md5()
+        hasher = hashlib.md5(usedforsecurity=False)
         files_found = 0
 
         for filename in hash_files:

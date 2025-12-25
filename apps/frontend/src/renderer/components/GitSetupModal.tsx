@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GitBranch, Terminal, CheckCircle2, AlertCircle, Loader2, FolderGit2 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -28,6 +29,7 @@ export function GitSetupModal({
   onGitInitialized,
   onSkip
 }: GitSetupModalProps) {
+  const { t } = useTranslation('dialogs');
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'info' | 'initializing' | 'success'>('info');
@@ -76,10 +78,10 @@ export function GitSetupModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <FolderGit2 className="h-5 w-5 text-primary" />
-          Git Repository Required
+          {t('gitSetup.title')}
         </DialogTitle>
         <DialogDescription>
-          Auto Claude uses git to safely build features in isolated workspaces
+          {t('gitSetup.description')}
         </DialogDescription>
       </DialogHeader>
 
@@ -91,13 +93,13 @@ export function GitSetupModal({
             <div className="space-y-1">
               <p className="font-medium text-sm">
                 {needsGitInit
-                  ? 'This folder is not a git repository'
-                  : 'Git repository has no commits'}
+                  ? t('gitSetup.notGitRepo')
+                  : t('gitSetup.noCommits')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {needsGitInit
-                  ? 'Git needs to be initialized before Auto Claude can manage your code.'
-                  : 'At least one commit is required for Auto Claude to create worktrees.'}
+                  ? t('gitSetup.needsInit')
+                  : t('gitSetup.needsCommit')}
               </p>
             </div>
           </div>
@@ -105,17 +107,17 @@ export function GitSetupModal({
 
         {/* What will happen */}
         <div className="rounded-lg border border-border p-4">
-          <p className="font-medium text-sm mb-3">We'll set up git for you:</p>
+          <p className="font-medium text-sm mb-3">{t('gitSetup.willSetup')}</p>
           <ul className="space-y-2">
             {needsGitInit && (
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <GitBranch className="h-4 w-4 text-primary" />
-                Initialize a new git repository
+                {t('gitSetup.initRepo')}
               </li>
             )}
             <li className="flex items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-primary" />
-              Create an initial commit with your current files
+              {t('gitSetup.createCommit')}
             </li>
           </ul>
         </div>
@@ -123,7 +125,7 @@ export function GitSetupModal({
         {/* Manual instructions for advanced users */}
         <details className="text-sm">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Prefer to do it manually?
+            {t('gitSetup.manual')}
           </summary>
           <div className="mt-3 rounded-lg bg-muted/50 p-3 font-mono text-xs space-y-1">
             <p className="text-muted-foreground">Open a terminal in your project folder and run:</p>
@@ -157,7 +159,7 @@ export function GitSetupModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          Setting up Git
+          {t('gitSetup.settingUp')}
         </DialogTitle>
       </DialogHeader>
 
@@ -165,7 +167,7 @@ export function GitSetupModal({
         <div className="space-y-3 text-center">
           <Terminal className="h-12 w-12 text-muted-foreground mx-auto" />
           <p className="text-sm text-muted-foreground">
-            Initializing git repository and creating initial commit...
+            {t('gitSetup.initializingRepo')}
           </p>
         </div>
       </div>
@@ -177,7 +179,7 @@ export function GitSetupModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-success" />
-          Git Initialized
+          {t('gitSetup.success')}
         </DialogTitle>
       </DialogHeader>
 
@@ -187,7 +189,7 @@ export function GitSetupModal({
             <CheckCircle2 className="h-8 w-8 text-success" />
           </div>
           <p className="text-sm text-muted-foreground">
-            Your project is now ready to use with Auto Claude!
+            {t('gitSetup.readyToUse')}
           </p>
         </div>
       </div>

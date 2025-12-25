@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Settings,
@@ -50,7 +51,19 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'code-editor' | 'unity';
+export type SidebarView =
+    | 'kanban'
+    | 'terminals'
+    | 'roadmap'
+    | 'context'
+    | 'ideation'
+    | 'github-issues'
+    | 'changelog'
+    | 'insights'
+    | 'worktrees'
+    | 'agent-tools'
+    | 'code-editor'
+    | 'unity';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -61,34 +74,37 @@ interface SidebarProps {
 
 interface NavItem {
   id: SidebarView;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   shortcut?: string;
 }
 
 const projectNavItems: NavItem[] = [
-  { id: 'kanban', label: 'Kanban Board', icon: LayoutGrid, shortcut: 'K' },
-  { id: 'terminals', label: 'Agent Terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'insights', label: 'Insights', icon: Sparkles, shortcut: 'N' },
-  { id: 'roadmap', label: 'Roadmap', icon: Map, shortcut: 'D' },
-  { id: 'ideation', label: 'Ideation', icon: Lightbulb, shortcut: 'I' },
-  { id: 'changelog', label: 'Changelog', icon: FileText, shortcut: 'L' },
-  { id: 'context', label: 'Context', icon: BookOpen, shortcut: 'C' },
-  { id: 'code-editor', label: 'Code Editor', icon: Code2, shortcut: 'X' }
+  { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
+  { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
+  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
+  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
+  { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
+  { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
+  { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
+  // Added from HEAD (jungle-assistant/develop)
+  { id: 'code-editor', labelKey: 'navigation:items.codeEditor', icon: Code2, shortcut: 'X' }
 ];
 
 const toolsNavItems: NavItem[] = [
-  { id: 'github-issues', label: 'GitHub Issues', icon: Github, shortcut: 'G' },
-  { id: 'worktrees', label: 'Worktrees', icon: GitBranch, shortcut: 'W' },
-  { id: 'unity', label: 'Unity', icon: Box, shortcut: 'U' }
+  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
+  // Added from HEAD (jungle-assistant/develop)
+  { id: 'unity', labelKey: 'navigation:items.unity', icon: Box, shortcut: 'U' }
 ];
 
 export function Sidebar({
-  onSettingsClick,
-  onNewTaskClick,
-  activeView = 'kanban',
-  onViewChange
-}: SidebarProps) {
+                          onSettingsClick,
+                          onNewTaskClick,
+                          activeView = 'kanban',
+                          onViewChange
+                        }: SidebarProps) {
+  const { t } = useTranslation(['navigation', 'dialogs', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
@@ -110,10 +126,10 @@ export function Sidebar({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
       if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement ||
-        (e.target as HTMLElement)?.isContentEditable
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          e.target instanceof HTMLSelectElement ||
+          (e.target as HTMLElement)?.isContentEditable
       ) {
         return;
       }
@@ -251,7 +267,6 @@ export function Sidebar({
     await removeProject(projectId);
   };
 
-
   const handleNavClick = (view: SidebarView) => {
     onViewChange?.(view);
   };
@@ -261,219 +276,214 @@ export function Sidebar({
     const Icon = item.icon;
 
     return (
-      <button
-        key={item.id}
-        onClick={() => handleNavClick(item.id)}
-        disabled={!selectedProjectId}
-        className={cn(
-          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
-          'hover:bg-accent hover:text-accent-foreground',
-          'disabled:pointer-events-none disabled:opacity-50',
-          isActive && 'bg-accent text-accent-foreground'
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="flex-1 text-left">{item.label}</span>
-        {item.shortcut && (
-          <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
-            {item.shortcut}
-          </kbd>
-        )}
-      </button>
+        <button
+            key={item.id}
+            onClick={() => handleNavClick(item.id)}
+            disabled={!selectedProjectId}
+            className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
+                'hover:bg-accent hover:text-accent-foreground',
+                'disabled:pointer-events-none disabled:opacity-50',
+                isActive && 'bg-accent text-accent-foreground'
+            )}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">{t(item.labelKey)}</span>
+          {item.shortcut && (
+              <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
+                {item.shortcut}
+              </kbd>
+          )}
+        </button>
     );
   };
 
   return (
-    <TooltipProvider>
-      <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
-        {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className="electron-drag flex h-14 items-center px-4 pt-6">
-          <span className="electron-no-drag text-lg font-bold text-primary">Jungle Assistant</span>
-        </div>
-
-        <Separator className="mt-2" />
-
-
-        <Separator />
-
-        {/* Navigation */}
-        <ScrollArea className="flex-1">
-          <div className="px-3 py-4">
-            {/* Project Section */}
-            <div className="mb-6">
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Project
-              </h3>
-              <nav className="space-y-1">
-                {projectNavItems.map(renderNavItem)}
-              </nav>
-            </div>
-
-            {/* Tools Section */}
-            <div>
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Tools
-              </h3>
-              <nav className="space-y-1">
-                {toolsNavItems.map(renderNavItem)}
-              </nav>
-            </div>
-          </div>
-        </ScrollArea>
-
-        <Separator />
-
-        {/* Rate Limit Indicator - shows when Claude is rate limited */}
-        <RateLimitIndicator />
-
-        {/* Bottom section with Settings, Help, and New Task */}
-        <div className="p-4 space-y-3">
-          {/* Settings and Help row */}
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 justify-start gap-2"
-                  onClick={onSettingsClick}
-                >
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Application Settings</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Help & Feedback</TooltipContent>
-            </Tooltip>
+      <TooltipProvider>
+        <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
+          {/* Header with drag area - extra top padding for macOS traffic lights */}
+          <div className="electron-drag flex h-14 items-center px-4 pt-6">
+            <span className="electron-no-drag text-lg font-bold text-primary">Jungle Assistant</span>
           </div>
 
-          {/* New Task button */}
-          <Button
-            className="w-full"
-            onClick={onNewTaskClick}
-            disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Task
-          </Button>
-          {selectedProject && !selectedProject.autoBuildPath && (
-            <p className="mt-2 text-xs text-muted-foreground text-center">
-              Initialize Jungle Assistant to create tasks
-            </p>
-          )}
-        </div>
-      </div>
+          <Separator className="mt-2" />
 
-      {/* Initialize Jungle Assistant Dialog */}
-      <Dialog open={showInitDialog} onOpenChange={(open) => {
-        // Only allow closing if user manually closes (not during initialization)
-        if (!open && !isInitializing) {
-          handleSkipInit();
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Initialize Jungle Assistant
-            </DialogTitle>
-            <DialogDescription>
-              This project doesn't have Jungle Assistant initialized. Would you like to set it up now?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              <p className="font-medium mb-2">This will:</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Create a <code className="text-xs bg-background px-1 py-0.5 rounded">.auto-claude</code> folder in your project</li>
-                <li>Copy the Jungle Assistant framework files</li>
-                <li>Set up the specs directory for your tasks</li>
-              </ul>
-            </div>
-            {!settings.autoBuildPath && (
-              <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-medium text-warning">Source path not configured</p>
-                    <p className="text-muted-foreground mt-1">
-                      Please set the Jungle Assistant source path in App Settings before initializing.
-                    </p>
-                  </div>
-                </div>
+          <Separator />
+
+          {/* Navigation */}
+          <ScrollArea className="flex-1">
+            <div className="px-3 py-4">
+              {/* Project Section */}
+              <div className="mb-6">
+                <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('sections.project')}
+                </h3>
+                <nav className="space-y-1">{projectNavItems.map(renderNavItem)}</nav>
               </div>
+
+              {/* Tools Section */}
+              <div>
+                <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('sections.tools')}
+                </h3>
+                <nav className="space-y-1">{toolsNavItems.map(renderNavItem)}</nav>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <Separator />
+
+          {/* Rate Limit Indicator - shows when Claude is rate limited */}
+          <RateLimitIndicator />
+
+          {/* Bottom section with Settings, Help, and New Task */}
+          <div className="p-4 space-y-3">
+            {/* Settings and Help row */}
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 justify-start gap-2"
+                      onClick={onSettingsClick}
+                  >
+                    <Settings className="h-4 w-4" />
+                    {t('actions.settings')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">{t('tooltips.settings')}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                          window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')
+                      }
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">{t('tooltips.help')}</TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* New Task button */}
+            <Button
+                className="w-full"
+                onClick={onNewTaskClick}
+                disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('actions.newTask')}
+            </Button>
+            {selectedProject && !selectedProject.autoBuildPath && (
+                <p className="mt-2 text-xs text-muted-foreground text-center">
+                  {t('messages.initializeToCreateTasks')}
+                </p>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
-              Skip
-            </Button>
-            <Button
-              onClick={handleInitialize}
-              disabled={isInitializing || !settings.autoBuildPath}
-            >
-              {isInitializing ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Initializing...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Initialize
-                </>
+        </div>
+
+        {/* Initialize Jungle Assistant Dialog */}
+        <Dialog
+            open={showInitDialog}
+            onOpenChange={(open) => {
+              // Only allow closing if user manually closes (not during initialization)
+              if (!open && !isInitializing) {
+                handleSkipInit();
+              }
+            }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                {t('dialogs:initialize.title')}
+              </DialogTitle>
+              <DialogDescription>{t('dialogs:initialize.description')}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="rounded-lg bg-muted p-4 text-sm">
+                <p className="font-medium mb-2">{t('dialogs:initialize.willDo')}</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>{t('dialogs:initialize.createFolder')}</li>
+                  <li>{t('dialogs:initialize.copyFramework')}</li>
+                  <li>{t('dialogs:initialize.setupSpecs')}</li>
+                </ul>
+              </div>
+              {!settings.autoBuildPath && (
+                  <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium text-warning">
+                          {t('dialogs:initialize.sourcePathNotConfigured')}
+                        </p>
+                        <p className="text-muted-foreground mt-1">
+                          {t('dialogs:initialize.sourcePathNotConfiguredDescription')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
+                {t('common:buttons.skip')}
+              </Button>
+              <Button onClick={handleInitialize} disabled={isInitializing || !settings.autoBuildPath}>
+                {isInitializing ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      {t('common:labels.initializing')}
+                    </>
+                ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('common:buttons.initialize')}
+                    </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Update Jungle Assistant Dialog - Deprecated, updateAvailable is always false now */}
-      <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5" />
-              Jungle Assistant
-            </DialogTitle>
-            <DialogDescription>
-              Project is initialized.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUpdateDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Update Jungle Assistant Dialog - Deprecated, updateAvailable is always false now */}
+        <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                {t('dialogs:update.title')}
+              </DialogTitle>
+              <DialogDescription>{t('dialogs:update.projectInitialized')}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowUpdateDialog(false)}>
+                {t('common:buttons.close')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Add Project Modal */}
-      <AddProjectModal
-        open={showAddProjectModal}
-        onOpenChange={setShowAddProjectModal}
-        onProjectAdded={handleProjectAdded}
-      />
+        {/* Add Project Modal */}
+        <AddProjectModal
+            open={showAddProjectModal}
+            onOpenChange={setShowAddProjectModal}
+            onProjectAdded={handleProjectAdded}
+        />
 
-      {/* Git Setup Modal */}
-      <GitSetupModal
-        open={showGitSetupModal}
-        onOpenChange={setShowGitSetupModal}
-        project={selectedProject || null}
-        gitStatus={gitStatus}
-        onGitInitialized={handleGitInitialized}
-      />
-    </TooltipProvider>
+        {/* Git Setup Modal */}
+        <GitSetupModal
+            open={showGitSetupModal}
+            onOpenChange={setShowGitSetupModal}
+            project={selectedProject || null}
+            gitStatus={gitStatus}
+            onGitInitialized={handleGitInitialized}
+        />
+      </TooltipProvider>
   );
 }
