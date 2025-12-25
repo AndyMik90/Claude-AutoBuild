@@ -30,9 +30,15 @@ import { createIPCCommunicators } from '../github/utils/ipc-communicator';
 import {
   runPythonSubprocess,
   getPythonPath,
-  getRunnerPath,
   buildRunnerArgs,
 } from '../github/utils/subprocess-runner';
+
+/**
+ * Get the GitLab runner path
+ */
+function getGitLabRunnerPath(backendPath: string): string {
+  return path.join(backendPath, 'runners', 'gitlab', 'runner.py');
+}
 
 // Debug logging
 const { debug: debugLog } = createContextLogger('GitLab MR');
@@ -171,7 +177,7 @@ async function runMRReview(
 
   const { model, thinkingLevel } = getGitLabMRSettings();
   const args = buildRunnerArgs(
-    getRunnerPath(backendPath),
+    getGitLabRunnerPath(backendPath),
     project.path,
     'review-mr',
     [mrIid.toString()],
@@ -760,7 +766,7 @@ export function registerMRReviewHandlers(
 
           const { model, thinkingLevel } = getGitLabMRSettings();
           const args = buildRunnerArgs(
-            getRunnerPath(backendPath),
+            getGitLabRunnerPath(backendPath),
             project.path,
             'followup-review-mr',
             [mrIid.toString()],
