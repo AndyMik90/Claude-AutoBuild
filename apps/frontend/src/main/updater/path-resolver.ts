@@ -26,7 +26,9 @@ export function getBundledSourcePath(): string {
   ];
 
   for (const p of possiblePaths) {
-    if (existsSync(p)) {
+    // Validate it's a proper backend source (must have requirements.txt)
+    const markerPath = path.join(p, 'requirements.txt');
+    if (existsSync(p) && existsSync(markerPath)) {
       return p;
     }
   }
@@ -52,7 +54,15 @@ export function getEffectiveSourcePath(): string {
     if (existsSync(settingsPath)) {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
       if (settings.autoBuildPath && existsSync(settings.autoBuildPath)) {
-        return settings.autoBuildPath;
+        // Validate it's a proper backend source (must have requirements.txt)
+        const markerPath = path.join(settings.autoBuildPath, 'requirements.txt');
+        if (existsSync(markerPath)) {
+          return settings.autoBuildPath;
+        }
+        // Invalid path - log warning and fall through to auto-detection
+        console.warn(
+          `[path-resolver] Configured autoBuildPath "${settings.autoBuildPath}" is missing requirements.txt, falling back to bundled source`
+        );
       }
     }
   } catch {
@@ -62,7 +72,8 @@ export function getEffectiveSourcePath(): string {
   if (app.isPackaged) {
     // Check for user-updated source first
     const overridePath = path.join(app.getPath('userData'), 'backend-source');
-    if (existsSync(overridePath)) {
+    const overrideMarker = path.join(overridePath, 'requirements.txt');
+    if (existsSync(overridePath) && existsSync(overrideMarker)) {
       return overridePath;
     }
   }
