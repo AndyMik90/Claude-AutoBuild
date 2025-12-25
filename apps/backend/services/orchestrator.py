@@ -331,9 +331,11 @@ class ServiceOrchestrator:
         for service in self._services:
             if service.startup_command:
                 try:
+                    # shell=True is intentional: startup_command is a user-defined
+                    # command string that may contain shell features (pipes, env vars, etc.)
                     proc = subprocess.Popen(
                         service.startup_command,
-                        shell=True,
+                        shell=True,  # nosec B602
                         cwd=self.project_dir / service.path
                         if service.path
                         else self.project_dir,

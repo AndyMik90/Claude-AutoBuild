@@ -45,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     timeout-minutes: 10
+    # Continue on error if Dependency Graph isn't enabled for the repo
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +55,6 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
-          warn-on-severity: medium
           comment-summary-in-pr: always
 
   python-security:
@@ -76,7 +77,12 @@ jobs:
         id: bandit
         run: |
           echo "::group::Running Bandit security scan"
-          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json 2>/dev/null || true
+          # Run Bandit; exit code 1 means issues found (expected), other codes are errors
+          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || BANDIT_EXIT=$?
+          if [ "${BANDIT_EXIT:-0}" -gt 1 ]; then
+            echo "::error::Bandit scan failed with exit code $BANDIT_EXIT"
+            exit 1
+          fi
           echo "::endgroup::"
 
       - name: Analyze Bandit results
@@ -87,7 +93,7 @@ jobs:
 
             // Check if report exists
             if (!fs.existsSync('bandit-report.json')) {
-              console.log('No Bandit report found - scan may have failed');
+              core.setFailed('Bandit report not found - scan may have failed');
               return;
             }
 
@@ -165,7 +171,11 @@ jobs:
             console.log(`  CodeQL:        ${codeql}`);
             console.log(`  Bandit:        ${bandit}`);
 
-            const allPassed = codeql === 'success' && bandit === 'success';
+            // Only 'failure' is a real failure; 'skipped' is acceptable (e.g., path filters)
+            const acceptable = ['success', 'skipped'];
+            const codeqlOk = acceptable.includes(codeql);
+            const banditOk = acceptable.includes(bandit);
+            const allPassed = codeqlOk && banditOk;
 
             if (allPassed) {
               console.log('\n✅ All security checks passed');

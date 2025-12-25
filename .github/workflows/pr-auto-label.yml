@@ -106,7 +106,7 @@ jobs:
             }
 
             // Determine area label (mutually exclusive)
-            const areaLabels = ['area/frontend', 'area/backend', 'area/fullstack'];
+            const areaLabels = ['area/frontend', 'area/backend', 'area/fullstack', 'area/ci'];
 
             if (areas.frontend && areas.backend) {
               labelsToAdd.add('area/fullstack');
@@ -121,6 +121,8 @@ jobs:
               areaLabels.filter(l => l !== 'area/backend').forEach(l => labelsToRemove.add(l));
               console.log(`  📁 Area: backend (${files.length} files)`);
             } else if (areas.ci) {
+              labelsToAdd.add('area/ci');
+              areaLabels.filter(l => l !== 'area/ci').forEach(l => labelsToRemove.add(l));
               console.log(`  📁 Area: ci (${files.length} files)`);
             }
 
