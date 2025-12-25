@@ -20,7 +20,7 @@ However, when `spawn()` executes the Python process, it uses `process.env` which
 
 ## The Fix
 
-**File:** `apps/frontend/src/main/ipc-handlers/context/project-context-handlers.ts`
+**File 1:** `apps/frontend/src/main/ipc-handlers/context/project-context-handlers.ts`
 
 **Line 191 - Changed from:**
 ```typescript
@@ -30,6 +30,19 @@ env: { ...process.env }
 **To:**
 ```typescript
 env: getAugmentedEnv()
+```
+
+**File 2:** `apps/frontend/src/main/env-utils.ts`
+
+**Lines 27-33 - Added Linux system paths:**
+```typescript
+linux: [
+  '/usr/local/bin',
+  '/usr/bin',               // System binaries (Python, etc.) - ADDED
+  '/snap/bin',
+  '~/.local/bin',
+  '/usr/sbin',              // System admin binaries - ADDED
+],
 ```
 
 **What `getAugmentedEnv()` does:**
