@@ -94,6 +94,8 @@
     "reviewed": "Reviewed",
     "approved": "Approved",
     "changesRequested": "Changes Requested",
-    "commented": "Commented"
+    "commented": "Commented",
+    "readyForFollowup": "Ready for Follow-up",
+    "readyToMerge": "Ready to Merge"
   }
 }

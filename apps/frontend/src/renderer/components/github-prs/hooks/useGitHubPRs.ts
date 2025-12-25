@@ -75,7 +75,8 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
       isReviewing: state.isReviewing,
       progress: state.progress,
       result: state.result,
-      error: state.error
+      error: state.error,
+      newCommitsCheck: state.newCommitsCheck
     };
   }, [projectId, prReviews, getPRReviewState]);
 
@@ -179,7 +180,10 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     }
 
     try {
-      return await window.electronAPI.github.checkNewCommits(projectId, prNumber);
+      const result = await window.electronAPI.github.checkNewCommits(projectId, prNumber);
+      // Cache the result in the store so the list view can use it
+      usePRReviewStore.getState().setNewCommitsCheck(projectId, prNumber, result);
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check for new commits');
       return { hasNewCommits: false, newCommitCount: 0 };

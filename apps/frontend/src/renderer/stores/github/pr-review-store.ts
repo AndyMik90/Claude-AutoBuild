@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type {
   PRReviewProgress,
-  PRReviewResult
+  PRReviewResult,
+  NewCommitsCheck
 } from '../../../preload/api/modules/github-api';
 
 /**
@@ -14,6 +15,8 @@ interface PRReviewState {
   progress: PRReviewProgress | null;
   result: PRReviewResult | null;
   error: string | null;
+  /** Cached result of new commits check - updated when detail view checks */
+  newCommitsCheck: NewCommitsCheck | null;
 }
 
 interface PRReviewStoreState {
@@ -26,6 +29,7 @@ interface PRReviewStoreState {
   setPRReviewProgress: (projectId: string, progress: PRReviewProgress) => void;
   setPRReviewResult: (projectId: string, result: PRReviewResult) => void;
   setPRReviewError: (projectId: string, prNumber: number, error: string) => void;
+  setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
   clearPRReview: (projectId: string, prNumber: number) => void;
 
   // Selectors
@@ -40,6 +44,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
   // Actions
   startPRReview: (projectId: string, prNumber: number) => set((state) => {
     const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
     return {
       prReviews: {
         ...state.prReviews,
@@ -49,7 +54,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           isReviewing: true,
           progress: null,
           result: null,
-          error: null
+          error: null,
+          newCommitsCheck: existing?.newCommitsCheck ?? null
         }
       }
     };
@@ -67,7 +73,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           isReviewing: true,
           progress,
           result: existing?.result ?? null,
-          error: null
+          error: null,
+          newCommitsCheck: existing?.newCommitsCheck ?? null
         }
       }
     };
@@ -75,6 +82,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
 
   setPRReviewResult: (projectId: string, result: PRReviewResult) => set((state) => {
     const key = `${projectId}:${result.prNumber}`;
+    const existing = state.prReviews[key];
     return {
       prReviews: {
         ...state.prReviews,
@@ -84,7 +92,9 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           isReviewing: false,
           progress: null,
           result,
-          error: result.error ?? null
+          error: result.error ?? null,
+          // Clear new commits check when review completes (it was just reviewed)
+          newCommitsCheck: null
         }
       }
     };
@@ -102,7 +112,39 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           isReviewing: false,
           progress: null,
           result: existing?.result ?? null,
-          error
+          error,
+          newCommitsCheck: existing?.newCommitsCheck ?? null
+        }
+      }
+    };
+  }),
+
+  setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+    if (!existing) {
+      // Create a minimal state if none exists
+      return {
+        prReviews: {
+          ...state.prReviews,
+          [key]: {
+            prNumber,
+            projectId,
+            isReviewing: false,
+            progress: null,
+            result: null,
+            error: null,
+            newCommitsCheck: check
+          }
+        }
+      };
+    }
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          ...existing,
+          newCommitsCheck: check
         }
       }
     };

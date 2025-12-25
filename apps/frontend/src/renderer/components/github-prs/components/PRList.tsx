@@ -1,15 +1,75 @@
-import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare, RefreshCw } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { PRData, PRReviewProgress, PRReviewResult } from '../hooks/useGitHubPRs';
+import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
 import { useTranslation } from 'react-i18next';
+
+/**
+ * Determine the secondary status label for a PR based on its review state
+ * and cached new commits check from the store
+ */
+function getSecondaryStatus(
+  reviewResult: PRReviewResult | null | undefined,
+  newCommitsCheck: NewCommitsCheck | null | undefined
+): {
+  type: 'changes_requested' | 'ready_to_merge' | 'ready_for_followup' | null;
+  label: string;
+  description?: string;
+} | null {
+  if (!reviewResult) return null;
+
+  const hasFindings = reviewResult.findings && reviewResult.findings.length > 0;
+  const hasBlockingFindings = reviewResult.findings?.some(
+    f => f.severity === 'critical' || f.severity === 'high'
+  );
+
+  // If we have cached new commits check and there are new commits - ready for follow-up
+  if (newCommitsCheck?.hasNewCommits && hasFindings) {
+    return {
+      type: 'ready_for_followup',
+      label: 'Ready for Follow-up',
+      description: `${newCommitsCheck.newCommitCount} new commit(s)`
+    };
+  }
+
+  // If there are blocking findings (critical/high) - show changes requested
+  if (hasFindings && hasBlockingFindings) {
+    const blockingCount = reviewResult.findings.filter(f => f.severity === 'critical' || f.severity === 'high').length;
+    return {
+      type: 'changes_requested',
+      label: 'Changes Requested',
+      description: `${blockingCount} blocking issue(s)`
+    };
+  }
+
+  // If only non-blocking findings - can merge with suggestions
+  if (hasFindings && !hasBlockingFindings) {
+    return {
+      type: 'ready_to_merge',
+      label: 'Ready to Merge',
+      description: `${reviewResult.findings.length} suggestion(s)`
+    };
+  }
+
+  // No findings - ready to merge
+  if (!hasFindings && reviewResult.success) {
+    return {
+      type: 'ready_to_merge',
+      label: 'Ready to Merge'
+    };
+  }
+
+  return null;
+}
 
 interface PRReviewInfo {
   isReviewing: boolean;
   progress: PRReviewProgress | null;
   result: PRReviewResult | null;
   error: string | null;
+  newCommitsCheck?: NewCommitsCheck | null;
 }
 
 interface PRListProps {
@@ -84,6 +144,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
           const reviewState = getReviewStateForPR(pr.number);
           const isReviewingPR = reviewState?.isReviewing ?? false;
           const hasReviewResult = reviewState?.result !== null && reviewState?.result !== undefined;
+          const secondaryStatus = hasReviewResult ? getSecondaryStatus(reviewState?.result, reviewState?.newCommitsCheck) : null;
 
           return (
             <button
@@ -97,7 +158,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
               <div className="flex items-start gap-3">
                 <GitPullRequest className="h-5 w-5 mt-0.5 text-success shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-sm text-muted-foreground">#{pr.number}</span>
                     <Badge variant="outline" className="text-xs">
                       {pr.headRefName}
@@ -135,6 +196,29 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                           <Badge variant="outline" className="text-xs flex items-center gap-1 text-blue-500 border-blue-500/50">
                             <MessageSquare className="h-3 w-3" />
                             {t('prReview.commented')}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {/* Secondary status badge - shows action needed (only if not already showing via reviewId) */}
+                    {!isReviewingPR && secondaryStatus && (
+                      <>
+                        {secondaryStatus.type === 'ready_for_followup' && (
+                          <Badge className="text-xs flex items-center gap-1 bg-info/20 text-info border-info/50">
+                            <RefreshCw className="h-3 w-3" />
+                            {t('prReview.readyForFollowup')}
+                          </Badge>
+                        )}
+                        {secondaryStatus.type === 'changes_requested' && !reviewState?.result?.reviewId && (
+                          <Badge className="text-xs flex items-center gap-1 bg-warning/20 text-warning border-warning/50">
+                            <AlertCircle className="h-3 w-3" />
+                            {t('prReview.changesRequested')}
+                          </Badge>
+                        )}
+                        {secondaryStatus.type === 'ready_to_merge' && (
+                          <Badge className="text-xs flex items-center gap-1 bg-success/20 text-success border-success/50">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('prReview.readyToMerge')}
                           </Badge>
                         )}
                       </>
