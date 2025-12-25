@@ -14,6 +14,7 @@ interface UnityEditorInfo {
 }
 
 interface UnitySettings {
+  unityProjectPath?: string;
   editorPath?: string;
   buildExecuteMethod?: string;
 }
