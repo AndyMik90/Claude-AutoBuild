@@ -80,6 +80,7 @@ export interface AppSettings {
   agentFramework: string;
   pythonPath?: string;
   autoBuildPath?: string;
+  unityEditorPath?: string;
   autoUpdateAutoBuild: boolean;
   autoNameTerminals: boolean;
   notifications: NotificationSettings;

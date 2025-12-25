@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { useProjectStore } from '../stores/project-store';
+import { useSettingsStore } from '../stores/settings-store';
 
 interface UnityProps {
   projectId: string;
@@ -65,6 +66,7 @@ interface UnityRun {
 export function Unity({ projectId }: UnityProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
+  const settings = useSettingsStore((state) => state.settings);
 
   const [projectInfo, setProjectInfo] = useState<UnityProjectInfo | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -72,7 +74,6 @@ export function Unity({ projectId }: UnityProps) {
 
   const [editors, setEditors] = useState<UnityEditorInfo[]>([]);
   const [selectedEditorPath, setSelectedEditorPath] = useState<string>('');
-  const [customEditorPath, setCustomEditorPath] = useState<string>('');
   const [isDiscovering, setIsDiscovering] = useState(false);
 
   const [buildExecuteMethod, setBuildExecuteMethod] = useState<string>('');
@@ -113,8 +114,8 @@ export function Unity({ projectId }: UnityProps) {
       const result = await window.electronAPI.discoverUnityEditors();
       if (result.success && result.data) {
         setEditors(result.data.editors || []);
-        // Auto-select first editor if none selected
-        if (result.data.editors.length > 0 && !selectedEditorPath) {
+        // Auto-select first editor if none selected and no global setting
+        if (result.data.editors.length > 0 && !selectedEditorPath && !settings.unityEditorPath) {
           setSelectedEditorPath(result.data.editors[0].path);
         }
       }
@@ -123,7 +124,7 @@ export function Unity({ projectId }: UnityProps) {
     } finally {
       setIsDiscovering(false);
     }
-  }, [selectedEditorPath]);
+  }, [selectedEditorPath, settings.unityEditorPath]);
 
   // Load Unity settings for this project
   const loadSettings = useCallback(async () => {
@@ -132,10 +133,6 @@ export function Unity({ projectId }: UnityProps) {
     try {
       const result = await window.electronAPI.getUnitySettings(selectedProject.id);
       if (result.success && result.data) {
-        if (result.data.editorPath) {
-          setSelectedEditorPath(result.data.editorPath);
-          setCustomEditorPath(result.data.editorPath);
-        }
         if (result.data.buildExecuteMethod) {
           setBuildExecuteMethod(result.data.buildExecuteMethod);
         }
@@ -178,14 +175,12 @@ export function Unity({ projectId }: UnityProps) {
     setIsSavingSettings(true);
 
     try {
-      const editorPath = customEditorPath || selectedEditorPath;
       const result = await window.electronAPI.saveUnitySettings(selectedProject.id, {
-        editorPath,
         buildExecuteMethod
       });
 
-      if (result.success) {
-        setSelectedEditorPath(editorPath);
+      if (!result.success) {
+        console.error('Failed to save Unity settings:', result.error);
       }
     } catch (err) {
       console.error('Failed to save Unity settings:', err);
@@ -196,13 +191,13 @@ export function Unity({ projectId }: UnityProps) {
 
   // Run EditMode tests
   const runEditModeTests = async () => {
-    if (!selectedProject || !selectedEditorPath) return;
+    if (!selectedProject || !effectiveEditorPath) return;
 
     setIsRunning(true);
     setRunError(null);
 
     try {
-      const result = await window.electronAPI.runUnityEditModeTests(selectedProject.id, selectedEditorPath);
+      const result = await window.electronAPI.runUnityEditModeTests(selectedProject.id, effectiveEditorPath);
       if (result.success) {
         // Refresh runs
         await loadRuns();
@@ -218,7 +213,7 @@ export function Unity({ projectId }: UnityProps) {
 
   // Run custom build
   const runBuild = async () => {
-    if (!selectedProject || !selectedEditorPath || !buildExecuteMethod) return;
+    if (!selectedProject || !effectiveEditorPath || !buildExecuteMethod) return;
 
     setIsRunning(true);
     setRunError(null);
@@ -226,7 +221,7 @@ export function Unity({ projectId }: UnityProps) {
     try {
       const result = await window.electronAPI.runUnityBuild(
         selectedProject.id,
-        selectedEditorPath,
+        effectiveEditorPath,
         buildExecuteMethod
       );
       if (result.success) {
@@ -276,7 +271,8 @@ export function Unity({ projectId }: UnityProps) {
     );
   }
 
-  const effectiveEditorPath = customEditorPath || selectedEditorPath;
+  // Use global settings path first, then fallback to selected from dropdown
+  const effectiveEditorPath = settings.unityEditorPath || selectedEditorPath;
   const canRunTests = projectInfo?.isUnityProject && effectiveEditorPath && !isRunning;
   const canRunBuild = canRunTests && buildExecuteMethod;
 
@@ -423,26 +419,17 @@ export function Unity({ projectId }: UnityProps) {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="custom-editor">Custom Editor Path (optional)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="custom-editor"
-                        value={customEditorPath}
-                        onChange={(e) => setCustomEditorPath(e.target.value)}
-                        placeholder="/path/to/Unity/Editor/Unity"
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={saveSettings}
-                        disabled={isSavingSettings}
-                      >
-                        {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-                      </Button>
+                  {!effectiveEditorPath && (
+                    <div className="rounded-lg border border-muted bg-muted/50 p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        <span className="font-medium">No Editor Configured</span>
+                      </div>
+                      <p className="text-muted-foreground mt-1">
+                        Set a Unity Editor path in Settings → Paths, or select one from the dropdown above.
+                      </p>
                     </div>
-                  </div>
+                  )}
 
                   {effectiveEditorPath && (
                     <div className="rounded-lg bg-muted/50 p-3 text-sm">

@@ -176,6 +176,17 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             onChange={(e) => onSettingsChange({ ...settings, autoBuildPath: e.target.value })}
           />
         </div>
+        <div className="space-y-3">
+          <Label htmlFor="unityEditorPath" className="text-sm font-medium text-foreground">Unity Editor Path</Label>
+          <p className="text-sm text-muted-foreground">Path to Unity Editor executable (leave empty to auto-detect)</p>
+          <Input
+            id="unityEditorPath"
+            placeholder="Auto-detect from Unity Hub"
+            className="w-full max-w-lg"
+            value={settings.unityEditorPath || ''}
+            onChange={(e) => onSettingsChange({ ...settings, unityEditorPath: e.target.value })}
+          />
+        </div>
       </div>
     </SettingsSection>
   );
