@@ -1,8 +1,9 @@
-import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2 } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { PRData, PRReviewProgress, PRReviewResult } from '../hooks/useGitHubPRs';
+import { useTranslation } from 'react-i18next';
 
 interface PRReviewInfo {
   isReviewing: boolean;
@@ -42,6 +43,8 @@ function formatDate(dateString: string): string {
 }
 
 export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReviews, getReviewStateForPR, onSelectPR }: PRListProps) {
+  const { t } = useTranslation('common');
+
   if (isLoading && prs.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -103,14 +106,30 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                     {isReviewingPR && (
                       <Badge variant="secondary" className="text-xs flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Reviewing
+                        {t('prReview.reviewing')}
                       </Badge>
                     )}
-                    {!isReviewingPR && hasReviewResult && (
-                      <Badge variant="outline" className="text-xs flex items-center gap-1 text-success border-success/50">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Reviewed
-                      </Badge>
+                    {!isReviewingPR && hasReviewResult && reviewState?.result && (
+                      <>
+                        {reviewState.result.overallStatus === 'approve' && (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-success border-success/50">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('prReview.approved')}
+                          </Badge>
+                        )}
+                        {reviewState.result.overallStatus === 'request_changes' && (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-destructive border-destructive/50">
+                            <AlertCircle className="h-3 w-3" />
+                            {t('prReview.changesRequested')}
+                          </Badge>
+                        )}
+                        {reviewState.result.overallStatus === 'comment' && (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-blue-500 border-blue-500/50">
+                            <MessageSquare className="h-3 w-3" />
+                            {t('prReview.commented')}
+                          </Badge>
+                        )}
+                      </>
                     )}
                   </div>
                   <h3 className="font-medium text-sm truncate">{pr.title}</h3>
