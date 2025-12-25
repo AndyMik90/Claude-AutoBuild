@@ -1,0 +1,161 @@
+name: PR Status Gate
+
+on:
+  workflow_run:
+    workflows: [CI, Lint, Quality Security, Quality DCO, Quality Commit Lint]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  update-status:
+    name: Update PR Status
+    runs-on: ubuntu-latest
+    # Only run if this workflow_run is associated with a PR
+    if: github.event.workflow_run.pull_requests[0] != null
+    timeout-minutes: 5
+    steps:
+      - name: Check all workflows and update label
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.workflow_run.pull_requests[0].number;
+            const headSha = context.payload.workflow_run.head_sha;
+            const triggerWorkflow = context.payload.workflow_run.name;
+
+            // Required workflows configuration
+            const required = [
+              { name: 'CI', file: 'ci.yml' },
+              { name: 'Lint', file: 'lint.yml' },
+              { name: 'Quality Security', file: 'quality-security.yml' },
+              { name: 'Quality DCO', file: 'quality-dco.yml' },
+              { name: 'Quality Commit Lint', file: 'quality-commit-lint.yml' }
+            ];
+
+            const statusLabels = {
+              checking: '🔄 Checking',
+              passed: '✅ Ready for Review',
+              failed: '❌ Checks Failed'
+            };
+
+            console.log(`::group::PR #${prNumber} - Checking workflow status`);
+            console.log(`Triggered by: ${triggerWorkflow}`);
+            console.log(`Head SHA: ${headSha}`);
+            console.log('');
+
+            let allComplete = true;
+            let anyFailed = false;
+            const results = [];
+
+            // Check all required workflows
+            for (const workflow of required) {
+              try {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: workflow.file,
+                  head_sha: headSha,
+                  per_page: 1
+                });
+
+                if (!data.workflow_runs.length) {
+                  results.push({ name: workflow.name, status: '⏳ Pending', complete: false });
+                  allComplete = false;
+                  continue;
+                }
+
+                const run = data.workflow_runs[0];
+
+                if (run.status !== 'completed') {
+                  results.push({ name: workflow.name, status: '🔄 Running', complete: false });
+                  allComplete = false;
+                } else if (run.conclusion === 'success') {
+                  results.push({ name: workflow.name, status: '✅ Passed', complete: true });
+                } else if (run.conclusion === 'skipped') {
+                  results.push({ name: workflow.name, status: '⏭️ Skipped', complete: true });
+                } else {
+                  results.push({ name: workflow.name, status: '❌ Failed', complete: true, failed: true });
+                  anyFailed = true;
+                }
+              } catch (error) {
+                console.log(`::warning::Error checking ${workflow.name}: ${error.message}`);
+                results.push({ name: workflow.name, status: '⚠️ Error', complete: false });
+                allComplete = false;
+              }
+            }
+
+            // Print results table
+            console.log('Workflow Status:');
+            console.log('─'.repeat(40));
+            for (const r of results) {
+              console.log(`  ${r.status.padEnd(12)} ${r.name}`);
+            }
+            console.log('─'.repeat(40));
+            console.log('::endgroup::');
+
+            // Only update label if all workflows are complete
+            if (!allComplete) {
+              console.log('⏳ Not all workflows complete yet - keeping current label');
+              return;
+            }
+
+            // Determine final label
+            const newLabel = anyFailed ? statusLabels.failed : statusLabels.passed;
+
+            console.log(`::group::Updating PR #${prNumber} label`);
+
+            // Remove old status labels
+            for (const label of Object.values(statusLabels)) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  name: label
+                });
+                console.log(`  ✓ Removed: ${label}`);
+              } catch (e) {
+                if (e.status !== 404) {
+                  console.log(`  ⚠ Could not remove ${label}: ${e.message}`);
+                }
+              }
+            }
+
+            // Add final status label
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: [newLabel]
+              });
+              console.log(`  ✓ Added: ${newLabel}`);
+            } catch (e) {
+              if (e.status === 404) {
+                core.warning(`Label '${newLabel}' does not exist. Please create it in repository settings.`);
+              }
+              throw e;
+            }
+
+            console.log('::endgroup::');
+
+            // Summary
+            if (anyFailed) {
+              console.log(`❌ PR #${prNumber} has failing checks`);
+              core.summary.addRaw(`## ❌ PR #${prNumber} - Checks Failed\n\n`);
+            } else {
+              console.log(`✅ PR #${prNumber} is ready for review`);
+              core.summary.addRaw(`## ✅ PR #${prNumber} - Ready for Review\n\n`);
+            }
+
+            // Add results to summary
+            core.summary.addTable([
+              [{data: 'Workflow', header: true}, {data: 'Status', header: true}],
+              ...results.map(r => [r.name, r.status])
+            ]);
+            await core.summary.write();

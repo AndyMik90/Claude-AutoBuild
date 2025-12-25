@@ -87,7 +87,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -111,7 +112,7 @@ jobs:
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd apps/frontend && npm run package:mac -- --arch=x64
+        run: cd apps/frontend && npm run package:mac -- --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -154,7 +155,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -178,7 +180,7 @@ jobs:
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Apple Silicon)
-        run: cd apps/frontend && npm run package:mac -- --arch=arm64
+        run: cd apps/frontend && npm run package:mac -- --arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -220,7 +222,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -264,7 +267,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          # Use tag for real releases, develop branch for dry runs
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
