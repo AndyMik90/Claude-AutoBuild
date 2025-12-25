@@ -1,0 +1,74 @@
+name: Quality Commit Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate PR title
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title;
+
+            console.log(`::group::PR #${pr.number} - Validating PR title`);
+            console.log(`Title: ${title}`);
+
+            // Conventional Commits pattern for PR title
+            // type(scope)?: description (max 100 chars)
+            // Optional ! for breaking changes: feat!: or feat(scope)!:
+            // Scope allows: letters, numbers, hyphens, underscores, slashes, dots
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_\-\/\.]+\))?!?: .{1,100}$/;
+
+            const isValid = pattern.test(title);
+            console.log(`Valid: ${isValid}`);
+            console.log('::endgroup::');
+
+            if (!isValid) {
+              let errorMsg = '## ❌ PR Title Validation Failed\n\n';
+              errorMsg += `Your PR title does not follow [Conventional Commits](https://www.conventionalcommits.org/) format:\n\n`;
+              errorMsg += `> \`${title}\`\n\n`;
+              errorMsg += '### Expected Format\n\n';
+              errorMsg += '```\ntype(scope): description\n```\n\n';
+              errorMsg += '| Type | Description |\n';
+              errorMsg += '|------|-------------|\n';
+              errorMsg += '| `feat` | New feature |\n';
+              errorMsg += '| `fix` | Bug fix |\n';
+              errorMsg += '| `docs` | Documentation only |\n';
+              errorMsg += '| `style` | Code style (formatting, etc.) |\n';
+              errorMsg += '| `refactor` | Code refactoring |\n';
+              errorMsg += '| `perf` | Performance improvement |\n';
+              errorMsg += '| `test` | Adding/updating tests |\n';
+              errorMsg += '| `build` | Build system changes |\n';
+              errorMsg += '| `ci` | CI/CD changes |\n';
+              errorMsg += '| `chore` | Maintenance tasks |\n';
+              errorMsg += '| `revert` | Reverting changes |\n\n';
+              errorMsg += '### Examples\n\n';
+              errorMsg += '```\nfeat(auth): add OAuth2 login support\nfix(api/users): handle null response correctly\nfix(package.json): update dependencies\ndocs: update README installation steps\nci: add automated release workflow\n```\n\n';
+              errorMsg += '### How to Fix\n\n';
+              errorMsg += 'Edit your PR title to follow the format above.\n';
+
+              core.summary.addRaw(errorMsg);
+              await core.summary.write();
+
+              core.setFailed('PR title does not follow Conventional Commits format');
+            } else {
+              console.log(`✅ PR title follows Conventional Commits format`);
+
+              core.summary
+                .addHeading('✅ PR Title Valid', 3)
+                .addRaw(`PR title follows Conventional Commits format: \`${title}\``);
+              await core.summary.write();
+            }

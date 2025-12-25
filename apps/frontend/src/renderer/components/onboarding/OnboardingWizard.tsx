@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Wand2 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -26,12 +27,12 @@ interface OnboardingWizardProps {
 // Wizard step identifiers
 type WizardStepId = 'welcome' | 'oauth' | 'memory' | 'completion';
 
-// Step configuration
-const WIZARD_STEPS: { id: WizardStepId; label: string }[] = [
-  { id: 'welcome', label: 'Welcome' },
-  { id: 'oauth', label: 'Auth' },
-  { id: 'memory', label: 'Memory' },
-  { id: 'completion', label: 'Done' }
+// Step configuration with translation keys
+const WIZARD_STEPS: { id: WizardStepId; labelKey: string }[] = [
+  { id: 'welcome', labelKey: 'steps.welcome' },
+  { id: 'oauth', labelKey: 'steps.auth' },
+  { id: 'memory', labelKey: 'steps.memory' },
+  { id: 'completion', labelKey: 'steps.done' }
 ];
 
 /**
@@ -51,6 +52,7 @@ export function OnboardingWizard({
   onOpenTaskCreator,
   onOpenSettings
 }: OnboardingWizardProps) {
+  const { t } = useTranslation('onboarding');
   const { updateSettings } = useSettingsStore();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<WizardStepId>>(new Set());
@@ -61,7 +63,7 @@ export function OnboardingWizard({
   // Build step data for progress indicator
   const steps: WizardStep[] = WIZARD_STEPS.map((step, index) => ({
     id: step.id,
-    label: step.label,
+    label: t(step.labelKey),
     completed: completedSteps.has(step.id) || index < currentStepIndex
   }));
 
@@ -189,10 +191,10 @@ export function OnboardingWizard({
         <FullScreenDialogHeader>
           <FullScreenDialogTitle className="flex items-center gap-3">
             <Wand2 className="h-6 w-6" />
-            Setup Wizard
+            {t('wizard.title')}
           </FullScreenDialogTitle>
           <FullScreenDialogDescription>
-            Configure your Auto Claude environment in a few simple steps
+            {t('wizard.description')}
           </FullScreenDialogDescription>
 
           {/* Progress indicator - show for all steps except welcome and completion */}

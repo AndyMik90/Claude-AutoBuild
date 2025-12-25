@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
 import type { ExecutionPhase, TaskLogs, Subtask } from '../../shared/types';
 
@@ -11,15 +12,26 @@ interface PhaseProgressIndicatorProps {
   className?: string;
 }
 
-// Phase display configuration
-const PHASE_CONFIG: Record<ExecutionPhase, { label: string; color: string; bgColor: string }> = {
-  idle: { label: 'Idle', color: 'bg-muted-foreground', bgColor: 'bg-muted' },
-  planning: { label: 'Planning', color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
-  coding: { label: 'Coding', color: 'bg-info', bgColor: 'bg-info/20' },
-  qa_review: { label: 'Reviewing', color: 'bg-purple-500', bgColor: 'bg-purple-500/20' },
-  qa_fixing: { label: 'Fixing', color: 'bg-orange-500', bgColor: 'bg-orange-500/20' },
-  complete: { label: 'Complete', color: 'bg-success', bgColor: 'bg-success/20' },
-  failed: { label: 'Failed', color: 'bg-destructive', bgColor: 'bg-destructive/20' },
+// Phase display configuration (colors only - labels are translated)
+const PHASE_COLORS: Record<ExecutionPhase, { color: string; bgColor: string }> = {
+  idle: { color: 'bg-muted-foreground', bgColor: 'bg-muted' },
+  planning: { color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
+  coding: { color: 'bg-info', bgColor: 'bg-info/20' },
+  qa_review: { color: 'bg-purple-500', bgColor: 'bg-purple-500/20' },
+  qa_fixing: { color: 'bg-orange-500', bgColor: 'bg-orange-500/20' },
+  complete: { color: 'bg-success', bgColor: 'bg-success/20' },
+  failed: { color: 'bg-destructive', bgColor: 'bg-destructive/20' },
+};
+
+// Phase label translation keys
+const PHASE_LABEL_KEYS: Record<ExecutionPhase, string> = {
+  idle: 'execution.phases.idle',
+  planning: 'execution.phases.planning',
+  coding: 'execution.phases.coding',
+  qa_review: 'execution.phases.reviewing',
+  qa_fixing: 'execution.phases.fixing',
+  complete: 'execution.phases.complete',
+  failed: 'execution.phases.failed',
 };
 
 /**
@@ -36,6 +48,8 @@ export function PhaseProgressIndicator({
   isRunning = false,
   className,
 }: PhaseProgressIndicatorProps) {
+  const { t } = useTranslation('tasks');
+
   // Calculate subtask-based progress (for coding phase)
   const completedSubtasks = subtasks.filter((c) => c.status === 'completed').length;
   const totalSubtasks = subtasks.length;
@@ -57,7 +71,8 @@ export function PhaseProgressIndicator({
   const isIndeterminatePhase = phase === 'planning' || phase === 'qa_review' || phase === 'qa_fixing';
   const showSubtaskProgress = phase === 'coding' || (totalSubtasks > 0 && !isIndeterminatePhase);
 
-  const config = PHASE_CONFIG[phase] || PHASE_CONFIG.idle;
+  const colors = PHASE_COLORS[phase] || PHASE_COLORS.idle;
+  const phaseLabel = t(PHASE_LABEL_KEYS[phase] || PHASE_LABEL_KEYS.idle);
   const activeEntries = getActivePhaseEntries();
 
   return (
@@ -66,12 +81,12 @@ export function PhaseProgressIndicator({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {isStuck ? 'Interrupted' : showSubtaskProgress ? 'Progress' : config.label}
+            {isStuck ? t('execution.labels.interrupted') : showSubtaskProgress ? t('execution.labels.progress') : phaseLabel}
           </span>
           {/* Activity indicator dot for non-coding phases */}
           {isRunning && !isStuck && isIndeterminatePhase && (
             <motion.div
-              className={cn('h-1.5 w-1.5 rounded-full', config.color)}
+              className={cn('h-1.5 w-1.5 rounded-full', colors.color)}
               animate={{
                 scale: [1, 1.5, 1],
                 opacity: [1, 0.5, 1],
@@ -89,7 +104,7 @@ export function PhaseProgressIndicator({
             `${subtaskProgress}%`
           ) : activeEntries > 0 ? (
             <span className="text-muted-foreground">
-              {activeEntries} {activeEntries === 1 ? 'entry' : 'entries'}
+              {activeEntries} {activeEntries === 1 ? t('execution.labels.entry') : t('execution.labels.entries')}
             </span>
           ) : (
             '—'
@@ -118,7 +133,7 @@ export function PhaseProgressIndicator({
             // Determinate progress for coding phase
             <motion.div
               key="determinate"
-              className={cn('h-full rounded-full', config.color)}
+              className={cn('h-full rounded-full', colors.color)}
               initial={{ width: 0 }}
               animate={{ width: `${subtaskProgress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -127,7 +142,7 @@ export function PhaseProgressIndicator({
             // Indeterminate animated progress for planning/validation
             <motion.div
               key="indeterminate"
-              className={cn('absolute h-full w-1/3 rounded-full', config.color)}
+              className={cn('absolute h-full w-1/3 rounded-full', colors.color)}
               animate={{
                 x: ['-100%', '400%'],
               }}
@@ -141,7 +156,7 @@ export function PhaseProgressIndicator({
             // Static progress based on subtasks (when not running)
             <motion.div
               key="static"
-              className={cn('h-full rounded-full', config.color)}
+              className={cn('h-full rounded-full', colors.color)}
               initial={{ width: 0 }}
               animate={{ width: `${subtaskProgress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -210,10 +225,12 @@ function PhaseStepsIndicator({
   currentPhase: ExecutionPhase;
   isStuck: boolean;
 }) {
-  const phases: { key: ExecutionPhase; label: string }[] = [
-    { key: 'planning', label: 'Plan' },
-    { key: 'coding', label: 'Code' },
-    { key: 'qa_review', label: 'QA' },
+  const { t } = useTranslation('tasks');
+
+  const phases: { key: ExecutionPhase; labelKey: string }[] = [
+    { key: 'planning', labelKey: 'execution.shortPhases.plan' },
+    { key: 'coding', labelKey: 'execution.shortPhases.code' },
+    { key: 'qa_review', labelKey: 'execution.shortPhases.qa' },
   ];
 
   const getPhaseState = (phaseKey: ExecutionPhase) => {
@@ -261,7 +278,7 @@ function PhaseStepsIndicator({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               )}
-              {phase.label}
+              {t(phase.labelKey)}
             </motion.div>
             {index < phases.length - 1 && (
               <div

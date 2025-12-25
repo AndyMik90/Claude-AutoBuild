@@ -44,7 +44,9 @@ export const DEFAULT_APP_SETTINGS = {
   // UI Scale (default 100% - standard size)
   uiScale: UI_SCALE_DEFAULT,
   // Beta updates opt-in (receive pre-release versions)
-  betaUpdates: false
+  betaUpdates: false,
+  // Language preference (default to English)
+  language: 'en' as const
 };
 
 // ============================================

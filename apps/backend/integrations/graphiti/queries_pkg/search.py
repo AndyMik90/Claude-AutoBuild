@@ -75,7 +75,7 @@ class GraphitiSearch:
             if self.group_id_mode == GroupIdMode.SPEC and include_project_context:
                 project_name = self.project_dir.name
                 path_hash = hashlib.md5(
-                    str(self.project_dir.resolve()).encode()
+                    str(self.project_dir.resolve()).encode(), usedforsecurity=False
                 ).hexdigest()[:8]
                 project_group_id = f"project_{project_name}_{path_hash}"
                 if project_group_id != self.group_id:

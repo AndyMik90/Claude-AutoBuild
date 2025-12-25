@@ -4,6 +4,7 @@
 
 import type { NotificationSettings } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
+import type { SupportedLanguage } from '../constants/i18n';
 
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
@@ -113,6 +114,8 @@ export interface AppSettings {
   betaUpdates?: boolean;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
+  // Language preference for UI (i18n)
+  language?: SupportedLanguage;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

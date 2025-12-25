@@ -1,0 +1,92 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "close": "Close",
+    "initialize": "Initialize",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "create": "Create",
+    "open": "Open",
+    "start": "Start",
+    "stop": "Stop",
+    "refresh": "Refresh",
+    "merge": "Merge",
+    "discard": "Discard",
+    "switch": "Switch",
+    "add": "Add",
+    "gotIt": "Got it",
+    "continue": "Continue",
+    "saving": "Saving..."
+  },
+  "labels": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "initializing": "Initializing...",
+    "saving": "Saving...",
+    "noData": "No data",
+    "optional": "Optional",
+    "required": "Required",
+    "dismiss": "Dismiss"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "networkError": "Network error",
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized"
+  },
+  "notification": {
+    "accountSwitched": "Account Switched",
+    "swapFrom": "Switched from",
+    "swapTo": "to",
+    "swapReason": "({{reason}} swap)"
+  },
+  "rateLimit": {
+    "title": "Rate Limited",
+    "resetsAt": "Resets {{time}}",
+    "hitLimit": "{{source}} hit usage limit",
+    "clickToManage": "Click to manage →",
+    "modalTitle": "Claude Code Usage Limit Reached",
+    "modalDescription": "You've reached your Claude Code usage limit for this period.",
+    "profile": "Profile: {{name}}",
+    "autoSwitching": "Auto-switching to {{name}}",
+    "autoSwitchingDescription": "Claude will restart with your other account automatically",
+    "resetsTime": "Resets {{time}}",
+    "usageRestored": "Your usage will be restored at this time",
+    "switchAccount": "Switch Claude Account",
+    "useAnotherAccount": "Use Another Account",
+    "recommended": "Recommended: {{name}} has more capacity available.",
+    "otherSubscriptions": "You have other Claude subscriptions configured. Switch to continue working:",
+    "selectAccount": "Select account...",
+    "switching": "Switching...",
+    "addNewAccount": "Add new account...",
+    "addAnotherSubscription": "Add another Claude subscription to automatically switch when you hit rate limits.",
+    "addAnotherAccount": "Add another account:",
+    "connectAccount": "Connect a Claude account:",
+    "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "willOpenLogin": "This will open Claude login to authenticate the new account.",
+    "autoSwitchOnRateLimit": "Auto-switch on rate limit",
+    "upgradeTitle": "Upgrade for more usage",
+    "upgradeDescription": "Upgrade your Claude subscription for higher usage limits.",
+    "upgradeSubscription": "Upgrade Subscription",
+    "sources": {
+      "changelog": "Changelog",
+      "task": "Task",
+      "roadmap": "Roadmap",
+      "ideation": "Ideation",
+      "titleGenerator": "Title Generator",
+      "claude": "Claude"
+    }
+  }
+}
