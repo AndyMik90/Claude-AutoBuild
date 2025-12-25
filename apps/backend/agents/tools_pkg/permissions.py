@@ -77,6 +77,12 @@ def get_allowed_tools(
                 TOOL_GET_SESSION_CONTEXT,
             ],
         },
+        "pr_reviewer": {
+            # PR reviewers can ONLY read - no bash, no edits, no writes
+            # This prevents the agent from switching branches or making changes
+            "base": BASE_READ_TOOLS,
+            "auto_claude": [],  # No auto-claude tools needed for PR review
+        },
         "qa_fixer": {
             "base": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
             "auto_claude": [

@@ -85,6 +85,16 @@
     from { transform: scale(0.95); opacity: 0 }
     to { transform: scale(1); opacity: 1 }
   }
+
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(71, 159, 250, 0.4); }
+    50% { opacity: 0.95; box-shadow: 0 0 0 4px rgba(71, 159, 250, 0.1); }
+  }
+}
+
+/* Animation utility classes (outside @theme for Tailwind v4 compatibility) */
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
 }
 
 /* CSS variables for light mode (secondary consideration per design system) */

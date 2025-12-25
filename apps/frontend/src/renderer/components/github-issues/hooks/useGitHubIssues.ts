@@ -1,11 +1,16 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useGitHubStore, loadGitHubIssues, checkGitHubConnection } from '../../../stores/github-store';
+import {
+  useIssuesStore,
+  useSyncStatusStore,
+  loadGitHubIssues,
+  checkGitHubConnection,
+  type IssueFilterState
+} from '../../../stores/github';
 import type { FilterState } from '../types';
 
 export function useGitHubIssues(projectId: string | undefined) {
   const {
     issues,
-    syncStatus,
     isLoading,
     error,
     selectedIssueNumber,
@@ -14,7 +19,9 @@ export function useGitHubIssues(projectId: string | undefined) {
     setFilterState,
     getFilteredIssues,
     getOpenIssuesCount
-  } = useGitHubStore();
+  } = useIssuesStore();
+
+  const { syncStatus } = useSyncStatusStore();
 
   // Track if we've checked connection for this mount
   const hasCheckedRef = useRef(false);
