@@ -4,17 +4,18 @@
  * Prevents automatic scroll-to-bottom during high-velocity terminal output
  * when the user has manually scrolled up.
  *
- * Inspired by Tabby's scroll interception pattern - production-proven approach
- * that intercepts xterm's native scrollToBottom method.
+ * Uses public xterm APIs for compatibility with xterm 6.0.0+.
+ * Falls back gracefully if scroll control is not available.
  */
 
-import type { Terminal } from '@xterm/xterm';
+import type { Terminal, IDisposable } from '@xterm/xterm';
 
 export class ScrollController {
   private userScrolledUp = false;
-  private originalScrollToBottom: (() => void) | null = null;
   private xterm: Terminal | null = null;
-  private scrollListener: (() => void) | null = null;
+  private scrollDisposable: IDisposable | null = null;
+  private writeDisposable: IDisposable | null = null;
+  private savedScrollPosition: number | null = null;
 
   /**
    * Attach to an xterm instance
@@ -22,52 +23,61 @@ export class ScrollController {
   attach(xterm: Terminal): void {
     this.xterm = xterm;
 
-    // Access internal core (Tabby does this too - it's safe)
-    const core = (xterm as unknown as { _core: { scrollToBottom: () => void } })._core;
-    if (!core) {
-      console.warn('[ScrollController] Cannot access xterm core - scroll locking disabled');
-      return;
-    }
-
-    // Store original scrollToBottom method
-    this.originalScrollToBottom = core.scrollToBottom.bind(core);
-
-    // Intercept scrollToBottom - block when user has scrolled up
-    core.scrollToBottom = () => {
-      if (this.userScrolledUp) {
-        // No-op when user has scrolled up - this is the key fix!
-        return;
-      }
-      this.originalScrollToBottom?.();
-    };
-
-    // Track user scroll position
-    this.scrollListener = () => {
+    // Track user scroll position using public API
+    this.scrollDisposable = xterm.onScroll(() => {
       const buffer = xterm.buffer.active;
+      // Check if user is at the bottom of the scrollback
       const atBottom = buffer.baseY + xterm.rows >= buffer.length - 1;
       this.userScrolledUp = !atBottom;
-    };
 
-    xterm.onScroll(this.scrollListener);
+      // If user scrolled up, save position to restore after writes
+      if (this.userScrolledUp) {
+        this.savedScrollPosition = buffer.viewportY;
+      }
+    });
 
-    console.warn('[ScrollController] Attached and intercepted scrollToBottom');
+    // Intercept writes to prevent auto-scroll when user has scrolled up
+    // This uses xterm's public onWriteParsed event (available in xterm 6.0.0+)
+    try {
+      // onWriteParsed fires after data is written and parsed
+      this.writeDisposable = xterm.onWriteParsed(() => {
+        if (this.userScrolledUp && this.savedScrollPosition !== null) {
+          // Restore scroll position after write auto-scrolls
+          // Use requestAnimationFrame to ensure it runs after xterm's internal scroll
+          requestAnimationFrame(() => {
+            if (this.xterm && this.savedScrollPosition !== null) {
+              // Calculate scroll delta to restore position
+              const buffer = this.xterm.buffer.active;
+              const targetY = Math.min(this.savedScrollPosition, buffer.length - this.xterm.rows);
+              const delta = targetY - buffer.viewportY;
+              if (delta !== 0) {
+                this.xterm.scrollLines(delta);
+              }
+            }
+          });
+        }
+      });
+    } catch {
+      // onWriteParsed may not be available in older versions
+      // Fall back to a simpler approach using scroll event only
+      console.warn('[ScrollController] onWriteParsed not available, scroll locking limited');
+    }
+
+    console.warn('[ScrollController] Attached using public APIs');
   }
 
   /**
-   * Detach from xterm and restore original behavior
+   * Detach from xterm and cleanup
    */
   detach(): void {
-    if (this.xterm && this.originalScrollToBottom) {
-      const core = (this.xterm as unknown as { _core: { scrollToBottom: () => void } })._core;
-      if (core && this.originalScrollToBottom) {
-        core.scrollToBottom = this.originalScrollToBottom;
-      }
-    }
+    this.scrollDisposable?.dispose();
+    this.writeDisposable?.dispose();
 
     this.xterm = null;
-    this.originalScrollToBottom = null;
-    this.scrollListener = null;
+    this.scrollDisposable = null;
+    this.writeDisposable = null;
     this.userScrolledUp = false;
+    this.savedScrollPosition = null;
 
     console.warn('[ScrollController] Detached');
   }
@@ -77,7 +87,16 @@ export class ScrollController {
    */
   forceScrollToBottom(): void {
     this.userScrolledUp = false;
-    this.originalScrollToBottom?.();
+    this.savedScrollPosition = null;
+
+    if (this.xterm) {
+      const buffer = this.xterm.buffer.active;
+      // Scroll to the very bottom
+      const scrollAmount = buffer.length - buffer.viewportY - this.xterm.rows;
+      if (scrollAmount > 0) {
+        this.xterm.scrollLines(scrollAmount);
+      }
+    }
   }
 
   /**
@@ -92,6 +111,7 @@ export class ScrollController {
    */
   reset(): void {
     this.userScrolledUp = false;
+    this.savedScrollPosition = null;
   }
 
   /**
