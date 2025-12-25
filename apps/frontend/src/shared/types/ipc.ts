@@ -623,6 +623,7 @@ export interface ElectronAPI {
   }) => Promise<IPCResult<void>>;
   runUnityEditModeTests: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
   runUnityBuild: (projectId: string, editorPath: string, executeMethod: string) => Promise<IPCResult<void>>;
+  openUnityProject: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{
     runs: Array<{
       id: string;

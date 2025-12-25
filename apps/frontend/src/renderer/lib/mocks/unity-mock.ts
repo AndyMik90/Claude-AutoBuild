@@ -61,6 +61,11 @@ export const unityMock: UnityAPI = {
     data: undefined
   }),
 
+  openUnityProject: async () => ({
+    success: true,
+    data: undefined
+  }),
+
   // Unity runs
   loadUnityRuns: async () => ({
     success: true,
