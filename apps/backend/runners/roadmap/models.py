@@ -23,6 +23,6 @@ class RoadmapConfig:
 
     project_dir: Path
     output_dir: Path
-    model: str = "claude-opus-4-5-20251101"
+    model: str = "opus"
     refresh: bool = False  # Force regeneration even if roadmap exists
     enable_competitor_analysis: bool = False  # Enable competitor analysis phase

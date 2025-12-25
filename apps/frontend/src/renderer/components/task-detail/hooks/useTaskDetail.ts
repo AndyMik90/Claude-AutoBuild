@@ -214,6 +214,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const loadMergePreview = useCallback(async () => {
     console.warn('%c[useTaskDetail] loadMergePreview called for task:', 'color: cyan; font-weight: bold;', task.id);
     setIsLoadingPreview(true);
+    setWorkspaceError(null); // Clear previous errors
     try {
       console.warn('[useTaskDetail] Calling mergeWorktreePreview...');
       const result = await window.electronAPI.mergeWorktreePreview(task.id);
@@ -233,9 +234,15 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         console.warn('  - success:', result.success);
         console.warn('  - data:', result.data);
         console.warn('  - error:', result.error);
+        // Set error message for user to see
+        if (result.error) {
+          setWorkspaceError(result.error);
+        }
       }
     } catch (err) {
       console.error('%c[useTaskDetail] Failed to load merge preview:', 'color: red; font-weight: bold;', err);
+      // Set error message for user to see
+      setWorkspaceError(err instanceof Error ? err.message : 'Failed to load merge preview');
     } finally {
       console.warn('[useTaskDetail] Setting isLoadingPreview to false');
       setIsLoadingPreview(false);
