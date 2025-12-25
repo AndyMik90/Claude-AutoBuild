@@ -29,7 +29,8 @@ jobs:
             // Conventional Commits pattern for PR title
             // type(scope)?: description (max 100 chars)
             // Optional ! for breaking changes: feat!: or feat(scope)!:
-            const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{1,100}$/;
+            // Scope allows: letters, numbers, hyphens, underscores, slashes, dots
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_\-\/\.]+\))?!?: .{1,100}$/;
 
             const isValid = pattern.test(title);
             console.log(`Valid: ${isValid}`);

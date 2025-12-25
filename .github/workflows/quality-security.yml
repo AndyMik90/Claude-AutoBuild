@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: '0 0 * * 1' # Weekly on Monday at midnight UTC
 
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
@@ -61,6 +66,7 @@ jobs:
         run: |
           echo "::group::Running Bandit security scan"
           # Run Bandit; exit code 1 means issues found (expected), other codes are errors
+          # Flags: -r=recursive, -ll=severity LOW+, -ii=confidence LOW+, -f=format, -o=output
           bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || BANDIT_EXIT=$?
           if [ "${BANDIT_EXIT:-0}" -gt 1 ]; then
             echo "::error::Bandit scan failed with exit code $BANDIT_EXIT"
