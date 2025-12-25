@@ -1,0 +1,42 @@
+name: PR Status Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  mark-checking:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR status label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = ['🔄 Checking', '✅ Ready for Review', '❌ Checks Failed'];
+
+            // Remove old status labels
+            for (const label of labels) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: label
+                });
+              } catch (e) {
+                // Label doesn't exist, ignore
+              }
+            }
+
+            // Add checking label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['🔄 Checking']
+            });
+
+            console.log(`Added '🔄 Checking' label to PR #${context.issue.number}`);

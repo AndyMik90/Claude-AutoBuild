@@ -1,0 +1,65 @@
+name: Quality Commit Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?: .{1,100}$/;
+
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const invalid = [];
+
+            for (const commit of commits) {
+              const message = commit.commit.message.split('\n')[0];
+
+              // Skip merge and revert commits
+              if (message.startsWith('Merge ') || message.startsWith('Revert ')) {
+                continue;
+              }
+
+              if (!pattern.test(message)) {
+                invalid.push({
+                  sha: commit.sha.substring(0, 7),
+                  message: message
+                });
+              }
+            }
+
+            if (invalid.length > 0) {
+              let errorMsg = '## Commit Message Validation Failed\n\n';
+              errorMsg += 'The following commits do not follow Conventional Commits format:\n\n';
+
+              for (const commit of invalid) {
+                errorMsg += `- \`${commit.sha}\`: ${commit.message}\n`;
+              }
+
+              errorMsg += '\n### Expected Format\n\n';
+              errorMsg += '```\ntype(scope): description\n```\n\n';
+              errorMsg += '**Valid types:** feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert\n\n';
+              errorMsg += '**Examples:**\n';
+              errorMsg += '- `feat(tasks): add drag and drop support`\n';
+              errorMsg += '- `fix(terminal): resolve scroll position issue`\n';
+
+              core.setFailed(errorMsg);
+            } else {
+              console.log('All commit messages follow Conventional Commits format');
+            }

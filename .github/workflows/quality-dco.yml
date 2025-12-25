@@ -1,0 +1,15 @@
+name: Quality DCO
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check:
+    name: DCO Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check DCO
+        uses: dcoapp/dco-check@v1
+        with:
+          require-signoff: true

@@ -1,0 +1,82 @@
+name: Quality Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 1' # Weekly on Monday
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  python-security:
+    name: Python Security (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit security scan
+        run: bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || true
+
+      - name: Check Bandit results
+        run: |
+          if [ -f bandit-report.json ]; then
+            HIGH_ISSUES=$(cat bandit-report.json | python -c "import sys,json; r=json.load(sys.stdin); print(len([i for i in r.get('results',[]) if i['issue_severity']=='HIGH']))")
+            if [ "$HIGH_ISSUES" -gt 0 ]; then
+              echo "Found $HIGH_ISSUES high severity security issues!"
+              cat bandit-report.json | python -c "import sys,json; r=json.load(sys.stdin); [print(f\"  - {i['filename']}:{i['line_number']}: {i['issue_text']}\") for i in r.get('results',[]) if i['issue_severity']=='HIGH']"
+              exit 1
+            fi
+          fi
+          echo "No high severity security issues found"

@@ -1,0 +1,109 @@
+name: PR Auto Label
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auto-label PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+            const title = context.payload.pull_request.title;
+            const labelsToAdd = [];
+            const labelsToRemove = [];
+
+            // === TYPE LABELS (from PR title) ===
+            const typeMap = {
+              'feat': 'feature',
+              'fix': 'bug',
+              'docs': 'documentation',
+              'refactor': 'refactor',
+              'test': 'test',
+              'ci': 'ci',
+              'chore': 'chore'
+            };
+
+            const typeMatch = title.match(/^(\w+)(\(.+\))?:/);
+            if (typeMatch) {
+              const type = typeMatch[1].toLowerCase();
+              if (typeMap[type]) {
+                labelsToAdd.push(typeMap[type]);
+              }
+            }
+
+            // === AREA LABELS (from changed files) ===
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner, repo, pull_number: prNumber
+            });
+
+            const areas = { frontend: false, backend: false, ci: false, docs: false };
+
+            for (const file of files) {
+              if (file.filename.startsWith('apps/frontend/')) areas.frontend = true;
+              if (file.filename.startsWith('apps/backend/')) areas.backend = true;
+              if (file.filename.startsWith('.github/')) areas.ci = true;
+              if (file.filename.endsWith('.md')) areas.docs = true;
+            }
+
+            // Determine area label
+            if (areas.frontend && areas.backend) {
+              labelsToAdd.push('area/fullstack');
+              labelsToRemove.push('area/frontend', 'area/backend');
+            } else if (areas.frontend) {
+              labelsToAdd.push('area/frontend');
+              labelsToRemove.push('area/fullstack', 'area/backend');
+            } else if (areas.backend) {
+              labelsToAdd.push('area/backend');
+              labelsToRemove.push('area/fullstack', 'area/frontend');
+            }
+
+            // === SIZE LABELS (from lines changed) ===
+            const additions = context.payload.pull_request.additions || 0;
+            const deletions = context.payload.pull_request.deletions || 0;
+            const totalLines = additions + deletions;
+
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            let sizeLabel;
+
+            if (totalLines < 10) sizeLabel = 'size/XS';
+            else if (totalLines < 100) sizeLabel = 'size/S';
+            else if (totalLines < 500) sizeLabel = 'size/M';
+            else if (totalLines < 1000) sizeLabel = 'size/L';
+            else sizeLabel = 'size/XL';
+
+            labelsToAdd.push(sizeLabel);
+            labelsToRemove.push(...sizeLabels.filter(l => l !== sizeLabel));
+
+            // === APPLY LABELS ===
+            // Remove old labels
+            for (const label of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber, name: label
+                });
+              } catch (e) {
+                // Label doesn't exist, ignore
+              }
+            }
+
+            // Add new labels
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: prNumber, labels: labelsToAdd
+              });
+            }
+
+            console.log(`Labels added: ${labelsToAdd.join(', ')}`);

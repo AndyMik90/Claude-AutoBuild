@@ -1,0 +1,82 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+labels: ["feature", "needs-triage"]
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this hasn't been requested
+          required: true
+        - label: I searched GitHub Discussions for related topics
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend
+        - Backend
+        - Fullstack
+        - CLI
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of feature
+      options:
+        - New feature
+        - Enhancement to existing feature
+        - Performance improvement
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      placeholder: |
+        Describe the problem you're trying to solve or the use case.
+        Example: "I'm always frustrated when..." or "It would be helpful if..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      placeholder: |
+        Describe the solution you'd like to see.
+        Be as specific as possible about the expected behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: |
+        Describe any alternative solutions or workarounds you've considered.
+        Why wouldn't these work for your use case?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      placeholder: |
+        Add any other context, mockups, or screenshots about the feature request.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to help implement this feature
