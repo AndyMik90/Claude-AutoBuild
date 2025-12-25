@@ -146,11 +146,13 @@ class GitLabOrchestrator:
                 elif line.startswith("-") and not line.startswith("---"):
                     total_deletions += 1
 
-            changed_files.append({
-                "new_path": change.get("new_path"),
-                "old_path": change.get("old_path"),
-                "diff": diff,
-            })
+            changed_files.append(
+                {
+                    "new_path": change.get("new_path"),
+                    "old_path": change.get("old_path"),
+                    "diff": diff,
+                }
+            )
 
         # Get head SHA
         head_sha = mr_data.get("sha") or mr_data.get("diff_refs", {}).get("head_sha")

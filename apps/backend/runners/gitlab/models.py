@@ -171,7 +171,9 @@ class MRReviewResult:
             previous_review_id=data.get("previous_review_id"),
             resolved_findings=data.get("resolved_findings", []),
             unresolved_findings=data.get("unresolved_findings", []),
-            new_findings_since_last_review=data.get("new_findings_since_last_review", []),
+            new_findings_since_last_review=data.get(
+                "new_findings_since_last_review", []
+            ),
             has_posted_findings=data.get("has_posted_findings", False),
             posted_finding_ids=data.get("posted_finding_ids", []),
         )
