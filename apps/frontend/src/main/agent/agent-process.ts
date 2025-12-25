@@ -9,7 +9,7 @@ import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { findPythonCommand, parsePythonCommand, validatePythonPath } from '../python-detector';
 
 /**
  * Process spawning and lifecycle management
@@ -28,12 +28,16 @@ export class AgentProcessManager {
     this.emitter = emitter;
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      const validation = validatePythonPath(pythonPath);
+      if (validation.valid) {
+        this.pythonPath = validation.sanitizedPath || pythonPath;
+      } else {
+        console.error(`[AgentProcess] Invalid Python path rejected: ${validation.reason}`);
+        console.error(`[AgentProcess] Falling back to auto-detected Python`);
+        this.pythonPath = findPythonCommand() || 'python';
+      }
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;

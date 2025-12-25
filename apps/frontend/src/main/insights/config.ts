@@ -2,7 +2,7 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
-import { findPythonCommand } from '../python-detector';
+import { findPythonCommand, validatePythonPath } from '../python-detector';
 
 /**
  * Configuration manager for insights service
@@ -13,12 +13,15 @@ export class InsightsConfig {
   private pythonPath: string = findPythonCommand() || 'python';
   private autoBuildSourcePath: string = '';
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      const validation = validatePythonPath(pythonPath);
+      if (validation.valid) {
+        this.pythonPath = validation.sanitizedPath || pythonPath;
+      } else {
+        console.error(`[InsightsConfig] Invalid Python path rejected: ${validation.reason}`);
+        this.pythonPath = findPythonCommand() || 'python';
+      }
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
