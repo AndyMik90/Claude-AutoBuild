@@ -19,7 +19,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import type { Project, Workspace, ProjectRole } from '../../../shared/types';
+import type { Project } from '../../../shared/types';
+
+type ProjectRole = 'backend' | 'frontend' | 'mobile' | 'shared' | 'api' | 'worker' | 'other';
+
+interface WorkspaceProject {
+  projectId: string;
+  role: ProjectRole;
+}
+
+interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  projects?: WorkspaceProject[];
+}
+
+type IPCResult<T> = { success: boolean; data?: T; error?: string };
+
+type WorkspaceApi = {
+  createWorkspace: (
+    name: string,
+    description?: string,
+    options?: { validationEnabled?: boolean; validationTriggers?: string[] }
+  ) => Promise<IPCResult<Workspace>>;
+  addProjectToWorkspace: (
+    workspaceId: string,
+    projectId: string,
+    role: ProjectRole
+  ) => Promise<IPCResult<Workspace>>;
+  getWorkspace: (workspaceId: string) => Promise<IPCResult<Workspace>>;
+};
 
 interface AddWorkspaceModalProps {
   open: boolean;
@@ -87,12 +117,18 @@ export function AddWorkspaceModal({
       return;
     }
 
+    const workspaceApi = window.electronAPI as unknown as Partial<WorkspaceApi>;
+    if (!workspaceApi.createWorkspace || !workspaceApi.addProjectToWorkspace || !workspaceApi.getWorkspace) {
+      setError('Workspace API not available');
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 
     try {
       // Create the workspace
-      const result = await window.electronAPI.createWorkspace(
+      const result = await workspaceApi.createWorkspace(
         name.trim(),
         description.trim() || undefined,
         {
@@ -109,7 +145,7 @@ export function AddWorkspaceModal({
 
       // Add projects to the workspace
       for (const selected of selectedProjects) {
-        await window.electronAPI.addProjectToWorkspace(
+        await workspaceApi.addProjectToWorkspace(
           workspace.id,
           selected.projectId,
           selected.role
@@ -117,7 +153,7 @@ export function AddWorkspaceModal({
       }
 
       // Reload the workspace with members
-      const reloadResult = await window.electronAPI.getWorkspace(workspace.id);
+      const reloadResult = await workspaceApi.getWorkspace(workspace.id);
       const finalWorkspace = reloadResult.success && reloadResult.data ? reloadResult.data : workspace;
 
       onCreated(finalWorkspace);

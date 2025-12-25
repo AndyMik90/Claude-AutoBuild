@@ -15,18 +15,18 @@ from pathlib import Path
 try:
     from ..models import (
         GitLabRunnerConfig,
+        MergeVerdict,
         MRContext,
         MRReviewFinding,
-        MergeVerdict,
         ReviewCategory,
         ReviewSeverity,
     )
 except (ImportError, ValueError, SystemError):
     from models import (
         GitLabRunnerConfig,
+        MergeVerdict,
         MRContext,
         MRReviewFinding,
-        MergeVerdict,
         ReviewCategory,
         ReviewSeverity,
     )
