@@ -18,6 +18,7 @@ import { createInsightsAPI, InsightsAPI } from './modules/insights-api';
 import { createChangelogAPI, ChangelogAPI } from './modules/changelog-api';
 import { createLinearAPI, LinearAPI } from './modules/linear-api';
 import { createGitHubAPI, GitHubAPI } from './modules/github-api';
+import { createGitLabAPI, GitLabAPI } from './modules/gitlab-api';
 import { createAutoBuildAPI, AutoBuildAPI } from './modules/autobuild-api';
 import { createShellAPI, ShellAPI } from './modules/shell-api';
 
@@ -32,6 +33,7 @@ export interface AgentAPI extends
   ChangelogAPI,
   LinearAPI,
   GitHubAPI,
+  GitLabAPI,
   AutoBuildAPI,
   ShellAPI {}
 
@@ -47,6 +49,7 @@ export const createAgentAPI = (): AgentAPI => {
   const changelogAPI = createChangelogAPI();
   const linearAPI = createLinearAPI();
   const githubAPI = createGitHubAPI();
+  const gitlabAPI = createGitLabAPI();
   const autobuildAPI = createAutoBuildAPI();
   const shellAPI = createShellAPI();
 
@@ -69,6 +72,9 @@ export const createAgentAPI = (): AgentAPI => {
     // GitHub Integration API
     ...githubAPI,
 
+    // GitLab Integration API
+    ...gitlabAPI,
+
     // Auto-Build Source Update API
     ...autobuildAPI,
 
@@ -85,6 +91,7 @@ export type {
   ChangelogAPI,
   LinearAPI,
   GitHubAPI,
+  GitLabAPI,
   AutoBuildAPI,
   ShellAPI
 };

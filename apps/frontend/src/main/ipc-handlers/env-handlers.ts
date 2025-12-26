@@ -9,6 +9,22 @@ import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
 
+// GitLab environment variable keys
+const GITLAB_ENV_KEYS = {
+  ENABLED: 'GITLAB_ENABLED',
+  TOKEN: 'GITLAB_TOKEN',
+  INSTANCE_URL: 'GITLAB_INSTANCE_URL',
+  PROJECT: 'GITLAB_PROJECT',
+  AUTO_SYNC: 'GITLAB_AUTO_SYNC'
+} as const;
+
+/**
+ * Helper to generate .env line (DRY)
+ */
+function envLine(vars: Record<string, string>, key: string, defaultVal: string = ''): string {
+  return vars[key] ? `${key}=${vars[key]}` : `# ${key}=${defaultVal}`;
+}
+
 
 /**
  * Register all env-related IPC handlers
@@ -61,6 +77,22 @@ export function registerEnvHandlers(
     }
     if (config.githubAutoSync !== undefined) {
       existingVars['GITHUB_AUTO_SYNC'] = config.githubAutoSync ? 'true' : 'false';
+    }
+    // GitLab Integration
+    if (config.gitlabEnabled !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.ENABLED] = config.gitlabEnabled ? 'true' : 'false';
+    }
+    if (config.gitlabToken !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.TOKEN] = config.gitlabToken;
+    }
+    if (config.gitlabInstanceUrl !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.INSTANCE_URL] = config.gitlabInstanceUrl;
+    }
+    if (config.gitlabProject !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.PROJECT] = config.gitlabProject;
+    }
+    if (config.gitlabAutoSync !== undefined) {
+      existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
     }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
@@ -133,6 +165,15 @@ ${existingVars['LINEAR_REALTIME_SYNC'] !== undefined ? `LINEAR_REALTIME_SYNC=${e
 ${existingVars['GITHUB_TOKEN'] ? `GITHUB_TOKEN=${existingVars['GITHUB_TOKEN']}` : '# GITHUB_TOKEN='}
 ${existingVars['GITHUB_REPO'] ? `GITHUB_REPO=${existingVars['GITHUB_REPO']}` : '# GITHUB_REPO=owner/repo'}
 ${existingVars['GITHUB_AUTO_SYNC'] !== undefined ? `GITHUB_AUTO_SYNC=${existingVars['GITHUB_AUTO_SYNC']}` : '# GITHUB_AUTO_SYNC=false'}
+
+# =============================================================================
+# GITLAB INTEGRATION (OPTIONAL)
+# =============================================================================
+${existingVars[GITLAB_ENV_KEYS.ENABLED] !== undefined ? `${GITLAB_ENV_KEYS.ENABLED}=${existingVars[GITLAB_ENV_KEYS.ENABLED]}` : `# ${GITLAB_ENV_KEYS.ENABLED}=true`}
+${envLine(existingVars, GITLAB_ENV_KEYS.INSTANCE_URL, 'https://gitlab.com')}
+${envLine(existingVars, GITLAB_ENV_KEYS.TOKEN)}
+${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
+${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
 
 # =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
@@ -215,6 +256,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         claudeAuthStatus: 'not_configured',
         linearEnabled: false,
         githubEnabled: false,
+        gitlabEnabled: false,
         graphitiEnabled: false,
         enableFancyUi: true,
         claudeTokenIsGlobal: false,
@@ -271,6 +313,22 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars['GITHUB_AUTO_SYNC']?.toLowerCase() === 'true') {
         config.githubAutoSync = true;
+      }
+
+      // GitLab config
+      if (vars[GITLAB_ENV_KEYS.TOKEN]) {
+        config.gitlabToken = vars[GITLAB_ENV_KEYS.TOKEN];
+        // Enable by default if token exists and GITLAB_ENABLED is not explicitly false
+        config.gitlabEnabled = vars[GITLAB_ENV_KEYS.ENABLED]?.toLowerCase() !== 'false';
+      }
+      if (vars[GITLAB_ENV_KEYS.INSTANCE_URL]) {
+        config.gitlabInstanceUrl = vars[GITLAB_ENV_KEYS.INSTANCE_URL];
+      }
+      if (vars[GITLAB_ENV_KEYS.PROJECT]) {
+        config.gitlabProject = vars[GITLAB_ENV_KEYS.PROJECT];
+      }
+      if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
+        config.gitlabAutoSync = true;
       }
 
       // Git/Worktree config
