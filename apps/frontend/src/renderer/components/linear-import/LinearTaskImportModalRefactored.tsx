@@ -92,7 +92,7 @@ export function LinearTaskImportModalRefactored({
 
         {/* Main Content - Only show when not in success state */}
         {!importResult?.success && (
-          <>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Team and Project Selection */}
             <TeamProjectSelector
               teams={teams}
@@ -138,7 +138,7 @@ export function LinearTaskImportModalRefactored({
               filterState={filterState}
               onToggleIssue={selectionControls.toggleIssue}
             />
-          </>
+          </div>
         )}
 
         <DialogFooter className="shrink-0">
