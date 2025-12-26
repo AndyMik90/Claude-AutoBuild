@@ -112,6 +112,27 @@ export {
 export type { EventBridgeOptions } from './event-bridge';
 
 // ============================================
+// Startup (for Electron integration)
+// ============================================
+
+export {
+  initializeApiServer,
+  shutdownApiServer,
+  getApiServerStatus,
+  isApiServerEnabled,
+  isApiServerRunning,
+  areApiKeysLoaded,
+  getApiServerInstance,
+} from './startup';
+
+export type {
+  ApiStartupOptions,
+  ApiStartupResult,
+  ApiShutdownResult,
+  ApiServerStatus,
+} from './startup';
+
+// ============================================
 // Types (re-exported from types module)
 // ============================================
 
