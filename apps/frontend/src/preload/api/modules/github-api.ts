@@ -155,6 +155,11 @@ export interface GitHubAPI {
   getGitHubUser: () => Promise<IPCResult<{ username: string; name?: string }>>;
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
 
+  // OAuth event listener - receives device code immediately when extracted
+  onGitHubAuthDeviceCode: (
+    callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
+  ) => IpcListenerCleanup;
+
   // Repository detection and management
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
@@ -397,6 +402,12 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   listGitHubUserRepos: (): Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_LIST_USER_REPOS),
+
+  // OAuth event listener - receives device code immediately when extracted (during auth process)
+  onGitHubAuthDeviceCode: (
+    callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, callback),
 
   // Repository detection and management
   detectGitHubRepo: (projectPath: string): Promise<IPCResult<string>> =>

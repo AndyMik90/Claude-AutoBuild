@@ -200,6 +200,9 @@ export const IPC_CHANNELS = {
   GITHUB_ADD_REMOTE: 'github:addRemote',
   GITHUB_LIST_ORGS: 'github:listOrgs',
 
+  // GitHub OAuth events (main -> renderer) - for streaming device code during auth
+  GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',
+
   // GitHub events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',

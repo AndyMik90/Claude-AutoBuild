@@ -208,5 +208,8 @@ export const integrationMock = {
         { login: 'another-org', avatarUrl: 'https://avatars.githubusercontent.com/u/2?v=4' }
       ]
     }
-  })
+  }),
+
+  // OAuth device code event listener (for streaming device code during auth)
+  onGitHubAuthDeviceCode: () => () => {}
 };
