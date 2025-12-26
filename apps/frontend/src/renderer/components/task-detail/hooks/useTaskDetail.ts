@@ -48,19 +48,21 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showConflictDialog, setShowConflictDialog] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
-  const isRunning = task.status === 'in_progress' || task.status === 'ai_review';
+  const isRunning = task.status === 'in_progress';
+  // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
+  const isActiveTask = task.status === 'in_progress' || task.status === 'ai_review';
   const needsReview = task.status === 'human_review';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
   const isIncomplete = isIncompleteHumanReview(task);
   const taskProgress = getTaskProgress(task);
 
-  // Check if task is stuck (status says in_progress but no actual process)
+  // Check if task is stuck (status says in_progress/ai_review but no actual process)
   // Add a grace period to avoid false positives during process spawn
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
 
-    if (isRunning && !hasCheckedRunning) {
+    if (isActiveTask && !hasCheckedRunning) {
       // Wait 2 seconds before checking - gives process time to spawn and register
       timeoutId = setTimeout(() => {
         checkTaskRunning(task.id).then((actuallyRunning) => {
@@ -68,7 +70,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
           setHasCheckedRunning(true);
         });
       }, 2000);
-    } else if (!isRunning) {
+    } else if (!isActiveTask) {
       setIsStuck(false);
       setHasCheckedRunning(false);
     }
@@ -76,7 +78,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [task.id, isRunning, hasCheckedRunning]);
+  }, [task.id, isActiveTask, hasCheckedRunning]);
 
   // Handle scroll events in logs to detect if user scrolled up
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {

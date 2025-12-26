@@ -30,7 +30,9 @@
   },
   "oauth": {
     "title": "Authentification Claude",
-    "description": "Connectez votre compte Claude pour activer les fonctionnalités IA"
+    "description": "Connectez votre compte Claude pour activer les fonctionnalités IA",
+    "keychainTitle": "Stockage sécurisé",
+    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir."
   },
   "memory": {
     "title": "Mémoire",

@@ -303,16 +303,9 @@ export function App() {
       useTaskStore.getState().clearTasks();
     }
 
-    // Handle terminals on project change
-    const currentTerminals = useTerminalStore.getState().terminals;
-
-    // Close existing terminals (they belong to the previous project)
-    currentTerminals.forEach((t) => {
-      window.electronAPI.destroyTerminal(t.id);
-    });
-    useTerminalStore.getState().clearAllTerminals();
-
-    // Try to restore saved sessions for the new project
+    // Handle terminals on project change - DON'T destroy, just restore if needed
+    // Terminals are now filtered by projectPath in TerminalGrid, so each project
+    // sees only its own terminals. PTY processes stay alive across project switches.
     if (selectedProject?.path) {
       restoreTerminalSessions(selectedProject.path).catch((err) => {
         console.error('[App] Failed to restore sessions:', err);
