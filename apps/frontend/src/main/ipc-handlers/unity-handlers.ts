@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import { projectStore } from '../project-store';
-import { parseUnityTestResults, formatTestSummary } from '../utils/unity-test-parser';
+import { parseUnityTestResults } from '../utils/unity-test-parser';
 import { buildUnityErrorDigest } from '../utils/unity-error-digest';
 import { unityProcessStore } from '../utils/process-manager';
 
