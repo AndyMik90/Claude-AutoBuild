@@ -121,6 +121,13 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
 
+      // Validate that sanitized slug is not empty (e.g., "!!!" becomes "")
+      if (!profileSlug) {
+        setError('Profile name must contain at least one letter or number');
+        setIsAddingProfile(false);
+        return;
+      }
+
       const result = await window.electronAPI.saveClaudeProfile({
         id: `profile-${Date.now()}`,
         name: profileName,
