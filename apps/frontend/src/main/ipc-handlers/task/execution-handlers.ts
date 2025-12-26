@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
+import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -203,7 +203,8 @@ export function registerTaskExecutionHandlers(
       _,
       taskId: string,
       approved: boolean,
-      feedback?: string
+      feedback?: string,
+      images?: ImageAttachment[]
     ): Promise<IPCResult> => {
       // Find task and project
       const { task, project } = findTaskAndProject(taskId);
@@ -224,6 +225,30 @@ export function registerTaskExecutionHandlers(
       const worktreePath = path.join(project.path, '.worktrees', task.specId);
       const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
       const hasWorktree = existsSync(worktreePath);
+
+      // Process and save attached images for QA feedback
+      let savedImagePaths: string[] = [];
+      if (!approved && images && images.length > 0) {
+        const targetSpecDir = hasWorktree ? worktreeSpecDir : specDir;
+        const attachmentsDir = path.join(targetSpecDir, 'attachments');
+        mkdirSync(attachmentsDir, { recursive: true });
+
+        for (const image of images) {
+          if (image.data) {
+            try {
+              // Decode base64 and save to file
+              const buffer = Buffer.from(image.data, 'base64');
+              const imagePath = path.join(attachmentsDir, image.filename);
+              writeFileSync(imagePath, buffer);
+
+              // Track saved image paths for QA_FIX_REQUEST.md
+              savedImagePaths.push(`attachments/${image.filename}`);
+            } catch (err) {
+              console.error(`[TASK_REVIEW] Failed to save image ${image.filename}:`, err);
+            }
+          }
+        }
+      }
 
       if (approved) {
         // Write approval to QA report
