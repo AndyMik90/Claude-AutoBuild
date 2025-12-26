@@ -1813,7 +1813,7 @@ export function DokployDeployModal({ open, onOpenChange, projectId }: DokployDep
         {step === 'success' && (
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)}>
-              Close
+              {t('modal.close')}
             </Button>
           </DialogFooter>
         )}
@@ -1829,7 +1829,7 @@ export function DokployDeployModal({ open, onOpenChange, projectId }: DokployDep
               </Button>
             </div>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+              {t('modal.close')}
             </Button>
           </DialogFooter>
         )}

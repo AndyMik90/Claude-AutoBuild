@@ -46,6 +46,7 @@
     "deploy": "Déployer",
     "deploying": "Déploiement...",
     "cancel": "Annuler",
+    "close": "Fermer",
     "success": {
       "title": "Déploiement lancé",
       "description": "Votre application est en cours de déploiement sur Dokploy"
