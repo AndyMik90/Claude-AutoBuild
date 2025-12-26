@@ -600,10 +600,29 @@ export class ProjectStore {
   }
 
   /**
+   * Validate taskId to prevent path traversal attacks
+   * Returns true if taskId is safe to use in path operations
+   */
+  private isValidTaskId(taskId: string): boolean {
+    // Reject empty, null/undefined, or strings with path traversal characters
+    if (!taskId || typeof taskId !== 'string') return false;
+    if (taskId.includes('/') || taskId.includes('\\')) return false;
+    if (taskId === '.' || taskId === '..') return false;
+    if (taskId.includes('\0')) return false; // Null byte injection
+    return true;
+  }
+
+  /**
    * Find ALL spec paths for a task, checking main directory and worktrees
    * A task can exist in multiple locations (main + worktree), so return all paths
    */
   private findAllSpecPaths(projectPath: string, specsBaseDir: string, taskId: string): string[] {
+    // Validate taskId to prevent path traversal
+    if (!this.isValidTaskId(taskId)) {
+      console.error(`[ProjectStore] findAllSpecPaths: Invalid taskId rejected: ${taskId}`);
+      return [];
+    }
+
     const paths: string[] = [];
 
     // 1. Check main specs directory
@@ -664,8 +683,15 @@ export class ProjectStore {
         try {
           const metadataPath = path.join(specPath, 'task_metadata.json');
           let metadata: TaskMetadata = {};
-          if (existsSync(metadataPath)) {
+
+          // Read existing metadata, handling missing file without TOCTOU race
+          try {
             metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+          } catch (readErr: unknown) {
+            // File doesn't exist yet - start with empty metadata
+            if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw readErr;
+            }
           }
 
           // Add archive info
@@ -715,15 +741,23 @@ export class ProjectStore {
       for (const specPath of specPaths) {
         try {
           const metadataPath = path.join(specPath, 'task_metadata.json');
-          if (existsSync(metadataPath)) {
-            const metadata: TaskMetadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
-            delete metadata.archivedAt;
-            delete metadata.archivedInVersion;
-            writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-            console.log(`[ProjectStore] unarchiveTasks: Successfully unarchived task ${taskId} at ${specPath}`);
-          } else {
-            console.warn(`[ProjectStore] unarchiveTasks: Metadata file not found for task ${taskId} at ${specPath}`);
+          let metadata: TaskMetadata;
+
+          // Read metadata, handling missing file without TOCTOU race
+          try {
+            metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              console.warn(`[ProjectStore] unarchiveTasks: Metadata file not found for task ${taskId} at ${specPath}`);
+              continue;
+            }
+            throw readErr;
           }
+
+          delete metadata.archivedAt;
+          delete metadata.archivedInVersion;
+          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+          console.log(`[ProjectStore] unarchiveTasks: Successfully unarchived task ${taskId} at ${specPath}`);
         } catch (error) {
           console.error(`[ProjectStore] unarchiveTasks: Failed to unarchive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
