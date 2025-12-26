@@ -37,6 +37,7 @@ export function FileList({ files, selectedIndex, onSelect, hasResolution }: File
 
           return (
             <button
+              type="button"
               key={file.filePath}
               onClick={() => onSelect(index)}
               className={cn(
