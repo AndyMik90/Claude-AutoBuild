@@ -543,10 +543,6 @@ class FollowupReviewer:
         Returns parsed AI response with finding resolutions and new findings,
         or None if AI review fails.
         """
-        # Use raw Anthropic client for simple message API calls
-        # (ClaudeSDKClient is for agent sessions, not direct message calls)
-        import anthropic
-
         self._report_progress(
             "analyzing", 65, "Running AI-powered review...", context.pr_number
         )
@@ -623,18 +619,11 @@ Please analyze this follow-up review context and provide your response in the JS
 """
 
         try:
-            # Create Anthropic client for simple message API call
-            # Note: For agent sessions with tools, use ClaudeSDKClient instead
-            # Must use OAuth token from core.auth (not ANTHROPIC_API_KEY)
-            from core.auth import get_auth_token
+            # Use centralized message client factory (handles OAuth authentication)
+            # For full agent sessions with tools, use create_client() instead
+            from core.client import create_message_client
 
-            auth_token = get_auth_token()
-            if not auth_token:
-                logger.warning("No auth token available for AI review")
-                print("AI review failed: No OAuth token found", flush=True)
-                return None
-
-            client = anthropic.AsyncAnthropic(auth_token=auth_token)
+            client = create_message_client(async_client=True)
             model = self.config.model or "claude-sonnet-4-5-20250929"
 
             response = await client.messages.create(
@@ -647,6 +636,11 @@ Please analyze this follow-up review context and provide your response in the JS
             response_text = response.content[0].text
             return self._parse_ai_response(response_text)
 
+        except ValueError as e:
+            # OAuth token not found
+            logger.warning(f"No OAuth token available for AI review: {e}")
+            print("AI review failed: No OAuth token found", flush=True)
+            return None
         except Exception as e:
             logger.error(f"AI review failed: {e}")
             return None

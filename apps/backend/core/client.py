@@ -3,12 +3,20 @@ Claude SDK Client Configuration
 ===============================
 
 Functions for creating and configuring the Claude Agent SDK client.
+
+This module provides two main client factories:
+1. `create_client()` - Full Claude Agent SDK client for agent sessions with tools
+2. `create_message_client()` - Simple Anthropic client for direct message API calls
+
+All AI interactions should use these factories to ensure consistent OAuth authentication
+and avoid direct ANTHROPIC_API_KEY usage (which is not supported).
 """
 
 import json
 import os
 from pathlib import Path
 
+import anthropic
 from auto_claude_tools import (
     create_auto_claude_mcp_server,
     is_tools_available,
@@ -22,6 +30,34 @@ from core.auth import get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
+
+
+def create_message_client(
+    *, async_client: bool = True
+) -> anthropic.AsyncAnthropic | anthropic.Anthropic:
+    """
+    Create a simple Anthropic client for direct message API calls.
+
+    Use this for simple message API calls that don't require agent sessions,
+    tools, or MCP servers (e.g., follow-up review, simple analysis tasks).
+
+    For full agent sessions with tools, use `create_client()` instead.
+
+    Args:
+        async_client: If True (default), returns AsyncAnthropic. Otherwise returns sync Anthropic.
+
+    Returns:
+        Configured Anthropic client with OAuth authentication.
+
+    Raises:
+        ValueError: If no OAuth token is found.
+    """
+    oauth_token = require_auth_token()
+
+    if async_client:
+        return anthropic.AsyncAnthropic(auth_token=oauth_token)
+    else:
+        return anthropic.Anthropic(auth_token=oauth_token)
 
 
 def is_graphiti_mcp_enabled() -> bool:
