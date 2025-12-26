@@ -367,6 +367,26 @@ function saveRunRecord(projectId: string, run: UnityRun): void {
 }
 
 /**
+ * Load a single run record from disk
+ */
+function loadRunRecord(projectId: string, runId: string): UnityRun | null {
+  try {
+    const runsDir = getUnityRunsDir(projectId);
+    const runJsonPath = join(runsDir, runId, 'run.json');
+    
+    if (!existsSync(runJsonPath)) {
+      return null;
+    }
+    
+    const content = readFileSync(runJsonPath, 'utf-8');
+    return JSON.parse(content) as UnityRun;
+  } catch (error) {
+    console.error(`Failed to load run record ${runId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Run Unity EditMode tests
  */
 async function runEditModeTests(projectId: string, editorPath: string): Promise<void> {
@@ -459,8 +479,10 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
       writeFileSync(stderrFile, stderrData, 'utf-8');
 
-      // Check if this was a cancellation
-      const wasCanceled = run.status === 'canceled';
+      // Check if this was a cancellation by reloading from disk
+      // to avoid race condition with cancelRun handler
+      const diskRun = loadRunRecord(projectId, id);
+      const wasCanceled = diskRun?.status === 'canceled';
 
       // Update run record
       run.endedAt = endTime.toISOString();
@@ -469,6 +491,10 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
 
       if (!wasCanceled) {
         run.status = code === 0 ? 'success' : 'failed';
+      } else {
+        // Preserve cancellation status and reason from disk
+        run.status = 'canceled';
+        run.canceledReason = diskRun.canceledReason;
       }
 
       // Parse test results if available
@@ -606,8 +632,10 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
       writeFileSync(stderrFile, stderrData, 'utf-8');
 
-      // Check if this was a cancellation
-      const wasCanceled = run.status === 'canceled';
+      // Check if this was a cancellation by reloading from disk
+      // to avoid race condition with cancelRun handler
+      const diskRun = loadRunRecord(projectId, id);
+      const wasCanceled = diskRun?.status === 'canceled';
 
       // Update run record
       run.endedAt = endTime.toISOString();
@@ -616,6 +644,10 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
 
       if (!wasCanceled) {
         run.status = code === 0 ? 'success' : 'failed';
+      } else {
+        // Preserve cancellation status and reason from disk
+        run.status = 'canceled';
+        run.canceledReason = diskRun.canceledReason;
       }
 
       // Build error digest
