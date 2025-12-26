@@ -22,6 +22,8 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const title = pr.title;
+            // Sanitize title for safe markdown interpolation (prevent injection)
+            const sanitizedTitle = title.replace(/`/g, "'").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
             console.log(`::group::PR #${pr.number} - Validating PR title`);
             console.log(`Title: ${title}`);
@@ -78,7 +80,7 @@ jobs:
 
               let errorMsg = '## ❌ PR Title Validation Failed\n\n';
               errorMsg += `Your PR title does not follow [Conventional Commits](https://www.conventionalcommits.org/) format:\n\n`;
-              errorMsg += `> \`${title}\`\n\n`;
+              errorMsg += `> \`${sanitizedTitle}\`\n\n`;
               errorMsg += '### Expected Format\n\n';
               errorMsg += '```\ntype(scope): description\n```\n\n';
               errorMsg += '| Type | Description |\n';
@@ -108,6 +110,6 @@ jobs:
 
               core.summary
                 .addHeading('✅ PR Title Valid', 3)
-                .addRaw(`PR title follows Conventional Commits format: \`${title}\``);
+                .addRaw(`PR title follows Conventional Commits format: \`${sanitizedTitle}\``);
               await core.summary.write();
             }

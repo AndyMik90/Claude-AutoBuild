@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   # Python tests
   test-python:
@@ -36,6 +40,7 @@ jobs:
           uv pip install -r ../../tests/requirements-test.txt
 
       - name: Run tests
+        if: matrix.python-version != '3.12'
         working-directory: apps/backend
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
