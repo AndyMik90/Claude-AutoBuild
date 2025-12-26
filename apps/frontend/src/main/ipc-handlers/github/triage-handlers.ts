@@ -14,6 +14,7 @@ import fs from 'fs';
 import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
 import { getGitHubConfig } from './utils';
 import { readSettingsFile } from '../../settings-utils';
+import { getAugmentedEnv } from '../../env-utils';
 import type { Project, AppSettings } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
@@ -435,6 +436,7 @@ export function registerTriageHandlers(
                 // Use execFileSync with arguments array to prevent command injection
                 execFileSync('gh', ['issue', 'edit', String(issueNumber), '--add-label', safeLabels.join(',')], {
                   cwd: project.path,
+                  env: getAugmentedEnv(),
                 });
               }
             }

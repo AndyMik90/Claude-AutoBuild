@@ -15,6 +15,7 @@ import fs from 'fs';
 import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
 import { getGitHubConfig, githubFetch } from './utils';
 import { readSettingsFile } from '../../settings-utils';
+import { getAugmentedEnv } from '../../env-utils';
 import type { Project, AppSettings } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
@@ -477,6 +478,7 @@ export function registerPRHandlers(
           const diff = execFileSync('gh', ['pr', 'diff', String(prNumber)], {
             cwd: project.path,
             encoding: 'utf-8',
+            env: getAugmentedEnv(),
           });
           return diff;
         } catch {
@@ -748,6 +750,7 @@ export function registerPRHandlers(
             // Use execFileSync with arguments array to prevent command injection
             execFileSync('gh', ['pr', 'comment', String(prNumber), '--body-file', tmpFile], {
               cwd: project.path,
+              env: getAugmentedEnv(),
             });
             unlinkSync(tmpFile);
           } catch (error) {
@@ -848,6 +851,7 @@ export function registerPRHandlers(
           // Use execFileSync with arguments array to prevent command injection
           execFileSync('gh', ['pr', 'merge', String(prNumber), `--${mergeMethod}`], {
             cwd: project.path,
+            env: getAugmentedEnv(),
           });
           debugLog('PR merged successfully', { prNumber });
           return true;

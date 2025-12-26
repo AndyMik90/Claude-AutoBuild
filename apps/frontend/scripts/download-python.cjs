@@ -255,25 +255,39 @@ function extractTarGz(archivePath, destDir) {
   // Ensure destination exists
   fs.mkdirSync(destDir, { recursive: true });
 
-  // Build tar arguments
-  // On Windows, paths like D:\path are misinterpreted as remote host:path
-  // --force-local tells tar to treat colons as part of the filename
-  const tarArgs = ['-xzf', archivePath, '-C', destDir];
-  if (os.platform() === 'win32') {
-    tarArgs.unshift('--force-local');
-  }
+  const isWindows = os.platform() === 'win32';
 
-  // Use tar command with array arguments (safer than string interpolation)
-  const result = spawnSync('tar', tarArgs, {
-    stdio: 'inherit',
-  });
+  // On Windows, use Windows' built-in bsdtar (not Git Bash tar which has path issues)
+  // Git Bash's /usr/bin/tar interprets D: as a remote host, causing extraction to fail
+  // Windows Server 2019+ and Windows 10+ have bsdtar at C:\Windows\System32\tar.exe
+  if (isWindows) {
+    // Use explicit path to Windows tar to avoid Git Bash's /usr/bin/tar
+    const windowsTar = 'C:\\Windows\\System32\\tar.exe';
 
-  if (result.error) {
-    throw new Error(`Failed to extract archive: ${result.error.message}`);
-  }
+    const result = spawnSync(windowsTar, ['-xzf', archivePath, '-C', destDir], {
+      stdio: 'inherit',
+    });
 
-  if (result.status !== 0) {
-    throw new Error(`Failed to extract archive: tar exited with code ${result.status}`);
+    if (result.error) {
+      throw new Error(`Failed to extract archive: ${result.error.message}`);
+    }
+
+    if (result.status !== 0) {
+      throw new Error(`Failed to extract archive: Windows tar exited with code ${result.status}`);
+    }
+  } else {
+    // Unix: use tar directly
+    const result = spawnSync('tar', ['-xzf', archivePath, '-C', destDir], {
+      stdio: 'inherit',
+    });
+
+    if (result.error) {
+      throw new Error(`Failed to extract archive: ${result.error.message}`);
+    }
+
+    if (result.status !== 0) {
+      throw new Error(`Failed to extract archive: tar exited with code ${result.status}`);
+    }
   }
 
   console.log(`[download-python] Extraction complete`);
