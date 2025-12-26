@@ -370,43 +370,60 @@ export class ProjectStore {
         const stagedAt = planWithStaged?.stagedAt;
 
         // Determine execution progress by checking active or most recent phase from task logs
+        // Uses same merging logic as TaskLogService: planning from main, coding/validation from worktree
         let executionProgress: ExecutionProgress | undefined;
         const taskLogPath = path.join(specPath, 'task_log.json');
         const worktreeLogPath = path.join(specPath, '.worktrees', dir.name, 'task_log.json');
 
-        // Check worktree logs first (coding/validation runs in worktree)
+        // Load and merge logs (same logic as TaskLogService)
+        let mainLog: any = null;
+        let worktreeLog: any = null;
+
+        if (existsSync(taskLogPath)) {
+          try {
+            mainLog = JSON.parse(readFileSync(taskLogPath, 'utf-8'));
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
+        if (existsSync(worktreeLogPath)) {
+          try {
+            worktreeLog = JSON.parse(readFileSync(worktreeLogPath, 'utf-8'));
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
+        // Merge logs: planning from main, coding/validation from worktree (if available)
+        const mergedPhases = {
+          planning: mainLog?.phases?.planning || worktreeLog?.phases?.planning,
+          coding: (worktreeLog?.phases?.coding?.entries?.length > 0 || worktreeLog?.phases?.coding?.status !== 'pending')
+            ? worktreeLog?.phases?.coding
+            : mainLog?.phases?.coding,
+          validation: (worktreeLog?.phases?.validation?.entries?.length > 0 || worktreeLog?.phases?.validation?.status !== 'pending')
+            ? worktreeLog?.phases?.validation
+            : mainLog?.phases?.validation
+        };
+
+        // Find active or most recently completed phase (check in reverse order)
         let currentPhase: 'planning' | 'coding' | 'validation' | null = null;
-        let isPhaseActive = false;
+        const phases = ['validation', 'coding', 'planning'] as const;
 
-        for (const logPath of [worktreeLogPath, taskLogPath]) {
-          if (existsSync(logPath)) {
-            try {
-              const taskLog = JSON.parse(readFileSync(logPath, 'utf-8'));
-              const phases = ['validation', 'coding', 'planning'] as const; // Check in reverse order for most recent
+        // First, check for active phases
+        for (const phase of phases) {
+          if (mergedPhases[phase]?.status === 'active') {
+            currentPhase = phase;
+            break;
+          }
+        }
 
-              // First, check for active phases
-              for (const phase of phases) {
-                if (taskLog?.phases?.[phase]?.status === 'active') {
-                  currentPhase = phase;
-                  isPhaseActive = true;
-                  break;
-                }
-              }
-
-              // If no active phase, find the most recently completed phase
-              if (!currentPhase) {
-                for (const phase of phases) {
-                  if (taskLog?.phases?.[phase]?.status === 'completed') {
-                    currentPhase = phase;
-                    isPhaseActive = false;
-                    break;
-                  }
-                }
-              }
-
-              if (currentPhase) break;
-            } catch {
-              // Ignore read/parse errors
+        // If no active phase, find the most recently completed phase
+        if (!currentPhase) {
+          for (const phase of phases) {
+            if (mergedPhases[phase]?.status === 'completed') {
+              currentPhase = phase;
+              break;
             }
           }
         }
