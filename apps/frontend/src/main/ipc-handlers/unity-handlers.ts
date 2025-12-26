@@ -494,7 +494,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
       } else {
         // Preserve cancellation status and reason from disk
         run.status = 'canceled';
-        run.canceledReason = diskRun.canceledReason;
+        run.canceledReason = diskRun.canceledReason ?? 'unknown';
       }
 
       // Parse test results if available
@@ -647,7 +647,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
       } else {
         // Preserve cancellation status and reason from disk
         run.status = 'canceled';
-        run.canceledReason = diskRun.canceledReason;
+        run.canceledReason = diskRun.canceledReason ?? 'unknown';
       }
 
       // Build error digest
