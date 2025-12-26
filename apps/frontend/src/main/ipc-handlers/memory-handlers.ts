@@ -5,7 +5,7 @@
  * Uses LadybugDB (embedded Kuzu-based database) - no Docker required.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -111,6 +111,10 @@ async function executeOllamaDetector(
 
   // Find the ollama_model_detector.py script
   const possiblePaths = [
+    // Packaged app paths (check FIRST for packaged builds)
+    ...(app.isPackaged
+      ? [path.join(process.resourcesPath, 'backend', 'ollama_model_detector.py')]
+      : []),
     // Development paths
     path.resolve(__dirname, '..', '..', '..', 'backend', 'ollama_model_detector.py'),
     path.resolve(process.cwd(), 'apps', 'backend', 'ollama_model_detector.py'),
@@ -128,7 +132,17 @@ async function executeOllamaDetector(
   }
 
   if (!scriptPath) {
+    if (process.env.DEBUG) {
+      console.error(
+        '[OllamaDetector] Python script not found. Searched paths:',
+        possiblePaths
+      );
+    }
     return { success: false, error: 'ollama_model_detector.py script not found' };
+  }
+
+  if (process.env.DEBUG) {
+    console.log('[OllamaDetector] Using script at:', scriptPath);
   }
 
   const [pythonExe, baseArgs] = parsePythonCommand(pythonCmd);
