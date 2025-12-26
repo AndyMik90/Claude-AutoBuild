@@ -641,15 +641,22 @@ Please analyze this follow-up review context and provide your response in the JS
 
                 async for msg in client.receive_response():
                     msg_type = type(msg).__name__
+                    logger.debug(f"AI response message type: {msg_type}")
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
+                            block_type = type(block).__name__
+                            logger.debug(f"  Content block type: {block_type}")
                             if hasattr(block, "text"):
                                 response_text += block.text
+                            elif hasattr(block, "thinking"):
+                                # Skip thinking blocks - we only want the final text
+                                logger.debug("  (skipping thinking block)")
 
             if not response_text:
-                logger.warning("AI returned empty response")
+                logger.warning("AI returned empty response (no text blocks found)")
                 return None
 
+            logger.debug(f"AI response text (first 500 chars): {response_text[:500]}")
             return self._parse_ai_response(response_text)
 
         except ValueError as e:
