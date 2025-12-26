@@ -193,21 +193,14 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     });
   }, []);
 
-  // Restore merge preview from sessionStorage on mount (survives HMR reloads)
+  // Clear merge preview cache when task changes to ensure fresh data is fetched
+  // This invalidates any stale cached data (e.g., old uncommitted changes status)
   useEffect(() => {
     const storageKey = `mergePreview-${task.id}`;
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        const previewData = JSON.parse(stored);
-        console.warn('%c[useTaskDetail] Restored merge preview from sessionStorage:', 'color: magenta;', previewData);
-        setMergePreview(previewData);
-        // Don't auto-popup - restored data stays silent
-      } catch {
-        console.warn('[useTaskDetail] Failed to parse stored merge preview');
-        sessionStorage.removeItem(storageKey);
-      }
-    }
+    // Clear any existing cached preview - we want fresh data when opening a task
+    sessionStorage.removeItem(storageKey);
+    setMergePreview(null);
+    console.warn('[useTaskDetail] Cleared merge preview cache for task:', task.id);
   }, [task.id]);
 
   // Load merge preview (conflict detection)
