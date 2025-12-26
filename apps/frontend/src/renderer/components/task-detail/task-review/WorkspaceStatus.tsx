@@ -78,15 +78,6 @@ export function WorkspaceStatus({
   // Has path-mapped files that need AI merge
   const hasPathMappedMerges = pathMappedAIMergeCount > 0;
 
-  // Determine overall status - branch behind or path-mapped should show warning
-  const statusColor = hasGitConflicts || isBranchBehind || hasPathMappedMerges
-    ? 'warning'
-    : hasUncommittedChanges
-      ? 'warning'
-      : mergePreview && !hasAIConflicts
-        ? 'success'
-        : 'info';
-
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Header with stats */}
