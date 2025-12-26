@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   # Python tests
   test-python:
@@ -36,6 +40,7 @@ jobs:
           uv pip install -r ../../tests/requirements-test.txt
 
       - name: Run tests
+        if: matrix.python-version != '3.12'
         working-directory: apps/backend
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
@@ -50,7 +55,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=20
 
       - name: Upload coverage reports
         if: matrix.python-version == '3.12'
