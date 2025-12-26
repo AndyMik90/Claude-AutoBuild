@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
-import { findPythonCommand } from './python-detector';
+import { findPythonCommand, getBundledPythonPath } from './python-detector';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -97,13 +97,21 @@ export class PythonEnvManager extends EventEmitter {
   }
 
   /**
-   * Find system Python 3.10+
+   * Find Python 3.10+ (bundled or system).
    * Uses the shared python-detector logic which validates version requirements.
+   * Priority: bundled Python (packaged apps) > system Python
    */
   private findSystemPython(): string | null {
     const pythonCmd = findPythonCommand();
     if (!pythonCmd) {
       return null;
+    }
+
+    // If this is the bundled Python path, use it directly
+    const bundledPath = getBundledPythonPath();
+    if (bundledPath && pythonCmd === bundledPath) {
+      console.log(`[PythonEnvManager] Using bundled Python: ${bundledPath}`);
+      return bundledPath;
     }
 
     try {
@@ -130,11 +138,15 @@ export class PythonEnvManager extends EventEmitter {
 
     const systemPython = this.findSystemPython();
     if (!systemPython) {
-      this.emit(
-        'error',
-        'Python 3.10+ not found. Please install Python 3.10 or higher (required by claude-agent-sdk).\n\n' +
-        'Download: https://www.python.org/downloads/'
-      );
+      const isPackaged = app.isPackaged;
+      const errorMsg = isPackaged
+        ? 'Python not found. The bundled Python may be corrupted.\n\n' +
+          'Please try reinstalling the application, or install Python 3.10+ manually:\n' +
+          'https://www.python.org/downloads/'
+        : 'Python 3.10+ not found. Please install Python 3.10 or higher.\n\n' +
+          'This is required for development mode. Download from:\n' +
+          'https://www.python.org/downloads/';
+      this.emit('error', errorMsg);
       return false;
     }
 

@@ -115,6 +115,7 @@ node_modules/
 dist/
 out/
 *.tsbuildinfo
+apps/frontend/python-runtime/
 
 # Cache
 .cache/

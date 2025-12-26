@@ -28,10 +28,12 @@
     "start:mcp": "electron . --remote-debugging-port=9222",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild",
-    "package": "electron-vite build && electron-builder",
-    "package:mac": "electron-vite build && electron-builder --mac",
-    "package:win": "electron-vite build && electron-builder --win",
-    "package:linux": "electron-vite build && electron-builder --linux",
+    "python:download": "node scripts/download-python.cjs",
+    "python:download:all": "node scripts/download-python.cjs --all",
+    "package": "npm run python:download && electron-vite build && electron-builder",
+    "package:mac": "npm run python:download && electron-vite build && electron-builder --mac",
+    "package:win": "npm run python:download && electron-vite build && electron-builder --win",
+    "package:linux": "npm run python:download && electron-vite build && electron-builder --linux",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -149,6 +151,10 @@
       {
         "from": "resources/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": "python-runtime/${os}-${arch}/python",
+        "to": "python"
       },
       {
         "from": "../backend",
