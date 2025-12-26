@@ -1,12 +1,17 @@
 import { AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
+import type { ImageAttachment } from '../../../../shared/types';
 
 interface QAFeedbackSectionProps {
   feedback: string;
   isSubmitting: boolean;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
+  images: ImageAttachment[];
+  onImagesChange: (images: ImageAttachment[]) => void;
+  imageError: string | null;
+  onImageError: (error: string | null) => void;
 }
 
 /**
@@ -16,7 +21,11 @@ export function QAFeedbackSection({
   feedback,
   isSubmitting,
   onFeedbackChange,
-  onReject
+  onReject,
+  images,
+  onImagesChange,
+  imageError,
+  onImageError
 }: QAFeedbackSectionProps) {
   return (
     <div className="rounded-xl border border-warning/30 bg-warning/10 p-4">
