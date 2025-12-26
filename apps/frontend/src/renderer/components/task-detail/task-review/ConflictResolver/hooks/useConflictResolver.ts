@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type {
   FileConflict,
   ConflictResolution,
@@ -139,7 +139,7 @@ export function useConflictResolver(taskId: string) {
   }, [state.fileResolutions]);
 
   // Count resolved files
-  const resolvedCount = useCallback((): number => {
+  const resolvedCount = useMemo((): number => {
     let count = 0;
     state.files.forEach(file => {
       if (hasResolution(file.filePath)) count++;
@@ -252,7 +252,7 @@ export function useConflictResolver(taskId: string) {
 
     // Counts
     totalFiles: state.files.length,
-    resolvedCount: resolvedCount(),
+    resolvedCount,
 
     // Actions
     loadConflictDetails,
