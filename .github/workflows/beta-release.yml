@@ -33,7 +33,7 @@ jobs:
           echo "Valid beta version: $VERSION"
 
   create-tag:
-    name: Create beta tag
+    name: Update version and create beta tag
     needs: validate-version
     runs-on: ubuntu-latest
     permissions:
@@ -44,16 +44,72 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: develop
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push tag
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Update version in all files
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Updating version to $VERSION in all files..."
+
+          # Update apps/frontend/package.json
+          cd apps/frontend
+          npm pkg set version="$VERSION"
+          echo "✅ Updated apps/frontend/package.json to $VERSION"
+          cd ../..
+
+          # Update root package.json
+          npm pkg set version="$VERSION"
+          echo "✅ Updated root package.json to $VERSION"
+
+          # Update apps/backend/__init__.py
+          if [ -f "apps/backend/__init__.py" ]; then
+            sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py
+            echo "✅ Updated apps/backend/__init__.py to $VERSION"
+          fi
+
+          # Verify the updates
+          echo ""
+          echo "Verification:"
+          echo "  Frontend: $(grep '"version"' apps/frontend/package.json | head -1)"
+          echo "  Root: $(grep '"version"' package.json | head -1)"
+          if [ -f "apps/backend/__init__.py" ]; then
+            echo "  Backend: $(grep '__version__' apps/backend/__init__.py)"
+          fi
+
+      - name: Commit version update and create tag
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           VERSION="${{ github.event.inputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit version changes
+          git add apps/frontend/package.json package.json
+          if [ -f "apps/backend/__init__.py" ]; then
+            git add apps/backend/__init__.py
+          fi
+          git commit -m "chore: bump version to $VERSION for beta release"
+
+          # Create annotated tag
           git tag -a "v$VERSION" -m "Beta release v$VERSION"
+
+          # Push both commit and tag
+          git push origin develop
           git push origin "v$VERSION"
-          echo "Created tag v$VERSION"
+          echo "✅ Committed version update and created tag v$VERSION"
+
+      - name: Create tag only (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "DRY RUN: Would commit version update and create tag v$VERSION"
+          echo "Files that would be updated:"
+          git status --short
 
   # Intel build on Intel runner for native compilation
   build-macos-intel:
@@ -132,6 +188,7 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
 
   # Apple Silicon build on ARM64 runner for native compilation
   build-macos-arm64:
@@ -210,6 +267,7 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
 
   build-windows:
     needs: create-tag
@@ -266,6 +324,7 @@ jobs:
           name: windows-builds
           path: |
             apps/frontend/dist/*.exe
+            apps/frontend/dist/*.yml
 
   build-linux:
     needs: create-tag
@@ -319,6 +378,7 @@ jobs:
           path: |
             apps/frontend/dist/*.AppImage
             apps/frontend/dist/*.deb
+            apps/frontend/dist/*.yml
 
   create-release:
     needs: [create-tag, build-macos-intel, build-macos-arm64, build-windows, build-linux]
@@ -340,7 +400,7 @@ jobs:
       - name: Flatten and validate artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-assets/ \;
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" \) -exec cp {} release-assets/ \;
 
           # Validate that at least one artifact was copied
           artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) | wc -l)
