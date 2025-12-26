@@ -24,7 +24,7 @@ const mockProject = {
   autoBuildPath: '.auto-claude',
   settings: {
     model: 'sonnet',
-    memoryBackend: 'file',
+    memoryBackend: 'file' as const,
     linearSync: false,
     notifications: {
       onTaskComplete: true,

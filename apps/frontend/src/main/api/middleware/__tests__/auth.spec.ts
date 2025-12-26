@@ -3,7 +3,18 @@
  * Tests all authentication functions and middleware handlers
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
+
+// Helper to call middleware with proper this context
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const callMiddleware = async (
+  middleware: any,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  done: () => void
+): Promise<void> => {
+  await middleware.call(null as unknown as FastifyInstance, request, reply, done);
+};
 
 // Store original environment
 const originalEnv = process.env;
@@ -295,12 +306,14 @@ describe('API Key Authentication Middleware', () => {
 
   describe('authenticateApiKey middleware', () => {
     let mockReply: FastifyReply;
+    const mockDone = vi.fn();
 
     beforeEach(() => {
       mockReply = {
         code: vi.fn().mockReturnThis(),
         send: vi.fn().mockReturnThis(),
       } as unknown as FastifyReply;
+      mockDone.mockClear();
     });
 
     it('should return 401 when no API key is provided', async () => {
@@ -313,7 +326,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateApiKey(mockRequest, mockReply);
+      await callMiddleware(authenticateApiKey, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -335,7 +348,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateApiKey(mockRequest, mockReply);
+      await callMiddleware(authenticateApiKey, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -357,7 +370,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateApiKey(mockRequest, mockReply);
+      await callMiddleware(authenticateApiKey, mockRequest, mockReply, mockDone);
 
       // Should not call reply.code or reply.send for successful auth
       expect(mockReply.code).not.toHaveBeenCalled();
@@ -374,7 +387,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateApiKey(mockRequest, mockReply);
+      await callMiddleware(authenticateApiKey, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).not.toHaveBeenCalled();
       expect(mockReply.send).not.toHaveBeenCalled();
@@ -383,12 +396,14 @@ describe('API Key Authentication Middleware', () => {
 
   describe('authenticateWebSocket middleware', () => {
     let mockReply: FastifyReply;
+    const mockDone = vi.fn();
 
     beforeEach(() => {
       mockReply = {
         code: vi.fn().mockReturnThis(),
         send: vi.fn().mockReturnThis(),
       } as unknown as FastifyReply;
+      mockDone.mockClear();
     });
 
     it('should return 401 when no API key is provided', async () => {
@@ -401,7 +416,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateWebSocket(mockRequest, mockReply);
+      await callMiddleware(authenticateWebSocket, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -423,7 +438,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateWebSocket(mockRequest, mockReply);
+      await callMiddleware(authenticateWebSocket, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).toHaveBeenCalledWith(401);
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -444,7 +459,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateWebSocket(mockRequest, mockReply);
+      await callMiddleware(authenticateWebSocket, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).not.toHaveBeenCalled();
       expect(mockReply.send).not.toHaveBeenCalled();
@@ -460,7 +475,7 @@ describe('API Key Authentication Middleware', () => {
         query: { api_key: 'ws-key' },
       } as unknown as FastifyRequest;
 
-      await authenticateWebSocket(mockRequest, mockReply);
+      await callMiddleware(authenticateWebSocket, mockRequest, mockReply, mockDone);
 
       expect(mockReply.code).not.toHaveBeenCalled();
       expect(mockReply.send).not.toHaveBeenCalled();
@@ -476,7 +491,7 @@ describe('API Key Authentication Middleware', () => {
         query: {},
       } as unknown as FastifyRequest;
 
-      await authenticateWebSocket(mockRequest, mockReply);
+      await callMiddleware(authenticateWebSocket, mockRequest, mockReply, mockDone);
 
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({

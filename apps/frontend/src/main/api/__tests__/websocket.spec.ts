@@ -82,19 +82,12 @@ describe('WebSocket Connection Handling', () => {
           websocketModule.broadcastTaskProgress('task-123', {
             feature: 'Test Feature',
             workflow_type: 'feature',
-            workflow_rationale: 'Test',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             status: 'in_progress',
             phases: [],
-            summary: {
-              total_phases: 0,
-              total_subtasks: 0,
-              completed_subtasks: 0,
-              services_involved: [],
-              files_to_create: [],
-              files_to_modify: [],
-            },
+            final_acceptance: [],
+            spec_file: 'spec.md',
           });
         }).not.toThrow();
       });
@@ -103,13 +96,13 @@ describe('WebSocket Connection Handling', () => {
     describe('broadcastTaskStatusChange', () => {
       it('should not throw when no clients are connected', () => {
         expect(() => {
-          websocketModule.broadcastTaskStatusChange('task-123', 'in_progress', 'pending');
+          websocketModule.broadcastTaskStatusChange('task-123', 'in_progress', 'backlog');
         }).not.toThrow();
       });
 
       it('should accept status without previous status', () => {
         expect(() => {
-          websocketModule.broadcastTaskStatusChange('task-123', 'completed');
+          websocketModule.broadcastTaskStatusChange('task-123', 'done');
         }).not.toThrow();
       });
     });
@@ -152,9 +145,11 @@ describe('WebSocket Connection Handling', () => {
       it('should not throw when no clients are connected', () => {
         expect(() => {
           websocketModule.broadcastTaskExecutionProgress('task-123', {
-            phase: 'implementation',
-            subtaskId: 'subtask-1',
-            status: 'in_progress',
+            phase: 'coding',
+            phaseProgress: 50,
+            overallProgress: 25,
+            currentSubtask: 'subtask-1',
+            message: 'Working on subtask',
           });
         }).not.toThrow();
       });
@@ -520,10 +515,10 @@ describe('WebSocket Connection Handling', () => {
         messageHandler(Buffer.from(subscribeMessage));
 
         const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-          (call) => call[0].includes('"type":"subscribe"')
+          (call) => String(call[0]).includes('"type":"subscribe"')
         );
         expect(ackCall).toBeDefined();
-        const ackMessage = JSON.parse(ackCall![0] as string);
+        const ackMessage = JSON.parse(String(ackCall![0]));
         expect(ackMessage.payload.taskIds).toContain('task-1');
         expect(ackMessage.payload.taskIds).toContain('task-2');
         expect(ackMessage.payload.taskIds).toContain('task-3');
@@ -546,10 +541,10 @@ describe('WebSocket Connection Handling', () => {
         messageHandler(Buffer.from(subscribeMessage));
 
         const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-          (call) => call[0].includes('"type":"subscribe"')
+          (call) => String(call[0]).includes('"type":"subscribe"')
         );
         expect(ackCall).toBeDefined();
-        const ackMessage = JSON.parse(ackCall![0] as string);
+        const ackMessage = JSON.parse(String(ackCall![0]));
         expect(ackMessage.payload.projectIds).toContain('project-123');
       });
 
@@ -570,10 +565,10 @@ describe('WebSocket Connection Handling', () => {
         messageHandler(Buffer.from(subscribeMessage));
 
         const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-          (call) => call[0].includes('"type":"subscribe"')
+          (call) => String(call[0]).includes('"type":"subscribe"')
         );
         expect(ackCall).toBeDefined();
-        const ackMessage = JSON.parse(ackCall![0] as string);
+        const ackMessage = JSON.parse(String(ackCall![0]));
         expect(ackMessage.payload.events).toContain('task-progress');
         expect(ackMessage.payload.events).toContain('task-error');
       });
@@ -598,10 +593,10 @@ describe('WebSocket Connection Handling', () => {
         })));
 
         const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-          (call) => call[0].includes('"type":"unsubscribe"')
+          (call) => String(call[0]).includes('"type":"unsubscribe"')
         );
         expect(ackCall).toBeDefined();
-        const ackMessage = JSON.parse(ackCall![0] as string);
+        const ackMessage = JSON.parse(String(ackCall![0]));
         expect(ackMessage.payload.taskIds).not.toContain('task-1');
         expect(ackMessage.payload.taskIds).toContain('task-2');
       });
@@ -629,10 +624,10 @@ describe('WebSocket Connection Handling', () => {
         })));
 
         const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-          (call) => call[0].includes('"type":"unsubscribe"')
+          (call) => String(call[0]).includes('"type":"unsubscribe"')
         );
         expect(ackCall).toBeDefined();
-        const ackMessage = JSON.parse(ackCall![0] as string);
+        const ackMessage = JSON.parse(String(ackCall![0]));
         expect(ackMessage.payload.taskIds).toEqual([]);
         expect(ackMessage.payload.projectIds).toEqual([]);
         expect(ackMessage.payload.events).toEqual([]);
@@ -780,8 +775,8 @@ describe('WebSocket Connection Handling', () => {
     });
 
     it('should handle socket already closed when sending', () => {
-      // Socket with closed state
-      mockSocket.readyState = 3; // WebSocket.CLOSED
+      // Socket with closed state - use Object.defineProperty for read-only property
+      Object.defineProperty(mockSocket, 'readyState', { value: 3, writable: true }); // WebSocket.CLOSED
       wsHandler(mockSocket, mockRequest);
 
       // Should not throw when broadcasting to closed socket
@@ -851,10 +846,12 @@ describe('WebSocket Connection Handling', () => {
     it('should trim whitespace from task IDs in subscriptions', () => {
       const messageHandlers = new Map<string, (data: Buffer) => void>();
 
-      mockSocket.on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockSocket as any).on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         if (event === 'message') {
           messageHandlers.set(event, handler as (data: Buffer) => void);
         }
+        return mockSocket;
       });
 
       wsHandler(mockSocket, mockRequest);
@@ -871,10 +868,10 @@ describe('WebSocket Connection Handling', () => {
 
       // Check acknowledgment contains trimmed task ID
       const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-        (call) => call[0].includes('"type":"subscribe"')
+        (call) => String(call[0]).includes('"type":"subscribe"')
       );
       expect(ackCall).toBeDefined();
-      const ackMessage = JSON.parse(ackCall![0] as string);
+      const ackMessage = JSON.parse(String(ackCall![0]));
       expect(ackMessage.payload.taskIds).toContain('task-123');
       expect(ackMessage.payload.taskIds).not.toContain('  task-123  ');
     });
@@ -882,10 +879,12 @@ describe('WebSocket Connection Handling', () => {
     it('should ignore invalid event types in subscriptions', () => {
       const messageHandlers = new Map<string, (data: Buffer) => void>();
 
-      mockSocket.on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockSocket as any).on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         if (event === 'message') {
           messageHandlers.set(event, handler as (data: Buffer) => void);
         }
+        return mockSocket;
       });
 
       wsHandler(mockSocket, mockRequest);
@@ -902,10 +901,10 @@ describe('WebSocket Connection Handling', () => {
 
       // Check acknowledgment only contains valid event
       const ackCall = vi.mocked(mockSocket.send).mock.calls.find(
-        (call) => call[0].includes('"type":"subscribe"')
+        (call) => String(call[0]).includes('"type":"subscribe"')
       );
       expect(ackCall).toBeDefined();
-      const ackMessage = JSON.parse(ackCall![0] as string);
+      const ackMessage = JSON.parse(String(ackCall![0]));
       expect(ackMessage.payload.events).toContain('task-log');
       expect(ackMessage.payload.events).not.toContain('invalid-event');
     });
