@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ClipboardEvent, type DragEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type DragEvent } from 'react';
 import { Loader2, ChevronDown, ChevronUp, Image as ImageIcon, X, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
 import {
   Dialog,
@@ -20,28 +20,20 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select';
-import {
-  generateImageId,
-  blobToBase64,
-  createThumbnail,
-  isValidImageMimeType,
-  resolveFilename
-} from './ImageUpload';
+import { useImagePaste } from '../hooks/useImagePaste';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { AgentProfileSelector } from './AgentProfileSelector';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   TASK_CATEGORY_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_COMPLEXITY_LABELS,
   TASK_IMPACT_LABELS,
-  MAX_IMAGES_PER_TASK,
-  ALLOWED_IMAGE_TYPES_DISPLAY,
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING
@@ -107,9 +99,6 @@ export function TaskCreationWizard({
     settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
   );
 
-  // Image attachments
-  const [images, setImages] = useState<ImageAttachment[]>([]);
-
   // Referenced files from file explorer
   const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
 
@@ -120,14 +109,67 @@ export function TaskCreationWizard({
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
 
-  // Ref for the textarea to handle paste events
+  // Ref for the textarea to handle cursor position for @mentions
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   // Ref for the form scroll container (for drag auto-scroll)
   const formContainerRef = useRef<HTMLDivElement>(null);
 
-  // Drag-and-drop state for images over textarea
-  const [isDragOverTextarea, setIsDragOverTextarea] = useState(false);
+  // Custom drop handler for file references (from file explorer)
+  const handleFileReferenceDrop = useCallback((e: DragEvent<HTMLTextAreaElement>): boolean => {
+    const jsonData = e.dataTransfer?.getData('application/json');
+    if (jsonData) {
+      try {
+        const data = JSON.parse(jsonData);
+        if (data.type === 'file-reference' && data.name) {
+          // Insert @mention at cursor position in the textarea
+          const textarea = descriptionRef.current;
+          if (textarea) {
+            const cursorPos = textarea.selectionStart || 0;
+            const textBefore = description.substring(0, cursorPos);
+            const textAfter = description.substring(cursorPos);
+
+            // Insert @mention at cursor position
+            const mention = `@${data.name}`;
+            const newDescription = textBefore + mention + textAfter;
+            setDescription(newDescription);
+
+            // Set cursor after the inserted mention
+            setTimeout(() => {
+              textarea.focus();
+              const newCursorPos = cursorPos + mention.length;
+              textarea.setSelectionRange(newCursorPos, newCursorPos);
+            }, 0);
+
+            return true; // Drop was handled
+          }
+        }
+      } catch {
+        // Not valid JSON, continue to image handling
+      }
+    }
+    return false; // Not a file reference, let hook handle image drop
+  }, [description]);
+
+  // Image paste/drop handling via shared hook
+  const {
+    images,
+    setImages,
+    error: imageError,
+    setError: setImageError,
+    isDragOver: isDragOverTextarea,
+    handlePaste,
+    handleDragOver: handleTextareaDragOver,
+    handleDragLeave: handleTextareaDragLeave,
+    handleDrop: handleTextareaDrop
+  } = useImagePaste({
+    disabled: isCreating,
+    onSuccess: () => {
+      setPasteSuccess(true);
+      setTimeout(() => setPasteSuccess(false), 2000);
+    },
+    customDropHandler: handleFileReferenceDrop
+  });
 
   // @ autocomplete state
   const [autocomplete, setAutocomplete] = useState<{
@@ -240,83 +282,6 @@ export function TaskCreationWizard({
     requireReviewBeforeCoding,
     savedAt: new Date()
   }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding]);
-  /**
-   * Handle paste event for screenshot support
-   */
-  const handlePaste = useCallback(async (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const clipboardItems = e.clipboardData?.items;
-    if (!clipboardItems) return;
-
-    // Find image items in clipboard
-    const imageItems: DataTransferItem[] = [];
-    for (let i = 0; i < clipboardItems.length; i++) {
-      const item = clipboardItems[i];
-      if (item.type.startsWith('image/')) {
-        imageItems.push(item);
-      }
-    }
-
-    // If no images, allow normal paste behavior
-    if (imageItems.length === 0) return;
-
-    // Prevent default paste when we have images
-    e.preventDefault();
-
-    // Check if we can add more images
-    const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
-    if (remainingSlots <= 0) {
-      setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
-      return;
-    }
-
-    setError(null);
-
-    // Process image items
-    const newImages: ImageAttachment[] = [];
-    const existingFilenames = images.map(img => img.filename);
-
-    for (const item of imageItems.slice(0, remainingSlots)) {
-      const file = item.getAsFile();
-      if (!file) continue;
-
-      // Validate image type
-      if (!isValidImageMimeType(file.type)) {
-        setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
-        continue;
-      }
-
-      try {
-        const dataUrl = await blobToBase64(file);
-        const thumbnail = await createThumbnail(dataUrl);
-
-        // Generate filename for pasted images (screenshot-timestamp.ext)
-        const extension = file.type.split('/')[1] || 'png';
-        const baseFilename = `screenshot-${Date.now()}.${extension}`;
-        const resolvedFilename = resolveFilename(baseFilename, [
-          ...existingFilenames,
-          ...newImages.map(img => img.filename)
-        ]);
-
-        newImages.push({
-          id: generateImageId(),
-          filename: resolvedFilename,
-          mimeType: file.type,
-          size: file.size,
-          data: dataUrl.split(',')[1], // Store base64 without data URL prefix
-          thumbnail
-        });
-      } catch {
-        setError('Failed to process pasted image');
-      }
-    }
-
-    if (newImages.length > 0) {
-      setImages(prev => [...prev, ...newImages]);
-      // Show success feedback
-      setPasteSuccess(true);
-      setTimeout(() => setPasteSuccess(false), 2000);
-    }
-  }, [images]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -433,137 +398,6 @@ export function TaskCreationWizard({
       container.scrollTop += scrollSpeed;
     }
   }, []);
-
-  /**
-   * Handle drag over textarea for image drops
-   */
-  const handleTextareaDragOver = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOverTextarea(true);
-  }, []);
-
-  /**
-   * Handle drag leave from textarea
-   */
-  const handleTextareaDragLeave = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOverTextarea(false);
-  }, []);
-
-  /**
-   * Handle drop on textarea for file references and images
-   */
-  const handleTextareaDrop = useCallback(
-    async (e: DragEvent<HTMLTextAreaElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOverTextarea(false);
-
-      if (isCreating) return;
-
-      // First, check for file reference drops (from the file explorer)
-      const jsonData = e.dataTransfer?.getData('application/json');
-      if (jsonData) {
-        try {
-          const data = JSON.parse(jsonData);
-          if (data.type === 'file-reference' && data.name) {
-            // Insert @mention at cursor position in the textarea
-            const textarea = descriptionRef.current;
-            if (textarea) {
-              const cursorPos = textarea.selectionStart || 0;
-              const textBefore = description.substring(0, cursorPos);
-              const textAfter = description.substring(cursorPos);
-
-              // Insert @mention at cursor position
-              const mention = `@${data.name}`;
-              const newDescription = textBefore + mention + textAfter;
-              setDescription(newDescription);
-
-              // Set cursor after the inserted mention
-              setTimeout(() => {
-                textarea.focus();
-                const newCursorPos = cursorPos + mention.length;
-                textarea.setSelectionRange(newCursorPos, newCursorPos);
-              }, 0);
-
-              return; // Don't process as image
-            }
-          }
-        } catch {
-          // Not valid JSON, continue to image handling
-        }
-      }
-
-      // Fall back to image file handling
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
-
-      // Filter for image files
-      const imageFiles: File[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-          imageFiles.push(file);
-        }
-      }
-
-      if (imageFiles.length === 0) return;
-
-      // Check if we can add more images
-      const remainingSlots = MAX_IMAGES_PER_TASK - images.length;
-      if (remainingSlots <= 0) {
-        setError(`Maximum of ${MAX_IMAGES_PER_TASK} images allowed`);
-        return;
-      }
-
-      setError(null);
-
-      // Process image files
-      const newImages: ImageAttachment[] = [];
-      const existingFilenames = images.map(img => img.filename);
-
-      for (const file of imageFiles.slice(0, remainingSlots)) {
-        // Validate image type
-        if (!isValidImageMimeType(file.type)) {
-          setError(`Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`);
-          continue;
-        }
-
-        try {
-          const dataUrl = await blobToBase64(file);
-          const thumbnail = await createThumbnail(dataUrl);
-
-          // Use original filename or generate one
-          const baseFilename = file.name || `dropped-image-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
-          const resolvedFilename = resolveFilename(baseFilename, [
-            ...existingFilenames,
-            ...newImages.map(img => img.filename)
-          ]);
-
-          newImages.push({
-            id: generateImageId(),
-            filename: resolvedFilename,
-            mimeType: file.type,
-            size: file.size,
-            data: dataUrl.split(',')[1], // Store base64 without data URL prefix
-            thumbnail
-          });
-        } catch {
-          setError('Failed to process dropped image');
-        }
-      }
-
-      if (newImages.length > 0) {
-        setImages(prev => [...prev, ...newImages]);
-        // Show success feedback
-        setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 2000);
-      }
-    },
-    [images, isCreating, description]
-  );
 
   /**
    * Parse @mentions from description and create ReferencedFile entries
