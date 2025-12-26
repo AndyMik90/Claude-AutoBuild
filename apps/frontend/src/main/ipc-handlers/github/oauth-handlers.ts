@@ -360,13 +360,18 @@ export function registerStartGhAuth(): void {
             if (code === 0) {
               // Success case - include fallbackUrl if browser failed to open
               // so the user can manually navigate if needed
+              const successMessage = browserOpenedSuccessfully
+                ? 'Successfully authenticated with GitHub'
+                : 'Authentication successful. Browser could not be opened automatically.';
+
+              // Emit auth complete event to renderer
+              sendAuthComplete(true, successMessage);
+
               resolve({
                 success: true,
                 data: {
                   success: true,
-                  message: browserOpenedSuccessfully
-                    ? 'Successfully authenticated with GitHub'
-                    : 'Authentication successful. Browser could not be opened automatically.',
+                  message: successMessage,
                   deviceCode: extractedDeviceCode || undefined,
                   authUrl: extractedAuthUrl,
                   browserOpened: browserOpenedSuccessfully,
@@ -378,10 +383,14 @@ export function registerStartGhAuth(): void {
               // Even if auth failed, return device code info if we extracted it
               // This allows user to retry manually with the fallback URL
               const fallbackUrlForManualAuth = extractedDeviceCode ? extractedAuthUrl : GITHUB_DEVICE_URL;
+              const errorMessage = errorOutput || `Authentication failed with exit code ${code}`;
+
+              // Emit auth error event to renderer
+              sendAuthError(errorMessage);
 
               resolve({
                 success: false,
-                error: errorOutput || `Authentication failed with exit code ${code}`,
+                error: errorMessage,
                 data: {
                   success: false,
                   deviceCode: extractedDeviceCode || undefined,
@@ -397,6 +406,10 @@ export function registerStartGhAuth(): void {
 
           ghProcess.on('error', (error) => {
             debugLog('gh process error:', error.message);
+
+            // Emit auth error event to renderer
+            sendAuthError(error.message);
+
             resolve({
               success: false,
               error: error.message,
@@ -411,9 +424,14 @@ export function registerStartGhAuth(): void {
           });
         } catch (error) {
           debugLog('Exception in startGitHubAuth:', error instanceof Error ? error.message : error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+          // Emit auth error event to renderer
+          sendAuthError(errorMessage);
+
           resolve({
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: errorMessage,
             data: {
               success: false,
               browserOpened: false,

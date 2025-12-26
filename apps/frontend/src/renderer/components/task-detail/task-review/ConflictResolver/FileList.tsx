@@ -1,4 +1,4 @@
-import { FileCode, Check, Clock, AlertTriangle } from 'lucide-react';
+import { FileCode, Check, AlertTriangle } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import type { FileConflict } from '../../../../../shared/types';
 
@@ -37,6 +37,7 @@ export function FileList({ files, selectedIndex, onSelect, hasResolution }: File
 
           return (
             <button
+              type="button"
               key={file.filePath}
               onClick={() => onSelect(index)}
               className={cn(

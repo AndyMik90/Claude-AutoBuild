@@ -39,6 +39,7 @@ export function ResolutionControls({
           <span className="text-xs text-muted-foreground">Resolution mode:</span>
           <div className="flex rounded-md border border-border overflow-hidden">
             <button
+              type="button"
               onClick={() => onResolutionModeChange('file')}
               className={cn(
                 "px-3 py-1 text-xs transition-colors",
@@ -50,6 +51,7 @@ export function ResolutionControls({
               Entire File
             </button>
             <button
+              type="button"
               onClick={() => onResolutionModeChange('hunk')}
               className={cn(
                 "px-3 py-1 text-xs transition-colors border-l border-border",

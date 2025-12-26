@@ -48,6 +48,12 @@ export class PythonEnvManager extends EventEmitter {
       return path.join(app.getPath('userData'), 'python-venv');
     }
 
+    // Linux AppImages are mounted at /.mount_* paths which are read-only
+    // e.g., /.mount_auto-claudeXXXXXX/resources/...
+    if (process.platform === 'linux' && /^\/\.mount_/.test(this.autoBuildSourcePath)) {
+      return path.join(app.getPath('userData'), 'python-venv');
+    }
+
     // Development mode with writable source - use source directory
     return path.join(this.autoBuildSourcePath, '.venv');
   }

@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   AlertTriangle,
-  X,
   Loader2,
   Sparkles,
   Check,
@@ -59,8 +58,6 @@ export function ConflictResolverDialog({
     applyResolutions,
     applyAIForAll
   } = useConflictResolver(taskId);
-
-  const [showManualEditor, setShowManualEditor] = useState(false);
 
   // Load conflict details when dialog opens
   useEffect(() => {
@@ -218,7 +215,7 @@ export function ConflictResolverDialog({
                   resolutionMode={resolutionMode}
                   onResolutionModeChange={setResolutionMode}
                   onSetResolution={handleSetResolution}
-                  onEditManually={() => setShowManualEditor(true)}
+                  onEditManually={() => {}}
                 />
               </div>
             </>
