@@ -696,6 +696,14 @@ export function TaskCreationWizard({
                 ))}
               </div>
             )}
+
+            {/* Image error display */}
+            {imageError && !isCreating && (
+              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-xs text-destructive mt-2" role="alert">
+                <X className="h-3 w-3 mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{imageError}</span>
+              </div>
+            )}
           </div>
 
           {/* Title (Optional - Auto-generated if empty) */}
