@@ -312,10 +312,21 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
         console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
 
-        writeFileSync(
-          fixRequestPath,
-          `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
-        );
+        // Build QA Fix Request content with optional image attachments
+        let qaFixRequestContent = `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n`;
+
+        // Include image references if images were attached
+        if (savedImagePaths.length > 0) {
+          qaFixRequestContent += `\n## Attached Screenshots\n\nThe following images have been provided to help illustrate the issues:\n\n`;
+          for (const imagePath of savedImagePaths) {
+            qaFixRequestContent += `- ![Screenshot](${imagePath})\n`;
+          }
+          qaFixRequestContent += `\n**Note:** These images are located in the spec directory. Use your Read tool to view them.\n`;
+        }
+
+        qaFixRequestContent += `\nCreated at: ${new Date().toISOString()}\n`;
+
+        writeFileSync(fixRequestPath, qaFixRequestContent);
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
