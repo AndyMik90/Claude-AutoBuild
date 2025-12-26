@@ -36,10 +36,8 @@ import { Checkbox } from './ui/checkbox';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from './ui/dialog';
 import {
   Select,
@@ -138,14 +136,16 @@ export function Unity({ projectId }: UnityProps) {
 
   // M2: Profiles state
   const [profileSettings, setProfileSettings] = useState<UnityProfileSettings | null>(null);
-  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<UnityProfile | null>(null);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<UnityProfile | null>(null);
+  const [profileFormName, setProfileFormName] = useState<string>('');
+  const [profileFormBuildMethod, setProfileFormBuildMethod] = useState<string>('');
+  const [profileFormError, setProfileFormError] = useState<string>('');
 
   // M2: Pipeline state
-  const [pipelines, setPipelines] = useState<UnityPipelineRun[]>([]);
-  const [isLoadingPipelines, setIsLoadingPipelines] = useState(false);
+  const [, setPipelines] = useState<UnityPipelineRun[]>([]);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
   const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>([
     { type: 'validate', enabled: true },
@@ -251,6 +251,42 @@ export function Unity({ projectId }: UnityProps) {
     }
   }, [selectedProject]);
 
+  // M2: Load profiles
+  const loadProfiles = useCallback(async () => {
+    if (!selectedProject) return;
+
+    try {
+      const result = await window.electronAPI.getUnityProfiles(selectedProject.id);
+      if (result.success && result.data) {
+        setProfileSettings(result.data);
+        // Update PlayMode defaults from active profile
+        const activeProfile = result.data.profiles.find(p => p.id === result.data.activeProfileId);
+        if (activeProfile?.testDefaults?.playModeBuildTarget) {
+          setPlayModeBuildTarget(activeProfile.testDefaults.playModeBuildTarget);
+        }
+        if (activeProfile?.testDefaults?.testFilter) {
+          setPlayModeTestFilter(activeProfile.testDefaults.testFilter);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load Unity profiles:', err);
+    }
+  }, [selectedProject]);
+
+  // M2: Load pipelines
+  const loadPipelines = useCallback(async () => {
+    if (!selectedProject) return;
+
+    try {
+      const result = await window.electronAPI.loadUnityPipelines(selectedProject.id);
+      if (result.success && result.data) {
+        setPipelines(result.data.pipelines || []);
+      }
+    } catch (err) {
+      console.error('Failed to load Unity pipelines:', err);
+    }
+  }, [selectedProject]);
+
   // Initial load
   useEffect(() => {
     detectUnityProject();
@@ -258,7 +294,7 @@ export function Unity({ projectId }: UnityProps) {
     loadRuns();
     loadProfiles(); // M2
     loadPipelines(); // M2
-  }, [detectUnityProject, loadSettings, loadRuns, loadProfiles, loadPipelines]);
+  }, [selectedProject, detectUnityProject, loadSettings, loadRuns, loadProfiles, loadPipelines]);
 
   // Load editors when project info or settings change
   useEffect(() => {
@@ -334,50 +370,6 @@ export function Unity({ projectId }: UnityProps) {
       setIsRunning(false);
     }
   };
-
-  // M2: Load profiles
-  const loadProfiles = useCallback(async () => {
-    if (!selectedProject) return;
-
-    setIsLoadingProfiles(true);
-
-    try {
-      const result = await window.electronAPI.getUnityProfiles(selectedProject.id);
-      if (result.success && result.data) {
-        setProfileSettings(result.data);
-        // Update PlayMode defaults from active profile
-        const activeProfile = result.data.profiles.find(p => p.id === result.data.activeProfileId);
-        if (activeProfile?.testDefaults?.playModeBuildTarget) {
-          setPlayModeBuildTarget(activeProfile.testDefaults.playModeBuildTarget);
-        }
-        if (activeProfile?.testDefaults?.testFilter) {
-          setPlayModeTestFilter(activeProfile.testDefaults.testFilter);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load Unity profiles:', err);
-    } finally {
-      setIsLoadingProfiles(false);
-    }
-  }, [selectedProject]);
-
-  // M2: Load pipelines
-  const loadPipelines = useCallback(async () => {
-    if (!selectedProject) return;
-
-    setIsLoadingPipelines(true);
-
-    try {
-      const result = await window.electronAPI.loadUnityPipelines(selectedProject.id);
-      if (result.success && result.data) {
-        setPipelines(result.data.pipelines || []);
-      }
-    } catch (err) {
-      console.error('Failed to load Unity pipelines:', err);
-    } finally {
-      setIsLoadingPipelines(false);
-    }
-  }, [selectedProject]);
 
   // M2: Run PlayMode tests
   const runPlayModeTests = async () => {
@@ -1191,7 +1183,11 @@ export function Unity({ projectId }: UnityProps) {
                   <Button
                     className="w-full"
                     onClick={runPipeline}
-                    disabled={isRunningPipeline || !effectiveEditorPath}
+                    disabled={
+                      isRunningPipeline ||
+                      !effectiveEditorPath ||
+                      !pipelineSteps.some((step) => step.enabled)
+                    }
                   >
                     {isRunningPipeline ? (
                       <>
@@ -1527,7 +1523,12 @@ export function Unity({ projectId }: UnityProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditingProfile(profile)}
+                        onClick={() => {
+                          setEditingProfile(profile);
+                          setProfileFormName(profile.name);
+                          setProfileFormBuildMethod(profile.buildExecuteMethod || '');
+                          setProfileFormError('');
+                        }}
                       >
                         <Edit2 className="h-3 w-3 mr-1" />
                         {t('profiles.dialog.edit')}
@@ -1535,11 +1536,7 @@ export function Unity({ projectId }: UnityProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          if (confirm(t('profiles.dialog.confirmDelete', { name: profile.name }))) {
-                            deleteProfile(profile.id);
-                          }
-                        }}
+                        onClick={() => setDeleteConfirmProfile(profile)}
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
                         {t('profiles.dialog.delete')}
@@ -1555,7 +1552,12 @@ export function Unity({ projectId }: UnityProps) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setIsCreatingProfile(true)}
+                onClick={() => {
+                  setIsCreatingProfile(true);
+                  setProfileFormName('');
+                  setProfileFormBuildMethod('');
+                  setProfileFormError('');
+                }}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 {t('profiles.dialog.createNew')}
@@ -1565,12 +1567,21 @@ export function Unity({ projectId }: UnityProps) {
             {/* Profile Form (Create or Edit) */}
             {(isCreatingProfile || editingProfile) && (
               <div className="space-y-4 p-4 border rounded-lg">
+                {profileFormError && (
+                  <div className="text-sm text-red-500 bg-red-50 p-2 rounded">
+                    {profileFormError}
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="profile-name">{t('profiles.dialog.nameLabel')}</Label>
                   <Input
                     id="profile-name"
                     placeholder={t('profiles.dialog.namePlaceholder')}
-                    defaultValue={editingProfile?.name || ''}
+                    value={profileFormName}
+                    onChange={(e) => {
+                      setProfileFormName(e.target.value);
+                      setProfileFormError(''); // Clear error on input
+                    }}
                     className="mt-1"
                   />
                 </div>
@@ -1579,33 +1590,47 @@ export function Unity({ projectId }: UnityProps) {
                   <Input
                     id="profile-build-method"
                     placeholder={t('profiles.dialog.buildMethodPlaceholder')}
-                    defaultValue={editingProfile?.buildExecuteMethod || ''}
+                    value={profileFormBuildMethod}
+                    onChange={(e) => setProfileFormBuildMethod(e.target.value)}
                     className="mt-1"
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => {
-                      const nameInput = document.getElementById('profile-name') as HTMLInputElement;
-                      const buildMethodInput = document.getElementById('profile-build-method') as HTMLInputElement;
+                    onClick={async () => {
+                      // Validate profile name
+                      const trimmedName = profileFormName.trim();
+                      if (!trimmedName) {
+                        setProfileFormError('Profile name is required');
+                        return;
+                      }
 
                       const profileData = {
-                        name: nameInput.value,
-                        buildExecuteMethod: buildMethodInput.value || undefined,
+                        name: trimmedName,
+                        buildExecuteMethod: profileFormBuildMethod.trim() || undefined,
                         testDefaults: {
                           editModeEnabled: true,
                           playModeEnabled: true
                         }
                       };
 
-                      if (editingProfile) {
-                        updateProfile(editingProfile.id, profileData);
-                      } else {
-                        createProfile(profileData);
+                      try {
+                        if (editingProfile) {
+                          await updateProfile(editingProfile.id, profileData);
+                        } else {
+                          await createProfile(profileData);
+                        }
+                        // Only reset form on success
+                        setIsCreatingProfile(false);
+                        setEditingProfile(null);
+                        setProfileFormName('');
+                        setProfileFormBuildMethod('');
+                        setProfileFormError('');
+                      } catch (error) {
+                        console.error('Failed to save profile:', error);
+                        setProfileFormError('Failed to save profile. Please try again.');
+                        // Keep form open on error
                       }
-
-                      setIsCreatingProfile(false);
-                      setEditingProfile(null);
                     }}
                   >
                     {editingProfile ? t('profiles.dialog.save') : t('profiles.dialog.create')}
@@ -1615,6 +1640,9 @@ export function Unity({ projectId }: UnityProps) {
                     onClick={() => {
                       setIsCreatingProfile(false);
                       setEditingProfile(null);
+                      setProfileFormName('');
+                      setProfileFormBuildMethod('');
+                      setProfileFormError('');
                     }}
                   >
                     {t('profiles.dialog.cancel')}
@@ -1622,6 +1650,35 @@ export function Unity({ projectId }: UnityProps) {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmProfile !== null} onOpenChange={(open) => !open && setDeleteConfirmProfile(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('profiles.dialog.confirmDeleteTitle')}</DialogTitle>
+          </DialogHeader>
+          <p>{t('profiles.dialog.confirmDelete', { name: deleteConfirmProfile?.name || '' })}</p>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmProfile(null)}
+            >
+              {t('profiles.dialog.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteConfirmProfile) {
+                  deleteProfile(deleteConfirmProfile.id);
+                  setDeleteConfirmProfile(null);
+                }
+              }}
+            >
+              {t('profiles.dialog.delete')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

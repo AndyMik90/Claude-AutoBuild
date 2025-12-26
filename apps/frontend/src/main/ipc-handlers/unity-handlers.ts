@@ -127,6 +127,20 @@ interface UnityPipelineRun {
 const DEFAULT_CANCELED_REASON = 'canceled (reason unknown)';
 
 /**
+ * Parse ISO timestamp for use in IDs (includes milliseconds for uniqueness)
+ * Converts "2024-12-26T14:30:45.123Z" to "20241226-143045123"
+ */
+function parseTimestampForId(now: Date): string {
+  const iso = now.toISOString();
+  const parts = iso.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z/);
+  if (!parts) {
+    throw new Error(`Failed to parse ISO timestamp format: expected YYYY-MM-DDTHH:MM:SS.sssZ, got ${iso}`);
+  }
+  const [, y, m, d, hh, mm, ss, ms] = parts;
+  return `${y}${m}${d}-${hh}${mm}${ss}${ms}`;
+}
+
+/**
  * Detect if a directory is a Unity project and extract version info
  */
 function detectUnityProject(projectPath: string): UnityProjectInfo {
@@ -406,9 +420,9 @@ function getUnityRunsDir(projectId: string): string {
 function createRunDir(projectId: string, action: 'editmode-tests' | 'playmode-tests' | 'build'): { id: string; dir: string } {
   const runsDir = getUnityRunsDir(projectId);
 
-  // Generate run ID: YYYYMMDD-HHMMSS_action
+  // Generate run ID: YYYYMMDD-HHMMSSmmm_action (includes milliseconds for uniqueness)
   const now = new Date();
-  const timestamp = now.toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-').substring(0, 15);
+  const timestamp = parseTimestampForId(now);
   const id = `${timestamp}_${action}`;
   const runDir = join(runsDir, id);
 
@@ -433,9 +447,9 @@ function createPipelineDir(projectId: string): { id: string; dir: string } {
     mkdirSync(pipelinesDir, { recursive: true });
   }
 
-  // Generate pipeline ID: YYYYMMDD-HHMMSS_pipeline
+  // Generate pipeline ID: YYYYMMDD-HHMMSSmmm_pipeline (includes milliseconds for uniqueness)
   const now = new Date();
-  const timestamp = now.toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-').substring(0, 15);
+  const timestamp = parseTimestampForId(now);
   const id = `${timestamp}_pipeline`;
   const pipelineDir = join(pipelinesDir, id);
 
@@ -513,7 +527,7 @@ function loadRunRecord(projectId: string, runId: string): UnityRun | null {
 /**
  * Run Unity EditMode tests
  */
-async function runEditModeTests(projectId: string, editorPath: string): Promise<void> {
+async function runEditModeTests(projectId: string, editorPath: string): Promise<string> {
   const project = projectStore.getProject(projectId);
   if (!project) {
     throw new Error('Project not found');
@@ -642,7 +656,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
       }
 
       saveRunRecord(projectId, run);
-      resolve();
+      resolve(id);
     });
 
     childProcess.on('error', (error) => {
@@ -673,7 +687,7 @@ async function runPlayModeTests(
   projectId: string,
   editorPath: string,
   options?: { buildTarget?: string; testFilter?: string }
-): Promise<void> {
+): Promise<string> {
   const project = projectStore.getProject(projectId);
   if (!project) {
     throw new Error('Project not found');
@@ -820,7 +834,7 @@ async function runPlayModeTests(
       }
 
       saveRunRecord(projectId, run);
-      resolve();
+      resolve(id);
     });
 
     childProcess.on('error', (error) => {
@@ -847,7 +861,7 @@ async function runPlayModeTests(
 /**
  * Run Unity custom build
  */
-async function runBuild(projectId: string, editorPath: string, executeMethod: string): Promise<void> {
+async function runBuild(projectId: string, editorPath: string, executeMethod: string): Promise<string> {
   const project = projectStore.getProject(projectId);
   if (!project) {
     throw new Error('Project not found');
@@ -963,7 +977,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
       }
 
       saveRunRecord(projectId, run);
-      resolve();
+      resolve(id);
     });
 
     childProcess.on('error', (error) => {
@@ -1008,48 +1022,80 @@ function getUnityProfiles(projectId: string): UnityProfileSettings {
   }
 
   // Return default profiles if none exist
-  return {
-    profiles: [
-      {
-        id: 'quest',
-        name: 'Quest',
-        testDefaults: {
-          editModeEnabled: true,
-          playModeEnabled: true,
-          playModeBuildTarget: 'Android'
-        },
-        buildDefaults: {
-          enabled: true,
-          buildTarget: 'Android'
-        }
+  const defaultProfiles: UnityProfileSettings['profiles'] = [
+    {
+      id: 'quest',
+      name: 'Quest',
+      testDefaults: {
+        editModeEnabled: true,
+        playModeEnabled: true,
+        playModeBuildTarget: 'Android'
       },
-      {
-        id: 'pcvr',
-        name: 'PCVR',
-        testDefaults: {
-          editModeEnabled: true,
-          playModeEnabled: true,
-          playModeBuildTarget: 'StandaloneWindows64'
-        },
-        buildDefaults: {
-          enabled: true,
-          buildTarget: 'StandaloneWindows64'
-        }
-      },
-      {
-        id: 'ci',
-        name: 'CI',
-        testDefaults: {
-          editModeEnabled: true,
-          playModeEnabled: true,
-          playModeBuildTarget: 'StandaloneLinux64'
-        },
-        buildDefaults: {
-          enabled: true
-        }
+      buildDefaults: {
+        enabled: true,
+        buildTarget: 'Android'
       }
-    ],
-    activeProfileId: 'pcvr'
+    },
+    {
+      id: 'pcvr',
+      name: 'PCVR',
+      testDefaults: {
+        editModeEnabled: true,
+        playModeEnabled: true,
+        playModeBuildTarget: 'StandaloneWindows64'
+      },
+      buildDefaults: {
+        enabled: true,
+        buildTarget: 'StandaloneWindows64'
+      }
+    },
+    {
+      id: 'mac',
+      name: 'macOS',
+      testDefaults: {
+        editModeEnabled: true,
+        playModeEnabled: true,
+        playModeBuildTarget: 'StandaloneOSX'
+      },
+      buildDefaults: {
+        enabled: true,
+        buildTarget: 'StandaloneOSX'
+      }
+    },
+    {
+      id: 'ci',
+      name: 'CI',
+      testDefaults: {
+        editModeEnabled: true,
+        playModeEnabled: true,
+        playModeBuildTarget: 'StandaloneLinux64'
+      },
+      buildDefaults: {
+        enabled: true
+      }
+    }
+  ];
+
+  // Default active profile based on platform
+  let defaultActiveProfileId: string;
+  switch (process.platform) {
+    case 'win32':
+      defaultActiveProfileId = 'pcvr';
+      break;
+    case 'darwin':
+      defaultActiveProfileId = 'mac';
+      break;
+    case 'linux':
+      defaultActiveProfileId = 'ci';
+      break;
+    default:
+      defaultActiveProfileId = 'pcvr';
+      break;
+  }
+
+  return {
+    profiles: defaultProfiles,
+    activeProfileId: defaultActiveProfileId
   };
 }
 
@@ -1238,7 +1284,7 @@ function loadPipelineRecord(projectId: string, pipelineId: string): UnityPipelin
 }
 
 // Track running pipelines for cancellation
-const runningPipelines = new Map<string, { canceled: boolean }>();
+const runningPipelines = new Map<string, { canceled: boolean; currentRunId?: string }>();
 
 /**
  * Run a Unity pipeline (sequential execution of steps)
@@ -1315,8 +1361,19 @@ async function runUnityPipeline(
 
       // Check if pipeline was canceled
       if (runningPipelines.get(id)?.canceled) {
+        // Mark the current step as canceled
         step.status = 'canceled';
         pipelineRun.summary!.canceledCount++;
+
+        // Mark all remaining pending steps as canceled
+        for (let j = i + 1; j < pipelineRun.steps.length; j++) {
+          const remainingStep = pipelineRun.steps[j];
+          if (remainingStep.status === 'pending') {
+            remainingStep.status = 'canceled';
+            pipelineRun.summary!.canceledCount++;
+          }
+        }
+
         savePipelineRecord(projectId, pipelineRun);
         break;
       }
@@ -1354,13 +1411,18 @@ async function runUnityPipeline(
             break;
 
           case 'editmode-tests':
-            await runEditModeTests(projectId, editorPath);
-            // Get the latest run ID
+            const editModeRunId = await runEditModeTests(projectId, editorPath);
+            step.runId = editModeRunId;
+            // Track current run in pipeline state
+            const pipelineState = runningPipelines.get(id);
+            if (pipelineState) {
+              pipelineState.currentRunId = editModeRunId;
+            }
+            // Get the run status
             const editModeRuns = loadUnityRuns(projectId);
-            const latestEditModeRun = editModeRuns.find(r => r.action === 'editmode-tests');
-            if (latestEditModeRun) {
-              step.runId = latestEditModeRun.id;
-              step.status = latestEditModeRun.status === 'success' ? 'success' : 'failed';
+            const editModeRun = editModeRuns.find(r => r.id === editModeRunId);
+            if (editModeRun) {
+              step.status = editModeRun.status === 'success' ? 'success' : 'failed';
             } else {
               step.status = 'failed';
             }
@@ -1368,22 +1430,31 @@ async function runUnityPipeline(
               pipelineRun.summary!.successCount++;
             } else {
               pipelineRun.summary!.failedCount++;
+            }
+            // Clear current run ID
+            if (pipelineState) {
+              pipelineState.currentRunId = undefined;
             }
             break;
 
           case 'playmode-tests':
             const playModeBuildTarget = profile?.testDefaults?.playModeBuildTarget;
             const testFilter = profile?.testDefaults?.testFilter;
-            await runPlayModeTests(projectId, editorPath, {
+            const playModeRunId = await runPlayModeTests(projectId, editorPath, {
               buildTarget: playModeBuildTarget,
               testFilter
             });
-            // Get the latest run ID
+            step.runId = playModeRunId;
+            // Track current run in pipeline state
+            const playModePipelineState = runningPipelines.get(id);
+            if (playModePipelineState) {
+              playModePipelineState.currentRunId = playModeRunId;
+            }
+            // Get the run status
             const playModeRuns = loadUnityRuns(projectId);
-            const latestPlayModeRun = playModeRuns.find(r => r.action === 'playmode-tests');
-            if (latestPlayModeRun) {
-              step.runId = latestPlayModeRun.id;
-              step.status = latestPlayModeRun.status === 'success' ? 'success' : 'failed';
+            const playModeRun = playModeRuns.find(r => r.id === playModeRunId);
+            if (playModeRun) {
+              step.status = playModeRun.status === 'success' ? 'success' : 'failed';
             } else {
               step.status = 'failed';
             }
@@ -1391,6 +1462,10 @@ async function runUnityPipeline(
               pipelineRun.summary!.successCount++;
             } else {
               pipelineRun.summary!.failedCount++;
+            }
+            // Clear current run ID
+            if (playModePipelineState) {
+              playModePipelineState.currentRunId = undefined;
             }
             break;
 
@@ -1399,13 +1474,18 @@ async function runUnityPipeline(
             if (!executeMethod) {
               throw new Error('Build execute method not configured');
             }
-            await runBuild(projectId, editorPath, executeMethod);
-            // Get the latest run ID
+            const buildRunId = await runBuild(projectId, editorPath, executeMethod);
+            step.runId = buildRunId;
+            // Track current run in pipeline state
+            const buildPipelineState = runningPipelines.get(id);
+            if (buildPipelineState) {
+              buildPipelineState.currentRunId = buildRunId;
+            }
+            // Get the run status
             const buildRuns = loadUnityRuns(projectId);
-            const latestBuildRun = buildRuns.find(r => r.action === 'build');
-            if (latestBuildRun) {
-              step.runId = latestBuildRun.id;
-              step.status = latestBuildRun.status === 'success' ? 'success' : 'failed';
+            const buildRun = buildRuns.find(r => r.id === buildRunId);
+            if (buildRun) {
+              step.status = buildRun.status === 'success' ? 'success' : 'failed';
             } else {
               step.status = 'failed';
             }
@@ -1413,6 +1493,10 @@ async function runUnityPipeline(
               pipelineRun.summary!.successCount++;
             } else {
               pipelineRun.summary!.failedCount++;
+            }
+            // Clear current run ID
+            if (buildPipelineState) {
+              buildPipelineState.currentRunId = undefined;
             }
             break;
 
@@ -1532,16 +1616,12 @@ async function cancelUnityPipeline(projectId: string, pipelineId: string): Promi
   if (pipelineState) {
     pipelineState.canceled = true;
 
-    // Also try to cancel the currently running step
-    const pipeline = loadPipelineRecord(projectId, pipelineId);
-    if (pipeline) {
-      const runningStep = pipeline.steps.find(s => s.status === 'running');
-      if (runningStep?.runId) {
-        try {
-          await unityProcessStore.cancel(runningStep.runId);
-        } catch (error) {
-          console.error('Failed to cancel running step:', error);
-        }
+    // Try to cancel the currently running step using in-memory state
+    if (pipelineState.currentRunId) {
+      try {
+        await unityProcessStore.cancel(pipelineState.currentRunId);
+      } catch (error) {
+        console.error('Failed to cancel running step:', error);
       }
     }
   }
