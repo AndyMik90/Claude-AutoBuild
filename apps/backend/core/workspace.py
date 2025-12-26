@@ -239,12 +239,15 @@ def merge_existing_build(
         if smart_result is not None:
             # Smart merge handled it (success or identified conflicts)
             if smart_result.get("success"):
-                # Check if smart merge resolved git conflicts directly
+                # Check if smart merge resolved git conflicts or path-mapped files
                 stats = smart_result.get("stats", {})
                 had_conflicts = stats.get("conflicts_resolved", 0) > 0
+                files_merged = stats.get("files_merged", 0) > 0
+                ai_assisted = stats.get("ai_assisted", 0) > 0
 
-                if had_conflicts:
-                    # Git conflicts were resolved (via AI or lock file exclusion) - changes are already staged
+                if had_conflicts or files_merged or ai_assisted:
+                    # Git conflicts were resolved OR path-mapped files were AI merged
+                    # Changes are already written and staged - no need for git merge
                     _print_merge_success(
                         no_commit, stats, spec_name=spec_name, keep_worktree=True
                     )
@@ -255,7 +258,7 @@ def merge_existing_build(
 
                     return True
                 else:
-                    # No git conflicts, do standard git merge
+                    # No conflicts and no files merged - do standard git merge
                     success_result = manager.merge_worktree(
                         spec_name, delete_after=False, no_commit=no_commit
                     )
