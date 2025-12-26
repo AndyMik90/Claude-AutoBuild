@@ -369,25 +369,42 @@ export class ProjectStore {
         const stagedInMainProject = planWithStaged?.stagedInMainProject;
         const stagedAt = planWithStaged?.stagedAt;
 
-        // Determine execution progress by checking active phase from task logs
+        // Determine execution progress by checking active or most recent phase from task logs
         let executionProgress: ExecutionProgress | undefined;
         const taskLogPath = path.join(specPath, 'task_log.json');
         const worktreeLogPath = path.join(specPath, '.worktrees', dir.name, 'task_log.json');
 
         // Check worktree logs first (coding/validation runs in worktree)
-        let activePhase: 'planning' | 'coding' | 'validation' | null = null;
+        let currentPhase: 'planning' | 'coding' | 'validation' | null = null;
+        let isPhaseActive = false;
+
         for (const logPath of [worktreeLogPath, taskLogPath]) {
           if (existsSync(logPath)) {
             try {
               const taskLog = JSON.parse(readFileSync(logPath, 'utf-8'));
-              const phases = ['planning', 'coding', 'validation'] as const;
+              const phases = ['validation', 'coding', 'planning'] as const; // Check in reverse order for most recent
+
+              // First, check for active phases
               for (const phase of phases) {
                 if (taskLog?.phases?.[phase]?.status === 'active') {
-                  activePhase = phase;
+                  currentPhase = phase;
+                  isPhaseActive = true;
                   break;
                 }
               }
-              if (activePhase) break;
+
+              // If no active phase, find the most recently completed phase
+              if (!currentPhase) {
+                for (const phase of phases) {
+                  if (taskLog?.phases?.[phase]?.status === 'completed') {
+                    currentPhase = phase;
+                    isPhaseActive = false;
+                    break;
+                  }
+                }
+              }
+
+              if (currentPhase) break;
             } catch {
               // Ignore read/parse errors
             }
@@ -395,14 +412,14 @@ export class ProjectStore {
         }
 
         // Map task log phase to execution phase
-        if (activePhase) {
-          const phaseMap: Record<typeof activePhase, ExecutionPhase> = {
+        if (currentPhase) {
+          const phaseMap: Record<typeof currentPhase, ExecutionPhase> = {
             'planning': 'planning',
             'coding': 'coding',
             'validation': 'qa_review'
           };
           executionProgress = {
-            phase: phaseMap[activePhase],
+            phase: phaseMap[currentPhase],
             phaseProgress: 0,
             overallProgress: 0
           };

@@ -45,6 +45,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
+  const hasPhaseInfo = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
@@ -218,8 +219,8 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 Archived
               </Badge>
             )}
-            {/* Execution phase badge - shown when actively running */}
-            {hasActiveExecution && executionPhase && !isStuck && !isIncomplete && (
+            {/* Execution phase badge - shown when phase info is available */}
+            {hasPhaseInfo && executionPhase && !isStuck && !isIncomplete && (
               <Badge
                 variant="outline"
                 className={cn(
@@ -227,7 +228,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                   EXECUTION_PHASE_BADGE_COLORS[executionPhase]
                 )}
               >
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                {isRunning && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
                 {EXECUTION_PHASE_LABELS[executionPhase]}
               </Badge>
             )}
