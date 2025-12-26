@@ -1,5 +1,5 @@
 import { useState, useCallback, type ClipboardEvent, type DragEvent } from 'react';
-import { AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { AlertCircle, RotateCcw, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import {
@@ -227,12 +227,62 @@ export function QAFeedbackSection({
         onDragLeave={handleTextareaDragLeave}
         onDrop={handleTextareaDrop}
         className={cn(
-          "mb-3",
           // Visual feedback when dragging over textarea
           isDragOver && !isSubmitting && "border-primary bg-primary/5 ring-2 ring-primary/20"
         )}
         rows={3}
       />
+
+      {/* Image Thumbnails - displayed inline below textarea */}
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2 mb-3">
+          {images.map((image) => (
+            <div
+              key={image.id}
+              className="relative group rounded-md border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+              style={{ width: '64px', height: '64px' }}
+              title={image.filename}
+            >
+              {image.thumbnail ? (
+                <img
+                  src={image.thumbnail}
+                  alt={image.filename}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              {/* Remove button */}
+              {!isSubmitting && (
+                <button
+                  type="button"
+                  className="absolute top-0.5 right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onImagesChange(images.filter(img => img.id !== image.id));
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Image error display */}
+      {imageError && (
+        <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-xs text-destructive mb-3">
+          <X className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{imageError}</span>
+        </div>
+      )}
+
+      {/* Spacing when no images */}
+      {images.length === 0 && !imageError && <div className="mb-3" />}
+
       <Button
         variant="warning"
         onClick={onReject}
