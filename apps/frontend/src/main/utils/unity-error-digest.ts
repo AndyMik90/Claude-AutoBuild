@@ -145,15 +145,16 @@ function isErrorLine(line: string): boolean {
   // Example: Assets/Scripts/MyScript.cs(12,5): error CS0103: ...
   if (/Assets\/.*\(\d+,\d+\):\s*error/i.test(trimmed)) return true;
 
-  // Exceptions
-  if (/Exception:/i.test(trimmed)) return true;
-  if (/NullReferenceException/i.test(trimmed)) return true;
-  if (/ArgumentException/i.test(trimmed)) return true;
-  if (/ArgumentNullException/i.test(trimmed)) return true;
-  if (/InvalidOperationException/i.test(trimmed)) return true;
-  if (/IndexOutOfRangeException/i.test(trimmed)) return true;
+  // Exceptions - only match at start of line or preceded by space/colon to avoid false positives
+  // like "Note: Caught exception: " or "No Exception found"
+  if (/(?:^|\s)Exception:/i.test(trimmed)) return true;
+  if (/(?:^|\s)NullReferenceException/i.test(trimmed)) return true;
+  if (/(?:^|\s)ArgumentException/i.test(trimmed)) return true;
+  if (/(?:^|\s)ArgumentNullException/i.test(trimmed)) return true;
+  if (/(?:^|\s)InvalidOperationException/i.test(trimmed)) return true;
+  if (/(?:^|\s)IndexOutOfRangeException/i.test(trimmed)) return true;
 
-  // Unity error messages
+  // Unity error messages - only match at start of line
   if (/^\[Error\]/i.test(trimmed)) return true;
   if (/^Error:/i.test(trimmed)) return true;
   if (/^ERROR:/i.test(trimmed)) return true;
