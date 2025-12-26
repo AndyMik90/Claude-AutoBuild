@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Key,
   Eye,
@@ -16,7 +17,8 @@ import {
   LogIn,
   ChevronDown,
   ChevronRight,
-  Users
+  Users,
+  Lock
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -38,6 +40,8 @@ interface OAuthStepProps {
  * reusing patterns from IntegrationSettings.tsx.
  */
 export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
+  const { t } = useTranslation('onboarding');
+
   // Claude Profiles state
   const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
@@ -322,6 +326,25 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Keychain explanation - macOS only */}
+            {navigator.platform.toLowerCase().includes('mac') && (
+              <Card className="border border-border bg-muted/30">
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    <Lock className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground mb-1">
+                        {t('oauth.keychainTitle')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('oauth.keychainDescription')}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Profile list */}
             <div className="rounded-lg bg-muted/30 border border-border p-4">
