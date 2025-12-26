@@ -156,7 +156,7 @@ function isErrorLine(line: string): boolean {
   // Unity error messages
   if (/^\[Error\]/i.test(trimmed)) return true;
   if (/^Error:/i.test(trimmed)) return true;
-  if (/\bERROR\b/.test(trimmed)) return true;
+  if (/^ERROR:/i.test(trimmed)) return true;
 
   // Unity-specific errors
   if (/UnityEngine.*Error/i.test(trimmed)) return true;
@@ -209,7 +209,9 @@ function buildErrorBlocks(
 
     if (blockStartLine <= currentEndLine + 1) {
       // Merge blocks
-      const linesToAdd = block.lines.slice(currentEndLine - block.startLineNumber + 1);
+      // Calculate how many lines from block.lines are already in currentBlock
+      const overlapSize = currentEndLine - block.startLineNumber + 1;
+      const linesToAdd = overlapSize > 0 ? block.lines.slice(overlapSize) : block.lines;
       currentBlock.lines.push(...linesToAdd);
     } else {
       // No overlap, save current and start new

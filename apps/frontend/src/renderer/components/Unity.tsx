@@ -840,7 +840,7 @@ export function Unity({ projectId }: UnityProps) {
                                         e.stopPropagation();
                                         rerun(run.id);
                                       }}
-                                      disabled={!run.params}
+                                      disabled={!run.params || hasRunningRun}
                                     >
                                       <RotateCcw className="h-3 w-3 mr-1" />
                                       Re-run

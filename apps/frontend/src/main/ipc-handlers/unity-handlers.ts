@@ -7,7 +7,7 @@ import type { IPCResult } from '../../shared/types';
 import { projectStore } from '../project-store';
 import { parseUnityTestResults } from '../utils/unity-test-parser';
 import { buildUnityErrorDigest } from '../utils/unity-error-digest';
-import { unityProcessStore } from '../utils/process-manager';
+import { unityProcessStore, killProcessTree } from '../utils/process-manager';
 
 interface UnityProjectInfo {
   isUnityProject: boolean;
@@ -984,7 +984,6 @@ export function registerUnityHandlers(): void {
         if (!canceled && run.pid) {
           // Process store didn't have it, try direct kill
           try {
-            const { killProcessTree } = require('../utils/process-manager');
             await killProcessTree(run.pid);
           } catch (error) {
             console.error('Failed to kill process:', error);
