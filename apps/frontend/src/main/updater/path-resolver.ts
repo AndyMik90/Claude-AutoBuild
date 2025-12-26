@@ -33,8 +33,15 @@ export function getBundledSourcePath(): string {
     }
   }
 
-  // Fallback
-  return path.join(app.getAppPath(), '..', 'backend');
+  // Fallback - warn if this path is also invalid
+  const fallback = path.join(app.getAppPath(), '..', 'backend');
+  const fallbackMarker = path.join(fallback, 'requirements.txt');
+  if (!existsSync(fallbackMarker)) {
+    console.warn(
+      `[path-resolver] No valid backend source found in development paths, fallback "${fallback}" may be invalid`
+    );
+  }
+  return fallback;
 }
 
 /**
