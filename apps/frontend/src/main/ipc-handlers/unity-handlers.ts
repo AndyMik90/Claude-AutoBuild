@@ -376,11 +376,11 @@ function loadRunRecord(projectId: string, runId: string): UnityRun | null {
   try {
     const runsDir = getUnityRunsDir(projectId);
     const runJsonPath = join(runsDir, runId, 'run.json');
-    
+
     if (!existsSync(runJsonPath)) {
       return null;
     }
-    
+
     const content = readFileSync(runJsonPath, 'utf-8');
     return JSON.parse(content) as UnityRun;
   } catch (error) {
