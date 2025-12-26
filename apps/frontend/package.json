@@ -84,6 +84,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "xml2js": "^0.6.2",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
@@ -98,6 +99,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
+    "@types/xml2js": "^0.4.14",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.22",
     "electron": "^39.2.7",

@@ -631,19 +631,42 @@ export interface ElectronAPI {
       startedAt: string;
       endedAt?: string;
       durationMs?: number;
-      status: 'running' | 'success' | 'failed';
+      status: 'running' | 'success' | 'failed' | 'canceled';
       exitCode?: number;
       command: string;
+      pid?: number;
+      actionId?: string;
+      params?: {
+        editorPath: string;
+        projectPath: string;
+        executeMethod?: string;
+        testPlatform?: string;
+      };
       artifactPaths: {
         runDir: string;
         log?: string;
         testResults?: string;
         stdout?: string;
         stderr?: string;
+        errorDigest?: string;
       };
+      testsSummary?: {
+        passed: number;
+        failed: number;
+        skipped: number;
+        durationSeconds?: number;
+      };
+      errorSummary?: {
+        errorCount: number;
+        firstErrorLine?: string;
+      };
+      canceledReason?: string;
     }>;
   }>>;
+  cancelUnityRun: (projectId: string, runId: string) => Promise<IPCResult<void>>;
+  rerunUnity: (projectId: string, runId: string) => Promise<IPCResult<void>>;
   openPath: (path: string) => Promise<IPCResult<void>>;
+  copyToClipboard: (text: string) => Promise<IPCResult<void>>;
 }
 
 declare global {

@@ -1,10 +1,13 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, clipboard } from 'electron';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import { projectStore } from '../project-store';
+import { parseUnityTestResults } from '../utils/unity-test-parser';
+import { buildUnityErrorDigest } from '../utils/unity-error-digest';
+import { unityProcessStore, killProcessTree } from '../utils/process-manager';
 
 interface UnityProjectInfo {
   isUnityProject: boolean;
@@ -29,17 +32,40 @@ interface UnityRun {
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
-  status: 'running' | 'success' | 'failed';
+  status: 'running' | 'success' | 'failed' | 'canceled';
   exitCode?: number;
   command: string;
+  pid?: number;
+  actionId?: string;
+  params?: {
+    editorPath: string;
+    projectPath: string;
+    executeMethod?: string;
+    testPlatform?: string;
+  };
   artifactPaths: {
     runDir: string;
     log?: string;
     testResults?: string;
     stdout?: string;
     stderr?: string;
+    errorDigest?: string;
   };
+  testsSummary?: {
+    passed: number;
+    failed: number;
+    skipped: number;
+    durationSeconds?: number;
+  };
+  errorSummary?: {
+    errorCount: number;
+    firstErrorLine?: string;
+  };
+  canceledReason?: string;
 }
+
+// Constants
+const DEFAULT_CANCELED_REASON = 'canceled (reason unknown)';
 
 /**
  * Detect if a directory is a Unity project and extract version info
@@ -167,6 +193,41 @@ function autoDetectUnityEditorsFolder(): string | null {
   }
 
   return null;
+}
+
+/**
+ * Quote and escape a string for *display/logging only*.
+ *
+ * This helper is intended solely for building human-readable command strings
+ * (e.g. for logs or devtools). It is **not** safe to use for constructing
+ * shell commands, as different shells have different escaping requirements.
+ *
+ * Escapes internal backslashes and double quotes for readability, and wraps
+ * the string in double quotes if it contains spaces or common shell special
+ * characters.
+ */
+function quoteShellArg(arg: string): string {
+  // First escape backslashes, then escape internal quotes for display
+  const escaped = arg
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+  // Quote if the original argument contains spaces or special characters
+  // (test against original arg to avoid false positives from escaped backslashes)
+  if (/[\s&|<>()$`"]/.test(arg)) {
+    return `"${escaped}"`;
+  }
+  return escaped;
+}
+
+/**
+ * Build a display-friendly command string with quoted arguments.
+ *
+ * This is for logging / debugging only and must not be used to construct
+ * actual shell command lines. The actual command execution uses spawn() with
+ * an arguments array, which is the safe approach.
+ */
+function buildCommandString(executable: string, args: string[]): string {
+  return `${quoteShellArg(executable)} ${args.map(quoteShellArg).join(' ')}`;
 }
 
 /**
@@ -344,6 +405,26 @@ function saveRunRecord(projectId: string, run: UnityRun): void {
 }
 
 /**
+ * Load a single run record from disk
+ */
+function loadRunRecord(projectId: string, runId: string): UnityRun | null {
+  try {
+    const runsDir = getUnityRunsDir(projectId);
+    const runJsonPath = join(runsDir, runId, 'run.json');
+
+    if (!existsSync(runJsonPath)) {
+      return null;
+    }
+
+    const content = readFileSync(runJsonPath, 'utf-8');
+    return JSON.parse(content) as UnityRun;
+  } catch (error) {
+    console.error(`Failed to load run record ${runId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Run Unity EditMode tests
  */
 async function runEditModeTests(projectId: string, editorPath: string): Promise<void> {
@@ -362,6 +443,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
   const testResultsFile = join(runDir, 'test-results.xml');
   const stdoutFile = join(runDir, 'stdout.txt');
   const stderrFile = join(runDir, 'stderr.txt');
+  const errorDigestFile = join(runDir, 'error-digest.txt');
 
   const args = [
     '-runTests',
@@ -372,62 +454,116 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
     '-logFile', logFile
   ];
 
-  const command = `${editorPath} ${args.join(' ')}`;
+  const command = buildCommandString(editorPath, args);
   const startTime = new Date();
 
   // Create initial run record
   const run: UnityRun = {
     id,
     action: 'editmode-tests',
+    actionId: 'unity.runEditModeTests',
     startedAt: startTime.toISOString(),
     status: 'running',
     command,
+    params: {
+      editorPath,
+      projectPath: unityPath,
+      testPlatform: 'EditMode'
+    },
     artifactPaths: {
       runDir,
       log: logFile,
       testResults: testResultsFile,
       stdout: stdoutFile,
-      stderr: stderrFile
+      stderr: stderrFile,
+      errorDigest: errorDigestFile
     }
   };
 
   saveRunRecord(projectId, run);
 
   return new Promise((resolve, reject) => {
-    const process = spawn(editorPath, args, {
-      cwd: unityPath
+    const childProcess = spawn(editorPath, args, {
+      cwd: unityPath,
+      detached: process.platform !== 'win32' // Use process groups on Unix
     });
+
+    // Store PID for cancellation
+    const pid = childProcess.pid;
+    if (pid) {
+      run.pid = pid;
+      saveRunRecord(projectId, run);
+      unityProcessStore.register(id, pid);
+    }
 
     let stdoutData = '';
     let stderrData = '';
 
-    process.stdout?.on('data', (data) => {
+    childProcess.stdout?.on('data', (data) => {
       stdoutData += data.toString();
     });
 
-    process.stderr?.on('data', (data) => {
+    childProcess.stderr?.on('data', (data) => {
       stderrData += data.toString();
     });
 
-    process.on('close', (code) => {
+    childProcess.on('close', async (code) => {
       const endTime = new Date();
+
+      // Unregister process
+      unityProcessStore.unregister(id);
 
       // Save stdout and stderr
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
       writeFileSync(stderrFile, stderrData, 'utf-8');
 
+      // Check if this was a cancellation by reloading from disk
+      // to avoid race condition with cancelRun handler
+      const diskRun = loadRunRecord(projectId, id);
+      const wasCanceled = diskRun?.status === 'canceled';
+
       // Update run record
       run.endedAt = endTime.toISOString();
       run.durationMs = endTime.getTime() - startTime.getTime();
       run.exitCode = code ?? undefined;
-      run.status = code === 0 ? 'success' : 'failed';
+
+      if (!wasCanceled) {
+        run.status = code === 0 ? 'success' : 'failed';
+      } else {
+        // Preserve cancellation status and reason from disk
+        run.status = 'canceled';
+        run.canceledReason = diskRun.canceledReason ?? DEFAULT_CANCELED_REASON;
+      }
+
+      // Parse test results if available
+      if (existsSync(testResultsFile)) {
+        try {
+          const testSummary = await parseUnityTestResults(testResultsFile);
+          run.testsSummary = testSummary;
+        } catch (error) {
+          console.error('Failed to parse test results:', error);
+        }
+      }
+
+      // Build error digest
+      if (existsSync(logFile)) {
+        try {
+          const errorSummary = buildUnityErrorDigest(logFile, errorDigestFile);
+          run.errorSummary = errorSummary;
+        } catch (error) {
+          console.error('Failed to build error digest:', error);
+        }
+      }
 
       saveRunRecord(projectId, run);
       resolve();
     });
 
-    process.on('error', (error) => {
+    childProcess.on('error', (error) => {
       const endTime = new Date();
+
+      // Unregister process
+      unityProcessStore.unregister(id);
 
       // Save stdout and stderr
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
@@ -462,6 +598,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
   const logFile = join(runDir, 'unity-editor.log');
   const stdoutFile = join(runDir, 'stdout.txt');
   const stderrFile = join(runDir, 'stderr.txt');
+  const errorDigestFile = join(runDir, 'error-digest.txt');
 
   const args = [
     '-batchmode',
@@ -471,61 +608,105 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
     '-logFile', logFile
   ];
 
-  const command = `${editorPath} ${args.join(' ')}`;
+  const command = buildCommandString(editorPath, args);
   const startTime = new Date();
 
   // Create initial run record
   const run: UnityRun = {
     id,
     action: 'build',
+    actionId: 'unity.runBuild',
     startedAt: startTime.toISOString(),
     status: 'running',
     command,
+    params: {
+      editorPath,
+      projectPath: unityPath,
+      executeMethod
+    },
     artifactPaths: {
       runDir,
       log: logFile,
       stdout: stdoutFile,
-      stderr: stderrFile
+      stderr: stderrFile,
+      errorDigest: errorDigestFile
     }
   };
 
   saveRunRecord(projectId, run);
 
   return new Promise((resolve, reject) => {
-    const process = spawn(editorPath, args, {
-      cwd: unityPath
+    const childProcess = spawn(editorPath, args, {
+      cwd: unityPath,
+      detached: process.platform !== 'win32' // Use process groups on Unix
     });
+
+    // Store PID for cancellation
+    const pid = childProcess.pid;
+    if (pid) {
+      run.pid = pid;
+      saveRunRecord(projectId, run);
+      unityProcessStore.register(id, pid);
+    }
 
     let stdoutData = '';
     let stderrData = '';
 
-    process.stdout?.on('data', (data) => {
+    childProcess.stdout?.on('data', (data) => {
       stdoutData += data.toString();
     });
 
-    process.stderr?.on('data', (data) => {
+    childProcess.stderr?.on('data', (data) => {
       stderrData += data.toString();
     });
 
-    process.on('close', (code) => {
+    childProcess.on('close', async (code) => {
       const endTime = new Date();
+
+      // Unregister process
+      unityProcessStore.unregister(id);
 
       // Save stdout and stderr
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
       writeFileSync(stderrFile, stderrData, 'utf-8');
 
+      // Check if this was a cancellation by reloading from disk
+      // to avoid race condition with cancelRun handler
+      const diskRun = loadRunRecord(projectId, id);
+      const wasCanceled = diskRun?.status === 'canceled';
+
       // Update run record
       run.endedAt = endTime.toISOString();
       run.durationMs = endTime.getTime() - startTime.getTime();
       run.exitCode = code ?? undefined;
-      run.status = code === 0 ? 'success' : 'failed';
+
+      if (!wasCanceled) {
+        run.status = code === 0 ? 'success' : 'failed';
+      } else {
+        // Preserve cancellation status and reason from disk
+        run.status = 'canceled';
+        run.canceledReason = diskRun.canceledReason ?? DEFAULT_CANCELED_REASON;
+      }
+
+      // Build error digest
+      if (existsSync(logFile)) {
+        try {
+          const errorSummary = buildUnityErrorDigest(logFile, errorDigestFile);
+          run.errorSummary = errorSummary;
+        } catch (error) {
+          console.error('Failed to build error digest:', error);
+        }
+      }
 
       saveRunRecord(projectId, run);
       resolve();
     });
 
-    process.on('error', (error) => {
+    childProcess.on('error', (error) => {
       const endTime = new Date();
+
+      // Unregister process
+      unityProcessStore.unregister(id);
 
       // Save stdout and stderr
       writeFileSync(stdoutFile, stdoutData, 'utf-8');
@@ -783,6 +964,116 @@ export function registerUnityHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to scan Unity Editors folder'
+        };
+      }
+    }
+  );
+
+  // Cancel run
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_CANCEL_RUN,
+    async (_, projectId: string, runId: string): Promise<IPCResult<void>> => {
+      try {
+        // Mark run as canceled
+        const runsDir = getUnityRunsDir(projectId);
+        const runDir = join(runsDir, runId);
+        const runJsonPath = join(runDir, 'run.json');
+
+        if (!existsSync(runJsonPath)) {
+          throw new Error('Run not found');
+        }
+
+        const runContent = readFileSync(runJsonPath, 'utf-8');
+        const run = JSON.parse(runContent) as UnityRun;
+
+        // Mark as canceled and save to disk immediately
+        // This handles a race condition with the process close handler:
+        // - If the process terminates naturally between now and the kill attempt,
+        //   the close handler will reload this run from disk and see the 'canceled' status
+        // - This ensures we don't incorrectly report a naturally-completed run as 'failed'
+        //   or overwrite the canceled status
+        run.status = 'canceled';
+        run.canceledReason = 'user';
+        
+        // Save updated run record before attempting to kill
+        saveRunRecord(projectId, run);
+
+        // Try to kill the process
+        const canceled = await unityProcessStore.cancel(runId);
+
+        if (!canceled && run.pid) {
+          // Process store didn't have it, try direct kill
+          try {
+            await killProcessTree(run.pid);
+          } catch (error) {
+            console.error('Failed to kill process:', error);
+          }
+        }
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to cancel run'
+        };
+      }
+    }
+  );
+
+  // Re-run
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_RERUN,
+    async (_, projectId: string, runId: string): Promise<IPCResult<void>> => {
+      try {
+        // Load the original run
+        const runsDir = getUnityRunsDir(projectId);
+        const runDir = join(runsDir, runId);
+        const runJsonPath = join(runDir, 'run.json');
+
+        if (!existsSync(runJsonPath)) {
+          throw new Error('Run not found');
+        }
+
+        const runContent = readFileSync(runJsonPath, 'utf-8');
+        const originalRun = JSON.parse(runContent) as UnityRun;
+
+        if (!originalRun.params) {
+          throw new Error('Run parameters not found');
+        }
+
+        // Re-run based on actionId
+        if (originalRun.actionId === 'unity.runEditModeTests') {
+          await runEditModeTests(projectId, originalRun.params.editorPath);
+        } else if (originalRun.actionId === 'unity.runBuild') {
+          if (!originalRun.params.executeMethod) {
+            throw new Error('Execute method not found in run parameters');
+          }
+          await runBuild(projectId, originalRun.params.editorPath, originalRun.params.executeMethod);
+        } else {
+          throw new Error(`Unknown action ID: ${originalRun.actionId}`);
+        }
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to re-run'
+        };
+      }
+    }
+  );
+
+  // Copy to clipboard
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_COPY_TO_CLIPBOARD,
+    async (_, text: string): Promise<IPCResult<void>> => {
+      try {
+        clipboard.writeText(text);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to copy to clipboard'
         };
       }
     }

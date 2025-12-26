@@ -25,16 +25,36 @@ export interface UnityRun {
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
-  status: 'running' | 'success' | 'failed';
+  status: 'running' | 'success' | 'failed' | 'canceled';
   exitCode?: number;
   command: string;
+  pid?: number;
+  actionId?: string;
+  params?: {
+    editorPath: string;
+    projectPath: string;
+    executeMethod?: string;
+    testPlatform?: string;
+  };
   artifactPaths: {
     runDir: string;
     log?: string;
     testResults?: string;
     stdout?: string;
     stderr?: string;
+    errorDigest?: string;
   };
+  testsSummary?: {
+    passed: number;
+    failed: number;
+    skipped: number;
+    durationSeconds?: number;
+  };
+  errorSummary?: {
+    errorCount: number;
+    firstErrorLine?: string;
+  };
+  canceledReason?: string;
 }
 
 export interface UnityAPI {
@@ -56,12 +76,15 @@ export interface UnityAPI {
   runUnityEditModeTests: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
   runUnityBuild: (projectId: string, editorPath: string, executeMethod: string) => Promise<IPCResult<void>>;
   openUnityProject: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
+  cancelUnityRun: (projectId: string, runId: string) => Promise<IPCResult<void>>;
+  rerunUnity: (projectId: string, runId: string) => Promise<IPCResult<void>>;
 
   // Unity runs
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{ runs: UnityRun[] }>>;
 
   // File operations
   openPath: (path: string) => Promise<IPCResult<void>>;
+  copyToClipboard: (text: string) => Promise<IPCResult<void>>;
 }
 
 export const createUnityAPI = (): UnityAPI => ({
@@ -98,9 +121,18 @@ export const createUnityAPI = (): UnityAPI => ({
   openUnityProject: (projectId: string, editorPath: string): Promise<IPCResult<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PROJECT, projectId, editorPath),
 
+  cancelUnityRun: (projectId: string, runId: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_CANCEL_RUN, projectId, runId),
+
+  rerunUnity: (projectId: string, runId: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_RERUN, projectId, runId),
+
   loadUnityRuns: (projectId: string): Promise<IPCResult<{ runs: UnityRun[] }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_LOAD_RUNS, projectId),
 
   openPath: (path: string): Promise<IPCResult<void>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PATH, path)
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PATH, path),
+
+  copyToClipboard: (text: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_COPY_TO_CLIPBOARD, text)
 });

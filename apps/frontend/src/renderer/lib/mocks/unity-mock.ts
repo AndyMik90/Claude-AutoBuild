@@ -66,6 +66,16 @@ export const unityMock: UnityAPI = {
     data: undefined
   }),
 
+  cancelUnityRun: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  rerunUnity: async () => ({
+    success: true,
+    data: undefined
+  }),
+
   // Unity runs
   loadUnityRuns: async () => ({
     success: true,
@@ -75,6 +85,11 @@ export const unityMock: UnityAPI = {
   // File operations
   openPath: async (path: string) => {
     console.warn('[Browser Mock] openPath:', path);
+    return { success: true, data: undefined };
+  },
+
+  copyToClipboard: async (text: string) => {
+    console.warn('[Browser Mock] copyToClipboard:', text);
     return { success: true, data: undefined };
   }
 };

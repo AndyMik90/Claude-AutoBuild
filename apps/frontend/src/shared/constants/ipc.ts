@@ -314,5 +314,8 @@ export const IPC_CHANNELS = {
   UNITY_RUN_BUILD: 'unity:runBuild',
   UNITY_LOAD_RUNS: 'unity:loadRuns',
   UNITY_OPEN_PATH: 'unity:openPath',
-  UNITY_OPEN_PROJECT: 'unity:openProject'
+  UNITY_OPEN_PROJECT: 'unity:openProject',
+  UNITY_CANCEL_RUN: 'unity:cancelRun',
+  UNITY_RERUN: 'unity:rerun',
+  UNITY_COPY_TO_CLIPBOARD: 'unity:copyToClipboard'
 } as const;
