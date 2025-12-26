@@ -600,6 +600,58 @@ export class ProjectStore {
   }
 
   /**
+   * Validate taskId to prevent path traversal attacks
+   * Returns true if taskId is safe to use in path operations
+   */
+  private isValidTaskId(taskId: string): boolean {
+    // Reject empty, null/undefined, or strings with path traversal characters
+    if (!taskId || typeof taskId !== 'string') return false;
+    if (taskId.includes('/') || taskId.includes('\\')) return false;
+    if (taskId === '.' || taskId === '..') return false;
+    if (taskId.includes('\0')) return false; // Null byte injection
+    return true;
+  }
+
+  /**
+   * Find ALL spec paths for a task, checking main directory and worktrees
+   * A task can exist in multiple locations (main + worktree), so return all paths
+   */
+  private findAllSpecPaths(projectPath: string, specsBaseDir: string, taskId: string): string[] {
+    // Validate taskId to prevent path traversal
+    if (!this.isValidTaskId(taskId)) {
+      console.error(`[ProjectStore] findAllSpecPaths: Invalid taskId rejected: ${taskId}`);
+      return [];
+    }
+
+    const paths: string[] = [];
+
+    // 1. Check main specs directory
+    const mainSpecPath = path.join(projectPath, specsBaseDir, taskId);
+    if (existsSync(mainSpecPath)) {
+      paths.push(mainSpecPath);
+    }
+
+    // 2. Check worktrees
+    const worktreesDir = path.join(projectPath, '.worktrees');
+    if (existsSync(worktreesDir)) {
+      try {
+        const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
+        for (const worktree of worktrees) {
+          if (!worktree.isDirectory()) continue;
+          const worktreeSpecPath = path.join(worktreesDir, worktree.name, specsBaseDir, taskId);
+          if (existsSync(worktreeSpecPath)) {
+            paths.push(worktreeSpecPath);
+          }
+        }
+      } catch {
+        // Ignore errors reading worktrees
+      }
+    }
+
+    return paths;
+  }
+
+  /**
    * Archive tasks by writing archivedAt to their metadata
    * @param projectId - Project ID
    * @param taskIds - IDs of tasks to archive
@@ -607,36 +659,58 @@ export class ProjectStore {
    */
   archiveTasks(projectId: string, taskIds: string[], version?: string): boolean {
     const project = this.getProject(projectId);
-    if (!project) return false;
+    if (!project) {
+      console.error('[ProjectStore] archiveTasks: Project not found:', projectId);
+      return false;
+    }
 
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
-    const specsDir = path.join(project.path, specsBaseDir);
-
     const archivedAt = new Date().toISOString();
+    let hasErrors = false;
 
     for (const taskId of taskIds) {
-      const specPath = path.join(specsDir, taskId);
-      const metadataPath = path.join(specPath, 'task_metadata.json');
+      // Find ALL locations where this task exists (main + worktrees)
+      const specPaths = this.findAllSpecPaths(project.path, specsBaseDir, taskId);
 
-      try {
-        let metadata: TaskMetadata = {};
-        if (existsSync(metadataPath)) {
-          metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      // If spec directory doesn't exist anywhere, skip gracefully
+      if (specPaths.length === 0) {
+        console.log(`[ProjectStore] archiveTasks: Spec directory not found for ${taskId}, skipping (already removed)`);
+        continue;
+      }
+
+      // Archive in ALL locations
+      for (const specPath of specPaths) {
+        try {
+          const metadataPath = path.join(specPath, 'task_metadata.json');
+          let metadata: TaskMetadata = {};
+
+          // Read existing metadata, handling missing file without TOCTOU race
+          try {
+            metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+          } catch (readErr: unknown) {
+            // File doesn't exist yet - start with empty metadata
+            if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw readErr;
+            }
+          }
+
+          // Add archive info
+          metadata.archivedAt = archivedAt;
+          if (version) {
+            metadata.archivedInVersion = version;
+          }
+
+          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+          console.log(`[ProjectStore] archiveTasks: Successfully archived task ${taskId} at ${specPath}`);
+        } catch (error) {
+          console.error(`[ProjectStore] archiveTasks: Failed to archive task ${taskId} at ${specPath}:`, error);
+          hasErrors = true;
+          // Continue with other locations/tasks even if one fails
         }
-
-        // Add archive info
-        metadata.archivedAt = archivedAt;
-        if (version) {
-          metadata.archivedInVersion = version;
-        }
-
-        writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-      } catch {
-        // Continue with other tasks even if one fails
       }
     }
 
-    return true;
+    return !hasErrors;
   }
 
   /**
@@ -646,28 +720,53 @@ export class ProjectStore {
    */
   unarchiveTasks(projectId: string, taskIds: string[]): boolean {
     const project = this.getProject(projectId);
-    if (!project) return false;
+    if (!project) {
+      console.error('[ProjectStore] unarchiveTasks: Project not found:', projectId);
+      return false;
+    }
 
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
-    const specsDir = path.join(project.path, specsBaseDir);
+    let hasErrors = false;
 
     for (const taskId of taskIds) {
-      const specPath = path.join(specsDir, taskId);
-      const metadataPath = path.join(specPath, 'task_metadata.json');
+      // Find ALL locations where this task exists (main + worktrees)
+      const specPaths = this.findAllSpecPaths(project.path, specsBaseDir, taskId);
 
-      try {
-        if (existsSync(metadataPath)) {
-          const metadata: TaskMetadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      if (specPaths.length === 0) {
+        console.warn(`[ProjectStore] unarchiveTasks: Spec directory not found for task ${taskId}`);
+        continue;
+      }
+
+      // Unarchive in ALL locations
+      for (const specPath of specPaths) {
+        try {
+          const metadataPath = path.join(specPath, 'task_metadata.json');
+          let metadata: TaskMetadata;
+
+          // Read metadata, handling missing file without TOCTOU race
+          try {
+            metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              console.warn(`[ProjectStore] unarchiveTasks: Metadata file not found for task ${taskId} at ${specPath}`);
+              continue;
+            }
+            throw readErr;
+          }
+
           delete metadata.archivedAt;
           delete metadata.archivedInVersion;
           writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+          console.log(`[ProjectStore] unarchiveTasks: Successfully unarchived task ${taskId} at ${specPath}`);
+        } catch (error) {
+          console.error(`[ProjectStore] unarchiveTasks: Failed to unarchive task ${taskId} at ${specPath}:`, error);
+          hasErrors = true;
+          // Continue with other locations/tasks even if one fails
         }
-      } catch {
-        // Continue with other tasks even if one fails
       }
     }
 
-    return true;
+    return !hasErrors;
   }
 }
 

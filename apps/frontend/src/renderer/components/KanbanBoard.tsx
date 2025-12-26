@@ -272,14 +272,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     // Get projectId from the first task (all tasks should have the same projectId)
     const projectId = tasks[0]?.projectId;
     if (!projectId) {
-      console.error('No projectId found');
+      console.error('[KanbanBoard] No projectId found');
       return;
     }
 
     const doneTaskIds = tasksByStatus.done.map((t) => t.id);
     if (doneTaskIds.length === 0) return;
 
-    await archiveTasks(projectId, doneTaskIds);
+    const result = await archiveTasks(projectId, doneTaskIds);
+    if (!result.success) {
+      console.error('[KanbanBoard] Failed to archive tasks:', result.error);
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
