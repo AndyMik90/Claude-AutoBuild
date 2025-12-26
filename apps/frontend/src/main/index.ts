@@ -138,12 +138,23 @@ app.whenReady().then(() => {
     const settingsPath = join(app.getPath('userData'), 'settings.json');
     if (existsSync(settingsPath)) {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-      if (settings.pythonPath || settings.autoBuildPath) {
+
+      // Validate autoBuildPath before using it - must contain runners/spec_runner.py
+      let validAutoBuildPath = settings.autoBuildPath;
+      if (validAutoBuildPath) {
+        const specRunnerPath = join(validAutoBuildPath, 'runners', 'spec_runner.py');
+        if (!existsSync(specRunnerPath)) {
+          console.warn('[main] Configured autoBuildPath is invalid (missing runners/spec_runner.py), will use auto-detection:', validAutoBuildPath);
+          validAutoBuildPath = undefined; // Let auto-detection find the correct path
+        }
+      }
+
+      if (settings.pythonPath || validAutoBuildPath) {
         console.warn('[main] Configuring AgentManager with settings:', {
           pythonPath: settings.pythonPath,
-          autoBuildPath: settings.autoBuildPath
+          autoBuildPath: validAutoBuildPath
         });
-        agentManager.configure(settings.pythonPath, settings.autoBuildPath);
+        agentManager.configure(settings.pythonPath, validAutoBuildPath);
       }
     }
   } catch (error) {

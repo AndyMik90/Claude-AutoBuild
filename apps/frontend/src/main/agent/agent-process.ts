@@ -51,12 +51,17 @@ export class AgentProcessManager {
    * Get the auto-claude source path (detects automatically if not configured)
    */
   getAutoBuildSourcePath(): string | null {
-    // If manually configured, use that
-    if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
+    // Use runners/spec_runner.py as the validation marker - this is the file actually needed
+    const validatePath = (p: string): boolean => {
+      return existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'));
+    };
+
+    // If manually configured AND valid, use that
+    if (this.autoBuildSourcePath && validatePath(this.autoBuildSourcePath)) {
       return this.autoBuildSourcePath;
     }
 
-    // Auto-detect from app location
+    // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
       // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
       path.resolve(__dirname, '..', '..', '..', 'backend'),
@@ -67,8 +72,7 @@ export class AgentProcessManager {
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (validatePath(p)) {
         return p;
       }
     }

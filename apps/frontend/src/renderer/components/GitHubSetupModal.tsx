@@ -42,7 +42,7 @@ interface GitHubSetupModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project: Project;
-  onComplete: (settings: { githubToken: string; githubRepo: string; mainBranch: string }) => void;
+  onComplete: (settings: { githubToken: string; githubRepo: string; mainBranch: string; githubAuthMethod?: 'oauth' | 'pat' }) => void;
   onSkip?: () => void;
 }
 
@@ -367,7 +367,8 @@ export function GitHubSetupModal({
       onComplete({
         githubToken,
         githubRepo,
-        mainBranch: selectedBranch
+        mainBranch: selectedBranch,
+        githubAuthMethod: 'oauth' // Setup modal always uses OAuth flow
       });
     }
   };

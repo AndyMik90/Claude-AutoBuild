@@ -47,19 +47,14 @@ export class TerminalNameGenerator extends EventEmitter {
     }
 
     const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
+      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
         return p;
       }
     }

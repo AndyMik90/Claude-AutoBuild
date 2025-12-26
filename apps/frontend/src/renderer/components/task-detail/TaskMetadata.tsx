@@ -12,9 +12,11 @@ import {
   ListChecks,
   Clock
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../../lib/utils';
+import { cn, formatRelativeTime } from '../../lib/utils';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -136,10 +138,10 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
       {/* Description - Primary Content */}
       {task.description && (
-        <div>
-          <p className="text-sm text-foreground/90 leading-relaxed">
-            {sanitizeMarkdownForDisplay(task.description, 800)}
-          </p>
+        <div className="prose prose-sm prose-invert max-w-none prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {task.description}
+          </ReactMarkdown>
         </div>
       )}
 

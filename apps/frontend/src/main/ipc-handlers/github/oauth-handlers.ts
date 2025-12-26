@@ -3,15 +3,27 @@
  * Provides a simpler OAuth flow than manual PAT creation
  */
 
-import { ipcMain, shell } from 'electron';
-import type { BrowserWindow } from 'electron';
+import { ipcMain, shell, BrowserWindow } from 'electron';
 import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
 
-// Module-level variable to store getMainWindow function
-let getMainWindowFn: (() => BrowserWindow | null) | null = null;
+/**
+ * Send device code info to all renderer windows immediately when extracted
+ * This allows the UI to display the code while the auth process is still running
+ */
+function sendDeviceCodeToRenderer(deviceCode: string, authUrl: string, browserOpened: boolean): void {
+  debugLog('Sending device code to renderer windows');
+  const windows = BrowserWindow.getAllWindows();
+  for (const win of windows) {
+    win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, {
+      deviceCode,
+      authUrl,
+      browserOpened
+    });
+  }
+}
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -24,58 +36,6 @@ function debugLog(message: string, data?: unknown): void {
       console.warn(`[GitHub OAuth] ${message}`);
     }
   }
-}
-
-/**
- * Device code info sent to renderer during auth flow
- */
-interface DeviceCodeEvent {
-  deviceCode: string;
-  authUrl: string;
-  browserOpened: boolean;
-}
-
-/**
- * Send device code to renderer immediately when extracted
- */
-function sendDeviceCode(deviceCode: string, authUrl: string, browserOpened: boolean): void {
-  const mainWindow = getMainWindowFn?.();
-  if (!mainWindow) {
-    debugLog('No main window available to send device code');
-    return;
-  }
-  debugLog('Sending device code to renderer (code redacted for security)');
-  mainWindow.webContents.send(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, {
-    deviceCode,
-    authUrl,
-    browserOpened
-  } as DeviceCodeEvent);
-}
-
-/**
- * Send auth complete event to renderer
- */
-function sendAuthComplete(success: boolean, message?: string): void {
-  const mainWindow = getMainWindowFn?.();
-  if (!mainWindow) {
-    debugLog('No main window available to send auth complete');
-    return;
-  }
-  debugLog('Sending auth complete to renderer:', { success, message });
-  mainWindow.webContents.send(IPC_CHANNELS.GITHUB_AUTH_COMPLETE, { success, message });
-}
-
-/**
- * Send auth error event to renderer
- */
-function sendAuthError(error: string): void {
-  const mainWindow = getMainWindowFn?.();
-  if (!mainWindow) {
-    debugLog('No main window available to send auth error');
-    return;
-  }
-  debugLog('Sending auth error to renderer:', error);
-  mainWindow.webContents.send(IPC_CHANNELS.GITHUB_AUTH_ERROR, { error });
 }
 
 // Regex pattern to validate GitHub repository format (owner/repo)
@@ -322,9 +282,9 @@ export function registerStartGhAuth(): void {
                 // Don't fail here - we'll return the device code so user can manually navigate
               }
 
-              // IMMEDIATELY send device code to renderer so user can see it
-              // This is critical - don't wait for the process to complete
-              sendDeviceCode(extractedDeviceCode, extractedAuthUrl, browserOpenedSuccessfully);
+              // IMMEDIATELY send device code to renderer so user can see it while auth is in progress
+              // This is critical - the frontend needs to display the code while the gh process is still running
+              sendDeviceCodeToRenderer(extractedDeviceCode, extractedAuthUrl, browserOpenedSuccessfully);
 
               // Extraction complete - mutex flag stays true to prevent re-extraction
               // The deviceCodeExtracted flag will prevent future attempts
@@ -360,18 +320,13 @@ export function registerStartGhAuth(): void {
             if (code === 0) {
               // Success case - include fallbackUrl if browser failed to open
               // so the user can manually navigate if needed
-              const successMessage = browserOpenedSuccessfully
-                ? 'Successfully authenticated with GitHub'
-                : 'Authentication successful. Browser could not be opened automatically.';
-
-              // Emit auth complete event to renderer
-              sendAuthComplete(true, successMessage);
-
               resolve({
                 success: true,
                 data: {
                   success: true,
-                  message: successMessage,
+                  message: browserOpenedSuccessfully
+                    ? 'Successfully authenticated with GitHub'
+                    : 'Authentication successful. Browser could not be opened automatically.',
                   deviceCode: extractedDeviceCode || undefined,
                   authUrl: extractedAuthUrl,
                   browserOpened: browserOpenedSuccessfully,
@@ -383,14 +338,10 @@ export function registerStartGhAuth(): void {
               // Even if auth failed, return device code info if we extracted it
               // This allows user to retry manually with the fallback URL
               const fallbackUrlForManualAuth = extractedDeviceCode ? extractedAuthUrl : GITHUB_DEVICE_URL;
-              const errorMessage = errorOutput || `Authentication failed with exit code ${code}`;
-
-              // Emit auth error event to renderer
-              sendAuthError(errorMessage);
 
               resolve({
                 success: false,
-                error: errorMessage,
+                error: errorOutput || `Authentication failed with exit code ${code}`,
                 data: {
                   success: false,
                   deviceCode: extractedDeviceCode || undefined,
@@ -406,10 +357,6 @@ export function registerStartGhAuth(): void {
 
           ghProcess.on('error', (error) => {
             debugLog('gh process error:', error.message);
-
-            // Emit auth error event to renderer
-            sendAuthError(error.message);
-
             resolve({
               success: false,
               error: error.message,
@@ -424,14 +371,9 @@ export function registerStartGhAuth(): void {
           });
         } catch (error) {
           debugLog('Exception in startGitHubAuth:', error instanceof Error ? error.message : error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-          // Emit auth error event to renderer
-          sendAuthError(errorMessage);
-
           resolve({
             success: false,
-            error: errorMessage,
+            error: error instanceof Error ? error.message : 'Unknown error',
             data: {
               success: false,
               browserOpened: false,
@@ -458,7 +400,8 @@ export function registerGetGhToken(): void {
         debugLog('Running: gh auth token');
         const token = execSync('gh auth token', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         }).trim();
 
         if (!token) {
@@ -497,7 +440,8 @@ export function registerGetGhUser(): void {
         debugLog('Running: gh api user');
         const userJson = execSync('gh api user', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         debugLog('User API response received');
@@ -538,7 +482,8 @@ export function registerListUserRepos(): void {
           'gh repo list --limit 100 --json nameWithOwner,description,isPrivate',
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getAugmentedEnv()
           }
         );
 
@@ -644,7 +589,8 @@ export function registerGetGitHubBranches(): void {
           ['api', apiEndpoint, '--paginate', '--jq', '.[].name'],
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getAugmentedEnv()
           }
         );
 
@@ -691,7 +637,8 @@ export function registerCreateGitHubRepo(): void {
         // Get the authenticated username
         const username = execSync('gh api user --jq .login', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         }).trim();
 
         // Determine the owner (personal account or organization)
@@ -721,7 +668,8 @@ export function registerCreateGitHubRepo(): void {
         const output = execFileSync('gh', args, {
           encoding: 'utf-8',
           cwd: options.projectPath,
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         debugLog('gh repo create output:', output);
@@ -827,7 +775,8 @@ export function registerListGitHubOrgs(): void {
         // Get user's organizations
         const output = execSync('gh api user/orgs --jq \'.[] | {login: .login, avatarUrl: .avatar_url}\'', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         // Parse the JSON lines output
@@ -865,14 +814,8 @@ export function registerListGitHubOrgs(): void {
 
 /**
  * Register all GitHub OAuth handlers
- * @param getMainWindow - Function to get the main BrowserWindow for sending events
  */
-export function registerGithubOAuthHandlers(
-  getMainWindow: () => BrowserWindow | null
-): void {
-  // Store the getMainWindow function for use in event sending
-  getMainWindowFn = getMainWindow;
-
+export function registerGithubOAuthHandlers(): void {
   debugLog('Registering GitHub OAuth handlers');
   registerCheckGhCli();
   registerCheckGhAuth();

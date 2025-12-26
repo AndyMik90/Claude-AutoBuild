@@ -85,6 +85,12 @@ from core.workspace.git_utils import (
     get_existing_build_worktree,
 )
 from core.workspace.git_utils import (
+    apply_path_mapping as _apply_path_mapping,
+)
+from core.workspace.git_utils import (
+    detect_file_renames as _detect_file_renames,
+)
+from core.workspace.git_utils import (
     get_changed_files_from_branch as _get_changed_files_from_branch,
 )
 from core.workspace.git_utils import (
@@ -92,6 +98,9 @@ from core.workspace.git_utils import (
 )
 from core.workspace.git_utils import (
     is_lock_file as _is_lock_file,
+)
+from core.workspace.git_utils import (
+    validate_merged_syntax as _validate_merged_syntax,
 )
 
 # Import from refactored modules in core/workspace/
@@ -230,12 +239,15 @@ def merge_existing_build(
         if smart_result is not None:
             # Smart merge handled it (success or identified conflicts)
             if smart_result.get("success"):
-                # Check if smart merge resolved git conflicts directly
+                # Check if smart merge resolved git conflicts or path-mapped files
                 stats = smart_result.get("stats", {})
                 had_conflicts = stats.get("conflicts_resolved", 0) > 0
+                files_merged = stats.get("files_merged", 0) > 0
+                ai_assisted = stats.get("ai_assisted", 0) > 0
 
-                if had_conflicts:
-                    # Git conflicts were resolved (via AI or lock file exclusion) - changes are already staged
+                if had_conflicts or files_merged or ai_assisted:
+                    # Git conflicts were resolved OR path-mapped files were AI merged
+                    # Changes are already written and staged - no need for git merge
                     _print_merge_success(
                         no_commit, stats, spec_name=spec_name, keep_worktree=True
                     )
@@ -246,7 +258,7 @@ def merge_existing_build(
 
                     return True
                 else:
-                    # No git conflicts, do standard git merge
+                    # No conflicts and no files merged - do standard git merge
                     success_result = manager.merge_worktree(
                         spec_name, delete_after=False, no_commit=no_commit
                     )
@@ -731,6 +743,23 @@ def _resolve_git_conflicts_with_ai(
         merge_base=merge_base[:12] if merge_base else None,
     )
 
+    # Detect file renames between merge-base and target branch
+    # This handles cases where files were moved/renamed (e.g., directory restructures)
+    path_mappings: dict[str, str] = {}
+    if merge_base:
+        path_mappings = _detect_file_renames(project_dir, merge_base, base_branch)
+        if path_mappings:
+            debug(
+                MODULE,
+                f"Detected {len(path_mappings)} file renames between merge-base and target",
+                sample_mappings=dict(list(path_mappings.items())[:5]),
+            )
+            print(
+                muted(
+                    f"  Detected {len(path_mappings)} file rename(s) since branch creation"
+                )
+            )
+
     # FIX: Copy NEW files FIRST before resolving conflicts
     # This ensures dependencies exist before files that import them are written
     changed_files = _get_changed_files_from_branch(
@@ -748,14 +777,24 @@ def _resolve_git_conflicts_with_ai(
                     project_dir, spec_branch, file_path
                 )
                 if content is not None:
-                    target_path = project_dir / file_path
+                    # Apply path mapping - write to new location if file was renamed
+                    target_file_path = _apply_path_mapping(file_path, path_mappings)
+                    target_path = project_dir / target_file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(content, encoding="utf-8")
                     subprocess.run(
-                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                        ["git", "add", target_file_path],
+                        cwd=project_dir,
+                        capture_output=True,
                     )
-                    resolved_files.append(file_path)
-                    debug(MODULE, f"Copied new file: {file_path}")
+                    resolved_files.append(target_file_path)
+                    if target_file_path != file_path:
+                        debug(
+                            MODULE,
+                            f"Copied new file with path mapping: {file_path} -> {target_file_path}",
+                        )
+                    else:
+                        debug(MODULE, f"Copied new file: {file_path}")
             except Exception as e:
                 debug_warning(MODULE, f"Could not copy new file {file_path}: {e}")
 
@@ -769,20 +808,26 @@ def _resolve_git_conflicts_with_ai(
     debug(MODULE, "Categorizing conflicting files for parallel processing")
 
     for file_path in conflicting_files:
-        debug(MODULE, f"Categorizing conflicting file: {file_path}")
+        # Apply path mapping to get the target path in the current branch
+        target_file_path = _apply_path_mapping(file_path, path_mappings)
+        debug(
+            MODULE,
+            f"Categorizing conflicting file: {file_path}"
+            + (f" -> {target_file_path}" if target_file_path != file_path else ""),
+        )
 
         try:
-            # Get content from main branch
+            # Get content from main branch using MAPPED path (file may have been renamed)
             main_content = _get_file_content_from_ref(
-                project_dir, base_branch, file_path
+                project_dir, base_branch, target_file_path
             )
 
-            # Get content from worktree branch
+            # Get content from worktree branch using ORIGINAL path
             worktree_content = _get_file_content_from_ref(
                 project_dir, spec_branch, file_path
             )
 
-            # Get content from merge-base (common ancestor)
+            # Get content from merge-base (common ancestor) using ORIGINAL path
             base_content = None
             if merge_base:
                 base_content = _get_file_content_from_ref(
@@ -795,38 +840,49 @@ def _resolve_git_conflicts_with_ai(
 
             if main_content is None:
                 # File only exists in worktree - it's a new file (no AI needed)
-                simple_merges.append((file_path, worktree_content))
+                # Write to target path (mapped if applicable)
+                simple_merges.append((target_file_path, worktree_content))
                 debug(MODULE, f"  {file_path}: new file (no AI needed)")
             elif worktree_content is None:
                 # File only exists in main - was deleted in worktree (no AI needed)
-                simple_merges.append((file_path, None))  # None = delete
+                simple_merges.append((target_file_path, None))  # None = delete
                 debug(MODULE, f"  {file_path}: deleted (no AI needed)")
             else:
                 # File exists in both - check if it's a lock file
-                if _is_lock_file(file_path):
+                if _is_lock_file(target_file_path):
                     # Lock files should be excluded from merge entirely
                     # They must be regenerated after merge by running the package manager
                     # (e.g., npm install, pnpm install, uv sync, cargo update)
                     #
                     # Strategy: Take main branch version and let user regenerate
-                    lock_files_excluded.append(file_path)
-                    simple_merges.append((file_path, main_content))
+                    lock_files_excluded.append(target_file_path)
+                    simple_merges.append((target_file_path, main_content))
                     debug(
                         MODULE,
-                        f"  {file_path}: lock file (excluded - will use main version)",
+                        f"  {target_file_path}: lock file (excluded - will use main version)",
                     )
                 else:
                     # Regular file - needs AI merge
+                    # Store the TARGET path for writing, but track original for content retrieval
                     files_needing_ai_merge.append(
                         ParallelMergeTask(
-                            file_path=file_path,
+                            file_path=target_file_path,  # Use target path for writing
                             main_content=main_content,
                             worktree_content=worktree_content,
                             base_content=base_content,
                             spec_name=spec_name,
+                            project_dir=project_dir,
                         )
                     )
-                    debug(MODULE, f"  {file_path}: needs AI merge")
+                    debug(
+                        MODULE,
+                        f"  {file_path}: needs AI merge"
+                        + (
+                            f" (will write to {target_file_path})"
+                            if target_file_path != file_path
+                            else ""
+                        ),
+                    )
 
         except Exception as e:
             print(error(f"    ✗ Failed to categorize {file_path}: {e}"))
@@ -946,29 +1002,140 @@ def _resolve_git_conflicts_with_ai(
         if f not in conflicting_files and s != "A"  # Skip new files, already copied
     ]
 
+    # Separate files that need AI merge (path-mapped) from simple copies
+    path_mapped_files: list[ParallelMergeTask] = []
+    simple_copy_files: list[
+        tuple[str, str, str]
+    ] = []  # (file_path, target_path, status)
+
     for file_path, status in non_conflicting:
+        # Apply path mapping for renamed/moved files
+        target_file_path = _apply_path_mapping(file_path, path_mappings)
+
+        if target_file_path != file_path and status != "D":
+            # File was renamed/moved - needs AI merge to incorporate changes
+            # Get content from worktree (old path) and target branch (new path)
+            worktree_content = _get_file_content_from_ref(
+                project_dir, spec_branch, file_path
+            )
+            target_content = _get_file_content_from_ref(
+                project_dir, base_branch, target_file_path
+            )
+            base_content = None
+            if merge_base:
+                base_content = _get_file_content_from_ref(
+                    project_dir, merge_base, file_path
+                )
+
+            if worktree_content and target_content:
+                # Both exist - need AI merge
+                path_mapped_files.append(
+                    ParallelMergeTask(
+                        file_path=target_file_path,
+                        main_content=target_content,
+                        worktree_content=worktree_content,
+                        base_content=base_content,
+                        spec_name=spec_name,
+                        project_dir=project_dir,
+                    )
+                )
+                debug(
+                    MODULE,
+                    f"Path-mapped file needs AI merge: {file_path} -> {target_file_path}",
+                )
+            elif worktree_content:
+                # Only exists in worktree - simple copy to new path
+                simple_copy_files.append((file_path, target_file_path, status))
+        else:
+            # No path mapping or deletion - simple operation
+            simple_copy_files.append((file_path, target_file_path, status))
+
+    # Process path-mapped files with AI merge
+    if path_mapped_files:
+        print()
+        print_status(
+            f"Merging {len(path_mapped_files)} path-mapped file(s) with AI...",
+            "progress",
+        )
+
+        import time
+
+        start_time = time.time()
+
+        # Run parallel merges for path-mapped files
+        path_mapped_results = asyncio.run(
+            _run_parallel_merges(
+                tasks=path_mapped_files,
+                project_dir=project_dir,
+                max_concurrent=MAX_PARALLEL_AI_MERGES,
+            )
+        )
+
+        elapsed = time.time() - start_time
+
+        for result in path_mapped_results:
+            if result.success:
+                target_path = project_dir / result.file_path
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text(result.merged_content, encoding="utf-8")
+                subprocess.run(
+                    ["git", "add", result.file_path],
+                    cwd=project_dir,
+                    capture_output=True,
+                )
+                resolved_files.append(result.file_path)
+
+                if result.was_auto_merged:
+                    auto_merged_count += 1
+                    print(success(f"    ✓ {result.file_path} (auto-merged)"))
+                else:
+                    ai_merged_count += 1
+                    print(success(f"    ✓ {result.file_path} (AI merged)"))
+            else:
+                print(error(f"    ✗ {result.file_path}: {result.error}"))
+                remaining_conflicts.append(
+                    {
+                        "file": result.file_path,
+                        "reason": result.error or "AI could not merge path-mapped file",
+                        "severity": "high",
+                    }
+                )
+
+        print(muted(f"  Path-mapped merge completed in {elapsed:.1f}s"))
+
+    # Process simple copy/delete files
+    for file_path, target_file_path, status in simple_copy_files:
         try:
             if status == "D":
-                # Deleted in worktree
-                target_path = project_dir / file_path
+                # Deleted in worktree - delete from target path
+                target_path = project_dir / target_file_path
                 if target_path.exists():
                     target_path.unlink()
                     subprocess.run(
-                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                        ["git", "add", target_file_path],
+                        cwd=project_dir,
+                        capture_output=True,
                     )
             else:
-                # Added or modified - copy from worktree
+                # Modified without path change - simple copy
                 content = _get_file_content_from_ref(
                     project_dir, spec_branch, file_path
                 )
                 if content is not None:
-                    target_path = project_dir / file_path
+                    target_path = project_dir / target_file_path
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_text(content, encoding="utf-8")
                     subprocess.run(
-                        ["git", "add", file_path], cwd=project_dir, capture_output=True
+                        ["git", "add", target_file_path],
+                        cwd=project_dir,
+                        capture_output=True,
                     )
-                    resolved_files.append(file_path)
+                    resolved_files.append(target_file_path)
+                    if target_file_path != file_path:
+                        debug(
+                            MODULE,
+                            f"Merged with path mapping: {file_path} -> {target_file_path}",
+                        )
         except Exception as e:
             print(muted(f"    Warning: Could not process {file_path}: {e}"))
 
@@ -1273,6 +1440,47 @@ async def _merge_file_with_ai_async(
             if response_text:
                 # Strip any code fences the model might have added
                 merged_content = _strip_code_fences(response_text.strip())
+
+                # VALIDATION: Check if AI returned natural language instead of code
+                # This catches cases where AI says "I need to see more..." instead of merging
+                natural_language_patterns = [
+                    "I need to",
+                    "Let me",
+                    "I cannot",
+                    "I'm unable",
+                    "The file appears",
+                    "I don't have",
+                    "Unfortunately",
+                    "I apologize",
+                ]
+                first_line = merged_content.split("\n")[0] if merged_content else ""
+                if any(pattern in first_line for pattern in natural_language_patterns):
+                    debug_warning(
+                        MODULE,
+                        f"AI returned natural language instead of code for {task.file_path}: {first_line[:100]}",
+                    )
+                    return ParallelMergeResult(
+                        file_path=task.file_path,
+                        merged_content=None,
+                        success=False,
+                        error=f"AI returned explanation instead of code: {first_line[:80]}...",
+                    )
+
+                # VALIDATION: Run syntax check on the merged content
+                is_valid, syntax_error = _validate_merged_syntax(
+                    task.file_path, merged_content, task.project_dir
+                )
+                if not is_valid:
+                    debug_warning(
+                        MODULE,
+                        f"AI merge produced invalid syntax for {task.file_path}: {syntax_error}",
+                    )
+                    return ParallelMergeResult(
+                        file_path=task.file_path,
+                        merged_content=None,
+                        success=False,
+                        error=f"AI merge produced invalid syntax: {syntax_error}",
+                    )
 
                 debug(MODULE, f"AI merged {task.file_path} successfully")
                 return ParallelMergeResult(

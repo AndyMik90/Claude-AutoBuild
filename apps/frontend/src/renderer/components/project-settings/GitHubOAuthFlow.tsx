@@ -143,6 +143,38 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run once on mount, checkGitHubStatus is intentionally excluded
   }, [clearAuthTimeout]);
 
+  // Listen for device code events from the main process
+  // This allows us to display the code IMMEDIATELY when extracted, not after the auth completes
+  useEffect(() => {
+    if (status !== 'authenticating') {
+      return;
+    }
+
+    debugLog('Setting up device code event listener');
+
+    // Listen for device code from main process (sent immediately when extracted)
+    const cleanup = window.electronAPI.onGitHubAuthDeviceCode((data) => {
+      debugLog('Received device code from main process:', {
+        hasCode: !!data.deviceCode,
+        authUrl: data.authUrl,
+        browserOpened: data.browserOpened
+      });
+
+      if (data.deviceCode) {
+        setDeviceCode(data.deviceCode);
+      }
+      if (data.authUrl) {
+        setAuthUrl(data.authUrl);
+      }
+      setBrowserOpened(data.browserOpened);
+    });
+
+    return () => {
+      debugLog('Cleaning up device code event listener');
+      cleanup();
+    };
+  }, [status]);
+
   const checkGitHubStatus = async () => {
     debugLog('checkGitHubStatus() called');
     setStatus('checking');

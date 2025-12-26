@@ -29,12 +29,7 @@ const detectAutoBuildSourcePath = (): string | null => {
     // We need to go up to find apps/backend
     possiblePaths.push(
       path.resolve(__dirname, '..', '..', '..', 'backend'),      // From out/main -> apps/backend
-      path.resolve(process.cwd(), 'apps', 'backend'),            // From cwd (repo root)
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),  // Legacy: from out/main up 3 levels
-      path.resolve(__dirname, '..', '..', 'auto-claude'),        // Legacy: from out/main up 2 levels
-      path.resolve(process.cwd(), 'auto-claude'),                // Legacy: from cwd (project root)
-      path.resolve(process.cwd(), '..', 'auto-claude')           // Legacy: from cwd parent
+      path.resolve(process.cwd(), 'apps', 'backend')             // From cwd (repo root)
     );
   } else {
     // Production mode paths (packaged app)
@@ -42,20 +37,14 @@ const detectAutoBuildSourcePath = (): string | null => {
     // We check common locations relative to the app bundle
     const appPath = app.getAppPath();
     possiblePaths.push(
-      path.resolve(appPath, '..', 'backend'),                    // Sibling to app (new structure)
+      path.resolve(appPath, '..', 'backend'),                    // Sibling to app
       path.resolve(appPath, '..', '..', 'backend'),              // Up 2 from app
-      // Legacy paths for backwards compatibility
-      path.resolve(appPath, '..', 'auto-claude'),               // Sibling to app
-      path.resolve(appPath, '..', '..', 'auto-claude'),         // Up 2 from app
-      path.resolve(appPath, '..', '..', '..', 'auto-claude'),   // Up 3 from app
-      path.resolve(process.resourcesPath, '..', 'auto-claude'), // Relative to resources
-      path.resolve(process.resourcesPath, '..', '..', 'auto-claude')
+      path.resolve(process.resourcesPath, '..', 'backend')       // Relative to resources
     );
   }
 
   // Add process.cwd() as last resort on all platforms
   possiblePaths.push(path.resolve(process.cwd(), 'apps', 'backend'));
-  possiblePaths.push(path.resolve(process.cwd(), 'auto-claude'));
 
   // Enable debug logging with DEBUG=1
   const debug = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
@@ -70,8 +59,9 @@ const detectAutoBuildSourcePath = (): string | null => {
   }
 
   for (const p of possiblePaths) {
-    // Use requirements.txt as marker - it always exists in auto-claude source
-    const markerPath = path.join(p, 'requirements.txt');
+    // Use runners/spec_runner.py as marker - this is the file actually needed for task execution
+    // This prevents matching legacy 'auto-claude/' directories that don't have the runners
+    const markerPath = path.join(p, 'runners', 'spec_runner.py');
     const exists = existsSync(p) && existsSync(markerPath);
 
     if (debug) {
