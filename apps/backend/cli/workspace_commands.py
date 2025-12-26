@@ -175,6 +175,33 @@ except ImportError:
 MODULE = "cli.workspace_commands"
 
 
+def _is_path_within_directory(base_dir: Path, target_path: Path) -> bool:
+    """
+    Check if a target path is safely within a base directory.
+
+    This prevents path traversal attacks where a malicious file_path like
+    '../../../etc/passwd' could write files outside the project directory.
+
+    Args:
+        base_dir: The base directory that should contain the target
+        target_path: The path to validate
+
+    Returns:
+        True if target_path is within base_dir, False otherwise
+    """
+    try:
+        # Resolve both paths to absolute paths, resolving any .. or symlinks
+        base_resolved = base_dir.resolve()
+        target_resolved = target_path.resolve()
+
+        # Check if target is relative to base (i.e., base is a parent of target)
+        target_resolved.relative_to(base_resolved)
+        return True
+    except ValueError:
+        # relative_to() raises ValueError if target is not relative to base
+        return False
+
+
 def handle_merge_command(
     project_dir: Path,
     spec_name: str,
@@ -1087,6 +1114,22 @@ def handle_apply_resolutions_command(
 
             # Write the resolved content
             target_path = project_dir / file_path
+
+            # Security: Validate that the target path stays within the project directory
+            # This prevents path traversal attacks (e.g., file_path = "../../../etc/passwd")
+            if not _is_path_within_directory(project_dir, target_path):
+                debug_error(
+                    MODULE,
+                    f"Path traversal attempt blocked: {file_path} resolves outside project directory",
+                )
+                failed_files.append(
+                    {
+                        "filePath": file_path,
+                        "error": "Invalid path: file path must be within the project directory",
+                    }
+                )
+                continue
+
             target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_text(content, encoding="utf-8")
 
