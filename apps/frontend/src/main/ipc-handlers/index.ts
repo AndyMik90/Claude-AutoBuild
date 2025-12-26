@@ -28,6 +28,7 @@ import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
+import { registerDokployHandlers } from './dokploy-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -98,6 +99,9 @@ export function setupIpcHandlers(
   // App auto-update handlers
   registerAppUpdateHandlers();
 
+  // Dokploy deployment handlers
+  registerDokployHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -119,5 +123,6 @@ export {
   registerChangelogHandlers,
   registerInsightsHandlers,
   registerMemoryHandlers,
-  registerAppUpdateHandlers
+  registerAppUpdateHandlers,
+  registerDokployHandlers
 };

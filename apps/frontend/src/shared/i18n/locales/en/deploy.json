@@ -1,0 +1,66 @@
+{
+  "title": "Deploy",
+  "description": "Deploy your project to various platforms",
+  "noProviders": {
+    "title": "No Deployment Providers Configured",
+    "description": "Configure deployment providers in Settings to enable deployments.",
+    "openSettings": "Open Settings"
+  },
+  "providers": {
+    "dokploy": {
+      "title": "Manage Dokploy Applications",
+      "description": "Deploy and manage your applications on Dokploy",
+      "deploy": "Manage"
+    }
+  },
+  "modal": {
+    "title": "Manage Dokploy Applications",
+    "description": "Deploy and manage your applications on Dokploy",
+    "selectAccount": "Select Account",
+    "selectAccountPlaceholder": "Choose a Dokploy account",
+    "selectServer": "Server",
+    "selectServerPlaceholder": "Choose a server (optional)",
+    "selectServerDescription": "Leave empty to deploy to the default server",
+    "noServers": "No remote servers available",
+    "localServer": "Local (Dokploy host)",
+    "projectName": "Project Name",
+    "projectNamePlaceholder": "Enter project name",
+    "projectNameDescription": "The name of the project in Dokploy",
+    "appName": "Application Name",
+    "appNamePlaceholder": "Enter application name",
+    "appNameDescription": "The name of the application within the project",
+    "gitHubProvider": "GitHub Provider",
+    "selectGitHubProvider": "Select GitHub integration",
+    "selectGitHubProviderPlaceholder": "Choose a GitHub provider",
+    "noGitHubProviders": "No GitHub providers configured in Dokploy",
+    "repository": "Repository",
+    "selectRepository": "Select repository",
+    "selectRepositoryPlaceholder": "Choose a repository",
+    "branch": "Branch",
+    "selectBranch": "Select branch",
+    "selectBranchPlaceholder": "Choose a branch",
+    "loadingServers": "Loading servers...",
+    "loadingGitHub": "Loading GitHub providers...",
+    "loadingRepos": "Loading repositories...",
+    "loadingBranches": "Loading branches...",
+    "deploy": "Deploy",
+    "deploying": "Deploying...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "success": {
+      "title": "Deployment Started",
+      "description": "Your application is being deployed to Dokploy"
+    },
+    "error": {
+      "title": "Deployment Failed",
+      "fetchServers": "Failed to fetch servers",
+      "fetchGitHub": "Failed to fetch GitHub providers",
+      "fetchRepos": "Failed to fetch repositories",
+      "fetchBranches": "Failed to fetch branches",
+      "createProject": "Failed to create project",
+      "createApp": "Failed to create application",
+      "configureGitHub": "Failed to configure GitHub provider",
+      "deploy": "Failed to start deployment"
+    }
+  }
+}

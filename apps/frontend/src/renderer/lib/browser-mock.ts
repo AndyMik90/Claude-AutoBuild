@@ -110,6 +110,13 @@ const browserMockAPI: ElectronAPI = {
   // Infrastructure & Docker Operations
   ...infrastructureMock,
 
+  // Dokploy Deployment Operations
+  dokployApi: async () => ({ success: false, error: 'Browser mock - Dokploy not available' }),
+  dokployReadEnv: async () => ({ success: true, data: {} }),
+  dokploySaveDeployment: async () => ({ success: true }),
+  dokployGetDeployment: async () => ({ success: true, data: null }),
+  dokployDeleteDeployment: async () => ({ success: true }),
+
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),

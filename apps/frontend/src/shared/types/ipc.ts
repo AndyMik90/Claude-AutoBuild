@@ -56,6 +56,7 @@ import type {
   ClaudeUsageSnapshot
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from './settings';
+import type { DokployApiRequest, DokployApiResponse, DokployProjectDeployment } from './dokploy';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -594,6 +595,13 @@ export interface ElectronAPI {
       percentage: number;
     }) => void
   ) => () => void;
+
+  // Dokploy deployment operations
+  dokployApi: <T = unknown>(request: DokployApiRequest) => Promise<DokployApiResponse<T>>;
+  dokployReadEnv: (servicePath: string) => Promise<DokployApiResponse<Record<string, string>>>;
+  dokploySaveDeployment: (projectPath: string, deployment: DokployProjectDeployment) => Promise<DokployApiResponse<void>>;
+  dokployGetDeployment: (projectPath: string) => Promise<DokployApiResponse<DokployProjectDeployment | null>>;
+  dokployDeleteDeployment: (projectPath: string) => Promise<DokployApiResponse<void>>;
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;

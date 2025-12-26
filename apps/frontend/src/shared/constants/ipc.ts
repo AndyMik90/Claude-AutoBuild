@@ -361,5 +361,12 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Dokploy deployment operations
+  DOKPLOY_API: 'dokploy:api',
+  DOKPLOY_READ_ENV: 'dokploy:read-env',
+  DOKPLOY_SAVE_DEPLOYMENT: 'dokploy:save-deployment',
+  DOKPLOY_GET_DEPLOYMENT: 'dokploy:get-deployment',
+  DOKPLOY_DELETE_DEPLOYMENT: 'dokploy:delete-deployment'
 } as const;

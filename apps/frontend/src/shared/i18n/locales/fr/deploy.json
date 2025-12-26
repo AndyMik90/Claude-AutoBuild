@@ -1,0 +1,66 @@
+{
+  "title": "Déployer",
+  "description": "Déployez votre projet sur différentes plateformes",
+  "noProviders": {
+    "title": "Aucun fournisseur de déploiement configuré",
+    "description": "Configurez les fournisseurs de déploiement dans les paramètres pour activer les déploiements.",
+    "openSettings": "Ouvrir les paramètres"
+  },
+  "providers": {
+    "dokploy": {
+      "title": "Gérer les applications Dokploy",
+      "description": "Déployez et gérez vos applications sur Dokploy",
+      "deploy": "Gérer"
+    }
+  },
+  "modal": {
+    "title": "Gérer les applications Dokploy",
+    "description": "Déployez et gérez vos applications sur Dokploy",
+    "selectAccount": "Sélectionner un compte",
+    "selectAccountPlaceholder": "Choisir un compte Dokploy",
+    "selectServer": "Serveur",
+    "selectServerPlaceholder": "Choisir un serveur (optionnel)",
+    "selectServerDescription": "Laisser vide pour déployer sur le serveur par défaut",
+    "noServers": "Aucun serveur distant disponible",
+    "localServer": "Local (hôte Dokploy)",
+    "projectName": "Nom du projet",
+    "projectNamePlaceholder": "Entrez le nom du projet",
+    "projectNameDescription": "Le nom du projet dans Dokploy",
+    "appName": "Nom de l'application",
+    "appNamePlaceholder": "Entrez le nom de l'application",
+    "appNameDescription": "Le nom de l'application dans le projet",
+    "gitHubProvider": "Fournisseur GitHub",
+    "selectGitHubProvider": "Sélectionner l'intégration GitHub",
+    "selectGitHubProviderPlaceholder": "Choisir un fournisseur GitHub",
+    "noGitHubProviders": "Aucun fournisseur GitHub configuré dans Dokploy",
+    "repository": "Dépôt",
+    "selectRepository": "Sélectionner un dépôt",
+    "selectRepositoryPlaceholder": "Choisir un dépôt",
+    "branch": "Branche",
+    "selectBranch": "Sélectionner une branche",
+    "selectBranchPlaceholder": "Choisir une branche",
+    "loadingServers": "Chargement des serveurs...",
+    "loadingGitHub": "Chargement des fournisseurs GitHub...",
+    "loadingRepos": "Chargement des dépôts...",
+    "loadingBranches": "Chargement des branches...",
+    "deploy": "Déployer",
+    "deploying": "Déploiement...",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "success": {
+      "title": "Déploiement lancé",
+      "description": "Votre application est en cours de déploiement sur Dokploy"
+    },
+    "error": {
+      "title": "Échec du déploiement",
+      "fetchServers": "Échec du chargement des serveurs",
+      "fetchGitHub": "Échec du chargement des fournisseurs GitHub",
+      "fetchRepos": "Échec du chargement des dépôts",
+      "fetchBranches": "Échec du chargement des branches",
+      "createProject": "Échec de la création du projet",
+      "createApp": "Échec de la création de l'application",
+      "configureGitHub": "Échec de la configuration du fournisseur GitHub",
+      "deploy": "Échec du lancement du déploiement"
+    }
+  }
+}

@@ -36,6 +36,10 @@
     "notifications": {
       "title": "Notifications",
       "description": "Préférences d'alertes"
+    },
+    "deployment": {
+      "title": "Déploiement",
+      "description": "Fournisseurs de déploiement"
     }
   },
   "language": {
@@ -236,5 +240,24 @@
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
     "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)"
+  },
+  "deployment": {
+    "title": "Fournisseurs de déploiement",
+    "description": "Configurer les comptes de fournisseurs de déploiement pour les déploiements automatisés",
+    "dokploy": {
+      "title": "Dokploy",
+      "description": "Gérer les comptes Dokploy pour le déploiement de conteneurs. Chaque compte nécessite une clé API de votre instance Dokploy.",
+      "noAccountsYet": "Aucun compte Dokploy configuré",
+      "accountName": "Nom du compte",
+      "accountNamePlaceholder": "ex: Production, Staging",
+      "apiKey": "Clé API",
+      "apiKeyPlaceholder": "Entrez votre clé API Dokploy",
+      "baseUrl": "URL de base",
+      "baseUrlDescription": "Remplacer l'URL API par défaut pour les instances Dokploy auto-hébergées",
+      "optional": "optionnel",
+      "addAccount": "Ajouter un compte Dokploy",
+      "edit": "Modifier le compte",
+      "delete": "Supprimer le compte"
+    }
   }
 }

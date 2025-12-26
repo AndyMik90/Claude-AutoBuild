@@ -78,6 +78,19 @@ export interface AgentProfile {
   phaseThinking?: PhaseThinkingConfig;
 }
 
+// Deployment provider account types
+export interface DokployAccount {
+  id: string;
+  name: string;
+  apiKey: string;
+  baseUrl: string; // Default: https://app.dokploy.com/api
+  createdAt: Date;
+}
+
+export interface DeploymentProviders {
+  dokploy: DokployAccount[];
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
@@ -88,6 +101,8 @@ export interface AppSettings {
   autoUpdateAutoBuild: boolean;
   autoNameTerminals: boolean;
   notifications: NotificationSettings;
+  // Deployment providers
+  deploymentProviders?: DeploymentProviders;
   // Global API keys (used as defaults for all projects)
   globalClaudeOAuthToken?: string;
   globalOpenAIApiKey?: string;

@@ -36,6 +36,10 @@
     "notifications": {
       "title": "Notifications",
       "description": "Alert preferences"
+    },
+    "deployment": {
+      "title": "Deployment",
+      "description": "Deployment providers"
     }
   },
   "language": {
@@ -236,5 +240,24 @@
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
     "openaiKeyDescription": "Required for Graphiti memory backend (embeddings)"
+  },
+  "deployment": {
+    "title": "Deployment Providers",
+    "description": "Configure deployment provider accounts for automated deployments",
+    "dokploy": {
+      "title": "Dokploy",
+      "description": "Manage Dokploy accounts for container deployment. Each account requires an API key from your Dokploy instance.",
+      "noAccountsYet": "No Dokploy accounts configured yet",
+      "accountName": "Account Name",
+      "accountNamePlaceholder": "e.g., Production, Staging",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter your Dokploy API key",
+      "baseUrl": "Base URL",
+      "baseUrlDescription": "Override the default API URL for self-hosted Dokploy instances",
+      "optional": "optional",
+      "addAccount": "Add Dokploy Account",
+      "edit": "Edit account",
+      "delete": "Delete account"
+    }
   }
 }
