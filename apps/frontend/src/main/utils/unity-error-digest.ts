@@ -203,7 +203,7 @@ function buildErrorBlocks(
 
     // Check if this block overlaps with current block
     const currentEndLine = currentBlock.lineNumber + currentBlock.lines.length - 1;
-    const blockStartLine = block.lineNumber - (block.lines.length - 1 - block.lines.indexOf(lines[block.lineNumber]));
+    const blockStartLine = Math.max(0, block.lineNumber - contextBefore);
 
     if (blockStartLine <= currentEndLine + 1) {
       // Merge blocks
