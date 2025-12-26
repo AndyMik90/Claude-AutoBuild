@@ -5,11 +5,11 @@ import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
-import { PythonEnvManager } from '../../python-env-manager';
+import { getConfiguredPythonPath, PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
-import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+import { parsePythonCommand } from '../../python-detector';
 
 /**
  * Read the stored base branch from task_metadata.json
@@ -354,7 +354,8 @@ export function registerWorktreeHandlers(
           debug('Using stored base branch:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
 
@@ -711,7 +712,8 @@ export function registerWorktreeHandlers(
           console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency

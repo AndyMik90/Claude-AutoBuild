@@ -23,7 +23,8 @@ import {
   isKuzuAvailable,
 } from '../memory-service';
 import { validateOpenAIApiKey } from '../api-validation-service';
-import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { parsePythonCommand } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Ollama Service Status
@@ -104,10 +105,9 @@ async function executeOllamaDetector(
   command: string,
   baseUrl?: string
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
-  const pythonCmd = findPythonCommand();
-  if (!pythonCmd) {
-    return { success: false, error: 'Python not found' };
-  }
+  // Use configured Python path (venv if ready, otherwise bundled/system)
+  // Note: ollama_model_detector.py doesn't require dotenv, but using venv is safer
+  const pythonCmd = getConfiguredPythonPath();
 
   // Find the ollama_model_detector.py script
   const possiblePaths = [
@@ -543,10 +543,8 @@ export function registerMemoryHandlers(): void {
        baseUrl?: string
      ): Promise<IPCResult<OllamaPullResult>> => {
       try {
-        const pythonCmd = findPythonCommand();
-        if (!pythonCmd) {
-          return { success: false, error: 'Python not found' };
-        }
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonCmd = getConfiguredPythonPath();
 
         // Find the ollama_model_detector.py script
         const possiblePaths = [

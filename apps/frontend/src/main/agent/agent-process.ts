@@ -9,7 +9,8 @@ import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { parsePythonCommand } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Process spawning and lifecycle management
@@ -18,8 +19,9 @@ export class AgentProcessManager {
   private state: AgentState;
   private events: AgentEvents;
   private emitter: EventEmitter;
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  // Use null to indicate not yet configured - getPythonPath() will use fallback
+  private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
@@ -33,7 +35,7 @@ export class AgentProcessManager {
    */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = pythonPath;
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
@@ -41,10 +43,17 @@ export class AgentProcessManager {
   }
 
   /**
-   * Get the configured Python path
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
    */
   getPythonPath(): string {
-    return this.pythonPath;
+    // If explicitly configured (by pythonEnvManager), use that
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    // Otherwise use the global configured path (venv if ready, else bundled/system)
+    return getConfiguredPythonPath();
   }
 
   /**
@@ -168,7 +177,7 @@ export class AgentProcessManager {
     const profileEnv = getProfileEnv();
 
     // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {

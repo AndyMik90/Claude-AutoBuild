@@ -30,6 +30,7 @@
     "rebuild": "electron-rebuild",
     "python:download": "node scripts/download-python.cjs",
     "python:download:all": "node scripts/download-python.cjs --all",
+    "python:verify": "node scripts/verify-python-bundling.cjs",
     "package": "npm run python:download && electron-vite build && electron-builder",
     "package:mac": "npm run python:download && electron-vite build && electron-builder --mac",
     "package:win": "npm run python:download && electron-vite build && electron-builder --win",
