@@ -373,7 +373,8 @@ export class ProjectStore {
         // Uses same merging logic as TaskLogService: planning from main, coding/validation from worktree
         let executionProgress: ExecutionProgress | undefined;
         const taskLogPath = path.join(specPath, 'task_log.json');
-        const worktreeLogPath = path.join(specPath, '.worktrees', dir.name, 'task_log.json');
+        // Worktree structure: {projectPath}/.worktrees/{specId}/{specsRelPath}/{specId}/
+        const worktreeLogPath = path.join(project.path, '.worktrees', dir.name, specsBaseDir, dir.name, 'task_log.json');
 
         // Load and merge logs (same logic as TaskLogService)
         let mainLog: any = null;
