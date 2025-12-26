@@ -25,6 +25,18 @@ export async function killProcessTree(pid: number): Promise<void> {
       await execAsync(`taskkill /PID ${pid} /T /F`);
     } else {
       // macOS/Linux: Kill process group
+      // Note on detached processes: Unity processes are spawned with detached: true
+      // (see unity-handlers.ts spawn calls), which creates a new process group on Unix.
+      // This allows us to kill the entire process tree using negative PID.
+      // 
+      // Orphaned process concern: When using detached mode, child processes are not
+      // automatically killed when the parent (Electron app) exits. If the app crashes
+      // or is force-killed before cleanup, these Unity processes could become orphaned.
+      // However, this is acceptable for Unity because:
+      // 1. Unity processes typically complete on their own (builds, tests)
+      // 2. Users can manually kill orphaned Unity processes if needed
+      // 3. The alternative (non-detached) makes it harder to reliably kill process trees
+      //
       // First, try to kill the process group
       try {
         process.kill(-pid, 'SIGTERM');

@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -371,17 +372,75 @@ export function Unity({ projectId }: UnityProps) {
     }
   };
 
-  // Check if there's a version mismatch
-  const hasVersionMismatch = useMemo(() => {
-    if (!projectInfo?.version || !effectiveEditorPath) return false;
+  // Extract Unity base version (major.minor.patch) from a version string
+  const extractUnityBaseVersion = (input: string): string | null => {
+    // Match Unity versions like 2021.3.15, 2021.3.15f1, 2021.3.15rc1, etc.
+    // Group 1 captures the base version (major.minor.patch).
+    const match = input.match(/(\d+\.\d+\.\d+)(?:f\d+|p\d+|a\d+|b\d+|rc\d+)?/i);
+    return match ? match[1] : null;
+  };
 
-    // Try to extract version from editor path (supports 2021.3.15, 2021.3.15f1, 2021.3.15rc1, etc.)
-    const editorVersionMatch = effectiveEditorPath.match(/(\d+\.\d+\.\d+(?:[a-z]+\d+)*)/i);
-    if (!editorVersionMatch) return false;
+  // Determine version mismatch severity
+  type VersionMismatchSeverity = 'none' | 'harmless' | 'minor' | 'moderate' | 'critical';
+  
+  const getVersionMismatchSeverity = useMemo((): { severity: VersionMismatchSeverity; message: string } => {
+    if (!projectInfo?.version || !effectiveEditorPath) {
+      return { severity: 'none', message: '' };
+    }
 
-    const editorVersion = editorVersionMatch[1];
-    return projectInfo.version !== editorVersion;
+    const editorBaseVersion = extractUnityBaseVersion(effectiveEditorPath);
+    const projectBaseVersion = extractUnityBaseVersion(projectInfo.version);
+
+    if (!editorBaseVersion || !projectBaseVersion) {
+      return { severity: 'none', message: '' };
+    }
+
+    // If base versions match, check for release suffix differences
+    if (projectBaseVersion === editorBaseVersion) {
+      // Check if only release suffix differs (e.g., 2021.3.15 vs 2021.3.15f1)
+      if (projectInfo.version !== effectiveEditorPath.match(/(\d+\.\d+\.\d+(?:f\d+|p\d+|a\d+|b\d+|rc\d+)?)/i)?.[1]) {
+        return { 
+          severity: 'harmless', 
+          message: `Project targets Unity ${projectInfo.version} but editor has a different release suffix. This is typically safe.` 
+        };
+      }
+      return { severity: 'none', message: '' };
+    }
+
+    const [eMajor, eMinor, ePatch] = editorBaseVersion.split('.').map(Number);
+    const [pMajor, pMinor, pPatch] = projectBaseVersion.split('.').map(Number);
+
+    // Major version mismatch
+    if (eMajor !== pMajor) {
+      return { 
+        severity: 'critical', 
+        message: `Major version mismatch: Project requires Unity ${projectInfo.version} but editor is ${editorBaseVersion}. This will likely cause compatibility issues and project corruption. Use the correct Unity version.` 
+      };
+    }
+
+    // Minor version mismatch
+    if (eMinor !== pMinor) {
+      return { 
+        severity: 'moderate', 
+        message: `Minor version mismatch: Project requires Unity ${projectInfo.version} but editor is ${editorBaseVersion}. This may cause import issues, recompilation, or feature incompatibilities.` 
+      };
+    }
+
+    // Patch version mismatch
+    if (ePatch !== pPatch) {
+      return { 
+        severity: 'minor', 
+        message: `Patch version mismatch: Project requires Unity ${projectInfo.version} but editor is ${editorBaseVersion}. This is usually safe but may trigger a reimport.` 
+      };
+    }
+
+    return { severity: 'none', message: '' };
   }, [projectInfo?.version, effectiveEditorPath]);
+
+  // Check if there's a version mismatch (for backward compatibility)
+  const hasVersionMismatch = useMemo(() => {
+    return getVersionMismatchSeverity.severity !== 'none' && getVersionMismatchSeverity.severity !== 'harmless';
+  }, [getVersionMismatchSeverity]);
 
   // Check if there's a running run
   const hasRunningRun = useMemo(() => {
@@ -462,7 +521,8 @@ export function Unity({ projectId }: UnityProps) {
   };
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <TooltipProvider>
+      <div className="flex h-full flex-col p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -608,13 +668,40 @@ export function Unity({ projectId }: UnityProps) {
 
             {/* Version Mismatch Warning */}
             {projectInfo.isUnityProject && hasVersionMismatch && (
-              <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4 text-sm">
+              <div className={`rounded-lg border p-4 text-sm ${
+                getVersionMismatchSeverity.severity === 'critical' 
+                  ? 'border-red-500/50 bg-red-500/10' 
+                  : getVersionMismatchSeverity.severity === 'moderate'
+                  ? 'border-orange-500/50 bg-orange-500/10'
+                  : 'border-yellow-500/50 bg-yellow-500/10'
+              }`}>
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
+                  <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${
+                    getVersionMismatchSeverity.severity === 'critical'
+                      ? 'text-red-600 dark:text-red-500'
+                      : getVersionMismatchSeverity.severity === 'moderate'
+                      ? 'text-orange-600 dark:text-orange-500'
+                      : 'text-yellow-600 dark:text-yellow-500'
+                  }`} />
                   <div>
-                    <p className="font-medium text-yellow-700 dark:text-yellow-400">Version Mismatch Warning</p>
-                    <p className="text-yellow-600 dark:text-yellow-500 mt-1">
-                      Project targets Unity {projectInfo.version} but selected editor version may differ. This could cause import/recompile issues.
+                    <p className={`font-medium ${
+                      getVersionMismatchSeverity.severity === 'critical'
+                        ? 'text-red-700 dark:text-red-400'
+                        : getVersionMismatchSeverity.severity === 'moderate'
+                        ? 'text-orange-700 dark:text-orange-400'
+                        : 'text-yellow-700 dark:text-yellow-400'
+                    }`}>
+                      {getVersionMismatchSeverity.severity === 'critical' ? 'Critical ' : ''}
+                      Version Mismatch Warning
+                    </p>
+                    <p className={`mt-1 ${
+                      getVersionMismatchSeverity.severity === 'critical'
+                        ? 'text-red-600 dark:text-red-500'
+                        : getVersionMismatchSeverity.severity === 'moderate'
+                        ? 'text-orange-600 dark:text-orange-500'
+                        : 'text-yellow-600 dark:text-yellow-500'
+                    }`}>
+                      {getVersionMismatchSeverity.message}
                     </p>
                   </div>
                 </div>
@@ -796,9 +883,9 @@ export function Unity({ projectId }: UnityProps) {
                                       {testSummary}
                                     </span>
                                   )}
-                                  {hasErrors && (
+                                  {hasErrors && run.errorSummary && (
                                     <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
-                                      ⚠️ {run.errorSummary!.errorCount} error{run.errorSummary!.errorCount > 1 ? 's' : ''}
+                                      ⚠️ {run.errorSummary.errorCount} error{run.errorSummary.errorCount > 1 ? 's' : ''}
                                     </Badge>
                                   )}
                                 </div>
@@ -832,19 +919,30 @@ export function Unity({ projectId }: UnityProps) {
                                     </Button>
                                   )}
                                   {run.status !== 'running' && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        rerun(run.id);
-                                      }}
-                                      disabled={!run.params || hasRunningRun}
-                                    >
-                                      <RotateCcw className="h-3 w-3 mr-1" />
-                                      Re-run
-                                    </Button>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            rerun(run.id);
+                                          }}
+                                          disabled={!run.params || hasRunningRun}
+                                        >
+                                          <RotateCcw className="h-3 w-3 mr-1" />
+                                          Re-run
+                                        </Button>
+                                      </TooltipTrigger>
+                                      {(!run.params || hasRunningRun) && (
+                                        <TooltipContent>
+                                          {!run.params 
+                                            ? 'Cannot re-run: parameters not available' 
+                                            : 'Cannot re-run: another Unity action is currently running'}
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
                                   )}
                                 </div>
 
@@ -864,42 +962,45 @@ export function Unity({ projectId }: UnityProps) {
                                 )}
 
                                 {/* Error digest */}
-                                {hasErrors && run.artifactPaths.errorDigest && (
-                                  <div>
-                                    <p className="text-xs font-medium mb-1">Error Digest</p>
-                                    <div className="space-y-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 text-xs w-full justify-start"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          window.electronAPI.openPath(run.artifactPaths.errorDigest!);
-                                        }}
-                                      >
-                                        <FileText className="h-3 w-3 mr-1" />
-                                        Open Error Digest
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 text-xs w-full justify-start"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          copyToClipboard(run.artifactPaths.errorDigest!);
-                                        }}
-                                      >
-                                        <Copy className="h-3 w-3 mr-1" />
-                                        Copy Error Digest Path
-                                      </Button>
-                                      {run.errorSummary?.firstErrorLine && (
-                                        <div className="text-xs bg-destructive/10 p-2 rounded text-destructive">
-                                          {run.errorSummary.firstErrorLine}
-                                        </div>
-                                      )}
+                                {hasErrors && run.artifactPaths.errorDigest && (() => {
+                                  const errorDigestPath = run.artifactPaths.errorDigest;
+                                  return (
+                                    <div>
+                                      <p className="text-xs font-medium mb-1">Error Digest</p>
+                                      <div className="space-y-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 text-xs w-full justify-start"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.electronAPI.openPath(errorDigestPath);
+                                          }}
+                                        >
+                                          <FileText className="h-3 w-3 mr-1" />
+                                          Open Error Digest
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 text-xs w-full justify-start"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            copyToClipboard(errorDigestPath);
+                                          }}
+                                        >
+                                          <Copy className="h-3 w-3 mr-1" />
+                                          Copy Error Digest Path
+                                        </Button>
+                                        {run.errorSummary?.firstErrorLine && (
+                                          <div className="text-xs bg-destructive/10 p-2 rounded text-destructive">
+                                            {run.errorSummary.firstErrorLine}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {/* Command */}
                                 <div>
@@ -1021,5 +1122,6 @@ export function Unity({ projectId }: UnityProps) {
         </ScrollArea>
       )}
     </div>
+    </TooltipProvider>
   );
 }

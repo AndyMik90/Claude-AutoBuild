@@ -65,7 +65,7 @@ interface UnityRun {
 }
 
 // Constants
-const DEFAULT_CANCELED_REASON = 'unknown';
+const DEFAULT_CANCELED_REASON = 'canceled (reason unknown)';
 
 /**
  * Detect if a directory is a Unity project and extract version info
@@ -196,23 +196,35 @@ function autoDetectUnityEditorsFolder(): string | null {
 }
 
 /**
- * Properly quote and escape a string for shell display.
- * Escapes internal backslashes and quotes, and wraps the string in quotes if it contains spaces or special characters.
+ * Quote and escape a string for *display/logging only*.
+ *
+ * This helper is intended solely for building human-readable command strings
+ * (e.g. for logs or devtools). It is **not** safe to use for constructing
+ * shell commands, as different shells have different escaping requirements.
+ *
+ * Escapes internal backslashes and double quotes for readability, and wraps
+ * the string in double quotes if it contains spaces or common shell special
+ * characters.
  */
 function quoteShellArg(arg: string): string {
-  // First escape backslashes, then escape internal quotes
+  // First escape backslashes, then escape internal quotes for display
   const escaped = arg
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"');
-  // Quote if contains spaces or special characters
-  if (/[\s&|<>()$`\\"]/.test(arg)) {
+  // Quote if the original argument contains spaces or special characters
+  // (test against original arg to avoid false positives from escaped backslashes)
+  if (/[\s&|<>()$`"]/.test(arg)) {
     return `"${escaped}"`;
   }
   return escaped;
 }
 
 /**
- * Build a display-friendly command string with properly quoted arguments.
+ * Build a display-friendly command string with quoted arguments.
+ *
+ * This is for logging / debugging only and must not be used to construct
+ * actual shell command lines. The actual command execution uses spawn() with
+ * an arguments array, which is the safe approach.
  */
 function buildCommandString(executable: string, args: string[]): string {
   return `${quoteShellArg(executable)} ${args.map(quoteShellArg).join(' ')}`;
@@ -974,9 +986,17 @@ export function registerUnityHandlers(): void {
         const runContent = readFileSync(runJsonPath, 'utf-8');
         const run = JSON.parse(runContent) as UnityRun;
 
-        // Mark as canceled
+        // Mark as canceled and save to disk immediately
+        // This handles a race condition with the process close handler:
+        // - If the process terminates naturally between now and the kill attempt,
+        //   the close handler will reload this run from disk and see the 'canceled' status
+        // - This ensures we don't incorrectly report a naturally-completed run as 'failed'
+        //   or overwrite the canceled status
         run.status = 'canceled';
         run.canceledReason = 'user';
+        
+        // Save updated run record before attempting to kill
+        saveRunRecord(projectId, run);
 
         // Try to kill the process
         const canceled = await unityProcessStore.cancel(runId);
@@ -989,9 +1009,6 @@ export function registerUnityHandlers(): void {
             console.error('Failed to kill process:', error);
           }
         }
-
-        // Save updated run record
-        saveRunRecord(projectId, run);
 
         return { success: true, data: undefined };
       } catch (error) {
