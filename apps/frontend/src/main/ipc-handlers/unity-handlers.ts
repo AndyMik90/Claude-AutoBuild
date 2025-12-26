@@ -196,6 +196,27 @@ function autoDetectUnityEditorsFolder(): string | null {
 }
 
 /**
+ * Properly quote and escape a string for shell display.
+ * Escapes internal quotes and wraps the string in quotes if it contains spaces or special characters.
+ */
+function quoteShellArg(arg: string): string {
+  // Escape internal quotes
+  const escaped = arg.replace(/"/g, '\\"');
+  // Quote if contains spaces or special characters
+  if (/[\s&|<>()$`\\"]/.test(arg)) {
+    return `"${escaped}"`;
+  }
+  return escaped;
+}
+
+/**
+ * Build a display-friendly command string with properly quoted arguments.
+ */
+function buildCommandString(executable: string, args: string[]): string {
+  return `${quoteShellArg(executable)} ${args.map(quoteShellArg).join(' ')}`;
+}
+
+/**
  * Scan Unity Editors folder and return all editor installations
  */
 function scanUnityEditorsFolder(editorsFolder: string): UnityEditorInfo[] {
@@ -419,7 +440,7 @@ async function runEditModeTests(projectId: string, editorPath: string): Promise<
     '-logFile', logFile
   ];
 
-  const command = `${editorPath} ${args.join(' ')}`;
+  const command = buildCommandString(editorPath, args);
   const startTime = new Date();
 
   // Create initial run record
@@ -573,7 +594,7 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
     '-logFile', logFile
   ];
 
-  const command = `${editorPath} ${args.join(' ')}`;
+  const command = buildCommandString(editorPath, args);
   const startTime = new Date();
 
   // Create initial run record
