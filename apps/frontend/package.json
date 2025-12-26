@@ -47,6 +47,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.4.2",
+    "@fastify/swagger-ui": "^5.2.2",
+    "@fastify/websocket": "^11.0.2",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -77,6 +80,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
+    "fastify": "^5.3.4",
     "i18next": "^25.7.3",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
