@@ -375,8 +375,8 @@ export function Unity({ projectId }: UnityProps) {
   const hasVersionMismatch = useMemo(() => {
     if (!projectInfo?.version || !effectiveEditorPath) return false;
 
-    // Try to extract version from editor path
-    const editorVersionMatch = effectiveEditorPath.match(/(\d+\.\d+\.\d+[a-z]\d+)/i);
+    // Try to extract version from editor path (supports 2021.3.15, 2021.3.15f1, 2021.3.15rc1, etc.)
+    const editorVersionMatch = effectiveEditorPath.match(/(\d+\.\d+\.\d+(?:[a-z]+\d+)*)/i);
     if (!editorVersionMatch) return false;
 
     const editorVersion = editorVersionMatch[1];
