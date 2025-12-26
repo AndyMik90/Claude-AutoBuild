@@ -68,6 +68,7 @@
       "buildTarget": "Build Target",
       "developmentBuild": "Development Build",
       "confirmDelete": "Are you sure you want to delete the profile '{{name}}'?",
+      "confirmDeleteTitle": "Delete Profile",
       "deleteButton": "Delete Profile"
     }
   },
