@@ -622,12 +622,13 @@ export interface ElectronAPI {
     buildExecuteMethod?: string;
   }) => Promise<IPCResult<void>>;
   runUnityEditModeTests: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
+  runUnityPlayModeTests: (projectId: string, editorPath: string, options?: { buildTarget?: string; testFilter?: string }) => Promise<IPCResult<void>>;
   runUnityBuild: (projectId: string, editorPath: string, executeMethod: string) => Promise<IPCResult<void>>;
   openUnityProject: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{
     runs: Array<{
       id: string;
-      action: 'editmode-tests' | 'build';
+      action: 'editmode-tests' | 'playmode-tests' | 'build';
       startedAt: string;
       endedAt?: string;
       durationMs?: number;
@@ -641,6 +642,8 @@ export interface ElectronAPI {
         projectPath: string;
         executeMethod?: string;
         testPlatform?: string;
+        buildTarget?: string;
+        testFilter?: string;
       };
       artifactPaths: {
         runDir: string;
@@ -667,6 +670,123 @@ export interface ElectronAPI {
   rerunUnity: (projectId: string, runId: string) => Promise<IPCResult<void>>;
   openPath: (path: string) => Promise<IPCResult<void>>;
   copyToClipboard: (text: string) => Promise<IPCResult<void>>;
+
+  // Unity Profiles
+  getUnityProfiles: (projectId: string) => Promise<IPCResult<{
+    profiles: Array<{
+      id: string;
+      name: string;
+      editorPath?: string;
+      buildExecuteMethod?: string;
+      testDefaults?: {
+        editModeEnabled?: boolean;
+        playModeEnabled?: boolean;
+        playModeBuildTarget?: string;
+        testFilter?: string;
+      };
+      buildDefaults?: {
+        enabled?: boolean;
+        buildTarget?: string;
+        developmentBuild?: boolean;
+        extraArgs?: string[];
+      };
+    }>;
+    activeProfileId?: string;
+  }>>;
+  createUnityProfile: (projectId: string, profile: {
+    name: string;
+    editorPath?: string;
+    buildExecuteMethod?: string;
+    testDefaults?: {
+      editModeEnabled?: boolean;
+      playModeEnabled?: boolean;
+      playModeBuildTarget?: string;
+      testFilter?: string;
+    };
+    buildDefaults?: {
+      enabled?: boolean;
+      buildTarget?: string;
+      developmentBuild?: boolean;
+      extraArgs?: string[];
+    };
+  }) => Promise<IPCResult<{
+    id: string;
+    name: string;
+    editorPath?: string;
+    buildExecuteMethod?: string;
+    testDefaults?: {
+      editModeEnabled?: boolean;
+      playModeEnabled?: boolean;
+      playModeBuildTarget?: string;
+      testFilter?: string;
+    };
+    buildDefaults?: {
+      enabled?: boolean;
+      buildTarget?: string;
+      developmentBuild?: boolean;
+      extraArgs?: string[];
+    };
+  }>>;
+  updateUnityProfile: (projectId: string, profileId: string, updates: {
+    name?: string;
+    editorPath?: string;
+    buildExecuteMethod?: string;
+    testDefaults?: {
+      editModeEnabled?: boolean;
+      playModeEnabled?: boolean;
+      playModeBuildTarget?: string;
+      testFilter?: string;
+    };
+    buildDefaults?: {
+      enabled?: boolean;
+      buildTarget?: string;
+      developmentBuild?: boolean;
+      extraArgs?: string[];
+    };
+  }) => Promise<IPCResult<void>>;
+  deleteUnityProfile: (projectId: string, profileId: string) => Promise<IPCResult<void>>;
+  setActiveUnityProfile: (projectId: string, profileId: string) => Promise<IPCResult<void>>;
+
+  // Unity Pipelines
+  runUnityPipeline: (projectId: string, config: {
+    profileId?: string;
+    steps: Array<{
+      type: 'validate' | 'editmode-tests' | 'playmode-tests' | 'build' | 'collect-artifacts';
+      enabled: boolean;
+    }>;
+    continueOnFail?: boolean;
+  }) => Promise<IPCResult<void>>;
+  cancelUnityPipeline: (projectId: string, pipelineId: string) => Promise<IPCResult<void>>;
+  loadUnityPipelines: (projectId: string) => Promise<IPCResult<{
+    pipelines: Array<{
+      id: string;
+      startedAt: string;
+      endedAt?: string;
+      durationMs?: number;
+      status: 'running' | 'success' | 'failed' | 'canceled';
+      selectedProfileId?: string;
+      selectedProfileName?: string;
+      steps: Array<{
+        type: 'validate' | 'editmode-tests' | 'playmode-tests' | 'build' | 'collect-artifacts';
+        enabled: boolean;
+        runId?: string;
+        status?: 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'canceled';
+      }>;
+      continueOnFail?: boolean;
+      artifactPaths: {
+        pipelineDir: string;
+        summary?: string;
+        bundleDir?: string;
+      };
+      summary?: {
+        totalSteps: number;
+        successCount: number;
+        failedCount: number;
+        canceledCount: number;
+        skippedCount: number;
+      };
+    }>;
+  }>>;
 }
 
 declare global {

@@ -311,11 +311,20 @@ export const IPC_CHANNELS = {
   UNITY_GET_SETTINGS: 'unity:getSettings',
   UNITY_SAVE_SETTINGS: 'unity:saveSettings',
   UNITY_RUN_EDITMODE_TESTS: 'unity:runEditModeTests',
+  UNITY_RUN_PLAYMODE_TESTS: 'unity:runPlayModeTests',
   UNITY_RUN_BUILD: 'unity:runBuild',
   UNITY_LOAD_RUNS: 'unity:loadRuns',
   UNITY_OPEN_PATH: 'unity:openPath',
   UNITY_OPEN_PROJECT: 'unity:openProject',
   UNITY_CANCEL_RUN: 'unity:cancelRun',
   UNITY_RERUN: 'unity:rerun',
-  UNITY_COPY_TO_CLIPBOARD: 'unity:copyToClipboard'
+  UNITY_COPY_TO_CLIPBOARD: 'unity:copyToClipboard',
+  UNITY_GET_PROFILES: 'unity:getProfiles',
+  UNITY_CREATE_PROFILE: 'unity:createProfile',
+  UNITY_UPDATE_PROFILE: 'unity:updateProfile',
+  UNITY_DELETE_PROFILE: 'unity:deleteProfile',
+  UNITY_SET_ACTIVE_PROFILE: 'unity:setActiveProfile',
+  UNITY_RUN_PIPELINE: 'unity:runPipeline',
+  UNITY_CANCEL_PIPELINE: 'unity:cancelPipeline',
+  UNITY_LOAD_PIPELINES: 'unity:loadPipelines'
 } as const;
