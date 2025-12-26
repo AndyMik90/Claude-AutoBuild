@@ -163,7 +163,8 @@ export function TaskCreationWizard({
     handlePaste,
     handleDragOver: handleTextareaDragOver,
     handleDragLeave: handleTextareaDragLeave,
-    handleDrop: handleTextareaDrop
+    handleDrop: handleTextareaDrop,
+    removeImage
   } = useImagePaste({
     disabled: isCreating,
     onSuccess: () => {
@@ -685,7 +686,7 @@ export function TaskCreationWizard({
                         className="absolute top-0.5 right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setImages(prev => prev.filter(img => img.id !== image.id));
+                          removeImage(image.id);
                         }}
                       >
                         <X className="h-3 w-3" />
