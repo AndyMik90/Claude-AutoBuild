@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
+import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment } from '../../shared/types';
 
 interface TaskState {
   tasks: Task[];
@@ -235,12 +235,13 @@ export function stopTask(taskId: string): void {
 export async function submitReview(
   taskId: string,
   approved: boolean,
-  feedback?: string
+  feedback?: string,
+  images?: ImageAttachment[]
 ): Promise<boolean> {
   const store = useTaskStore.getState();
 
   try {
-    const result = await window.electronAPI.submitReview(taskId, approved, feedback);
+    const result = await window.electronAPI.submitReview(taskId, approved, feedback, images);
     if (result.success) {
       store.updateTaskStatus(taskId, approved ? 'done' : 'in_progress');
       return true;

@@ -67,6 +67,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             return env_branch
@@ -78,6 +79,7 @@ def _detect_default_branch(project_dir: Path) -> str:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             return branch
@@ -106,6 +108,7 @@ def _get_changed_files_from_git(
             capture_output=True,
             text=True,
             check=True,
+            timeout=60,
         )
         files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         return files
@@ -124,6 +127,7 @@ def _get_changed_files_from_git(
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=60,
             )
             files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
             return files
@@ -258,6 +262,7 @@ def _generate_and_save_commit_message(project_dir: Path, spec_name: str) -> None
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 diff_summary = result.stdout.strip()
@@ -268,6 +273,7 @@ def _generate_and_save_commit_message(project_dir: Path, spec_name: str) -> None
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 files_changed = [
@@ -419,6 +425,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if base_result.returncode == 0:
             result["base_branch"] = base_result.stdout.strip()
@@ -429,6 +436,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if merge_base_result.returncode != 0:
             debug_warning(MODULE, "Could not find merge base")
@@ -442,6 +450,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if ahead_result.returncode == 0:
             commits_behind = int(ahead_result.stdout.strip())
@@ -467,6 +476,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=60,
         )
 
         # merge-tree returns exit code 1 if there are conflicts
@@ -505,6 +515,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
+                    timeout=60,
                 )
                 main_files = (
                     set(main_files_result.stdout.strip().split("\n"))
@@ -518,6 +529,7 @@ def _check_git_merge_conflicts(project_dir: Path, spec_name: str) -> dict:
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
+                    timeout=60,
                 )
                 spec_files = (
                     set(spec_files_result.stdout.strip().split("\n"))
@@ -864,6 +876,7 @@ def _parse_diff_hunks(
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=60,
         )
 
         if result.returncode != 0:
@@ -970,6 +983,7 @@ def handle_conflict_details_command(
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             target_branch = result.stdout.strip()
@@ -983,6 +997,7 @@ def handle_conflict_details_command(
         cwd=project_dir,
         capture_output=True,
         text=True,
+        timeout=30,
     )
     if merge_base_result.returncode == 0:
         merge_base = merge_base_result.stdout.strip()
@@ -1098,6 +1113,7 @@ def handle_apply_resolutions_command(
             cwd=project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             target_branch = result.stdout.strip()
@@ -1206,6 +1222,7 @@ def handle_apply_resolutions_command(
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
+                timeout=30,
             )
 
             if stage_result.returncode != 0:

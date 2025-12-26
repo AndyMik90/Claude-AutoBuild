@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, DetailedGitConflictInfo, ConflictResolutionRequest, ConflictResolutionResult } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
-import { execSync, spawn, spawnSync } from 'child_process';
+import { execSync, execFileSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
@@ -84,10 +84,11 @@ export function registerWorktreeHandlers(
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
           try {
-            const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
+            const countOutput = execFileSync('git', ['rev-list', '--count', `${baseBranch}..HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
-              stdio: ['pipe', 'pipe', 'pipe']
+              stdio: ['pipe', 'pipe', 'pipe'],
+              timeout: 30000
             }).trim();
             commitCount = parseInt(countOutput, 10) || 0;
           } catch {
@@ -101,10 +102,11 @@ export function registerWorktreeHandlers(
 
           let diffStat = '';
           try {
-            diffStat = execSync(`git diff --stat ${baseBranch}...HEAD`, {
+            diffStat = execFileSync('git', ['diff', '--stat', `${baseBranch}...HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
-              stdio: ['pipe', 'pipe', 'pipe']
+              stdio: ['pipe', 'pipe', 'pipe'],
+              timeout: 30000
             }).trim();
 
             // Parse the summary line (e.g., "3 files changed, 50 insertions(+), 10 deletions(-)")
@@ -186,17 +188,19 @@ export function registerWorktreeHandlers(
         let nameStatus = '';
         try {
           // Get numstat for additions/deletions per file (cross-platform)
-          numstat = execSync(`git diff --numstat ${baseBranch}...HEAD`, {
+          numstat = execFileSync('git', ['diff', '--numstat', `${baseBranch}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: 30000
           }).trim();
 
           // Get name-status for file status (cross-platform)
-          nameStatus = execSync(`git diff --name-status ${baseBranch}...HEAD`, {
+          nameStatus = execFileSync('git', ['diff', '--name-status', `${baseBranch}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: 30000
           }).trim();
 
           // Parse name-status to get file statuses
@@ -747,6 +751,26 @@ export function registerWorktreeHandlers(
 
           let stdout = '';
           let stderr = '';
+          let resolved = false;
+
+          // Set up timeout for preview (5 minutes should be sufficient for previews)
+          const PREVIEW_TIMEOUT_MS = 300000;
+          const timeoutId = setTimeout(() => {
+            if (!resolved) {
+              console.warn('[IPC] TIMEOUT: Preview process exceeded', PREVIEW_TIMEOUT_MS, 'ms, killing...');
+              previewProcess.kill('SIGTERM');
+              setTimeout(() => {
+                if (!resolved) {
+                  previewProcess.kill('SIGKILL');
+                }
+              }, 5000);
+              resolved = true;
+              resolve({
+                success: false,
+                error: 'Preview timed out after 5 minutes'
+              });
+            }
+          }, PREVIEW_TIMEOUT_MS);
 
           previewProcess.stdout.on('data', (data: Buffer) => {
             const chunk = data.toString();
@@ -761,6 +785,10 @@ export function registerWorktreeHandlers(
           });
 
           previewProcess.on('close', (code: number) => {
+            clearTimeout(timeoutId);
+            if (resolved) return;
+            resolved = true;
+
             console.warn('[IPC] merge-preview process exited with code:', code);
             if (code === 0) {
               try {
@@ -813,6 +841,10 @@ export function registerWorktreeHandlers(
           });
 
           previewProcess.on('error', (err: Error) => {
+            clearTimeout(timeoutId);
+            if (resolved) return;
+            resolved = true;
+
             console.error('[IPC] merge-preview spawn error:', err);
             resolve({
               success: false,
@@ -1151,25 +1183,31 @@ export function registerWorktreeHandlers(
 
         try {
           // Get the branch name before removing
-          const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+          const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
             cwd: worktreePath,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            timeout: 30000
           }).trim();
 
           // Remove the worktree
-          execSync(`git worktree remove --force "${worktreePath}"`, {
+          execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
             cwd: project.path,
-            encoding: 'utf-8'
+            encoding: 'utf-8',
+            timeout: 30000
           });
 
           // Delete the branch
+          let branchDeleted = false;
           try {
-            execSync(`git branch -D "${branch}"`, {
+            execFileSync('git', ['branch', '-D', branch], {
               cwd: project.path,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              timeout: 30000
             });
-          } catch {
-            // Branch might already be deleted or not exist
+            branchDeleted = true;
+          } catch (branchError) {
+            // Branch might already be deleted or not exist - log but continue
+            console.warn('Could not delete branch (may already be deleted):', branchError);
           }
 
           const mainWindow = getMainWindow();
@@ -1181,7 +1219,7 @@ export function registerWorktreeHandlers(
             success: true,
             data: {
               success: true,
-              message: 'Worktree discarded successfully'
+              message: branchDeleted ? 'Worktree discarded successfully' : 'Worktree removed (branch may have already been deleted)'
             }
           };
         } catch (gitError) {
@@ -1234,17 +1272,19 @@ export function registerWorktreeHandlers(
 
           try {
             // Get branch info
-            const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+            const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: entryPath,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              timeout: 30000
             }).trim();
 
             // Get base branch - the current branch in the main project (where changes will be merged)
             let baseBranch = 'main';
             try {
-              baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+              baseBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
                 cwd: project.path,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                timeout: 30000
               }).trim();
             } catch {
               baseBranch = 'main';
@@ -1253,10 +1293,11 @@ export function registerWorktreeHandlers(
             // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
             try {
-              const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
+              const countOutput = execFileSync('git', ['rev-list', '--count', `${baseBranch}..HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe'],
+                timeout: 30000
               }).trim();
               commitCount = parseInt(countOutput, 10) || 0;
             } catch {
@@ -1270,10 +1311,11 @@ export function registerWorktreeHandlers(
             let diffStat = '';
 
             try {
-              diffStat = execSync(`git diff --shortstat ${baseBranch}...HEAD`, {
+              diffStat = execFileSync('git', ['diff', '--shortstat', `${baseBranch}...HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe'],
+                timeout: 30000
               }).trim();
 
               const filesMatch = diffStat.match(/(\d+) files? changed/);

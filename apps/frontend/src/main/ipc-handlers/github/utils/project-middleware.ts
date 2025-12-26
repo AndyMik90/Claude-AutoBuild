@@ -13,7 +13,7 @@ import type { Project } from '../../../../shared/types';
  * Validate that a project path is safe for file operations
  * Prevents path traversal attacks and ensures path exists
  */
-function validateProjectPath(projectPath: string): void {
+export function validateProjectPath(projectPath: string): void {
   // Ensure path is absolute
   if (!path.isAbsolute(projectPath)) {
     throw new Error(`Project path must be absolute: ${projectPath}`);

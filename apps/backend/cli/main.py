@@ -41,9 +41,9 @@ from .utils import (
     setup_environment,
 )
 from .workspace_commands import (
+    handle_apply_resolutions_command,
     handle_cleanup_worktrees_command,
     handle_conflict_details_command,
-    handle_apply_resolutions_command,
     handle_discard_command,
     handle_list_worktrees_command,
     handle_merge_command,

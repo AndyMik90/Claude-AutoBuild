@@ -53,12 +53,20 @@ vi.mock('electron', () => {
     }]
   };
 
+  // Mock app for projectStore (used by project-middleware)
+  const mockApp = {
+    getPath: vi.fn().mockReturnValue('/mock/user/data'),
+    getName: vi.fn().mockReturnValue('auto-claude'),
+    getVersion: vi.fn().mockReturnValue('1.0.0')
+  };
+
   return {
     ipcMain: mockIpcMain,
     shell: {
       openExternal: (...args: unknown[]) => mockOpenExternal(...args)
     },
-    BrowserWindow: mockBrowserWindow
+    BrowserWindow: mockBrowserWindow,
+    app: mockApp
   };
 });
 
@@ -70,6 +78,16 @@ vi.mock('@electron-toolkit/utils', () => ({
     macos: process.platform === 'darwin',
     linux: process.platform === 'linux'
   }
+}));
+
+// Mock project-middleware to avoid projectStore initialization
+vi.mock('../utils/project-middleware', () => ({
+  validateProjectPath: vi.fn(),
+  withProject: vi.fn(),
+  withProjectOrNull: vi.fn(),
+  withProjectOrDefault: vi.fn(),
+  withProjectSync: vi.fn(),
+  withProjectSyncOrNull: vi.fn()
 }));
 
 // Create mock process for spawn

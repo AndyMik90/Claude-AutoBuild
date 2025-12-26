@@ -8,6 +8,7 @@ import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
+import { validateProjectPath } from './utils/project-middleware';
 
 /**
  * Send device code info to all renderer windows immediately when extracted
@@ -520,6 +521,9 @@ export function registerDetectGitHubRepo(): void {
     async (_event: Electron.IpcMainInvokeEvent, projectPath: string): Promise<IPCResult<string>> => {
       debugLog('detectGitHubRepo handler called', { projectPath });
       try {
+        // Validate project path to prevent path traversal attacks
+        validateProjectPath(projectPath);
+
         // Get the remote URL
         debugLog('Running: git remote get-url origin');
         const remoteUrl = execSync('git remote get-url origin', {
@@ -634,6 +638,9 @@ export function registerCreateGitHubRepo(): void {
       }
 
       try {
+        // Validate project path to prevent path traversal attacks
+        validateProjectPath(options.projectPath);
+
         // Get the authenticated username
         const username = execSync('gh api user --jq .login', {
           encoding: 'utf-8',
@@ -719,6 +726,9 @@ export function registerAddGitRemote(): void {
       const remoteUrl = `https://github.com/${repoFullName}.git`;
 
       try {
+        // Validate project path to prevent path traversal attacks
+        validateProjectPath(projectPath);
+
         // Check if origin already exists
         try {
           execSync('git remote get-url origin', {

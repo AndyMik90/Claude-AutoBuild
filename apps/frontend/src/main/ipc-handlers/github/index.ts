@@ -36,7 +36,7 @@ export function registerGithubHandlers(
   registerInvestigationHandlers(agentManager, getMainWindow);
   registerImportHandlers(agentManager);
   registerReleaseHandlers();
-  registerGithubOAuthHandlers(getMainWindow);
+  registerGithubOAuthHandlers();
   registerAutoFixHandlers(agentManager, getMainWindow);
   registerPRHandlers(getMainWindow);
   registerTriageHandlers(getMainWindow);
