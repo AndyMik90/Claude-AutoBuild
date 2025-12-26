@@ -432,3 +432,28 @@ export class PythonEnvManager extends EventEmitter {
 
 // Singleton instance
 export const pythonEnvManager = new PythonEnvManager();
+
+/**
+ * Get the configured venv Python path if ready, otherwise fall back to system Python.
+ * This should be used by ALL services that need to spawn Python processes.
+ *
+ * Priority:
+ * 1. If venv is ready -> return venv Python (has all dependencies installed)
+ * 2. Fall back to findPythonCommand() -> bundled or system Python
+ *
+ * Note: For scripts that require dependencies (dotenv, claude-agent-sdk, etc.),
+ * the venv Python MUST be used. Only use this fallback for scripts that
+ * don't have external dependencies (like ollama_model_detector.py).
+ */
+export function getConfiguredPythonPath(): string {
+  // If venv is ready, always prefer it (has dependencies installed)
+  if (pythonEnvManager.isEnvReady()) {
+    const venvPath = pythonEnvManager.getPythonPath();
+    if (venvPath) {
+      return venvPath;
+    }
+  }
+
+  // Fall back to system/bundled Python
+  return findPythonCommand() || 'python';
+}
