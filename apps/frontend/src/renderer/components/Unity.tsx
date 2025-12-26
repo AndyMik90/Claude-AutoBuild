@@ -17,7 +17,12 @@ import {
   Copy,
   RotateCcw,
   Ban,
-  FileText
+  FileText,
+  List,
+  Plus,
+  Trash2,
+  Edit2,
+  FastForward
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
@@ -27,6 +32,15 @@ import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip';
+import { Checkbox } from './ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from './ui/dialog';
 import {
   Select,
   SelectContent,
@@ -36,6 +50,13 @@ import {
 } from './ui/select';
 import { useProjectStore } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
+import type {
+  UnityProfile,
+  UnityProfileSettings,
+  UnityPipelineRun,
+  PipelineStep,
+  PipelineStepType
+} from '../../preload/api/unity-api';
 
 interface UnityProps {
   projectId: string;
@@ -54,7 +75,7 @@ interface UnityEditorInfo {
 
 interface UnityRun {
   id: string;
-  action: 'editmode-tests' | 'build';
+  action: 'editmode-tests' | 'playmode-tests' | 'build';
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
@@ -68,6 +89,8 @@ interface UnityRun {
     projectPath: string;
     executeMethod?: string;
     testPlatform?: string;
+    buildTarget?: string;
+    testFilter?: string;
   };
   artifactPaths: {
     runDir: string;

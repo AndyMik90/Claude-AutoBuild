@@ -39,11 +39,49 @@
     "selectFolder": "Select Unity Project Folder",
     "selectedPath": "Selected: {{path}}"
   },
+  "profiles": {
+    "title": "Profile",
+    "selectProfile": "Select Profile",
+    "manage": "Manage Profiles",
+    "active": "Active: {{name}}",
+    "noProfiles": "No profiles available",
+    "dialog": {
+      "title": "Manage Unity Profiles",
+      "createNew": "Create New Profile",
+      "edit": "Edit Profile",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "save": "Save",
+      "create": "Create",
+      "nameLabel": "Profile Name",
+      "namePlaceholder": "e.g., Quest, PCVR, CI",
+      "editorPathLabel": "Editor Path Override (optional)",
+      "buildMethodLabel": "Build Execute Method",
+      "buildMethodPlaceholder": "Company.Project.Build.PerformBuild",
+      "testDefaults": "Test Defaults",
+      "editModeEnabled": "EditMode Tests Enabled",
+      "playModeEnabled": "PlayMode Tests Enabled",
+      "playModeBuildTarget": "PlayMode Build Target",
+      "testFilter": "Test Filter (optional)",
+      "buildDefaults": "Build Defaults",
+      "buildEnabled": "Build Enabled",
+      "buildTarget": "Build Target",
+      "developmentBuild": "Development Build",
+      "confirmDelete": "Are you sure you want to delete the profile '{{name}}'?",
+      "deleteButton": "Delete Profile"
+    }
+  },
   "actions": {
     "title": "Actions",
-    "runTests": "Run EditMode Tests",
+    "runEditModeTests": "Run EditMode Tests",
+    "runPlayModeTests": "Run PlayMode Tests",
     "runningTests": "Running...",
-    "testsDescription": "Runs Unity Test Framework in EditMode via CLI (batchmode, no -quit flag)",
+    "editModeDescription": "Runs Unity Test Framework in EditMode via CLI (batchmode, no -quit flag)",
+    "playModeDescription": "Runs Unity Test Framework in PlayMode with build target",
+    "buildTargetLabel": "Build Target",
+    "buildTargetDefault": "Default ({{target}})",
+    "testFilterLabel": "Test Filter (optional)",
+    "testFilterPlaceholder": "e.g., MyNamespace.MyTestClass",
     "selectEditorPrompt": "Select or specify Unity Editor path to enable",
     "buildExecuteMethod": "Build executeMethod",
     "buildPlaceholder": "Company.Project.Build.PerformBuild",
@@ -53,19 +91,65 @@
     "buildDescription": "Runs Unity with -batchmode -quit -executeMethod (your custom build script)",
     "configureExecute": "Configure executeMethod above to enable builds"
   },
+  "pipeline": {
+    "title": "Pipeline",
+    "description": "Run multiple Unity actions sequentially",
+    "runPipeline": "Run Pipeline",
+    "cancelPipeline": "Cancel Pipeline",
+    "running": "Running Pipeline...",
+    "steps": {
+      "validate": "Validate Project",
+      "editmode-tests": "EditMode Tests",
+      "playmode-tests": "PlayMode Tests",
+      "build": "Build",
+      "collect-artifacts": "Collect Artifacts"
+    },
+    "stepDescriptions": {
+      "validate": "Lightweight project validation (project exists, editor exists, execute method configured)",
+      "editmode-tests": "Run Unity Test Framework in EditMode",
+      "playmode-tests": "Run Unity Test Framework in PlayMode",
+      "build": "Run custom build with -executeMethod",
+      "collect-artifacts": "Bundle all run artifacts and generate summary"
+    },
+    "currentStep": "Current Step: {{step}}",
+    "continueOnFail": "Continue on Failure",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "success": "Success",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "canceled": "Canceled"
+    },
+    "summary": {
+      "total": "Total Steps: {{count}}",
+      "success": "Success: {{count}}",
+      "failed": "Failed: {{count}}",
+      "canceled": "Canceled: {{count}}",
+      "skipped": "Skipped: {{count}}"
+    }
+  },
   "history": {
     "title": "Run History",
     "description": "Last {{count}} runs for this project",
     "empty": "No runs yet",
     "actionLabels": {
       "editmode-tests": "EditMode Tests",
-      "build": "Build"
+      "playmode-tests": "PlayMode Tests",
+      "build": "Build",
+      "pipeline": "Pipeline"
     },
     "command": "Command",
     "artifacts": "Artifacts",
     "openRunDirectory": "Open Run Directory",
+    "openPipelineDirectory": "Open Pipeline Directory",
     "unityLog": "Unity Log",
     "testResults": "Test Results XML",
-    "durationUnavailable": "N/A"
+    "pipelineSummary": "Pipeline Summary",
+    "bundleArtifacts": "Bundle Artifacts",
+    "viewStepRun": "View Step Run",
+    "durationUnavailable": "N/A",
+    "pipelineSteps": "Steps",
+    "pipelineProfile": "Profile: {{name}}"
   }
 }
