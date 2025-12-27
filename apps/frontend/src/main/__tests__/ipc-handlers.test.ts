@@ -4,11 +4,12 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 
 // Test data directory
-const TEST_DIR = '/tmp/ipc-handlers-test';
+const TEST_DIR = mkdtempSync(path.join(tmpdir(), 'ipc-handlers-test-'));
 const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
 
 // Mock electron-updater before importing
