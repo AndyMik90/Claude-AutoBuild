@@ -258,9 +258,10 @@ export function Unity({ projectId }: UnityProps) {
     try {
       const result = await window.electronAPI.getUnityProfiles(selectedProject.id);
       if (result.success && result.data) {
-        setProfileSettings(result.data);
+        const profileData = result.data;
+        setProfileSettings(profileData);
         // Update PlayMode defaults from active profile
-        const activeProfile = result.data.profiles.find(p => p.id === result.data.activeProfileId);
+        const activeProfile = profileData.profiles.find(p => p.id === profileData.activeProfileId);
         if (activeProfile?.testDefaults?.playModeBuildTarget) {
           setPlayModeBuildTarget(activeProfile.testDefaults.playModeBuildTarget);
         }

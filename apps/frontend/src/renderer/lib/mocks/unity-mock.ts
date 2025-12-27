@@ -56,6 +56,11 @@ export const unityMock: UnityAPI = {
     data: undefined
   }),
 
+  runUnityPlayModeTests: async () => ({
+    success: true,
+    data: undefined
+  }),
+
   runUnityBuild: async () => ({
     success: true,
     data: undefined
@@ -80,6 +85,54 @@ export const unityMock: UnityAPI = {
   loadUnityRuns: async () => ({
     success: true,
     data: { runs: [] }
+  }),
+
+  // Unity profiles
+  getUnityProfiles: async () => ({
+    success: true,
+    data: {
+      profiles: [],
+      activeProfileId: undefined
+    }
+  }),
+
+  createUnityProfile: async (_projectId: string, profile) => ({
+    success: true,
+    data: {
+      id: 'mock-profile-id',
+      ...profile
+    }
+  }),
+
+  updateUnityProfile: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  deleteUnityProfile: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  setActiveUnityProfile: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  // Unity pipelines
+  runUnityPipeline: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  cancelUnityPipeline: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  loadUnityPipelines: async () => ({
+    success: true,
+    data: { pipelines: [] }
   }),
 
   // File operations
