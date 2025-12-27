@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -154,6 +155,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const handleClose = () => {
     onOpenChange(false);
   };
+
+  // Memoized callback for navigating to logs tab from subtasks
+  const handleViewAllLogs = useCallback(() => {
+    state.setActiveTab('logs');
+  }, [state.setActiveTab]);
 
   // Render primary action button based on state
   const renderPrimaryAction = () => {
@@ -430,7 +436,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                   <TaskSubtasks
                     task={task}
                     phaseLogs={state.phaseLogs}
-                    onViewAllLogs={() => state.setActiveTab('logs')}
+                    onViewAllLogs={handleViewAllLogs}
                   />
                 </TabsContent>
 

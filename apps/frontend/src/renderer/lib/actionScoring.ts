@@ -93,11 +93,6 @@ const FILE_CHANGE_TOOL_NAMES = [
 const ERROR_TYPES: TaskLogEntryType[] = ['error'];
 
 /**
- * Entry types that indicate success (lower priority than errors)
- */
-const SUCCESS_TYPES: TaskLogEntryType[] = ['success'];
-
-/**
  * Check if an action represents an error
  */
 export function isErrorAction(action: TaskLogEntry): boolean {
@@ -191,7 +186,7 @@ export function countFilesChanged(action: TaskLogEntry): number {
   const combined = input + detail;
 
   // Count file path patterns (simplified heuristic)
-  const filePatterns = combined.match(/[\/\\][\w\-\.]+\.[a-z]{1,4}/gi) ?? [];
+  const filePatterns = combined.match(/[/\\][\w\-.]+\.[a-z]{1,4}/gi) ?? [];
 
   // Cap at 3 for scoring purposes (to prevent outliers)
   return Math.min(filePatterns.length, 3);
@@ -200,10 +195,12 @@ export function countFilesChanged(action: TaskLogEntry): number {
 /**
  * Parse duration from action timestamp or detail
  * Returns undefined if duration cannot be determined
+ *
+ * TODO: Duration parsing is not implemented because TaskLogEntry does not include
+ * duration data. When duration tracking is added to the type, implement this function
+ * to enable TIME_ANOMALY scoring. Until then, isTimeAnomaly() will always return false.
  */
-export function parseDuration(action: TaskLogEntry): number | undefined {
-  // Duration is not directly available in TaskLogEntry
-  // This could be enhanced if duration tracking is added to the type
+export function parseDuration(_action: TaskLogEntry): number | undefined {
   return undefined;
 }
 
@@ -346,29 +343,21 @@ export function filterTopActions(
   n: number = DEFAULT_TOP_N,
   subtaskId?: string
 ): ScoredAction[] {
-  // Handle empty or small arrays
-  if (!actions || actions.length === 0) {
+  // Handle empty arrays or invalid n
+  if (!actions || actions.length === 0 || n <= 0) {
     return [];
   }
 
   // Filter by subtask if specified
-  let filteredActions = subtaskId
+  const filteredActions = subtaskId
     ? actions.filter((a) => a.subtask_id === subtaskId)
     : actions;
 
-  // If fewer actions than requested, process all of them
-  if (filteredActions.length <= n) {
-    const context: ScoringContext = {
-      averageDuration: calculateAverageDuration(filteredActions),
-      seenToolTypes: new Set<string>(),
-    };
-
-    return filteredActions
-      .map((action, index) => scoreAction(action, index, context))
-      .sort(compareScoredActions);
+  if (filteredActions.length === 0) {
+    return [];
   }
 
-  // Create scoring context
+  // Create scoring context (consolidated - same logic for all array sizes)
   const context: ScoringContext = {
     averageDuration: calculateAverageDuration(filteredActions),
     seenToolTypes: new Set<string>(),
@@ -382,8 +371,8 @@ export function filterTopActions(
   // Sort by score (descending) with tiebreaker
   scoredActions.sort(compareScoredActions);
 
-  // Return top N
-  return scoredActions.slice(0, n);
+  // Return top N (or all if fewer than n)
+  return scoredActions.slice(0, Math.min(n, scoredActions.length));
 }
 
 /**
@@ -408,12 +397,56 @@ export function groupActionsBySubphase(
 }
 
 /**
- * Get a human-readable description of why an action scored highly
+ * Get translation keys for why an action scored highly
  *
- * @param scoredAction - The scored action to describe
- * @returns String describing the scoring reasons
+ * @param scoredAction - Object containing at least the scoreBreakdown field
+ * @returns Array of i18n translation keys (use t() to translate in UI components)
  */
-export function getScoreReason(scoredAction: ScoredAction): string {
+export function getScoreReasonKeys(
+  scoredAction: Pick<ScoredAction, 'scoreBreakdown'>
+): string[] {
+  const reasonKeys: string[] = [];
+  const { scoreBreakdown } = scoredAction;
+
+  if (scoreBreakdown.error > 0) {
+    if (scoreBreakdown.error >= SCORING_WEIGHTS.ERROR) {
+      reasonKeys.push('detail.scoring.errorDetected');
+    } else {
+      reasonKeys.push('detail.scoring.warningDetected');
+    }
+  }
+
+  if (scoreBreakdown.decision > 0) {
+    reasonKeys.push('detail.scoring.keyDecision');
+  }
+
+  if (scoreBreakdown.fileChange > 0) {
+    reasonKeys.push('detail.scoring.fileModification');
+  }
+
+  if (scoreBreakdown.timeAnomaly > 0) {
+    reasonKeys.push('detail.scoring.longDuration');
+  }
+
+  if (scoreBreakdown.novelty > 0) {
+    reasonKeys.push('detail.scoring.newActionType');
+  }
+
+  return reasonKeys.length > 0 ? reasonKeys : ['detail.scoring.standardAction'];
+}
+
+/**
+ * Get a human-readable description of why an action scored highly
+ * Returns hardcoded English strings for backwards compatibility.
+ * For i18n support, use getScoreReasonKeys() instead.
+ *
+ * @deprecated Use getScoreReasonKeys() for i18n support
+ * @param scoredAction - Object containing at least the scoreBreakdown field
+ * @returns String describing the scoring reasons (English only)
+ */
+export function getScoreReason(
+  scoredAction: Pick<ScoredAction, 'scoreBreakdown'>
+): string {
   const reasons: string[] = [];
   const { scoreBreakdown } = scoredAction;
 
@@ -549,6 +582,9 @@ export function sortSubtasksByRelevance(
   subtaskIds: string[],
   relevanceScores: Map<string, SubtaskRelevanceScore>
 ): string[] {
+  // Pre-compute index map for O(1) lookups instead of O(n) indexOf calls
+  const indexMap = new Map(subtaskIds.map((id, idx) => [id, idx]));
+
   return [...subtaskIds].sort((a, b) => {
     const scoreA = relevanceScores.get(a);
     const scoreB = relevanceScores.get(b);
@@ -573,8 +609,8 @@ export function sortSubtasksByRelevance(
       return scoreB.actionCount - scoreA.actionCount;
     }
 
-    // Tertiary: stable sort by original index
-    return subtaskIds.indexOf(a) - subtaskIds.indexOf(b);
+    // Tertiary: stable sort by original index (O(1) lookup via index map)
+    return (indexMap.get(a) ?? 0) - (indexMap.get(b) ?? 0);
   });
 }
 
@@ -608,6 +644,13 @@ export interface FilesSummary {
 /**
  * Extract file path from tool_input string
  * Handles various formats: direct paths, JSON inputs, etc.
+ *
+ * NOTE: This is a best-effort extraction for UI display purposes only.
+ * Limitations:
+ * - Returns only the first match found
+ * - May miss paths with unusual characters or deeply nested structures
+ * - Extension matching is limited to 10 chars (covers most common extensions)
+ * - Windows paths support is basic (backslashes in simple patterns)
  */
 function extractFilePathFromInput(input: string): string | null {
   if (!input) return null;
@@ -615,8 +658,8 @@ function extractFilePathFromInput(input: string): string | null {
   // Trim whitespace
   const trimmed = input.trim();
 
-  // Direct file path (starts with / or ./ or contains typical file extensions)
-  if (trimmed.startsWith('/') || trimmed.startsWith('./')) {
+  // Direct file path (starts with / or ./ or Windows drive letter)
+  if (trimmed.startsWith('/') || trimmed.startsWith('./') || /^[A-Za-z]:\\/.test(trimmed)) {
     // Extract just the path part (before any space or newline)
     const pathMatch = trimmed.match(/^([^\s\n]+)/);
     if (pathMatch) {
@@ -635,20 +678,26 @@ function extractFilePathFromInput(input: string): string | null {
   }
 
   // Look for file path patterns in the string
+  // Extension length up to 10 chars to cover .typescript, .properties, etc.
   const pathPatterns = [
-    // Absolute paths
-    /\/[\w\-./]+\.[a-z]{1,6}/gi,
-    // Relative paths with extension
-    /\.\/[\w\-./]+\.[a-z]{1,6}/gi,
-    // Paths in quotes
-    /"([^"]+\.[a-z]{1,6})"/gi,
-    /'([^']+\.[a-z]{1,6})'/gi,
+    // Unix absolute paths (e.g., /home/user/file.ts)
+    /\/[\w\-./]+\.[a-zA-Z]{1,10}/g,
+    // Unix relative paths (e.g., ./src/file.ts)
+    /\.\/[\w\-./]+\.[a-zA-Z]{1,10}/g,
+    // Windows absolute paths (e.g., C:\Users\file.ts)
+    /[A-Za-z]:\\[\w\-.\\]+\.[a-zA-Z]{1,10}/g,
+    // Windows relative paths (e.g., .\src\file.ts)
+    /\.\\[\w\-.\\]+\.[a-zA-Z]{1,10}/g,
+    // Paths in double quotes (Unix or Windows)
+    /"([^"]+\.[a-zA-Z]{1,10})"/g,
+    // Paths in single quotes (Unix or Windows)
+    /'([^']+\.[a-zA-Z]{1,10})'/g,
   ];
 
   for (const pattern of pathPatterns) {
     const match = trimmed.match(pattern);
     if (match && match.length > 0) {
-      // Clean up the match (remove quotes if present)
+      // Clean up the match (remove surrounding quotes if present)
       const cleanPath = match[0].replace(/^["']|["']$/g, '');
       return cleanPath;
     }
@@ -658,10 +707,11 @@ function extractFilePathFromInput(input: string): string | null {
 }
 
 /**
- * Get filename from a path
+ * Get filename from a path (handles both Unix and Windows separators)
  */
 function getFilename(path: string): string {
-  const parts = path.split('/');
+  // Split on both forward slash and backslash to handle Unix and Windows paths
+  const parts = path.split(/[/\\]/);
   return parts[parts.length - 1] || path;
 }
 

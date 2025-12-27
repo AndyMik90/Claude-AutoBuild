@@ -82,5 +82,47 @@
       "code": "Code",
       "qa": "QA"
     }
+  },
+  "detail": {
+    "subtasks": {
+      "noSubtasks": "Aucune sous-tâche définie",
+      "noSubtasksDescription": "Les sous-tâches d'implémentation apparaîtront ici après la planification",
+      "completedCount": "{{completed}} sur {{total}} terminées",
+      "sortByRelevance": "Pertinence",
+      "sortByOrder": "Ordre",
+      "sortTooltipRelevance": "Trié par pertinence (erreurs et actions clés en premier)",
+      "sortTooltipOrder": "Cliquez pour trier par score de pertinence",
+      "containsErrors": "Contient des erreurs"
+    },
+    "actions": {
+      "show": "Afficher",
+      "hide": "Masquer",
+      "noActionsRecorded": "Aucune action enregistrée",
+      "topActions": "Top {{displayed}} sur {{total}} actions",
+      "viewAllLogs": "Voir tous les logs",
+      "showingTopRelevant": "Affichage des {{displayed}} plus pertinentes sur {{total}} actions totales",
+      "filesTouched": "Fichiers touchés",
+      "modified": "Modifiés",
+      "read": "Lus"
+    },
+    "tools": {
+      "reading": "Lecture",
+      "searchingFiles": "Recherche de fichiers",
+      "searchingCode": "Recherche de code",
+      "editing": "Édition",
+      "writing": "Écriture",
+      "running": "Exécution",
+      "action": "Action"
+    },
+    "scoring": {
+      "errorDetected": "Erreur détectée",
+      "warningDetected": "Avertissement détecté",
+      "keyDecision": "Décision clé",
+      "fileModification": "Modification de fichier",
+      "longDuration": "Durée longue",
+      "newActionType": "Nouveau type d'action",
+      "standardAction": "Action standard",
+      "relevanceScore": "Score de pertinence"
+    }
   }
 }

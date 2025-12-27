@@ -82,5 +82,47 @@
       "code": "Code",
       "qa": "QA"
     }
+  },
+  "detail": {
+    "subtasks": {
+      "noSubtasks": "No subtasks defined",
+      "noSubtasksDescription": "Implementation subtasks will appear here after planning",
+      "completedCount": "{{completed}} of {{total}} completed",
+      "sortByRelevance": "Relevance",
+      "sortByOrder": "Order",
+      "sortTooltipRelevance": "Sorted by relevance (errors and key actions first)",
+      "sortTooltipOrder": "Click to sort by relevance score",
+      "containsErrors": "Contains errors"
+    },
+    "actions": {
+      "show": "Show",
+      "hide": "Hide",
+      "noActionsRecorded": "No actions recorded",
+      "topActions": "Top {{displayed}} of {{total}} actions",
+      "viewAllLogs": "View all logs",
+      "showingTopRelevant": "Showing top {{displayed}} most relevant from {{total}} total actions",
+      "filesTouched": "Files Touched",
+      "modified": "Modified",
+      "read": "Read"
+    },
+    "tools": {
+      "reading": "Reading",
+      "searchingFiles": "Searching files",
+      "searchingCode": "Searching code",
+      "editing": "Editing",
+      "writing": "Writing",
+      "running": "Running",
+      "action": "Action"
+    },
+    "scoring": {
+      "errorDetected": "Error detected",
+      "warningDetected": "Warning detected",
+      "keyDecision": "Key decision",
+      "fileModification": "File modification",
+      "longDuration": "Long duration",
+      "newActionType": "New action type",
+      "standardAction": "Standard action",
+      "relevanceScore": "Relevance Score"
+    }
   }
 }

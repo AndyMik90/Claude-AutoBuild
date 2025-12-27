@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
   ChevronRight,
@@ -24,7 +25,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/colla
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn } from '../../lib/utils';
 import type { ScoredAction } from '../../lib/actionScoring';
-import { groupActionsBySubphase, getScoreReason } from '../../lib/actionScoring';
+import { groupActionsBySubphase, getScoreReasonKeys } from '../../lib/actionScoring';
 
 interface SubtaskActionListProps {
   /** Scored actions to display (already filtered to top N) */
@@ -42,25 +43,26 @@ interface SubtaskActionListProps {
 }
 
 /**
- * Get tool info including icon, label, and color styling
+ * Get tool info including icon, label key for i18n, and color styling
  * Mirrors the pattern from TaskLogs.tsx
  */
 function getToolInfo(toolName: string) {
   switch (toolName?.toLowerCase()) {
     case 'read':
-      return { icon: FileText, label: 'Reading', color: 'text-blue-500 bg-blue-500/10' };
+      return { icon: FileText, labelKey: 'detail.tools.reading', color: 'text-blue-500 bg-blue-500/10' };
     case 'glob':
-      return { icon: FolderSearch, label: 'Searching files', color: 'text-amber-500 bg-amber-500/10' };
+      return { icon: FolderSearch, labelKey: 'detail.tools.searchingFiles', color: 'text-amber-500 bg-amber-500/10' };
     case 'grep':
-      return { icon: Search, label: 'Searching code', color: 'text-green-500 bg-green-500/10' };
+      return { icon: Search, labelKey: 'detail.tools.searchingCode', color: 'text-green-500 bg-green-500/10' };
     case 'edit':
-      return { icon: Pencil, label: 'Editing', color: 'text-purple-500 bg-purple-500/10' };
+      return { icon: Pencil, labelKey: 'detail.tools.editing', color: 'text-purple-500 bg-purple-500/10' };
     case 'write':
-      return { icon: FileCode, label: 'Writing', color: 'text-cyan-500 bg-cyan-500/10' };
+      return { icon: FileCode, labelKey: 'detail.tools.writing', color: 'text-cyan-500 bg-cyan-500/10' };
     case 'bash':
-      return { icon: Terminal, label: 'Running', color: 'text-orange-500 bg-orange-500/10' };
+      return { icon: Terminal, labelKey: 'detail.tools.running', color: 'text-orange-500 bg-orange-500/10' };
     default:
-      return { icon: Wrench, label: toolName || 'Action', color: 'text-muted-foreground bg-muted' };
+      // For unknown tools, use the tool name directly as label (not translated)
+      return { icon: Wrench, labelKey: null, fallbackLabel: toolName || 'Action', color: 'text-muted-foreground bg-muted' };
   }
 }
 
@@ -101,6 +103,7 @@ interface ScoredActionItemProps {
 }
 
 function ScoredActionItem({ scoredAction, showScore = true }: ScoredActionItemProps) {
+  const { t } = useTranslation('tasks');
   const [isExpanded, setIsExpanded] = useState(false);
   const { action, score, scoreBreakdown } = scoredAction;
   const hasDetail = Boolean(action.detail);
@@ -112,7 +115,8 @@ function ScoredActionItem({ scoredAction, showScore = true }: ScoredActionItemPr
 
   // Render tool action
   if (isToolAction && toolInfo) {
-    const { icon: ToolIcon, label, color } = toolInfo;
+    const { icon: ToolIcon, labelKey, color } = toolInfo;
+    const label = labelKey ? t(labelKey) : ('fallbackLabel' in toolInfo ? toolInfo.fallbackLabel : t('detail.tools.action'));
     const isStart = action.type === 'tool_start';
 
     return (
@@ -139,6 +143,7 @@ function ScoredActionItem({ scoredAction, showScore = true }: ScoredActionItemPr
           )}
           {hasDetail && (
             <button
+              type="button"
               onClick={() => setIsExpanded(!isExpanded)}
               className={cn(
                 'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded',
@@ -149,12 +154,12 @@ function ScoredActionItem({ scoredAction, showScore = true }: ScoredActionItemPr
               {isExpanded ? (
                 <>
                   <ChevronDown className="h-2.5 w-2.5" />
-                  <span>Hide</span>
+                  <span>{t('detail.actions.hide')}</span>
                 </>
               ) : (
                 <>
                   <ChevronRight className="h-2.5 w-2.5" />
-                  <span>Show</span>
+                  <span>{t('detail.actions.show')}</span>
                 </>
               )}
             </button>
@@ -196,6 +201,7 @@ function ScoredActionItem({ scoredAction, showScore = true }: ScoredActionItemPr
         )}
         {hasDetail && (
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className={cn(
               'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded shrink-0',
@@ -233,7 +239,10 @@ interface ScoreBadgeProps {
 }
 
 function ScoreBadge({ score, scoreBreakdown }: ScoreBadgeProps) {
-  const reason = getScoreReason({ score, scoreBreakdown } as ScoredAction);
+  const { t } = useTranslation('tasks');
+  // Use Pick type - no need for type assertion
+  const reasonKeys = getScoreReasonKeys({ scoreBreakdown });
+  const translatedReasons = reasonKeys.map(key => t(key)).join(', ');
 
   return (
     <Tooltip>
@@ -253,8 +262,8 @@ function ScoreBadge({ score, scoreBreakdown }: ScoreBadgeProps) {
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs">
         <div className="text-xs">
-          <p className="font-medium mb-1">Relevance Score: {score}</p>
-          <p className="text-muted-foreground">{reason}</p>
+          <p className="font-medium mb-1">{t('detail.scoring.relevanceScore')}: {score}</p>
+          <p className="text-muted-foreground">{translatedReasons}</p>
         </div>
       </TooltipContent>
     </Tooltip>
@@ -276,10 +285,13 @@ function SubphaseGroup({ subphase, actions, defaultExpanded = true }: SubphaseGr
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <CollapsibleTrigger asChild>
-        <button className={cn(
-          'w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors',
-          'hover:bg-secondary/50 text-xs'
-        )}>
+        <button
+          type="button"
+          className={cn(
+            'w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors',
+            'hover:bg-secondary/50 text-xs'
+          )}
+        >
           <div className="flex items-center gap-2">
             {isExpanded ? (
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -326,6 +338,7 @@ interface FilesSectionProps {
 }
 
 function FilesSection({ modifiedFiles = [], readFiles = [] }: FilesSectionProps) {
+  const { t } = useTranslation('tasks');
   const hasFiles = modifiedFiles.length > 0 || readFiles.length > 0;
 
   if (!hasFiles) {
@@ -336,7 +349,7 @@ function FilesSection({ modifiedFiles = [], readFiles = [] }: FilesSectionProps)
     <div className="mb-3 p-2 bg-secondary/30 rounded-lg border border-border/50">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
         <FolderOpen className="h-3.5 w-3.5" />
-        <span>Files Touched</span>
+        <span>{t('detail.actions.filesTouched')}</span>
       </div>
       <div className="space-y-1.5">
         {/* Modified Files */}
@@ -344,7 +357,7 @@ function FilesSection({ modifiedFiles = [], readFiles = [] }: FilesSectionProps)
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
               <FileEdit className="h-3 w-3 text-purple-500" />
-              <span>Modified</span>
+              <span>{t('detail.actions.modified')}</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {modifiedFiles.map((file) => (
@@ -371,7 +384,7 @@ function FilesSection({ modifiedFiles = [], readFiles = [] }: FilesSectionProps)
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
               <Eye className="h-3 w-3 text-blue-500" />
-              <span>Read</span>
+              <span>{t('detail.actions.read')}</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {readFiles.map((file) => (
@@ -412,6 +425,8 @@ export function SubtaskActionList({
   modifiedFiles,
   readFiles,
 }: SubtaskActionListProps) {
+  const { t } = useTranslation('tasks');
+
   // Limit to maxActions and group by subphase
   const displayActions = useMemo(() => {
     return actions.slice(0, maxActions);
@@ -427,7 +442,7 @@ export function SubtaskActionList({
     return (
       <div className="text-center py-4">
         <Info className="h-6 w-6 mx-auto mb-2 text-muted-foreground/30" />
-        <p className="text-xs text-muted-foreground">No actions recorded</p>
+        <p className="text-xs text-muted-foreground">{t('detail.actions.noActionsRecorded')}</p>
       </div>
     );
   }
@@ -441,14 +456,15 @@ export function SubtaskActionList({
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span className="flex items-center gap-1.5">
           <Sparkles className="h-3 w-3" />
-          Top {displayActions.length} of {actions.length} actions
+          {t('detail.actions.topActions', { displayed: displayActions.length, total: actions.length })}
         </span>
         {onViewAllLogs && (
           <button
+            type="button"
             onClick={onViewAllLogs}
             className="text-info hover:text-info/80 hover:underline transition-colors"
           >
-            View all logs
+            {t('detail.actions.viewAllLogs')}
           </button>
         )}
       </div>
@@ -479,7 +495,7 @@ export function SubtaskActionList({
       {actions.length > 100 && (
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/70 px-1 pt-1">
           <AlertTriangle className="h-3 w-3" />
-          <span>Showing top {displayActions.length} most relevant from {actions.length} total actions</span>
+          <span>{t('detail.actions.showingTopRelevant', { displayed: displayActions.length, total: actions.length })}</span>
         </div>
       )}
     </div>

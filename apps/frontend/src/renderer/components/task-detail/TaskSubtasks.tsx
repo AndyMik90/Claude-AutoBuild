@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode, ChevronDown, ChevronRight, Sparkles, ArrowUpDown, ArrowDownWideNarrow, ListOrdered } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode, ChevronDown, ChevronRight, Sparkles, ArrowDownWideNarrow, ListOrdered } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -8,6 +9,9 @@ import { cn, calculateProgress } from '../../lib/utils';
 import { filterTopActions, calculateSubtaskRelevanceScores, sortSubtasksByRelevance, getImportantFiles } from '../../lib/actionScoring';
 import { SubtaskActionList } from './SubtaskActionList';
 import type { Task, TaskLogs, TaskLogEntry } from '../../../shared/types';
+
+/** Subtask type extracted from Task */
+type Subtask = Task['subtasks'][number];
 
 /** Sort mode for subtasks */
 type SortMode = 'default' | 'relevance';
@@ -61,6 +65,7 @@ function getSubtaskActionCount(phaseLogs: TaskLogs | null | undefined, subtaskId
 }
 
 export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksProps) {
+  const { t } = useTranslation('tasks');
   const progress = calculateProgress(task.subtasks);
 
   // Track which subtasks are expanded (store by subtask id)
@@ -114,8 +119,10 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
     // Sort by relevance
     const subtaskIds = task.subtasks.map(s => s.id);
     const sortedIds = sortSubtasksByRelevance(subtaskIds, relevanceScores);
-    // Map sorted IDs back to subtask objects
-    return sortedIds.map(id => task.subtasks.find(s => s.id === id)!).filter(Boolean);
+    // Map sorted IDs back to subtask objects with proper type guard
+    return sortedIds
+      .map(id => task.subtasks.find(s => s.id === id))
+      .filter((s): s is Subtask => s != null);
   }, [task.subtasks, sortMode, relevanceScores]);
 
   return (
@@ -124,22 +131,23 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
         {task.subtasks.length === 0 ? (
           <div className="text-center py-12">
             <ListChecks className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-sm font-medium text-muted-foreground mb-1">No subtasks defined</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">{t('detail.subtasks.noSubtasks')}</p>
             <p className="text-xs text-muted-foreground/70">
-              Implementation subtasks will appear here after planning
+              {t('detail.subtasks.noSubtasksDescription')}
             </p>
           </div>
         ) : (
           <>
             {/* Progress summary with sort toggle */}
             <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b border-border/50">
-              <span>{task.subtasks.filter(c => c.status === 'completed').length} of {task.subtasks.length} completed</span>
+              <span>{t('detail.subtasks.completedCount', { completed: task.subtasks.filter(c => c.status === 'completed').length, total: task.subtasks.length })}</span>
               <div className="flex items-center gap-2">
                 {/* Sort toggle button */}
                 {allEntries.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
+                        type="button"
                         onClick={toggleSortMode}
                         className={cn(
                           'flex items-center gap-1 px-2 py-1 rounded-md transition-colors duration-150',
@@ -148,7 +156,7 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
                             ? 'bg-primary/10 text-primary'
                             : 'text-muted-foreground'
                         )}
-                        aria-label={sortMode === 'relevance' ? 'Sort by default order' : 'Sort by relevance'}
+                        aria-label={sortMode === 'relevance' ? t('detail.subtasks.sortTooltipRelevance') : t('detail.subtasks.sortTooltipOrder')}
                       >
                         {sortMode === 'relevance' ? (
                           <ArrowDownWideNarrow className="h-3.5 w-3.5" />
@@ -156,15 +164,15 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
                           <ListOrdered className="h-3.5 w-3.5" />
                         )}
                         <span className="hidden sm:inline">
-                          {sortMode === 'relevance' ? 'Relevance' : 'Order'}
+                          {sortMode === 'relevance' ? t('detail.subtasks.sortByRelevance') : t('detail.subtasks.sortByOrder')}
                         </span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       <p className="text-xs">
                         {sortMode === 'relevance'
-                          ? 'Sorted by relevance (errors and key actions first)'
-                          : 'Click to sort by relevance score'}
+                          ? t('detail.subtasks.sortTooltipRelevance')
+                          : t('detail.subtasks.sortTooltipOrder')}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -234,14 +242,14 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
                                   <div className="text-xs space-y-1">
-                                    <p className="font-medium">Relevance Score: {Math.round(relevanceScore.totalScore)}</p>
+                                    <p className="font-medium">{t('detail.scoring.relevanceScore')}: {Math.round(relevanceScore.totalScore)}</p>
                                     <p className="text-muted-foreground">
                                       {relevanceScore.actionCount} actions •
                                       Avg: {Math.round(relevanceScore.averageScore)} •
                                       Top: {Math.round(relevanceScore.topScore)}
                                     </p>
                                     {relevanceScore.hasErrors && (
-                                      <p className="text-destructive">Contains errors</p>
+                                      <p className="text-destructive">{t('detail.subtasks.containsErrors')}</p>
                                     )}
                                   </div>
                                 </TooltipContent>
@@ -296,6 +304,7 @@ export function TaskSubtasks({ task, phaseLogs, onViewAllLogs }: TaskSubtasksPro
                         {hasActions && (
                           <CollapsibleTrigger asChild>
                             <button
+                              type="button"
                               className={cn(
                                 'shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs',
                                 'text-muted-foreground hover:text-foreground hover:bg-secondary/80',

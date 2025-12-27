@@ -591,7 +591,11 @@ describe('Action Scoring Algorithm', () => {
   });
 
   describe('Performance', () => {
-    it('should process 1000 actions in less than 100ms', () => {
+    // CI environments are often slower; use higher thresholds to avoid flaky tests
+    const isCI = process.env.CI === 'true' || process.env.CI === '1';
+    const ciMultiplier = isCI ? 5 : 1; // 5x slower thresholds in CI
+
+    it('should process 1000 actions in reasonable time', () => {
       const actions: TaskLogEntry[] = Array.from({ length: 1000 }, (_, i) => {
         // Create variety of action types
         const types: TaskLogEntryType[] = ['text', 'tool_start', 'tool_end', 'error', 'success'];
@@ -611,12 +615,13 @@ describe('Action Scoring Algorithm', () => {
       const endTime = performance.now();
 
       const duration = endTime - startTime;
+      const threshold = 100 * ciMultiplier;
 
       expect(result).toHaveLength(5);
-      expect(duration).toBeLessThan(100);
+      expect(duration).toBeLessThan(threshold);
     });
 
-    it('should process 5000 actions in less than 500ms', () => {
+    it('should process 5000 actions in reasonable time', () => {
       const actions: TaskLogEntry[] = Array.from({ length: 5000 }, (_, i) =>
         createTestAction({
           content: `Action ${i}`,
@@ -629,9 +634,10 @@ describe('Action Scoring Algorithm', () => {
       const endTime = performance.now();
 
       const duration = endTime - startTime;
+      const threshold = 500 * ciMultiplier;
 
       expect(result).toHaveLength(5);
-      expect(duration).toBeLessThan(500);
+      expect(duration).toBeLessThan(threshold);
     });
 
     it('should not cause memory issues with large datasets', () => {
