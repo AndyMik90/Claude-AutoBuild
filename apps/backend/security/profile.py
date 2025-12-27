@@ -9,9 +9,9 @@ Uses project_analyzer to create dynamic security profiles based on detected stac
 from pathlib import Path
 
 from project_analyzer import (
+    ProjectAnalyzer,
     SecurityProfile,
     get_or_create_profile,
-    ProjectAnalyzer,
 )
 
 # =============================================================================
