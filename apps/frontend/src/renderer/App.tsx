@@ -392,18 +392,25 @@ export function App() {
   };
 
   const handleOpenInbuiltTerminal = async (id: string, cwd: string) => {
-    // Close modal
-    setSelectedTask(null);
+    console.log('[App] Opening inbuilt terminal:', { id, cwd });
+
     // Switch to terminals view
     setActiveView('terminals');
-    // Create terminal
-    try {
-      const result = await window.electronAPI.createTerminal({ id, cwd });
-      if (!result.success) {
-        console.error('[App] Failed to create terminal:', result.error);
-      }
-    } catch (err) {
-      console.error('[App] Exception creating terminal:', err);
+
+    // Close modal
+    setSelectedTask(null);
+
+    // Wait a tick for view to switch and TerminalGrid to mount
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Add terminal to store - this will trigger Terminal component to mount
+    // which will then create the backend PTY via usePtyProcess
+    const terminal = useTerminalStore.getState().addTerminal(cwd, selectedProject?.path);
+
+    if (!terminal) {
+      console.error('[App] Failed to add terminal to store (max terminals reached?)');
+    } else {
+      console.log('[App] Terminal added to store:', terminal.id);
     }
   };
 
