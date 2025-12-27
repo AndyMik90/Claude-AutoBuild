@@ -989,85 +989,66 @@ export function Unity({ projectId }: UnityProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Run EditMode Tests */}
+                  {/* Test Configuration */}
                   <div className="space-y-2">
-                    <Button
-                      className="w-full"
-                      onClick={runEditModeTests}
-                      disabled={!canRunTests}
-                    >
-                      {isRunningEditMode ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          {t('actions.runningTests')}
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          {t('actions.runEditModeTests')}
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      {t('actions.editModeDescription')}
-                    </p>
+                    <Label htmlFor="test-filter" className="text-xs">
+                      {t('actions.testFilterLabel')}
+                    </Label>
+                    <Input
+                      id="test-filter"
+                      value={playModeTestFilter}
+                      onChange={(e) => setPlayModeTestFilter(e.target.value)}
+                      placeholder={t('actions.testFilterPlaceholder')}
+                    />
+                  </div>
+
+                  {/* Run Tests Buttons */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={runEditModeTests}
+                        disabled={!canRunTests}
+                      >
+                        {isRunningEditMode ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {t('actions.runningTests')}
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            {t('actions.runEditModeTests')}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={runPlayModeTests}
+                        disabled={!canRunTests}
+                        variant="secondary"
+                      >
+                        {isRunningPlayMode ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {t('actions.runningTests')}
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            {t('actions.runPlayModeTests')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <p>{t('actions.editModeDescription')}</p>
+                      <p>{t('actions.playModeDescription')}</p>
+                    </div>
                     {!effectiveEditorPath && (
                       <p className="text-xs text-warning flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
                         {t('actions.selectEditorPrompt')}
                       </p>
                     )}
-                  </div>
-
-                  {/* Run PlayMode Tests */}
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="playmode-target" className="text-xs">
-                          {t('actions.buildTargetLabel')}
-                        </Label>
-                        <Input
-                          id="playmode-target"
-                          value={playModeBuildTarget}
-                          readOnly
-                          placeholder={t('actions.buildTargetDefault', { target: 'Auto' })}
-                          className="mt-1 bg-muted cursor-not-allowed"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="test-filter" className="text-xs">
-                          {t('actions.testFilterLabel')}
-                        </Label>
-                        <Input
-                          id="test-filter"
-                          value={playModeTestFilter}
-                          onChange={(e) => setPlayModeTestFilter(e.target.value)}
-                          placeholder={t('actions.testFilterPlaceholder')}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      className="w-full"
-                      onClick={runPlayModeTests}
-                      disabled={!canRunTests}
-                      variant="secondary"
-                    >
-                      {isRunningPlayMode ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          {t('actions.runningTests')}
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          {t('actions.runPlayModeTests')}
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      {t('actions.playModeDescription')}
-                    </p>
                   </div>
 
                   {/* Build (Custom) */}
