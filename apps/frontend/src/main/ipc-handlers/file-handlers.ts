@@ -188,9 +188,19 @@ export function registerFileHandlers(): void {
           try {
             if (existsSync(entryAbsPath)) {
               const entryReal = realpathSync(entryAbsPath);
+              const workspaceRootResolved = realpathSync(workspaceRoot);
+
+              // Normalize paths for comparison on case-insensitive file systems
+              const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
+              const workspaceRootForCompare = isCaseInsensitiveFs
+                ? workspaceRootResolved.toLowerCase()
+                : workspaceRootResolved;
+              const entryRealForCompare = isCaseInsensitiveFs
+                ? entryReal.toLowerCase()
+                : entryReal;
 
               // Skip if resolves outside workspace
-              if (!entryReal.startsWith(workspaceRootResolved + path.sep) && entryReal !== workspaceRootResolved) {
+              if (!entryRealForCompare.startsWith(workspaceRootForCompare + path.sep) && entryRealForCompare !== workspaceRootForCompare) {
                 continue;
               }
             }
@@ -282,8 +292,18 @@ export function registerFileHandlers(): void {
         if (existsSync(absPath)) {
           // File exists: validate its real path
           const targetReal = realpathSync(absPath);
+          const workspaceRootResolved = realpathSync(workspaceRoot);
 
-          if (!targetReal.startsWith(workspaceRootResolved + path.sep) && targetReal !== workspaceRootResolved) {
+          // Normalize paths for comparison on case-insensitive file systems
+          const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
+          const workspaceRootForCompare = isCaseInsensitiveFs
+            ? workspaceRootResolved.toLowerCase()
+            : workspaceRootResolved;
+          const targetRealForCompare = isCaseInsensitiveFs
+            ? targetReal.toLowerCase()
+            : targetReal;
+
+          if (!targetRealForCompare.startsWith(workspaceRootForCompare + path.sep) && targetRealForCompare !== workspaceRootForCompare) {
             return { success: false, error: 'Symlink resolves outside workspace root' };
           }
 
@@ -300,8 +320,18 @@ export function registerFileHandlers(): void {
           }
 
           const parentReal = realpathSync(parentDir);
+          const workspaceRootResolved = realpathSync(workspaceRoot);
 
-          if (!parentReal.startsWith(workspaceRootResolved + path.sep) && parentReal !== workspaceRootResolved) {
+          // Normalize paths for comparison on case-insensitive file systems
+          const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
+          const workspaceRootForCompare = isCaseInsensitiveFs
+            ? workspaceRootResolved.toLowerCase()
+            : workspaceRootResolved;
+          const parentRealForCompare = isCaseInsensitiveFs
+            ? parentReal.toLowerCase()
+            : parentReal;
+
+          if (!parentRealForCompare.startsWith(workspaceRootForCompare + path.sep) && parentRealForCompare !== workspaceRootForCompare) {
             return { success: false, error: 'Parent directory resolves outside workspace root' };
           }
         }

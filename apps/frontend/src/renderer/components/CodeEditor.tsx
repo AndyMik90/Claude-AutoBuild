@@ -1,9 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Loader2, Save, FileCode, Folder, FolderOpen, ChevronRight, ChevronDown, File } from 'lucide-react';
 import Editor from '@monaco-editor/react';
+import type * as Monaco from 'monaco-editor';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
 import { TooltipProvider } from './ui/tooltip';
 
@@ -33,6 +44,8 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const [isDirty, setIsDirty] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [pendingFilePath, setPendingFilePath] = useState<string | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
   // File explorer state
   const [folderState, setFolderState] = useState<FolderState>({
@@ -40,13 +53,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     childrenByDir: new Map()
   });
 
-  const editorRef = useRef<any>(null);
-
-  // Load root directory on mount
-  useEffect(() => {
-    if (!workspaceRoot) return;
-    loadDirectory('');
-  }, [workspaceRoot]);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
   // Load directory contents
   const loadDirectory = useCallback(async (relPath: string) => {
@@ -79,6 +86,12 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     }
   }, [workspaceRoot]);
 
+  // Load root directory on mount
+  useEffect(() => {
+    if (!workspaceRoot) return;
+    loadDirectory('');
+  }, [workspaceRoot, loadDirectory]);
+
   // Toggle folder expansion
   const toggleFolder = useCallback((relPath: string) => {
     setFolderState(prev => {
@@ -105,11 +118,20 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const openFile = useCallback(async (relPath: string) => {
     if (!workspaceRoot) return;
 
-    // If dirty, confirm discard
+    // If dirty, show confirmation dialog
     if (isDirty) {
-      const confirmed = window.confirm('You have unsaved changes. Discard them?');
-      if (!confirmed) return;
+      setPendingFilePath(relPath);
+      setShowUnsavedDialog(true);
+      return;
     }
+
+    // Proceed with opening the file
+    await performOpenFile(relPath);
+  }, [workspaceRoot, isDirty]);
+
+  // Actually open the file (extracted to be reusable)
+  const performOpenFile = async (relPath: string) => {
+    if (!workspaceRoot) return;
 
     setStatus('loading');
     setErrorMessage(undefined);
@@ -130,7 +152,22 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to read file');
       setStatus('error');
     }
-  }, [workspaceRoot, isDirty]);
+  };
+
+  // Handle unsaved changes dialog confirmation
+  const handleDiscardChanges = async () => {
+    setShowUnsavedDialog(false);
+    if (pendingFilePath) {
+      await performOpenFile(pendingFilePath);
+      setPendingFilePath(null);
+    }
+  };
+
+  // Handle unsaved changes dialog cancellation
+  const handleKeepEditing = () => {
+    setShowUnsavedDialog(false);
+    setPendingFilePath(null);
+  };
 
   // Save file
   const saveFile = useCallback(async () => {
@@ -181,7 +218,28 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
 
   // Get Monaco language from file extension
   const getMonacoLanguage = (relPath: string): string => {
+    // Handle files without extensions (Makefile, Dockerfile, etc.)
+    const fileName = relPath.split('/').pop() || '';
+    
+    // Special cases for files without extensions
+    const noExtensionFiles: Record<string, string> = {
+      'Makefile': 'makefile',
+      'Dockerfile': 'dockerfile',
+      'Jenkinsfile': 'groovy',
+      'Vagrantfile': 'ruby',
+    };
+    
+    if (noExtensionFiles[fileName]) {
+      return noExtensionFiles[fileName];
+    }
+    
+    // Get the last extension (handles file.test.ts correctly)
     const ext = relPath.split('.').pop()?.toLowerCase();
+    
+    if (!ext || ext === relPath) {
+      // No extension found
+      return 'plaintext';
+    }
 
     switch (ext) {
       case 'cs': return 'csharp';
@@ -391,6 +449,22 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Unsaved changes dialog */}
+        <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes in the current file. If you continue, your changes will be lost.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleKeepEditing}>Keep Editing</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDiscardChanges}>Discard Changes</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );
