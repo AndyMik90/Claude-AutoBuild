@@ -44,9 +44,11 @@ interface TaskDetailModalProps {
   open: boolean;
   task: Task | null;
   onOpenChange: (open: boolean) => void;
+  onSwitchToTerminals?: () => void;
+  onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
 }
 
-export function TaskDetailModal({ open, task, onOpenChange }: TaskDetailModalProps) {
+export function TaskDetailModal({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: TaskDetailModalProps) {
   // Don't render anything if no task
   if (!task) {
     return null;
@@ -57,12 +59,14 @@ export function TaskDetailModal({ open, task, onOpenChange }: TaskDetailModalPro
       open={open}
       task={task}
       onOpenChange={onOpenChange}
+      onSwitchToTerminals={onSwitchToTerminals}
+      onOpenInbuiltTerminal={onOpenInbuiltTerminal}
     />
   );
 }
 
 // Separate component to use hooks only when task exists
-function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void }) {
+function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void; onSwitchToTerminals?: () => void; onOpenInbuiltTerminal?: (id: string, cwd: string) => void }) {
   const state = useTaskDetail({ task });
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
@@ -303,7 +307,11 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                     variant="ghost"
                     size="icon"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
-                    onClick={() => state.setIsEditDialogOpen(true)}
+                    onClick={() => {
+                      state.setIsEditDialogOpen(true);
+                      // Hide parent modal while edit dialog is open to fix z-index stacking
+                      onOpenChange(false);
+                    }}
                     disabled={state.isRunning && !state.isStuck}
                   >
                     <Pencil className="h-4 w-4" />
@@ -408,6 +416,8 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
                             onShowConflictDialog={state.setShowConflictDialog}
                             onLoadMergePreview={state.loadMergePreview}
                             onClose={handleClose}
+                            onSwitchToTerminals={onSwitchToTerminals}
+                            onOpenInbuiltTerminal={onOpenInbuiltTerminal}
                           />
                         </>
                       )}
@@ -463,7 +473,13 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
       <TaskEditDialog
         task={task}
         open={state.isEditDialogOpen}
-        onOpenChange={state.setIsEditDialogOpen}
+        onOpenChange={(open) => {
+          state.setIsEditDialogOpen(open);
+          // Reopen parent modal when edit dialog closes
+          if (!open) {
+            onOpenChange(true);
+          }
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

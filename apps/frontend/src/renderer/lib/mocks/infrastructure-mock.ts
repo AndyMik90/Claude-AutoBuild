@@ -110,7 +110,7 @@ export const infrastructureMock = {
    }) => void) => {
      // Store callback for test verification
      (window as any).__downloadProgressCallback = callback;
-     
+
      // Return cleanup function
      return () => {
        delete (window as any).__downloadProgressCallback;
@@ -184,5 +184,10 @@ export const infrastructureMock = {
   openExternal: async (url: string) => {
     console.warn('[Browser Mock] openExternal:', url);
     window.open(url, '_blank');
+  },
+
+  openTerminal: async (dirPath: string) => {
+    console.warn('[Browser Mock] openTerminal:', dirPath);
+    return { success: true };
   }
 };

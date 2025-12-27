@@ -2,6 +2,7 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
+import { getValidatedPythonPath } from '../python-detector';
 import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
@@ -14,12 +15,9 @@ export class InsightsConfig {
   private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this._pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'InsightsConfig');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;

@@ -1,0 +1,26 @@
+{
+  "spec_id": "011-fix-scale-adjustment-and-view-reload-issues",
+  "subtasks": [
+    {
+      "id": "1",
+      "title": "Fix slider to defer view reload until drag ends and add zoom button functionality",
+      "status": "completed"
+    }
+  ],
+  "qa_signoff": {
+    "status": "fixes_applied",
+    "timestamp": "2025-12-27T02:20:00Z",
+    "fix_session": 0,
+    "issues_fixed": [
+      {
+        "title": "Remove preview hint textbox",
+        "fix_commit": "2653019"
+      },
+      {
+        "title": "Remove unused preview translation keys",
+        "fix_commit": "e17536c"
+      }
+    ],
+    "ready_for_qa_revalidation": true
+  }
+}

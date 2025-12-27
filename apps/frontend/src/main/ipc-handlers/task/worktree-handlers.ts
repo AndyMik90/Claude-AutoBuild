@@ -3,13 +3,14 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
-import { execSync, spawn, spawnSync } from 'child_process';
+import { execSync, execFileSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { parsePythonCommand } from '../../python-detector';
+import { getToolPath } from '../../cli-tool-manager';
 
 /**
  * Read the stored base branch from task_metadata.json
@@ -64,7 +65,7 @@ export function registerWorktreeHandlers(
         // Get branch info from git
         try {
           // Get current branch in worktree
-          const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
             cwd: worktreePath,
             encoding: 'utf-8'
           }).trim();
@@ -73,7 +74,7 @@ export function registerWorktreeHandlers(
           // This matches the Python merge logic which merges into the user's current branch
           let baseBranch = 'main';
           try {
-            baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+            baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: project.path,
               encoding: 'utf-8'
             }).trim();
@@ -84,7 +85,7 @@ export function registerWorktreeHandlers(
           // Get commit count (cross-platform - no shell syntax)
           let commitCount = 0;
           try {
-            const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
+            const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -101,7 +102,7 @@ export function registerWorktreeHandlers(
 
           let diffStat = '';
           try {
-            diffStat = execSync(`git diff --stat ${baseBranch}...HEAD`, {
+            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${baseBranch}...HEAD`], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -171,7 +172,7 @@ export function registerWorktreeHandlers(
         // Get base branch - the current branch in the main project (where changes will be merged)
         let baseBranch = 'main';
         try {
-          baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+          baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
             cwd: project.path,
             encoding: 'utf-8'
           }).trim();
@@ -186,14 +187,14 @@ export function registerWorktreeHandlers(
         let nameStatus = '';
         try {
           // Get numstat for additions/deletions per file (cross-platform)
-          numstat = execSync(`git diff --numstat ${baseBranch}...HEAD`, {
+          numstat = execFileSync(getToolPath('git'), ['diff', '--numstat', `${baseBranch}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
           // Get name-status for file status (cross-platform)
-          nameStatus = execSync(`git diff --name-status ${baseBranch}...HEAD`, {
+          nameStatus = execFileSync(getToolPath('git'), ['diff', '--name-status', `${baseBranch}...HEAD`], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
@@ -327,9 +328,9 @@ export function registerWorktreeHandlers(
 
         // Get git status before merge
         try {
-          const gitStatusBefore = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
+          const gitStatusBefore = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
           debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
-          const gitBranch = execSync('git branch --show-current', { cwd: project.path, encoding: 'utf-8' }).trim();
+          const gitBranch = execFileSync(getToolPath('git'), ['branch', '--show-current'], { cwd: project.path, encoding: 'utf-8' }).trim();
           debug('Current branch:', gitBranch);
         } catch (e) {
           debug('Failed to get git status before:', e);
@@ -443,7 +444,7 @@ export function registerWorktreeHandlers(
           });
 
           // Handler for when process exits
-          const handleProcessExit = (code: number | null, signal: string | null = null) => {
+          const handleProcessExit = async (code: number | null, signal: string | null = null) => {
             if (resolved) return; // Prevent double-resolution
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -454,9 +455,9 @@ export function registerWorktreeHandlers(
 
             // Get git status after merge
             try {
-              const gitStatusAfter = execSync('git status --short', { cwd: project.path, encoding: 'utf-8' });
+              const gitStatusAfter = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
               debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
-              const gitDiffStaged = execSync('git diff --staged --stat', { cwd: project.path, encoding: 'utf-8' });
+              const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
               debug('Staged changes:\n', gitDiffStaged || '(none)');
             } catch (e) {
               debug('Failed to get git status after:', e);
@@ -472,7 +473,7 @@ export function registerWorktreeHandlers(
 
               if (isStageOnly) {
                 try {
-                  const gitDiffStaged = execSync('git diff --staged --stat', { cwd: project.path, encoding: 'utf-8' });
+                  const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
                   hasActualStagedChanges = gitDiffStaged.trim().length > 0;
                   debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
 
@@ -539,13 +540,14 @@ export function registerWorktreeHandlers(
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
 
               // Read suggested commit message if staging succeeded
+              // OPTIMIZATION: Use async I/O to prevent blocking
               let suggestedCommitMessage: string | undefined;
               if (staged) {
                 const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
                 try {
                   if (existsSync(commitMsgPath)) {
-                    const { readFileSync } = require('fs');
-                    suggestedCommitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+                    const { promises: fsPromises } = require('fs');
+                    suggestedCommitMessage = (await fsPromises.readFile(commitMsgPath, 'utf-8')).trim();
                     debug('Read suggested commit message:', suggestedCommitMessage?.substring(0, 100));
                   }
                 } catch (e) {
@@ -556,17 +558,21 @@ export function registerWorktreeHandlers(
               // Persist the status change to implementation_plan.json
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
+              // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
               const planPaths = [
-                path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), // Main project
-                path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN) // Worktree
+                { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
+                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
               ];
 
-              const { readFileSync, writeFileSync } = require('fs');
+              const { promises: fsPromises } = require('fs');
 
-              for (const planPath of planPaths) {
-                try {
-                  if (existsSync(planPath)) {
-                    const planContent = readFileSync(planPath, 'utf-8');
+              // Fire and forget - don't block the response on file writes
+              const updatePlans = async () => {
+                const updates = planPaths.map(async ({ path: planPath, isMain }) => {
+                  try {
+                    if (!existsSync(planPath)) return;
+
+                    const planContent = await fsPromises.readFile(planPath, 'utf-8');
                     const plan = JSON.parse(planContent);
                     plan.status = newStatus;
                     plan.planStatus = planStatus;
@@ -575,17 +581,22 @@ export function registerWorktreeHandlers(
                       plan.stagedAt = new Date().toISOString();
                       plan.stagedInMainProject = true;
                     }
-                    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+                    await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+                  } catch (persistError) {
+                    // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
+                    if (isMain) {
+                      console.error('Failed to persist task status to main plan:', persistError);
+                    } else {
+                      debug('Failed to persist task status to worktree plan (non-critical):', persistError);
+                    }
                   }
-                } catch (persistError) {
-                  // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
-                  if (planPath.includes(specDir)) {
-                    console.error('Failed to persist task status to main plan:', persistError);
-                  } else {
-                    debug('Failed to persist task status to worktree plan (non-critical):', persistError);
-                  }
-                }
-              }
+                });
+
+                await Promise.all(updates);
+              };
+
+              // Run async updates without blocking the response
+              updatePlans().catch(err => debug('Background plan update failed:', err));
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
@@ -685,7 +696,7 @@ export function registerWorktreeHandlers(
         let hasUncommittedChanges = false;
         let uncommittedFiles: string[] = [];
         try {
-          const gitStatus = execSync('git status --porcelain', {
+          const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
             cwd: project.path,
             encoding: 'utf-8'
           });
@@ -854,20 +865,20 @@ export function registerWorktreeHandlers(
 
         try {
           // Get the branch name before removing
-          const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
             cwd: worktreePath,
             encoding: 'utf-8'
           }).trim();
 
           // Remove the worktree
-          execSync(`git worktree remove --force "${worktreePath}"`, {
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
             cwd: project.path,
             encoding: 'utf-8'
           });
 
           // Delete the branch
           try {
-            execSync(`git branch -D "${branch}"`, {
+            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
               cwd: project.path,
               encoding: 'utf-8'
             });
@@ -937,7 +948,7 @@ export function registerWorktreeHandlers(
 
           try {
             // Get branch info
-            const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+            const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
               cwd: entryPath,
               encoding: 'utf-8'
             }).trim();
@@ -945,7 +956,7 @@ export function registerWorktreeHandlers(
             // Get base branch - the current branch in the main project (where changes will be merged)
             let baseBranch = 'main';
             try {
-              baseBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+              baseBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
                 cwd: project.path,
                 encoding: 'utf-8'
               }).trim();
@@ -956,7 +967,7 @@ export function registerWorktreeHandlers(
             // Get commit count (cross-platform - no shell syntax)
             let commitCount = 0;
             try {
-              const countOutput = execSync(`git rev-list --count ${baseBranch}..HEAD`, {
+              const countOutput = execFileSync(getToolPath('git'), ['rev-list', '--count', `${baseBranch}..HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -973,7 +984,7 @@ export function registerWorktreeHandlers(
             let diffStat = '';
 
             try {
-              diffStat = execSync(`git diff --shortstat ${baseBranch}...HEAD`, {
+              diffStat = execFileSync(getToolPath('git'), ['diff', '--shortstat', `${baseBranch}...HEAD`], {
                 cwd: entryPath,
                 encoding: 'utf-8',
                 stdio: ['pipe', 'pipe', 'pipe']

@@ -15,10 +15,6 @@ _PARENT_DIR = Path(__file__).parent.parent
 if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
-from ui import (
-    Icons,
-    icon,
-)
 
 from .batch_commands import (
     handle_batch_cleanup_command,
@@ -201,13 +197,6 @@ Environment Variables:
         help="Show human review/approval status for a spec",
     )
 
-    # Dev mode (deprecated)
-    parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="[Deprecated] No longer has any effect - kept for compatibility",
-    )
-
     # Non-interactive mode (for UI/automation)
     parser.add_argument(
         "--auto-continue",
@@ -290,16 +279,10 @@ def main() -> None:
     # Get model (with env var fallback)
     model = args.model or os.environ.get("AUTO_BUILD_MODEL", DEFAULT_MODEL)
 
-    # Note: --dev flag is deprecated but kept for API compatibility
-    if args.dev:
-        print(
-            f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now use .auto-claude/specs/\n"
-        )
-
     # Handle --list command
     if args.list:
         print_banner()
-        print_specs_list(project_dir, args.dev)
+        print_specs_list(project_dir)
         return
 
     # Handle --list-worktrees command
@@ -337,14 +320,14 @@ def main() -> None:
         sys.exit(1)
 
     # Find the spec
-    debug("run.py", "Finding spec", spec_identifier=args.spec, dev_mode=args.dev)
-    spec_dir = find_spec(project_dir, args.spec, args.dev)
+    debug("run.py", "Finding spec", spec_identifier=args.spec)
+    spec_dir = find_spec(project_dir, args.spec)
     if not spec_dir:
         debug_error("run.py", "Spec not found", spec=args.spec)
         print_banner()
         print(f"\nError: Spec '{args.spec}' not found")
         print("\nAvailable specs:")
-        print_specs_list(project_dir, args.dev)
+        print_specs_list(project_dir)
         sys.exit(1)
 
     debug_success("run.py", "Spec found", spec_dir=str(spec_dir))

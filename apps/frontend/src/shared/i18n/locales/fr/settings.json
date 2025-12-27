@@ -23,7 +23,7 @@
     },
     "paths": {
       "title": "Chemins",
-      "description": "Chemins Python et framework"
+      "description": "Outils CLI et chemins framework"
     },
     "integrations": {
       "title": "Intégrations",
@@ -49,8 +49,7 @@
     "fineTuneDescription": "Ajustez de 75% à 200% par incréments de 5%",
     "default": "Par défaut",
     "comfortable": "Confortable",
-    "large": "Grand",
-    "preview": "Les changements sont prévisualisés immédiatement. Cliquez sur Enregistrer pour les conserver."
+    "large": "Grand"
   },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
@@ -67,8 +66,24 @@
     "paths": "Chemins",
     "pathsDescription": "Configurer les chemins des exécutables et du framework",
     "pythonPath": "Chemin Python",
-    "pythonPathDescription": "Chemin vers l'exécutable Python (laisser vide pour la valeur par défaut)",
+    "pythonPathDescription": "Chemin vers l'exécutable Python (laisser vide pour détection automatique)",
     "pythonPathPlaceholder": "python3 (par défaut)",
+    "gitPath": "Chemin Git",
+    "gitPathDescription": "Chemin vers l'exécutable Git (laisser vide pour détection automatique)",
+    "gitPathPlaceholder": "git (par défaut)",
+    "githubCLIPath": "Chemin GitHub CLI",
+    "githubCLIPathDescription": "Chemin vers l'exécutable GitHub CLI (gh) (laisser vide pour détection automatique)",
+    "githubCLIPathPlaceholder": "gh (par défaut)",
+    "detectedPath": "Détecté automatiquement",
+    "detectedVersion": "Version",
+    "detectedSource": "Source",
+    "sourceUserConfig": "Configuration utilisateur",
+    "sourceVenv": "Environnement virtuel",
+    "sourceHomebrew": "Homebrew",
+    "sourceSystemPath": "PATH système",
+    "sourceBundled": "Intégré",
+    "sourceFallback": "Valeur par défaut",
+    "notDetected": "Non détecté",
     "autoClaudePath": "Chemin Auto Claude",
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",

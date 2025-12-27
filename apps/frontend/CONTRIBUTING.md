@@ -118,7 +118,7 @@ describe('TaskCard', () => {
   it('renders task title', () => {
     const task = { id: '1', title: 'Test Task' };
     render(<TaskCard task={task} onClick={vi.fn()} />);
-    
+
     expect(screen.getByText('Test Task')).toBeInTheDocument();
   });
 });

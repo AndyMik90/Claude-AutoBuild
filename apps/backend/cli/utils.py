@@ -54,21 +54,18 @@ def setup_environment() -> Path:
     return script_dir
 
 
-def find_spec(
-    project_dir: Path, spec_identifier: str, dev_mode: bool = False
-) -> Path | None:
+def find_spec(project_dir: Path, spec_identifier: str) -> Path | None:
     """
     Find a spec by number or full name.
 
     Args:
         project_dir: Project root directory
         spec_identifier: Either "001" or "001-feature-name"
-        dev_mode: If True, use dev/auto-claude/specs/
 
     Returns:
         Path to spec folder, or None if not found
     """
-    specs_dir = get_specs_dir(project_dir, dev_mode)
+    specs_dir = get_specs_dir(project_dir)
 
     if specs_dir.exists():
         # Try exact match first

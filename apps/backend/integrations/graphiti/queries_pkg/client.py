@@ -146,12 +146,12 @@ class GraphitiClient:
                 # The original graphiti-core KuzuDriver has build_indices_and_constraints()
                 # as a no-op, which causes FTS search failures
                 from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
-                    PatchedKuzuDriver as KuzuDriver,
+                    create_patched_kuzu_driver,
                 )
 
                 db_path = self.config.get_db_path()
                 try:
-                    self._driver = KuzuDriver(db=str(db_path))
+                    self._driver = create_patched_kuzu_driver(db=str(db_path))
                 except (OSError, PermissionError) as e:
                     logger.warning(
                         f"Failed to initialize LadybugDB driver at {db_path}: {e}"

@@ -95,7 +95,7 @@ from debug import debug, debug_error, debug_section, debug_success
 from phase_config import resolve_model_id
 from review import ReviewState
 from spec import SpecOrchestrator
-from ui import Icons, highlight, icon, muted, print_section, print_status
+from ui import Icons, highlight, muted, print_section, print_status
 
 
 def main():
@@ -178,11 +178,6 @@ Examples:
         help="Use heuristic complexity assessment instead of AI (faster but less accurate)",
     )
     parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="[Deprecated] No longer has any effect - kept for compatibility",
-    )
-    parser.add_argument(
         "--no-build",
         action="store_true",
         help="Don't automatically start the build after spec creation (default: auto-start build)",
@@ -236,12 +231,6 @@ Examples:
                 project_dir = parent
                 break
 
-    # Note: --dev flag is deprecated but kept for API compatibility
-    if args.dev:
-        print(
-            f"\n{icon(Icons.GEAR)} Note: --dev flag is deprecated. All specs now go to .auto-claude/specs/\n"
-        )
-
     # Resolve model shorthand to full model ID
     resolved_model = resolve_model_id(args.model)
 
@@ -267,7 +256,6 @@ Examples:
         thinking_level=args.thinking_level,
         complexity_override=args.complexity,
         use_ai_assessment=not args.no_ai_assessment,
-        dev_mode=args.dev,
     )
 
     try:
@@ -329,10 +317,6 @@ Examples:
                 str(orchestrator.project_dir),
                 "--auto-continue",  # Non-interactive mode for chained execution
             ]
-
-            # Pass through dev mode
-            if args.dev:
-                run_cmd.append("--dev")
 
             # Note: Model configuration for subsequent phases (planning, coding, qa)
             # is read from task_metadata.json by run.py, so we don't pass it here.

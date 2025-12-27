@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { parsePythonCommand } from './python-detector';
+import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
 import { getConfiguredPythonPath } from './python-env-manager';
 
 /**
@@ -31,12 +31,9 @@ export class TitleGenerator extends EventEmitter {
     debug('TitleGenerator initialized');
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this._pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'TitleGenerator');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;

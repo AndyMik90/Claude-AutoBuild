@@ -1,6 +1,6 @@
 import { ipcMain, dialog, app, shell } from 'electron';
-import { existsSync, writeFileSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
+import { existsSync, writeFileSync, mkdirSync, statSync } from 'fs';
+import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
@@ -13,6 +13,7 @@ import type { BrowserWindow } from 'electron';
 import { getEffectiveVersion } from '../auto-claude-updater';
 import { setUpdateChannel } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
+import { configureTools, getToolPath, getToolInfo } from '../cli-tool-manager';
 
 const settingsPath = getSettingsPath();
 
@@ -128,6 +129,13 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Configure CLI tools with current settings
+      configureTools({
+        pythonPath: settings.pythonPath,
+        gitPath: settings.gitPath,
+        githubCLIPath: settings.githubCLIPath,
+      });
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -147,6 +155,19 @@ export function registerSettingsHandlers(
           agentManager.configure(settings.pythonPath, settings.autoBuildPath);
         }
 
+        // Configure CLI tools if any paths changed
+        if (
+          settings.pythonPath !== undefined ||
+          settings.gitPath !== undefined ||
+          settings.githubCLIPath !== undefined
+        ) {
+          configureTools({
+            pythonPath: newSettings.pythonPath,
+            gitPath: newSettings.gitPath,
+            githubCLIPath: newSettings.githubCLIPath,
+          });
+        }
+
         // Update auto-updater channel if betaUpdates setting changed
         if (settings.betaUpdates !== undefined) {
           const channel = settings.betaUpdates ? 'beta' : 'latest';
@@ -158,6 +179,31 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save settings'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_GET_CLI_TOOLS_INFO,
+    async (): Promise<IPCResult<{
+      python: ReturnType<typeof getToolInfo>;
+      git: ReturnType<typeof getToolInfo>;
+      gh: ReturnType<typeof getToolInfo>;
+    }>> => {
+      try {
+        return {
+          success: true,
+          data: {
+            python: getToolInfo('python'),
+            git: getToolInfo('git'),
+            gh: getToolInfo('gh'),
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get CLI tools info',
         };
       }
     }
@@ -226,7 +272,7 @@ export function registerSettingsHandlers(
         let gitInitialized = false;
         if (initGit) {
           try {
-            execSync('git init', { cwd: projectPath, stdio: 'ignore' });
+            execFileSync(getToolPath('git'), ['init'], { cwd: projectPath, stdio: 'ignore' });
             gitInitialized = true;
           } catch {
             // Git init failed, but folder was created - continue without git
@@ -297,6 +343,98 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_, url: string): Promise<void> => {
       await shell.openExternal(url);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_TERMINAL,
+    async (_, dirPath: string): Promise<IPCResult<void>> => {
+      try {
+        // Validate dirPath input
+        if (!dirPath || typeof dirPath !== 'string' || dirPath.trim() === '') {
+          return {
+            success: false,
+            error: 'Directory path is required and must be a non-empty string'
+          };
+        }
+
+        // Resolve to absolute path
+        const resolvedPath = path.resolve(dirPath);
+
+        // Verify path exists
+        if (!existsSync(resolvedPath)) {
+          return {
+            success: false,
+            error: `Directory does not exist: ${resolvedPath}`
+          };
+        }
+
+        // Verify it's a directory
+        try {
+          if (!statSync(resolvedPath).isDirectory()) {
+            return {
+              success: false,
+              error: `Path is not a directory: ${resolvedPath}`
+            };
+          }
+        } catch (statError) {
+          return {
+            success: false,
+            error: `Cannot access path: ${resolvedPath}`
+          };
+        }
+
+        const platform = process.platform;
+
+        if (platform === 'darwin') {
+          // macOS: Use execFileSync with argument array to prevent injection
+          execFileSync('open', ['-a', 'Terminal', resolvedPath], { stdio: 'ignore' });
+        } else if (platform === 'win32') {
+          // Windows: Use cmd.exe directly with argument array
+          // /C tells cmd to execute the command and terminate
+          // /K keeps the window open after executing cd
+          execFileSync('cmd.exe', ['/K', 'cd', '/d', resolvedPath], {
+            stdio: 'ignore',
+            windowsHide: false,
+            shell: false  // Explicitly disable shell to prevent injection
+          });
+        } else {
+          // Linux: Try common terminal emulators with argument arrays
+          const terminals: Array<{ cmd: string; args: string[] }> = [
+            { cmd: 'gnome-terminal', args: ['--working-directory', resolvedPath] },
+            { cmd: 'konsole', args: ['--workdir', resolvedPath] },
+            { cmd: 'xfce4-terminal', args: ['--working-directory', resolvedPath] },
+            { cmd: 'xterm', args: ['-e', 'bash', '-c', `cd '${resolvedPath.replace(/'/g, "'\\''")}' && exec bash`] }
+          ];
+
+          let opened = false;
+          for (const { cmd, args } of terminals) {
+            try {
+              execFileSync(cmd, args, { stdio: 'ignore' });
+              opened = true;
+              break;
+            } catch {
+              // Try next terminal
+              continue;
+            }
+          }
+
+          if (!opened) {
+            return {
+              success: false,
+              error: 'No supported terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.'
+            };
+          }
+        }
+
+        return { success: true };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          success: false,
+          error: `Failed to open terminal: ${errorMsg}`
+        };
+      }
     }
   );
 }
