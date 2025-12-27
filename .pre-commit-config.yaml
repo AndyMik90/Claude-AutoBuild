@@ -40,7 +40,22 @@ repos:
     hooks:
       - id: pytest
         name: Python Tests
-        entry: bash -c 'cd apps/backend && PYTHONPATH=. .venv/bin/pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" --ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py'
+        entry: bash
+        args:
+          - -c
+          - >
+            cd apps/backend &&
+            PYTHONPATH=. .venv/bin/pytest
+            ../../tests/
+            -v
+            --tb=short
+            -x
+            -m "not slow and not integration"
+            --ignore=../../tests/test_graphiti.py
+            --ignore=../../tests/test_merge_file_tracker.py
+            --ignore=../../tests/test_service_orchestrator.py
+            --ignore=../../tests/test_worktree.py
+            --ignore=../../tests/test_workspace.py
         language: system
         files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false

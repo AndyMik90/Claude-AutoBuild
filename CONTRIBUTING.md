@@ -35,7 +35,7 @@ Before contributing, ensure you have the following installed:
 - **Node.js 24+** - For the Electron frontend
 - **npm 10+** - Package manager for the frontend (comes with Node.js)
 - **uv** (recommended) or **pip** - Python package manager
-- **CMake** - Required for building native dependencies (e.g LadybugDB)
+- **CMake** - Required for building native dependencies (e.g., LadybugDB)
 - **Git** - Version control
 
 ### Installing Python 3.12
@@ -53,6 +53,23 @@ brew install python@3.12
 **Linux (Ubuntu/Debian):**
 ```bash
 sudo apt install python3.12 python3.12-venv
+```
+
+### Installing CMake
+
+**Windows:**
+```bash
+winget install Kitware.CMake
+```
+
+**macOS:**
+```bash
+brew install cmake
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install cmake
 ```
 
 ## Quick Start
