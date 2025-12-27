@@ -453,7 +453,8 @@ async function detectEditorVersion(editorPath: string, editorRoot: string): Prom
   // Fallback: extract from path (e.g., ".../2021.3.0f1/Editor/...")
   const pathSegments = editorPath.split(path.sep);
   for (const segment of pathSegments) {
-    if (/^\d{4}\.\d+\.\d+[a-z]\d+$/.test(segment)) {
+    // Match Unity version format with case-insensitive letters (e.g., 2021.3.0f1, 2021.3.0F1)
+    if (/^\d{4}\.\d+\.\d+[a-zA-Z]\d+$/.test(segment)) {
       return segment;
     }
   }
@@ -472,15 +473,18 @@ function compareVersions(
     return null;
   }
 
-  // Parse versions (e.g., "2021.3.0f1")
+  // Parse versions (e.g., "2021.3.0f1", "2021.3.15f1 LTS")
   const parseVersion = (v: string) => {
-    const match = v.match(/^(\d+)\.(\d+)\.(\d+)([a-z])(\d+)$/);
+    // Strip LTS suffix if present
+    const cleanVersion = v.replace(/\s+LTS$/i, '').trim();
+    // Match Unity version format with case-insensitive letters
+    const match = cleanVersion.match(/^(\d+)\.(\d+)\.(\d+)([a-zA-Z])(\d+)$/);
     if (!match) return null;
     return {
       major: parseInt(match[1]),
       minor: parseInt(match[2]),
       patch: parseInt(match[3]),
-      type: match[4],
+      type: match[4].toLowerCase(),
       build: parseInt(match[5]),
     };
   };

@@ -2629,6 +2629,9 @@ export function registerUnityHandlers(): void {
         const { installUnityBridge } = await import('../utils/unity-tweaks');
         const bridgeTemplatePath = join(__dirname, '../unity-bridge-template.cs');
 
+        // Bridge installation intentionally bypasses the backup/diff system (runUnityTweak).
+        // This is a one-time setup operation that only adds new files to the project,
+        // and doesn't modify existing Unity project settings, so backups aren't needed.
         // Create a run record for this installation
         const { id: runId, dir: runDir } = createRunDir(projectId, 'bridge-install');
 
