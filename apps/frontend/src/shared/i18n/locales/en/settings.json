@@ -49,8 +49,7 @@
     "fineTuneDescription": "Adjust from 75% to 200% in 5% increments",
     "default": "Default",
     "comfortable": "Comfortable",
-    "large": "Large",
-    "preview": "Changes preview immediately. Click Save Settings to persist."
+    "large": "Large"
   },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
