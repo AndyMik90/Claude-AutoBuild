@@ -68,14 +68,20 @@ def _unlock(fd: int) -> None:
     if _IS_WINDOWS:
         if msvcrt is None:
             warnings.warn(
-                "msvcrt unavailable; cannot unlock file descriptor", RuntimeWarning
+                "msvcrt unavailable; cannot unlock file descriptor",
+                RuntimeWarning,
+                stacklevel=3,
             )
             return
         msvcrt.locking(fd, msvcrt.LK_UNLCK, _WINDOWS_LOCK_SIZE)
         return
 
     if fcntl is None:
-        warnings.warn("fcntl unavailable; cannot unlock file descriptor", RuntimeWarning)
+        warnings.warn(
+            "fcntl unavailable; cannot unlock file descriptor",
+            RuntimeWarning,
+            stacklevel=3,
+        )
         return
     fcntl.flock(fd, fcntl.LOCK_UN)
 
