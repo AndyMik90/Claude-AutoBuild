@@ -423,10 +423,7 @@ function getEditorRoot(editorPath: string): string {
  */
 async function detectEditorVersion(editorPath: string, editorRoot: string): Promise<string | null> {
   // Try reading version from package.json (Unity Hub installed editors)
-  const packageJsonPath =
-    process.platform === 'darwin'
-      ? path.join(path.dirname(editorRoot), 'package.json')
-      : path.join(path.dirname(editorRoot), 'package.json');
+  const packageJsonPath = path.join(path.dirname(editorRoot), 'package.json');
 
   if (await fs.pathExists(packageJsonPath)) {
     try {
@@ -440,10 +437,7 @@ async function detectEditorVersion(editorPath: string, editorRoot: string): Prom
   }
 
   // Try reading from Unity version file (Unity Hub)
-  const versionPath =
-    process.platform === 'darwin'
-      ? path.join(path.dirname(editorRoot), 'UnityVersion.txt')
-      : path.join(path.dirname(editorRoot), 'UnityVersion.txt');
+  const versionPath = path.join(path.dirname(editorRoot), 'UnityVersion.txt');
 
   if (await fs.pathExists(versionPath)) {
     try {
