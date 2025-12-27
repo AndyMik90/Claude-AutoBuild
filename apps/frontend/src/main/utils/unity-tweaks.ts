@@ -1,7 +1,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { diffLines, createPatch } from 'diff';
+import { createPatch } from 'diff';
 
 export interface TweakBackup {
   timestamp: string;
