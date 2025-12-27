@@ -25,6 +25,8 @@ import os
 import json
 import tempfile
 import time
+import warnings
+from collections.abc import Callable
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
@@ -48,8 +50,6 @@ def _try_lock(fd: int, exclusive: bool) -> None:
         if msvcrt is None:
             raise FileLockError("msvcrt is required for file locking on Windows")
         if not exclusive:
-            import warnings
-
             warnings.warn(
                 "Shared file locks are not supported on Windows; using exclusive lock",
                 RuntimeWarning,
@@ -67,8 +67,6 @@ def _try_lock(fd: int, exclusive: bool) -> None:
 def _unlock(fd: int) -> None:
     if _IS_WINDOWS:
         if msvcrt is None:
-            import warnings
-
             warnings.warn(
                 "msvcrt unavailable; cannot unlock file descriptor", RuntimeWarning
             )
@@ -77,8 +75,6 @@ def _unlock(fd: int) -> None:
         return
 
     if fcntl is None:
-        import warnings
-
         warnings.warn("fcntl unavailable; cannot unlock file descriptor", RuntimeWarning)
         return
     fcntl.flock(fd, fcntl.LOCK_UN)
@@ -393,7 +389,7 @@ async def locked_json_read(filepath: str | Path, timeout: float = 5.0) -> Any:
 
 
 async def locked_json_update(
-    filepath: str | Path, updater: callable, timeout: float = 5.0, indent: int = 2
+    filepath: str | Path, updater: Callable[[Any], Any], timeout: float = 5.0, indent: int = 2
 ) -> Any:
     """
     Helper for atomic read-modify-write of JSON files.
