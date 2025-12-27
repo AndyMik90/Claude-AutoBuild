@@ -122,15 +122,27 @@ export function registerCheckConnection(): void {
 
         const openCount = Array.isArray(issuesData) ? issuesData.length : 0;
 
+        // Build response data with fork status
+        const data: GitHubSyncStatus = {
+          connected: true,
+          repoFullName: repoData.full_name,
+          repoDescription: repoData.description,
+          issueCount: openCount,
+          lastSyncedAt: new Date().toISOString(),
+          isFork: config.isFork ?? false
+        };
+
+        // Add parent repository info if available
+        if (config.isFork && config.parentRepo) {
+          data.parentRepository = {
+            fullName: config.parentRepo,
+            url: `https://github.com/${config.parentRepo}`
+          };
+        }
+
         return {
           success: true,
-          data: {
-            connected: true,
-            repoFullName: repoData.full_name,
-            repoDescription: repoData.description,
-            issueCount: openCount,
-            lastSyncedAt: new Date().toISOString()
-          }
+          data
         };
       } catch (error) {
         return {
