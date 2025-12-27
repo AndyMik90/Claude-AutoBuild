@@ -452,6 +452,7 @@ export interface ElectronAPI {
 
   // Shell operations
   openExternal: (url: string) => Promise<void>;
+  openTerminal: (dirPath: string) => Promise<IPCResult<void>>;
 
   // Auto Claude source environment operations
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;

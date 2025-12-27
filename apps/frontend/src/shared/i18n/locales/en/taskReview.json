@@ -1,0 +1,7 @@
+{
+  "terminal": {
+    "openTerminal": "Open terminal",
+    "openInbuilt": "Open in Inbuilt Terminal",
+    "openExternal": "Open in External Terminal"
+  }
+}

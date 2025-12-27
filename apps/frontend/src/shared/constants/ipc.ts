@@ -117,6 +117,7 @@ export const IPC_CHANNELS = {
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
+  SHELL_OPEN_TERMINAL: 'shell:openTerminal',
 
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',
