@@ -87,8 +87,20 @@ export function registerFileHandlers(): void {
       // Resolve the target path
       const absPath = path.resolve(workspaceRootResolved, relPath);
 
+      // Normalize paths for comparison on case-insensitive file systems
+      const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
+      const workspaceRootForCompare = isCaseInsensitiveFs
+        ? workspaceRootResolved.toLowerCase()
+        : workspaceRootResolved;
+      const absPathForCompare = isCaseInsensitiveFs
+        ? absPath.toLowerCase()
+        : absPath;
+
       // Check if path starts with workspace root
-      if (!absPath.startsWith(workspaceRootResolved + path.sep) && absPath !== workspaceRootResolved) {
+      if (
+        !absPathForCompare.startsWith(workspaceRootForCompare + path.sep) &&
+        absPathForCompare !== workspaceRootForCompare
+      ) {
         return { valid: false, error: 'Path escapes workspace root' };
       }
 
