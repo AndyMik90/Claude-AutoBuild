@@ -146,6 +146,46 @@ export function registerCheckConnection(): void {
 }
 
 /**
+ * Detect if a repository is a fork via the GitHub API
+ * IPC handler for github:detectFork channel
+ */
+export function registerDetectFork(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_DETECT_FORK,
+    async (_, projectId: string): Promise<IPCResult<ForkStatus>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const config = getGitHubConfig(project);
+      if (!config) {
+        return { success: false, error: 'No GitHub token or repository configured' };
+      }
+
+      try {
+        // Normalize repo reference (handles full URLs, git URLs, etc.)
+        const normalizedRepo = normalizeRepoReference(config.repo);
+        if (!normalizedRepo) {
+          return {
+            success: false,
+            error: 'Invalid repository format. Use owner/repo or GitHub URL.'
+          };
+        }
+
+        const forkStatus = await detectForkStatus(config.token, normalizedRepo);
+        return { success: true, data: forkStatus };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to detect fork status'
+        };
+      }
+    }
+  );
+}
+
+/**
  * Get list of GitHub repositories (personal + organization)
  */
 export function registerGetRepositories(): void {
@@ -200,5 +240,6 @@ export function registerGetRepositories(): void {
  */
 export function registerRepositoryHandlers(): void {
   registerCheckConnection();
+  registerDetectFork();
   registerGetRepositories();
 }
