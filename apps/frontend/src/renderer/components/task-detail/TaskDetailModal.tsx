@@ -417,7 +417,11 @@ function TaskDetailModalContent({ open, task, onOpenChange }: { open: boolean; t
 
                 {/* Subtasks Tab */}
                 <TabsContent value="subtasks" className="flex-1 min-h-0 overflow-hidden mt-0">
-                  <TaskSubtasks task={task} />
+                  <TaskSubtasks
+                    task={task}
+                    phaseLogs={state.phaseLogs}
+                    onViewAllLogs={() => state.setActiveTab('logs')}
+                  />
                 </TabsContent>
 
                 {/* Logs Tab */}
