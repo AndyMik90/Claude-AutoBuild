@@ -20,6 +20,7 @@ from linear_updater import (
     linear_qa_started,
 )
 from phase_config import get_phase_model, get_phase_thinking_budget
+from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
 from task_logger import (
     LogPhase,
@@ -109,6 +110,9 @@ async def run_qa_validation_loop(
         print(f"   Progress: {completed}/{total} subtasks completed")
         return False
 
+    # Emit phase event at start of QA validation (before any early returns)
+    emit_phase(ExecutionPhase.QA_REVIEW, "Starting QA validation")
+
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     has_human_feedback = fix_request_file.exists()
@@ -126,6 +130,7 @@ async def run_qa_validation_loop(
             "Human feedback detected - will run fixer first",
             fix_request_file=str(fix_request_file),
         )
+        emit_phase(ExecutionPhase.QA_FIXING, "Processing human feedback")
         print("\n📝 Human feedback detected. Running QA Fixer first...")
 
         # Get model and thinking budget for fixer (uses QA phase config)
@@ -202,6 +207,9 @@ async def run_qa_validation_loop(
         )
 
         print(f"\n--- QA Iteration {qa_iteration}/{MAX_QA_ITERATIONS} ---")
+        emit_phase(
+            ExecutionPhase.QA_REVIEW, f"Running QA review iteration {qa_iteration}"
+        )
 
         # Run QA reviewer with phase-specific model and thinking budget
         qa_model = get_phase_model(spec_dir, "qa", model)
@@ -242,6 +250,7 @@ async def run_qa_validation_loop(
         )
 
         if status == "approved":
+            emit_phase(ExecutionPhase.COMPLETE, "QA validation passed")
             # Reset error tracking on success
             consecutive_errors = 0
             last_error_context = None
@@ -365,6 +374,7 @@ async def run_qa_validation_loop(
                 model=qa_model,
                 thinking_budget=fixer_thinking_budget,
             )
+            emit_phase(ExecutionPhase.QA_FIXING, "Fixing QA issues")
             print("\nRunning QA Fixer Agent...")
 
             fix_client = create_client(
@@ -455,6 +465,7 @@ async def run_qa_validation_loop(
             print("Retrying with error feedback...")
 
     # Max iterations reached without approval
+    emit_phase(ExecutionPhase.FAILED, "QA validation incomplete")
     debug_error(
         "qa_loop",
         "QA VALIDATION INCOMPLETE - max iterations reached",

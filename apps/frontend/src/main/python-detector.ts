@@ -1,5 +1,5 @@
-import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { execSync, execFileSync } from 'child_process';
+import { existsSync, accessSync, constants } from 'fs';
 import path from 'path';
 import { app } from 'electron';
 
@@ -255,4 +255,231 @@ export function parsePythonCommand(pythonPath: string): [string, string[]] {
   const command = parts[0];
   const baseArgs = parts.slice(1);
   return [command, baseArgs];
+}
+
+/**
+ * Result of Python path validation.
+ */
+export interface PythonPathValidation {
+  valid: boolean;
+  reason?: string;
+  sanitizedPath?: string;
+}
+
+/**
+ * Shell metacharacters that could be used for command injection.
+ * These are dangerous in spawn() context and must be rejected.
+ */
+const DANGEROUS_SHELL_CHARS = /[;|`$()&<>{}[\]!#*?~\n\r]/;
+
+/**
+ * Allowlist patterns for valid Python paths.
+ * Matches common system Python locations and virtual environments.
+ */
+const ALLOWED_PATH_PATTERNS: RegExp[] = [
+  // System Python (Unix)
+  /^\/usr\/bin\/python\d*(\.\d+)?$/,
+  /^\/usr\/local\/bin\/python\d*(\.\d+)?$/,
+  // Homebrew Python (macOS)
+  /^\/opt\/homebrew\/bin\/python\d*(\.\d+)?$/,
+  /^\/opt\/homebrew\/opt\/python@[\d.]+\/bin\/python\d*(\.\d+)?$/,
+  // pyenv
+  /^.*\/\.pyenv\/versions\/[\d.]+\/bin\/python\d*(\.\d+)?$/,
+  // Virtual environments (various naming conventions)
+  /^.*\/\.?venv\/bin\/python\d*(\.\d+)?$/,
+  /^.*\/\.?virtualenv\/bin\/python\d*(\.\d+)?$/,
+  /^.*\/env\/bin\/python\d*(\.\d+)?$/,
+  // Windows virtual environments
+  /^.*\\\.?venv\\Scripts\\python\.exe$/i,
+  /^.*\\\.?virtualenv\\Scripts\\python\.exe$/i,
+  /^.*\\env\\Scripts\\python\.exe$/i,
+  // Windows system Python
+  /^[A-Za-z]:\\Python\d+\\python\.exe$/i,
+  /^[A-Za-z]:\\Program Files\\Python\d+\\python\.exe$/i,
+  /^[A-Za-z]:\\Program Files \(x86\)\\Python\d+\\python\.exe$/i,
+  /^[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local\\Programs\\Python\\Python\d+\\python\.exe$/i,
+  // Conda environments
+  /^.*\/anaconda\d*\/bin\/python\d*(\.\d+)?$/,
+  /^.*\/miniconda\d*\/bin\/python\d*(\.\d+)?$/,
+  /^.*\/anaconda\d*\/envs\/[^/]+\/bin\/python\d*(\.\d+)?$/,
+  /^.*\/miniconda\d*\/envs\/[^/]+\/bin\/python\d*(\.\d+)?$/,
+];
+
+/**
+ * Known safe Python commands (not full paths).
+ * These are resolved by the shell/OS and are safe.
+ */
+const SAFE_PYTHON_COMMANDS = new Set([
+  'python',
+  'python3',
+  'python3.10',
+  'python3.11',
+  'python3.12',
+  'python3.13',
+  'py',
+  'py -3',
+]);
+
+function isSafePythonCommand(cmd: string): boolean {
+  const normalized = cmd.replace(/\s+/g, ' ').trim().toLowerCase();
+  return SAFE_PYTHON_COMMANDS.has(normalized);
+}
+
+/**
+ * Check if a path matches any allowed pattern.
+ */
+function matchesAllowedPattern(pythonPath: string): boolean {
+  // Normalize path separators for consistent matching
+  const normalizedPath = pythonPath.replace(/\\/g, '/');
+  return ALLOWED_PATH_PATTERNS.some(pattern => pattern.test(pythonPath) || pattern.test(normalizedPath));
+}
+
+/**
+ * Check if a file is executable.
+ */
+function isExecutable(filePath: string): boolean {
+  try {
+    accessSync(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify that a command/path actually runs Python by checking --version output.
+ * Uses execFileSync to avoid shell injection risks with paths containing spaces.
+ */
+function verifyIsPython(pythonCmd: string): boolean {
+  try {
+    const [cmd, args] = parsePythonCommand(pythonCmd);
+    const output = execFileSync(cmd, [...args, '--version'], {
+      stdio: 'pipe',
+      timeout: 5000,
+      windowsHide: true,
+      shell: false
+    }).toString().trim();
+    
+    // Must output "Python X.Y.Z"
+    return /^Python \d+\.\d+/.test(output);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate a Python path for security before use in spawn().
+ * 
+ * Security checks:
+ * 1. No shell metacharacters that could enable command injection
+ * 2. Path must match allowlist of known Python locations OR be a safe command
+ * 3. If a file path, must exist and be executable
+ * 4. Must actually be Python (verified via --version)
+ * 
+ * @param pythonPath - The Python path or command to validate
+ * @returns Validation result with success status and reason
+ */
+export function validatePythonPath(pythonPath: string): PythonPathValidation {
+  if (!pythonPath || typeof pythonPath !== 'string') {
+    return { valid: false, reason: 'Python path is empty or invalid' };
+  }
+
+  const trimmedPath = pythonPath.trim();
+  
+  // Strip surrounding quotes for validation
+  let cleanPath = trimmedPath;
+  if ((cleanPath.startsWith('"') && cleanPath.endsWith('"')) ||
+      (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+    cleanPath = cleanPath.slice(1, -1);
+  }
+
+  // Security check 1: No shell metacharacters
+  if (DANGEROUS_SHELL_CHARS.test(cleanPath)) {
+    return { 
+      valid: false, 
+      reason: 'Path contains dangerous shell metacharacters' 
+    };
+  }
+
+  // Check if it's a known safe command (not a path)
+  if (isSafePythonCommand(cleanPath)) {
+    // Verify it actually runs Python
+    if (verifyIsPython(cleanPath)) {
+      return { valid: true, sanitizedPath: cleanPath };
+    }
+    return { 
+      valid: false, 
+      reason: `Command '${cleanPath}' does not appear to be Python` 
+    };
+  }
+
+  // It's a file path - apply stricter validation
+  const isFilePath = cleanPath.includes('/') || cleanPath.includes('\\');
+  
+  if (isFilePath) {
+    // Normalize the path to prevent directory traversal tricks
+    const normalizedPath = path.normalize(cleanPath);
+    
+    // Check for path traversal attempts
+    if (normalizedPath.includes('..')) {
+      return { 
+        valid: false, 
+        reason: 'Path contains directory traversal sequences' 
+      };
+    }
+
+    // Security check 2: Must match allowlist
+    if (!matchesAllowedPattern(normalizedPath)) {
+      return { 
+        valid: false, 
+        reason: 'Path does not match allowed Python locations. Expected: system Python, Homebrew, pyenv, or virtual environment paths' 
+      };
+    }
+
+    // Security check 3: File must exist
+    if (!existsSync(normalizedPath)) {
+      return { 
+        valid: false, 
+        reason: 'Python executable does not exist at specified path' 
+      };
+    }
+
+    // Security check 4: Must be executable (Unix) or .exe (Windows)
+    if (process.platform !== 'win32' && !isExecutable(normalizedPath)) {
+      return { 
+        valid: false, 
+        reason: 'File exists but is not executable' 
+      };
+    }
+
+    // Security check 5: Verify it's actually Python
+    if (!verifyIsPython(normalizedPath)) {
+      return { 
+        valid: false, 
+        reason: 'File exists but does not appear to be a Python interpreter' 
+      };
+    }
+
+    return { valid: true, sanitizedPath: normalizedPath };
+  }
+
+  // Unknown format - reject
+  return { 
+    valid: false, 
+    reason: 'Unrecognized Python path format' 
+  };
+}
+
+export function getValidatedPythonPath(providedPath: string | undefined, serviceName: string): string {
+  if (!providedPath) {
+    return findPythonCommand() || 'python';
+  }
+  
+  const validation = validatePythonPath(providedPath);
+  if (validation.valid) {
+    return validation.sanitizedPath || providedPath;
+  }
+  
+  console.error(`[${serviceName}] Invalid Python path rejected: ${validation.reason}`);
+  return findPythonCommand() || 'python';
 }

@@ -3,6 +3,9 @@
  * Re-exports from domain-specific constant modules
  */
 
+// Phase event protocol constants (Python ↔ TypeScript)
+export * from './phase-protocol';
+
 // IPC Channel constants
 export * from './ipc';
 

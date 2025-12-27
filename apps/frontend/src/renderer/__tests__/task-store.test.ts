@@ -331,6 +331,119 @@ describe('Task Store', () => {
 
       expect(useTaskStore.getState().tasks[0].title).toBe('New Feature Name');
     });
+
+    it('should NOT update status when task is in active execution phase (planning)', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({
+          id: 'task-1',
+          status: 'in_progress',
+          executionProgress: { phase: 'planning', phaseProgress: 10, overallProgress: 5 }
+        })]
+      });
+
+      const plan = createTestPlan({
+        phases: [
+          {
+            phase: 1,
+            name: 'Phase 1',
+            type: 'implementation',
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'completed' }
+            ]
+          }
+        ]
+      });
+
+      useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+      expect(useTaskStore.getState().tasks[0].subtasks).toHaveLength(2);
+    });
+
+    it('should NOT update status when task is in active execution phase (coding)', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({
+          id: 'task-1',
+          status: 'in_progress',
+          executionProgress: { phase: 'coding', phaseProgress: 50, overallProgress: 40 }
+        })]
+      });
+
+      const plan = createTestPlan({
+        phases: [
+          {
+            phase: 1,
+            name: 'Phase 1',
+            type: 'implementation',
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'completed' }
+            ]
+          }
+        ]
+      });
+
+      useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+      expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
+    });
+
+    it('should update status when task is in idle phase', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({
+          id: 'task-1',
+          status: 'in_progress',
+          executionProgress: { phase: 'idle', phaseProgress: 0, overallProgress: 0 }
+        })]
+      });
+
+      const plan = createTestPlan({
+        phases: [
+          {
+            phase: 1,
+            name: 'Phase 1',
+            type: 'implementation',
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'completed' }
+            ]
+          }
+        ]
+      });
+
+      useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+      expect(useTaskStore.getState().tasks[0].status).toBe('ai_review');
+    });
+
+    it('should update status when task has no execution progress', () => {
+      useTaskStore.setState({
+        tasks: [createTestTask({
+          id: 'task-1',
+          status: 'backlog',
+          executionProgress: undefined
+        })]
+      });
+
+      const plan = createTestPlan({
+        phases: [
+          {
+            phase: 1,
+            name: 'Phase 1',
+            type: 'implementation',
+            subtasks: [
+              { id: 'c1', description: 'Subtask 1', status: 'completed' },
+              { id: 'c2', description: 'Subtask 2', status: 'completed' }
+            ]
+          }
+        ]
+      });
+
+      useTaskStore.getState().updateTaskFromPlan('task-1', plan);
+
+      expect(useTaskStore.getState().tasks[0].status).toBe('ai_review');
+    });
   });
 
   describe('appendLog', () => {

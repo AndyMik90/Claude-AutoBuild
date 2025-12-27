@@ -27,6 +27,7 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
+import { getValidatedPythonPath } from '../python-detector';
 import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
@@ -125,12 +126,9 @@ export class ChangelogService extends EventEmitter {
     }
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this._pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'ChangelogService');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;

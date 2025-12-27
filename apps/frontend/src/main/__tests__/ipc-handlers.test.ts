@@ -4,11 +4,12 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 
 // Test data directory
-const TEST_DIR = '/tmp/ipc-handlers-test';
+const TEST_DIR = mkdtempSync(path.join(tmpdir(), 'ipc-handlers-test-'));
 const TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
 
 // Mock electron-updater before importing
@@ -45,6 +46,14 @@ vi.mock('../updater/version-manager', () => ({
   getBundledVersion: vi.fn(() => '0.1.0'),
   parseVersionFromTag: vi.fn((tag: string) => tag.replace('v', '')),
   compareVersions: vi.fn(() => 0)
+}));
+
+vi.mock('../notification-service', () => ({
+  notificationService: {
+    initialize: vi.fn(),
+    notifyReviewNeeded: vi.fn(),
+    notifyTaskFailed: vi.fn()
+  }
 }));
 
 // Mock modules before importing
@@ -503,12 +512,22 @@ describe('IPC Handlers', () => {
       );
     });
 
-    it('should forward exit events with status change', async () => {
+    it('should forward exit events with status change on failure', async () => {
       const { setupIpcHandlers } = await import('../ipc-handlers');
       setupIpcHandlers(mockAgentManager as never, mockTerminalManager as never, () => mockMainWindow as never, mockPythonEnvManager as never);
 
-      // Exit event with task-execution processType should result in human_review status
-      mockAgentManager.emit('exit', 'task-1', 0, 'task-execution');
+      // Add project first
+      await ipcMain.invokeHandler('project:add', {}, TEST_PROJECT_PATH);
+
+      // Create a spec/task directory with implementation_plan.json
+      const specDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', 'task-1');
+      mkdirSync(specDir, { recursive: true });
+      writeFileSync(
+        path.join(specDir, 'implementation_plan.json'),
+        JSON.stringify({ feature: 'Test Task', status: 'in_progress' })
+      );
+
+      mockAgentManager.emit('exit', 'task-1', 1, 'task-execution');
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'task:statusChange',
