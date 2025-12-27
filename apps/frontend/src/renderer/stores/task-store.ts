@@ -47,13 +47,16 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     })),
 
   updateTaskStatus: (taskId, status) =>
-    set((state) => ({
-      tasks: state.tasks.map((t) => {
+    set((state) => {
+      const updatedTasks = state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
+
+        // Check if task is leaving in_progress status
+        const leavingInProgress = t.status === 'in_progress' && status !== 'in_progress';
 
         // Determine execution progress based on status transition
         let executionProgress = t.executionProgress;
-        
+
         if (status === 'backlog') {
           // When status goes to backlog, reset execution progress to idle
           // This ensures the planning/coding animation stops when task is stopped
@@ -64,9 +67,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
         }
 
+        // If task is leaving in_progress, trigger queue promotion after state update
+        if (leavingInProgress) {
+          // Use setTimeout to ensure state has updated before checking queue
+          setTimeout(() => promoteNextQueuedTask(), 100);
+        }
+
         return { ...t, status, executionProgress, updatedAt: new Date() };
-      })
-    })),
+      });
+
+      return { tasks: updatedTasks };
+    }),
 
   updateTaskFromPlan: (taskId, plan) =>
     set((state) => ({
@@ -224,6 +235,36 @@ export async function createTask(
 }
 
 /**
+ * Helper function to automatically start the next queued task if there's capacity
+ * Called when a task leaves "in_progress" status
+ */
+async function promoteNextQueuedTask(): Promise<void> {
+  const taskStore = useTaskStore.getState();
+  const projectStore = useProjectStore.getState();
+
+  // Get the active project to check max parallel tasks
+  const project = projectStore.getActiveProject();
+  const maxParallelTasks = project?.settings.maxParallelTasks ?? 3;
+
+  // Count how many tasks are currently in progress
+  const inProgressCount = taskStore.tasks.filter(t => t.status === 'in_progress').length;
+
+  // If we're below the limit and there are queued tasks, start the next one
+  if (inProgressCount < maxParallelTasks) {
+    const queuedTasks = taskStore.tasks
+      .filter(t => t.status === 'queue')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Oldest first
+
+    if (queuedTasks.length > 0) {
+      const nextTask = queuedTasks[0];
+      console.log(`[Queue] Auto-promoting task from queue: ${nextTask.title}`);
+      // Start the task directly via IPC (bypass the enforcement check since we know there's space)
+      window.electronAPI.startTask(nextTask.id);
+    }
+  }
+}
+
+/**
  * Start a task
  * Enforces parallel task limit - if limit is reached, task is moved to queue instead
  */
@@ -258,9 +299,17 @@ export async function startTask(taskId: string, options?: { parallel?: boolean; 
 
 /**
  * Stop a task
+ * Automatically starts the next queued task if available
  */
-export function stopTask(taskId: string): void {
+export async function stopTask(taskId: string): Promise<void> {
+  // Stop the task
   window.electronAPI.stopTask(taskId);
+
+  // Wait a bit for the status to update
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Auto-promote the next queued task if there's capacity
+  await promoteNextQueuedTask();
 }
 
 /**
