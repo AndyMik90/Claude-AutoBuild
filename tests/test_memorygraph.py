@@ -13,11 +13,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 from integrations.memorygraph.client import MemoryGraphClient
 from integrations.memorygraph.config import (
     MemoryGraphConfig,
+    clear_config_cache,
     get_memorygraph_config,
     is_memorygraph_enabled,
 )
 from integrations.memorygraph.context import get_context_for_subtask
 from integrations.memorygraph.formatting import format_context
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Clear config cache before each test."""
+    clear_config_cache()
+    yield
+    clear_config_cache()
 
 
 class TestIsMemoryGraphEnabled:
@@ -41,8 +50,10 @@ class TestIsMemoryGraphEnabled:
     def test_case_insensitive(self):
         """Environment variable check is case insensitive."""
         with patch.dict(os.environ, {"MEMORYGRAPH_ENABLED": "True"}, clear=True):
+            clear_config_cache()
             assert is_memorygraph_enabled() is True
         with patch.dict(os.environ, {"MEMORYGRAPH_ENABLED": "FALSE"}, clear=True):
+            clear_config_cache()
             assert is_memorygraph_enabled() is False
 
 

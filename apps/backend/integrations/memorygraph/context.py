@@ -24,7 +24,7 @@ async def get_context_for_subtask(subtask: dict, project_dir: Path) -> str:
 
     Args:
         subtask: Subtask dict containing 'description', 'id', 'files', etc.
-        project_dir: Project root directory
+        project_dir: Project root directory (reserved for future project-scoped queries)
 
     Returns:
         Formatted markdown string for prompt injection, or empty string
@@ -45,9 +45,13 @@ async def get_context_for_subtask(subtask: dict, project_dir: Path) -> str:
 
     logger.debug(f"Retrieving MemoryGraph context for: {query[:100]}")
 
-    # Get memories from MemoryGraph
+    # Get memories from MemoryGraph (with graceful error handling)
     client = MemoryGraphClient()
-    memories = await client.recall(query, limit=5)
+    try:
+        memories = await client.recall(query, limit=5)
+    except Exception as e:
+        logger.debug(f"MemoryGraph recall failed: {e}")
+        return ""
 
     if not memories:
         logger.debug("No memories found in MemoryGraph")
@@ -59,11 +63,14 @@ async def get_context_for_subtask(subtask: dict, project_dir: Path) -> str:
         if memory.get("type") == "problem":
             memory_id = memory.get("id")
             if memory_id:
-                related = await client.get_related(
-                    memory_id,
-                    types=["SOLVES", "ADDRESSES"]
-                )
-                solutions.extend(related)
+                try:
+                    related = await client.get_related(
+                        memory_id,
+                        types=["SOLVES", "ADDRESSES"]
+                    )
+                    solutions.extend(related)
+                except Exception as e:
+                    logger.debug(f"MemoryGraph get_related failed for {memory_id}: {e}")
 
     # Format the context
     context = format_context(memories, solutions)

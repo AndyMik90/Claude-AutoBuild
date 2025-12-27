@@ -140,7 +140,6 @@ class MemoryGraphClient:
             for line in lines:
                 # Skip lines with metadata markers
                 if re.match(r"^\*\*\d+\.", line) or re.match(r"^(Type|Tags|Importance):", line):
-                    in_content = False
                     continue
                 if line.strip() and not line.startswith("(ID:"):
                     in_content = True
