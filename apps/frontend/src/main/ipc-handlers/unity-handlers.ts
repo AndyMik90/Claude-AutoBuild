@@ -52,8 +52,7 @@ interface UnityRun {
     buildTarget?: string;  // for PlayMode and Build
     testFilter?: string;   // for test filtering
     tweakAction?: string;  // M3: tweak action type
-    [key: string]: any;    // M3: additional params
-  };
+  } & UnityTweakParams;    // M3: additional typed tweak params
   artifactPaths: {
     runDir: string;
     log?: string;
