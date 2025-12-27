@@ -321,13 +321,13 @@ export async function readUnityPackages(projectPath: string): Promise<{
       packages,
     };
   } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    let message = err.message || 'Unknown error reading manifest.json';
+    const err = error as NodeJS.ErrnoException | null | undefined;
+    let message = err?.message || 'Unknown error reading manifest.json';
     
     // Provide user-friendly error messages for common file system errors
-    if (err.code === 'ENOENT') {
+    if (err?.code === 'ENOENT') {
       message = 'manifest.json not found';
-    } else if (err.code === 'EACCES') {
+    } else if (err?.code === 'EACCES') {
       message = 'Permission denied reading manifest.json';
     }
     
