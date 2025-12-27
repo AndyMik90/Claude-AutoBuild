@@ -413,9 +413,8 @@ export class TaskLogService extends EventEmitter {
    * Update a single log file to mark active phases as stopped
    */
   private updateLogFilePhaseStatus(logFilePath: string): void {
-    if (!existsSync(logFilePath)) return;
-
     try {
+      // Read file - if it doesn't exist, readFileSync will throw and we'll catch it
       const content = readFileSync(logFilePath, 'utf-8');
       const logs = JSON.parse(content) as TaskLogs;
 
@@ -438,6 +437,7 @@ export class TaskLogService extends EventEmitter {
         console.log(`[TaskLogService] Marked active phases as stopped in ${logFilePath}`);
       }
     } catch (error) {
+      // File doesn't exist, is corrupted, or write failed - log and continue
       console.error(`[TaskLogService] Failed to update log file ${logFilePath}:`, error);
     }
   }
