@@ -52,7 +52,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
         // Determine execution progress based on status transition
         let executionProgress = t.executionProgress;
-        
+
         if (status === 'backlog') {
           // When status goes to backlog, reset execution progress to idle
           // This ensures the planning/coding animation stops when task is stopped

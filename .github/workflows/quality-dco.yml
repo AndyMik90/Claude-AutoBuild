@@ -8,16 +8,34 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  # Comma-separated list of emails that should be ignored during DCO checks
+  DCO_EXCLUDE_EMAILS: ''
+
+# Job is taken from https://github.com/cncf/dcochecker/blob/main/action.yml
+# Using steps instead of reusable workflow to preserve custom failure message
 jobs:
   check:
     name: DCO Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check DCO Sign-off
-        uses: dcoapp/dco-check@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v5
         with:
-          require-signoff: true
+          python-version: '3.x'
+
+      - name: Check DCO
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DCO_CHECK_VERBOSE: '1'
+          DCO_CHECK_EXCLUDE_EMAILS: ${{ env.DCO_EXCLUDE_EMAILS }}
+        run: |
+          pip3 install -U dco-check
+          dco-check
 
       - name: DCO Help on Failure
         if: failure()
@@ -26,45 +44,64 @@ jobs:
           script: |
             const helpMsg = `## ❌ DCO Sign-off Required
 
-This project requires all commits to be signed off with the Developer Certificate of Origin (DCO).
+            This project requires all commits to be signed off with the Developer Certificate of Origin (DCO).
 
-### How to Fix
+            ### How to Fix
 
-**Option 1: Sign off your last commit**
-\`\`\`bash
-git commit --amend --signoff
-git push --force-with-lease
-\`\`\`
+            **⚠️ Important:** If you merged \`develop\` or another branch, be careful not to accidentally sign other people's commits. Only sign YOUR commits.
 
-**Option 2: Sign off all commits in this PR**
-\`\`\`bash
-git rebase HEAD~N --signoff  # Replace N with number of commits
-git push --force-with-lease
-\`\`\`
+            **Step 1: Identify which commits are yours**
+            \`\`\`bash
+            git log --oneline
+            \`\`\`
 
-**Option 3: Configure git to always sign off**
-\`\`\`bash
-git config --global format.signoff true
-\`\`\`
+            **Step 2: Choose the appropriate method**
 
-### What is DCO?
+            **If only your last commit needs signing:**
+            \`\`\`bash
+            git commit --amend --signoff
+            git push --force-with-lease
+            \`\`\`
 
-The [Developer Certificate of Origin](https://developercertificate.org/) is a lightweight way for contributors to certify that they wrote or have the right to submit the code they are contributing.
+            **If you have multiple commits and HAVE NOT merged other branches:**
+            \`\`\`bash
+            git rebase HEAD~N --signoff  # Replace N with number of YOUR commits
+            git push --force-with-lease
+            \`\`\`
 
-By signing off, you agree to the DCO terms:
-- The contribution was created by you
-- You have the right to submit it under the project's license
-- You understand the contribution is public and recorded
+            **If you merged another branch (use interactive rebase):**
+            \`\`\`bash
+            git rebase -i HEAD~N  # Replace N with total number of commits
+            # Mark only YOUR commits with 'edit', leave others as 'pick'
+            # For each commit you marked:
+            git commit --amend --signoff --no-edit
+            git rebase --continue
+            git push --force-with-lease
+            \`\`\`
 
-### Sign-off Format
+            **Tip: Configure git to always sign off future commits**
+            \`\`\`bash
+            git config --global format.signoff true
+            \`\`\`
 
-Your commit message should end with:
-\`\`\`
-Signed-off-by: Your Name <your.email@example.com>
-\`\`\`
+            ### What is DCO?
 
-This line is automatically added when you use \`git commit -s\` or \`git commit --signoff\`.
-`;
+            The [Developer Certificate of Origin](https://developercertificate.org/) is a lightweight way for contributors to certify that they wrote or have the right to submit the code they are contributing.
+
+            By signing off, you agree to the DCO terms:
+            - The contribution was created by you
+            - You have the right to submit it under the project's license
+            - You understand the contribution is public and recorded
+
+            ### Sign-off Format
+
+            Your commit message should end with:
+            \`\`\`
+            Signed-off-by: Your Name <your.email@example.com>
+            \`\`\`
+
+            This line is automatically added when you use \`git commit -s\` or \`git commit --signoff\`.
+            `;
 
             core.summary.addRaw(helpMsg);
             await core.summary.write();
