@@ -149,7 +149,9 @@ function parseTimestampForId(now: Date): string {
   const iso = now.toISOString();
   const parts = iso.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z/);
   if (!parts) {
-    throw new Error(`Failed to parse ISO timestamp format: expected YYYY-MM-DDTHH:MM:SS.sssZ, got ${iso}`);
+    // Fallback to Date.now() if regex parsing fails
+    console.warn(`Failed to parse ISO timestamp format: expected YYYY-MM-DDTHH:MM:SS.sssZ, got ${iso}. Using Date.now() fallback.`);
+    return Date.now().toString();
   }
   const [, y, m, d, hh, mm, ss, ms] = parts;
   return `${y}${m}${d}-${hh}${mm}${ss}${ms}`;
@@ -478,7 +480,7 @@ function getUnityRunsDir(projectId: string): string {
 function createRunDir(projectId: string, action: 'editmode-tests' | 'playmode-tests' | 'build'): { id: string; dir: string } {
   const runsDir = getUnityRunsDir(projectId);
 
-  // Generate run ID: YYYYMMDD-HHMMSSmmm_action (includes milliseconds for uniqueness)
+  // Generate run ID: YYYYMMDD-HHMMSSmmm_action
   const now = new Date();
   const timestamp = parseTimestampForId(now);
   const id = `${timestamp}_${action}`;
@@ -505,7 +507,7 @@ function createPipelineDir(projectId: string): { id: string; dir: string } {
     mkdirSync(pipelinesDir, { recursive: true });
   }
 
-  // Generate pipeline ID: YYYYMMDD-HHMMSSmmm_pipeline (includes milliseconds for uniqueness)
+  // Generate pipeline ID: YYYYMMDD-HHMMSSmmm_pipeline
   const now = new Date();
   const timestamp = parseTimestampForId(now);
   const id = `${timestamp}_pipeline`;
@@ -1185,11 +1187,20 @@ function saveUnityProfiles(projectId: string, profileSettings: UnityProfileSetti
 function createUnityProfile(projectId: string, profile: Omit<UnityProfile, 'id'>): UnityProfile {
   const profileSettings = getUnityProfiles(projectId);
 
-  // Generate a unique ID based on the name
-  let id = profile.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  // Generate a unique ID based on the name with robust sanitization
+  let id = profile.name
+    // Normalize to decompose accented characters
+    .normalize('NFKD')
+    // Remove combining diacritical marks
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    // Replace any sequence of non-letter/number characters with a single hyphen
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    // Trim leading and trailing hyphens
+    .replace(/^-+|-+$/g, '');
   
-  // Fallback if sanitized name is empty or too short
-  if (!id || id.length < 2) {
+  // Fallback if sanitized name is empty
+  if (!id) {
     id = `profile-${Date.now()}`;
   }
 
@@ -1386,11 +1397,11 @@ async function executeUnityRunStep(
 
   // Update summary counts
   if (step.status === 'success') {
-    pipelineRun.summary!.successCount++;
+    if (pipelineRun.summary) pipelineRun.summary.successCount++;
   } else if (step.status === 'failed') {
-    pipelineRun.summary!.failedCount++;
+    if (pipelineRun.summary) pipelineRun.summary.failedCount++;
   } else if (step.status === 'canceled') {
-    pipelineRun.summary!.canceledCount++;
+    if (pipelineRun.summary) pipelineRun.summary.canceledCount++;
   }
 
   // Clear current run ID
@@ -1476,14 +1487,14 @@ async function runUnityPipeline(
       if (runningPipelines.get(id)?.canceled) {
         // Mark the current step as canceled
         step.status = 'canceled';
-        pipelineRun.summary!.canceledCount++;
+        if (pipelineRun.summary) pipelineRun.summary.canceledCount++;
 
         // Mark all remaining pending steps as canceled
         for (let j = i + 1; j < pipelineRun.steps.length; j++) {
           const remainingStep = pipelineRun.steps[j];
           if (remainingStep.status === 'pending') {
             remainingStep.status = 'canceled';
-            pipelineRun.summary!.canceledCount++;
+            if (pipelineRun.summary) pipelineRun.summary.canceledCount++;
           }
         }
 
@@ -1493,7 +1504,7 @@ async function runUnityPipeline(
 
       if (!step.enabled) {
         step.status = 'skipped';
-        pipelineRun.summary!.skippedCount++;
+        if (pipelineRun.summary) pipelineRun.summary.skippedCount++;
         savePipelineRecord(projectId, pipelineRun);
         continue;
       }
@@ -1520,7 +1531,7 @@ async function runUnityPipeline(
               }
             }
             step.status = 'success';
-            pipelineRun.summary!.successCount++;
+            if (pipelineRun.summary) pipelineRun.summary.successCount++;
             break;
           }
 
@@ -1639,7 +1650,7 @@ async function runUnityPipeline(
             pipelineRun.artifactPaths.bundleDir = bundleDir;
 
             step.status = 'success';
-            pipelineRun.summary!.successCount++;
+            if (pipelineRun.summary) pipelineRun.summary.successCount++;
             break;
           }
 
@@ -1665,7 +1676,7 @@ async function runUnityPipeline(
           message: errorMessage
         };
         
-        pipelineRun.summary!.failedCount++;
+        if (pipelineRun.summary) pipelineRun.summary.failedCount++;
 
         // Stop pipeline if continueOnFail is false
         if (!pipelineRun.continueOnFail) {
@@ -1684,7 +1695,7 @@ async function runUnityPipeline(
 
     if (runningPipelines.get(id)?.canceled) {
       pipelineRun.status = 'canceled';
-    } else if (pipelineRun.summary!.failedCount > 0) {
+    } else if (pipelineRun.summary && pipelineRun.summary.failedCount > 0) {
       pipelineRun.status = 'failed';
     } else {
       pipelineRun.status = 'success';

@@ -1656,7 +1656,14 @@ export function Unity({ projectId }: UnityProps) {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmProfile !== null} onOpenChange={(open) => !open && setDeleteConfirmProfile(null)}>
+      <Dialog
+        open={deleteConfirmProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmProfile(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('profiles.dialog.confirmDeleteTitle')}</DialogTitle>
