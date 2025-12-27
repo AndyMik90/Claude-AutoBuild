@@ -27,6 +27,9 @@ def create_openai_llm_client(config: "GraphitiConfig") -> Any:
         ProviderNotInstalled: If graphiti-core is not installed
         ProviderError: If API key is missing
     """
+    if not config.openai_api_key:
+        raise ProviderError("OpenAI provider requires OPENAI_API_KEY")
+
     try:
         from graphiti_core.llm_client.config import LLMConfig
         from graphiti_core.llm_client.openai_client import OpenAIClient
@@ -36,9 +39,6 @@ def create_openai_llm_client(config: "GraphitiConfig") -> Any:
             f"Install with: pip install graphiti-core\n"
             f"Error: {e}"
         )
-
-    if not config.openai_api_key:
-        raise ProviderError("OpenAI provider requires OPENAI_API_KEY")
 
     llm_config = LLMConfig(
         api_key=config.openai_api_key,
