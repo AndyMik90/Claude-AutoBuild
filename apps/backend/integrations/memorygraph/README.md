@@ -172,27 +172,27 @@ python3 -m pytest tests/integrations/memorygraph/ -v
 
 ## Integration with memory_manager.py
 
-To integrate with Auto-Claude's memory manager, add this to `apps/backend/agents/memory_manager.py`:
+**Status: COMPLETE** - MemoryGraph is now integrated into `apps/backend/agents/memory_manager.py`.
+
+The integration provides:
+- **Tri-layer memory strategy**: Graphiti (primary), file-based (fallback), MemoryGraph (parallel)
+- **Parallel async storage**: Uses `asyncio.create_task()` for non-blocking saves
+- **Context retrieval**: `get_memorygraph_context()` for subtask context injection
+- **Debug output**: Memory system status shows MemoryGraph configuration
 
 ```python
-from integrations.memorygraph import is_memorygraph_enabled, save_to_memorygraph
-import asyncio
+# memory_manager.py now includes:
 
-async def save_session_memory(session_output: dict, project_dir: Path, spec_dir: Path):
-    """
-    Save session memory to available backends.
-    """
-    # Existing Graphiti path
-    if is_graphiti_enabled():
-        await save_to_graphiti(...)
+# Status functions
+is_memorygraph_enabled()      # Check if MEMORYGRAPH_ENABLED=true
+get_memorygraph_status()      # Get config for debugging
 
-    # NEW: MemoryGraph path
-    if is_memorygraph_enabled():
-        # Non-blocking - doesn't delay session completion
-        asyncio.create_task(save_to_memorygraph(session_output, project_dir))
+# Context retrieval (for subtasks)
+await get_memorygraph_context(project_dir, subtask)
 
-    # Fallback to file-based
-    save_file_based_memory(...)
+# Automatic storage (in save_session_memory)
+if is_memorygraph_enabled():
+    asyncio.create_task(_save_to_memorygraph_async(insights, project_dir))
 ```
 
 ## Troubleshooting
