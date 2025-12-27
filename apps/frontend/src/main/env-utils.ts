@@ -26,8 +26,10 @@ const COMMON_BIN_PATHS: Record<string, string[]> = {
   ],
   linux: [
     '/usr/local/bin',
+    '/usr/bin',               // System binaries (Python, etc.)
     '/snap/bin',              // Snap packages
     '~/.local/bin',           // User-local binaries
+    '/usr/sbin',              // System admin binaries
   ],
   win32: [
     // Windows usually handles PATH better, but we can add common locations

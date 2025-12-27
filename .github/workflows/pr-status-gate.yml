@@ -7,7 +7,7 @@ on:
 
 permissions:
   pull-requests: write
-  actions: read
+  checks: read
 
 jobs:
   update-status:
@@ -17,7 +17,7 @@ jobs:
     if: github.event.workflow_run.pull_requests[0] != null
     timeout-minutes: 5
     steps:
-      - name: Check all workflows and update label
+      - name: Check all required checks and update label
         uses: actions/github-script@v7
         with:
           retries: 3
@@ -28,13 +28,32 @@ jobs:
             const headSha = context.payload.workflow_run.head_sha;
             const triggerWorkflow = context.payload.workflow_run.name;
 
-            // Required workflows configuration
-            const required = [
-              { name: 'CI', file: 'ci.yml' },
-              { name: 'Lint', file: 'lint.yml' },
-              { name: 'Quality Security', file: 'quality-security.yml' },
-              { name: 'Quality DCO', file: 'quality-dco.yml' },
-              { name: 'Quality Commit Lint', file: 'quality-commit-lint.yml' }
+            // ═══════════════════════════════════════════════════════════════════════
+            // REQUIRED CHECK RUNS - Job-level checks (not workflow-level)
+            // ═══════════════════════════════════════════════════════════════════════
+            // Format: "{Workflow Name} / {Job Name} (pull_request)"
+            //
+            // To find check names: Go to PR → Checks tab → copy exact name
+            // To update: Edit this list when workflow jobs are added/renamed/removed
+            //
+            // Last validated: 2025-12-26
+            // ═══════════════════════════════════════════════════════════════════════
+            const requiredChecks = [
+              // CI workflow (ci.yml) - 3 checks
+              'CI / test-frontend (pull_request)',
+              'CI / test-python (3.12) (pull_request)',
+              'CI / test-python (3.13) (pull_request)',
+              // Lint workflow (lint.yml) - 1 check
+              'Lint / python (pull_request)',
+              // Quality Security workflow (quality-security.yml) - 4 checks
+              'Quality Security / CodeQL (javascript-typescript) (pull_request)',
+              'Quality Security / CodeQL (python) (pull_request)',
+              'Quality Security / Python Security (Bandit) (pull_request)',
+              'Quality Security / Security Summary (pull_request)',
+              // Quality DCO workflow (quality-dco.yml) - 1 check
+              'Quality DCO / DCO Check (pull_request)',
+              // Quality Commit Lint workflow (quality-commit-lint.yml) - 1 check
+              'Quality Commit Lint / Conventional Commits (pull_request)'
             ];
 
             const statusLabels = {
@@ -43,64 +62,71 @@ jobs:
               failed: '❌ Checks Failed'
             };
 
-            console.log(`::group::PR #${prNumber} - Checking workflow status`);
+            console.log(`::group::PR #${prNumber} - Checking required checks`);
             console.log(`Triggered by: ${triggerWorkflow}`);
             console.log(`Head SHA: ${headSha}`);
+            console.log(`Required checks: ${requiredChecks.length}`);
             console.log('');
+
+            // Fetch all check runs for this commit
+            let allCheckRuns = [];
+            try {
+              const { data } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: headSha,
+                per_page: 100
+              });
+              allCheckRuns = data.check_runs;
+              console.log(`Found ${allCheckRuns.length} total check runs`);
+            } catch (error) {
+              // Add warning annotation so maintainers are alerted
+              core.warning(`Failed to fetch check runs for PR #${prNumber}: ${error.message}. PR label may be outdated.`);
+              console.log(`::error::Failed to fetch check runs: ${error.message}`);
+              console.log('::endgroup::');
+              return;
+            }
 
             let allComplete = true;
             let anyFailed = false;
             const results = [];
 
-            // Check all required workflows
-            for (const workflow of required) {
-              try {
-                const { data } = await github.rest.actions.listWorkflowRuns({
-                  owner,
-                  repo,
-                  workflow_id: workflow.file,
-                  head_sha: headSha,
-                  per_page: 1
-                });
+            // Check each required check
+            for (const checkName of requiredChecks) {
+              const check = allCheckRuns.find(c => c.name === checkName);
 
-                if (!data.workflow_runs.length) {
-                  results.push({ name: workflow.name, status: '⏳ Pending', complete: false });
-                  allComplete = false;
-                  continue;
-                }
-
-                const run = data.workflow_runs[0];
-
-                if (run.status !== 'completed') {
-                  results.push({ name: workflow.name, status: '🔄 Running', complete: false });
-                  allComplete = false;
-                } else if (run.conclusion === 'success') {
-                  results.push({ name: workflow.name, status: '✅ Passed', complete: true });
-                } else if (run.conclusion === 'skipped') {
-                  results.push({ name: workflow.name, status: '⏭️ Skipped', complete: true });
-                } else {
-                  results.push({ name: workflow.name, status: '❌ Failed', complete: true, failed: true });
-                  anyFailed = true;
-                }
-              } catch (error) {
-                console.log(`::warning::Error checking ${workflow.name}: ${error.message}`);
-                results.push({ name: workflow.name, status: '⚠️ Error', complete: false });
+              if (!check) {
+                results.push({ name: checkName, status: '⏳ Pending', complete: false });
                 allComplete = false;
+              } else if (check.status !== 'completed') {
+                results.push({ name: checkName, status: '🔄 Running', complete: false });
+                allComplete = false;
+              } else if (check.conclusion === 'success') {
+                results.push({ name: checkName, status: '✅ Passed', complete: true });
+              } else if (check.conclusion === 'skipped') {
+                // Skipped checks are treated as passed (e.g., path filters, conditional jobs)
+                results.push({ name: checkName, status: '⏭️ Skipped', complete: true, skipped: true });
+              } else {
+                results.push({ name: checkName, status: '❌ Failed', complete: true, failed: true });
+                anyFailed = true;
               }
             }
 
             // Print results table
-            console.log('Workflow Status:');
-            console.log('─'.repeat(40));
+            console.log('');
+            console.log('Check Status:');
+            console.log('─'.repeat(70));
             for (const r of results) {
-              console.log(`  ${r.status.padEnd(12)} ${r.name}`);
+              const shortName = r.name.length > 55 ? r.name.substring(0, 52) + '...' : r.name;
+              console.log(`  ${r.status.padEnd(12)} ${shortName}`);
             }
-            console.log('─'.repeat(40));
+            console.log('─'.repeat(70));
             console.log('::endgroup::');
 
-            // Only update label if all workflows are complete
+            // Only update label if all required checks are complete
             if (!allComplete) {
-              console.log('⏳ Not all workflows complete yet - keeping current label');
+              const pending = results.filter(r => !r.complete).length;
+              console.log(`⏳ ${pending}/${requiredChecks.length} checks still pending - keeping current label`);
               return;
             }
 
@@ -145,17 +171,25 @@ jobs:
             console.log('::endgroup::');
 
             // Summary
+            const passedCount = results.filter(r => r.status === '✅ Passed').length;
+            const skippedCount = results.filter(r => r.skipped).length;
+            const failedCount = results.filter(r => r.failed).length;
+
             if (anyFailed) {
-              console.log(`❌ PR #${prNumber} has failing checks`);
+              console.log(`❌ PR #${prNumber} has ${failedCount} failing check(s)`);
               core.summary.addRaw(`## ❌ PR #${prNumber} - Checks Failed\n\n`);
+              core.summary.addRaw(`**${failedCount}** of **${requiredChecks.length}** required checks failed.\n\n`);
             } else {
-              console.log(`✅ PR #${prNumber} is ready for review`);
+              const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped)` : '';
+              const totalSuccessful = passedCount + skippedCount;
+              console.log(`✅ PR #${prNumber} is ready for review (${totalSuccessful}/${requiredChecks.length} checks succeeded${skippedNote})`);
               core.summary.addRaw(`## ✅ PR #${prNumber} - Ready for Review\n\n`);
+              core.summary.addRaw(`All **${requiredChecks.length}** required checks succeeded${skippedNote}.\n\n`);
             }
 
             // Add results to summary
             core.summary.addTable([
-              [{data: 'Workflow', header: true}, {data: 'Status', header: true}],
+              [{data: 'Check', header: true}, {data: 'Status', header: true}],
               ...results.map(r => [r.name, r.status])
             ]);
             await core.summary.write();

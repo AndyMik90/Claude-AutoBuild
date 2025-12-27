@@ -3,6 +3,10 @@ Claude SDK Client Configuration
 ===============================
 
 Functions for creating and configuring the Claude Agent SDK client.
+
+All AI interactions should use `create_client()` to ensure consistent OAuth authentication
+and proper tool/MCP configuration. For simple message calls without full agent sessions,
+use `ClaudeSDKClient` directly with `allowed_tools=[]` and `max_turns=1`.
 """
 
 import json

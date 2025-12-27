@@ -17,14 +17,12 @@ import { getGitHubConfig, githubFetch } from './utils';
 import { createSpecForIssue, buildIssueContext, buildInvestigationTask, updateImplementationPlanStatus } from './spec-utils';
 import type { Project } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
-import { withProjectOrNull, withProjectSyncOrNull } from './utils/project-middleware';
+import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
 import {
   runPythonSubprocess,
-  getBackendPath,
   getPythonPath,
   getRunnerPath,
-  validateRunner,
   validateGitHubModule,
   buildRunnerArgs,
   parseJSONFromOutput,
@@ -115,20 +113,19 @@ function getGitHubDir(project: Project): string {
 function getAutoFixConfig(project: Project): AutoFixConfig {
   const configPath = path.join(getGitHubDir(project), 'config.json');
 
-  if (fs.existsSync(configPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      return {
-        enabled: data.auto_fix_enabled ?? false,
-        labels: data.auto_fix_labels ?? ['auto-fix'],
-        requireHumanApproval: data.require_human_approval ?? true,
-        botToken: data.bot_token,
-        model: data.model ?? 'claude-sonnet-4-20250514',
-        thinkingLevel: data.thinking_level ?? 'medium',
-      };
-    } catch {
-      // Return defaults
-    }
+  // Use try/catch instead of existsSync to avoid TOCTOU race condition
+  try {
+    const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return {
+      enabled: data.auto_fix_enabled ?? false,
+      labels: data.auto_fix_labels ?? ['auto-fix'],
+      requireHumanApproval: data.require_human_approval ?? true,
+      botToken: data.bot_token,
+      model: data.model ?? 'claude-sonnet-4-20250514',
+      thinkingLevel: data.thinking_level ?? 'medium',
+    };
+  } catch {
+    // File doesn't exist or is invalid - return defaults
   }
 
   return {
@@ -150,12 +147,11 @@ function saveAutoFixConfig(project: Project, config: AutoFixConfig): void {
   const configPath = path.join(githubDir, 'config.json');
   let existingConfig: Record<string, unknown> = {};
 
-  if (fs.existsSync(configPath)) {
-    try {
-      existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    } catch {
-      // Use empty config
-    }
+  // Use try/catch instead of existsSync to avoid TOCTOU race condition
+  try {
+    existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    // File doesn't exist or is invalid - use empty config
   }
 
   const updatedConfig = {
@@ -177,12 +173,16 @@ function saveAutoFixConfig(project: Project, config: AutoFixConfig): void {
 function getAutoFixQueue(project: Project): AutoFixQueueItem[] {
   const issuesDir = path.join(getGitHubDir(project), 'issues');
 
-  if (!fs.existsSync(issuesDir)) {
+  // Use try/catch instead of existsSync to avoid TOCTOU race condition
+  let files: string[];
+  try {
+    files = fs.readdirSync(issuesDir);
+  } catch {
+    // Directory doesn't exist or can't be read
     return [];
   }
 
   const queue: AutoFixQueueItem[] = [];
-  const files = fs.readdirSync(issuesDir);
 
   for (const file of files) {
     if (file.startsWith('autofix_') && file.endsWith('.json')) {
@@ -376,16 +376,21 @@ async function startAutoFix(
     updatedAt: new Date().toISOString(),
   };
 
+  // Validate and sanitize network data before writing to file
+  const sanitizedIssueUrl = typeof issue.html_url === 'string' ? issue.html_url : '';
+  const sanitizedRepo = typeof ghConfig.repo === 'string' ? ghConfig.repo : '';
+  const sanitizedSpecId = typeof specData.specId === 'string' ? specData.specId : '';
+
   fs.writeFileSync(
     path.join(issuesDir, `autofix_${issueNumber}.json`),
     JSON.stringify({
-      issue_number: state.issueNumber,
-      repo: state.repo,
+      issue_number: issueNumber,
+      repo: sanitizedRepo,
       status: state.status,
-      spec_id: state.specId,
+      spec_id: sanitizedSpecId,
       created_at: state.createdAt,
       updated_at: state.updatedAt,
-      issue_url: issue.html_url,
+      issue_url: sanitizedIssueUrl,
     }, null, 2)
   );
 
@@ -574,7 +579,7 @@ export function registerAutoFixHandlers(
 
       try {
         await withProjectOrNull(projectId, async (project) => {
-          const { sendProgress, sendError, sendComplete } = createIPCCommunicators<BatchProgress, IssueBatch[]>(
+          const { sendProgress, sendComplete } = createIPCCommunicators<BatchProgress, IssueBatch[]>(
             mainWindow,
             {
               progress: IPC_CHANNELS.GITHUB_AUTOFIX_BATCH_PROGRESS,
@@ -691,7 +696,7 @@ export function registerAutoFixHandlers(
             message: string;
           }
 
-          const { sendProgress, sendError, sendComplete } = createIPCCommunicators<
+          const { sendProgress, sendComplete } = createIPCCommunicators<
             AnalyzePreviewProgress,
             AnalyzePreviewResult
           >(
@@ -879,12 +884,16 @@ export interface AnalyzePreviewResult {
 function getBatches(project: Project): IssueBatch[] {
   const batchesDir = path.join(getGitHubDir(project), 'batches');
 
-  if (!fs.existsSync(batchesDir)) {
+  // Use try/catch instead of existsSync to avoid TOCTOU race condition
+  let files: string[];
+  try {
+    files = fs.readdirSync(batchesDir);
+  } catch {
+    // Directory doesn't exist or can't be read
     return [];
   }
 
   const batches: IssueBatch[] = [];
-  const files = fs.readdirSync(batchesDir);
 
   for (const file of files) {
     if (file.startsWith('batch_') && file.endsWith('.json')) {

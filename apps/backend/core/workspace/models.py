@@ -36,6 +36,7 @@ class ParallelMergeTask:
     worktree_content: str
     base_content: str | None
     spec_name: str
+    project_dir: Path
 
 
 @dataclass

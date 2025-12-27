@@ -14,7 +14,14 @@ _PARENT_DIR = Path(__file__).parent.parent
 if str(_PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(_PARENT_DIR))
 
-from core.workspace.git_utils import _is_auto_claude_file, is_lock_file
+from core.workspace.git_utils import (
+    _is_auto_claude_file,
+    apply_path_mapping,
+    detect_file_renames,
+    get_file_content_from_ref,
+    get_merge_base,
+    is_lock_file,
+)
 from debug import debug_warning
 from ui import (
     Icons,
@@ -680,6 +687,58 @@ def handle_merge_preview_command(
         # but we want to show the user all files that will be merged
         total_files_from_git = len(all_changed_files)
 
+        # Detect files that need AI merge due to path mappings (file renames)
+        # This happens when the target branch has renamed/moved files that the
+        # worktree modified at their old locations
+        path_mapped_ai_merges: list[dict] = []
+        path_mappings: dict[str, str] = {}
+
+        if git_conflicts["needs_rebase"] and git_conflicts["commits_behind"] > 0:
+            # Get the merge-base between the branches
+            spec_branch = git_conflicts["spec_branch"]
+            base_branch = git_conflicts["base_branch"]
+            merge_base = get_merge_base(project_dir, spec_branch, base_branch)
+
+            if merge_base:
+                # Detect file renames between merge-base and current base branch
+                path_mappings = detect_file_renames(
+                    project_dir, merge_base, base_branch
+                )
+
+                if path_mappings:
+                    debug(
+                        MODULE,
+                        f"Detected {len(path_mappings)} file rename(s) between merge-base and target",
+                        sample_mappings={
+                            k: v for k, v in list(path_mappings.items())[:3]
+                        },
+                    )
+
+                    # Check which changed files have path mappings and need AI merge
+                    for file_path in all_changed_files:
+                        mapped_path = apply_path_mapping(file_path, path_mappings)
+                        if mapped_path != file_path:
+                            # File was renamed - check if both versions exist
+                            worktree_content = get_file_content_from_ref(
+                                project_dir, spec_branch, file_path
+                            )
+                            target_content = get_file_content_from_ref(
+                                project_dir, base_branch, mapped_path
+                            )
+
+                            if worktree_content and target_content:
+                                path_mapped_ai_merges.append(
+                                    {
+                                        "oldPath": file_path,
+                                        "newPath": mapped_path,
+                                        "reason": "File was renamed/moved and modified in both branches",
+                                    }
+                                )
+                                debug(
+                                    MODULE,
+                                    f"Path-mapped file needs AI merge: {file_path} -> {mapped_path}",
+                                )
+
         result = {
             "success": True,
             # Use git diff files as the authoritative list of files to merge
@@ -693,6 +752,9 @@ def handle_merge_preview_command(
                 "commitsBehind": git_conflicts["commits_behind"],
                 "baseBranch": git_conflicts["base_branch"],
                 "specBranch": git_conflicts["spec_branch"],
+                # Path-mapped files that need AI merge due to renames
+                "pathMappedAIMerges": path_mapped_ai_merges,
+                "totalRenames": len(path_mappings),
             },
             "summary": {
                 # Use git diff count, not semantic tracker count
@@ -702,6 +764,8 @@ def handle_merge_preview_command(
                 "autoMergeable": summary.get("auto_mergeable", 0),
                 "hasGitConflicts": git_conflicts["has_conflicts"]
                 and len(non_lock_conflicting_files) > 0,
+                # Include path-mapped AI merge count for UI display
+                "pathMappedAIMergeCount": len(path_mapped_ai_merges),
             },
             # Include lock files info so UI can optionally show them
             "lockFilesExcluded": lock_files_excluded,
@@ -716,6 +780,8 @@ def handle_merge_preview_command(
             total_conflicts=result["summary"]["totalConflicts"],
             has_git_conflicts=git_conflicts["has_conflicts"],
             auto_mergeable=result["summary"]["autoMergeable"],
+            path_mapped_ai_merges=len(path_mapped_ai_merges),
+            total_renames=len(path_mappings),
         )
 
         return result
@@ -736,5 +802,6 @@ def handle_merge_preview_command(
                 "conflictFiles": 0,
                 "totalConflicts": 0,
                 "autoMergeable": 0,
+                "pathMappedAIMergeCount": 0,
             },
         }

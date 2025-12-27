@@ -5,11 +5,11 @@ import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
-import { PythonEnvManager } from '../../python-env-manager';
+import { getConfiguredPythonPath, PythonEnvManager } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
-import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+import { parsePythonCommand } from '../../python-detector';
 
 /**
  * Read the stored base branch from task_metadata.json
@@ -354,7 +354,8 @@ export function registerWorktreeHandlers(
           debug('Using stored base branch:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
         debug('Running command:', pythonPath, args.join(' '));
         debug('Working directory:', sourcePath);
 
@@ -442,7 +443,7 @@ export function registerWorktreeHandlers(
           });
 
           // Handler for when process exits
-          const handleProcessExit = (code: number | null, signal: string | null = null) => {
+          const handleProcessExit = async (code: number | null, signal: string | null = null) => {
             if (resolved) return; // Prevent double-resolution
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -538,13 +539,14 @@ export function registerWorktreeHandlers(
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
 
               // Read suggested commit message if staging succeeded
+              // OPTIMIZATION: Use async I/O to prevent blocking
               let suggestedCommitMessage: string | undefined;
               if (staged) {
                 const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
                 try {
                   if (existsSync(commitMsgPath)) {
-                    const { readFileSync } = require('fs');
-                    suggestedCommitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+                    const { promises: fsPromises } = require('fs');
+                    suggestedCommitMessage = (await fsPromises.readFile(commitMsgPath, 'utf-8')).trim();
                     debug('Read suggested commit message:', suggestedCommitMessage?.substring(0, 100));
                   }
                 } catch (e) {
@@ -553,24 +555,47 @@ export function registerWorktreeHandlers(
               }
 
               // Persist the status change to implementation_plan.json
-              const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-              try {
-                if (existsSync(planPath)) {
-                  const { readFileSync, writeFileSync } = require('fs');
-                  const planContent = readFileSync(planPath, 'utf-8');
-                  const plan = JSON.parse(planContent);
-                  plan.status = newStatus;
-                  plan.planStatus = planStatus;
-                  plan.updated_at = new Date().toISOString();
-                  if (staged) {
-                    plan.stagedAt = new Date().toISOString();
-                    plan.stagedInMainProject = true;
+              // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
+              // because ProjectStore prefers the worktree version when deduplicating tasks.
+              // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
+              const planPaths = [
+                { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
+                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
+              ];
+
+              const { promises: fsPromises } = require('fs');
+
+              // Fire and forget - don't block the response on file writes
+              const updatePlans = async () => {
+                const updates = planPaths.map(async ({ path: planPath, isMain }) => {
+                  try {
+                    if (!existsSync(planPath)) return;
+
+                    const planContent = await fsPromises.readFile(planPath, 'utf-8');
+                    const plan = JSON.parse(planContent);
+                    plan.status = newStatus;
+                    plan.planStatus = planStatus;
+                    plan.updated_at = new Date().toISOString();
+                    if (staged) {
+                      plan.stagedAt = new Date().toISOString();
+                      plan.stagedInMainProject = true;
+                    }
+                    await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+                  } catch (persistError) {
+                    // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
+                    if (isMain) {
+                      console.error('Failed to persist task status to main plan:', persistError);
+                    } else {
+                      debug('Failed to persist task status to worktree plan (non-critical):', persistError);
+                    }
                   }
-                  writeFileSync(planPath, JSON.stringify(plan, null, 2));
-                }
-              } catch (persistError) {
-                console.error('Failed to persist task status:', persistError);
-              }
+                });
+
+                await Promise.all(updates);
+              };
+
+              // Run async updates without blocking the response
+              updatePlans().catch(err => debug('Background plan update failed:', err));
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
@@ -711,7 +736,8 @@ export function registerWorktreeHandlers(
           console.warn('[IPC] Using stored base branch for preview:', taskBaseBranch);
         }
 
-        const pythonPath = pythonEnvManager.getPythonPath() || findPythonCommand() || 'python';
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
         console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
 
         // Get profile environment for consistency

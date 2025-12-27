@@ -32,63 +32,44 @@ jobs:
 
           echo "Valid beta version: $VERSION"
 
-  update-version:
-    name: Update package.json version
+  create-tag:
+    name: Create beta tag
     needs: validate-version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ github.event.inputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Update package.json version
-        id: version
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-
-          # Update frontend package.json
-          cd apps/frontend
-          npm version "$VERSION" --no-git-tag-version
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Updated package.json to version $VERSION"
-
-      - name: Commit version bump
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Stage all changed files in frontend directory (handles package-lock.json if it exists)
-          git add -A apps/frontend/
-          git commit -m "chore: bump version to $VERSION for beta release"
-          git push origin develop
 
       - name: Create and push tag
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           VERSION="${{ github.event.inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Beta release v$VERSION"
           git push origin "v$VERSION"
           echo "Created tag v$VERSION"
 
+      - name: Create tag only (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "DRY RUN: Would create tag v$VERSION"
+
   # Intel build on Intel runner for native compilation
   build-macos-intel:
-    needs: update-version
+    needs: create-tag
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
         with:
           # Use tag for real releases, develop branch for dry runs
-          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -108,11 +89,21 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd apps/frontend && npm run package:mac -- --arch=x64
+        run: |
+          VERSION="${{ needs.create-tag.outputs.version }}"
+          cd apps/frontend && npm run package:mac -- --x64 --config.extraMetadata.version="$VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -147,16 +138,17 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
 
   # Apple Silicon build on ARM64 runner for native compilation
   build-macos-arm64:
-    needs: update-version
+    needs: create-tag
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
           # Use tag for real releases, develop branch for dry runs
-          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -176,11 +168,21 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-arm64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-arm64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Apple Silicon)
-        run: cd apps/frontend && npm run package:mac -- --arch=arm64
+        run: |
+          VERSION="${{ needs.create-tag.outputs.version }}"
+          cd apps/frontend && npm run package:mac -- --arm64 --config.extraMetadata.version="$VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -215,15 +217,16 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
 
   build-windows:
-    needs: update-version
+    needs: create-tag
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
           # Use tag for real releases, develop branch for dry runs
-          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -244,11 +247,22 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package Windows
-        run: cd apps/frontend && npm run package:win
+        shell: bash
+        run: |
+          VERSION="${{ needs.create-tag.outputs.version }}"
+          cd apps/frontend && npm run package:win -- --config.extraMetadata.version="$VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
@@ -260,15 +274,16 @@ jobs:
           name: windows-builds
           path: |
             apps/frontend/dist/*.exe
+            apps/frontend/dist/*.yml
 
   build-linux:
-    needs: update-version
+    needs: create-tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           # Use tag for real releases, develop branch for dry runs
-          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.update-version.outputs.version) }}
+          ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -288,11 +303,21 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package Linux
-        run: cd apps/frontend && npm run package:linux
+        run: |
+          VERSION="${{ needs.create-tag.outputs.version }}"
+          cd apps/frontend && npm run package:linux -- --config.extraMetadata.version="$VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -303,9 +328,10 @@ jobs:
           path: |
             apps/frontend/dist/*.AppImage
             apps/frontend/dist/*.deb
+            apps/frontend/dist/*.yml
 
   create-release:
-    needs: [update-version, build-macos-intel, build-macos-arm64, build-windows, build-linux]
+    needs: [create-tag, build-macos-intel, build-macos-arm64, build-windows, build-linux]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.dry_run != 'true' }}
     permissions:
@@ -313,7 +339,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.update-version.outputs.version }}
+          ref: v${{ needs.create-tag.outputs.version }}
           fetch-depth: 0
 
       - name: Download all artifacts
@@ -324,7 +350,7 @@ jobs:
       - name: Flatten and validate artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-assets/ \;
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" \) -exec cp {} release-assets/ \;
 
           # Validate that at least one artifact was copied
           artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) | wc -l)
@@ -345,10 +371,10 @@ jobs:
       - name: Create Beta Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.update-version.outputs.version }}
-          name: v${{ needs.update-version.outputs.version }} (Beta)
+          tag_name: v${{ needs.create-tag.outputs.version }}
+          name: v${{ needs.create-tag.outputs.version }} (Beta)
           body: |
-            ## Beta Release v${{ needs.update-version.outputs.version }}
+            ## Beta Release v${{ needs.create-tag.outputs.version }}
 
             This is a **beta release** for testing new features. It may contain bugs or incomplete functionality.
 
@@ -362,7 +388,7 @@ jobs:
 
             ---
 
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/main...v${{ needs.update-version.outputs.version }}
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/main...v${{ needs.create-tag.outputs.version }}
           files: release-assets/*
           draft: false
           prerelease: true
@@ -370,7 +396,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dry-run-summary:
-    needs: [update-version, build-macos-intel, build-macos-arm64, build-windows, build-linux]
+    needs: [create-tag, build-macos-intel, build-macos-arm64, build-windows, build-linux]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.dry_run == 'true' }}
     steps:
@@ -383,7 +409,7 @@ jobs:
         run: |
           echo "## Beta Release Dry Run Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ needs.update-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.create-tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Build artifacts created successfully:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

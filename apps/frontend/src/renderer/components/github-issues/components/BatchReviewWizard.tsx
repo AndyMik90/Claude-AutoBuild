@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Layers,
   CheckCircle2,
-  XCircle,
   Loader2,
   ChevronDown,
   ChevronRight,
   Users,
-  Trash2,
   Play,
   AlertTriangle,
 } from 'lucide-react';
@@ -240,7 +238,7 @@ export function BatchReviewWizard({
   const renderReview = () => {
     if (!analysisResult) return null;
 
-    const { proposedBatches, singleIssues, totalIssues, analyzedIssues } = analysisResult;
+    const { proposedBatches, singleIssues, totalIssues } = analysisResult;
     const selectedCount = selectedBatchIds.size;
     const totalIssuesInSelected = proposedBatches
       .filter((_, idx) => selectedBatchIds.has(idx))

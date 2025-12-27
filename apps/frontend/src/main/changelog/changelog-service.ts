@@ -27,15 +27,16 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
-import { findPythonCommand, getValidatedPythonPath } from '../python-detector';
+import { getValidatedPythonPath } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Main changelog service - orchestrates all changelog operations
  * Delegates to specialized modules for specific concerns
  */
 export class ChangelogService extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  private _pythonPath: string | null = null;
   private claudePath: string = 'claude';
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;
@@ -127,11 +128,23 @@ export class ChangelogService extends EventEmitter {
 
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = getValidatedPythonPath(pythonPath, 'ChangelogService');
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'ChangelogService');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
+  }
+
+  /**
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
+   */
+  private get pythonPath(): string {
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    return getConfiguredPythonPath();
   }
 
   /**
@@ -143,19 +156,14 @@ export class ChangelogService extends EventEmitter {
     }
 
     const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
+      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
         return p;
       }
     }

@@ -333,6 +333,13 @@ export interface MergeConflict {
   type?: ConflictType; // 'semantic' = parallel task conflict, 'git' = branch divergence
 }
 
+// Path-mapped file that needs AI merge due to rename
+export interface PathMappedAIMerge {
+  oldPath: string;
+  newPath: string;
+  reason: string;
+}
+
 // Git-level conflict information (branch divergence)
 export interface GitConflictInfo {
   hasConflicts: boolean;
@@ -341,6 +348,10 @@ export interface GitConflictInfo {
   commitsBehind: number;
   baseBranch: string;
   specBranch: string;
+  // Files that need AI merge due to path mappings (file renames)
+  pathMappedAIMerges?: PathMappedAIMerge[];
+  // Total number of file renames detected
+  totalRenames?: number;
 }
 
 // Summary statistics from merge preview/execution
@@ -352,6 +363,8 @@ export interface MergeStats {
   aiResolved?: number;
   humanRequired?: number;
   hasGitConflicts?: boolean; // True if there are git-level conflicts requiring rebase
+  // Count of files needing AI merge due to path mappings (file renames)
+  pathMappedAIMergeCount?: number;
 }
 
 export interface WorktreeMergeResult {

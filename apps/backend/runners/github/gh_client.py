@@ -665,8 +665,9 @@ class GHClient:
             - issue_comments: General PR discussion comments
         """
         # Fetch inline review comments
-        review_endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments"
-        review_args = ["api", review_endpoint, "-f", f"since={since_timestamp}"]
+        # Use query string syntax - the -f flag sends POST body fields, not query params
+        review_endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments?since={since_timestamp}"
+        review_args = ["api", "--method", "GET", review_endpoint]
         review_result = await self.run(review_args, raise_on_error=False)
 
         review_comments = []
@@ -677,8 +678,9 @@ class GHClient:
                 logger.warning(f"Failed to parse review comments for PR #{pr_number}")
 
         # Fetch general issue comments
-        issue_endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments"
-        issue_args = ["api", issue_endpoint, "-f", f"since={since_timestamp}"]
+        # Use query string syntax - the -f flag sends POST body fields, not query params
+        issue_endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments?since={since_timestamp}"
+        issue_args = ["api", "--method", "GET", issue_endpoint]
         issue_result = await self.run(issue_args, raise_on_error=False)
 
         issue_comments = []

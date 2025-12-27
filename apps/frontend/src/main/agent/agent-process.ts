@@ -9,7 +9,8 @@ import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { findPythonCommand, parsePythonCommand, validatePythonPath } from '../python-detector';
+import { parsePythonCommand, validatePythonPath } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Process spawning and lifecycle management
@@ -18,8 +19,9 @@ export class AgentProcessManager {
   private state: AgentState;
   private events: AgentEvents;
   private emitter: EventEmitter;
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  // Use null to indicate not yet configured - getPythonPath() will use fallback
+  private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
@@ -32,11 +34,11 @@ export class AgentProcessManager {
     if (pythonPath) {
       const validation = validatePythonPath(pythonPath);
       if (validation.valid) {
-        this.pythonPath = validation.sanitizedPath || pythonPath;
+        this._pythonPath = validation.sanitizedPath || pythonPath;
       } else {
         console.error(`[AgentProcess] Invalid Python path rejected: ${validation.reason}`);
-        console.error(`[AgentProcess] Falling back to auto-detected Python`);
-        this.pythonPath = findPythonCommand() || 'python';
+        console.error(`[AgentProcess] Falling back to getConfiguredPythonPath()`);
+        // Don't set _pythonPath - let getPythonPath() use getConfiguredPythonPath() fallback
       }
     }
     if (autoBuildSourcePath) {
@@ -161,22 +163,34 @@ export class AgentProcessManager {
   }
 
   /**
-   * Get the configured Python path
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
    */
   getPythonPath(): string {
-    return this.pythonPath;
+    // If explicitly configured (by pythonEnvManager), use that
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    // Otherwise use the global configured path (venv if ready, else bundled/system)
+    return getConfiguredPythonPath();
   }
 
   /**
    * Get the auto-claude source path (detects automatically if not configured)
    */
   getAutoBuildSourcePath(): string | null {
-    // If manually configured, use that
-    if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
+    // Use runners/spec_runner.py as the validation marker - this is the file actually needed
+    const validatePath = (p: string): boolean => {
+      return existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'));
+    };
+
+    // If manually configured AND valid, use that
+    if (this.autoBuildSourcePath && validatePath(this.autoBuildSourcePath)) {
       return this.autoBuildSourcePath;
     }
 
-    // Auto-detect from app location
+    // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
       // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
       path.resolve(__dirname, '..', '..', '..', 'backend'),
@@ -187,8 +201,7 @@ export class AgentProcessManager {
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (validatePath(p)) {
         return p;
       }
     }
@@ -275,7 +288,9 @@ export class AgentProcessManager {
 
     const spawnId = this.state.generateSpawnId();
     const env = this.setupProcessEnvironment(extraEnv);
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], { cwd, env });
 
     this.state.addProcess(taskId, {

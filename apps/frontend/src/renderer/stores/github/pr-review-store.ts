@@ -82,7 +82,6 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
 
   setPRReviewResult: (projectId: string, result: PRReviewResult) => set((state) => {
     const key = `${projectId}:${result.prNumber}`;
-    const existing = state.prReviews[key];
     return {
       prReviews: {
         ...state.prReviews,

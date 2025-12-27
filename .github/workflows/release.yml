@@ -43,11 +43,19 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Intel)
-        run: cd apps/frontend && npm run package:mac -- --arch=x64
+        run: cd apps/frontend && npm run package:mac -- --x64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -112,11 +120,19 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-arm64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-arm64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
       - name: Package macOS (Apple Silicon)
-        run: cd apps/frontend && npm run package:mac -- --arch=arm64
+        run: cd apps/frontend && npm run package:mac -- --arm64
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -181,6 +197,14 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
+
       - name: Build application
         run: cd apps/frontend && npm run build
 
@@ -225,6 +249,14 @@ jobs:
 
       - name: Install dependencies
         run: cd apps/frontend && npm ci
+
+      - name: Cache bundled Python
+        uses: actions/cache@v4
+        with:
+          path: apps/frontend/python-runtime
+          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          restore-keys: |
+            python-bundle-${{ runner.os }}-x64-
 
       - name: Build application
         run: cd apps/frontend && npm run build

@@ -117,7 +117,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
   const handleArchive = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await archiveTasks(task.projectId, [task.id]);
+    const result = await archiveTasks(task.projectId, [task.id]);
+    if (!result.success) {
+      console.error('[TaskCard] Failed to archive task:', task.id, result.error);
+    }
   };
 
   const getStatusBadgeVariant = (status: string) => {

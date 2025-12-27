@@ -44,11 +44,21 @@ vi.mock('electron', () => {
     }
   })();
 
+  // Mock BrowserWindow for sendDeviceCodeToRenderer
+  const mockBrowserWindow = {
+    getAllWindows: () => [{
+      webContents: {
+        send: vi.fn()
+      }
+    }]
+  };
+
   return {
     ipcMain: mockIpcMain,
     shell: {
       openExternal: (...args: unknown[]) => mockOpenExternal(...args)
-    }
+    },
+    BrowserWindow: mockBrowserWindow
   };
 });
 

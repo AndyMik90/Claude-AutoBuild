@@ -3,11 +3,27 @@
  * Provides a simpler OAuth flow than manual PAT creation
  */
 
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, BrowserWindow } from 'electron';
 import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
+
+/**
+ * Send device code info to all renderer windows immediately when extracted
+ * This allows the UI to display the code while the auth process is still running
+ */
+function sendDeviceCodeToRenderer(deviceCode: string, authUrl: string, browserOpened: boolean): void {
+  debugLog('Sending device code to renderer windows');
+  const windows = BrowserWindow.getAllWindows();
+  for (const win of windows) {
+    win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, {
+      deviceCode,
+      authUrl,
+      browserOpened
+    });
+  }
+}
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -226,7 +242,8 @@ export function registerStartGhAuth(): void {
           debugLog('Spawning: gh', args);
 
           const ghProcess = spawn('gh', args, {
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getAugmentedEnv()
           });
 
           let output = '';
@@ -264,6 +281,10 @@ export function registerStartGhAuth(): void {
                 browserOpenedSuccessfully = false;
                 // Don't fail here - we'll return the device code so user can manually navigate
               }
+
+              // IMMEDIATELY send device code to renderer so user can see it while auth is in progress
+              // This is critical - the frontend needs to display the code while the gh process is still running
+              sendDeviceCodeToRenderer(extractedDeviceCode, extractedAuthUrl, browserOpenedSuccessfully);
 
               // Extraction complete - mutex flag stays true to prevent re-extraction
               // The deviceCodeExtracted flag will prevent future attempts
@@ -379,7 +400,8 @@ export function registerGetGhToken(): void {
         debugLog('Running: gh auth token');
         const token = execSync('gh auth token', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         }).trim();
 
         if (!token) {
@@ -418,7 +440,8 @@ export function registerGetGhUser(): void {
         debugLog('Running: gh api user');
         const userJson = execSync('gh api user', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         debugLog('User API response received');
@@ -459,7 +482,8 @@ export function registerListUserRepos(): void {
           'gh repo list --limit 100 --json nameWithOwner,description,isPrivate',
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getAugmentedEnv()
           }
         );
 
@@ -565,7 +589,8 @@ export function registerGetGitHubBranches(): void {
           ['api', apiEndpoint, '--paginate', '--jq', '.[].name'],
           {
             encoding: 'utf-8',
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env: getAugmentedEnv()
           }
         );
 
@@ -612,7 +637,8 @@ export function registerCreateGitHubRepo(): void {
         // Get the authenticated username
         const username = execSync('gh api user --jq .login', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         }).trim();
 
         // Determine the owner (personal account or organization)
@@ -642,7 +668,8 @@ export function registerCreateGitHubRepo(): void {
         const output = execFileSync('gh', args, {
           encoding: 'utf-8',
           cwd: options.projectPath,
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         debugLog('gh repo create output:', output);
@@ -748,7 +775,8 @@ export function registerListGitHubOrgs(): void {
         // Get user's organizations
         const output = execSync('gh api user/orgs --jq \'.[] | {login: .login, avatarUrl: .avatar_url}\'', {
           encoding: 'utf-8',
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: getAugmentedEnv()
         });
 
         // Parse the JSON lines output

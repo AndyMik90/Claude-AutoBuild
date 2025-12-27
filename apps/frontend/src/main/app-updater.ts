@@ -22,6 +22,7 @@ import { app } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../shared/constants';
 import type { AppUpdateInfo } from '../shared/types';
+import { compareVersions } from './updater/version-manager';
 
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
@@ -197,9 +198,16 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
-    const updateAvailable = result.updateInfo.version !== autoUpdater.currentVersion.version;
+    const currentVersion = autoUpdater.currentVersion.version;
+    const latestVersion = result.updateInfo.version;
+    
+    // Use proper semver comparison to detect if update is actually newer
+    // This prevents offering downgrades (e.g., v2.7.1 when on v2.7.2-beta.6)
+    const isNewer = compareVersions(latestVersion, currentVersion) > 0;
+    
+    console.warn(`[app-updater] Version comparison: ${latestVersion} vs ${currentVersion} -> ${isNewer ? 'UPDATE' : 'NO UPDATE'}`);
 
-    if (!updateAvailable) {
+    if (!isNewer) {
       return null;
     }
 

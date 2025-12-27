@@ -80,8 +80,6 @@ export function ReviewFindings({
     selectNone,
     selectImportant,
     toggleSeverityGroup,
-    isGroupFullySelected,
-    isGroupPartiallySelected,
   } = useFindingSelection({
     findings,
     selectedIds,

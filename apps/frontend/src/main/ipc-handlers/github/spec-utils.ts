@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { Project, TaskMetadata } from '../../../shared/types';
 import { withSpecNumberLock } from '../../utils/spec-number-lock';
+import { debugLog } from './utils/logger';
 
 export interface SpecCreationData {
   specId: string;
@@ -210,10 +211,6 @@ Please analyze this issue and provide:
 export function updateImplementationPlanStatus(specDir: string, status: string): void {
   const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
 
-  if (!existsSync(planPath)) {
-    return;
-  }
-
   try {
     const content = readFileSync(planPath, 'utf-8');
     const plan = JSON.parse(content);
@@ -221,6 +218,10 @@ export function updateImplementationPlanStatus(specDir: string, status: string):
     plan.updated_at = new Date().toISOString();
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
   } catch (error) {
-    console.error('[spec-utils] Failed to update plan status:', error);
+    // File doesn't exist or couldn't be read - this is expected for new specs
+    // Log legitimate errors (malformed JSON, disk write failures, permission errors)
+    if (error instanceof Error && error.message && !error.message.includes('ENOENT')) {
+      debugLog('spec-utils', `Failed to update implementation plan status: ${error.message}`);
+    }
   }
 }

@@ -27,7 +27,7 @@ from core.workspace import _run_parallel_merges
 class TestParallelMergeDataclasses:
     """Tests for parallel merge data structures."""
 
-    def test_parallel_merge_task_creation(self):
+    def test_parallel_merge_task_creation(self, tmp_path):
         """ParallelMergeTask can be created with required fields."""
         task = ParallelMergeTask(
             file_path="src/App.tsx",
@@ -35,6 +35,7 @@ class TestParallelMergeDataclasses:
             worktree_content="const main = 2;",
             base_content="const main = 0;",
             spec_name="001-test",
+            project_dir=tmp_path,
         )
 
         assert task.file_path == "src/App.tsx"
@@ -42,8 +43,9 @@ class TestParallelMergeDataclasses:
         assert task.worktree_content == "const main = 2;"
         assert task.base_content == "const main = 0;"
         assert task.spec_name == "001-test"
+        assert task.project_dir == tmp_path
 
-    def test_parallel_merge_task_optional_base(self):
+    def test_parallel_merge_task_optional_base(self, tmp_path):
         """ParallelMergeTask works with None base_content."""
         task = ParallelMergeTask(
             file_path="src/new-file.tsx",
@@ -51,6 +53,7 @@ class TestParallelMergeDataclasses:
             worktree_content="// worktree version",
             base_content=None,  # New file, no common ancestor
             spec_name="001-new-feature",
+            project_dir=tmp_path,
         )
 
         assert task.base_content is None
@@ -105,7 +108,7 @@ class TestParallelMergeRunner:
         results = asyncio.run(_run_parallel_merges([], tmp_path))
         assert results == []
 
-    def test_parallel_merge_task_with_data(self):
+    def test_parallel_merge_task_with_data(self, tmp_path):
         """ParallelMergeTask holds merge data correctly."""
         task = ParallelMergeTask(
             file_path="src/test.py",
@@ -113,6 +116,7 @@ class TestParallelMergeRunner:
             worktree_content="def main():\n    print('hi')",
             base_content="def main(): pass",
             spec_name="001-feature",
+            project_dir=tmp_path,
         )
 
         assert "main" in task.main_content
@@ -133,6 +137,7 @@ class TestSimple3WayMerge:
             worktree_content="def main(): pass",  # Same as main
             base_content="def main(): pass",  # Same as both
             spec_name="001-no-change",
+            project_dir=tmp_path,
         )
 
         results = asyncio.run(_run_parallel_merges([task], tmp_path))
@@ -151,6 +156,7 @@ class TestSimple3WayMerge:
             worktree_content="def main():\n    print('new')",  # Changed
             base_content="def main(): pass",
             spec_name="001-worktree-only",
+            project_dir=tmp_path,
         )
 
         results = asyncio.run(_run_parallel_merges([task], tmp_path))
@@ -169,6 +175,7 @@ class TestSimple3WayMerge:
             worktree_content="def main(): pass",  # Same as base
             base_content="def main(): pass",
             spec_name="001-main-only",
+            project_dir=tmp_path,
         )
 
         results = asyncio.run(_run_parallel_merges([task], tmp_path))
@@ -187,6 +194,7 @@ class TestSimple3WayMerge:
             worktree_content="# Same content",
             base_content=None,  # New file, no base
             spec_name="001-new-identical",
+            project_dir=tmp_path,
         )
 
         results = asyncio.run(_run_parallel_merges([task], tmp_path))
@@ -198,7 +206,7 @@ class TestSimple3WayMerge:
 class TestParallelMergeIntegration:
     """Integration tests for parallel merge flow."""
 
-    def test_multiple_file_merge_structure(self):
+    def test_multiple_file_merge_structure(self, tmp_path):
         """Multiple ParallelMergeTasks can be created."""
         tasks = [
             ParallelMergeTask(
@@ -207,6 +215,7 @@ class TestParallelMergeIntegration:
                 worktree_content=f"# File {i} feature",
                 base_content=f"# File {i} base",
                 spec_name="001-multi",
+                project_dir=tmp_path,
             )
             for i in range(3)
         ]

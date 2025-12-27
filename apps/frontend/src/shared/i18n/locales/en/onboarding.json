@@ -30,7 +30,9 @@
   },
   "oauth": {
     "title": "Claude Authentication",
-    "description": "Connect your Claude account to enable AI features"
+    "description": "Connect your Claude account to enable AI features",
+    "keychainTitle": "Secure Storage",
+    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again."
   },
   "memory": {
     "title": "Memory",

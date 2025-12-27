@@ -681,13 +681,8 @@ Next phase (if applicable): [phase-name]
 === END SESSION N ===
 ```
 
-**Commit progress:**
-
-```bash
-git add build-progress.txt
-git commit -m "auto-claude: Update progress"
-# Do NOT push - user will push after review
-```
+**Note:** The `build-progress.txt` file is in `.auto-claude/specs/` which is gitignored.
+Do NOT try to commit it - the framework tracks progress automatically.
 
 ---
 

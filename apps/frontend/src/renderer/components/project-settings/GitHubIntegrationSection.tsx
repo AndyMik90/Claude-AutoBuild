@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Github, RefreshCw, KeyRound, Info } from 'lucide-react';
+import { Github, RefreshCw, KeyRound, Info, CheckCircle2 } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { StatusBadge } from './StatusBadge';
 import { PasswordInput } from './PasswordInput';
@@ -31,15 +31,22 @@ export function GitHubIntegrationSection({
   isCheckingGitHub,
   projectName,
 }: GitHubIntegrationSectionProps) {
-  const [showOAuthFlow, setShowOAuthFlow] = useState(false);
+  // Show OAuth flow if user previously used OAuth, or if there's no token yet
+  const [showOAuthFlow, setShowOAuthFlow] = useState(
+    envConfig.githubAuthMethod === 'oauth' || (!envConfig.githubToken && !envConfig.githubAuthMethod)
+  );
 
   const badge = envConfig.githubEnabled ? (
     <StatusBadge status="success" label="Enabled" />
   ) : null;
 
   const handleOAuthSuccess = (token: string, _username?: string) => {
-    onUpdateConfig({ githubToken: token });
+    onUpdateConfig({ githubToken: token, githubAuthMethod: 'oauth' });
     setShowOAuthFlow(false);
+  };
+
+  const handleManualTokenChange = (value: string) => {
+    onUpdateConfig({ githubToken: value, githubAuthMethod: 'pat' });
   };
 
   return (
@@ -81,7 +88,26 @@ export function GitHubIntegrationSection({
 
       {envConfig.githubEnabled && (
         <>
-          {showOAuthFlow ? (
+          {/* Show OAuth connected state when authenticated via OAuth */}
+          {envConfig.githubAuthMethod === 'oauth' && envConfig.githubToken && !showOAuthFlow ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-foreground">GitHub Authentication</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onUpdateConfig({ githubToken: '', githubAuthMethod: undefined })}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Use Manual Token
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-success/30 bg-success/5">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <span className="text-sm text-foreground">Authenticated via GitHub OAuth (gh CLI)</span>
+              </div>
+            </div>
+          ) : showOAuthFlow ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-foreground">GitHub Authentication</Label>
@@ -125,7 +151,7 @@ export function GitHubIntegrationSection({
               </p>
               <PasswordInput
                 value={envConfig.githubToken || ''}
-                onChange={(value) => onUpdateConfig({ githubToken: value })}
+                onChange={handleManualTokenChange}
                 placeholder="ghp_xxxxxxxx or github_pat_xxxxxxxx"
               />
             </div>

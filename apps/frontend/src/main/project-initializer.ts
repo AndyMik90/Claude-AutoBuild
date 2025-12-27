@@ -228,13 +228,13 @@ export interface InitializationResult {
 }
 
 /**
- * Check if the project has a local auto-claude source directory
- * This indicates it's the auto-claude development project itself
+ * Check if the project has a local backend source directory
+ * This indicates it's the development project itself
  */
 export function hasLocalSource(projectPath: string): boolean {
-  const localSourcePath = path.join(projectPath, 'auto-claude');
-  // Use requirements.txt as marker - it always exists in auto-claude source
-  const markerFile = path.join(localSourcePath, 'requirements.txt');
+  const localSourcePath = path.join(projectPath, 'apps', 'backend');
+  // Use runners/spec_runner.py as marker - ensures valid backend
+  const markerFile = path.join(localSourcePath, 'runners', 'spec_runner.py');
   return existsSync(localSourcePath) && existsSync(markerFile);
 }
 
@@ -242,7 +242,7 @@ export function hasLocalSource(projectPath: string): boolean {
  * Get the local source path for a project (if it exists)
  */
 export function getLocalSourcePath(projectPath: string): string | null {
-  const localSourcePath = path.join(projectPath, 'auto-claude');
+  const localSourcePath = path.join(projectPath, 'apps', 'backend');
   if (hasLocalSource(projectPath)) {
     return localSourcePath;
   }

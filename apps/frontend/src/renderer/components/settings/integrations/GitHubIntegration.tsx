@@ -158,8 +158,8 @@ export function GitHubIntegration({
     debugLog('handleOAuthSuccess called with token length:', token.length);
     debugLog('OAuth username:', username);
 
-    // Update the token
-    updateEnvConfig({ githubToken: token });
+    // Update the token and auth method
+    updateEnvConfig({ githubToken: token, githubAuthMethod: 'oauth' });
 
     // Show success state with username
     setOauthUsername(username || null);

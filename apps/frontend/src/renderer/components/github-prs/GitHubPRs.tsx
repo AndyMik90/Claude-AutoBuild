@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { GitPullRequest, RefreshCw, ExternalLink, Settings } from 'lucide-react';
 import { useProjectStore } from '../../stores/project-store';
 import { useGitHubPRs } from './hooks';

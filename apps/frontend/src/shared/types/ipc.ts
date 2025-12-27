@@ -352,6 +352,11 @@ export interface ElectronAPI {
   ) => Promise<IPCResult<{ remoteUrl: string }>>;
   listGitHubOrgs: () => Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>>;
 
+  // GitHub OAuth device code event (streams device code during auth flow)
+  onGitHubAuthDeviceCode: (
+    callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
+  ) => () => void;
+
   // GitHub event listeners
   onGitHubInvestigationProgress: (
     callback: (projectId: string, status: GitHubInvestigationStatus) => void
