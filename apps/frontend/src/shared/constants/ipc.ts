@@ -326,5 +326,7 @@ export const IPC_CHANNELS = {
   UNITY_SET_ACTIVE_PROFILE: 'unity:setActiveProfile',
   UNITY_RUN_PIPELINE: 'unity:runPipeline',
   UNITY_CANCEL_PIPELINE: 'unity:cancelPipeline',
-  UNITY_LOAD_PIPELINES: 'unity:loadPipelines'
+  UNITY_LOAD_PIPELINES: 'unity:loadPipelines',
+  UNITY_DELETE_RUN: 'unity:deleteRun',
+  UNITY_CLEAR_RUNS: 'unity:clearRuns'
 } as const;

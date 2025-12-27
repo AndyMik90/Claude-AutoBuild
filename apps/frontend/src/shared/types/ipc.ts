@@ -666,6 +666,8 @@ export interface ElectronAPI {
       canceledReason?: string;
     }>;
   }>>;
+  deleteUnityRun: (projectId: string, runId: string) => Promise<IPCResult<void>>;
+  clearUnityRuns: (projectId: string) => Promise<IPCResult<void>>;
   cancelUnityRun: (projectId: string, runId: string) => Promise<IPCResult<void>>;
   rerunUnity: (projectId: string, runId: string) => Promise<IPCResult<void>>;
   openPath: (path: string) => Promise<IPCResult<void>>;

@@ -1,5 +1,5 @@
 import { ipcMain, shell, clipboard } from 'electron';
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -581,6 +581,47 @@ function loadRunRecord(projectId: string, runId: string): UnityRun | null {
   } catch (error) {
     console.error(`Failed to load run record ${runId}:`, error);
     return null;
+  }
+}
+
+/**
+ * Delete a single Unity run
+ */
+function deleteUnityRun(projectId: string, runId: string): void {
+  try {
+    const runsDir = getUnityRunsDir(projectId);
+    const runDir = join(runsDir, runId);
+
+    if (existsSync(runDir)) {
+      // Delete the entire run directory
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  } catch (error) {
+    console.error(`Failed to delete run ${runId}:`, error);
+    throw new Error(`Failed to delete run: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Clear all Unity runs for a project
+ */
+function clearUnityRuns(projectId: string): void {
+  try {
+    const runsDir = getUnityRunsDir(projectId);
+
+    if (existsSync(runsDir)) {
+      // Read all run directories and delete them
+      const entries = readdirSync(runsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const runDir = join(runsDir, entry.name);
+          rmSync(runDir, { recursive: true, force: true });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to clear Unity runs:', error);
+    throw new Error(`Failed to clear runs: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -2265,6 +2306,38 @@ export function registerUnityHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to load Unity pipelines'
+        };
+      }
+    }
+  );
+
+  // Delete Unity run
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_DELETE_RUN,
+    async (_, projectId: string, runId: string): Promise<IPCResult<void>> => {
+      try {
+        deleteUnityRun(projectId, runId);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete Unity run'
+        };
+      }
+    }
+  );
+
+  // Clear all Unity runs
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_CLEAR_RUNS,
+    async (_, projectId: string): Promise<IPCResult<void>> => {
+      try {
+        clearUnityRuns(projectId);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear Unity runs'
         };
       }
     }

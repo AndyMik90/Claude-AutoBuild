@@ -141,6 +141,8 @@ export interface UnityAPI {
 
   // Unity runs
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{ runs: UnityRun[] }>>;
+  deleteUnityRun: (projectId: string, runId: string) => Promise<IPCResult<void>>;
+  clearUnityRuns: (projectId: string) => Promise<IPCResult<void>>;
 
   // Unity profiles
   getUnityProfiles: (projectId: string) => Promise<IPCResult<UnityProfileSettings>>;
@@ -236,6 +238,12 @@ export const createUnityAPI = (): UnityAPI => ({
 
   loadUnityPipelines: (projectId: string): Promise<IPCResult<{ pipelines: UnityPipelineRun[] }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_LOAD_PIPELINES, projectId),
+
+  deleteUnityRun: (projectId: string, runId: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_DELETE_RUN, projectId, runId),
+
+  clearUnityRuns: (projectId: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_CLEAR_RUNS, projectId),
 
   openPath: (path: string): Promise<IPCResult<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PATH, path),

@@ -556,6 +556,51 @@ export function Unity({ projectId }: UnityProps) {
     }
   };
 
+  // Delete a single Unity run
+  const deleteRun = async (runId: string) => {
+    if (!selectedProject) return;
+
+    const confirmed = window.confirm(t('history.confirmDelete'));
+    if (!confirmed) return;
+
+    try {
+      const result = await window.electronAPI.deleteUnityRun(selectedProject.id, runId);
+      if (result.success) {
+        // Close the expanded run if it was deleted
+        if (selectedRun?.id === runId) {
+          setSelectedRun(null);
+        }
+        // Refresh runs
+        await loadRuns();
+      } else {
+        setRunError(result.error || 'Failed to delete run');
+      }
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : 'Failed to delete run');
+    }
+  };
+
+  // Clear all Unity runs
+  const clearAllRuns = async () => {
+    if (!selectedProject) return;
+
+    const confirmed = window.confirm(t('history.confirmClearAll'));
+    if (!confirmed) return;
+
+    try {
+      const result = await window.electronAPI.clearUnityRuns(selectedProject.id);
+      if (result.success) {
+        setSelectedRun(null);
+        // Refresh runs
+        await loadRuns();
+      } else {
+        setRunError(result.error || 'Failed to clear runs');
+      }
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : 'Failed to clear runs');
+    }
+  };
+
   // Copy to clipboard
   const copyToClipboard = async (text: string) => {
     try {
@@ -1024,7 +1069,6 @@ export function Unity({ projectId }: UnityProps) {
                       <Button
                         onClick={runPlayModeTests}
                         disabled={!canRunTests}
-                        variant="secondary"
                       >
                         {isRunningPlayMode ? (
                           <>
@@ -1191,13 +1235,28 @@ export function Unity({ projectId }: UnityProps) {
             {projectInfo.isUnityProject && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    {t('history.title')}
-                  </CardTitle>
-                  <CardDescription>
-                    {t('history.description', { count: runs.length })}
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        {t('history.title')}
+                      </CardTitle>
+                      <CardDescription>
+                        {t('history.description', { count: runs.length })}
+                      </CardDescription>
+                    </div>
+                    {runs.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAllRuns}
+                        className="h-8"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        {t('history.clearAll')}
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {isLoadingRuns ? (
@@ -1273,30 +1332,44 @@ export function Unity({ projectId }: UnityProps) {
                                     </Button>
                                   )}
                                   {run.status !== 'running' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 text-xs"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            rerun(run.id);
-                                          }}
-                                          disabled={!run.params || hasRunningRun}
-                                        >
-                                          <RotateCcw className="h-3 w-3 mr-1" />
-                                          Re-run
-                                        </Button>
-                                      </TooltipTrigger>
-                                      {(!run.params || hasRunningRun) && (
-                                        <TooltipContent>
-                                          {!run.params 
-                                            ? 'Cannot re-run: parameters not available' 
-                                            : 'Cannot re-run: another Unity action is currently running'}
-                                        </TooltipContent>
-                                      )}
-                                    </Tooltip>
+                                    <>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              rerun(run.id);
+                                            }}
+                                            disabled={!run.params || hasRunningRun}
+                                          >
+                                            <RotateCcw className="h-3 w-3 mr-1" />
+                                            Re-run
+                                          </Button>
+                                        </TooltipTrigger>
+                                        {(!run.params || hasRunningRun) && (
+                                          <TooltipContent>
+                                            {!run.params
+                                              ? 'Cannot re-run: parameters not available'
+                                              : 'Cannot re-run: another Unity action is currently running'}
+                                          </TooltipContent>
+                                        )}
+                                      </Tooltip>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs text-destructive hover:text-destructive"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteRun(run.id);
+                                        }}
+                                      >
+                                        <XCircle className="h-3 w-3 mr-1" />
+                                        {t('history.deleteRun')}
+                                      </Button>
+                                    </>
                                   )}
                                 </div>
 

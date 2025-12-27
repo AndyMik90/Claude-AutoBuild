@@ -135,6 +135,16 @@ export const unityMock: UnityAPI = {
     data: { pipelines: [] }
   }),
 
+  deleteUnityRun: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  clearUnityRuns: async () => ({
+    success: true,
+    data: undefined
+  }),
+
   // File operations
   openPath: async (path: string) => {
     console.warn('[Browser Mock] openPath:', path);
