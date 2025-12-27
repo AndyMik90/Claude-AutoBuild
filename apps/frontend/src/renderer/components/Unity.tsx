@@ -22,7 +22,14 @@ import {
   Plus,
   Trash2,
   Edit2,
-  FastForward
+  FastForward,
+  Stethoscope,
+  Wrench,
+  Package,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Download
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
@@ -53,7 +60,11 @@ import type {
   UnityProfileSettings,
   UnityPipelineRun,
   PipelineStep,
-  PipelineStepType
+  PipelineStepType,
+  UnityDoctorCheck,
+  UnityDoctorReport,
+  UnityTweakParams,
+  UnityPackageInfo
 } from '../../preload/api/unity-api';
 
 interface UnityProps {
@@ -73,7 +84,7 @@ interface UnityEditorInfo {
 
 interface UnityRun {
   id: string;
-  action: 'editmode-tests' | 'playmode-tests' | 'build';
+  action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install';
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
@@ -89,6 +100,10 @@ interface UnityRun {
     testPlatform?: string;
     buildTarget?: string;
     testFilter?: string;
+    tweakAction?: string;
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
   };
   artifactPaths: {
     runDir: string;
@@ -97,6 +112,9 @@ interface UnityRun {
     stdout?: string;
     stderr?: string;
     errorDigest?: string;
+    preBackupDir?: string;
+    postBackupDir?: string;
+    diffFile?: string;
   };
   testsSummary?: {
     passed: number;
@@ -107,6 +125,12 @@ interface UnityRun {
   errorSummary?: {
     errorCount: number;
     firstErrorLine?: string;
+  };
+  tweakSummary?: {
+    action: string;
+    description: string;
+    changedFiles: string[];
+    backupCreated: boolean;
   };
   canceledReason?: string;
 }
@@ -160,6 +184,22 @@ export function Unity({ projectId }: UnityProps) {
   // M2: PlayMode parameters
   const [playModeBuildTarget, setPlayModeBuildTarget] = useState<string>('');
   const [playModeTestFilter, setPlayModeTestFilter] = useState<string>('');
+
+  // M3: Unity Doctor state
+  const [doctorReport, setDoctorReport] = useState<UnityDoctorReport | null>(null);
+  const [isDoctorRunning, setIsDoctorRunning] = useState(false);
+  const [bridgeInstalled, setBridgeInstalled] = useState(false);
+  const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+
+  // M3: Project Tweaks state
+  const [tweakTargetGroup, setTweakTargetGroup] = useState('Standalone');
+  const [defineSymbol, setDefineSymbol] = useState('');
+  const [scriptingBackend, setScriptingBackend] = useState('Mono');
+  const [tweakBuildTarget, setTweakBuildTarget] = useState('StandaloneWindows64');
+
+  // M3: UPM state
+  const [packages, setPackages] = useState<UnityPackageInfo[]>([]);
+  const [isLoadingPackages, setIsLoadingPackages] = useState(false);
 
   // Get the effective editor path based on project version
   const effectiveEditorPath = useMemo(() => {
