@@ -505,13 +505,11 @@ class CLIToolManager {
    */
   private validateGit(gitCmd: string): ToolValidation {
     try {
-      const version = execSync(`${gitCmd} --version`, {
-        stdio: 'pipe',
+      const version = execFileSync(gitCmd, ['--version'], {
+        encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
-      })
-        .toString()
-        .trim();
+      }).trim();
 
       const match = version.match(/git version (\d+\.\d+\.\d+)/);
       const versionStr = match ? match[1] : version;
@@ -524,7 +522,7 @@ class CLIToolManager {
     } catch (error) {
       return {
         valid: false,
-        message: `Failed to validate Git: ${error}`,
+        message: `Failed to validate Git: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

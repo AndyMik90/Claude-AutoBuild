@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { getToolPath } from './cli-tool-manager';
 
 /**
@@ -36,7 +36,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
 
   try {
     // Check if it's a git repository
-    execSync(`${git} rev-parse --git-dir`, {
+    execFileSync(git, ['rev-parse', '--git-dir'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -53,7 +53,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Check if there are any commits
   let hasCommits = false;
   try {
-    execSync(`${git} rev-parse HEAD`, {
+    execFileSync(git, ['rev-parse', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -67,7 +67,7 @@ export function checkGitStatus(projectPath: string): GitStatus {
   // Get current branch
   let currentBranch: string | null = null;
   try {
-    currentBranch = execSync(`${git} rev-parse --abbrev-ref HEAD`, {
+    currentBranch = execFileSync(git, ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -107,7 +107,7 @@ export function initializeGit(projectPath: string): InitializationResult {
     // Step 1: Initialize git if needed
     if (!status.isGitRepo) {
       debug('Initializing git repository');
-      execSync(`${git} init`, {
+      execFileSync(git, ['init'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -115,7 +115,7 @@ export function initializeGit(projectPath: string): InitializationResult {
     }
 
     // Step 2: Check if there are files to commit
-    const statusOutput = execSync(`${git} status --porcelain`, {
+    const statusOutput = execFileSync(git, ['status', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -126,14 +126,14 @@ export function initializeGit(projectPath: string): InitializationResult {
       debug('Adding files and creating initial commit');
 
       // Add all files
-      execSync(`${git} add -A`, {
+      execFileSync(git, ['add', '-A'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
       // Create initial commit
-      execSync(`${git} commit -m "Initial commit" --allow-empty`, {
+      execFileSync(git, ['commit', '-m', 'Initial commit', '--allow-empty'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']

@@ -3,7 +3,7 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import type { Project } from '../../../shared/types';
 import { parseEnvFile } from '../utils';

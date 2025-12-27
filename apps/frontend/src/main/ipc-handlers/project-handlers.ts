@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {

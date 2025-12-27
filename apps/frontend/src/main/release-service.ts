@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import path from 'path';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
-import { execSync, execFileSync, spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import type {
   ReleaseableVersion,
   ReleasePreflightStatus,
@@ -130,7 +130,7 @@ export class ReleaseService extends EventEmitter {
     const git = getToolPath('git');
     try {
       // Check local tags
-      const localTags = execSync(`${git} tag -l "${tagName}"`, {
+      const localTags = execFileSync(git, ['tag', '-l', tagName], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -139,7 +139,7 @@ export class ReleaseService extends EventEmitter {
 
       // Check remote tags
       try {
-        const remoteTags = execSync(`${git} ls-remote --tags origin refs/tags/${tagName}`, {
+        const remoteTags = execFileSync(git, ['ls-remote', '--tags', 'origin', `refs/tags/${tagName}`], {
           cwd: projectPath,
           encoding: 'utf-8'
         }).trim();
@@ -159,7 +159,7 @@ export class ReleaseService extends EventEmitter {
   private getGitHubReleaseUrl(projectPath: string, tagName: string): string | undefined {
     const gh = getToolPath('gh');
     try {
-      const result = execSync(`${gh} release view ${tagName} --json url -q .url 2>/dev/null`, {
+      const result = execFileSync(gh, ['release', 'view', tagName, '--json', 'url', '-q', '.url'], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -426,17 +426,27 @@ export class ReleaseService extends EventEmitter {
       }).trim();
 
       // Get the main branch
-      const mainBranch = execSync(
-        'git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main',
-        { cwd: projectPath, encoding: 'utf-8' }
-      ).trim().replace('origin/', '');
+      let mainBranch = 'main';
+      try {
+        mainBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'origin/HEAD'], {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim().replace('origin/', '');
+      } catch {
+        mainBranch = 'main';
+      }
 
       // Check if worktree branch is fully merged into main
       // This returns empty if all commits are merged
-      const unmergedCommits = execSync(
-        `git log ${mainBranch}..${worktreeBranch} --oneline 2>/dev/null || echo "error"`,
-        { cwd: projectPath, encoding: 'utf-8' }
-      ).trim();
+      let unmergedCommits = 'error';
+      try {
+        unmergedCommits = execFileSync(getToolPath('git'), ['log', `${mainBranch}..${worktreeBranch}`, '--oneline'], {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim();
+      } catch {
+        unmergedCommits = 'error';
+      }
 
       // If empty or error checking, assume merged for safety
       if (unmergedCommits === 'error') {

@@ -1,6 +1,6 @@
 import { ipcMain, dialog, app, shell } from 'electron';
 import { existsSync, writeFileSync, mkdirSync } from 'fs';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
