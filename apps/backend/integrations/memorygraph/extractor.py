@@ -7,7 +7,6 @@ Uses simple pattern matching and heuristics.
 """
 
 import re
-from typing import Optional
 
 
 class InsightExtractor:
@@ -207,7 +206,7 @@ class InsightExtractor:
             if re.search(pattern, text_lower):
                 tags.add(tag_name)
 
-        return sorted(list(tags))
+        return sorted(tags)
 
     def _infer_patterns_from_successes(self, successes: list[str]) -> list[dict]:
         """

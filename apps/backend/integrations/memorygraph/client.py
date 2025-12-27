@@ -10,7 +10,6 @@ import asyncio
 import json
 import logging
 import re
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class MemoryGraphClient:
     # Default timeout for MCP calls (seconds)
     DEFAULT_TIMEOUT = 10.0
 
-    def __init__(self, timeout: Optional[float] = None):
+    def __init__(self, timeout: float | None = None):
         """Initialize the client.
 
         Args:
@@ -43,7 +42,7 @@ class MemoryGraphClient:
         self._request_id += 1
         return self._request_id
 
-    def _parse_mcp_content(self, result: Optional[dict]) -> list[dict]:
+    def _parse_mcp_content(self, result: dict | None) -> list[dict]:
         """
         Parse MCP response content into list of memory dicts.
 
@@ -157,7 +156,7 @@ class MemoryGraphClient:
 
         return memories
 
-    async def _call_tool(self, tool_name: str, arguments: dict) -> Optional[dict]:
+    async def _call_tool(self, tool_name: str, arguments: dict) -> dict | None:
         """
         Call an MCP tool via the MemoryGraph server.
 
@@ -257,9 +256,9 @@ class MemoryGraphClient:
         memory_type: str,
         title: str,
         content: str,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         importance: float = 0.7
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Call store_memory MCP tool.
 
@@ -325,7 +324,7 @@ class MemoryGraphClient:
     async def get_related(
         self,
         memory_id: str,
-        types: Optional[list[str]] = None
+        types: list[str] | None = None
     ) -> list[dict]:
         """
         Call get_related_memories MCP tool.

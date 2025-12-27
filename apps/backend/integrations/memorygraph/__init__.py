@@ -6,9 +6,9 @@ Integration with MemoryGraph MCP server for invisible memory layer.
 """
 
 from .config import (
-    is_memorygraph_enabled,
+    MemoryGraphConfig,
     get_memorygraph_config,
-    MemoryGraphConfig
+    is_memorygraph_enabled,
 )
 
 __all__ = [
