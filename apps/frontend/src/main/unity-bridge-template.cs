@@ -48,14 +48,14 @@ namespace Squido.JungleXRKit.Assistant.UnityBridge
 
                 if (string.IsNullOrEmpty(targetGroup))
                 {
-                    LogError("Missing required argument: -aiideTargetGroup");
+                    LogError("Missing required argument: -jaTargetGroup");
                     EditorApplication.Exit(1);
                     return;
                 }
 
                 if (string.IsNullOrEmpty(symbol))
                 {
-                    LogError("Missing required argument: -aiideDefine");
+                    LogError("Missing required argument: -jaDefine");
                     EditorApplication.Exit(1);
                     return;
                 }
