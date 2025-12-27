@@ -115,13 +115,45 @@ export function registerTemplateHandlers(): void {
   // Save new template
   ipcMain.handle(
     IPC_CHANNELS.TEMPLATES_SAVE,
-    async (_, template: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<Template>> => {
+    async (_, template: Omit<Template, 'id' | 'version' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<Template>> => {
       try {
+        // Security: Validate template name
+        if (!template.name || typeof template.name !== 'string') {
+          return { success: false, error: 'Template name is required' };
+        }
+        if (template.name.length === 0 || template.name.length > 255) {
+          return { success: false, error: 'Template name must be between 1 and 255 characters' };
+        }
+
+        // Security: Validate template folderPath
+        if (!template.folderPath || typeof template.folderPath !== 'string') {
+          return { success: false, error: 'Template folder path is required' };
+        }
+        if (template.folderPath.length === 0 || template.folderPath.length > 1024) {
+          return { success: false, error: 'Template folder path must be between 1 and 1024 characters' };
+        }
+
+        // Security: Validate folder exists
+        if (!existsSync(template.folderPath)) {
+          return { success: false, error: 'Template folder path does not exist' };
+        }
+
+        // Security: Validate imagePath if provided
+        if (template.imagePath !== undefined) {
+          if (typeof template.imagePath !== 'string') {
+            return { success: false, error: 'Template image path must be a string' };
+          }
+          if (template.imagePath.length > 1024) {
+            return { success: false, error: 'Template image path must not exceed 1024 characters' };
+          }
+        }
+
         const store = readTemplatesFile();
         const now = Date.now();
         const newTemplate: Template = {
           ...template,
           id: uuidv4(),
+          version: 1, // Initialize version for optimistic locking
           createdAt: now,
           updatedAt: now
         };
@@ -164,11 +196,55 @@ export function registerTemplateHandlers(): void {
     }
   );
 
-  // Update template
+  // Update template with optimistic locking
   ipcMain.handle(
     IPC_CHANNELS.TEMPLATES_UPDATE,
-    async (_, templateId: string, updates: Partial<Omit<Template, 'id' | 'createdAt' | 'updatedAt'>>): Promise<IPCResult<Template>> => {
+    async (
+      _,
+      templateId: string,
+      updates: Partial<Omit<Template, 'id' | 'version' | 'createdAt' | 'updatedAt'>>,
+      expectedVersion: number
+    ): Promise<IPCResult<Template>> => {
       try {
+        // Security: Validate templateId
+        if (!templateId || typeof templateId !== 'string') {
+          return { success: false, error: 'Template ID is required' };
+        }
+
+        // Security: Validate expectedVersion
+        if (typeof expectedVersion !== 'number' || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+          return { success: false, error: 'Expected version must be a positive integer' };
+        }
+
+        // Security: Validate updates object
+        if (!updates || typeof updates !== 'object') {
+          return { success: false, error: 'Updates must be an object' };
+        }
+
+        // Security: Validate name if provided
+        if (updates.name !== undefined) {
+          if (typeof updates.name !== 'string' || updates.name.length === 0 || updates.name.length > 255) {
+            return { success: false, error: 'Template name must be between 1 and 255 characters' };
+          }
+        }
+
+        // Security: Validate folderPath if provided
+        if (updates.folderPath !== undefined) {
+          if (typeof updates.folderPath !== 'string' || updates.folderPath.length === 0 || updates.folderPath.length > 1024) {
+            return { success: false, error: 'Template folder path must be between 1 and 1024 characters' };
+          }
+          if (!existsSync(updates.folderPath)) {
+            return { success: false, error: 'Template folder path does not exist' };
+          }
+        }
+
+        // Security: Validate imagePath if provided
+        if (updates.imagePath !== undefined) {
+          if (typeof updates.imagePath !== 'string' || updates.imagePath.length > 1024) {
+            return { success: false, error: 'Template image path must not exceed 1024 characters' };
+          }
+        }
+
         const store = readTemplatesFile();
         const template = store.templates.find(t => t.id === templateId);
 
@@ -176,7 +252,19 @@ export function registerTemplateHandlers(): void {
           return { success: false, error: 'Template not found' };
         }
 
+        // Optimistic locking: Check version to detect concurrent modifications
+        if (template.version !== expectedVersion) {
+          return {
+            success: false,
+            error: `Template has been modified by another process. Expected version ${expectedVersion}, but current version is ${template.version}. Please reload and try again.`
+          };
+        }
+
+        // Apply updates
         Object.assign(template, updates);
+
+        // Increment version and update timestamp
+        template.version += 1;
         template.updatedAt = Date.now();
 
         writeTemplatesFile(store);
@@ -214,15 +302,30 @@ export function registerTemplateHandlers(): void {
         const templateFolderName = sanitizeName(path.basename(template.folderPath));
         const targetPath = path.join(validatedDestPath, templateFolderName);
 
-        // Check if target already exists
-        if (existsSync(targetPath)) {
-          return { success: false, error: `A folder named "${templateFolderName}" already exists at the destination` };
+        // Security: Atomic directory creation to prevent TOCTOU race
+        // Try to create the directory first - if it fails with EEXIST, the folder already exists
+        try {
+          mkdirSync(targetPath, { recursive: false });
+        } catch (err: any) {
+          if (err.code === 'EEXIST') {
+            return { success: false, error: `A folder named "${templateFolderName}" already exists at the destination` };
+          }
+          throw err; // Re-throw other errors
         }
 
-        // Copy the template folder recursively
-        cpSync(template.folderPath, targetPath, { recursive: true });
-
-        return { success: true, data: { path: targetPath } };
+        try {
+          // Copy the template folder contents into the newly created directory
+          cpSync(template.folderPath, targetPath, { recursive: true });
+          return { success: true, data: { path: targetPath } };
+        } catch (copyErr: any) {
+          // If copy fails, try to clean up the created directory
+          try {
+            require('fs').rmSync(targetPath, { recursive: true, force: true });
+          } catch (cleanupErr) {
+            // Ignore cleanup errors
+          }
+          throw copyErr; // Re-throw the original copy error
+        }
       } catch (error) {
         return {
           success: false,
@@ -255,15 +358,30 @@ export function registerTemplateHandlers(): void {
         // Use the sanitized custom name for the target folder
         const targetPath = path.join(validatedDestPath, sanitizedName);
 
-        // Check if target already exists
-        if (existsSync(targetPath)) {
-          return { success: false, error: `A folder named "${sanitizedName}" already exists at the destination` };
+        // Security: Atomic directory creation to prevent TOCTOU race
+        // Try to create the directory first - if it fails with EEXIST, the folder already exists
+        try {
+          mkdirSync(targetPath, { recursive: false });
+        } catch (err: any) {
+          if (err.code === 'EEXIST') {
+            return { success: false, error: `A folder named "${sanitizedName}" already exists at the destination` };
+          }
+          throw err; // Re-throw other errors
         }
 
-        // Copy the template folder recursively
-        cpSync(template.folderPath, targetPath, { recursive: true });
-
-        return { success: true, data: { path: targetPath } };
+        try {
+          // Copy the template folder contents into the newly created directory
+          cpSync(template.folderPath, targetPath, { recursive: true });
+          return { success: true, data: { path: targetPath } };
+        } catch (copyErr: any) {
+          // If copy fails, try to clean up the created directory
+          try {
+            require('fs').rmSync(targetPath, { recursive: true, force: true });
+          } catch (cleanupErr) {
+            // Ignore cleanup errors
+          }
+          throw copyErr; // Re-throw the original copy error
+        }
       } catch (error) {
         return {
           success: false,
@@ -337,42 +455,100 @@ export function registerTemplateHandlers(): void {
         const validatedDestPath = validateDestinationPath(destinationPath);
         const sanitizedName = sanitizeName(customName);
 
+        // Security: Validate parameterValues to prevent DoS attacks
+        if (!parameterValues || typeof parameterValues !== 'object' || Array.isArray(parameterValues)) {
+          return { success: false, error: 'Parameter values must be a string-to-string object' };
+        }
+
+        const keys = Object.keys(parameterValues);
+
+        // Validate number of parameters
+        if (keys.length > 100) {
+          return { success: false, error: 'Too many parameters: maximum 100 allowed' };
+        }
+
+        // Validate each parameter key and value
+        let totalPayloadSize = 0;
+        for (const key of keys) {
+          const value = parameterValues[key];
+
+          // Ensure value is a string
+          if (typeof value !== 'string') {
+            return { success: false, error: `Parameter value for "${key}" must be a string` };
+          }
+
+          // Validate key length
+          if (key.length > 100) {
+            return { success: false, error: `Parameter key "${key}" exceeds maximum length of 100 characters` };
+          }
+
+          // Validate value length
+          if (value.length > 10000) {
+            return { success: false, error: `Parameter value for "${key}" exceeds maximum length of 10,000 characters` };
+          }
+
+          // Track total payload size
+          totalPayloadSize += key.length + value.length;
+        }
+
+        // Validate total payload size to prevent memory exhaustion
+        if (totalPayloadSize > 1000000) {
+          return { success: false, error: `Total parameter payload size exceeds maximum of 1,000,000 bytes` };
+        }
+
         const targetPath = path.join(validatedDestPath, sanitizedName);
 
-        if (existsSync(targetPath)) {
-          return { success: false, error: `A folder named "${sanitizedName}" already exists at the destination` };
-        }
-
-        // First, copy the template folder recursively
-        cpSync(template.folderPath, targetPath, { recursive: true });
-
-        // Parse parameters to get file paths and placeholders
-        const parsed = parseTemplateDirectory(template.folderPath);
-
-        // Create replacement map (placeholder -> value)
-        const replacements = new Map<string, string>();
-        for (const param of parsed.parameters) {
-          const value = parameterValues[param.key];
-          if (value !== undefined && param.placeholder) {
-            replacements.set(param.placeholder, value);
+        // Security: Atomic directory creation to prevent TOCTOU race
+        // Try to create the directory first - if it fails with EEXIST, the folder already exists
+        try {
+          mkdirSync(targetPath, { recursive: false });
+        } catch (err: any) {
+          if (err.code === 'EEXIST') {
+            return { success: false, error: `A folder named "${sanitizedName}" already exists at the destination` };
           }
+          throw err; // Re-throw other errors
         }
 
-        // Replace parameters in copied files
-        const filesProcessed = new Set<string>();
-        for (const param of parsed.parameters) {
-          const relativePath = path.relative(template.folderPath, param.filePath);
-          const targetFilePath = path.join(targetPath, relativePath);
+        try {
+          // Copy the template folder recursively into the newly created directory
+          cpSync(template.folderPath, targetPath, { recursive: true });
 
-          // Only process each file once
-          if (!filesProcessed.has(targetFilePath)) {
-            filesProcessed.add(targetFilePath);
-            const newContent = replaceTemplateParameters(targetFilePath, replacements);
-            writeFileSync(targetFilePath, newContent, 'utf-8');
+          // Parse parameters to get file paths and placeholders
+          const parsed = parseTemplateDirectory(template.folderPath);
+
+          // Create replacement map (placeholder -> value)
+          const replacements = new Map<string, string>();
+          for (const param of parsed.parameters) {
+            const value = parameterValues[param.key];
+            if (value !== undefined && param.placeholder) {
+              replacements.set(param.placeholder, value);
+            }
           }
-        }
 
-        return { success: true, data: { path: targetPath } };
+          // Replace parameters in copied files
+          const filesProcessed = new Set<string>();
+          for (const param of parsed.parameters) {
+            const relativePath = path.relative(template.folderPath, param.filePath);
+            const targetFilePath = path.join(targetPath, relativePath);
+
+            // Only process each file once
+            if (!filesProcessed.has(targetFilePath)) {
+              filesProcessed.add(targetFilePath);
+              const newContent = replaceTemplateParameters(targetFilePath, replacements);
+              writeFileSync(targetFilePath, newContent, 'utf-8');
+            }
+          }
+
+          return { success: true, data: { path: targetPath } };
+        } catch (copyErr: any) {
+          // If copy or parameter replacement fails, try to clean up the created directory
+          try {
+            require('fs').rmSync(targetPath, { recursive: true, force: true });
+          } catch (cleanupErr) {
+            // Ignore cleanup errors
+          }
+          throw copyErr; // Re-throw the original error
+        }
       } catch (error) {
         return {
           success: false,

@@ -31,12 +31,15 @@ const validateStringLength = (value: string, fieldName: string, maxLength: numbe
 };
 
 /**
- * Security: Validate object size to prevent DoS attacks
+ * Security: Validate object/array size to prevent DoS attacks
+ * Handles both objects (by key count) and arrays (by length)
  */
-const validateObjectSize = (obj: Record<string, any>, fieldName: string, maxKeys: number = 100): void => {
-  const keyCount = Object.keys(obj).length;
-  if (keyCount > maxKeys) {
-    throw new Error(`${fieldName} exceeds maximum of ${maxKeys} keys`);
+const validateObjectSize = (obj: Record<string, any> | unknown[], fieldName: string, maxItems: number = 100): void => {
+  const itemCount = Array.isArray(obj) ? obj.length : Object.keys(obj).length;
+  const itemType = Array.isArray(obj) ? 'items' : 'keys';
+
+  if (itemCount > maxItems) {
+    throw new Error(`${fieldName} exceeds maximum of ${maxItems} ${itemType}`);
   }
 };
 
