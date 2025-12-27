@@ -9,6 +9,7 @@ import type { Project } from '../../../shared/types';
 import { parseEnvFile } from '../utils';
 import type { GitHubConfig } from './types';
 import { getAugmentedEnv } from '../../env-utils';
+import { getToolPath } from '../../cli-tool-manager';
 
 /**
  * Get GitHub token from gh CLI if available
@@ -16,7 +17,7 @@ import { getAugmentedEnv } from '../../env-utils';
  */
 function getTokenFromGhCli(): string | null {
   try {
-    const token = execSync('gh auth token', {
+    const token = execSync(`${getToolPath('gh')} auth token`, {
       encoding: 'utf-8',
       stdio: 'pipe',
       env: getAugmentedEnv()

@@ -23,6 +23,7 @@ import {
 import { PythonEnvManager, type PythonEnvStatus } from '../python-env-manager';
 import { AgentManager } from '../agent';
 import { changelogService } from '../changelog-service';
+import { getToolPath } from '../cli-tool-manager';
 import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
@@ -37,7 +38,7 @@ import { getEffectiveSourcePath } from '../updater/path-resolver';
  */
 function getGitBranches(projectPath: string): string[] {
   try {
-    const result = execSync('git branch --list --format="%(refname:short)"', {
+    const result = execSync(`${getToolPath('git')} branch --list --format="%(refname:short)"`, {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -53,7 +54,7 @@ function getGitBranches(projectPath: string): string[] {
  */
 function getCurrentGitBranch(projectPath: string): string | null {
   try {
-    const result = execSync('git rev-parse --abbrev-ref HEAD', {
+    const result = execSync(`${getToolPath('git')} rev-parse --abbrev-ref HEAD`, {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -82,7 +83,7 @@ function detectMainBranch(projectPath: string): string | null {
 
   // If none of the common names found, check for origin/HEAD reference
   try {
-    const result = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
+    const result = execSync(`${getToolPath('git')} symbolic-ref refs/remotes/origin/HEAD`, {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']

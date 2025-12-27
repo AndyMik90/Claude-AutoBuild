@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useEffect, useState } from 'react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -13,6 +14,7 @@ import {
   FEATURE_LABELS
 } from '../../../shared/constants';
 import type { AppSettings, FeatureModelConfig, FeatureThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types';
+import type { ToolDetectionResult } from '../../../main/cli-tool-manager';
 
 interface GeneralSettingsProps {
   settings: AppSettings;
@@ -21,10 +23,80 @@ interface GeneralSettingsProps {
 }
 
 /**
+ * Helper component to display auto-detected CLI tool information
+ */
+interface ToolDetectionDisplayProps {
+  info: ToolDetectionResult | null;
+  t: (key: string) => string;
+}
+
+function ToolDetectionDisplay({ info, t }: ToolDetectionDisplayProps) {
+  if (!info || !info.found) {
+    return (
+      <div className="text-xs text-muted-foreground mt-1">
+        {t('general.notDetected')}
+      </div>
+    );
+  }
+
+  const getSourceLabel = (source: ToolDetectionResult['source']): string => {
+    const sourceMap: Record<ToolDetectionResult['source'], string> = {
+      'user-config': t('general.sourceUserConfig'),
+      'venv': t('general.sourceVenv'),
+      'homebrew': t('general.sourceHomebrew'),
+      'system-path': t('general.sourceSystemPath'),
+      'bundled': t('general.sourceBundled'),
+      'fallback': t('general.sourceFallback'),
+    };
+    return sourceMap[source] || source;
+  };
+
+  return (
+    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+      <div>
+        <span className="font-medium">{t('general.detectedPath')}:</span>{' '}
+        <code className="bg-muted px-1 py-0.5 rounded">{info.path}</code>
+      </div>
+      {info.version && (
+        <div>
+          <span className="font-medium">{t('general.detectedVersion')}:</span>{' '}
+          {info.version}
+        </div>
+      )}
+      <div>
+        <span className="font-medium">{t('general.detectedSource')}:</span>{' '}
+        {getSourceLabel(info.source)}
+      </div>
+    </div>
+  );
+}
+
+/**
  * General settings component for agent configuration and paths
  */
 export function GeneralSettings({ settings, onSettingsChange, section }: GeneralSettingsProps) {
   const { t } = useTranslation('settings');
+  const [toolsInfo, setToolsInfo] = useState<{
+    python: ToolDetectionResult;
+    git: ToolDetectionResult;
+    gh: ToolDetectionResult;
+  } | null>(null);
+
+  // Fetch CLI tools detection info when component mounts (paths section only)
+  useEffect(() => {
+    if (section === 'paths') {
+      window.electronAPI
+        .getCliToolsInfo()
+        .then((result) => {
+          if (result.success && result.data) {
+            setToolsInfo(result.data);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch CLI tools info:', error);
+        });
+    }
+  }, [section]);
 
   if (section === 'agent') {
     return (
@@ -167,6 +239,37 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             value={settings.pythonPath || ''}
             onChange={(e) => onSettingsChange({ ...settings, pythonPath: e.target.value })}
           />
+          {!settings.pythonPath && toolsInfo && (
+            <ToolDetectionDisplay info={toolsInfo.python} t={t} />
+          )}
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="gitPath" className="text-sm font-medium text-foreground">{t('general.gitPath')}</Label>
+          <p className="text-sm text-muted-foreground">{t('general.gitPathDescription')}</p>
+          <Input
+            id="gitPath"
+            placeholder={t('general.gitPathPlaceholder')}
+            className="w-full max-w-lg"
+            value={settings.gitPath || ''}
+            onChange={(e) => onSettingsChange({ ...settings, gitPath: e.target.value })}
+          />
+          {!settings.gitPath && toolsInfo && (
+            <ToolDetectionDisplay info={toolsInfo.git} t={t} />
+          )}
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="githubCLIPath" className="text-sm font-medium text-foreground">{t('general.githubCLIPath')}</Label>
+          <p className="text-sm text-muted-foreground">{t('general.githubCLIPathDescription')}</p>
+          <Input
+            id="githubCLIPath"
+            placeholder={t('general.githubCLIPathPlaceholder')}
+            className="w-full max-w-lg"
+            value={settings.githubCLIPath || ''}
+            onChange={(e) => onSettingsChange({ ...settings, githubCLIPath: e.target.value })}
+          />
+          {!settings.githubCLIPath && toolsInfo && (
+            <ToolDetectionDisplay info={toolsInfo.gh} t={t} />
+          )}
         </div>
         <div className="space-y-3">
           <Label htmlFor="autoBuildPath" className="text-sm font-medium text-foreground">{t('general.autoClaudePath')}</Label>

@@ -11,6 +11,7 @@ import type { IPCResult, GitCommit, VersionSuggestion } from '../../../shared/ty
 import { projectStore } from '../../project-store';
 import { changelogService } from '../../changelog-service';
 import type { ReleaseOptions } from './types';
+import { getToolPath } from '../../cli-tool-manager';
 
 /**
  * Check if gh CLI is installed
@@ -33,7 +34,7 @@ function checkGhCli(): { installed: boolean; error?: string } {
  */
 function checkGhAuth(projectPath: string): { authenticated: boolean; error?: string } {
   try {
-    execSync('gh auth status', { cwd: projectPath, encoding: 'utf-8', stdio: 'pipe' });
+    execSync(`${getToolPath('gh')} auth status`, { cwd: projectPath, encoding: 'utf-8', stdio: 'pipe' });
     return { authenticated: true };
   } catch {
     return {
@@ -126,7 +127,7 @@ export function registerCreateRelease(): void {
  */
 function getLatestTag(projectPath: string): string | null {
   try {
-    const tag = execSync('git describe --tags --abbrev=0 2>/dev/null || echo ""', {
+    const tag = execSync(`${getToolPath('git')} describe --tags --abbrev=0 2>/dev/null || echo ""`, {
       cwd: projectPath,
       encoding: 'utf-8'
     }).trim();
@@ -143,7 +144,7 @@ function getCommitsSinceTag(projectPath: string, tag: string | null): GitCommit[
   try {
     const range = tag ? `${tag}..HEAD` : 'HEAD';
     const format = '%H|%s|%an|%ae|%aI';
-    const output = execSync(`git log ${range} --pretty=format:"${format}"`, {
+    const output = execSync(`${getToolPath('git')} log ${range} --pretty=format:"${format}"`, {
       cwd: projectPath,
       encoding: 'utf-8'
     }).trim();

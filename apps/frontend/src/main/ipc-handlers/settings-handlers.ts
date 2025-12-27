@@ -13,6 +13,7 @@ import type { BrowserWindow } from 'electron';
 import { getEffectiveVersion } from '../auto-claude-updater';
 import { setUpdateChannel } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
+import { configureTools, getToolPath, getToolInfo } from '../cli-tool-manager';
 
 const settingsPath = getSettingsPath();
 
@@ -128,6 +129,13 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Configure CLI tools with current settings
+      configureTools({
+        pythonPath: settings.pythonPath,
+        gitPath: settings.gitPath,
+        githubCLIPath: settings.githubCLIPath,
+      });
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -147,6 +155,19 @@ export function registerSettingsHandlers(
           agentManager.configure(settings.pythonPath, settings.autoBuildPath);
         }
 
+        // Configure CLI tools if any paths changed
+        if (
+          settings.pythonPath !== undefined ||
+          settings.gitPath !== undefined ||
+          settings.githubCLIPath !== undefined
+        ) {
+          configureTools({
+            pythonPath: newSettings.pythonPath,
+            gitPath: newSettings.gitPath,
+            githubCLIPath: newSettings.githubCLIPath,
+          });
+        }
+
         // Update auto-updater channel if betaUpdates setting changed
         if (settings.betaUpdates !== undefined) {
           const channel = settings.betaUpdates ? 'beta' : 'latest';
@@ -158,6 +179,31 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save settings'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_GET_CLI_TOOLS_INFO,
+    async (): Promise<IPCResult<{
+      python: ReturnType<typeof getToolInfo>;
+      git: ReturnType<typeof getToolInfo>;
+      gh: ReturnType<typeof getToolInfo>;
+    }>> => {
+      try {
+        return {
+          success: true,
+          data: {
+            python: getToolInfo('python'),
+            git: getToolInfo('git'),
+            gh: getToolInfo('gh'),
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get CLI tools info',
         };
       }
     }
@@ -226,7 +272,7 @@ export function registerSettingsHandlers(
         let gitInitialized = false;
         if (initGit) {
           try {
-            execSync('git init', { cwd: projectPath, stdio: 'ignore' });
+            execSync(`${getToolPath('git')} init`, { cwd: projectPath, stdio: 'ignore' });
             gitInitialized = true;
           } catch {
             // Git init failed, but folder was created - continue without git

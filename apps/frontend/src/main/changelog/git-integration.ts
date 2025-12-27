@@ -7,6 +7,7 @@ import type {
   BranchDiffOptions
 } from '../../shared/types';
 import { parseGitLogOutput } from './parser';
+import { getToolPath } from '../cli-tool-manager';
 
 /**
  * Debug logging helper
@@ -25,7 +26,7 @@ export function getBranches(projectPath: string, debugEnabled = false): GitBranc
     // Get current branch
     let currentBranch = '';
     try {
-      currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      currentBranch = execSync(`${getToolPath('git')} rev-parse --abbrev-ref HEAD`, {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -34,7 +35,7 @@ export function getBranches(projectPath: string, debugEnabled = false): GitBranc
     }
 
     // Get all branches (local and remote)
-    const output = execSync('git branch -a --format="%(refname:short)|%(HEAD)"', {
+    const output = execSync(`${getToolPath('git')} branch -a --format="%(refname:short)|%(HEAD)"`, {
       cwd: projectPath,
       encoding: 'utf-8'
     });
@@ -125,7 +126,7 @@ export function getTags(projectPath: string, debugEnabled = false): GitTagInfo[]
  */
 export function getCurrentBranch(projectPath: string): string {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', {
+    return execSync(`${getToolPath('git')} rev-parse --abbrev-ref HEAD`, {
       cwd: projectPath,
       encoding: 'utf-8'
     }).trim();
@@ -140,7 +141,7 @@ export function getCurrentBranch(projectPath: string): string {
 export function getDefaultBranch(projectPath: string): string {
   try {
     // Try to get from origin/HEAD
-    const result = execSync('git rev-parse --abbrev-ref origin/HEAD', {
+    const result = execSync(`${getToolPath('git')} rev-parse --abbrev-ref origin/HEAD`, {
       cwd: projectPath,
       encoding: 'utf-8'
     }).trim();
@@ -148,14 +149,14 @@ export function getDefaultBranch(projectPath: string): string {
   } catch {
     // Fallback: check if main or master exists
     try {
-      execSync('git rev-parse --verify main', {
+      execSync(`${getToolPath('git')} rev-parse --verify main`, {
         cwd: projectPath,
         encoding: 'utf-8'
       });
       return 'main';
     } catch {
       try {
-        execSync('git rev-parse --verify master', {
+        execSync(`${getToolPath('git')} rev-parse --verify master`, {
           cwd: projectPath,
           encoding: 'utf-8'
         });
