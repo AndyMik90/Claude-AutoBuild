@@ -250,7 +250,17 @@ export async function isUnityBridgeInstalled(projectPath: string): Promise<boole
     'Squido.JungleXRKit.Assistant.UnityBridge',
     'JungleAssistantUnityBridge.cs'
   );
-  return await fs.pathExists(bridgePath);
+  try {
+    const exists = await fs.pathExists(bridgePath);
+    if (!exists) {
+      return false;
+    }
+    const stats = await fs.stat(bridgePath);
+    return stats.isFile();
+  } catch {
+    // If we cannot determine the file type, treat the bridge as not installed
+    return false;
+  }
 }
 
 /**
