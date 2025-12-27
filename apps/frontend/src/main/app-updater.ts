@@ -200,11 +200,11 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
 
     const currentVersion = autoUpdater.currentVersion.version;
     const latestVersion = result.updateInfo.version;
-    
+
     // Use proper semver comparison to detect if update is actually newer
     // This prevents offering downgrades (e.g., v2.7.1 when on v2.7.2-beta.6)
     const isNewer = compareVersions(latestVersion, currentVersion) > 0;
-    
+
     console.warn(`[app-updater] Version comparison: ${latestVersion} vs ${currentVersion} -> ${isNewer ? 'UPDATE' : 'NO UPDATE'}`);
 
     if (!isNewer) {

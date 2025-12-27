@@ -4,7 +4,7 @@
 
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
-[![Version](https://img.shields.io/badge/version-2.7.2-beta.10-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/latest)
+[![Version](https://img.shields.io/badge/version-2.7.2--beta.10-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/latest)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)

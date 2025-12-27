@@ -111,7 +111,7 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
     exit 1
   fi
   cd ../..
-  
+
   echo "Backend checks passed!"
 fi
 
@@ -123,10 +123,10 @@ fi
 if git diff --cached --name-only | grep -q "^apps/frontend/"; then
   echo "Frontend changes detected, running frontend checks..."
   cd apps/frontend
-  
+
   # Run lint-staged (handles staged .ts/.tsx files)
   npm exec lint-staged
-  
+
   # Run TypeScript type check
   echo "Running type check..."
   npm run typecheck
@@ -134,7 +134,7 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
     echo "Type check failed. Please fix TypeScript errors before committing."
     exit 1
   fi
-  
+
   # Run linting
   echo "Running lint..."
   npm run lint
@@ -142,7 +142,7 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
     echo "Lint failed. Run 'npm run lint:fix' to auto-fix issues."
     exit 1
   fi
-  
+
   # Check for vulnerabilities (only high severity)
   echo "Checking for vulnerabilities..."
   npm audit --audit-level=high
@@ -150,7 +150,7 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
     echo "High severity vulnerabilities found. Run 'npm audit fix' to resolve."
     exit 1
   fi
-  
+
   cd ../..
   echo "Frontend checks passed!"
 fi
