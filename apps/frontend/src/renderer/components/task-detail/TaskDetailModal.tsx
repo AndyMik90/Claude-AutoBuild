@@ -307,7 +307,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     variant="ghost"
                     size="icon"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
-                    onClick={() => state.setIsEditDialogOpen(true)}
+                    onClick={() => {
+                      state.setIsEditDialogOpen(true);
+                      // Hide parent modal while edit dialog is open to fix z-index stacking
+                      onOpenChange(false);
+                    }}
                     disabled={state.isRunning && !state.isStuck}
                   >
                     <Pencil className="h-4 w-4" />
@@ -469,7 +473,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       <TaskEditDialog
         task={task}
         open={state.isEditDialogOpen}
-        onOpenChange={state.setIsEditDialogOpen}
+        onOpenChange={(open) => {
+          state.setIsEditDialogOpen(open);
+          // Reopen parent modal when edit dialog closes
+          if (!open) {
+            onOpenChange(true);
+          }
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
