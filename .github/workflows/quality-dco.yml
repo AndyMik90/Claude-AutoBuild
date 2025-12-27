@@ -5,9 +5,9 @@
 
 name: Quality DCO
 
-# on:
-#   pull_request:
-#     branches: [main, develop]
+on:
+  pull_request:
+    branches: [main, develop]
 
 permissions:
   contents: read
