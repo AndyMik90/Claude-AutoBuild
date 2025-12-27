@@ -1,7 +1,7 @@
 """Tests for relationship inference."""
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
 from integrations.memorygraph.relationships import infer_relationships
 
 

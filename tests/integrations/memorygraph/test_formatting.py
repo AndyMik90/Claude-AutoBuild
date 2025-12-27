@@ -1,6 +1,4 @@
 """Tests for context formatting."""
-import pytest
-
 from integrations.memorygraph.formatting import format_context
 
 

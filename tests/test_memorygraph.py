@@ -1,19 +1,21 @@
 """Tests for MemoryGraph integration."""
 import os
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
 
 # Add auto-claude to path
 import sys
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from integrations.memorygraph.config import (
-    is_memorygraph_enabled,
-    get_memorygraph_config,
-    MemoryGraphConfig
-)
 from integrations.memorygraph.client import MemoryGraphClient
+from integrations.memorygraph.config import (
+    MemoryGraphConfig,
+    get_memorygraph_config,
+    is_memorygraph_enabled,
+)
 from integrations.memorygraph.context import get_context_for_subtask
 from integrations.memorygraph.formatting import format_context
 

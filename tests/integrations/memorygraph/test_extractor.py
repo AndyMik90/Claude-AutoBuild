@@ -1,6 +1,4 @@
 """Tests for InsightExtractor."""
-import pytest
-
 from integrations.memorygraph.extractor import InsightExtractor
 
 
@@ -221,7 +219,8 @@ class TestSummarize:
 
         # Should not split on URL dots
         summary = extractor._summarize(text, max_len=100)
-        assert "example.com" in summary
+        # Check that URL is preserved (use full URL to avoid substring sanitization warning)
+        assert "https://example.com/path" in summary
 
 
 class TestExtractTags:

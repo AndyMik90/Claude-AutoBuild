@@ -1,8 +1,8 @@
 """Tests for MemoryGraph MCP client."""
 import json
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from integrations.memorygraph.client import MemoryGraphClient
 
 
