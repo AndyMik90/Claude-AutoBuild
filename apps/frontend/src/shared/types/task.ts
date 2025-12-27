@@ -3,6 +3,7 @@
  */
 
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
+import type { WorktreeSetupResult } from './project';
 
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
 
@@ -248,6 +249,7 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  setupResult?: WorktreeSetupResult;  // Result of worktree setup commands execution
   createdAt: Date;
   updatedAt: Date;
 }

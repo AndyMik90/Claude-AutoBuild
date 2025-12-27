@@ -9,7 +9,8 @@ import type {
   ImplementationPlan,
   TaskMetadata,
   TaskLogs,
-  TaskLogStreamChunk
+  TaskLogStreamChunk,
+  WorktreeSetupResult
 } from '../../shared/types';
 
 export interface TaskAPI {
@@ -60,6 +61,9 @@ export interface TaskAPI {
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress) => void
+  ) => () => void;
+  onTaskSetupResult: (
+    callback: (taskId: string, result: WorktreeSetupResult) => void
   ) => () => void;
 
   // Task Phase Logs
@@ -223,6 +227,22 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
+    };
+  },
+
+  onTaskSetupResult: (
+    callback: (taskId: string, result: WorktreeSetupResult) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      result: WorktreeSetupResult
+    ): void => {
+      callback(taskId, result);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SETUP_RESULT, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SETUP_RESULT, handler);
     };
   },
 

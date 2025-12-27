@@ -63,10 +63,16 @@ export const DEFAULT_PROJECT_SETTINGS = {
     onReviewNeeded: true,
     sound: false
   },
-  // Graphiti MCP server for agent-accessible knowledge graph (enabled by default)
   graphitiMcpEnabled: true,
   graphitiMcpUrl: 'http://localhost:8000/mcp/'
 };
+
+// ============================================
+// Worktree Setup Defaults
+// ============================================
+
+export const DEFAULT_WORKTREE_SETUP_TIMEOUT_MS = 300000;
+export const MAX_COMMAND_OUTPUT_LENGTH = 10000;
 
 // ============================================
 // Auto Build File Paths

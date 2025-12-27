@@ -1,13 +1,14 @@
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
 import type {
   SDKRateLimitInfo,
   Task,
   TaskStatus,
   Project,
-  ImplementationPlan
+  ImplementationPlan,
+  WorktreeSetupResult
 } from '../../shared/types';
 import { AgentManager } from '../agent';
 import type { ProcessType, ExecutionProgressData } from '../agent';
@@ -15,7 +16,18 @@ import { titleGenerator } from '../title-generator';
 import { fileWatcher } from '../file-watcher';
 import { projectStore } from '../project-store';
 import { notificationService } from '../notification-service';
+import { executeWorktreeSetup, shouldExecuteSetup } from '../worktree-setup';
 
+function atomicWriteJson(filePath: string, data: unknown): void {
+  const tempPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  try {
+    writeFileSync(tempPath, JSON.stringify(data, null, 2));
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    try { unlinkSync(tempPath); } catch (_) { void _; }
+    throw error;
+  }
+}
 
 /**
  * Register all agent-events-related IPC handlers
@@ -126,7 +138,7 @@ export function registerAgenteventsHandlers(
               plan.status = newStatus;
               plan.planStatus = 'review';
               plan.updated_at = new Date().toISOString();
-              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              atomicWriteJson(planPath, plan);
               console.warn(`[Task ${taskId}] Persisted status '${newStatus}' to implementation_plan.json`);
             }
           }
@@ -153,6 +165,77 @@ export function registerAgenteventsHandlers(
         taskId,
         newStatus
       );
+
+      if (newStatus === 'human_review' && task && project) {
+        const worktreeSetupConfig = project.settings?.worktreeSetup;
+
+        if (shouldExecuteSetup(worktreeSetupConfig)) {
+          console.log(`[Task ${taskId}] Executing worktree setup commands...`);
+
+          executeWorktreeSetup({
+            projectPath: project.path,
+            specId: task.specId,
+            config: worktreeSetupConfig!
+          }).then((setupResult: WorktreeSetupResult) => {
+            console.log(`[Task ${taskId}] Worktree setup completed. Success: ${setupResult.success}`);
+
+            try {
+              const specsBaseDir = getSpecsDir(project.autoBuildPath);
+              const specDir = path.join(project.path, specsBaseDir, task.specId);
+              const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+              if (existsSync(planPath)) {
+                const planContent = readFileSync(planPath, 'utf-8');
+                const plan = JSON.parse(planContent);
+                plan.setupResult = setupResult;
+                plan.updated_at = new Date().toISOString();
+                atomicWriteJson(planPath, plan);
+                console.log(`[Task ${taskId}] Saved setup result to implementation_plan.json`);
+              }
+            } catch (saveError) {
+              console.error(`[Task ${taskId}] Failed to save setup result:`, saveError);
+            }
+
+            const currentWindow = getMainWindow();
+            if (currentWindow) {
+              currentWindow.webContents.send(IPC_CHANNELS.TASK_SETUP_RESULT, taskId, setupResult);
+            }
+          }).catch((setupError: Error) => {
+            console.error(`[Task ${taskId}] Worktree setup failed:`, setupError);
+
+            const errorResult: WorktreeSetupResult = {
+              success: false,
+              executedAt: new Date().toISOString(),
+              commands: [],
+              totalDurationMs: 0,
+              error: setupError.message
+            };
+
+            // Persist error result to disk for consistency with success path
+            try {
+              const specsBaseDir = getSpecsDir(project.autoBuildPath);
+              const specDir = path.join(project.path, specsBaseDir, task.specId);
+              const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+              if (existsSync(planPath)) {
+                const planContent = readFileSync(planPath, 'utf-8');
+                const plan = JSON.parse(planContent);
+                plan.setupResult = errorResult;
+                plan.updated_at = new Date().toISOString();
+                atomicWriteJson(planPath, plan);
+                console.log(`[Task ${taskId}] Saved setup error result to implementation_plan.json`);
+              }
+            } catch (saveError) {
+              console.error(`[Task ${taskId}] Failed to save setup error result:`, saveError);
+            }
+
+            const currentWindow = getMainWindow();
+            if (currentWindow) {
+              currentWindow.webContents.send(IPC_CHANNELS.TASK_SETUP_RESULT, taskId, errorResult);
+            }
+          });
+        }
+      }
     }
   });
 

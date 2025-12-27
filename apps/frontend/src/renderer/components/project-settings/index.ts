@@ -14,6 +14,7 @@ export { GitHubIntegrationSection } from './GitHubIntegrationSection';
 export { MemoryBackendSection } from './MemoryBackendSection';
 export { AgentConfigSection } from './AgentConfigSection';
 export { NotificationsSection } from './NotificationsSection';
+export { WorktreeSetupSection } from './WorktreeSetupSection';
 
 // Utility components
 export { CollapsibleSection } from './CollapsibleSection';

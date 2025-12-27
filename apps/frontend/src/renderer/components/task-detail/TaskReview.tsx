@@ -8,7 +8,8 @@ import {
   ConflictDetailsDialog,
   LoadingMessage,
   NoWorkspaceMessage,
-  StagedInProjectMessage
+  StagedInProjectMessage,
+  TaskSetupResult
 } from './task-review';
 
 interface TaskReviewProps {
@@ -125,6 +126,10 @@ export function TaskReview({
         />
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
+      )}
+
+      {task.setupResult && (
+        <TaskSetupResult setupResult={task.setupResult} />
       )}
 
       {/* QA Feedback Section */}

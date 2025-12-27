@@ -24,6 +24,8 @@ export interface ProjectSettings {
   graphitiMcpUrl?: string;
   /** Main branch name for worktree creation (default: auto-detected or 'main') */
   mainBranch?: string;
+  /** Worktree setup configuration (commands to run on Human Review) */
+  worktreeSetup?: WorktreeSetupConfig;
 }
 
 export interface NotificationSettings {
@@ -31,6 +33,61 @@ export interface NotificationSettings {
   onTaskFailed: boolean;
   onReviewNeeded: boolean;
   sound: boolean;
+}
+
+// ============================================
+// Worktree Setup Configuration
+// ============================================
+
+/**
+ * Configuration for automatic worktree setup commands.
+ * Commands are executed when a task transitions to Human Review status,
+ * allowing the user to immediately test the changes without manual setup.
+ *
+ * Inspired by Cursor's .cursor/worktrees.json and treehouse-worktree configuration.
+ */
+export interface WorktreeSetupConfig {
+  /** Whether automatic setup is enabled */
+  enabled: boolean;
+  /** Commands to execute in the worktree directory (executed sequentially) */
+  commands: string[];
+  /** Timeout in milliseconds for all commands (default: 300000 = 5 minutes) */
+  timeout?: number;
+}
+
+/**
+ * Result of a single setup command execution.
+ */
+export interface WorktreeSetupCommandResult {
+  /** The command that was executed */
+  command: string;
+  /** Whether the command succeeded (exit code 0) */
+  success: boolean;
+  /** Process exit code (null if terminated by signal) */
+  exitCode: number | null;
+  /** Standard output (truncated if too long) */
+  stdout: string;
+  /** Standard error output (truncated if too long) */
+  stderr: string;
+  /** Execution duration in milliseconds */
+  durationMs: number;
+}
+
+/**
+ * Result of worktree setup execution.
+ * Stored in the task and implementation_plan.json for persistence.
+ */
+export interface WorktreeSetupResult {
+  /** Whether all commands succeeded */
+  success: boolean;
+  /** ISO timestamp when setup was executed */
+  executedAt: string;
+  /** Results for each command (in execution order) */
+  commands: WorktreeSetupCommandResult[];
+  /** Total execution duration in milliseconds */
+  totalDurationMs: number;
+  /** Error message if setup failed before completing */
+  error?: string;
 }
 
 // ============================================

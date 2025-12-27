@@ -22,6 +22,7 @@ import type {
   ProjectSettings as ProjectSettingsType,
   AutoBuildVersionInfo
 } from '../../../shared/types';
+import { WorktreeSetupSection } from './WorktreeSetupSection';
 
 interface GeneralSettingsProps {
   project: Project;
@@ -199,6 +200,14 @@ export function GeneralSettings({
               </div>
             </div>
           </section>
+
+          <Separator />
+
+          <WorktreeSetupSection
+            settings={settings}
+            projectPath={project.path}
+            onUpdateSettings={(updates) => setSettings({ ...settings, ...updates })}
+          />
         </>
       )}
     </>
