@@ -17,11 +17,11 @@ Get the latest pre-built release for your platform:
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **Windows** | [Auto-Claude-2.7.2-beta.9-beta.9.exe](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Installer (NSIS) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.9-beta.9-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | M1/M2/M3 Macs |
-| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.9-beta.9-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Intel Macs |
-| **Linux** | [Auto-Claude-2.7.2-beta.9-beta.9.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Universal |
-| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.9-beta.9.deb](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Ubuntu/Debian |
+| **Windows** | [Auto-Claude-2.7.2-beta.9.exe](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Installer (NSIS) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.9-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | M1/M2/M3 Macs |
+| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.9-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Intel Macs |
+| **Linux** | [Auto-Claude-2.7.2-beta.9.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Universal |
+| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.9.deb](https://github.com/AndyMik90/Auto-Claude/releases/latest) | Ubuntu/Debian |
 
 > All releases include SHA256 checksums and VirusTotal scan results for security verification.
 
