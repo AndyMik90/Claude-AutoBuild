@@ -29,7 +29,7 @@ export function StatusTabs({
   className,
 }: StatusTabsProps) {
   return (
-    <div className={cn('flex items-center gap-4', className)}>
+    <div className={cn('flex items-center gap-3', className)}>
       <StatusTabButton
         isActive={activeTab === 'open'}
         onClick={() => onTabChange('open')}
@@ -68,17 +68,18 @@ function StatusTabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium',
+        // GitHub-style compact sizing: 8-12px padding, 6px border-radius
+        'inline-flex items-center gap-1.5 px-2 py-1 text-sm font-medium',
         'transition-colors duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        'rounded-md',
+        'rounded-[6px]',
         isActive
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'
       )}
     >
       {icon}
-      <span>{count.toLocaleString()}</span>
+      <span className="font-semibold">{count.toLocaleString()}</span>
       <span>{label}</span>
     </button>
   );

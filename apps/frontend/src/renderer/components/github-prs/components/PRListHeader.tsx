@@ -51,17 +51,17 @@ export function PRListHeader({
   };
 
   return (
-    <div className={cn('shrink-0 p-4 border-b border-border', className)}>
+    <div className={cn('shrink-0 px-4 py-3 border-b border-[#30363d]', className)}>
       {/* Search and Actions Row */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Search Input */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="is:pr is:open"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
+            className="pl-8 h-8 rounded-[6px] border-[#30363d] focus:border-[#8b949e]"
           />
         </div>
 
@@ -92,13 +92,13 @@ export function PRListHeader({
           </Button>
         )}
 
-        {/* New Pull Request Button */}
+        {/* New Pull Request Button - GitHub green #238636 */}
         <Button
           variant="success"
           size="sm"
           onClick={handleNewPRClick}
           disabled={!newPRUrl}
-          className="shrink-0 gap-1.5"
+          className="shrink-0 gap-1.5 bg-[#238636] hover:bg-[#2ea043] text-white border-[#238636] rounded-[6px]"
         >
           New pull request
           <ExternalLink className="h-3.5 w-3.5" />
@@ -119,16 +119,17 @@ function MetadataBadge({ icon, label, count }: MetadataBadgeProps) {
     <button
       type="button"
       className={cn(
-        'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm',
-        'border border-border rounded-md bg-transparent',
-        'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+        // GitHub-style compact sizing: 8-12px padding, 6px border-radius
+        'inline-flex items-center gap-1.5 px-2.5 py-1 text-sm',
+        'border border-[#30363d] rounded-[6px] bg-transparent',
+        'text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:border-[#8b949e]',
         'transition-colors duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
       )}
     >
       {icon}
       <span>{label}</span>
-      <Badge variant="muted" className="ml-1 px-1.5 py-0 text-xs min-w-[1.25rem] text-center">
+      <Badge variant="muted" className="ml-0.5 px-1.5 py-0 text-xs min-w-[1.25rem] text-center rounded-[6px]">
         {count.toLocaleString()}
       </Badge>
     </button>

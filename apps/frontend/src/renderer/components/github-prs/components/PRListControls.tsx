@@ -53,9 +53,9 @@ export function PRListControls({
   className,
 }: PRListControlsProps) {
   return (
-    <div className={cn('shrink-0 px-4 py-3 border-b border-border', className)}>
-      {/* Status Tabs and Filters Row */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className={cn('shrink-0 px-4 py-2 border-b border-[#30363d]', className)}>
+      {/* Status Tabs and Filters Row - compact 8-12px padding */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         {/* Status Tabs (Open/Closed) */}
         <StatusTabs
           activeTab={activeTab}

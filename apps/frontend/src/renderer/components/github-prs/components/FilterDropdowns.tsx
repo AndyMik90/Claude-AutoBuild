@@ -111,16 +111,17 @@ function FilterDropdown({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1 px-3 py-1.5 text-sm',
-            'border border-border rounded-md bg-transparent',
-            'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+            // GitHub-style compact sizing: 8-12px padding, 6px border-radius
+            'inline-flex items-center gap-1 px-2.5 py-1 text-sm',
+            'border border-[#30363d] rounded-[6px] bg-transparent',
+            'text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:border-[#8b949e]',
             'transition-colors duration-200',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             value && 'text-foreground'
           )}
         >
           <span>{value || placeholder}</span>
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3.5 w-3.5 opacity-75" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[200px]">
@@ -171,15 +172,16 @@ function SortDropdown({ value, onChange }: SortDropdownProps) {
         <button
           type="button"
           className={cn(
-            'inline-flex items-center gap-1 px-3 py-1.5 text-sm',
-            'border border-border rounded-md bg-transparent',
-            'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+            // GitHub-style compact sizing: 8-12px padding, 6px border-radius
+            'inline-flex items-center gap-1 px-2.5 py-1 text-sm',
+            'border border-[#30363d] rounded-[6px] bg-transparent',
+            'text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:border-[#8b949e]',
             'transition-colors duration-200',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
           )}
         >
           <span>Sort: {currentLabel}</span>
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3.5 w-3.5 opacity-75" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[200px]">
