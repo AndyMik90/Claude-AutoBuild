@@ -65,7 +65,46 @@ import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../s
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
-import { ViewStateProvider } from './contexts/ViewStateContext';
+import { ViewStateProvider, useViewState } from './contexts/ViewStateContext';
+
+// Wrapper component that connects ProjectTabBar to ViewStateContext
+// (needed because App renders the Provider and can't use useViewState directly)
+interface ProjectTabBarWithContextProps {
+  projects: Project[];
+  activeProjectId: string | null;
+  onProjectSelect: (projectId: string) => void;
+  onProjectClose: (projectId: string) => void;
+  onAddProject: () => void;
+  onSettingsClick: () => void;
+  tasks: Task[];
+}
+
+function ProjectTabBarWithContext({
+  projects,
+  activeProjectId,
+  onProjectSelect,
+  onProjectClose,
+  onAddProject,
+  onSettingsClick,
+  tasks
+}: ProjectTabBarWithContextProps) {
+  const { showArchived, toggleShowArchived } = useViewState();
+  const archivedCount = tasks.filter(t => t.metadata?.archivedAt).length;
+
+  return (
+    <ProjectTabBar
+      projects={projects}
+      activeProjectId={activeProjectId}
+      onProjectSelect={onProjectSelect}
+      onProjectClose={onProjectClose}
+      onAddProject={onAddProject}
+      onSettingsClick={onSettingsClick}
+      showArchived={showArchived}
+      archivedCount={archivedCount}
+      onToggleArchived={toggleShowArchived}
+    />
+  );
+}
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -93,8 +132,6 @@ export function App() {
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
-  // Archived state for tab controls (will be replaced by ViewStateContext in phase 2)
-  const [showArchived, setShowArchived] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -611,17 +648,14 @@ export function App() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
-                <ProjectTabBar
+                <ProjectTabBarWithContext
                   projects={projectTabs}
                   activeProjectId={activeProjectId}
                   onProjectSelect={handleProjectTabSelect}
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
-                  // Control props for active tab
                   onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                  showArchived={showArchived}
-                  archivedCount={tasks.filter(t => t.metadata?.archivedAt).length}
-                  onToggleArchived={() => setShowArchived(prev => !prev)}
+                  tasks={tasks}
                 />
               </SortableContext>
 
