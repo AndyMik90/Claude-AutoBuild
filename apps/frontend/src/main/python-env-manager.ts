@@ -55,7 +55,8 @@ export class PythonEnvManager extends EventEmitter {
       return path.join(app.getPath('userData'), 'python-venv');
     }
 
-    // Development mode - use source directory
+    // Development mode - use source directory .venv
+    // This ensures venv is created next to requirements.txt and can be written to
     return path.join(this.autoBuildSourcePath, '.venv');
   }
 
@@ -193,9 +194,16 @@ if sys.version_info >= (3, 12):
 
     // If this is the bundled Python path, use it directly
     const bundledPath = getBundledPythonPath();
-    if (bundledPath && pythonCmd === bundledPath) {
-      console.log(`[PythonEnvManager] Using bundled Python: ${bundledPath}`);
-      return bundledPath;
+    if (bundledPath) {
+      // HIGH PRIORITY FIX: Normalize both paths before comparison
+      // String equality fails with different casing, symlinks, or normalization differences
+      const normalizedBundled = path.resolve(bundledPath);
+      const normalizedCmd = path.resolve(pythonCmd);
+
+      if (normalizedCmd === normalizedBundled) {
+        console.log(`[PythonEnvManager] Using bundled Python: ${bundledPath}`);
+        return bundledPath;
+      }
     }
 
     try {
@@ -225,11 +233,11 @@ if sys.version_info >= (3, 12):
       const isPackaged = app.isPackaged;
       const errorMsg = isPackaged
         ? 'Python not found. The bundled Python may be corrupted.\n\n' +
-          'Please try reinstalling the application, or install Python 3.10+ manually:\n' +
-          'https://www.python.org/downloads/'
+        'Please try reinstalling the application, or install Python 3.10+ manually:\n' +
+        'https://www.python.org/downloads/'
         : 'Python 3.10+ not found. Please install Python 3.10 or higher.\n\n' +
-          'This is required for development mode. Download from:\n' +
-          'https://www.python.org/downloads/';
+        'This is required for development mode. Download from:\n' +
+        'https://www.python.org/downloads/';
       this.emit('error', errorMsg);
       return false;
     }
