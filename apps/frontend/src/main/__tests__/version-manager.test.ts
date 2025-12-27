@@ -1,6 +1,6 @@
 /**
  * Tests for version-manager.ts
- * 
+ *
  * Tests the compareVersions function with various version formats
  * including pre-release versions (alpha, beta, rc).
  */

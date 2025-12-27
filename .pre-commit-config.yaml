@@ -4,19 +4,22 @@ repos:
     hooks:
       - id: version-sync
         name: Version Sync
-        entry: bash -c '
-          VERSION=$(node -p "require(\"./package.json\").version");
-          if [ -n "$VERSION" ]; then
-            # Sync to apps/frontend/package.json
-            node -e "const fs=require(\"fs\");const p=require(\"./apps/frontend/package.json\");if(p.version!==\"$VERSION\"){p.version=\"$VERSION\";fs.writeFileSync(\"./apps/frontend/package.json\",JSON.stringify(p,null,2)+\"\n\");}";
-            # Sync to apps/backend/__init__.py
-            sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py && rm -f apps/backend/__init__.py.bak;
-            # Sync to README.md
-            sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md;
-            sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md && rm -f README.md.bak;
-            git add apps/frontend/package.json apps/backend/__init__.py README.md 2>/dev/null || true;
-          fi
-        '
+        entry: bash
+        args:
+          - -c
+          - |
+            VERSION=$(node -p "require('./package.json').version")
+            if [ -n "$VERSION" ]; then
+              # Sync to apps/frontend/package.json
+              node -e "const fs=require('fs');const p=require('./apps/frontend/package.json');if(p.version!==\"$VERSION\"){p.version=\"$VERSION\";fs.writeFileSync('./apps/frontend/package.json',JSON.stringify(p,null,2)+'\n');}"
+              # Sync to apps/backend/__init__.py
+              sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py && rm -f apps/backend/__init__.py.bak
+              # Sync to README.md
+              sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md
+              sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md && rm -f README.md.bak
+              # Stage changes
+              git add apps/frontend/package.json apps/backend/__init__.py README.md 2>/dev/null || true
+            fi
         language: system
         files: ^package\.json$
         pass_filenames: false
@@ -37,7 +40,7 @@ repos:
     hooks:
       - id: pytest
         name: Python Tests
-        entry: bash -c 'cd apps/backend && PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" --ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py'
+        entry: bash -c 'cd apps/backend && PYTHONPATH=. .venv/bin/pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" --ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py'
         language: system
         files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false
