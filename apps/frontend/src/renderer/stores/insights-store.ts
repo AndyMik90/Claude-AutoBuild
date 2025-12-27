@@ -704,6 +704,31 @@ export async function createTaskFromSuggestion(
   return null;
 }
 
+/**
+ * Helper function to update session-specific state in the sessionStates Map.
+ * This ensures immutability by creating a new Map and new SessionState object.
+ * Also updates global state for backwards compatibility.
+ */
+function updateSessionState(
+  state: InsightsState,
+  projectId: string,
+  sessionId: string,
+  updater: (sessionState: SessionState) => Partial<SessionState>
+): Partial<InsightsState> {
+  const key = getSessionKey(projectId, sessionId);
+  const currentSessionState = getOrCreateSessionState(key, state.sessionStates);
+  const updates = updater(currentSessionState);
+
+  const newSessionStates = new Map(state.sessionStates);
+  newSessionStates.set(key, {
+    ...currentSessionState,
+    ...updates,
+    lastUpdated: new Date()
+  });
+
+  return { sessionStates: newSessionStates };
+}
+
 // IPC listener setup - call this once when the app initializes
 export function setupInsightsListeners(): () => void {
   const store = useInsightsStore.getState;
@@ -711,10 +736,10 @@ export function setupInsightsListeners(): () => void {
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
     (projectId, chunk: InsightsStreamChunk) => {
-      // CRITICAL: Filter events by projectId to prevent cross-project contamination
       const currentState = store();
+
+      // CRITICAL: Filter events by projectId to prevent cross-project contamination
       if (projectId !== currentState.activeProjectId) {
-        // Event is for a different project - ignore it
         if (window.DEBUG) {
           console.debug(
             '[InsightsStore] Filtered stream chunk event - projectId mismatch:',
@@ -724,57 +749,123 @@ export function setupInsightsListeners(): () => void {
         return;
       }
 
+      // CRITICAL: Ensure we have an active session to update
+      const sessionId = currentState.activeSessionId;
+      if (!sessionId) {
+        if (window.DEBUG) {
+          console.debug(
+            '[InsightsStore] Filtered stream chunk event - no active session'
+          );
+        }
+        return;
+      }
+
+      // Create composite key for session-specific state lookup
+      const key = getSessionKey(projectId, sessionId);
+      const sessionState = getOrCreateSessionState(key, currentState.sessionStates);
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
-            store().appendStreamingContent(chunk.content);
-            store().setCurrentTool(null); // Clear tool when receiving text
-            store().setStatus({
-              phase: 'streaming',
-              message: 'Receiving response...'
-            });
+            // Update session-specific state directly
+            const newStreamingContent = sessionState.streamingContent + chunk.content;
+            const newStatus: InsightsChatStatus = { phase: 'streaming', message: 'Receiving response...' };
+
+            useInsightsStore.setState((state) => ({
+              // Global state for backwards compatibility
+              streamingContent: state.streamingContent + chunk.content,
+              currentTool: null,
+              status: newStatus,
+              // Session-specific state
+              ...updateSessionState(state, projectId, sessionId, () => ({
+                streamingContent: newStreamingContent,
+                currentTool: null,
+                status: newStatus
+              }))
+            }));
           }
           break;
+
         case 'tool_start':
           if (chunk.tool) {
-            store().setCurrentTool({
+            const tool: ToolUsage = {
               name: chunk.tool.name,
               input: chunk.tool.input
-            });
-            // Record this tool usage for history
-            store().addToolUsage({
+            };
+            const newToolUsage: InsightsToolUsage = {
               name: chunk.tool.name,
-              input: chunk.tool.input
-            });
-            store().setStatus({
+              input: chunk.tool.input,
+              timestamp: new Date()
+            };
+            const newStatus: InsightsChatStatus = {
               phase: 'streaming',
               message: `Using ${chunk.tool.name}...`
+            };
+
+            useInsightsStore.setState((state) => {
+              const key = getSessionKey(projectId, sessionId);
+              const currentSessionState = getOrCreateSessionState(key, state.sessionStates);
+
+              return {
+                // Global state for backwards compatibility
+                currentTool: tool,
+                toolsUsed: [...state.toolsUsed, newToolUsage],
+                status: newStatus,
+                // Session-specific state
+                ...updateSessionState(state, projectId, sessionId, () => ({
+                  currentTool: tool,
+                  toolsUsed: [...currentSessionState.toolsUsed, newToolUsage],
+                  status: newStatus
+                }))
+              };
             });
           }
           break;
+
         case 'tool_end':
-          store().setCurrentTool(null);
+          useInsightsStore.setState((state) => ({
+            // Global state for backwards compatibility
+            currentTool: null,
+            // Session-specific state
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              currentTool: null
+            }))
+          }));
           break;
+
         case 'task_suggestion':
           // Finalize the message with task suggestion
           store().setCurrentTool(null);
           store().finalizeStreamingMessage(chunk.suggestedTask);
           break;
+
         case 'done':
           // Finalize any remaining content
           store().setCurrentTool(null);
           store().finalizeStreamingMessage();
-          store().setStatus({
-            phase: 'complete',
-            message: ''
-          });
+
+          // Set complete status for both global and session-specific state
+          const completeStatus: InsightsChatStatus = { phase: 'complete', message: '' };
+          useInsightsStore.setState((state) => ({
+            status: completeStatus,
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              status: completeStatus
+            }))
+          }));
           break;
+
         case 'error':
-          store().setCurrentTool(null);
-          store().setStatus({
-            phase: 'error',
-            error: chunk.error
-          });
+          const errorStatus: InsightsChatStatus = { phase: 'error', error: chunk.error };
+          useInsightsStore.setState((state) => ({
+            // Global state for backwards compatibility
+            currentTool: null,
+            status: errorStatus,
+            // Session-specific state
+            ...updateSessionState(state, projectId, sessionId, () => ({
+              currentTool: null,
+              status: errorStatus
+            }))
+          }));
           break;
       }
     }
@@ -782,10 +873,10 @@ export function setupInsightsListeners(): () => void {
 
   // Listen for status updates
   const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
-    // CRITICAL: Filter events by projectId to prevent cross-project contamination
     const currentState = store();
+
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
     if (projectId !== currentState.activeProjectId) {
-      // Event is for a different project - ignore it
       if (window.DEBUG) {
         console.debug(
           '[InsightsStore] Filtered status event - projectId mismatch:',
@@ -794,15 +885,35 @@ export function setupInsightsListeners(): () => void {
       }
       return;
     }
-    store().setStatus(status);
+
+    // CRITICAL: Ensure we have an active session to update
+    const sessionId = currentState.activeSessionId;
+    if (!sessionId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered status event - no active session'
+        );
+      }
+      return;
+    }
+
+    // Update both global and session-specific state
+    useInsightsStore.setState((state) => ({
+      // Global state for backwards compatibility
+      status,
+      // Session-specific state
+      ...updateSessionState(state, projectId, sessionId, () => ({
+        status
+      }))
+    }));
   });
 
   // Listen for errors
   const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
-    // CRITICAL: Filter events by projectId to prevent cross-project contamination
     const currentState = store();
+
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
     if (projectId !== currentState.activeProjectId) {
-      // Event is for a different project - ignore it
       if (window.DEBUG) {
         console.debug(
           '[InsightsStore] Filtered error event - projectId mismatch:',
@@ -811,10 +922,28 @@ export function setupInsightsListeners(): () => void {
       }
       return;
     }
-    store().setStatus({
-      phase: 'error',
-      error
-    });
+
+    // CRITICAL: Ensure we have an active session to update
+    const sessionId = currentState.activeSessionId;
+    if (!sessionId) {
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered error event - no active session'
+        );
+      }
+      return;
+    }
+
+    // Update both global and session-specific state
+    const errorStatus: InsightsChatStatus = { phase: 'error', error };
+    useInsightsStore.setState((state) => ({
+      // Global state for backwards compatibility
+      status: errorStatus,
+      // Session-specific state
+      ...updateSessionState(state, projectId, sessionId, () => ({
+        status: errorStatus
+      }))
+    }));
   });
 
   // Return cleanup function
