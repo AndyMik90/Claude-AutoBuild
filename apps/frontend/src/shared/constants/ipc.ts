@@ -328,5 +328,23 @@ export const IPC_CHANNELS = {
   UNITY_CANCEL_PIPELINE: 'unity:cancelPipeline',
   UNITY_LOAD_PIPELINES: 'unity:loadPipelines',
   UNITY_DELETE_RUN: 'unity:deleteRun',
-  UNITY_CLEAR_RUNS: 'unity:clearRuns'
+  UNITY_CLEAR_RUNS: 'unity:clearRuns',
+
+  // Unity Doctor operations
+  UNITY_DOCTOR_RUN_CHECKS: 'unity:doctorRunChecks',
+  UNITY_DOCTOR_GET_DIAGNOSTICS_TEXT: 'unity:doctorGetDiagnosticsText',
+
+  // Unity Bridge operations
+  UNITY_BRIDGE_CHECK_INSTALLED: 'unity:bridgeCheckInstalled',
+  UNITY_BRIDGE_INSTALL: 'unity:bridgeInstall',
+
+  // Unity tweaks operations
+  UNITY_TWEAK_ADD_DEFINE: 'unity:tweakAddDefine',
+  UNITY_TWEAK_REMOVE_DEFINE: 'unity:tweakRemoveDefine',
+  UNITY_TWEAK_SET_BACKEND: 'unity:tweakSetBackend',
+  UNITY_TWEAK_SWITCH_BUILD_TARGET: 'unity:tweakSwitchBuildTarget',
+
+  // Unity UPM operations
+  UNITY_UPM_LIST_PACKAGES: 'unity:upmListPackages',
+  UNITY_UPM_RESOLVE: 'unity:upmResolve'
 } as const;

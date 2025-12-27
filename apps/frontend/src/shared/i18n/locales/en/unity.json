@@ -140,7 +140,10 @@
     "actionLabels": {
       "editmode-tests": "EditMode Tests",
       "playmode-tests": "PlayMode Tests",
-      "build": "Build"
+      "build": "Build",
+      "tweak": "Project Tweak",
+      "upm-resolve": "UPM Resolve",
+      "bridge-install": "Bridge Install"
     },
     "command": "Command",
     "artifacts": "Artifacts",

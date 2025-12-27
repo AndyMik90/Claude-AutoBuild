@@ -21,7 +21,7 @@ export interface UnitySettings {
 
 export interface UnityRun {
   id: string;
-  action: 'editmode-tests' | 'playmode-tests' | 'build';
+  action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install';
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
@@ -37,6 +37,10 @@ export interface UnityRun {
     testPlatform?: string;
     buildTarget?: string;
     testFilter?: string;
+    tweakAction?: string;
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
   };
   artifactPaths: {
     runDir: string;
@@ -45,6 +49,9 @@ export interface UnityRun {
     stdout?: string;
     stderr?: string;
     errorDigest?: string;
+    preBackupDir?: string;
+    postBackupDir?: string;
+    diffFile?: string;
   };
   testsSummary?: {
     passed: number;
@@ -55,6 +62,12 @@ export interface UnityRun {
   errorSummary?: {
     errorCount: number;
     firstErrorLine?: string;
+  };
+  tweakSummary?: {
+    action: string;
+    description: string;
+    changedFiles: string[];
+    backupCreated: boolean;
   };
   canceledReason?: string;
 }
@@ -116,6 +129,40 @@ export interface UnityPipelineRun {
   };
 }
 
+export interface UnityDoctorCheck {
+  id: string;
+  category: 'project' | 'editor' | 'toolchain' | 'packages' | 'git';
+  status: 'success' | 'warning' | 'error' | 'info';
+  message: string;
+  details?: string;
+  actionable?: boolean;
+  fixAction?: string;
+}
+
+export interface UnityDoctorReport {
+  projectPath: string;
+  timestamp: string;
+  checks: UnityDoctorCheck[];
+  summary: {
+    success: number;
+    warning: number;
+    error: number;
+    info: number;
+  };
+}
+
+export interface UnityTweakParams {
+  targetGroup?: string;
+  symbol?: string;
+  backend?: string;
+  buildTarget?: string;
+}
+
+export interface UnityPackageInfo {
+  name: string;
+  version: string;
+}
+
 export interface UnityAPI {
   // Unity project detection
   detectUnityProject: (projectPath: string) => Promise<IPCResult<UnityProjectInfo>>;
@@ -159,6 +206,24 @@ export interface UnityAPI {
   }) => Promise<IPCResult<void>>;
   cancelUnityPipeline: (projectId: string, pipelineId: string) => Promise<IPCResult<void>>;
   loadUnityPipelines: (projectId: string) => Promise<IPCResult<{ pipelines: UnityPipelineRun[] }>>;
+
+  // Unity Doctor
+  runUnityDoctorChecks: (projectId: string, editorPath?: string) => Promise<IPCResult<UnityDoctorReport>>;
+  getDiagnosticsText: (report: UnityDoctorReport) => Promise<IPCResult<string>>;
+
+  // Unity Bridge
+  checkBridgeInstalled: (projectId: string) => Promise<IPCResult<{ installed: boolean }>>;
+  installBridge: (projectId: string) => Promise<IPCResult<void>>;
+
+  // Unity Tweaks
+  tweakAddDefine: (projectId: string, editorPath: string, params: UnityTweakParams) => Promise<IPCResult<void>>;
+  tweakRemoveDefine: (projectId: string, editorPath: string, params: UnityTweakParams) => Promise<IPCResult<void>>;
+  tweakSetBackend: (projectId: string, editorPath: string, params: UnityTweakParams) => Promise<IPCResult<void>>;
+  tweakSwitchBuildTarget: (projectId: string, editorPath: string, params: UnityTweakParams) => Promise<IPCResult<void>>;
+
+  // Unity UPM
+  upmListPackages: (projectId: string) => Promise<IPCResult<{ packages: UnityPackageInfo[] }>>;
+  upmResolve: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
 
   // File operations
   openPath: (path: string) => Promise<IPCResult<void>>;
@@ -244,6 +309,36 @@ export const createUnityAPI = (): UnityAPI => ({
 
   clearUnityRuns: (projectId: string): Promise<IPCResult<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_CLEAR_RUNS, projectId),
+
+  runUnityDoctorChecks: (projectId: string, editorPath?: string): Promise<IPCResult<UnityDoctorReport>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_DOCTOR_RUN_CHECKS, projectId, editorPath),
+
+  getDiagnosticsText: (report: UnityDoctorReport): Promise<IPCResult<string>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_DOCTOR_GET_DIAGNOSTICS_TEXT, report),
+
+  checkBridgeInstalled: (projectId: string): Promise<IPCResult<{ installed: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_BRIDGE_CHECK_INSTALLED, projectId),
+
+  installBridge: (projectId: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_BRIDGE_INSTALL, projectId),
+
+  tweakAddDefine: (projectId: string, editorPath: string, params: UnityTweakParams): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_TWEAK_ADD_DEFINE, projectId, editorPath, params),
+
+  tweakRemoveDefine: (projectId: string, editorPath: string, params: UnityTweakParams): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_TWEAK_REMOVE_DEFINE, projectId, editorPath, params),
+
+  tweakSetBackend: (projectId: string, editorPath: string, params: UnityTweakParams): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_TWEAK_SET_BACKEND, projectId, editorPath, params),
+
+  tweakSwitchBuildTarget: (projectId: string, editorPath: string, params: UnityTweakParams): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_TWEAK_SWITCH_BUILD_TARGET, projectId, editorPath, params),
+
+  upmListPackages: (projectId: string): Promise<IPCResult<{ packages: UnityPackageInfo[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_UPM_LIST_PACKAGES, projectId),
+
+  upmResolve: (projectId: string, editorPath: string): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UNITY_UPM_RESOLVE, projectId, editorPath),
 
   openPath: (path: string): Promise<IPCResult<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.UNITY_OPEN_PATH, path),

@@ -145,6 +145,65 @@ export const unityMock: UnityAPI = {
     data: undefined
   }),
 
+  // Unity Doctor
+  runUnityDoctorChecks: async () => ({
+    success: true,
+    data: {
+      projectPath: '',
+      timestamp: new Date().toISOString(),
+      checks: [],
+      summary: { success: 0, warning: 0, error: 0, info: 0 }
+    }
+  }),
+
+  getDiagnosticsText: async () => ({
+    success: true,
+    data: ''
+  }),
+
+  // Unity Bridge
+  checkBridgeInstalled: async () => ({
+    success: true,
+    data: { installed: false }
+  }),
+
+  installBridge: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  // Unity Tweaks
+  tweakAddDefine: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  tweakRemoveDefine: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  tweakSetBackend: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  tweakSwitchBuildTarget: async () => ({
+    success: true,
+    data: undefined
+  }),
+
+  // Unity UPM
+  upmListPackages: async () => ({
+    success: true,
+    data: { packages: [] }
+  }),
+
+  upmResolve: async () => ({
+    success: true,
+    data: undefined
+  }),
+
   // File operations
   openPath: async (path: string) => {
     console.warn('[Browser Mock] openPath:', path);

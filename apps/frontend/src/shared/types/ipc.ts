@@ -628,7 +628,7 @@ export interface ElectronAPI {
   loadUnityRuns: (projectId: string) => Promise<IPCResult<{
     runs: Array<{
       id: string;
-      action: 'editmode-tests' | 'playmode-tests' | 'build';
+      action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install';
       startedAt: string;
       endedAt?: string;
       durationMs?: number;
@@ -644,6 +644,10 @@ export interface ElectronAPI {
         testPlatform?: string;
         buildTarget?: string;
         testFilter?: string;
+        tweakAction?: string;
+        targetGroup?: string;
+        symbol?: string;
+        backend?: string;
       };
       artifactPaths: {
         runDir: string;
@@ -652,6 +656,9 @@ export interface ElectronAPI {
         stdout?: string;
         stderr?: string;
         errorDigest?: string;
+        preBackupDir?: string;
+        postBackupDir?: string;
+        diffFile?: string;
       };
       testsSummary?: {
         passed: number;
@@ -662,6 +669,12 @@ export interface ElectronAPI {
       errorSummary?: {
         errorCount: number;
         firstErrorLine?: string;
+      };
+      tweakSummary?: {
+        action: string;
+        description: string;
+        changedFiles: string[];
+        backupCreated: boolean;
       };
       canceledReason?: string;
     }>;
@@ -789,6 +802,85 @@ export interface ElectronAPI {
       };
     }>;
   }>>;
+
+  // Unity Doctor
+  runUnityDoctorChecks: (projectId: string, editorPath?: string) => Promise<IPCResult<{
+    projectPath: string;
+    timestamp: string;
+    checks: Array<{
+      id: string;
+      category: 'project' | 'editor' | 'toolchain' | 'packages' | 'git';
+      status: 'success' | 'warning' | 'error' | 'info';
+      message: string;
+      details?: string;
+      actionable?: boolean;
+      fixAction?: string;
+    }>;
+    summary: {
+      success: number;
+      warning: number;
+      error: number;
+      info: number;
+    };
+  }>>;
+  getDiagnosticsText: (report: {
+    projectPath: string;
+    timestamp: string;
+    checks: Array<{
+      id: string;
+      category: 'project' | 'editor' | 'toolchain' | 'packages' | 'git';
+      status: 'success' | 'warning' | 'error' | 'info';
+      message: string;
+      details?: string;
+      actionable?: boolean;
+      fixAction?: string;
+    }>;
+    summary: {
+      success: number;
+      warning: number;
+      error: number;
+      info: number;
+    };
+  }) => Promise<IPCResult<string>>;
+
+  // Unity Bridge
+  checkBridgeInstalled: (projectId: string) => Promise<IPCResult<{ installed: boolean }>>;
+  installBridge: (projectId: string) => Promise<IPCResult<void>>;
+
+  // Unity Tweaks
+  tweakAddDefine: (projectId: string, editorPath: string, params: {
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
+    buildTarget?: string;
+  }) => Promise<IPCResult<void>>;
+  tweakRemoveDefine: (projectId: string, editorPath: string, params: {
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
+    buildTarget?: string;
+  }) => Promise<IPCResult<void>>;
+  tweakSetBackend: (projectId: string, editorPath: string, params: {
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
+    buildTarget?: string;
+  }) => Promise<IPCResult<void>>;
+  tweakSwitchBuildTarget: (projectId: string, editorPath: string, params: {
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
+    buildTarget?: string;
+  }) => Promise<IPCResult<void>>;
+
+  // Unity UPM
+  upmListPackages: (projectId: string) => Promise<IPCResult<{
+    packages: Array<{
+      name: string;
+      version: string;
+    }>;
+  }>>;
+  upmResolve: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
 }
 
 declare global {

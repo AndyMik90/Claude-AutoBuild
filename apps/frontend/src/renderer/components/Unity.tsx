@@ -22,7 +22,14 @@ import {
   Plus,
   Trash2,
   Edit2,
-  FastForward
+  FastForward,
+  Stethoscope,
+  Wrench,
+  Package,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Download
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
@@ -53,7 +60,11 @@ import type {
   UnityProfileSettings,
   UnityPipelineRun,
   PipelineStep,
-  PipelineStepType
+  PipelineStepType,
+  UnityDoctorCheck,
+  UnityDoctorReport,
+  UnityTweakParams,
+  UnityPackageInfo
 } from '../../preload/api/unity-api';
 
 interface UnityProps {
@@ -73,7 +84,7 @@ interface UnityEditorInfo {
 
 interface UnityRun {
   id: string;
-  action: 'editmode-tests' | 'playmode-tests' | 'build';
+  action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install';
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
@@ -89,6 +100,10 @@ interface UnityRun {
     testPlatform?: string;
     buildTarget?: string;
     testFilter?: string;
+    tweakAction?: string;
+    targetGroup?: string;
+    symbol?: string;
+    backend?: string;
   };
   artifactPaths: {
     runDir: string;
@@ -97,6 +112,9 @@ interface UnityRun {
     stdout?: string;
     stderr?: string;
     errorDigest?: string;
+    preBackupDir?: string;
+    postBackupDir?: string;
+    diffFile?: string;
   };
   testsSummary?: {
     passed: number;
@@ -107,6 +125,12 @@ interface UnityRun {
   errorSummary?: {
     errorCount: number;
     firstErrorLine?: string;
+  };
+  tweakSummary?: {
+    action: string;
+    description: string;
+    changedFiles: string[];
+    backupCreated: boolean;
   };
   canceledReason?: string;
 }
@@ -160,6 +184,22 @@ export function Unity({ projectId }: UnityProps) {
   // M2: PlayMode parameters
   const [playModeBuildTarget, setPlayModeBuildTarget] = useState<string>('');
   const [playModeTestFilter, setPlayModeTestFilter] = useState<string>('');
+
+  // M3: Unity Doctor state
+  const [doctorReport, setDoctorReport] = useState<UnityDoctorReport | null>(null);
+  const [isDoctorRunning, setIsDoctorRunning] = useState(false);
+  const [bridgeInstalled, setBridgeInstalled] = useState(false);
+  const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+
+  // M3: Project Tweaks state
+  const [tweakTargetGroup, setTweakTargetGroup] = useState('Standalone');
+  const [defineSymbol, setDefineSymbol] = useState('');
+  const [scriptingBackend, setScriptingBackend] = useState('Mono');
+  const [tweakBuildTarget, setTweakBuildTarget] = useState('StandaloneWindows64');
+
+  // M3: UPM state
+  const [packages, setPackages] = useState<UnityPackageInfo[]>([]);
+  const [isLoadingPackages, setIsLoadingPackages] = useState(false);
 
   // Get the effective editor path based on project version
   const effectiveEditorPath = useMemo(() => {
@@ -479,6 +519,191 @@ export function Unity({ projectId }: UnityProps) {
     }
   };
 
+  // M3: Run Unity Doctor checks
+  const runDoctorChecks = async () => {
+    if (!selectedProject) return;
+
+    setIsDoctorRunning(true);
+    try {
+      const result = await window.electronAPI.runUnityDoctorChecks(
+        selectedProject.id,
+        effectiveEditorPath
+      );
+      if (result.success && result.data) {
+        setDoctorReport(result.data);
+        // Also check bridge status
+        const bridgeResult = await window.electronAPI.checkBridgeInstalled(selectedProject.id);
+        if (bridgeResult.success && bridgeResult.data) {
+          setBridgeInstalled(bridgeResult.data.installed);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to run Unity Doctor checks:', err);
+    } finally {
+      setIsDoctorRunning(false);
+    }
+  };
+
+  // M3: Install Unity Bridge
+  const installBridge = async () => {
+    if (!selectedProject) return;
+
+    try {
+      const result = await window.electronAPI.installBridge(selectedProject.id);
+      if (result.success) {
+        setBridgeInstalled(true);
+        await loadRuns(); // Refresh to show the install run
+        await runDoctorChecks(); // Re-run doctor to update bridge status
+      }
+    } catch (err) {
+      console.error('Failed to install Unity Bridge:', err);
+    }
+  };
+
+  // M3: Add define symbol
+  const addDefineSymbol = async () => {
+    if (!selectedProject || !effectiveEditorPath || !defineSymbol.trim()) return;
+
+    try {
+      const result = await window.electronAPI.tweakAddDefine(
+        selectedProject.id,
+        effectiveEditorPath,
+        {
+          targetGroup: tweakTargetGroup,
+          symbol: defineSymbol.trim(),
+        }
+      );
+      if (result.success) {
+        setDefineSymbol(''); // Clear input
+        await loadRuns(); // Refresh to show the tweak run
+      }
+    } catch (err) {
+      console.error('Failed to add define symbol:', err);
+    }
+  };
+
+  // M3: Remove define symbol
+  const removeDefineSymbol = async () => {
+    if (!selectedProject || !effectiveEditorPath || !defineSymbol.trim()) return;
+
+    try {
+      const result = await window.electronAPI.tweakRemoveDefine(
+        selectedProject.id,
+        effectiveEditorPath,
+        {
+          targetGroup: tweakTargetGroup,
+          symbol: defineSymbol.trim(),
+        }
+      );
+      if (result.success) {
+        setDefineSymbol(''); // Clear input
+        await loadRuns(); // Refresh to show the tweak run
+      }
+    } catch (err) {
+      console.error('Failed to remove define symbol:', err);
+    }
+  };
+
+  // M3: Set scripting backend
+  const setBackend = async () => {
+    if (!selectedProject || !effectiveEditorPath) return;
+
+    try {
+      const result = await window.electronAPI.tweakSetBackend(
+        selectedProject.id,
+        effectiveEditorPath,
+        {
+          targetGroup: tweakTargetGroup,
+          backend: scriptingBackend,
+        }
+      );
+      if (result.success) {
+        await loadRuns(); // Refresh to show the tweak run
+      }
+    } catch (err) {
+      console.error('Failed to set scripting backend:', err);
+    }
+  };
+
+  // M3: Switch build target
+  const switchBuildTarget = async () => {
+    if (!selectedProject || !effectiveEditorPath) return;
+
+    try {
+      const result = await window.electronAPI.tweakSwitchBuildTarget(
+        selectedProject.id,
+        effectiveEditorPath,
+        {
+          buildTarget: tweakBuildTarget,
+        }
+      );
+      if (result.success) {
+        await loadRuns(); // Refresh to show the tweak run
+      }
+    } catch (err) {
+      console.error('Failed to switch build target:', err);
+    }
+  };
+
+  // M3: List Unity packages
+  const listPackages = async () => {
+    if (!selectedProject) return;
+
+    setIsLoadingPackages(true);
+    try {
+      const result = await window.electronAPI.upmListPackages(selectedProject.id);
+      if (result.success && result.data) {
+        setPackages(result.data.packages);
+      }
+    } catch (err) {
+      console.error('Failed to list Unity packages:', err);
+    } finally {
+      setIsLoadingPackages(false);
+    }
+  };
+
+  // M3: UPM Resolve
+  const upmResolve = async () => {
+    if (!selectedProject || !effectiveEditorPath) return;
+
+    try {
+      const result = await window.electronAPI.upmResolve(selectedProject.id, effectiveEditorPath);
+      if (result.success) {
+        await loadRuns(); // Refresh to show the UPM resolve run
+        await listPackages(); // Refresh package list
+      }
+    } catch (err) {
+      console.error('Failed to resolve Unity packages:', err);
+    }
+  };
+
+  // M3: Copy diagnostics text
+  const copyDiagnostics = async () => {
+    if (!doctorReport) return;
+
+    try {
+      const result = await window.electronAPI.getDiagnosticsText(doctorReport);
+      if (result.success && result.data) {
+        await window.electronAPI.copyToClipboard(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to copy diagnostics:', err);
+    }
+  };
+
+  // M3: Toggle check expansion
+  const toggleCheckExpansion = (checkId: string) => {
+    setExpandedChecks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(checkId)) {
+        newSet.delete(checkId);
+      } else {
+        newSet.add(checkId);
+      }
+      return newSet;
+    });
+  };
+
   // Format duration
   const formatDuration = (ms?: number) => {
     if (!ms) return t('history.durationUnavailable');
@@ -515,6 +740,26 @@ export function Unity({ projectId }: UnityProps) {
     if (summary.failed > 0) parts.push(`❌ ${summary.failed}`);
     if (summary.skipped > 0) parts.push(`⏭ ${summary.skipped}`);
     return parts.join(' / ') || 'No tests';
+  };
+
+  // Get action label with fallback for new M3 actions
+  const getActionLabel = (action: UnityRun['action']) => {
+    switch (action) {
+      case 'editmode-tests':
+        return t('history.actionLabels.editmode-tests', { defaultValue: 'EditMode Tests' });
+      case 'playmode-tests':
+        return t('history.actionLabels.playmode-tests', { defaultValue: 'PlayMode Tests' });
+      case 'build':
+        return t('history.actionLabels.build', { defaultValue: 'Build' });
+      case 'tweak':
+        return t('history.actionLabels.tweak', { defaultValue: 'Project Tweak' });
+      case 'upm-resolve':
+        return t('history.actionLabels.upm-resolve', { defaultValue: 'UPM Resolve' });
+      case 'bridge-install':
+        return t('history.actionLabels.bridge-install', { defaultValue: 'Bridge Install' });
+      default:
+        return action;
+    }
   };
 
   // Cancel a running Unity run
@@ -979,6 +1224,380 @@ export function Unity({ projectId }: UnityProps) {
               </div>
             )}
 
+            {/* M3: Unity Doctor Panel */}
+            {projectInfo.isUnityProject && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Stethoscope className="h-5 w-5" />
+                      Unity Doctor
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {doctorReport && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={copyDiagnostics}
+                          className="gap-2"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Copy Report
+                        </Button>
+                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={runDoctorChecks}
+                        disabled={isDoctorRunning}
+                        className="gap-2"
+                      >
+                        {isDoctorRunning ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Run Diagnostics
+                      </Button>
+                    </div>
+                  </div>
+                  <CardDescription>
+                    Check Unity project, editor, toolchain, and package health
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isDoctorRunning && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+
+                  {!isDoctorRunning && !doctorReport && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Click "Run Diagnostics" to check your Unity project health</p>
+                    </div>
+                  )}
+
+                  {doctorReport && !isDoctorRunning && (
+                    <div className="space-y-4">
+                      {/* Summary */}
+                      <div className="flex items-center gap-4 p-3 bg-muted rounded-md">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-success" />
+                          <span className="text-sm font-medium">{doctorReport.summary.success} OK</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          <span className="text-sm font-medium">{doctorReport.summary.warning} Warnings</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-destructive" />
+                          <span className="text-sm font-medium">{doctorReport.summary.error} Errors</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Info className="h-4 w-4 text-info" />
+                          <span className="text-sm font-medium">{doctorReport.summary.info} Info</span>
+                        </div>
+                      </div>
+
+                      {/* Checks by category */}
+                      {['project', 'editor', 'toolchain', 'packages', 'git'].map((category) => {
+                        const categoryChecks = doctorReport.checks.filter((c) => c.category === category);
+                        if (categoryChecks.length === 0) return null;
+
+                        return (
+                          <div key={category} className="space-y-2">
+                            <h4 className="text-sm font-semibold text-foreground capitalize">{category}</h4>
+                            <div className="space-y-1">
+                              {categoryChecks.map((check) => (
+                                <div
+                                  key={check.id}
+                                  className="border rounded-md p-3 hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2 flex-1">
+                                      <div className="mt-0.5">
+                                        {check.status === 'success' && (
+                                          <CheckCircle className="h-4 w-4 text-success" />
+                                        )}
+                                        {check.status === 'warning' && (
+                                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                        )}
+                                        {check.status === 'error' && (
+                                          <XCircle className="h-4 w-4 text-destructive" />
+                                        )}
+                                        {check.status === 'info' && (
+                                          <Info className="h-4 w-4 text-info" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium">{check.message}</span>
+                                        </div>
+                                        {check.details && (
+                                          <button
+                                            onClick={() => toggleCheckExpansion(check.id)}
+                                            className="flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-foreground"
+                                          >
+                                            {expandedChecks.has(check.id) ? (
+                                              <ChevronUp className="h-3 w-3" />
+                                            ) : (
+                                              <ChevronDown className="h-3 w-3" />
+                                            )}
+                                            Details
+                                          </button>
+                                        )}
+                                        {expandedChecks.has(check.id) && check.details && (
+                                          <div className="mt-2 text-xs text-muted-foreground bg-muted p-2 rounded">
+                                            {check.details}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {check.actionable && check.fixAction === 'install-bridge' && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={installBridge}
+                                        className="gap-1"
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Install
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* M3: Project Tweaks Panel */}
+            {projectInfo.isUnityProject && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Wrench className="h-5 w-5" />
+                    Project Tweaks
+                  </CardTitle>
+                  <CardDescription>
+                    Safe project settings modification with backups and diffs
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Bridge Warning */}
+                  {!bridgeInstalled && (
+                    <div className="border-l-4 border-yellow-600 bg-yellow-50 dark:bg-yellow-950/30 p-3 rounded">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                            Unity Bridge Required
+                          </p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                            The Unity Bridge enables safe project tweaks and uses official Unity APIs instead of directly editing project files.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={installBridge}
+                            className="mt-2 gap-2"
+                          >
+                            <Download className="h-3 w-3" />
+                            Install Unity Bridge
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Define Symbols */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Scripting Define Symbols</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="targetGroup" className="text-xs text-muted-foreground">Target Group</Label>
+                        <Select value={tweakTargetGroup} onValueChange={setTweakTargetGroup}>
+                          <SelectTrigger id="targetGroup">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Standalone">Standalone</SelectItem>
+                            <SelectItem value="Android">Android</SelectItem>
+                            <SelectItem value="iOS">iOS</SelectItem>
+                            <SelectItem value="WebGL">WebGL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="defineSymbol" className="text-xs text-muted-foreground">Symbol</Label>
+                        <Input
+                          id="defineSymbol"
+                          value={defineSymbol}
+                          onChange={(e) => setDefineSymbol(e.target.value)}
+                          placeholder="MY_DEFINE"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={addDefineSymbol}
+                        disabled={!bridgeInstalled || !effectiveEditorPath || !defineSymbol.trim()}
+                        className="gap-1"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeDefineSymbol}
+                        disabled={!bridgeInstalled || !effectiveEditorPath || !defineSymbol.trim()}
+                        className="gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Scripting Backend */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Scripting Backend</Label>
+                    <div className="flex gap-2">
+                      <Select value={scriptingBackend} onValueChange={setScriptingBackend}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mono">Mono</SelectItem>
+                          <SelectItem value="IL2CPP">IL2CPP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={setBackend}
+                        disabled={!bridgeInstalled || !effectiveEditorPath}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Build Target */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Build Target</Label>
+                    <div className="flex gap-2">
+                      <Select value={tweakBuildTarget} onValueChange={setTweakBuildTarget}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="StandaloneWindows64">Windows 64-bit</SelectItem>
+                          <SelectItem value="StandaloneOSX">macOS</SelectItem>
+                          <SelectItem value="StandaloneLinux64">Linux 64-bit</SelectItem>
+                          <SelectItem value="Android">Android</SelectItem>
+                          <SelectItem value="iOS">iOS</SelectItem>
+                          <SelectItem value="WebGL">WebGL</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={switchBuildTarget}
+                        disabled={!bridgeInstalled || !effectiveEditorPath}
+                      >
+                        Switch
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* M3: Unity Package Manager Panel */}
+            {projectInfo.isUnityProject && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Unity Package Manager
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={listPackages}
+                        disabled={isLoadingPackages}
+                        className="gap-2"
+                      >
+                        {isLoadingPackages ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={upmResolve}
+                        disabled={!bridgeInstalled || !effectiveEditorPath}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        UPM Resolve
+                      </Button>
+                    </div>
+                  </div>
+                  <CardDescription>
+                    View and resolve Unity Package Manager dependencies
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingPackages && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+
+                  {!isLoadingPackages && packages.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No packages found. Click "Refresh" to load packages from manifest.json</p>
+                    </div>
+                  )}
+
+                  {!isLoadingPackages && packages.length > 0 && (
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-1">
+                        {packages.map((pkg) => (
+                          <div
+                            key={pkg.name}
+                            className="flex items-center justify-between p-2 border rounded hover:bg-muted/50"
+                          >
+                            <span className="text-sm font-mono text-foreground">{pkg.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {pkg.version}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Profile Selector Card */}
             {projectInfo.isUnityProject && profileSettings && (
               <Card>
@@ -1286,7 +1905,7 @@ export function Unity({ projectId }: UnityProps) {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {getStatusIcon(run.status)}
                                   <span className="text-sm font-medium">
-                                    {t(`history.actionLabels.${run.action}`)}
+                                    {getActionLabel(run.action)}
                                   </span>
                                   <Badge variant="outline" className="text-xs">
                                     {run.status}
@@ -1295,6 +1914,11 @@ export function Unity({ projectId }: UnityProps) {
                                     <span className="text-xs text-muted-foreground">
                                       {testSummary}
                                     </span>
+                                  )}
+                                  {run.tweakSummary && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {run.tweakSummary.description}
+                                    </Badge>
                                   )}
                                   {hasErrors && run.errorSummary && (
                                     <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
@@ -1533,8 +2157,49 @@ export function Unity({ projectId }: UnityProps) {
                                         </Button>
                                       </div>
                                     )}
+                                    {run.artifactPaths.diffFile && (
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 text-xs flex-1 justify-start"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.electronAPI.openPath(run.artifactPaths.diffFile!);
+                                          }}
+                                        >
+                                          <FileText className="h-3 w-3 mr-1" />
+                                          View Diff
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            copyToClipboard(run.artifactPaths.diffFile!);
+                                          }}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
+
+                                {/* Tweak Summary - Changed Files */}
+                                {run.tweakSummary && run.tweakSummary.changedFiles.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-xs font-medium mb-1">Changed Files</p>
+                                    <div className="bg-muted p-2 rounded text-xs font-mono space-y-0.5">
+                                      {run.tweakSummary.changedFiles.map((file, idx) => (
+                                        <div key={idx} className="text-muted-foreground">
+                                          {file}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

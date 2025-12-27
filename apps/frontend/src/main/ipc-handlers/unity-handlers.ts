@@ -1,6 +1,6 @@
 import { ipcMain, shell, clipboard } from 'electron';
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync, createWriteStream } from 'fs';
+import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
@@ -26,9 +26,16 @@ interface UnitySettings {
   buildExecuteMethod?: string;
 }
 
+interface UnityTweakParams {
+  targetGroup?: string;
+  symbol?: string;
+  backend?: string;
+  buildTarget?: string;
+}
+
 interface UnityRun {
   id: string;
-  action: 'editmode-tests' | 'playmode-tests' | 'build';
+  action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install';
   startedAt: string;
   endedAt?: string;
   durationMs?: number;
@@ -44,7 +51,8 @@ interface UnityRun {
     testPlatform?: string;
     buildTarget?: string;  // for PlayMode and Build
     testFilter?: string;   // for test filtering
-  };
+    tweakAction?: string;  // M3: tweak action type
+  } & UnityTweakParams;    // M3: additional typed tweak params
   artifactPaths: {
     runDir: string;
     log?: string;
@@ -52,6 +60,9 @@ interface UnityRun {
     stdout?: string;
     stderr?: string;
     errorDigest?: string;
+    preBackupDir?: string;   // M3: pre-backup directory
+    postBackupDir?: string;  // M3: post-backup directory
+    diffFile?: string;       // M3: diff file
   };
   testsSummary?: {
     passed: number;
@@ -62,6 +73,12 @@ interface UnityRun {
   errorSummary?: {
     errorCount: number;
     firstErrorLine?: string;
+  };
+  tweakSummary?: {             // M3: tweak summary
+    action: string;
+    description: string;
+    changedFiles: string[];
+    backupCreated: boolean;
   };
   canceledReason?: string;
 }
@@ -477,7 +494,7 @@ function getUnityRunsDir(projectId: string): string {
 /**
  * Create a new run directory and return the run ID
  */
-function createRunDir(projectId: string, action: 'editmode-tests' | 'playmode-tests' | 'build'): { id: string; dir: string } {
+function createRunDir(projectId: string, action: 'editmode-tests' | 'playmode-tests' | 'build' | 'tweak' | 'upm-resolve' | 'bridge-install'): { id: string; dir: string } {
   const runsDir = getUnityRunsDir(projectId);
 
   // Generate run ID: YYYYMMDD-HHMMSSmmm_action
@@ -1098,6 +1115,195 @@ async function runBuild(projectId: string, editorPath: string, executeMethod: st
       run.durationMs = endTime.getTime() - startTime.getTime();
       run.status = 'failed';
 
+      saveRunRecord(projectId, run);
+      reject(error);
+    });
+  });
+}
+
+/**
+ * Run a Unity tweak action (define symbols, scripting backend, build target, UPM)
+ */
+async function runUnityTweak(
+  projectId: string,
+  editorPath: string,
+  tweakAction: string,
+  params: UnityTweakParams
+): Promise<string> {
+  const project = projectStore.getProject(projectId);
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  // Get Unity settings to check for custom Unity project path
+  const settings = getUnitySettings(projectId);
+  const projectPath = settings.unityProjectPath || project.path;
+
+  const { id: runId, dir: runDir } = createRunDir(projectId, 'tweak');
+
+  // Import tweak utilities
+  const {
+    createPreBackup,
+    createPostBackupAndDiff,
+    getFilesToBackup,
+    buildTweakCommand,
+    getTweakDescription,
+  } = await import('../utils/unity-tweaks');
+
+  mkdirSync(runDir, { recursive: true });
+
+  // Determine files to backup
+  const filesToBackup = getFilesToBackup(tweakAction, params);
+
+  // Create pre-backup
+  const backup = await createPreBackup(projectPath, runDir, filesToBackup);
+
+  // Build Unity command
+  const logFilePath = join(runDir, 'unity-editor.log');
+  const stdoutPath = join(runDir, 'stdout.txt');
+  const stderrPath = join(runDir, 'stderr.txt');
+
+  const commandArgs = buildTweakCommand(editorPath, projectPath, tweakAction, params, logFilePath);
+  const commandDisplay = `${editorPath} ${commandArgs.join(' ')}`;
+
+  // Create initial run record
+  const run: UnityRun = {
+    id: runId,
+    action: 'tweak',
+    startedAt: new Date().toISOString(),
+    status: 'running',
+    command: commandDisplay,
+    params: {
+      editorPath,
+      projectPath,
+      tweakAction,
+      ...params,
+    },
+    artifactPaths: {
+      runDir,
+      log: logFilePath,
+      stdout: stdoutPath,
+      stderr: stderrPath,
+      preBackupDir: backup.preDir,
+    },
+  };
+
+  saveRunRecord(projectId, run);
+
+  const startTime = Date.now();
+
+  // Return promise for process handling (non-async executor)
+  return new Promise((resolve, reject) => {
+    // Spawn Unity process
+    const stdoutStream = createWriteStream(stdoutPath);
+    const stderrStream = createWriteStream(stderrPath);
+
+    const unityProcess = spawn(editorPath, commandArgs, {
+      cwd: projectPath,
+      detached: true,
+    });
+
+    // Store PID for cancellation
+    const pid = unityProcess.pid;
+    if (pid) {
+      run.pid = pid;
+      saveRunRecord(projectId, run);
+      unityProcessStore.register(runId, pid);
+    }
+
+    unityProcess.stdout.on('data', (data) => {
+      stdoutStream.write(data);
+    });
+
+    unityProcess.stderr.on('data', (data) => {
+      stderrStream.write(data);
+    });
+
+    unityProcess.on('close', async (code) => {
+      stdoutStream.end();
+      stderrStream.end();
+
+      // Unregister process
+      unityProcessStore.unregister(runId);
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Check if this was a cancellation by reloading from disk
+      const diskRun = loadRunRecord(projectId, runId);
+      const wasCanceled = diskRun?.status === 'canceled';
+
+      try {
+        // Create post-backup and diff
+        const { changedFiles, diffPath } = await createPostBackupAndDiff(
+          projectPath,
+          runDir,
+          backup,
+          true // Use git if available
+        );
+
+        // Build error digest
+        const errorDigestPath = join(runDir, 'error-digest.txt');
+        const errorDigest = buildUnityErrorDigest(logFilePath, errorDigestPath);
+
+        run.endedAt = new Date().toISOString();
+        run.durationMs = duration;
+        run.exitCode = code ?? undefined;
+        run.status = wasCanceled ? 'canceled' : code === 0 ? 'success' : 'failed';
+        run.artifactPaths.postBackupDir = backup.postDir;
+        run.artifactPaths.diffFile = diffPath;
+        run.artifactPaths.errorDigest = errorDigestPath;
+        run.errorSummary = {
+          errorCount: errorDigest.errorCount,
+          firstErrorLine: errorDigest.firstErrorLine,
+        };
+        run.tweakSummary = {
+          action: tweakAction,
+          description: getTweakDescription(tweakAction, params),
+          changedFiles,
+          backupCreated: true,
+        };
+
+        if (wasCanceled) {
+          run.canceledReason = 'User canceled';
+        }
+
+        saveRunRecord(projectId, run);
+
+        if (code === 0) {
+          resolve(runId);
+        } else {
+          reject(new Error(`Unity tweak failed with exit code ${code}`));
+        }
+      } catch (error) {
+        console.error('Error processing tweak results:', error);
+        run.endedAt = new Date().toISOString();
+        run.durationMs = duration;
+        run.exitCode = code ?? undefined;
+        run.status = 'failed';
+        run.errorSummary = {
+          errorCount: 1,
+          firstErrorLine: error instanceof Error ? error.message : 'Unknown error',
+        };
+        saveRunRecord(projectId, run);
+        reject(error);
+      }
+    });
+
+    unityProcess.on('error', (error) => {
+      stdoutStream.end();
+      stderrStream.end();
+
+      // Unregister process
+      unityProcessStore.unregister(runId);
+
+      run.endedAt = new Date().toISOString();
+      run.durationMs = Date.now() - startTime;
+      run.status = 'failed';
+      run.errorSummary = {
+        errorCount: 1,
+        firstErrorLine: error.message,
+      };
       saveRunRecord(projectId, run);
       reject(error);
     });
@@ -2338,6 +2544,245 @@ export function registerUnityHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to clear Unity runs'
+        };
+      }
+    }
+  );
+
+  // Unity Doctor - Run diagnostics checks
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_DOCTOR_RUN_CHECKS,
+    async (_, projectId: string, editorPath?: string): Promise<IPCResult<any>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+        const settings = getUnitySettings(projectId);
+        const projectPath = settings.unityProjectPath || project.path;
+
+        const { runUnityDoctorChecks } = await import('../utils/unity-doctor');
+        const report = await runUnityDoctorChecks(projectPath, editorPath);
+        return { success: true, data: report };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to run Unity Doctor checks'
+        };
+      }
+    }
+  );
+
+  // Unity Doctor - Get diagnostics text
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_DOCTOR_GET_DIAGNOSTICS_TEXT,
+    async (_, report: any): Promise<IPCResult<string>> => {
+      try {
+        const { getDiagnosticsSummary } = await import('../utils/unity-doctor');
+        const text = getDiagnosticsSummary(report);
+        return { success: true, data: text };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get diagnostics text'
+        };
+      }
+    }
+  );
+
+  // Unity Bridge - Check if installed
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_BRIDGE_CHECK_INSTALLED,
+    async (_, projectId: string): Promise<IPCResult<{ installed: boolean }>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+        const settings = getUnitySettings(projectId);
+        const projectPath = settings.unityProjectPath || project.path;
+
+        const { isUnityBridgeInstalled } = await import('../utils/unity-tweaks');
+        const installed = await isUnityBridgeInstalled(projectPath);
+        return { success: true, data: { installed } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check Unity Bridge installation'
+        };
+      }
+    }
+  );
+
+  // Unity Bridge - Install
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_BRIDGE_INSTALL,
+    async (_, projectId: string): Promise<IPCResult<void>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+        const settings = getUnitySettings(projectId);
+        const projectPath = settings.unityProjectPath || project.path;
+
+        const { installUnityBridge } = await import('../utils/unity-tweaks');
+        const bridgeTemplatePath = join(__dirname, '../unity-bridge-template.cs');
+
+        // Bridge installation intentionally bypasses the backup/diff system (runUnityTweak).
+        // This is a one-time setup operation that only adds new files to the project,
+        // and doesn't modify existing Unity project settings, so backups aren't needed.
+        // Create a run record for this installation
+        const { id: runId, dir: runDir } = createRunDir(projectId, 'bridge-install');
+
+        const startTime = Date.now();
+        const result = await installUnityBridge(projectPath, bridgeTemplatePath);
+        const endTime = Date.now();
+
+        // Save run record
+        const run = {
+          id: runId,
+          action: 'bridge-install',
+          startedAt: new Date(startTime).toISOString(),
+          endedAt: new Date(endTime).toISOString(),
+          durationMs: endTime - startTime,
+          status: 'success',
+          exitCode: 0,
+          command: `Install Unity Bridge to ${result.bridgePath}`,
+          params: {
+            projectPath
+          },
+          artifactPaths: {
+            runDir
+          },
+          tweakSummary: {
+            action: 'install-bridge',
+            description: result.message,
+            changedFiles: result.installed ? [relative(projectPath, result.bridgePath)] : [],
+            backupCreated: false
+          }
+        };
+
+        const runFile = join(runDir, 'run.json');
+        writeFileSync(runFile, JSON.stringify(run, null, 2));
+
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to install Unity Bridge'
+        };
+      }
+    }
+  );
+
+  // Unity Tweak - Add Define Symbol
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_TWEAK_ADD_DEFINE,
+    async (_, projectId: string, editorPath: string, params: any): Promise<IPCResult<void>> => {
+      try {
+        await runUnityTweak(projectId, editorPath, 'add-define', params);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to add define symbol'
+        };
+      }
+    }
+  );
+
+  // Unity Tweak - Remove Define Symbol
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_TWEAK_REMOVE_DEFINE,
+    async (_, projectId: string, editorPath: string, params: any): Promise<IPCResult<void>> => {
+      try {
+        await runUnityTweak(projectId, editorPath, 'remove-define', params);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to remove define symbol'
+        };
+      }
+    }
+  );
+
+  // Unity Tweak - Set Scripting Backend
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_TWEAK_SET_BACKEND,
+    async (_, projectId: string, editorPath: string, params: any): Promise<IPCResult<void>> => {
+      try {
+        await runUnityTweak(projectId, editorPath, 'set-backend', params);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set scripting backend'
+        };
+      }
+    }
+  );
+
+  // Unity Tweak - Switch Build Target
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_TWEAK_SWITCH_BUILD_TARGET,
+    async (_, projectId: string, editorPath: string, params: any): Promise<IPCResult<void>> => {
+      try {
+        await runUnityTweak(projectId, editorPath, 'switch-build-target', params);
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to switch build target'
+        };
+      }
+    }
+  );
+
+  // Unity UPM - List Packages
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_UPM_LIST_PACKAGES,
+    async (_, projectId: string): Promise<IPCResult<{ packages: any[] }>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+        const settings = getUnitySettings(projectId);
+        const projectPath = settings.unityProjectPath || project.path;
+
+        const { readUnityPackages } = await import('../utils/unity-tweaks');
+        const result = await readUnityPackages(projectPath);
+
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error || 'Failed to read Unity packages'
+          };
+        }
+
+        return { success: true, data: { packages: result.packages || [] } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list Unity packages'
+        };
+      }
+    }
+  );
+
+  // Unity UPM - Resolve
+  ipcMain.handle(
+    IPC_CHANNELS.UNITY_UPM_RESOLVE,
+    async (_, projectId: string, editorPath: string): Promise<IPCResult<void>> => {
+      try {
+        await runUnityTweak(projectId, editorPath, 'upm-resolve', {});
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to resolve Unity packages'
         };
       }
     }
