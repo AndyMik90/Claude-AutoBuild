@@ -23,8 +23,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Pin ruff version to match .pre-commit-config.yaml (astral-sh/ruff-pre-commit rev)
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.14.10
 
       - name: Run ruff check
         run: ruff check apps/backend/ --output-format=github
