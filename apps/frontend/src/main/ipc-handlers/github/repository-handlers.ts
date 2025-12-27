@@ -10,6 +10,69 @@ import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import type { GitHubAPIRepository } from './types';
 
 /**
+ * Result of fork detection via GitHub API
+ */
+export interface ForkStatus {
+  isFork: boolean;
+  parentRepo?: string;  // owner/repo format
+  parentUrl?: string;   // full GitHub URL
+}
+
+/**
+ * GitHub API response type for repository with fork information
+ */
+interface GitHubRepoWithForkInfo {
+  full_name: string;
+  description?: string;
+  fork: boolean;
+  parent?: {
+    full_name: string;
+    html_url: string;
+  };
+}
+
+/**
+ * Detect if a repository is a fork via the GitHub API
+ *
+ * Queries the GitHub API /repos/{owner}/{repo} endpoint and checks the `fork`
+ * boolean field. If the repository is a fork, extracts the parent repository
+ * information from the `parent` object in the response.
+ *
+ * @param token - GitHub API token for authentication
+ * @param repo - Repository in owner/repo format
+ * @returns ForkStatus object with isFork boolean and optional parent info
+ */
+export async function detectForkStatus(
+  token: string,
+  repo: string
+): Promise<ForkStatus> {
+  const normalizedRepo = normalizeRepoReference(repo);
+  if (!normalizedRepo) {
+    return { isFork: false };
+  }
+
+  const repoData = await githubFetch(
+    token,
+    `/repos/${normalizedRepo}`
+  ) as GitHubRepoWithForkInfo;
+
+  // Check if repository is a fork
+  if (!repoData.fork) {
+    return { isFork: false };
+  }
+
+  // If it's a fork, extract parent repository info
+  const result: ForkStatus = { isFork: true };
+
+  if (repoData.parent) {
+    result.parentRepo = repoData.parent.full_name;
+    result.parentUrl = repoData.parent.html_url;
+  }
+
+  return result;
+}
+
+/**
  * Check GitHub connection status
  */
 export function registerCheckConnection(): void {
