@@ -426,7 +426,7 @@ export class ReleaseService extends EventEmitter {
       }).trim();
 
       // Get the main branch
-      let mainBranch = 'main';
+      let mainBranch: string;
       try {
         mainBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'origin/HEAD'], {
           cwd: projectPath,
@@ -438,7 +438,7 @@ export class ReleaseService extends EventEmitter {
 
       // Check if worktree branch is fully merged into main
       // This returns empty if all commits are merged
-      let unmergedCommits = 'error';
+      let unmergedCommits: string;
       try {
         unmergedCommits = execFileSync(getToolPath('git'), ['log', `${mainBranch}..${worktreeBranch}`, '--oneline'], {
           cwd: projectPath,
