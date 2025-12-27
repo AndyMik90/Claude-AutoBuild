@@ -5,7 +5,6 @@ export * from './TaskCard';
 export * from './TaskDetailPanel';
 export * from './TaskCreationWizard';
 export * from './TaskEditDialog';
-// Note: ProjectSettings modal is deprecated - use unified AppSettings instead
 export * from './AppSettings';
 export * from './Context';
 export * from './Ideation';
