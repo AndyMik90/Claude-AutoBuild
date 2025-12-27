@@ -710,7 +710,20 @@ export function setupInsightsListeners(): () => void {
 
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
-    (_projectId, chunk: InsightsStreamChunk) => {
+    (projectId, chunk: InsightsStreamChunk) => {
+      // CRITICAL: Filter events by projectId to prevent cross-project contamination
+      const currentState = store();
+      if (projectId !== currentState.activeProjectId) {
+        // Event is for a different project - ignore it
+        if (window.DEBUG) {
+          console.debug(
+            '[InsightsStore] Filtered stream chunk event - projectId mismatch:',
+            { received: projectId, active: currentState.activeProjectId }
+          );
+        }
+        return;
+      }
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
@@ -768,12 +781,36 @@ export function setupInsightsListeners(): () => void {
   );
 
   // Listen for status updates
-  const unsubStatus = window.electronAPI.onInsightsStatus((_projectId, status) => {
+  const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
+    const currentState = store();
+    if (projectId !== currentState.activeProjectId) {
+      // Event is for a different project - ignore it
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered status event - projectId mismatch:',
+          { received: projectId, active: currentState.activeProjectId }
+        );
+      }
+      return;
+    }
     store().setStatus(status);
   });
 
   // Listen for errors
-  const unsubError = window.electronAPI.onInsightsError((_projectId, error) => {
+  const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
+    // CRITICAL: Filter events by projectId to prevent cross-project contamination
+    const currentState = store();
+    if (projectId !== currentState.activeProjectId) {
+      // Event is for a different project - ignore it
+      if (window.DEBUG) {
+        console.debug(
+          '[InsightsStore] Filtered error event - projectId mismatch:',
+          { received: projectId, active: currentState.activeProjectId }
+        );
+      }
+      return;
+    }
     store().setStatus({
       phase: 'error',
       error
