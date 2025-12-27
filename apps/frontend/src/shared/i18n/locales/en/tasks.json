@@ -61,6 +61,11 @@
     "dropHere": "Drop here",
     "showArchived": "Show archived"
   },
+  "images": {
+    "pasteDropHint": "Files and images can be copy/pasted or dragged & dropped into the description.",
+    "pasteDropHintFeedback": "Screenshots can be copy/pasted or dragged & dropped into the feedback.",
+    "addedSuccess": "Image added successfully!"
+  },
   "execution": {
     "phases": {
       "idle": "Idle",

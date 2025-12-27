@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -31,6 +31,10 @@ interface TaskReviewProps {
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
   onFeedbackChange: (value: string) => void;
+  images: ImageAttachment[];
+  onImagesChange: (images: ImageAttachment[]) => void;
+  imageError: string | null;
+  onImageError: (error: string | null) => void;
   onReject: () => void;
   onMerge: () => void;
   onDiscard: () => void;
@@ -71,6 +75,10 @@ export function TaskReview({
   isLoadingPreview,
   showConflictDialog,
   onFeedbackChange,
+  images,
+  onImagesChange,
+  imageError,
+  onImageError,
   onReject,
   onMerge,
   onDiscard,
@@ -133,6 +141,10 @@ export function TaskReview({
         isSubmitting={isSubmitting}
         onFeedbackChange={onFeedbackChange}
         onReject={onReject}
+        images={images}
+        onImagesChange={onImagesChange}
+        imageError={imageError}
+        onImageError={onImageError}
       />
 
       {/* Discard Confirmation Dialog */}

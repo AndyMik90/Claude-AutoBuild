@@ -73,6 +73,7 @@ export async function blobToBase64(blob: Blob): Promise<string> {
 
 /**
  * Create a thumbnail from an image data URL
+ * Preserves PNG format for images that may have transparency
  */
 export async function createThumbnail(dataUrl: string, maxSize = 200): Promise<string> {
   return new Promise((resolve) => {
@@ -98,8 +99,25 @@ export async function createThumbnail(dataUrl: string, maxSize = 200): Promise<s
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
+
+      // Determine output format based on input
+      // PNG images may have transparency, so preserve as PNG
+      // JPEG images can stay as JPEG for smaller size
+      const isPng = dataUrl.startsWith('data:image/png');
+
+      if (!isPng && ctx) {
+        // For non-PNG images, fill with white background before drawing
+        // This prevents black backgrounds when converting to JPEG
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+      }
+
       ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+
+      // Use PNG for PNG inputs (preserves transparency), JPEG for others
+      const outputFormat = isPng ? 'image/png' : 'image/jpeg';
+      const quality = isPng ? undefined : 0.8;
+      resolve(canvas.toDataURL(outputFormat, quality));
     };
     img.onerror = () => resolve(dataUrl); // Return original if thumbnail fails
     img.src = dataUrl;

@@ -1,8 +1,9 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
+import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
@@ -203,7 +204,8 @@ export function registerTaskExecutionHandlers(
       _,
       taskId: string,
       approved: boolean,
-      feedback?: string
+      feedback?: string,
+      images?: ImageAttachment[]
     ): Promise<IPCResult> => {
       // Find task and project
       const { task, project } = findTaskAndProject(taskId);
@@ -224,6 +226,35 @@ export function registerTaskExecutionHandlers(
       const worktreePath = path.join(project.path, '.worktrees', task.specId);
       const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
       const hasWorktree = existsSync(worktreePath);
+
+      // Process and save attached images for QA feedback
+      let savedImagePaths: string[] = [];
+      if (!approved && images && images.length > 0) {
+        const targetSpecDir = hasWorktree ? worktreeSpecDir : specDir;
+        const attachmentsDir = path.join(targetSpecDir, 'attachments');
+        mkdirSync(attachmentsDir, { recursive: true });
+
+        // Save images concurrently using async I/O to avoid blocking the main process
+        const savePromises = images.map(async (image) => {
+          if (image.data) {
+            try {
+              // Decode base64 and save to file
+              const buffer = Buffer.from(image.data, 'base64');
+              const imagePath = path.join(attachmentsDir, image.filename);
+              await writeFile(imagePath, buffer);
+
+              // Track saved image paths for QA_FIX_REQUEST.md
+              return `attachments/${image.filename}`;
+            } catch (err) {
+              console.error(`[TASK_REVIEW] Failed to save image ${image.filename}:`, err);
+              return null;
+            }
+          }
+          return null;
+        });
+        const results = await Promise.all(savePromises);
+        savedImagePaths = results.filter((p): p is string => p !== null);
+      }
 
       if (approved) {
         // Write approval to QA report
@@ -287,10 +318,21 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
         console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
 
-        writeFileSync(
-          fixRequestPath,
-          `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
-        );
+        // Build QA Fix Request content with optional image attachments
+        let qaFixRequestContent = `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n`;
+
+        // Include image references if images were attached
+        if (savedImagePaths.length > 0) {
+          qaFixRequestContent += `\n## Attached Screenshots\n\nThe following images have been provided to help illustrate the issues:\n\n`;
+          for (const imagePath of savedImagePaths) {
+            qaFixRequestContent += `- ![Screenshot](${imagePath})\n`;
+          }
+          qaFixRequestContent += `\n**Note:** These images are located in the spec directory. Use your Read tool to view them.\n`;
+        }
+
+        qaFixRequestContent += `\nCreated at: ${new Date().toISOString()}\n`;
+
+        writeFileSync(fixRequestPath, qaFixRequestContent);
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is

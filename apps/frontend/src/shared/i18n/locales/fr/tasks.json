@@ -61,6 +61,11 @@
     "dropHere": "Déposer ici",
     "showArchived": "Afficher les archivées"
   },
+  "images": {
+    "pasteDropHint": "Les fichiers et images peuvent être collés ou glissés-déposés dans la description.",
+    "pasteDropHintFeedback": "Les captures d'écran peuvent être collées ou glissées-déposées dans le commentaire.",
+    "addedSuccess": "Image ajoutée avec succès !"
+  },
   "execution": {
     "phases": {
       "idle": "Inactif",

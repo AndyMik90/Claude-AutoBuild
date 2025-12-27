@@ -49,9 +49,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       return;
     }
     state.setIsSubmitting(true);
-    await submitReview(task.id, false, state.feedback);
+    await submitReview(task.id, false, state.feedback, state.feedbackImages);
     state.setIsSubmitting(false);
     state.setFeedback('');
+    state.setFeedbackImages([]);
+    state.setImageError(null);
   };
 
   const handleDelete = async () => {
@@ -202,6 +204,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                     isLoadingPreview={state.isLoadingPreview}
                     showConflictDialog={state.showConflictDialog}
                     onFeedbackChange={state.setFeedback}
+                    images={state.feedbackImages}
+                    onImagesChange={state.setFeedbackImages}
+                    imageError={state.imageError}
+                    onImageError={state.setImageError}
                     onReject={handleReject}
                     onMerge={handleMerge}
                     onDiscard={handleDiscard}
