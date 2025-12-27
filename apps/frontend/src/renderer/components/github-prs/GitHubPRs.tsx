@@ -1,9 +1,11 @@
-import { useCallback } from 'react';
-import { GitPullRequest, RefreshCw, ExternalLink, Settings } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { GitPullRequest, Settings } from 'lucide-react';
 import { useProjectStore } from '../../stores/project-store';
 import { useGitHubPRs } from './hooks';
-import { PRList, PRDetail } from './components';
+import { PRList, PRDetail, PRListHeader, PRListControls } from './components';
 import { Button } from '../ui/button';
+import type { PRStatusFilter } from './components/StatusTabs';
+import type { SortOption } from './components/FilterDropdowns';
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
@@ -73,9 +75,80 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     isConnected,
     repoFullName,
     getReviewStateForPR,
+    openCount,
+    closedCount,
+    getPRsByStatus,
   } = useGitHubPRs(selectedProject?.id);
 
-  const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
+  // State for status tab (open/closed)
+  const [activeTab, setActiveTab] = useState<PRStatusFilter>('open');
+  // State for search query
+  const [searchQuery, setSearchQuery] = useState('');
+  // State for filter dropdowns
+  const [selectedAuthor, setSelectedAuthor] = useState<string | undefined>(undefined);
+  const [selectedLabel, setSelectedLabel] = useState<string | undefined>(undefined);
+  const [selectedSort, setSelectedSort] = useState<SortOption>('newest');
+
+  // Get PRs for current status tab
+  const currentPRs = useMemo(() => getPRsByStatus(activeTab), [getPRsByStatus, activeTab]);
+
+  // Apply filters and search to current PRs
+  const filteredPRs = useMemo(() => {
+    let result = currentPRs;
+
+    // Filter by author
+    if (selectedAuthor) {
+      result = result.filter(pr => pr.author.login === selectedAuthor);
+    }
+
+    // Note: Label filtering is a placeholder - PRData doesn't include labels currently
+    // The UI shows the Label dropdown but it won't filter until the API includes labels
+
+    // Filter by search query (simple title/author/branch search)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(pr =>
+        pr.title.toLowerCase().includes(query) ||
+        pr.author.login.toLowerCase().includes(query) ||
+        pr.headRefName.toLowerCase().includes(query) ||
+        `#${pr.number}`.includes(query)
+      );
+    }
+
+    // Sort PRs
+    result = [...result].sort((a, b) => {
+      switch (selectedSort) {
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'recently-updated':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        case 'least-recently-updated':
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+        // Note: Comment-based sorting is a placeholder - PRData doesn't include comment count
+        // Fallback to newest for unsupported sort options
+        case 'most-commented':
+        case 'least-commented':
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return result;
+  }, [currentPRs, selectedAuthor, searchQuery, selectedSort]);
+
+  // Derive unique authors from all PRs (both open and closed) for filter dropdown
+  const uniqueAuthors = useMemo(() => {
+    const allPRs = [...getPRsByStatus('open'), ...getPRsByStatus('closed')];
+    const authors = new Set(allPRs.map(pr => pr.author.login));
+    return Array.from(authors).sort();
+  }, [getPRsByStatus]);
+
+  // Note: Labels are a placeholder - PRData doesn't include labels currently
+  // Return empty array for now; dropdown will show "No labels found"
+  const uniqueLabels: string[] = [];
+
+  const selectedPR = filteredPRs.find(pr => pr.number === selectedPRNumber) || prs.find(pr => pr.number === selectedPRNumber);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {
@@ -134,50 +207,45 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-medium flex items-center gap-2">
-            <GitPullRequest className="h-4 w-4" />
-            Pull Requests
-          </h2>
-          {repoFullName && (
-            <a
-              href={`https://github.com/${repoFullName}/pulls`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              {repoFullName}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {prs.length} open
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={refresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
       {/* Content */}
       <div className="flex-1 flex min-h-0">
-        {/* PR List */}
+        {/* PR List Panel */}
         <div className="w-1/2 border-r border-border flex flex-col">
+          {/* Header with search, badges, and New PR button */}
+          <PRListHeader
+            repoFullName={repoFullName || undefined}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            isLoading={isLoading}
+            onRefresh={refresh}
+          />
+
+          {/* Controls with status tabs and filter dropdowns */}
+          <PRListControls
+            activeTab={activeTab}
+            openCount={openCount}
+            closedCount={closedCount}
+            onTabChange={setActiveTab}
+            authors={uniqueAuthors}
+            labels={uniqueLabels}
+            selectedAuthor={selectedAuthor}
+            selectedLabel={selectedLabel}
+            selectedSort={selectedSort}
+            onAuthorChange={setSelectedAuthor}
+            onLabelChange={setSelectedLabel}
+            onSortChange={setSelectedSort}
+          />
+
+          {/* PR List */}
           <PRList
-            prs={prs}
+            prs={filteredPRs}
             selectedPRNumber={selectedPRNumber}
             isLoading={isLoading}
             error={error}
             activePRReviews={activePRReviews}
             getReviewStateForPR={getReviewStateForPR}
             onSelectPR={selectPR}
+            statusFilter={activeTab}
           />
         </div>
 
