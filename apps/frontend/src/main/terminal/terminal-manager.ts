@@ -280,6 +280,13 @@ export class TerminalManager {
   }
 
   /**
+   * Check if a terminal's PTY process is alive
+   */
+  isTerminalAlive(terminalId: string): boolean {
+    return this.terminals.has(terminalId);
+  }
+
+  /**
    * Handle terminal data output
    */
   private handleTerminalData(terminal: TerminalProcess, data: string): void {

@@ -102,7 +102,7 @@ export function OllamaModelSelector({
   const [error, setError] = useState<string | null>(null);
   const [ollamaAvailable, setOllamaAvailable] = useState(true);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({});
-  
+
   // Track previous progress for speed calculation
   const downloadProgressRef = useRef<{
     [modelName: string]: {
@@ -193,7 +193,7 @@ export function OllamaModelSelector({
        percentage: number;
      }) => {
       const now = Date.now();
-      
+
       // Initialize tracking for this model if needed
       if (!downloadProgressRef.current[data.modelName]) {
         downloadProgressRef.current[data.modelName] = {
@@ -209,12 +209,12 @@ export function OllamaModelSelector({
       // Calculate speed only if we have meaningful time delta (> 100ms)
       let speedStr = '';
       let timeStr = '';
-      
+
       if (timeDelta > 100 && bytesDelta > 0) {
         const speed = (bytesDelta / timeDelta) * 1000; // bytes per second
         const remaining = data.total - data.completed;
         const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
-        
+
         // Format speed (MB/s or KB/s)
         if (speed > 1024 * 1024) {
           speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;

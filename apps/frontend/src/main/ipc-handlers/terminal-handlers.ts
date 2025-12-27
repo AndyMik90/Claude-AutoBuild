@@ -655,6 +655,22 @@ export function registerTerminalHandlers(
       }
     }
   );
+
+  // Check if a terminal's PTY process is alive
+  ipcMain.handle(
+    IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE,
+    async (_, terminalId: string): Promise<IPCResult<{ alive: boolean }>> => {
+      try {
+        const alive = terminalManager.isTerminalAlive(terminalId);
+        return { success: true, data: { alive } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check terminal status'
+        };
+      }
+    }
+  );
 }
 
 /**

@@ -90,26 +90,50 @@ class ProjectAnalyzer:
         This allows us to know when to re-analyze.
         """
         hash_files = [
+            # JavaScript/TypeScript
             "package.json",
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
+            # Python
             "pyproject.toml",
             "requirements.txt",
             "Pipfile",
             "poetry.lock",
+            # Rust
             "Cargo.toml",
             "Cargo.lock",
+            # Go
             "go.mod",
             "go.sum",
+            # Ruby
             "Gemfile",
             "Gemfile.lock",
+            # PHP
             "composer.json",
             "composer.lock",
+            # Java/Kotlin/Scala
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+            "build.sbt",
+            # Swift
+            "Package.swift",
+            # Infrastructure
             "Makefile",
             "Dockerfile",
             "docker-compose.yml",
             "docker-compose.yaml",
+        ]
+
+        # Glob patterns for project files that can be anywhere in the tree
+        glob_patterns = [
+            "*.csproj",  # C# projects
+            "*.sln",  # Visual Studio solutions
+            "*.fsproj",  # F# projects
+            "*.vbproj",  # VB.NET projects
         ]
 
         hasher = hashlib.md5(usedforsecurity=False)
@@ -123,13 +147,35 @@ class ProjectAnalyzer:
                     hasher.update(f"{filename}:{stat.st_mtime}:{stat.st_size}".encode())
                     files_found += 1
                 except OSError:
-                    pass
+                    continue
+
+        # Check glob patterns for project files that can be anywhere
+        for pattern in glob_patterns:
+            for filepath in self.project_dir.glob(f"**/{pattern}"):
+                try:
+                    stat = filepath.stat()
+                    rel_path = filepath.relative_to(self.project_dir)
+                    hasher.update(f"{rel_path}:{stat.st_mtime}:{stat.st_size}".encode())
+                    files_found += 1
+                except OSError:
+                    continue
 
         # If no config files found, hash the project directory structure
         # to at least detect when files are added/removed
         if files_found == 0:
-            # Count Python, JS, and other source files as a proxy for project structure
-            for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
+            # Count source files as a proxy for project structure
+            source_exts = [
+                "*.py",
+                "*.js",
+                "*.ts",
+                "*.go",
+                "*.rs",
+                "*.cs",
+                "*.swift",
+                "*.kt",
+                "*.java",
+            ]
+            for ext in source_exts:
                 count = len(list(self.project_dir.glob(f"**/{ext}")))
                 hasher.update(f"{ext}:{count}".encode())
             # Also include the project directory name for uniqueness
