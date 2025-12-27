@@ -58,16 +58,19 @@ sudo apt install python3.12 python3.12-venv
 ### Installing CMake
 
 **Windows:**
+
 ```bash
 winget install Kitware.CMake
 ```
 
 **macOS:**
+
 ```bash
 brew install cmake
 ```
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt install cmake
 ```

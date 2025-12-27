@@ -16,7 +16,7 @@ repos:
               sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py && rm -f apps/backend/__init__.py.bak
               # Sync to README.md
               sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md
-              sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md && rm -f README.md.bak
+              sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*\(-[a-z]*\.[0-9]*\)*/Auto-Claude-$VERSION/g" README.md && rm -f README.md.bak
               # Stage changes
               git add apps/frontend/package.json apps/backend/__init__.py README.md 2>/dev/null || true
             fi
