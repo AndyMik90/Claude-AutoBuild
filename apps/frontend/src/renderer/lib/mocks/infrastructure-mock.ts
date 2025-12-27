@@ -110,7 +110,7 @@ export const infrastructureMock = {
    }) => void) => {
      // Store callback for test verification
      (window as any).__downloadProgressCallback = callback;
-     
+
      // Return cleanup function
      return () => {
        delete (window as any).__downloadProgressCallback;

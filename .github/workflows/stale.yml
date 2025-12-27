@@ -15,7 +15,7 @@ jobs:
         with:
           stale-issue-message: |
             This issue has been inactive for 60 days. It will be closed in 14 days if there's no activity.
-            
+
             - If this is still relevant, please comment or update the issue
             - If you're working on this, add the `in-progress` label
           close-issue-message: 'Closed due to inactivity. Feel free to reopen if still relevant.'

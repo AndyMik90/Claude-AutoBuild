@@ -601,11 +601,11 @@ export function registerMemoryHandlers(): void {
               if (line.trim()) {
                 try {
                   const progressData = JSON.parse(line);
-                  
+
                   // Extract progress information
                   if (progressData.completed !== undefined && progressData.total !== undefined) {
-                    const percentage = progressData.total > 0 
-                      ? Math.round((progressData.completed / progressData.total) * 100) 
+                    const percentage = progressData.total > 0
+                      ? Math.round((progressData.completed / progressData.total) * 100)
                       : 0;
 
                     // Emit progress event to renderer
