@@ -65,6 +65,7 @@ import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../s
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
+import { ViewStateProvider } from './contexts/ViewStateContext';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -587,8 +588,9 @@ export function App() {
   };
 
   return (
-    <TooltipProvider>
-      <ProactiveSwapListener />
+    <ViewStateProvider>
+      <TooltipProvider>
+        <ProactiveSwapListener />
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
@@ -899,6 +901,7 @@ export function App() {
         {/* Global Download Indicator - shows Ollama model download progress */}
         <GlobalDownloadIndicator />
       </div>
-    </TooltipProvider>
+      </TooltipProvider>
+    </ViewStateProvider>
   );
 }
