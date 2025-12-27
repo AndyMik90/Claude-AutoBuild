@@ -1433,7 +1433,7 @@ export function Unity({ projectId }: UnityProps) {
                                 <div>
                                   <p className="text-xs font-medium mb-1">{t('history.command')}</p>
                                   <div className="relative">
-                                    <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+                                    <pre className="text-xs bg-muted p-2 rounded whitespace-pre-wrap break-all max-w-full">
                                       {run.command}
                                     </pre>
                                     <Button
