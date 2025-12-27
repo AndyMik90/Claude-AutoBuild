@@ -319,29 +319,6 @@ export function registerProjectHandlers(
     }
   );
 
-  // PROJECT_UPDATE_AUTOBUILD is deprecated - .auto-claude only contains data, no code to update
-  // Kept for API compatibility, returns success immediately
-  ipcMain.handle(
-    IPC_CHANNELS.PROJECT_UPDATE_AUTOBUILD,
-    async (_, projectId: string): Promise<IPCResult<InitializationResult>> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        // Nothing to update - .auto-claude only contains data directories
-        // The framework runs from the source repo
-        return { success: true, data: { success: true } };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
   // PROJECT_CHECK_VERSION now just checks if project is initialized
   // Version tracking for .auto-claude is removed since it only contains data
   ipcMain.handle(

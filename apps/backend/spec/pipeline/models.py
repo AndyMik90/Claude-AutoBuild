@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.workspace.models import SpecNumberLock
 
 
-def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
+def get_specs_dir(project_dir: Path) -> Path:
     """Get the specs directory path.
 
     IMPORTANT: Only .auto-claude/ is considered an "installed" auto-claude.
@@ -32,7 +32,6 @@ def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
 
     Args:
         project_dir: The project root directory
-        dev_mode: Deprecated, kept for API compatibility. Has no effect.
 
     Returns:
         Path to the specs directory within .auto-claude/

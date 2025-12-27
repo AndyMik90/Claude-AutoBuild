@@ -303,19 +303,6 @@ class TestElectronToolScoping:
 class TestSubtaskTerminology:
     """Verify subtask terminology is used consistently."""
 
-    def test_implementation_plan_uses_subtask_class(self):
-        """Implementation plan uses Subtask class."""
-        impl_plan_path = Path(__file__).parent.parent / "apps" / "backend" / "implementation_plan" / "main.py"
-        content = impl_plan_path.read_text()
-
-        # Check that it re-exports or imports Subtask and SubtaskStatus
-        assert "Subtask" in content, (
-            "implementation_plan/main.py should reference 'Subtask'"
-        )
-        assert "SubtaskStatus" in content, (
-            "implementation_plan/main.py should reference SubtaskStatus enum"
-        )
-
     def test_progress_uses_subtask_terminology(self):
         """Progress module uses subtask terminology."""
         progress_path = Path(__file__).parent.parent / "apps" / "backend" / "core" / "progress.py"

@@ -31,7 +31,6 @@ export interface ProjectAPI {
     settings: Partial<ProjectSettings>
   ) => Promise<IPCResult>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
-  updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
 
   // Tab State (persisted in main process for reliability)
@@ -154,9 +153,6 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   initializeProject: (projectId: string): Promise<IPCResult<InitializationResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_INITIALIZE, projectId),
-
-  updateProjectAutoBuild: (projectId: string): Promise<IPCResult<InitializationResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE_AUTOBUILD, projectId),
 
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),

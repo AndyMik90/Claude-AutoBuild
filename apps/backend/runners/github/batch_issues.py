@@ -240,30 +240,6 @@ Respond with JSON only:
         return response_text
 
 
-# Keep old class for backwards compatibility but mark as deprecated
-class ClaudeSimilarityDetector(ClaudeBatchAnalyzer):
-    """DEPRECATED: Use ClaudeBatchAnalyzer instead."""
-
-    async def compare_issues(
-        self,
-        repo: str,
-        issue_a: dict[str, Any],
-        issue_b: dict[str, Any],
-    ) -> dict[str, Any]:
-        """DEPRECATED: Pairwise comparison. Use analyze_and_batch_issues instead."""
-        logger.warning("ClaudeSimilarityDetector.compare_issues is deprecated")
-        # Simple fallback for any code still using this
-        return {
-            "is_similar": False,
-            "overall_score": 0.0,
-            "reasoning": "DEPRECATED: Use ClaudeBatchAnalyzer.analyze_and_batch_issues",
-        }
-
-    async def precompute_embeddings(self, repo: str, issues: list[dict]) -> int:
-        """No-op for compatibility."""
-        return 0
-
-
 class BatchStatus(str, Enum):
     """Status of an issue batch."""
 
@@ -446,11 +422,8 @@ class IssueBatcher:
         self.max_batch_size = max_batch_size
         self.validate_batches_enabled = validate_batches
 
-        # Initialize Claude batch analyzer (replaces pairwise similarity detector)
+        # Initialize Claude batch analyzer
         self.analyzer = ClaudeBatchAnalyzer(project_dir=self.project_dir)
-
-        # Keep detector for backwards compatibility (deprecated)
-        self.detector = self.analyzer
 
         # Initialize batch validator (uses Claude SDK with OAuth token)
         self.validator = (
