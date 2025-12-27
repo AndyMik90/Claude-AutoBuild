@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Settings2, Archive } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import type { Project } from '../../shared/types';
@@ -58,7 +59,8 @@ export function SortableProjectTab({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative flex items-center min-w-0 max-w-[200px]',
+        'group relative flex items-center min-w-0',
+        isActive ? 'max-w-[280px]' : 'max-w-[200px]',
         'border-r border-border last:border-r-0',
         'touch-none transition-all duration-200',
         isDragging && 'opacity-60 scale-[0.98] shadow-lg'
@@ -106,6 +108,71 @@ export function SortableProjectTab({
           )}
         </TooltipContent>
       </Tooltip>
+
+      {/* Active tab controls - settings and archive */}
+      {isActive && (
+        <div className="flex items-center gap-0.5 mr-1">
+          {/* Settings icon */}
+          {onSettingsClick && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    'h-6 w-6 p-0 rounded',
+                    'flex items-center justify-center',
+                    'text-muted-foreground hover:text-foreground',
+                    'hover:bg-muted/50 transition-colors'
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSettingsClick();
+                  }}
+                  aria-label="Project settings"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span>Project settings</span>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Archive toggle button with badge */}
+          {onToggleArchived && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    'h-6 px-1.5 rounded',
+                    'flex items-center justify-center gap-1',
+                    'transition-colors',
+                    showArchived
+                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleArchived();
+                  }}
+                  aria-label={showArchived ? 'Hide archived' : 'Show archived'}
+                  aria-pressed={showArchived}
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  {typeof archivedCount === 'number' && archivedCount > 0 && (
+                    <span className="text-[10px] font-medium min-w-[14px] text-center">
+                      {archivedCount}
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span>{showArchived ? 'Hide archived' : 'Show archived'}</span>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      )}
 
       {canClose && (
         <Tooltip delayDuration={200}>
