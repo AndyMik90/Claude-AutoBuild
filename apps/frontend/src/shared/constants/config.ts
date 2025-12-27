@@ -22,6 +22,8 @@ export const DEFAULT_APP_SETTINGS = {
   defaultModel: 'opus',
   agentFramework: 'auto-claude',
   pythonPath: undefined as string | undefined,
+  gitPath: undefined as string | undefined,
+  githubCLIPath: undefined as string | undefined,
   autoBuildPath: undefined as string | undefined,
   autoUpdateAutoBuild: true,
   autoNameTerminals: true,

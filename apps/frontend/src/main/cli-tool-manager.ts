@@ -1,0 +1,734 @@
+/**
+ * CLI Tool Manager
+ *
+ * Centralized management for CLI tools (Python, Git, GitHub CLI) used throughout
+ * the application. Provides intelligent multi-level detection with user
+ * configuration support.
+ *
+ * Detection Priority (for each tool):
+ * 1. User configuration (from settings.json)
+ * 2. Virtual environment (Python only - project-specific venv)
+ * 3. Homebrew (macOS - architecture-aware for Apple Silicon vs Intel)
+ * 4. System PATH (augmented with common binary locations)
+ * 5. Platform-specific standard locations
+ *
+ * Features:
+ * - Session-based caching (no TTL - cache persists until app restart or settings
+ *   change)
+ * - Version validation (Python 3.10+ required for claude-agent-sdk)
+ * - Platform-aware detection (macOS, Windows, Linux)
+ * - Graceful fallbacks when tools not found
+ */
+
+import { execSync, execFileSync } from 'child_process';
+import { existsSync } from 'fs';
+import path from 'path';
+import { app } from 'electron';
+import { findExecutable } from './env-utils';
+import type { ToolDetectionResult } from '../shared/types';
+
+/**
+ * Supported CLI tools managed by this system
+ */
+export type CLITool = 'python' | 'git' | 'gh';
+
+/**
+ * User configuration for CLI tool paths
+ * Maps to settings stored in settings.json
+ */
+export interface ToolConfig {
+  pythonPath?: string;
+  gitPath?: string;
+  githubCLIPath?: string;
+}
+
+/**
+ * Internal validation result for a CLI tool
+ */
+interface ToolValidation {
+  valid: boolean;
+  version?: string;
+  message: string;
+}
+
+/**
+ * Cache entry for detected tool path
+ * No timestamp - cache persists for entire app session
+ */
+interface CacheEntry {
+  path: string;
+  version?: string;
+  source: string;
+}
+
+/**
+ * Centralized CLI Tool Manager
+ *
+ * Singleton class that manages detection, validation, and caching of CLI tool
+ * paths. Supports user configuration overrides and intelligent auto-detection.
+ *
+ * Usage:
+ *   import { getToolPath, configureTools } from './cli-tool-manager';
+ *
+ *   // Configure with user settings (optional)
+ *   configureTools({ pythonPath: '/custom/python3', gitPath: '/custom/git' });
+ *
+ *   // Get tool path (auto-detects if not configured)
+ *   const pythonPath = getToolPath('python');
+ *   const gitPath = getToolPath('git');
+ */
+class CLIToolManager {
+  private cache: Map<CLITool, CacheEntry> = new Map();
+  private userConfig: ToolConfig = {};
+
+  /**
+   * Configure the tool manager with user settings
+   *
+   * Clears the cache to force re-detection with new configuration.
+   * Call this when user changes CLI tool paths in Settings.
+   *
+   * @param config - User configuration for CLI tool paths
+   */
+  configure(config: ToolConfig): void {
+    this.userConfig = config;
+    this.cache.clear();
+    console.warn('[CLI Tools] Configuration updated, cache cleared');
+  }
+
+  /**
+   * Get the path for a specific CLI tool
+   *
+   * Uses cached path if available, otherwise detects and caches.
+   * Cache persists for entire app session (no expiration).
+   *
+   * @param tool - The CLI tool to get the path for
+   * @returns The resolved path to the tool executable
+   */
+  getToolPath(tool: CLITool): string {
+    // Check cache first
+    const cached = this.cache.get(tool);
+    if (cached) {
+      console.warn(
+        `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
+      );
+      return cached.path;
+    }
+
+    // Detect and cache
+    const result = this.detectToolPath(tool);
+    if (result.found && result.path) {
+      this.cache.set(tool, {
+        path: result.path,
+        version: result.version,
+        source: result.source,
+      });
+      console.warn(`[CLI Tools] Detected ${tool}: ${result.path} (${result.source})`);
+      return result.path;
+    }
+
+    // Fallback to tool name (let system PATH resolve it)
+    console.warn(`[CLI Tools] ${tool} not found, using fallback: "${tool}"`);
+    return tool;
+  }
+
+  /**
+   * Detect the path for a specific CLI tool
+   *
+   * Implements multi-level detection strategy based on tool type.
+   *
+   * @param tool - The tool to detect
+   * @returns Detection result with path and metadata
+   */
+  private detectToolPath(tool: CLITool): ToolDetectionResult {
+    switch (tool) {
+      case 'python':
+        return this.detectPython();
+      case 'git':
+        return this.detectGit();
+      case 'gh':
+        return this.detectGitHubCLI();
+      default:
+        return {
+          found: false,
+          source: 'fallback',
+          message: `Unknown tool: ${tool}`,
+        };
+    }
+  }
+
+  /**
+   * Detect Python with multi-level priority
+   *
+   * Priority order:
+   * 1. User configuration
+   * 2. Bundled Python (packaged apps only)
+   * 3. Homebrew Python (macOS)
+   * 4. System PATH (py -3, python3, python)
+   *
+   * Validates Python version >= 3.10.0 (required by claude-agent-sdk)
+   *
+   * @returns Detection result for Python
+   */
+  private detectPython(): ToolDetectionResult {
+    const MINIMUM_VERSION = '3.10.0';
+
+    // 1. User configuration
+    if (this.userConfig.pythonPath) {
+      const validation = this.validatePython(this.userConfig.pythonPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: this.userConfig.pythonPath,
+          version: validation.version,
+          source: 'user-config',
+          message: `Using user-configured Python: ${this.userConfig.pythonPath}`,
+        };
+      }
+      console.warn(
+        `[Python] User-configured path invalid: ${validation.message}`
+      );
+    }
+
+    // 2. Bundled Python (packaged apps only)
+    if (app.isPackaged) {
+      const bundledPath = this.getBundledPythonPath();
+      if (bundledPath) {
+        const validation = this.validatePython(bundledPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: bundledPath,
+            version: validation.version,
+            source: 'bundled',
+            message: `Using bundled Python: ${bundledPath}`,
+          };
+        }
+      }
+    }
+
+    // 3. Homebrew Python (macOS)
+    if (process.platform === 'darwin') {
+      const homebrewPath = this.findHomebrewPython();
+      if (homebrewPath) {
+        const validation = this.validatePython(homebrewPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: homebrewPath,
+            version: validation.version,
+            source: 'homebrew',
+            message: `Using Homebrew Python: ${homebrewPath}`,
+          };
+        }
+      }
+    }
+
+    // 4. System PATH (augmented)
+    const candidates =
+      process.platform === 'win32'
+        ? ['py -3', 'python', 'python3', 'py']
+        : ['python3', 'python'];
+
+    for (const cmd of candidates) {
+      // Special handling for Windows 'py -3' launcher
+      if (cmd.startsWith('py ')) {
+        const validation = this.validatePython(cmd);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: cmd,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using system Python: ${cmd}`,
+          };
+        }
+      } else {
+        // For regular python/python3, find the actual path
+        const pythonPath = findExecutable(cmd);
+        if (pythonPath) {
+          const validation = this.validatePython(pythonPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: pythonPath,
+              version: validation.version,
+              source: 'system-path',
+              message: `Using system Python: ${pythonPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 5. Not found
+    return {
+      found: false,
+      source: 'fallback',
+      message:
+        `Python ${MINIMUM_VERSION}+ not found. ` +
+        'Please install Python or configure in Settings.',
+    };
+  }
+
+  /**
+   * Detect Git with multi-level priority
+   *
+   * Priority order:
+   * 1. User configuration
+   * 2. Homebrew Git (macOS)
+   * 3. System PATH
+   *
+   * @returns Detection result for Git
+   */
+  private detectGit(): ToolDetectionResult {
+    // 1. User configuration
+    if (this.userConfig.gitPath) {
+      const validation = this.validateGit(this.userConfig.gitPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: this.userConfig.gitPath,
+          version: validation.version,
+          source: 'user-config',
+          message: `Using user-configured Git: ${this.userConfig.gitPath}`,
+        };
+      }
+      console.warn(`[Git] User-configured path invalid: ${validation.message}`);
+    }
+
+    // 2. Homebrew (macOS)
+    if (process.platform === 'darwin') {
+      const homebrewPaths = [
+        '/opt/homebrew/bin/git', // Apple Silicon
+        '/usr/local/bin/git', // Intel Mac
+      ];
+
+      for (const gitPath of homebrewPaths) {
+        if (existsSync(gitPath)) {
+          const validation = this.validateGit(gitPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: gitPath,
+              version: validation.version,
+              source: 'homebrew',
+              message: `Using Homebrew Git: ${gitPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 3. System PATH (augmented)
+    const gitPath = findExecutable('git');
+    if (gitPath) {
+      const validation = this.validateGit(gitPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: gitPath,
+          version: validation.version,
+          source: 'system-path',
+          message: `Using system Git: ${gitPath}`,
+        };
+      }
+    }
+
+    // 4. Not found - fallback to 'git'
+    return {
+      found: false,
+      source: 'fallback',
+      message: 'Git not found in standard locations. Using fallback "git".',
+    };
+  }
+
+  /**
+   * Detect GitHub CLI with multi-level priority
+   *
+   * Priority order:
+   * 1. User configuration
+   * 2. Homebrew gh (macOS)
+   * 3. System PATH
+   * 4. Windows Program Files
+   *
+   * @returns Detection result for GitHub CLI
+   */
+  private detectGitHubCLI(): ToolDetectionResult {
+    // 1. User configuration
+    if (this.userConfig.githubCLIPath) {
+      const validation = this.validateGitHubCLI(this.userConfig.githubCLIPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: this.userConfig.githubCLIPath,
+          version: validation.version,
+          source: 'user-config',
+          message: `Using user-configured GitHub CLI: ${this.userConfig.githubCLIPath}`,
+        };
+      }
+      console.warn(
+        `[GitHub CLI] User-configured path invalid: ${validation.message}`
+      );
+    }
+
+    // 2. Homebrew (macOS)
+    if (process.platform === 'darwin') {
+      const homebrewPaths = [
+        '/opt/homebrew/bin/gh', // Apple Silicon
+        '/usr/local/bin/gh', // Intel Mac
+      ];
+
+      for (const ghPath of homebrewPaths) {
+        if (existsSync(ghPath)) {
+          const validation = this.validateGitHubCLI(ghPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: ghPath,
+              version: validation.version,
+              source: 'homebrew',
+              message: `Using Homebrew GitHub CLI: ${ghPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 3. System PATH (augmented)
+    const ghPath = findExecutable('gh');
+    if (ghPath) {
+      const validation = this.validateGitHubCLI(ghPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: ghPath,
+          version: validation.version,
+          source: 'system-path',
+          message: `Using system GitHub CLI: ${ghPath}`,
+        };
+      }
+    }
+
+    // 4. Windows Program Files
+    if (process.platform === 'win32') {
+      const windowsPaths = [
+        'C:\\Program Files\\GitHub CLI\\gh.exe',
+        'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
+      ];
+
+      for (const ghPath of windowsPaths) {
+        if (existsSync(ghPath)) {
+          const validation = this.validateGitHubCLI(ghPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: ghPath,
+              version: validation.version,
+              source: 'system-path',
+              message: `Using Windows GitHub CLI: ${ghPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 5. Not found
+    return {
+      found: false,
+      source: 'fallback',
+      message: 'GitHub CLI (gh) not found. Install from https://cli.github.com',
+    };
+  }
+
+  /**
+   * Validate Python version and availability
+   *
+   * Checks that Python executable exists and meets minimum version requirement
+   * (3.10.0+) for claude-agent-sdk compatibility.
+   *
+   * @param pythonCmd - The Python command to validate
+   * @returns Validation result with version information
+   */
+  private validatePython(pythonCmd: string): ToolValidation {
+    const MINIMUM_VERSION = '3.10.0';
+
+    try {
+      const version = execSync(`${pythonCmd} --version`, {
+        stdio: 'pipe',
+        timeout: 5000,
+        windowsHide: true,
+      })
+        .toString()
+        .trim();
+
+      const match = version.match(/Python (\d+\.\d+\.\d+)/);
+      if (!match) {
+        return {
+          valid: false,
+          message: 'Unable to detect Python version',
+        };
+      }
+
+      const versionStr = match[1];
+      const [major, minor] = versionStr.split('.').map(Number);
+      const [reqMajor, reqMinor] = MINIMUM_VERSION.split('.').map(Number);
+
+      const meetsRequirement =
+        major > reqMajor || (major === reqMajor && minor >= reqMinor);
+
+      if (!meetsRequirement) {
+        return {
+          valid: false,
+          version: versionStr,
+          message: `Python ${versionStr} is too old. Requires ${MINIMUM_VERSION}+`,
+        };
+      }
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `Python ${versionStr} meets requirements`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate Python: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Validate Git availability and version
+   *
+   * @param gitCmd - The Git command to validate
+   * @returns Validation result with version information
+   */
+  private validateGit(gitCmd: string): ToolValidation {
+    try {
+      const version = execFileSync(gitCmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+      }).trim();
+
+      const match = version.match(/git version (\d+\.\d+\.\d+)/);
+      const versionStr = match ? match[1] : version;
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `Git ${versionStr} is available`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate Git: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Validate GitHub CLI availability and version
+   *
+   * @param ghCmd - The GitHub CLI command to validate
+   * @returns Validation result with version information
+   */
+  private validateGitHubCLI(ghCmd: string): ToolValidation {
+    try {
+      const version = execFileSync(ghCmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+      }).trim();
+
+      const match = version.match(/gh version (\d+\.\d+\.\d+)/);
+      const versionStr = match ? match[1] : version.split('\n')[0];
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `GitHub CLI ${versionStr} is available`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate GitHub CLI: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Get bundled Python path for packaged apps
+   *
+   * Only available in packaged Electron apps where Python is bundled
+   * in the resources directory.
+   *
+   * @returns Path to bundled Python or null if not found
+   */
+  private getBundledPythonPath(): string | null {
+    if (!app.isPackaged) {
+      return null;
+    }
+
+    const resourcesPath = process.resourcesPath;
+    const isWindows = process.platform === 'win32';
+
+    const pythonPath = isWindows
+      ? path.join(resourcesPath, 'python', 'python.exe')
+      : path.join(resourcesPath, 'python', 'bin', 'python3');
+
+    return existsSync(pythonPath) ? pythonPath : null;
+  }
+
+  /**
+   * Find Homebrew Python on macOS
+   *
+   * Checks both Apple Silicon and Intel Homebrew locations.
+   * Searches for python3, python3.13, python3.12, etc. in order.
+   *
+   * @returns Path to Homebrew Python or null if not found
+   */
+  private findHomebrewPython(): string | null {
+    const homebrewDirs = [
+      '/opt/homebrew/bin', // Apple Silicon
+      '/usr/local/bin', // Intel Mac
+    ];
+
+    // Check for generic python3 first, then specific versions (newest first)
+    const pythonNames = [
+      'python3',
+      'python3.13',
+      'python3.12',
+      'python3.11',
+      'python3.10',
+    ];
+
+    for (const dir of homebrewDirs) {
+      for (const name of pythonNames) {
+        const pythonPath = path.join(dir, name);
+        if (existsSync(pythonPath)) {
+          return pythonPath;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Clear cache manually
+   *
+   * Useful for testing or forcing re-detection.
+   * Normally not needed as cache is cleared automatically on settings change.
+   */
+  clearCache(): void {
+    this.cache.clear();
+    console.warn('[CLI Tools] Cache cleared');
+  }
+
+  /**
+   * Get tool detection info for diagnostics
+   *
+   * Performs fresh detection without using cache.
+   * Useful for Settings UI to show current detection status.
+   *
+   * @param tool - The tool to get detection info for
+   * @returns Detection result with full metadata
+   */
+  getToolInfo(tool: CLITool): ToolDetectionResult {
+    return this.detectToolPath(tool);
+  }
+}
+
+// Singleton instance
+const cliToolManager = new CLIToolManager();
+
+/**
+ * Get the path for a CLI tool
+ *
+ * Convenience function for accessing the tool manager singleton.
+ * Uses cached path if available, otherwise auto-detects.
+ *
+ * @param tool - The CLI tool to get the path for
+ * @returns The resolved path to the tool executable
+ *
+ * @example
+ * ```typescript
+ * import { getToolPath } from './cli-tool-manager';
+ *
+ * const pythonPath = getToolPath('python');
+ * const gitPath = getToolPath('git');
+ * const ghPath = getToolPath('gh');
+ *
+ * execSync(`${gitPath} status`, { cwd: projectPath });
+ * ```
+ */
+export function getToolPath(tool: CLITool): string {
+  return cliToolManager.getToolPath(tool);
+}
+
+/**
+ * Configure CLI tools with user settings
+ *
+ * Call this when user updates CLI tool paths in Settings.
+ * Clears cache to force re-detection with new configuration.
+ *
+ * @param config - User configuration for CLI tool paths
+ *
+ * @example
+ * ```typescript
+ * import { configureTools } from './cli-tool-manager';
+ *
+ * // When settings are loaded or updated
+ * configureTools({
+ *   pythonPath: settings.pythonPath,
+ *   gitPath: settings.gitPath,
+ *   githubCLIPath: settings.githubCLIPath,
+ * });
+ * ```
+ */
+export function configureTools(config: ToolConfig): void {
+  cliToolManager.configure(config);
+}
+
+/**
+ * Get tool detection info for diagnostics
+ *
+ * Performs fresh detection and returns full metadata.
+ * Useful for Settings UI to show detection status and version.
+ *
+ * @param tool - The tool to get detection info for
+ * @returns Detection result with path, version, and source
+ *
+ * @example
+ * ```typescript
+ * import { getToolInfo } from './cli-tool-manager';
+ *
+ * const pythonInfo = getToolInfo('python');
+ * console.log(`Found: ${pythonInfo.found}`);
+ * console.log(`Path: ${pythonInfo.path}`);
+ * console.log(`Version: ${pythonInfo.version}`);
+ * console.log(`Source: ${pythonInfo.source}`);
+ * ```
+ */
+export function getToolInfo(tool: CLITool): ToolDetectionResult {
+  return cliToolManager.getToolInfo(tool);
+}
+
+/**
+ * Clear tool path cache manually
+ *
+ * Forces re-detection on next getToolPath() call.
+ * Normally not needed as cache is cleared automatically on settings change.
+ *
+ * @example
+ * ```typescript
+ * import { clearToolCache } from './cli-tool-manager';
+ *
+ * // Force re-detection (e.g., after installing new tools)
+ * clearToolCache();
+ * ```
+ */
+export function clearToolCache(): void {
+  cliToolManager.clearCache();
+}
