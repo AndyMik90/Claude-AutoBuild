@@ -1,5 +1,5 @@
 import { ipcMain, shell, clipboard } from 'electron';
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync, createWriteStream } from 'fs';
 import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -1167,7 +1167,7 @@ async function runUnityTweak(
   const commandDisplay = `${editorPath} ${commandArgs.join(' ')}`;
 
   // Create initial run record
-  const run: any = {
+  const run: UnityRun = {
     id: runId,
     action: 'tweak',
     startedAt: new Date().toISOString(),
@@ -1195,8 +1195,8 @@ async function runUnityTweak(
   // Return promise for process handling (non-async executor)
   return new Promise((resolve, reject) => {
     // Spawn Unity process
-    const stdoutStream = require('fs').createWriteStream(stdoutPath);
-    const stderrStream = require('fs').createWriteStream(stderrPath);
+    const stdoutStream = createWriteStream(stdoutPath);
+    const stderrStream = createWriteStream(stderrPath);
 
     const unityProcess = spawn(editorPath, commandArgs, {
       cwd: projectPath,

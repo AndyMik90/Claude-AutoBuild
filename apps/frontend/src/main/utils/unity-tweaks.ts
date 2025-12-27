@@ -76,9 +76,10 @@ export async function createPostBackupAndDiff(
   // Generate diff
   const changedFiles: string[] = [];
   let diffContent = '';
+  let gitDiffSucceeded = false;
 
+  // Try git diff first if enabled and this is a git repository
   if (useGit && (await isGitRepository(projectPath))) {
-    // Use git diff for tracked files
     try {
       const gitDiff = execSync(`git diff -- ${backup.files.join(' ')}`, {
         cwd: projectPath,
@@ -97,15 +98,16 @@ export async function createPostBackupAndDiff(
           }
         }
       }
+      gitDiffSucceeded = true;
     } catch (error) {
       // Git diff failed, fall back to manual diff
       console.warn('Git diff failed, using manual diff:', error);
-      useGit = false;
     }
   }
 
-  if (!useGit || changedFiles.length === 0) {
-    // Manual diff generation
+  // Fall back to manual diff if git wasn't used or failed
+  if (!gitDiffSucceeded) {
+    diffContent = '';
     for (const relPath of backup.files) {
       const prePath = path.join(backup.preDir, relPath);
       const postPath = path.join(postDir, relPath);
@@ -128,7 +130,7 @@ export async function createPostBackupAndDiff(
   }
 
   // Save diff file
-  const diffFileName = useGit && changedFiles.length > 0 ? 'git-diff.txt' : 'diff.txt';
+  const diffFileName = gitDiffSucceeded ? 'git-diff.txt' : 'diff.txt';
   const diffPath = path.join(runDir, diffFileName);
   await fs.writeFile(diffPath, diffContent || 'No changes detected\n', 'utf-8');
 
@@ -267,6 +269,29 @@ export async function readUnityPackages(projectPath: string): Promise<{
   packages?: Array<{ name: string; version: string }>;
   error?: string;
 }> {
+  // Validate projectPath exists and is a directory
+  if (!projectPath) {
+    return {
+      success: false,
+      error: 'Project path is required',
+    };
+  }
+
+  if (!(await fs.pathExists(projectPath))) {
+    return {
+      success: false,
+      error: 'Project path does not exist',
+    };
+  }
+
+  const stats = await fs.stat(projectPath);
+  if (!stats.isDirectory()) {
+    return {
+      success: false,
+      error: 'Project path is not a directory',
+    };
+  }
+
   const manifestPath = path.join(projectPath, 'Packages', 'manifest.json');
 
   if (!(await fs.pathExists(manifestPath))) {

@@ -823,7 +823,25 @@ export interface ElectronAPI {
       info: number;
     };
   }>>;
-  getDiagnosticsText: (report: any) => Promise<IPCResult<string>>;
+  getDiagnosticsText: (report: {
+    projectPath: string;
+    timestamp: string;
+    checks: Array<{
+      id: string;
+      category: 'project' | 'editor' | 'toolchain' | 'packages' | 'git';
+      status: 'success' | 'warning' | 'error' | 'info';
+      message: string;
+      details?: string;
+      actionable?: boolean;
+      fixAction?: string;
+    }>;
+    summary: {
+      success: number;
+      warning: number;
+      error: number;
+      info: number;
+    };
+  }) => Promise<IPCResult<string>>;
 
   // Unity Bridge
   checkBridgeInstalled: (projectId: string) => Promise<IPCResult<{ installed: boolean }>>;

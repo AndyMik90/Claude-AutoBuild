@@ -752,11 +752,11 @@ export function Unity({ projectId }: UnityProps) {
       case 'build':
         return t('history.actionLabels.build', { defaultValue: 'Build' });
       case 'tweak':
-        return 'Project Tweak';
+        return t('history.actionLabels.tweak', { defaultValue: 'Project Tweak' });
       case 'upm-resolve':
-        return 'UPM Resolve';
+        return t('history.actionLabels.upm-resolve', { defaultValue: 'UPM Resolve' });
       case 'bridge-install':
-        return 'Bridge Install';
+        return t('history.actionLabels.bridge-install', { defaultValue: 'Bridge Install' });
       default:
         return action;
     }
