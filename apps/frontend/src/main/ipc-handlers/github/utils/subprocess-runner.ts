@@ -11,6 +11,7 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 import type { Project } from '../../../../shared/types';
+import { parsePythonCommand } from '../../../python-detector';
 
 const execAsync = promisify(exec);
 
@@ -68,7 +69,9 @@ export function runPythonSubprocess<T = unknown>(
     }
   }
 
-  const child = spawn(options.pythonPath, options.args, {
+  // Parse Python command to handle paths with spaces (e.g., ~/Library/Application Support/...)
+  const [pythonCommand, pythonBaseArgs] = parsePythonCommand(options.pythonPath);
+  const child = spawn(pythonCommand, [...pythonBaseArgs, ...options.args], {
     cwd: options.cwd,
     env: filteredEnv,
   });
