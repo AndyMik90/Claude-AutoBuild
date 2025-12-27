@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings2, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -24,11 +24,6 @@ import {
   DialogHeader,
   DialogTitle
 } from './components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from './components/ui/tooltip';
 import { Sidebar, type SidebarView } from './components/Sidebar';
 import { KanbanBoard } from './components/KanbanBoard';
 import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
@@ -50,7 +45,6 @@ import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
 import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
-import { UsageIndicator } from './components/UsageIndicator';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
@@ -672,36 +666,6 @@ export function App() {
               </DragOverlay>
             </DndContext>
           )}
-
-          {/* Header */}
-          <header className="electron-drag flex h-14 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6">
-            <div className="electron-no-drag">
-              {selectedProject ? (
-                <h1 className="font-semibold text-foreground">{selectedProject.name}</h1>
-              ) : (
-                <div className="text-muted-foreground">
-                  Select a project to get started
-                </div>
-              )}
-            </div>
-            {selectedProject && (
-              <div className="electron-no-drag flex items-center gap-3">
-                <UsageIndicator />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsSettingsDialogOpen(true)}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Settings</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-          </header>
 
           {/* Main content area */}
           <main className="flex-1 overflow-hidden">
