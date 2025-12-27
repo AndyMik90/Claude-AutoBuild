@@ -2,6 +2,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { createPatch } from 'diff';
+import { randomBytes } from 'crypto';
 
 export interface TweakBackup {
   timestamp: string;
@@ -252,13 +253,8 @@ export async function isUnityBridgeInstalled(projectPath: string): Promise<boole
  * Generate a Unity-compatible GUID for .meta files
  */
 function generateGuid(): string {
-  // Generate a pseudo-random GUID (Unity format: 32 hex chars)
-  const chars = '0123456789abcdef';
-  let guid = '';
-  for (let i = 0; i < 32; i++) {
-    guid += chars[Math.floor(Math.random() * 16)];
-  }
-  return guid;
+  // Generate a cryptographically secure random GUID (Unity format: 32 hex chars)
+  return randomBytes(16).toString('hex');
 }
 
 /**

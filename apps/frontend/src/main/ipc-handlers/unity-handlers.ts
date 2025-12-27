@@ -1,6 +1,6 @@
 import { ipcMain, shell, clipboard } from 'electron';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
@@ -2656,7 +2656,7 @@ export function registerUnityHandlers(): void {
           tweakSummary: {
             action: 'install-bridge',
             description: result.message,
-            changedFiles: result.installed ? [result.bridgePath.replace(projectPath + '/', '')] : [],
+            changedFiles: result.installed ? [relative(projectPath, result.bridgePath)] : [],
             backupCreated: false
           }
         };
