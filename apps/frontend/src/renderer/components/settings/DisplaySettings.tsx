@@ -107,6 +107,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               const isSelected = currentScale === preset.value;
               return (
                 <button
+                  type="button"
                   key={preset.value}
                   onClick={() => handlePresetChange(preset.value)}
                   className={cn(
@@ -138,6 +139,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               </span>
               {displayScale !== UI_SCALE_DEFAULT && (
                 <button
+                  type="button"
                   onClick={handleReset}
                   className={cn(
                     'p-1.5 rounded-md transition-colors',
@@ -158,6 +160,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
           {/* Slider with zoom buttons and apply button */}
           <div className="flex items-center gap-3 pt-1">
             <button
+              type="button"
               onClick={handleZoomOut}
               disabled={displayScale <= UI_SCALE_MIN}
               className={cn(
@@ -201,6 +204,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               )}
             />
             <button
+              type="button"
               onClick={handleZoomIn}
               disabled={displayScale >= UI_SCALE_MAX}
               className={cn(
@@ -214,6 +218,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               <ZoomIn className="h-4 w-4" />
             </button>
             <button
+              type="button"
               onClick={handleApplyChanges}
               disabled={!hasPendingChanges}
               className={cn(
