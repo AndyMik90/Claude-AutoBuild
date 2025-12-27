@@ -28,7 +28,7 @@ vi.mock('../../../env-utils', () => ({
 }));
 
 import { existsSync, readFileSync } from 'fs';
-import { getGitHubConfig, normalizeRepoReference, getTargetRepo } from '../utils';
+import { getGitHubConfig, normalizeRepoReference, getTargetRepo, githubFetchWithFallback } from '../utils';
 import type { Project } from '../../../../shared/types';
 import type { GitHubConfig } from '../types';
 
@@ -491,6 +491,391 @@ GITHUB_PARENT_REPO=invalid-repo-format`;
           parentRepo: '' as unknown as undefined // Edge case: empty string
         });
         expect(getTargetRepo(config, 'issues')).toBe('fork-owner/fork-repo');
+      });
+    });
+  });
+
+  describe('githubFetchWithFallback', () => {
+    // Helper to create a GitHubConfig for testing
+    const createConfig = (overrides: Partial<GitHubConfig> = {}): GitHubConfig => ({
+      token: 'test-token',
+      repo: 'fork-owner/fork-repo',
+      isFork: false,
+      parentRepo: undefined,
+      ...overrides
+    });
+
+    // Mock fetch
+    const mockFetch = vi.fn();
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      global.fetch = mockFetch;
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    describe('successful requests without fallback', () => {
+      it('should return data with usedFallback=false when primary request succeeds', async () => {
+        const mockData = { id: 1, title: 'Test Issue' };
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockData)
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        const result = await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/issues`,
+          'issues'
+        );
+
+        expect(result.data).toEqual(mockData);
+        expect(result.usedFallback).toBe(false);
+        expect(result.repo).toBe('parent-owner/parent-repo');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://api.github.com/repos/parent-owner/parent-repo/issues',
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              'Authorization': 'Bearer test-token'
+            })
+          })
+        );
+      });
+
+      it('should use fork repo for non-fork repositories', async () => {
+        const mockData = { id: 1, title: 'Test Issue' };
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockData)
+        });
+
+        const config = createConfig({ isFork: false });
+
+        const result = await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/issues`,
+          'issues'
+        );
+
+        expect(result.data).toEqual(mockData);
+        expect(result.usedFallback).toBe(false);
+        expect(result.repo).toBe('fork-owner/fork-repo');
+      });
+
+      it('should use fork repo for code operations even when fork is configured', async () => {
+        const mockData = { content: 'file contents' };
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockData)
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        const result = await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/contents/README.md`,
+          'code'
+        );
+
+        expect(result.data).toEqual(mockData);
+        expect(result.usedFallback).toBe(false);
+        expect(result.repo).toBe('fork-owner/fork-repo');
+      });
+    });
+
+    describe('fallback on 403 errors', () => {
+      it('should fall back to fork repo when parent returns 403', async () => {
+        const mockForkData = { id: 2, title: 'Fork Issue' };
+
+        // First call to parent fails with 403
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          text: () => Promise.resolve('Access denied')
+        });
+
+        // Second call to fork succeeds
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockForkData)
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        const result = await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/issues`,
+          'issues'
+        );
+
+        expect(result.data).toEqual(mockForkData);
+        expect(result.usedFallback).toBe(true);
+        expect(result.repo).toBe('fork-owner/fork-repo');
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('fallback on 404 errors', () => {
+      it('should fall back to fork repo when parent returns 404', async () => {
+        const mockForkData = { id: 3, title: 'Fork PR' };
+
+        // First call to parent fails with 404
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Not found')
+        });
+
+        // Second call to fork succeeds
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockForkData)
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        const result = await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/pulls`,
+          'prs'
+        );
+
+        expect(result.data).toEqual(mockForkData);
+        expect(result.usedFallback).toBe(true);
+        expect(result.repo).toBe('fork-owner/fork-repo');
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('no fallback scenarios', () => {
+      it('should NOT fall back for non-fork repositories', async () => {
+        // Request fails with 404
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Not found')
+        });
+
+        const config = createConfig({ isFork: false });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/issues`,
+            'issues'
+          )
+        ).rejects.toThrow('404');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should NOT fall back for forks without parent repo configured', async () => {
+        // Request fails with 403
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          text: () => Promise.resolve('Access denied')
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: undefined
+        });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/issues`,
+            'issues'
+          )
+        ).rejects.toThrow('403');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should NOT fall back for code operations (already using fork)', async () => {
+        // Request fails with 404
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Not found')
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/contents/file.txt`,
+            'code'
+          )
+        ).rejects.toThrow('404');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should NOT fall back for 500 errors (server errors)', async () => {
+        // Request fails with 500
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          text: () => Promise.resolve('Server error')
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/issues`,
+            'issues'
+          )
+        ).rejects.toThrow('500');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should NOT fall back for 401 errors (authentication)', async () => {
+        // Request fails with 401
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          text: () => Promise.resolve('Bad credentials')
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/issues`,
+            'issues'
+          )
+        ).rejects.toThrow('401');
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('fallback failure handling', () => {
+      it('should throw error if fallback also fails', async () => {
+        // First call to parent fails with 403
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          text: () => Promise.resolve('Access denied to parent')
+        });
+
+        // Second call to fork also fails
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          text: () => Promise.resolve('Server error on fork')
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        await expect(
+          githubFetchWithFallback(
+            config,
+            (repo) => `/repos/${repo}/issues`,
+            'issues'
+          )
+        ).rejects.toThrow('500');
+
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('request options passthrough', () => {
+      it('should pass request options to both primary and fallback requests', async () => {
+        const mockForkData = { id: 1, title: 'Test' };
+
+        // First call fails
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          text: () => Promise.resolve('Access denied')
+        });
+
+        // Second call succeeds
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockForkData)
+        });
+
+        const config = createConfig({
+          isFork: true,
+          parentRepo: 'parent-owner/parent-repo'
+        });
+
+        const customHeaders = { 'X-Custom-Header': 'test-value' };
+
+        await githubFetchWithFallback(
+          config,
+          (repo) => `/repos/${repo}/issues`,
+          'issues',
+          { headers: customHeaders }
+        );
+
+        // Both calls should include the custom header
+        expect(mockFetch).toHaveBeenNthCalledWith(
+          1,
+          expect.any(String),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              'X-Custom-Header': 'test-value'
+            })
+          })
+        );
+        expect(mockFetch).toHaveBeenNthCalledWith(
+          2,
+          expect.any(String),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              'X-Custom-Header': 'test-value'
+            })
+          })
+        );
       });
     });
   });

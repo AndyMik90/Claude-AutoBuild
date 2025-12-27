@@ -166,3 +166,69 @@ export async function githubFetch(
 
   return response.json();
 }
+
+/**
+ * Result type for githubFetchWithFallback
+ */
+export interface FetchWithFallbackResult<T = unknown> {
+  data: T;
+  usedFallback: boolean;
+  repo: string;
+}
+
+/**
+ * Make a GitHub API request with fallback to fork repository
+ *
+ * When fetching from a fork's parent repository, if the request fails with
+ * 403 (Forbidden) or 404 (Not Found), this function automatically falls back
+ * to fetching from the fork repository instead.
+ *
+ * @param config - GitHub configuration containing token, repo, and fork info
+ * @param endpointBuilder - Function that takes a repo string and returns the API endpoint
+ * @param operationType - Type of operation: 'issues', 'prs', or 'code'
+ * @param options - Optional fetch options
+ * @returns Object containing data, usedFallback flag, and the repo that was used
+ */
+export async function githubFetchWithFallback<T = unknown>(
+  config: GitHubConfig,
+  endpointBuilder: (repo: string) => string,
+  operationType: OperationType,
+  options: RequestInit = {}
+): Promise<FetchWithFallbackResult<T>> {
+  // Determine the primary target repo based on fork config and operation type
+  const targetRepo = getTargetRepo(config, operationType);
+  const endpoint = endpointBuilder(targetRepo);
+
+  try {
+    const data = await githubFetch(config.token, endpoint, options);
+    return {
+      data: data as T,
+      usedFallback: false,
+      repo: targetRepo
+    };
+  } catch (error) {
+    // Only attempt fallback if:
+    // 1. This is a fork with a parent repo configured
+    // 2. The target repo was the parent (not already the fork)
+    // 3. The error is a 403 or 404
+    const shouldFallback =
+      config.isFork &&
+      config.parentRepo &&
+      targetRepo === config.parentRepo &&
+      error instanceof Error &&
+      (error.message.includes('403') || error.message.includes('404'));
+
+    if (!shouldFallback) {
+      throw error;
+    }
+
+    // Fall back to the fork repository
+    const fallbackEndpoint = endpointBuilder(config.repo);
+    const fallbackData = await githubFetch(config.token, fallbackEndpoint, options);
+    return {
+      data: fallbackData as T,
+      usedFallback: true,
+      repo: config.repo
+    };
+  }
+}
