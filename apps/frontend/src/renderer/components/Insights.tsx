@@ -158,10 +158,18 @@ export function Insights({ projectId }: InsightsProps) {
     textareaRef.current?.focus();
   }, []);
 
-  // Reset taskCreated when switching sessions
+  // Reset all local state when switching sessions or projects
+  // This prevents task suggestion leakage and stale state between sessions
   useEffect(() => {
+    // Reset task creation tracking for new session
     setTaskCreated(new Set());
-  }, [session?.id]);
+    // Clear any in-progress task creation since message IDs are session-specific
+    setCreatingTask(null);
+    // Clear input value to prevent sending messages intended for another session
+    setInputValue('');
+    // Focus the textarea for immediate user input
+    textareaRef.current?.focus();
+  }, [projectId, session?.id]);
 
   const handleSend = () => {
     const message = inputValue.trim();
@@ -180,7 +188,10 @@ export function Insights({ projectId }: InsightsProps) {
 
   const handleNewSession = async () => {
     await newSession(projectId);
+    // Reset local state for new session
     setTaskCreated(new Set());
+    setCreatingTask(null);
+    setInputValue('');
     textareaRef.current?.focus();
   };
 
