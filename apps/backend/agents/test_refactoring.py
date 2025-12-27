@@ -104,9 +104,9 @@ def test_backwards_compatibility():
     ]
 
     for func_name in required_functions:
-        assert hasattr(agent, func_name), (
-            f"Missing function in agent module: {func_name}"
-        )
+        assert hasattr(
+            agent, func_name
+        ), f"Missing function in agent module: {func_name}"
         print(f"  ✓ agent.{func_name}")
 
     print("\n✓ Backwards compatibility maintained!\n")

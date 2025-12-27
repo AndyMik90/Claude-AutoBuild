@@ -96,9 +96,9 @@ def test_ai_bot_patterns():
     assert AI_BOT_PATTERNS["copilot"] == "GitHub Copilot"
 
     # Check we have a reasonable number of patterns
-    assert len(AI_BOT_PATTERNS) >= 15, (
-        f"Expected at least 15 patterns, got {len(AI_BOT_PATTERNS)}"
-    )
+    assert (
+        len(AI_BOT_PATTERNS) >= 15
+    ), f"Expected at least 15 patterns, got {len(AI_BOT_PATTERNS)}"
 
     print(f"  ✅ AI bot patterns ({len(AI_BOT_PATTERNS)} patterns): PASS")
 

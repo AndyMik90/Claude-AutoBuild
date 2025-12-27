@@ -31,4 +31,3 @@ jobs:
 
       - name: Run ruff format check
         run: ruff format apps/backend/ --check --diff
-
