@@ -26,6 +26,13 @@ interface UnitySettings {
   buildExecuteMethod?: string;
 }
 
+interface UnityTweakParams {
+  targetGroup?: string;
+  symbol?: string;
+  backend?: string;
+  buildTarget?: string;
+}
+
 interface UnityRun {
   id: string;
   action: 'editmode-tests' | 'playmode-tests' | 'build';
@@ -1111,182 +1118,171 @@ async function runUnityTweak(
   projectId: string,
   editorPath: string,
   tweakAction: string,
-  params: any
+  params: UnityTweakParams
 ): Promise<string> {
-  return new Promise(async (resolve, reject) => {
-    const projectPath = getUnityProjectPath(projectId);
-    const runId = createRunId();
-    const runDir = join(projectPath, '.auto-claude', 'unity-runs', runId);
+  const projectPath = getUnityProjectPath(projectId);
+  const runId = createRunId();
+  const runDir = join(projectPath, '.auto-claude', 'unity-runs', runId);
 
-    try {
-      // Import tweak utilities
-      const {
-        createPreBackup,
-        createPostBackupAndDiff,
-        getFilesToBackup,
-        buildTweakCommand,
-        getTweakDescription,
-      } = await import('../utils/unity-tweaks');
+  // Import tweak utilities
+  const {
+    createPreBackup,
+    createPostBackupAndDiff,
+    getFilesToBackup,
+    buildTweakCommand,
+    getTweakDescription,
+  } = await import('../utils/unity-tweaks');
 
-      mkdirSync(runDir, { recursive: true });
+  mkdirSync(runDir, { recursive: true });
 
-      // Determine files to backup
-      const filesToBackup = getFilesToBackup(tweakAction, params);
+  // Determine files to backup
+  const filesToBackup = getFilesToBackup(tweakAction, params);
 
-      // Create pre-backup
-      const backup = await createPreBackup(projectPath, runDir, filesToBackup);
+  // Create pre-backup
+  const backup = await createPreBackup(projectPath, runDir, filesToBackup);
 
-      // Build Unity command
-      const logFilePath = join(runDir, 'unity-editor.log');
-      const stdoutPath = join(runDir, 'stdout.txt');
-      const stderrPath = join(runDir, 'stderr.txt');
+  // Build Unity command
+  const logFilePath = join(runDir, 'unity-editor.log');
+  const stdoutPath = join(runDir, 'stdout.txt');
+  const stderrPath = join(runDir, 'stderr.txt');
 
-      const commandArgs = buildTweakCommand(editorPath, projectPath, tweakAction, params, logFilePath);
-      const commandDisplay = `${editorPath} ${commandArgs.join(' ')}`;
+  const commandArgs = buildTweakCommand(editorPath, projectPath, tweakAction, params, logFilePath);
+  const commandDisplay = `${editorPath} ${commandArgs.join(' ')}`;
 
-      // Create initial run record
-      const run: any = {
-        id: runId,
-        action: 'tweak',
-        startedAt: new Date().toISOString(),
-        status: 'running',
-        command: commandDisplay,
-        params: {
-          editorPath,
+  // Create initial run record
+  const run: any = {
+    id: runId,
+    action: 'tweak',
+    startedAt: new Date().toISOString(),
+    status: 'running',
+    command: commandDisplay,
+    params: {
+      editorPath,
+      projectPath,
+      tweakAction,
+      ...params,
+    },
+    artifactPaths: {
+      runDir,
+      log: logFilePath,
+      stdout: stdoutPath,
+      stderr: stderrPath,
+      preBackupDir: backup.preDir,
+    },
+  };
+
+  saveRunRecord(projectId, run);
+
+  const startTime = Date.now();
+
+  // Return promise for process handling (non-async executor)
+  return new Promise((resolve, reject) => {
+    // Spawn Unity process
+    const stdoutStream = require('fs').createWriteStream(stdoutPath);
+    const stderrStream = require('fs').createWriteStream(stderrPath);
+
+    const unityProcess = spawn(editorPath, commandArgs, {
+      cwd: projectPath,
+      detached: true,
+    });
+
+    run.pid = unityProcess.pid;
+    saveRunRecord(projectId, run);
+
+    // Store process
+    unityProcessStore.set(runId, unityProcess);
+
+    unityProcess.stdout.on('data', (data) => {
+      stdoutStream.write(data);
+    });
+
+    unityProcess.stderr.on('data', (data) => {
+      stderrStream.write(data);
+    });
+
+    unityProcess.on('close', async (code) => {
+      stdoutStream.end();
+      stderrStream.end();
+      unityProcessStore.delete(runId);
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Check if run was canceled
+      const wasCanceled = checkIfCanceled(projectId, runId);
+
+      try {
+        // Create post-backup and diff
+        const { changedFiles, diffPath } = await createPostBackupAndDiff(
           projectPath,
-          tweakAction,
-          ...params,
-        },
-        artifactPaths: {
           runDir,
-          log: logFilePath,
-          stdout: stdoutPath,
-          stderr: stderrPath,
-          preBackupDir: backup.preDir,
-        },
-      };
+          backup,
+          true // Use git if available
+        );
 
-      saveRunRecord(projectId, run);
-
-      const startTime = Date.now();
-
-      // Spawn Unity process
-      const stdoutStream = require('fs').createWriteStream(stdoutPath);
-      const stderrStream = require('fs').createWriteStream(stderrPath);
-
-      const unityProcess = spawn(editorPath, commandArgs, {
-        cwd: projectPath,
-        detached: true,
-      });
-
-      run.pid = unityProcess.pid;
-      saveRunRecord(projectId, run);
-
-      // Store process
-      unityProcessStore.set(runId, unityProcess);
-
-      unityProcess.stdout.on('data', (data) => {
-        stdoutStream.write(data);
-      });
-
-      unityProcess.stderr.on('data', (data) => {
-        stderrStream.write(data);
-      });
-
-      unityProcess.on('close', async (code) => {
-        stdoutStream.end();
-        stderrStream.end();
-        unityProcessStore.delete(runId);
-
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-
-        // Check if run was canceled
-        const wasCanceled = checkIfCanceled(projectId, runId);
-
-        try {
-          // Create post-backup and diff
-          const { changedFiles, diffPath } = await createPostBackupAndDiff(
-            projectPath,
-            runDir,
-            backup,
-            true // Use git if available
-          );
-
-          // Build error digest
-          const errorDigestPath = join(runDir, 'error-digest.txt');
-          const errorDigest = buildUnityErrorDigest(logFilePath, errorDigestPath);
-
-          run.endedAt = new Date().toISOString();
-          run.durationMs = duration;
-          run.exitCode = code;
-          run.status = wasCanceled ? 'canceled' : code === 0 ? 'success' : 'failed';
-          run.artifactPaths.postBackupDir = backup.postDir;
-          run.artifactPaths.diffFile = diffPath;
-          run.artifactPaths.errorDigest = errorDigestPath;
-          run.errorSummary = {
-            errorCount: errorDigest.errorCount,
-            firstErrorLine: errorDigest.firstErrorLine,
-          };
-          run.tweakSummary = {
-            action: tweakAction,
-            description: getTweakDescription(tweakAction, params),
-            changedFiles,
-            backupCreated: true,
-          };
-
-          if (wasCanceled) {
-            run.canceledReason = 'User canceled';
-          }
-
-          saveRunRecord(projectId, run);
-
-          if (code === 0) {
-            resolve(runId);
-          } else {
-            reject(new Error(`Unity tweak failed with exit code ${code}`));
-          }
-        } catch (error) {
-          console.error('Error processing tweak results:', error);
-          run.endedAt = new Date().toISOString();
-          run.durationMs = duration;
-          run.exitCode = code;
-          run.status = 'failed';
-          run.errorSummary = {
-            errorCount: 1,
-            firstErrorLine: error instanceof Error ? error.message : 'Unknown error',
-          };
-          saveRunRecord(projectId, run);
-          reject(error);
-        }
-      });
-
-      unityProcess.on('error', (error) => {
-        stdoutStream.end();
-        stderrStream.end();
-        unityProcessStore.delete(runId);
+        // Build error digest
+        const errorDigestPath = join(runDir, 'error-digest.txt');
+        const errorDigest = buildUnityErrorDigest(logFilePath, errorDigestPath);
 
         run.endedAt = new Date().toISOString();
-        run.durationMs = Date.now() - startTime;
+        run.durationMs = duration;
+        run.exitCode = code;
+        run.status = wasCanceled ? 'canceled' : code === 0 ? 'success' : 'failed';
+        run.artifactPaths.postBackupDir = backup.postDir;
+        run.artifactPaths.diffFile = diffPath;
+        run.artifactPaths.errorDigest = errorDigestPath;
+        run.errorSummary = {
+          errorCount: errorDigest.errorCount,
+          firstErrorLine: errorDigest.firstErrorLine,
+        };
+        run.tweakSummary = {
+          action: tweakAction,
+          description: getTweakDescription(tweakAction, params),
+          changedFiles,
+          backupCreated: true,
+        };
+
+        if (wasCanceled) {
+          run.canceledReason = 'User canceled';
+        }
+
+        saveRunRecord(projectId, run);
+
+        if (code === 0) {
+          resolve(runId);
+        } else {
+          reject(new Error(`Unity tweak failed with exit code ${code}`));
+        }
+      } catch (error) {
+        console.error('Error processing tweak results:', error);
+        run.endedAt = new Date().toISOString();
+        run.durationMs = duration;
+        run.exitCode = code;
         run.status = 'failed';
         run.errorSummary = {
           errorCount: 1,
-          firstErrorLine: error.message,
+          firstErrorLine: error instanceof Error ? error.message : 'Unknown error',
         };
         saveRunRecord(projectId, run);
         reject(error);
-      });
-    } catch (error) {
+      }
+    });
+
+    unityProcess.on('error', (error) => {
+      stdoutStream.end();
+      stderrStream.end();
+      unityProcessStore.delete(runId);
+
       run.endedAt = new Date().toISOString();
-      run.durationMs = Date.now() - Date.now();
+      run.durationMs = Date.now() - startTime;
       run.status = 'failed';
       run.errorSummary = {
         errorCount: 1,
-        firstErrorLine: error instanceof Error ? error.message : 'Unknown error',
+        firstErrorLine: error.message,
       };
       saveRunRecord(projectId, run);
       reject(error);
-    }
+    });
   });
 }
 
