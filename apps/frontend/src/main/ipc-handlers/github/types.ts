@@ -5,6 +5,8 @@
 export interface GitHubConfig {
   token: string;
   repo: string;
+  isFork?: boolean;
+  parentRepo?: string;
 }
 
 export interface GitHubAPIIssue {
