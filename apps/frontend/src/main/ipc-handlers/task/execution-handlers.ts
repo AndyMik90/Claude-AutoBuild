@@ -184,13 +184,19 @@ export function registerTaskExecutionHandlers(
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
-    // Find task and project to update phase logs
-    const { task, project } = findTaskAndProject(taskId);
-    if (task && project) {
-      // Mark any active phases as stopped in the log files
-      const { taskLogService } = require('../../task-log-service');
-      const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      taskLogService.markActivePhasesStopped(task.specId, project.path, specsBaseDir);
+    // Update phase logs to mark active phases as stopped
+    // Wrapped in try-catch to ensure task stopping still works even if log update fails
+    try {
+      const { task, project } = findTaskAndProject(taskId);
+      if (task && project) {
+        // Mark any active phases as stopped in the log files
+        const { taskLogService } = require('../../task-log-service');
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        taskLogService.markActivePhasesStopped(task.specId, project.path, specsBaseDir);
+      }
+    } catch (error) {
+      // Log error but don't prevent task from stopping
+      console.error('[TASK_STOP] Failed to update phase logs:', error);
     }
 
     const mainWindow = getMainWindow();
