@@ -98,7 +98,7 @@ async function checkUnityProject(projectPath: string): Promise<UnityDoctorCheck[
         category: 'project',
         name: 'Project Version',
         status: 'error',
-        message: 'Could not read ProjectVersion.txt',
+        message: `Could not read ProjectVersion.txt at ${projectVersionPath}`,
         details: (error as Error).message,
       });
     }
