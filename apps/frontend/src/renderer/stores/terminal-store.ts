@@ -266,12 +266,10 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
         return;
       }
 
-      // If some terminals are still alive, skip disk restore to avoid duplicates
-      if (aliveTerminals.length > 0) {
-        debugLog(`[TerminalStore] ${aliveTerminals.length} terminals still alive, skipping disk restore`);
-        return;
-      }
-
+      // Note: We don't skip disk restore when alive terminals exist because:
+      // 1. Dead terminals were removed from state above
+      // 2. addRestoredTerminal() has duplicate protection (checks terminal ID)
+      // 3. Disk restore will safely only add back the dead terminals
       debugLog(`[TerminalStore] ${deadTerminals.length} terminals had dead PTY, will restore from disk`);
     }
 
