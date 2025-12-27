@@ -130,7 +130,6 @@ export class ReleaseService extends EventEmitter {
     const git = getToolPath('git');
     try {
       // Check local tags
-      execSync(`${git} tag -l "${tagName}"`, { cwd: projectPath, encoding: 'utf-8' });
       const localTags = execSync(`${git} tag -l "${tagName}"`, {
         cwd: projectPath,
         encoding: 'utf-8'
@@ -140,11 +139,6 @@ export class ReleaseService extends EventEmitter {
 
       // Check remote tags
       try {
-        execSync(`${git} ls-remote --tags origin refs/tags/${tagName}`, {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
         const remoteTags = execSync(`${git} ls-remote --tags origin refs/tags/${tagName}`, {
           cwd: projectPath,
           encoding: 'utf-8'

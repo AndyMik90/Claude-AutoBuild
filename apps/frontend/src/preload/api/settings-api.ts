@@ -4,9 +4,9 @@ import type {
   AppSettings,
   IPCResult,
   SourceEnvConfig,
-  SourceEnvCheckResult
+  SourceEnvCheckResult,
+  ToolDetectionResult
 } from '../../shared/types';
-import type { ToolDetectionResult } from '../../main/cli-tool-manager';
 
 export interface SettingsAPI {
   // App Settings

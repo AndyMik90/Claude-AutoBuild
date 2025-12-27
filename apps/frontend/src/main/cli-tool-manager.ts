@@ -20,11 +20,12 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
 import { app } from 'electron';
 import { findExecutable } from './env-utils';
+import type { ToolDetectionResult } from '../shared/types';
 
 /**
  * Supported CLI tools managed by this system
@@ -39,24 +40,6 @@ export interface ToolConfig {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
-}
-
-/**
- * Result of tool detection operation
- * Contains path, version, and metadata about detection source
- */
-export interface ToolDetectionResult {
-  found: boolean;
-  path?: string;
-  version?: string;
-  source:
-    | 'user-config'
-    | 'venv'
-    | 'homebrew'
-    | 'system-path'
-    | 'bundled'
-    | 'fallback';
-  message: string;
 }
 
 /**
@@ -554,13 +537,11 @@ class CLIToolManager {
    */
   private validateGitHubCLI(ghCmd: string): ToolValidation {
     try {
-      const version = execSync(`${ghCmd} --version`, {
-        stdio: 'pipe',
+      const version = execFileSync(ghCmd, ['--version'], {
+        encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
-      })
-        .toString()
-        .trim();
+      }).trim();
 
       const match = version.match(/gh version (\d+\.\d+\.\d+)/);
       const versionStr = match ? match[1] : version.split('\n')[0];
@@ -573,7 +554,7 @@ class CLIToolManager {
     } catch (error) {
       return {
         valid: false,
-        message: `Failed to validate GitHub CLI: ${error}`,
+        message: `Failed to validate GitHub CLI: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

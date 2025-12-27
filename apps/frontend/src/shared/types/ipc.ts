@@ -237,6 +237,11 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+  getCliToolsInfo: () => Promise<IPCResult<{
+    python: import('./cli').ToolDetectionResult;
+    git: import('./cli').ToolDetectionResult;
+    gh: import('./cli').ToolDetectionResult;
+  }>>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
