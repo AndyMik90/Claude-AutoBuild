@@ -391,18 +391,7 @@ export function App() {
     setSelectedTask(null);
   };
 
-  // Ref to store the resolve function for terminal grid readiness
-  const terminalGridReadyRef = useRef<(() => void) | null>(null);
-
-  // Callback when TerminalGrid is mounted and ready
-  const handleTerminalGridMounted = useCallback(() => {
-    if (terminalGridReadyRef.current) {
-      terminalGridReadyRef.current();
-      terminalGridReadyRef.current = null;
-    }
-  }, []);
-
-  const handleOpenInbuiltTerminal = async (id: string, cwd: string) => {
+  const handleOpenInbuiltTerminal = (id: string, cwd: string) => {
     console.log('[App] Opening inbuilt terminal:', { id, cwd });
 
     // Switch to terminals view
@@ -411,19 +400,9 @@ export function App() {
     // Close modal
     setSelectedTask(null);
 
-    // Wait for TerminalGrid to mount and signal readiness
-    await new Promise<void>((resolve) => {
-      // If terminals view is already active, TerminalGrid is already mounted
-      if (activeView === 'terminals') {
-        resolve();
-      } else {
-        // Store resolve function to be called when TerminalGrid mounts
-        terminalGridReadyRef.current = resolve;
-      }
-    });
-
     // Add terminal to store - this will trigger Terminal component to mount
     // which will then create the backend PTY via usePtyProcess
+    // Note: TerminalGrid is always mounted (just hidden), so no need to wait
     const terminal = useTerminalStore.getState().addTerminal(cwd, selectedProject?.path);
 
     if (!terminal) {
@@ -692,7 +671,6 @@ export function App() {
                     projectPath={selectedProject?.path}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
                     isActive={activeView === 'terminals'}
-                    onMounted={handleTerminalGridMounted}
                   />
                 </div>
                 {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (

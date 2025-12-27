@@ -34,10 +34,9 @@ interface TerminalGridProps {
   projectPath?: string;
   onNewTaskClick?: () => void;
   isActive?: boolean;
-  onMounted?: () => void;
 }
 
-export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false, onMounted }: TerminalGridProps) {
+export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: TerminalGridProps) {
   const allTerminals = useTerminalStore((state) => state.terminals);
   // Filter terminals to show only those belonging to the current project
   // Also include legacy terminals without projectPath (created before this change)
@@ -89,13 +88,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false, on
 
     fetchSessionDates();
   }, [projectPath]);
-
-  // Signal when component is mounted and ready
-  useEffect(() => {
-    if (onMounted) {
-      onMounted();
-    }
-  }, [onMounted]);
 
   // Get addRestoredTerminal from store
   const addRestoredTerminal = useTerminalStore((state) => state.addRestoredTerminal);
