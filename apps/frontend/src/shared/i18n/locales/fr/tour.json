@@ -1,0 +1,77 @@
+{
+  "navigation": {
+    "next": "Suivant",
+    "back": "Retour",
+    "finish": "Terminer",
+    "skip": "Passer la visite",
+    "stepOf": "Étape {{current}} sur {{total}}"
+  },
+  "steps": {
+    "welcome": {
+      "title": "Bienvenue sur Auto-Claude !",
+      "description": "Auto-Claude est votre assistant de codage IA autonome. Décrivez ce que vous voulez construire, et l'IA s'occupe du reste - de la planification à l'implémentation. Découvrons les fonctionnalités principales !"
+    },
+    "sidebar": {
+      "title": "Navigation",
+      "description": "Ici vous trouverez toutes les zones principales : tableau Kanban pour les tâches, Idéation pour les nouvelles fonctionnalités, Roadmap pour la planification de projet, et plus. Cliquez sur une zone pour l'ouvrir."
+    },
+    "kanban": {
+      "title": "Tableau Kanban",
+      "description": "Le tableau Kanban affiche toutes vos tâches à différentes étapes : Backlog → En cours → Révision → Terminé. Glissez-déposez les tâches entre les colonnes."
+    },
+    "createTask": {
+      "title": "Créer une tâche",
+      "description": "Cliquez ici pour créer une nouvelle tâche. Décrivez simplement ce que vous voulez construire - l'IA analyse votre projet et crée un plan d'implémentation."
+    },
+    "taskFlow": {
+      "title": "Comment ça marche",
+      "description": "1. Vous décrivez la tâche\n2. L'IA analyse votre code\n3. L'IA crée un plan\n4. L'IA écrit la solution\n5. L'IA teste et corrige les bugs\n6. Vous révisez le résultat\n\nTout automatiquement dans une branche Git isolée !"
+    },
+    "terminals": {
+      "title": "Terminaux d'agents",
+      "description": "Ici vous pouvez voir en temps réel ce que font les agents IA. Chaque tâche s'exécute dans son propre terminal - vous pouvez suivre la progression en direct."
+    },
+    "settings": {
+      "title": "Paramètres",
+      "description": "Ici vous configurez Auto-Claude : langue, modèle IA, chemins, et intégrations comme GitHub. Vous pouvez relancer cette visite à tout moment."
+    },
+    "ready": {
+      "title": "Prêt à démarrer !",
+      "description": "Vous connaissez maintenant les bases. Créez votre première tâche et laissez Auto-Claude faire le travail. Si vous avez des questions, vous trouverez de l'aide dans les paramètres.\n\nBonne construction !"
+    }
+  },
+  "quick": {
+    "whatsNew": {
+      "title": "Quoi de neuf ?",
+      "description": "Nouvelles fonctionnalités : Support de la langue allemande, paramètres de chemin améliorés pour WSL/Windows, et cette visite interactive !"
+    }
+  },
+  "features": {
+    "tasks": {
+      "intro": {
+        "title": "Comprendre les tâches",
+        "description": "Une tâche passe par plusieurs phases : Spécification → Planification → Codage → Révision QA → Terminé. L'IA travaille de manière autonome, mais vous gardez le contrôle."
+      },
+      "status": {
+        "title": "Statut des tâches",
+        "description": "• Backlog : En attente de démarrage\n• En cours : L'IA y travaille\n• Révision : En attente de vos commentaires\n• Terminé : Complété et approuvé"
+      }
+    },
+    "ideation": {
+      "intro": {
+        "title": "Idéation",
+        "description": "Laissez l'IA générer de nouvelles idées de fonctionnalités pour votre projet. Basées sur votre code et vos objectifs, elle suggère des extensions pertinentes."
+      }
+    },
+    "roadmap": {
+      "intro": {
+        "title": "Roadmap",
+        "description": "Planifiez l'avenir de votre projet. L'IA vous aide à prioriser les fonctionnalités et à créer un plan de développement réaliste."
+      }
+    }
+  },
+  "actions": {
+    "startTour": "Démarrer la visite",
+    "restartTour": "Relancer la visite"
+  }
+}

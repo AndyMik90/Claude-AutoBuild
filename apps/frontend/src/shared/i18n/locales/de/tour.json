@@ -1,0 +1,77 @@
+{
+  "navigation": {
+    "next": "Weiter",
+    "back": "Zurück",
+    "finish": "Fertig",
+    "skip": "Tour überspringen",
+    "stepOf": "Schritt {{current}} von {{total}}"
+  },
+  "steps": {
+    "welcome": {
+      "title": "Willkommen bei Auto-Claude!",
+      "description": "Auto-Claude ist dein autonomer KI-Coding-Assistent. Beschreibe was du bauen möchtest, und die KI erledigt den Rest - von der Planung bis zur Implementierung. Lass uns die wichtigsten Funktionen erkunden!"
+    },
+    "sidebar": {
+      "title": "Navigation",
+      "description": "Hier findest du alle Hauptbereiche: Kanban-Board für Aufgaben, Ideenfindung für neue Features, Roadmap für die Projektplanung, und mehr. Klicke auf einen Bereich um ihn zu öffnen."
+    },
+    "kanban": {
+      "title": "Kanban-Board",
+      "description": "Das Kanban-Board zeigt alle deine Aufgaben in verschiedenen Stadien: Backlog → In Bearbeitung → Überprüfung → Fertig. Ziehe Aufgaben per Drag & Drop zwischen den Spalten."
+    },
+    "createTask": {
+      "title": "Aufgabe erstellen",
+      "description": "Klicke hier um eine neue Aufgabe zu erstellen. Beschreibe einfach was du bauen möchtest - die KI analysiert dein Projekt und erstellt einen Implementierungsplan."
+    },
+    "taskFlow": {
+      "title": "So funktioniert's",
+      "description": "1. Du beschreibst die Aufgabe\n2. KI analysiert deinen Code\n3. KI erstellt einen Plan\n4. KI programmiert die Lösung\n5. KI testet und behebt Fehler\n6. Du überprüfst das Ergebnis\n\nAlles automatisch in einem isolierten Git-Branch!"
+    },
+    "terminals": {
+      "title": "Agent-Terminals",
+      "description": "Hier siehst du in Echtzeit was die KI-Agenten machen. Jede Aufgabe läuft in einem eigenen Terminal - du kannst den Fortschritt live verfolgen."
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "description": "Hier konfigurierst du Auto-Claude: Sprache, KI-Modell, Pfade, und Integrationen wie GitHub. Du kannst diese Tour jederzeit neu starten."
+    },
+    "ready": {
+      "title": "Bereit zum Starten!",
+      "description": "Du kennst jetzt die Grundlagen. Erstelle deine erste Aufgabe und lass Auto-Claude die Arbeit machen. Bei Fragen findest du Hilfe in den Einstellungen.\n\nViel Spaß beim Bauen!"
+    }
+  },
+  "quick": {
+    "whatsNew": {
+      "title": "Was gibt's Neues?",
+      "description": "Neue Features: Deutsche Sprache, verbesserte Pfad-Einstellungen für WSL/Windows, und diese interaktive Tour!"
+    }
+  },
+  "features": {
+    "tasks": {
+      "intro": {
+        "title": "Aufgaben verstehen",
+        "description": "Eine Aufgabe durchläuft mehrere Phasen: Spezifikation → Planung → Programmierung → QA-Prüfung → Fertig. Die KI arbeitet autonom, aber du behältst die Kontrolle."
+      },
+      "status": {
+        "title": "Aufgaben-Status",
+        "description": "• Backlog: Wartet auf Start\n• In Bearbeitung: KI arbeitet daran\n• Überprüfung: Wartet auf dein Feedback\n• Fertig: Abgeschlossen und genehmigt"
+      }
+    },
+    "ideation": {
+      "intro": {
+        "title": "Ideenfindung",
+        "description": "Lass die KI neue Feature-Ideen für dein Projekt generieren. Basierend auf deinem Code und deinen Zielen schlägt sie sinnvolle Erweiterungen vor."
+      }
+    },
+    "roadmap": {
+      "intro": {
+        "title": "Roadmap",
+        "description": "Plane die Zukunft deines Projekts. Die KI hilft dir, Features zu priorisieren und einen realistischen Entwicklungsplan zu erstellen."
+      }
+    }
+  },
+  "actions": {
+    "startTour": "Tour starten",
+    "restartTour": "Tour neu starten"
+  }
+}

@@ -98,5 +98,94 @@
     "readyForFollowup": "Bereit für Nachbearbeitung",
     "readyToMerge": "Bereit zum Zusammenführen",
     "pendingPost": "Ausstehend"
+  },
+  "emptyStates": {
+    "tipsTitle": "Schnelltipps",
+    "takeTour": "Tour starten",
+    "kanban": {
+      "title": "Noch keine Aufgaben",
+      "description": "Erstelle deine erste Aufgabe und lass die KI für dich programmieren.",
+      "action": "Erste Aufgabe erstellen",
+      "tip1": "Beschreibe in natürlicher Sprache, was du bauen möchtest",
+      "tip2": "Die KI analysiert deine Codebasis und erstellt einen Implementierungsplan",
+      "tip3": "Jede Aufgabe läuft in einem eigenen Git-Branch für sicheres Experimentieren"
+    },
+    "ideation": {
+      "title": "Feature-Ideen generieren",
+      "description": "Lass die KI dein Projekt analysieren und sinnvolle Verbesserungen vorschlagen.",
+      "action": "Ideenfindung starten",
+      "tip1": "Die KI untersucht deine bestehende Codestruktur",
+      "tip2": "Vorschläge sind auf deinen Technologie-Stack abgestimmt"
+    },
+    "roadmap": {
+      "title": "Projekt planen",
+      "description": "Erstelle eine Entwicklungs-Roadmap mit KI-gestützter Priorisierung.",
+      "action": "Roadmap erstellen",
+      "tip1": "Priorisiere Features nach Auswirkung und Aufwand",
+      "tip2": "Die KI hilft bei der Einschätzung von Komplexität und Abhängigkeiten"
+    },
+    "terminals": {
+      "title": "Keine aktiven Agenten",
+      "description": "Starte eine Aufgabe, um KI-Agenten in Echtzeit zu sehen.",
+      "tip1": "Jede Aufgabe hat ihr eigenes Terminal mit Live-Fortschritt",
+      "tip2": "Du kannst mehrere Agenten parallel beobachten"
+    }
+  },
+  "featureOverview": {
+    "title": "Willkommen bei Auto-Claude",
+    "subtitle": "Dein autonomer KI-Coding-Assistent",
+    "startTour": "Interaktive Tour starten",
+    "howItWorks": "So funktioniert's",
+    "learnMore": "Mehr erfahren",
+    "whatIs": {
+      "title": "Was ist Auto-Claude?",
+      "description": "Auto-Claude ist ein autonomer KI-Coding-Assistent, der deine Ideen in funktionierenden Code verwandelt. Beschreibe in natürlicher Sprache, was du bauen möchtest, und die KI erledigt alles: Codebasis analysieren, Implementierungspläne erstellen, Code schreiben und testen. Jede Aufgabe läuft in einem eigenen Git-Branch, damit du sicher experimentieren kannst."
+    },
+    "features": {
+      "kanban": {
+        "title": "Aufgabenverwaltung",
+        "description": "Erstelle und verfolge Coding-Aufgaben über ein visuelles Kanban-Board. Jede Aufgabe durchläuft Phasen von der Spezifikation bis zur Fertigstellung.",
+        "step1": "Neue Aufgabe mit natürlichsprachiger Beschreibung erstellen",
+        "step2": "KI analysiert deine Codebasis und erstellt einen Plan",
+        "step3": "KI implementiert die Lösung in einem isolierten Branch",
+        "step4": "Automatisches Testen und Fehlerbehebung",
+        "step5": "Überprüfen und mergen wenn zufrieden"
+      },
+      "ideation": {
+        "title": "Feature-Ideenfindung",
+        "description": "Lass die KI dein Projekt analysieren und sinnvolle Verbesserungen basierend auf deiner Codestruktur vorschlagen.",
+        "step1": "KI untersucht deine Codebasis-Struktur",
+        "step2": "Generiert maßgeschneiderte Feature-Vorschläge",
+        "step3": "Ideen direkt in Aufgaben umwandeln"
+      },
+      "roadmap": {
+        "title": "Projekt-Roadmap",
+        "description": "Plane deine Entwicklung mit KI-gestützter Priorisierung und Aufwandsschätzung.",
+        "step1": "Features und Meilensteine hinzufügen",
+        "step2": "KI hilft bei der Komplexitätsschätzung",
+        "step3": "Fortschritt über das Projekt verfolgen"
+      },
+      "terminals": {
+        "title": "Agent-Terminals",
+        "description": "Beobachte KI-Agenten in Echtzeit. Jede Aufgabe hat ihr eigenes Terminal mit Live-Fortschritt.",
+        "step1": "Aufgabe starten um einen Agent zu aktivieren",
+        "step2": "Live-Ausgabe sehen während die KI arbeitet",
+        "step3": "Mehrere Aufgaben parallel überwachen"
+      },
+      "git": {
+        "title": "Git-Integration",
+        "description": "Jede Aufgabe läuft in einem eigenen Git-Branch. Sicheres Experimentieren mit einfachem Rollback.",
+        "step1": "KI erstellt automatisch Feature-Branches",
+        "step2": "Alle Änderungen werden mit klaren Messages committed",
+        "step3": "Branches nach Bedarf mergen oder verwerfen"
+      }
+    },
+    "getStarted": {
+      "title": "Bereit zum Starten?",
+      "description": "So erstellst du deine erste Aufgabe:",
+      "step1": "Klicke auf 'Aufgabe erstellen' in der Seitenleiste",
+      "step2": "Beschreibe was du bauen möchtest",
+      "step3": "Schau der KI bei der Arbeit zu!"
+    }
   }
 }

@@ -337,6 +337,33 @@ memory.add_session_insight("Pattern: use React hooks for state")
 
 ## Development Guidelines
 
+### ⚠️ CRITICAL RULES - READ FIRST
+
+**These rules MUST be followed at all times:**
+
+#### 1. Language & Localization Rules
+- **README.md**: ALWAYS in English - never translate to other languages
+- **Git commits**: ALWAYS in English - use descriptive commit messages
+- **Code comments**: English preferred for maintainability
+- **i18n translations**: MUST always update ALL 3 languages when adding/changing user-facing text:
+  - English (`locales/en/*.json`) - PRIMARY
+  - German (`locales/de/*.json`)
+  - French (`locales/fr/*.json`)
+
+**NEVER add a new translation key without adding it to all 3 language files!**
+
+#### 2. Documentation Rules
+- **Technical docs**: English only (README.md, CLAUDE.md, guides/)
+- **In-app text**: Use i18n translation keys, update all 3 languages
+- **PR descriptions**: English only
+- **Code review comments**: English preferred
+
+#### 3. Git Workflow Rules
+- **NEVER** add Claude/AI attribution to commits (no "Generated with Claude Code")
+- **NEVER** add Co-Authored-By headers for AI
+- Commits should be clean, professional, and describe the actual change
+- Use conventional commit format when possible: `feat:`, `fix:`, `docs:`, etc.
+
 ### Frontend Internationalization (i18n)
 
 **CRITICAL: Always use i18n translation keys for all user-facing text in the frontend.**
@@ -479,3 +506,79 @@ npm run dev      # Run in development mode (includes --remote-debugging-port=922
 
 **Project data storage:**
 - `.auto-claude/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored
+
+## GitHub Integration & PR Feedback
+
+### Checking PR Feedback
+
+When working on a forked repository, regularly check for PR feedback from the upstream maintainer:
+
+```bash
+# Fetch PR comments and reviews
+gh pr view <PR_NUMBER> --repo <ORIGINAL_OWNER>/<REPO> --comments
+
+# View PR review comments
+gh api repos/<ORIGINAL_OWNER>/<REPO>/pulls/<PR_NUMBER>/reviews
+
+# View inline code comments
+gh api repos/<ORIGINAL_OWNER>/<REPO>/pulls/<PR_NUMBER>/comments
+```
+
+**Example for this project:**
+```bash
+# Check PR feedback from upstream (AndyMik90/Auto-Claude)
+gh pr view 345 --repo AndyMik90/Auto-Claude --comments
+```
+
+### Automated PR Feedback Workflow
+
+To automatically process PR feedback, you can use this workflow:
+
+1. **Fetch PR comments:**
+   ```bash
+   gh api repos/AndyMik90/Auto-Claude/pulls/345/comments --jq '.[] | {user: .user.login, body: .body, path: .path}'
+   ```
+
+2. **Process feedback items as tasks:**
+   - Each comment should be analyzed
+   - Create todo items for requested changes
+   - Update all 3 languages if translation changes are requested
+   - Test changes before pushing
+
+3. **Respond to feedback:**
+   ```bash
+   # After making changes, push and comment
+   git push origin <branch>
+   gh pr comment 345 --repo AndyMik90/Auto-Claude --body "Addressed feedback: [description]"
+   ```
+
+### Pre-commit Checklist
+
+Before committing changes, verify:
+
+- [ ] All user-facing text uses i18n translation keys
+- [ ] Translation keys exist in all 3 languages (en, de, fr)
+- [ ] README.md is in English
+- [ ] Commit message is in English
+- [ ] No Claude/AI attribution in commit
+- [ ] TypeScript compiles without errors (`npx tsc --noEmit`)
+- [ ] All tests pass
+
+### i18n Translation Validation
+
+To check for missing translations:
+
+```bash
+# Check if all languages have the same keys
+cd apps/frontend/src/shared/i18n/locales
+
+# Compare English vs German
+diff <(jq -r 'paths(scalars) | join(".")' en/common.json | sort) \
+     <(jq -r 'paths(scalars) | join(".")' de/common.json | sort)
+
+# Compare English vs French
+diff <(jq -r 'paths(scalars) | join(".")' en/common.json | sort) \
+     <(jq -r 'paths(scalars) | join(".")' fr/common.json | sort)
+```
+
+This helps identify missing translations before pushing changes.

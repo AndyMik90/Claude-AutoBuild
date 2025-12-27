@@ -98,5 +98,94 @@
     "readyForFollowup": "Prêt pour suivi",
     "readyToMerge": "Prêt à fusionner",
     "pendingPost": "En attente de publication"
+  },
+  "emptyStates": {
+    "tipsTitle": "Conseils rapides",
+    "takeTour": "Faire la visite",
+    "kanban": {
+      "title": "Pas encore de tâches",
+      "description": "Créez votre première tâche et laissez l'IA coder pour vous.",
+      "action": "Créer la première tâche",
+      "tip1": "Décrivez ce que vous voulez construire en langage naturel",
+      "tip2": "L'IA analysera votre code et créera un plan d'implémentation",
+      "tip3": "Chaque tâche s'exécute dans sa propre branche Git pour expérimenter en toute sécurité"
+    },
+    "ideation": {
+      "title": "Générer des idées de fonctionnalités",
+      "description": "Laissez l'IA analyser votre projet et suggérer des améliorations pertinentes.",
+      "action": "Lancer l'idéation",
+      "tip1": "L'IA examine la structure de votre code existant",
+      "tip2": "Les suggestions sont adaptées à votre stack technologique"
+    },
+    "roadmap": {
+      "title": "Planifier votre projet",
+      "description": "Créez une feuille de route de développement avec une priorisation assistée par IA.",
+      "action": "Créer une roadmap",
+      "tip1": "Priorisez les fonctionnalités selon l'impact et l'effort",
+      "tip2": "L'IA aide à estimer la complexité et les dépendances"
+    },
+    "terminals": {
+      "title": "Pas d'agents actifs",
+      "description": "Démarrez une tâche pour voir les agents IA travailler en temps réel.",
+      "tip1": "Chaque tâche a son propre terminal montrant la progression en direct",
+      "tip2": "Vous pouvez surveiller plusieurs agents travaillant en parallèle"
+    }
+  },
+  "featureOverview": {
+    "title": "Bienvenue sur Auto-Claude",
+    "subtitle": "Votre assistant de codage IA autonome",
+    "startTour": "Démarrer la visite interactive",
+    "howItWorks": "Comment ça marche",
+    "learnMore": "En savoir plus",
+    "whatIs": {
+      "title": "Qu'est-ce qu'Auto-Claude ?",
+      "description": "Auto-Claude est un assistant de codage IA autonome qui transforme vos idées en code fonctionnel. Décrivez ce que vous voulez construire en langage naturel, et l'IA s'occupe de tout : analyser votre code, créer des plans d'implémentation, écrire du code et tester. Chaque tâche s'exécute dans sa propre branche Git, vous pouvez donc expérimenter en toute sécurité."
+    },
+    "features": {
+      "kanban": {
+        "title": "Gestion des tâches",
+        "description": "Créez et suivez les tâches de codage via un tableau Kanban visuel. Chaque tâche progresse à travers les étapes de la spécification à la finalisation.",
+        "step1": "Créez une nouvelle tâche avec une description en langage naturel",
+        "step2": "L'IA analyse votre code et crée un plan",
+        "step3": "L'IA implémente la solution dans une branche isolée",
+        "step4": "Tests automatisés et correction de bugs",
+        "step5": "Révisez et fusionnez quand vous êtes satisfait"
+      },
+      "ideation": {
+        "title": "Idéation de fonctionnalités",
+        "description": "Laissez l'IA analyser votre projet et suggérer des améliorations pertinentes basées sur votre structure de code existante.",
+        "step1": "L'IA examine la structure de votre code",
+        "step2": "Génère des suggestions de fonctionnalités adaptées",
+        "step3": "Convertissez les idées directement en tâches"
+      },
+      "roadmap": {
+        "title": "Feuille de route du projet",
+        "description": "Planifiez votre développement avec une priorisation assistée par IA et une estimation de l'effort.",
+        "step1": "Ajoutez des fonctionnalités et des jalons",
+        "step2": "L'IA aide à estimer la complexité",
+        "step3": "Suivez la progression de votre projet"
+      },
+      "terminals": {
+        "title": "Terminaux d'agents",
+        "description": "Observez les agents IA travailler en temps réel. Chaque tâche a son propre terminal montrant la progression en direct.",
+        "step1": "Démarrez une tâche pour activer un agent",
+        "step2": "Voyez la sortie en direct pendant que l'IA travaille",
+        "step3": "Surveillez plusieurs tâches en parallèle"
+      },
+      "git": {
+        "title": "Intégration Git",
+        "description": "Chaque tâche s'exécute dans sa propre branche Git. Expérimentation sécurisée avec retour arrière facile.",
+        "step1": "L'IA crée automatiquement des branches de fonctionnalités",
+        "step2": "Tous les changements sont commités avec des messages clairs",
+        "step3": "Fusionnez ou abandonnez les branches selon vos besoins"
+      }
+    },
+    "getStarted": {
+      "title": "Prêt à démarrer ?",
+      "description": "Voici comment créer votre première tâche :",
+      "step1": "Cliquez sur 'Créer une tâche' dans la barre latérale",
+      "step2": "Décrivez ce que vous voulez construire",
+      "step3": "Regardez l'IA travailler !"
+    }
   }
 }

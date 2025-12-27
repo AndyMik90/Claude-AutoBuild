@@ -98,5 +98,94 @@
     "readyForFollowup": "Ready for Follow-up",
     "readyToMerge": "Ready to Merge",
     "pendingPost": "Pending Post"
+  },
+  "emptyStates": {
+    "tipsTitle": "Quick Tips",
+    "takeTour": "Take the Tour",
+    "kanban": {
+      "title": "No Tasks Yet",
+      "description": "Create your first task and let the AI do the coding work for you.",
+      "action": "Create First Task",
+      "tip1": "Describe what you want to build in natural language",
+      "tip2": "The AI will analyze your codebase and create an implementation plan",
+      "tip3": "Each task runs in its own Git branch for safe experimentation"
+    },
+    "ideation": {
+      "title": "Generate Feature Ideas",
+      "description": "Let the AI analyze your project and suggest meaningful improvements.",
+      "action": "Start Ideation",
+      "tip1": "The AI examines your existing code structure",
+      "tip2": "Suggestions are tailored to your project's technology stack"
+    },
+    "roadmap": {
+      "title": "Plan Your Project",
+      "description": "Create a development roadmap with AI-assisted prioritization.",
+      "action": "Create Roadmap",
+      "tip1": "Prioritize features based on impact and effort",
+      "tip2": "The AI helps estimate complexity and dependencies"
+    },
+    "terminals": {
+      "title": "No Active Agents",
+      "description": "Start a task to see AI agents working in real-time.",
+      "tip1": "Each task gets its own terminal showing live progress",
+      "tip2": "You can monitor multiple agents working in parallel"
+    }
+  },
+  "featureOverview": {
+    "title": "Welcome to Auto-Claude",
+    "subtitle": "Your autonomous AI coding assistant",
+    "startTour": "Start Interactive Tour",
+    "howItWorks": "How it works",
+    "learnMore": "Learn More",
+    "whatIs": {
+      "title": "What is Auto-Claude?",
+      "description": "Auto-Claude is an autonomous AI coding assistant that turns your ideas into working code. Describe what you want to build in natural language, and the AI handles everything: analyzing your codebase, creating implementation plans, writing code, and testing. Each task runs in its own Git branch, so you can experiment safely."
+    },
+    "features": {
+      "kanban": {
+        "title": "Task Management",
+        "description": "Create and track coding tasks through a visual Kanban board. Each task progresses through stages from specification to completion.",
+        "step1": "Create a new task with a natural language description",
+        "step2": "AI analyzes your codebase and creates a plan",
+        "step3": "AI implements the solution in an isolated branch",
+        "step4": "Automated testing and bug fixing",
+        "step5": "Review and merge when satisfied"
+      },
+      "ideation": {
+        "title": "Feature Ideation",
+        "description": "Let AI analyze your project and suggest meaningful improvements based on your existing code structure.",
+        "step1": "AI examines your codebase structure",
+        "step2": "Generates tailored feature suggestions",
+        "step3": "Convert ideas directly into tasks"
+      },
+      "roadmap": {
+        "title": "Project Roadmap",
+        "description": "Plan your development with AI-assisted prioritization and effort estimation.",
+        "step1": "Add features and milestones",
+        "step2": "AI helps estimate complexity",
+        "step3": "Track progress across your project"
+      },
+      "terminals": {
+        "title": "Agent Terminals",
+        "description": "Watch AI agents work in real-time. Each task has its own terminal showing live progress.",
+        "step1": "Start a task to activate an agent",
+        "step2": "See live output as AI works",
+        "step3": "Monitor multiple tasks in parallel"
+      },
+      "git": {
+        "title": "Git Integration",
+        "description": "Every task runs in its own Git branch. Safe experimentation with easy rollback.",
+        "step1": "AI creates feature branches automatically",
+        "step2": "All changes are committed with clear messages",
+        "step3": "Merge or discard branches as needed"
+      }
+    },
+    "getStarted": {
+      "title": "Ready to Start?",
+      "description": "Here's how to create your first task:",
+      "step1": "Click 'Create Task' in the sidebar",
+      "step2": "Describe what you want to build",
+      "step3": "Watch the AI work!"
+    }
   }
 }

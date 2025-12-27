@@ -1,0 +1,77 @@
+{
+  "navigation": {
+    "next": "Next",
+    "back": "Back",
+    "finish": "Finish",
+    "skip": "Skip Tour",
+    "stepOf": "Step {{current}} of {{total}}"
+  },
+  "steps": {
+    "welcome": {
+      "title": "Welcome to Auto-Claude!",
+      "description": "Auto-Claude is your autonomous AI coding assistant. Describe what you want to build, and the AI handles the rest - from planning to implementation. Let's explore the key features!"
+    },
+    "sidebar": {
+      "title": "Navigation",
+      "description": "Here you'll find all main areas: Kanban board for tasks, Ideation for new features, Roadmap for project planning, and more. Click on an area to open it."
+    },
+    "kanban": {
+      "title": "Kanban Board",
+      "description": "The Kanban board shows all your tasks in different stages: Backlog → In Progress → Review → Done. Drag and drop tasks between columns."
+    },
+    "createTask": {
+      "title": "Create Task",
+      "description": "Click here to create a new task. Simply describe what you want to build - the AI analyzes your project and creates an implementation plan."
+    },
+    "taskFlow": {
+      "title": "How It Works",
+      "description": "1. You describe the task\n2. AI analyzes your code\n3. AI creates a plan\n4. AI writes the solution\n5. AI tests and fixes bugs\n6. You review the result\n\nAll automatically in an isolated Git branch!"
+    },
+    "terminals": {
+      "title": "Agent Terminals",
+      "description": "Here you can see in real-time what the AI agents are doing. Each task runs in its own terminal - you can follow the progress live."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Here you configure Auto-Claude: language, AI model, paths, and integrations like GitHub. You can restart this tour anytime."
+    },
+    "ready": {
+      "title": "Ready to Go!",
+      "description": "You now know the basics. Create your first task and let Auto-Claude do the work. If you have questions, you'll find help in the settings.\n\nHappy building!"
+    }
+  },
+  "quick": {
+    "whatsNew": {
+      "title": "What's New?",
+      "description": "New features: German language support, improved path settings for WSL/Windows, and this interactive tour!"
+    }
+  },
+  "features": {
+    "tasks": {
+      "intro": {
+        "title": "Understanding Tasks",
+        "description": "A task goes through multiple phases: Specification → Planning → Coding → QA Review → Done. The AI works autonomously, but you stay in control."
+      },
+      "status": {
+        "title": "Task Status",
+        "description": "• Backlog: Waiting to start\n• In Progress: AI is working on it\n• Review: Waiting for your feedback\n• Done: Completed and approved"
+      }
+    },
+    "ideation": {
+      "intro": {
+        "title": "Ideation",
+        "description": "Let the AI generate new feature ideas for your project. Based on your code and goals, it suggests meaningful extensions."
+      }
+    },
+    "roadmap": {
+      "intro": {
+        "title": "Roadmap",
+        "description": "Plan the future of your project. The AI helps you prioritize features and create a realistic development plan."
+      }
+    }
+  },
+  "actions": {
+    "startTour": "Start Tour",
+    "restartTour": "Restart Tour"
+  }
+}
