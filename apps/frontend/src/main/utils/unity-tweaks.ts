@@ -84,7 +84,7 @@ export async function createPostBackupAndDiff(
       const gitDiff = execSync(`git diff -- ${backup.files.join(' ')}`, {
         cwd: projectPath,
         encoding: 'utf-8',
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large projects
       });
       diffContent = gitDiff;
 
@@ -157,8 +157,10 @@ export function getFilesToBackup(action: string, params: TweakParams): string[] 
       break;
 
     case 'switch-build-target':
-      // Switching build target also modifies EditorUserBuildSettings (stored in Library/)
-      // This file is important for build configuration persistence and should be backed up
+      // Switching build target updates build-related settings.
+      // We backup Library/EditorUserBuildSettings.asset to track build target state changes,
+      // even though this file is in Library/ and typically gitignored. Unity regenerates it,
+      // but backing it up helps us create accurate diffs and track what changed during tweaks.
       // Build target changes may also update ProjectSettings if platform-specific settings differ
       files.push('ProjectSettings/EditorBuildSettings.asset');
       files.push('Library/EditorUserBuildSettings.asset');
@@ -312,6 +314,8 @@ export async function readUnityPackages(projectPath: string): Promise<{
   }
 
   try {
+    // Check if the file is readable before attempting to read
+    await fs.access(manifestPath, fs.constants.R_OK);
     const content = await fs.readFile(manifestPath, 'utf-8');
     const manifest = JSON.parse(content);
     const dependencies = manifest.dependencies || {};
