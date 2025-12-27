@@ -2,11 +2,17 @@
 Memory Management for Agent System
 ===================================
 
-Handles session memory storage using dual-layer approach:
+Handles session memory storage using tri-layer approach:
 - PRIMARY: Graphiti (when enabled) - semantic search, cross-session context
 - FALLBACK: File-based memory - zero dependencies, always available
+- PARALLEL: MemoryGraph (when enabled) - MCP-based graph memory, runs async
+
+MemoryGraph integration is non-blocking and runs in parallel with the
+primary/fallback flow. It captures problems, solutions, and patterns
+for cross-project learning.
 """
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -28,6 +34,136 @@ from memory import save_session_insights as save_file_based_memory
 logger = logging.getLogger(__name__)
 
 
+# ============================================================================
+# MemoryGraph Integration (Parallel Memory Layer)
+# ============================================================================
+
+
+def is_memorygraph_enabled() -> bool:
+    """
+    Check if MemoryGraph integration is enabled.
+
+    Returns True if MEMORYGRAPH_ENABLED environment variable is set to true/1/yes.
+    """
+    try:
+        from integrations.memorygraph import is_memorygraph_enabled as check_enabled
+        return check_enabled()
+    except ImportError:
+        return False
+
+
+def get_memorygraph_status() -> dict:
+    """
+    Get MemoryGraph integration status.
+
+    Returns:
+        Dict with status information:
+            - enabled: bool
+            - backend: str
+            - project_scoped: bool
+    """
+    try:
+        from integrations.memorygraph import get_memorygraph_config
+        return get_memorygraph_config()
+    except ImportError:
+        return {"enabled": False, "reason": "memorygraph integration not installed"}
+
+
+async def get_memorygraph_context(
+    project_dir: Path,
+    subtask: dict,
+) -> str | None:
+    """
+    Retrieve relevant context from MemoryGraph for the current subtask.
+
+    This searches MemoryGraph for memories relevant to the subtask's
+    description, returning past solutions, patterns, and gotchas.
+
+    Args:
+        project_dir: Project root directory
+        subtask: The current subtask being worked on
+
+    Returns:
+        Formatted context string or None if unavailable
+    """
+    if not is_memorygraph_enabled():
+        if is_debug_enabled():
+            debug("memory", "MemoryGraph not enabled, skipping context retrieval")
+        return None
+
+    if is_debug_enabled():
+        debug(
+            "memory",
+            "Retrieving MemoryGraph context for subtask",
+            subtask_id=subtask.get("id", "unknown"),
+            subtask_desc=subtask.get("description", "")[:100],
+        )
+
+    try:
+        from integrations.memorygraph import get_context_for_subtask
+
+        context = await get_context_for_subtask(subtask, project_dir)
+
+        if is_debug_enabled():
+            if context:
+                debug_success(
+                    "memory",
+                    "MemoryGraph context retrieved",
+                    context_length=len(context),
+                )
+            else:
+                debug("memory", "No relevant context found in MemoryGraph")
+
+        return context
+
+    except ImportError:
+        logger.debug("MemoryGraph integration not installed")
+        if is_debug_enabled():
+            debug_warning("memory", "MemoryGraph integration not installed")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to get MemoryGraph context: {e}")
+        if is_debug_enabled():
+            debug_error("memory", "MemoryGraph context retrieval failed", error=str(e))
+        return None
+
+
+async def _save_to_memorygraph_async(
+    insights: dict,
+    project_dir: Path,
+) -> None:
+    """
+    Internal async function to save insights to MemoryGraph.
+
+    This runs as a fire-and-forget task - errors are logged but don't
+    affect the main memory save flow.
+
+    Args:
+        insights: Session insights dict with what_worked, what_failed, etc.
+        project_dir: Project root directory
+    """
+    try:
+        from integrations.memorygraph import save_to_memorygraph
+
+        if is_debug_enabled():
+            debug("memory", "Saving to MemoryGraph (async)...")
+
+        await save_to_memorygraph(insights, project_dir)
+
+        if is_debug_enabled():
+            debug_success("memory", "MemoryGraph save completed (async)")
+
+        logger.debug("Session insights saved to MemoryGraph")
+
+    except ImportError:
+        logger.debug("MemoryGraph integration not installed")
+    except Exception as e:
+        # Don't propagate errors - this is fire-and-forget
+        logger.warning(f"MemoryGraph save failed (non-blocking): {e}")
+        if is_debug_enabled():
+            debug_warning("memory", "MemoryGraph save failed", error=str(e))
+
+
 def debug_memory_system_status() -> None:
     """
     Print memory system status for debugging.
@@ -42,6 +178,9 @@ def debug_memory_system_status() -> None:
     # Get Graphiti status
     graphiti_status = get_graphiti_status()
 
+    # Get MemoryGraph status
+    memorygraph_status = get_memorygraph_status()
+
     debug(
         "memory",
         "Memory system configuration",
@@ -50,6 +189,7 @@ def debug_memory_system_status() -> None:
         else "File-based (fallback)",
         graphiti_enabled=graphiti_status.get("enabled"),
         graphiti_available=graphiti_status.get("available"),
+        memorygraph_enabled=memorygraph_status.get("enabled"),
     )
 
     if graphiti_status.get("enabled"):
@@ -78,6 +218,22 @@ def debug_memory_system_status() -> None:
             "memory",
             "Graphiti disabled, using file-based memory only",
             note="Set GRAPHITI_ENABLED=true to enable Graphiti",
+        )
+
+    # MemoryGraph status (parallel layer)
+    if memorygraph_status.get("enabled"):
+        debug_detailed(
+            "memory",
+            "MemoryGraph configuration (parallel layer)",
+            backend=memorygraph_status.get("backend", "sqlite"),
+            project_scoped=memorygraph_status.get("project_scoped", True),
+        )
+        debug_success("memory", "MemoryGraph ready as PARALLEL memory layer")
+    else:
+        debug(
+            "memory",
+            "MemoryGraph disabled",
+            note="Set MEMORYGRAPH_ENABLED=true to enable cross-project memory",
         )
 
 
@@ -218,6 +374,7 @@ async def save_session_memory(
     Memory Strategy:
     - PRIMARY: Graphiti (when enabled) - provides semantic search, cross-session context
     - FALLBACK: File-based (when Graphiti is disabled) - zero dependencies, always works
+    - PARALLEL: MemoryGraph (when enabled) - async, non-blocking, cross-project learning
 
     This is called after each session to persist learnings.
 
@@ -246,7 +403,7 @@ async def save_session_memory(
             spec_dir=str(spec_dir),
         )
 
-    # Build insights structure (same format for both storage systems)
+    # Build insights structure (same format for all storage systems)
     insights = {
         "subtasks_completed": subtasks_completed,
         "discoveries": discoveries
@@ -262,6 +419,13 @@ async def save_session_memory(
 
     if is_debug_enabled():
         debug_detailed("memory", "Insights structure built", insights=insights)
+
+    # PARALLEL: Fire-and-forget save to MemoryGraph (if enabled)
+    # This runs in the background and doesn't block the main flow
+    if is_memorygraph_enabled():
+        if is_debug_enabled():
+            debug("memory", "Scheduling PARALLEL save to MemoryGraph")
+        asyncio.create_task(_save_to_memorygraph_async(insights, project_dir))
 
     # Check Graphiti status for debugging
     graphiti_enabled = is_graphiti_enabled()
