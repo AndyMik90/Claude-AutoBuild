@@ -60,7 +60,10 @@ export function SortableProjectTab({
       style={style}
       className={cn(
         'group relative flex items-center min-w-0',
-        isActive ? 'max-w-[280px]' : 'max-w-[200px]',
+        // Responsive max-widths: smaller on mobile, larger on desktop
+        isActive
+          ? 'max-w-[180px] sm:max-w-[220px] md:max-w-[280px]'
+          : 'max-w-[120px] sm:max-w-[160px] md:max-w-[200px]',
         'border-r border-border last:border-r-0',
         'touch-none transition-all duration-200',
         isDragging && 'opacity-60 scale-[0.98] shadow-lg'
@@ -71,7 +74,10 @@ export function SortableProjectTab({
         <TooltipTrigger asChild>
           <div
             className={cn(
-              'flex-1 flex items-center gap-2 px-4 py-2.5 text-sm',
+              'flex-1 flex items-center gap-1 sm:gap-2',
+              // Responsive padding: tighter on mobile, normal on desktop
+              'px-2 sm:px-3 md:px-4 py-2 sm:py-2.5',
+              'text-xs sm:text-sm',
               'min-w-0 truncate hover:bg-muted/50 transition-colors',
               'border-b-2 border-transparent cursor-pointer',
               isActive && [
@@ -85,13 +91,14 @@ export function SortableProjectTab({
             )}
             onClick={onSelect}
           >
-            {/* Drag handle - visible on hover */}
+            {/* Drag handle - visible on hover, hidden on mobile */}
             <div
               {...listeners}
               className={cn(
+                'hidden sm:block',
                 'opacity-0 group-hover:opacity-60 transition-opacity',
                 'cursor-grab active:cursor-grabbing',
-                'w-1 h-4 bg-muted-foreground rounded-full'
+                'w-1 h-4 bg-muted-foreground rounded-full flex-shrink-0'
               )}
             />
             <span className="truncate font-medium">
@@ -109,16 +116,16 @@ export function SortableProjectTab({
         </TooltipContent>
       </Tooltip>
 
-      {/* Active tab controls - settings and archive */}
+      {/* Active tab controls - settings and archive, always accessible */}
       {isActive && (
-        <div className="flex items-center gap-0.5 mr-1">
-          {/* Settings icon */}
+        <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
+          {/* Settings icon - responsive sizing */}
           {onSettingsClick && (
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <button
                   className={cn(
-                    'h-6 w-6 p-0 rounded',
+                    'h-5 w-5 sm:h-6 sm:w-6 p-0 rounded',
                     'flex items-center justify-center',
                     'text-muted-foreground hover:text-foreground',
                     'hover:bg-muted/50 transition-colors'
@@ -129,7 +136,7 @@ export function SortableProjectTab({
                   }}
                   aria-label="Project settings"
                 >
-                  <Settings2 className="h-3.5 w-3.5" />
+                  <Settings2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
@@ -138,14 +145,14 @@ export function SortableProjectTab({
             </Tooltip>
           )}
 
-          {/* Archive toggle button with badge */}
+          {/* Archive toggle button with badge - responsive sizing */}
           {onToggleArchived && (
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <button
                   className={cn(
-                    'h-6 px-1.5 rounded',
-                    'flex items-center justify-center gap-1',
+                    'h-5 sm:h-6 px-1 sm:px-1.5 rounded',
+                    'flex items-center justify-center gap-0.5 sm:gap-1',
                     'transition-colors',
                     showArchived
                       ? 'text-primary bg-primary/10 hover:bg-primary/20'
@@ -158,9 +165,9 @@ export function SortableProjectTab({
                   aria-label={showArchived ? 'Hide archived' : 'Show archived'}
                   aria-pressed={showArchived}
                 >
-                  <Archive className="h-3.5 w-3.5" />
+                  <Archive className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   {typeof archivedCount === 'number' && archivedCount > 0 && (
-                    <span className="text-[10px] font-medium min-w-[14px] text-center">
+                    <span className="text-[9px] sm:text-[10px] font-medium min-w-[12px] sm:min-w-[14px] text-center">
                       {archivedCount}
                     </span>
                   )}
@@ -179,8 +186,9 @@ export function SortableProjectTab({
           <TooltipTrigger asChild>
             <button
               className={cn(
-                'h-6 w-6 p-0 mr-1 opacity-0 group-hover:opacity-100',
-                'transition-opacity duration-200 rounded',
+                'h-5 w-5 sm:h-6 sm:w-6 p-0 mr-0.5 sm:mr-1',
+                'opacity-0 group-hover:opacity-100',
+                'transition-opacity duration-200 rounded flex-shrink-0',
                 'hover:bg-destructive hover:text-destructive-foreground',
                 'flex items-center justify-center',
                 isActive && 'opacity-100'

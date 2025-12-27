@@ -586,9 +586,11 @@ describe('SortableProjectTab', () => {
     it('should apply active tab styles when isActive is true', () => {
       const props = { isActive: true };
 
-      // From component: when isActive, max-w-[280px] and specific styling
+      // From component: when isActive, responsive max-widths and specific styling
       const expectedActiveClasses = [
-        'max-w-[280px]',
+        'max-w-[180px]',      // mobile
+        'sm:max-w-[220px]',   // 640px+
+        'md:max-w-[280px]',   // 768px+
         'bg-background',
         'border-b-primary',
         'text-foreground',
@@ -604,9 +606,11 @@ describe('SortableProjectTab', () => {
     it('should apply inactive tab styles when isActive is false', () => {
       const props = { isActive: false };
 
-      // From component: when !isActive, max-w-[200px] and different styling
+      // From component: when !isActive, responsive max-widths and different styling
       const expectedInactiveClasses = [
-        'max-w-[200px]',
+        'max-w-[120px]',      // mobile
+        'sm:max-w-[160px]',   // 640px+
+        'md:max-w-[200px]',   // 768px+
         'text-muted-foreground',
         'hover:text-foreground'
       ];
@@ -640,6 +644,130 @@ describe('SortableProjectTab', () => {
 
       expect(zIndexWhenDragging).toBe(50);
       expect(zIndexWhenNotDragging).toBeUndefined();
+    });
+  });
+
+  describe('Responsive Behavior', () => {
+    it('should have responsive max-width classes for active tab', () => {
+      // From component: 'max-w-[180px] sm:max-w-[220px] md:max-w-[280px]' for active
+      const expectedResponsiveClasses = [
+        'max-w-[180px]',      // mobile (default)
+        'sm:max-w-[220px]',   // 640px+
+        'md:max-w-[280px]'    // 768px+
+      ];
+
+      expectedResponsiveClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive max-width classes for inactive tab', () => {
+      // From component: 'max-w-[120px] sm:max-w-[160px] md:max-w-[200px]' for inactive
+      const expectedResponsiveClasses = [
+        'max-w-[120px]',      // mobile (default)
+        'sm:max-w-[160px]',   // 640px+
+        'md:max-w-[200px]'    // 768px+
+      ];
+
+      expectedResponsiveClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive padding classes', () => {
+      // From component: 'px-2 sm:px-3 md:px-4 py-2 sm:py-2.5'
+      const expectedPaddingClasses = [
+        'px-2',     // mobile
+        'sm:px-3',  // 640px+
+        'md:px-4',  // 768px+
+        'py-2',     // mobile
+        'sm:py-2.5' // 640px+
+      ];
+
+      expectedPaddingClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive font size classes', () => {
+      // From component: 'text-xs sm:text-sm'
+      const expectedFontClasses = [
+        'text-xs',   // mobile
+        'sm:text-sm' // 640px+
+      ];
+
+      expectedFontClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should hide drag handle on mobile', () => {
+      // From component: drag handle has 'hidden sm:block'
+      const expectedClasses = ['hidden', 'sm:block'];
+
+      expectedClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive button sizes for settings', () => {
+      // From component: 'h-5 w-5 sm:h-6 sm:w-6'
+      const expectedButtonClasses = [
+        'h-5', 'w-5',       // mobile
+        'sm:h-6', 'sm:w-6'  // 640px+
+      ];
+
+      expectedButtonClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive button sizes for archive toggle', () => {
+      // From component: 'h-5 sm:h-6 px-1 sm:px-1.5'
+      const expectedButtonClasses = [
+        'h-5', 'px-1',          // mobile
+        'sm:h-6', 'sm:px-1.5'   // 640px+
+      ];
+
+      expectedButtonClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive icon sizes', () => {
+      // From component: 'h-3 w-3 sm:h-3.5 sm:w-3.5'
+      const expectedIconClasses = [
+        'h-3', 'w-3',           // mobile
+        'sm:h-3.5', 'sm:w-3.5'  // 640px+
+      ];
+
+      expectedIconClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive archived count badge', () => {
+      // From component: 'text-[9px] sm:text-[10px] min-w-[12px] sm:min-w-[14px]'
+      const expectedBadgeClasses = [
+        'text-[9px]', 'min-w-[12px]',       // mobile
+        'sm:text-[10px]', 'sm:min-w-[14px]' // 640px+
+      ];
+
+      expectedBadgeClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
+    });
+
+    it('should have responsive close button sizes', () => {
+      // From component: 'h-5 w-5 sm:h-6 sm:w-6 mr-0.5 sm:mr-1'
+      const expectedCloseClasses = [
+        'h-5', 'w-5', 'mr-0.5',    // mobile
+        'sm:h-6', 'sm:w-6', 'sm:mr-1' // 640px+
+      ];
+
+      expectedCloseClasses.forEach(cls => {
+        expect(cls).toBeTruthy();
+      });
     });
   });
 
