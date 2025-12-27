@@ -218,13 +218,39 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 export async function restoreTerminalSessions(projectPath: string): Promise<void> {
   const store = useTerminalStore.getState();
 
-  // Don't restore if we already have terminals for THIS project
+  // Get terminals for this project that exist in state
   const projectTerminals = store.terminals.filter(t => t.projectPath === projectPath);
+
   if (projectTerminals.length > 0) {
-    debugLog('[TerminalStore] Terminals already exist for this project, skipping session restore');
-    return;
+    // Check if PTY processes are alive for existing terminals
+    const aliveChecks = await Promise.all(
+      projectTerminals.map(async (terminal) => {
+        try {
+          const result = await window.electronAPI.checkTerminalPtyAlive(terminal.id);
+          return { terminal, alive: result.success && result.data?.alive === true };
+        } catch {
+          return { terminal, alive: false };
+        }
+      })
+    );
+
+    // Remove dead terminals from store (they have state but no PTY process)
+    const deadTerminals = aliveChecks.filter(c => !c.alive);
+    for (const { terminal } of deadTerminals) {
+      debugLog(`[TerminalStore] Removing dead terminal: ${terminal.id}`);
+      store.removeTerminal(terminal.id);
+    }
+
+    // If all terminals were alive, we're done
+    if (deadTerminals.length === 0) {
+      debugLog('[TerminalStore] All terminals have live PTY processes');
+      return;
+    }
+
+    debugLog(`[TerminalStore] ${deadTerminals.length} terminals had dead PTY, will restore from disk`);
   }
 
+  // Restore from disk
   try {
     const result = await window.electronAPI.getTerminalSessions(projectPath);
     if (!result.success || !result.data || result.data.length === 0) {
