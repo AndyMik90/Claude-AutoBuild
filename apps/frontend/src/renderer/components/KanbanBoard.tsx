@@ -372,14 +372,34 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
+    // Helper function to check and enforce parallel task limit
+    const enforceParallelLimit = (targetStatus: TaskStatus): TaskStatus => {
+      if (targetStatus === 'in_progress') {
+        const inProgressCount = tasksByStatus.in_progress.length;
+        if (inProgressCount >= maxParallelTasks) {
+          console.log(`[KanbanBoard] Parallel task limit reached (${maxParallelTasks}). Redirecting to queue.`);
+          return 'queue';
+        }
+      }
+      return targetStatus;
+    };
+
     // Check if dropped on a column
     if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
-      const newStatus = overId as TaskStatus;
+      const requestedStatus = overId as TaskStatus;
       const task = tasks.find((t) => t.id === activeTaskId);
 
-      if (task && task.status !== newStatus) {
+      if (task && task.status !== requestedStatus) {
+        // Enforce parallel task limit
+        const finalStatus = enforceParallelLimit(requestedStatus);
+
+        // Show feedback if redirected to queue
+        if (requestedStatus === 'in_progress' && finalStatus === 'queue') {
+          console.log(`[KanbanBoard] Task moved to queue - parallel limit (${maxParallelTasks}) reached`);
+        }
+
         // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, newStatus);
+        persistTaskStatus(activeTaskId, finalStatus);
       }
       return;
     }
@@ -389,8 +409,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     if (overTask) {
       const task = tasks.find((t) => t.id === activeTaskId);
       if (task && task.status !== overTask.status) {
+        // Enforce parallel task limit
+        const finalStatus = enforceParallelLimit(overTask.status);
+
+        // Show feedback if redirected to queue
+        if (overTask.status === 'in_progress' && finalStatus === 'queue') {
+          console.log(`[KanbanBoard] Task moved to queue - parallel limit (${maxParallelTasks}) reached`);
+        }
+
         // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, overTask.status);
+        persistTaskStatus(activeTaskId, finalStatus);
       }
     }
   };

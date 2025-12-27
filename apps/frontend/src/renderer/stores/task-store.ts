@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
+import { useProjectStore } from './project-store';
 
 interface TaskState {
   tasks: Task[];
@@ -224,8 +225,34 @@ export async function createTask(
 
 /**
  * Start a task
+ * Enforces parallel task limit - if limit is reached, task is moved to queue instead
  */
-export function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): void {
+export async function startTask(taskId: string, options?: { parallel?: boolean; workers?: number }): Promise<void> {
+  const taskStore = useTaskStore.getState();
+  const projectStore = useProjectStore.getState();
+
+  // Get the task and its project
+  const task = taskStore.tasks.find(t => t.id === taskId || t.specId === taskId);
+  if (!task) {
+    console.error('[startTask] Task not found:', taskId);
+    return;
+  }
+
+  // Get the active project to check max parallel tasks
+  const project = projectStore.getActiveProject();
+  const maxParallelTasks = project?.settings.maxParallelTasks ?? 3;
+
+  // Count how many tasks are currently in progress
+  const inProgressCount = taskStore.tasks.filter(t => t.status === 'in_progress').length;
+
+  // If limit is reached, move to queue instead of starting
+  if (inProgressCount >= maxParallelTasks) {
+    console.log(`[startTask] Parallel task limit reached (${maxParallelTasks}/${maxParallelTasks}). Moving task to queue.`);
+    await persistTaskStatus(taskId, 'queue');
+    return;
+  }
+
+  // Otherwise, start the task normally
   window.electronAPI.startTask(taskId, options);
 }
 
