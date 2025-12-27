@@ -1401,7 +1401,7 @@ export function Unity({ projectId }: UnityProps) {
                             Unity Bridge Required
                           </p>
                           <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                            Install the Unity Bridge to enable safe project tweaks. The bridge uses official Unity APIs instead of editing project files directly.
+                            The Unity Bridge enables safe project tweaks and uses official Unity APIs instead of directly editing project files.
                           </p>
                           <Button
                             variant="outline"
