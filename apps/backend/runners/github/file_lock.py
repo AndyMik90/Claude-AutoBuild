@@ -1,9 +1,10 @@
 """
 File Locking for Concurrent Operations
-======================================
+=====================================
 
 Thread-safe and process-safe file locking utilities for GitHub automation.
-Uses fcntl.flock() on Unix systems for proper cross-process locking.
+Uses fcntl.flock() on Unix systems and msvcrt.locking() on Windows for proper
+cross-process locking.
 
 Example Usage:
     # Simple file locking
@@ -14,19 +15,78 @@ Example Usage:
     # Atomic write with locking
     async with locked_write("path/to/file.json", timeout=5.0) as f:
         json.dump(data, f)
+
 """
 
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import json
 import os
 import tempfile
 import time
+import warnings
+from collections.abc import Callable
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any
+
+_IS_WINDOWS = os.name == "nt"
+_WINDOWS_LOCK_SIZE = 1024 * 1024
+
+try:
+    import fcntl  # type: ignore
+except ImportError:  # pragma: no cover
+    fcntl = None
+
+try:
+    import msvcrt  # type: ignore
+except ImportError:  # pragma: no cover
+    msvcrt = None
+
+
+def _try_lock(fd: int, exclusive: bool) -> None:
+    if _IS_WINDOWS:
+        if msvcrt is None:
+            raise FileLockError("msvcrt is required for file locking on Windows")
+        if not exclusive:
+            warnings.warn(
+                "Shared file locks are not supported on Windows; using exclusive lock",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, _WINDOWS_LOCK_SIZE)
+        return
+
+    if fcntl is None:
+        raise FileLockError(
+            "fcntl is required for file locking on non-Windows platforms"
+        )
+
+    lock_mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+    fcntl.flock(fd, lock_mode | fcntl.LOCK_NB)
+
+
+def _unlock(fd: int) -> None:
+    if _IS_WINDOWS:
+        if msvcrt is None:
+            warnings.warn(
+                "msvcrt unavailable; cannot unlock file descriptor",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            return
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, _WINDOWS_LOCK_SIZE)
+        return
+
+    if fcntl is None:
+        warnings.warn(
+            "fcntl unavailable; cannot unlock file descriptor",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return
+    fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 class FileLockError(Exception):
@@ -43,7 +103,8 @@ class FileLockTimeout(FileLockError):
 
 class FileLock:
     """
-    Cross-process file lock using fcntl.flock().
+    Cross-process file lock using platform-specific locking (fcntl.flock on Unix,
+    msvcrt.locking on Windows).
 
     Supports both sync and async context managers for flexible usage.
 
@@ -89,22 +150,22 @@ class FileLock:
         self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
 
         # Try to acquire lock with timeout
-        lock_mode = fcntl.LOCK_EX if self.exclusive else fcntl.LOCK_SH
         start_time = time.time()
 
         while True:
             try:
                 # Non-blocking lock attempt
-                fcntl.flock(self._fd, lock_mode | fcntl.LOCK_NB)
+                _try_lock(self._fd, self.exclusive)
                 return  # Lock acquired
-            except BlockingIOError:
+            except (BlockingIOError, OSError):
                 # Lock held by another process
                 elapsed = time.time() - start_time
                 if elapsed >= self.timeout:
                     os.close(self._fd)
                     self._fd = None
                     raise FileLockTimeout(
-                        f"Failed to acquire lock on {self.filepath} within {self.timeout}s"
+                        f"Failed to acquire lock on {self.filepath} within "
+                        f"{self.timeout}s"
                     )
 
                 # Wait a bit before retrying
@@ -114,7 +175,7 @@ class FileLock:
         """Release the file lock."""
         if self._fd is not None:
             try:
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
+                _unlock(self._fd)
                 os.close(self._fd)
             except Exception:
                 pass  # Best effort cleanup
@@ -141,12 +202,12 @@ class FileLock:
     async def __aenter__(self):
         """Async context manager entry."""
         # Run blocking lock acquisition in thread pool
-        await asyncio.get_event_loop().run_in_executor(None, self._acquire_lock)
+        await asyncio.get_running_loop().run_in_executor(None, self._acquire_lock)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        await asyncio.get_event_loop().run_in_executor(None, self._release_lock)
+        await asyncio.get_running_loop().run_in_executor(None, self._release_lock)
         return False
 
 
@@ -192,7 +253,9 @@ def atomic_write(filepath: str | Path, mode: str = "w"):
 
 
 @asynccontextmanager
-async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "w"):
+async def locked_write(
+    filepath: str | Path, timeout: float = 5.0, mode: str = "w"
+) -> Any:
     """
     Async context manager combining file locking and atomic writes.
 
@@ -219,7 +282,7 @@ async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "
 
     try:
         # Atomic write in thread pool (since it uses sync file I/O)
-        fd, tmp_path = await asyncio.get_event_loop().run_in_executor(
+        fd, tmp_path = await asyncio.get_running_loop().run_in_executor(
             None,
             lambda: tempfile.mkstemp(
                 dir=filepath.parent, prefix=f".{filepath.name}.tmp.", suffix=""
@@ -229,20 +292,20 @@ async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "
         try:
             # Open temp file and yield to caller
             f = os.fdopen(fd, mode)
-            yield f
-
-            # Ensure file is closed before rename
-            f.close()
+            try:
+                yield f
+            finally:
+                f.close()
 
             # Atomic replace
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 None, os.replace, tmp_path, filepath
             )
 
         except Exception:
             # Clean up temp file on error
             try:
-                await asyncio.get_event_loop().run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                     None, os.unlink, tmp_path
                 )
             except Exception:
@@ -255,7 +318,7 @@ async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "
 
 
 @asynccontextmanager
-async def locked_read(filepath: str | Path, timeout: float = 5.0):
+async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
     """
     Async context manager for locked file reading.
 
@@ -338,7 +401,10 @@ async def locked_json_read(filepath: str | Path, timeout: float = 5.0) -> Any:
 
 
 async def locked_json_update(
-    filepath: str | Path, updater: callable, timeout: float = 5.0, indent: int = 2
+    filepath: str | Path,
+    updater: Callable[[Any], Any],
+    timeout: float = 5.0,
+    indent: int = 2,
 ) -> Any:
     """
     Helper for atomic read-modify-write of JSON files.
@@ -373,17 +439,19 @@ async def locked_json_update(
 
     try:
         # Read current data
-        if filepath.exists():
-            with open(filepath) as f:
-                data = json.load(f)
-        else:
-            data = None
+        def _read_json():
+            if filepath.exists():
+                with open(filepath) as f:
+                    return json.load(f)
+            return None
+
+        data = await asyncio.get_running_loop().run_in_executor(None, _read_json)
 
         # Apply update function
         updated_data = updater(data)
 
         # Write atomically
-        fd, tmp_path = await asyncio.get_event_loop().run_in_executor(
+        fd, tmp_path = await asyncio.get_running_loop().run_in_executor(
             None,
             lambda: tempfile.mkstemp(
                 dir=filepath.parent, prefix=f".{filepath.name}.tmp.", suffix=""
@@ -394,13 +462,13 @@ async def locked_json_update(
             with os.fdopen(fd, "w") as f:
                 json.dump(updated_data, f, indent=indent)
 
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 None, os.replace, tmp_path, filepath
             )
 
         except Exception:
             try:
-                await asyncio.get_event_loop().run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                     None, os.unlink, tmp_path
                 )
             except Exception:
