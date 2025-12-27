@@ -1,10 +1,10 @@
 # Onboarding Wizard System
 
-Das Wizard-System nutzt ein **schema-basiertes Auto-Discovery-Pattern**, das automatisch neue Schritte erkennt und integriert.
+The wizard system uses a **schema-based auto-discovery pattern** that automatically detects and integrates new steps.
 
-## Schnellstart: Neuen Wizard-Schritt hinzufügen
+## Quick Start: Adding a New Wizard Step
 
-### 1. Step-Komponente erstellen
+### 1. Create the Step Component
 
 ```tsx
 // MyNewStep.tsx
@@ -13,27 +13,26 @@ import { WizardStepProps } from './wizard-step.schema';
 export function MyNewStep({ onNext, onBack, onSkip }: WizardStepProps) {
   return (
     <div>
-      <h2>Mein neuer Schritt</h2>
-      {/* Dein Inhalt */}
-      <button onClick={onBack}>Zurück</button>
-      <button onClick={onNext}>Weiter</button>
+      <h2>My New Step</h2>
+      {/* Your content */}
+      <button onClick={onBack}>Back</button>
+      <button onClick={onNext}>Next</button>
     </div>
   );
 }
 ```
 
-### 2. Step im Registry registrieren
+### 2. Register the Step in the Registry
 
-Öffne `wizard-registry.ts` und füge hinzu:
+Open `wizard-registry.ts` and add:
 
 ```typescript
-// 1. Import hinzufügen (oben in der Datei)
-// (Lazy loading wird automatisch verwendet)
+// 1. Add import at the top (lazy loading is used automatically)
 
-// 2. Step-Definition erstellen
+// 2. Create step definition
 const myNewStep = defineWizardStep({
   id: 'myNewStep',
-  priority: 250,  // Zwischen bestehenden Steps
+  priority: 250,  // Between existing steps
   translationKey: 'steps.myNewStep',
   component: lazy(() => import('./MyNewStep').then(m => ({ default: m.MyNewStep }))),
   category: 'integration',
@@ -42,50 +41,50 @@ const myNewStep = defineWizardStep({
   addedInVersion: '1.2.0'
 });
 
-// 3. Zur STEP_DEFINITIONS Array hinzufügen
+// 3. Add to STEP_DEFINITIONS array
 const STEP_DEFINITIONS: WizardStepDefinition[] = [
   welcomeStep,
   oauthStep,
-  myNewStep,  // <-- Hier hinzufügen
+  myNewStep,  // <-- Add here
   memoryStep,
   completionStep,
 ];
 ```
 
-### 3. Übersetzungen hinzufügen
+### 3. Add Translations
 
-In allen `locales/*/onboarding.json`:
+In all `locales/*/onboarding.json` files:
 
 ```json
 {
   "steps": {
-    "myNewStep": "Mein Schritt"
+    "myNewStep": "My Step"
   },
   "myNewStep": {
-    "title": "Mein neuer Schritt",
-    "description": "Beschreibung des Schritts"
+    "title": "My New Step",
+    "description": "Description of the step"
   }
 }
 ```
 
-**Fertig!** Der Wizard zeigt den neuen Schritt automatisch an.
+**Done!** The wizard will automatically display the new step.
 
 ---
 
-## Prioritäten-Schema
+## Priority Schema
 
-| Bereich | Priorität | Beschreibung |
-|---------|-----------|--------------|
-| Welcome | 0-99 | Willkommens-/Intro-Screens |
-| Auth | 100-199 | Authentifizierung (OAuth, API-Keys) |
-| Integration | 200-299 | Externe Dienste (GitHub, Linear) |
-| Memory | 300-399 | Gedächtnis/Persistenz |
-| Agent | 400-499 | Agent-Konfiguration |
-| Completion | 900-999 | Abschluss-Screens |
+| Range | Priority | Description |
+|-------|----------|-------------|
+| Welcome | 0-99 | Welcome/intro screens |
+| Auth | 100-199 | Authentication (OAuth, API keys) |
+| Integration | 200-299 | External services (GitHub, Linear) |
+| Memory | 300-399 | Memory/persistence |
+| Agent | 400-499 | Agent configuration |
+| Completion | 900-999 | Completion screens |
 
-## Bedingte Schritte
+## Conditional Steps
 
-Schritte können basierend auf Bedingungen ein-/ausgeblendet werden:
+Steps can be shown/hidden based on conditions:
 
 ```typescript
 const conditionalStep = defineWizardStep({
@@ -95,36 +94,36 @@ const conditionalStep = defineWizardStep({
   component: lazy(() => import('./AdvancedMemoryStep')),
   category: 'memory',
   showInProgress: true,
-  // Nur anzeigen wenn Feature aktiviert
+  // Only show when feature is enabled
   condition: (ctx) => ctx.features?.advancedMemory === true
 });
 ```
 
-## Verfügbare Condition Context
+## Available Condition Context
 
 ```typescript
 interface StepConditionContext {
-  settings: Record<string, unknown>;  // App-Einstellungen
-  isDev: boolean;                      // Entwicklungsmodus?
+  settings: Record<string, unknown>;  // App settings
+  isDev: boolean;                      // Development mode?
   platform: string;                    // 'Windows', 'macOS', 'Linux'
-  features: Record<string, boolean>;   // Feature Flags
+  features: Record<string, boolean>;   // Feature flags
 }
 ```
 
-## Step-Kategorien
+## Step Categories
 
-- `welcome` - Willkommens-Screens
-- `auth` - Authentifizierung
-- `integration` - Externe Dienste
-- `memory` - Gedächtnis-Konfiguration
-- `agent` - Agent-Einstellungen
-- `completion` - Abschluss
+- `welcome` - Welcome screens
+- `auth` - Authentication
+- `integration` - External services
+- `memory` - Memory configuration
+- `agent` - Agent settings
+- `completion` - Completion
 
 ## Debugging
 
 ```typescript
 import { debugSteps } from './wizard-registry';
 
-// In der Konsole alle registrierten Schritte anzeigen
+// Display all registered steps in the console
 debugSteps();
 ```

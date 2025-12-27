@@ -27,11 +27,10 @@ import {
 import { useSettingsStore } from '../../stores/settings-store';
 import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
 
-interface GraphitiStepProps {
-  onNext: () => void;
-  onBack: () => void;
-  onSkip: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// GraphitiStep uses standard wizard navigation props
+type GraphitiStepPropsInternal = Pick<WizardStepProps, 'onNext' | 'onBack' | 'onSkip'>;
 
 // Provider configurations with descriptions
 const LLM_PROVIDERS: Array<{
@@ -108,7 +107,7 @@ interface ValidationStatus {
  * Uses LadybugDB (embedded database) - no Docker required.
  * Allows users to configure Graphiti memory backend with multiple provider options.
  */
-export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
+export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepPropsInternal) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<GraphitiConfig>({
     enabled: false,

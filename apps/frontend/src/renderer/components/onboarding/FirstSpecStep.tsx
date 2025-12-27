@@ -12,12 +12,10 @@ import {
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 
-interface FirstSpecStepProps {
-  onNext: () => void;
-  onBack: () => void;
-  onSkip: () => void;
-  onOpenTaskCreator: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// FirstSpecStep uses standard wizard navigation props plus task creator action
+type FirstSpecStepPropsInternal = Pick<WizardStepProps, 'onNext' | 'onBack' | 'onSkip' | 'onOpenTaskCreator'>;
 
 interface TipCardProps {
   icon: React.ReactNode;
@@ -48,7 +46,7 @@ function TipCard({ icon, title, description }: TipCardProps) {
  * Guides users through creating their first task/spec with helpful tips
  * and provides an action to open the Task Creator.
  */
-export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: FirstSpecStepProps) {
+export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: FirstSpecStepPropsInternal) {
   const [hasCreatedSpec, setHasCreatedSpec] = useState(false);
 
   const tips = [
@@ -76,7 +74,7 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
 
   const handleOpenTaskCreator = () => {
     setHasCreatedSpec(true);
-    onOpenTaskCreator();
+    onOpenTaskCreator?.();
   };
 
   const handleContinue = () => {

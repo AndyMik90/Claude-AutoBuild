@@ -10,11 +10,10 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 
-interface CompletionStepProps {
-  onFinish: () => void;
-  onOpenTaskCreator?: () => void;
-  onOpenSettings?: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// CompletionStep uses onFinish (required from wizard) and optional action handlers
+type CompletionStepPropsInternal = Pick<WizardStepProps, 'onFinish' | 'onOpenTaskCreator' | 'onOpenSettings'>;
 
 interface NextStepCardProps {
   icon: React.ReactNode;
@@ -62,7 +61,7 @@ export function CompletionStep({
   onFinish,
   onOpenTaskCreator,
   onOpenSettings
-}: CompletionStepProps) {
+}: CompletionStepPropsInternal) {
   const { t } = useTranslation('onboarding');
 
   const nextSteps = [

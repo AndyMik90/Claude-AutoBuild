@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 
-interface WelcomeStepProps {
-  onGetStarted: () => void;
-  onSkip: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// WelcomeStep uses onNext as "Get Started" and onSkip for skipping
+type WelcomeStepPropsInternal = Pick<WizardStepProps, 'onNext' | 'onSkip'>;
 
 interface FeatureCardProps {
   icon: React.ReactNode;
@@ -36,7 +36,7 @@ function FeatureCard({ icon, title, description }: FeatureCardProps) {
  * Welcome step component for the onboarding wizard.
  * Displays a welcome message with a feature overview and actions to get started or skip.
  */
-export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
+export function WelcomeStep({ onNext, onSkip }: WelcomeStepPropsInternal) {
   const { t } = useTranslation('onboarding');
 
   const features = [
@@ -98,7 +98,7 @@ export function WelcomeStep({ onGetStarted, onSkip }: WelcomeStepProps) {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
             size="lg"
-            onClick={onGetStarted}
+            onClick={onNext}
             className="gap-2 px-8"
           >
             <Sparkles className="h-5 w-5" />

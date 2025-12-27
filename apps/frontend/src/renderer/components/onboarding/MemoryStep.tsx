@@ -24,10 +24,10 @@ import { OllamaModelSelector } from './OllamaModelSelector';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
 
-interface MemoryStepProps {
-  onNext: () => void;
-  onBack: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// MemoryStep uses standard wizard navigation props (without skip)
+type MemoryStepPropsInternal = Pick<WizardStepProps, 'onNext' | 'onBack'>;
 
 // Embedding provider configurations (LLM provider removed - Claude SDK handles RAG)
 const EMBEDDING_PROVIDERS: Array<{
@@ -71,7 +71,7 @@ interface MemoryConfig {
  * - Ollama is the default with model discovery + download
  * - Keyword search works as fallback without embeddings
  */
-export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+export function MemoryStep({ onNext, onBack }: MemoryStepPropsInternal) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<MemoryConfig>({
     database: 'auto_claude_memory',

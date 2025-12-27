@@ -73,7 +73,19 @@
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
-    "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
+    "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité",
+    "projectBasePath": "Répertoire de base des projets",
+    "projectBasePathDescription": "Répertoire par défaut pour les nouveaux projets (vide = répertoire personnel)",
+    "projectBasePathPlaceholder": "ex. C:\\Users\\Nom\\Projets",
+    "projectBasePathBrowse": "Parcourir",
+    "pathMode": "Mode de chemin",
+    "pathModeDescription": "Comment les chemins de fichiers doivent être interprétés",
+    "pathModeAuto": "Automatique",
+    "pathModeAutoDescription": "Détecte automatiquement la conversion de chemin correcte",
+    "pathModeNative": "Natif",
+    "pathModeNativeDescription": "Utilise les chemins sans conversion",
+    "pathModeWslWindows": "WSL → Windows",
+    "pathModeWslWindowsDescription": "Convertit les chemins WSL en chemins Windows (/mnt/c/ → C:\\)"
   },
   "theme": {
     "title": "Apparence",

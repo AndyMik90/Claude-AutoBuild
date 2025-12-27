@@ -143,7 +143,7 @@ export function OnboardingWizard({
       case 'welcome':
         return (
           <WelcomeStep
-            onGetStarted={goToNextStep}
+            onNext={goToNextStep}
             onSkip={skipWizard}
           />
         );

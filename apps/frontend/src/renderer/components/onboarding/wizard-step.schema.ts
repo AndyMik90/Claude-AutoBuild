@@ -182,10 +182,11 @@ export const STEP_PRIORITIES = {
  * Helper to create a step definition with type safety
  */
 export function defineWizardStep(definition: WizardStepDefinition): WizardStepDefinition {
+  // Apply defaults only if not already set in definition
   return {
-    skippable: true,
-    showInProgress: true,
-    ...definition
+    ...definition,
+    skippable: definition.skippable ?? true,
+    showInProgress: definition.showInProgress ?? true
   };
 }
 

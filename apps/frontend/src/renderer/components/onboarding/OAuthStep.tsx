@@ -28,18 +28,17 @@ import { cn } from '../../lib/utils';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
 import type { ClaudeProfile } from '../../../shared/types';
 
-interface OAuthStepProps {
-  onNext: () => void;
-  onBack: () => void;
-  onSkip: () => void;
-}
+import type { WizardStepProps } from './wizard-step.schema';
+
+// OAuthStep uses standard wizard navigation props
+type OAuthStepPropsInternal = Pick<WizardStepProps, 'onNext' | 'onBack' | 'onSkip'>;
 
 /**
  * OAuth step component for the onboarding wizard.
  * Guides users through Claude profile management and OAuth authentication,
  * reusing patterns from IntegrationSettings.tsx.
  */
-export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
+export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepPropsInternal) {
   const { t } = useTranslation('onboarding');
 
   // Claude Profiles state
