@@ -48,10 +48,13 @@ except ImportError:  # pragma: no cover
 def _try_lock(fd: int, exclusive: bool) -> None:
     if _IS_WINDOWS:
         if msvcrt is None:
-            raise FileLockError("msvcrt is required for file locking on Windows")
+            raise FileLockError(
+                "msvcrt is required for file locking on Windows"
+            )
         if not exclusive:
             warnings.warn(
-                "Shared file locks are not supported on Windows; using exclusive lock",
+                "Shared file locks are not supported on Windows; "
+                "using exclusive lock",
                 RuntimeWarning,
                 stacklevel=3,
             )
@@ -59,7 +62,9 @@ def _try_lock(fd: int, exclusive: bool) -> None:
         return
 
     if fcntl is None:
-        raise FileLockError("fcntl is required for file locking on non-Windows platforms")
+        raise FileLockError(
+            "fcntl is required for file locking on non-Windows platforms"
+        )
 
     lock_mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
     fcntl.flock(fd, lock_mode | fcntl.LOCK_NB)
@@ -162,7 +167,8 @@ class FileLock:
                     os.close(self._fd)
                     self._fd = None
                     raise FileLockTimeout(
-                        f"Failed to acquire lock on {self.filepath} within {self.timeout}s"
+                        f"Failed to acquire lock on {self.filepath} within "
+                        f"{self.timeout}s"
                     )
 
                 # Wait a bit before retrying
@@ -250,7 +256,9 @@ def atomic_write(filepath: str | Path, mode: str = "w"):
 
 
 @asynccontextmanager
-async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "w"):
+async def locked_write(
+    filepath: str | Path, timeout: float = 5.0, mode: str = "w"
+) -> Any:
     """
     Async context manager combining file locking and atomic writes.
 
@@ -313,7 +321,7 @@ async def locked_write(filepath: str | Path, timeout: float = 5.0, mode: str = "
 
 
 @asynccontextmanager
-async def locked_read(filepath: str | Path, timeout: float = 5.0):
+async def locked_read(filepath: str | Path, timeout: float = 5.0) -> Any:
     """
     Async context manager for locked file reading.
 
@@ -396,7 +404,10 @@ async def locked_json_read(filepath: str | Path, timeout: float = 5.0) -> Any:
 
 
 async def locked_json_update(
-    filepath: str | Path, updater: Callable[[Any], Any], timeout: float = 5.0, indent: int = 2
+    filepath: str | Path,
+    updater: Callable[[Any], Any],
+    timeout: float = 5.0,
+    indent: int = 2,
 ) -> Any:
     """
     Helper for atomic read-modify-write of JSON files.
