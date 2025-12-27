@@ -71,6 +71,11 @@ export const terminalMock = {
 
   saveTerminalBuffer: async () => {},
 
+  checkTerminalPtyAlive: async () => ({
+    success: true,
+    data: { alive: false }
+  }),
+
   // Terminal Event Listeners (no-op in browser)
   onTerminalOutput: () => () => {},
   onTerminalExit: () => () => {},

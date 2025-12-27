@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
 
 interface UseXtermOptions {
@@ -14,7 +15,9 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const serializeAddonRef = useRef<SerializeAddon | null>(null);
   const commandBufferRef = useRef<string>('');
+  const isDisposedRef = useRef<boolean>(false);
 
   // Initialize xterm.js UI
   useEffect(() => {
@@ -57,9 +60,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
 
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
+    const serializeAddon = new SerializeAddon();
 
     xterm.loadAddon(fitAddon);
     xterm.loadAddon(webLinksAddon);
+    xterm.loadAddon(serializeAddon);
 
     xterm.open(terminalRef.current);
 
@@ -69,8 +74,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
 
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
+    serializeAddonRef.current = serializeAddon;
 
     // Replay buffered output if this is a remount or restored session
+    // This now includes ANSI codes for proper formatting/colors/prompt
     const bufferedOutput = terminalBufferManager.get(terminalId);
     if (bufferedOutput && bufferedOutput.length > 0) {
       xterm.write(bufferedOutput);
@@ -150,12 +157,41 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
     }
   }, []);
 
+  /**
+   * Serialize the terminal buffer before disposal.
+   * This preserves ANSI escape codes for colors, formatting, and the prompt.
+   */
+  const serializeBuffer = useCallback(() => {
+    if (xtermRef.current && serializeAddonRef.current) {
+      try {
+        const serialized = serializeAddonRef.current.serialize();
+        if (serialized && serialized.length > 0) {
+          terminalBufferManager.set(terminalId, serialized);
+        }
+      } catch (error) {
+        console.error('[useXterm] Failed to serialize terminal buffer:', error);
+      }
+    }
+  }, [terminalId]);
+
   const dispose = useCallback(() => {
+    // Guard against double dispose (can happen in React StrictMode or rapid unmount)
+    if (isDisposedRef.current) return;
+    isDisposedRef.current = true;
+
+    // Serialize buffer before disposing to preserve ANSI formatting
+    serializeBuffer();
+
     if (xtermRef.current) {
       xtermRef.current.dispose();
       xtermRef.current = null;
     }
-  }, []);
+    if (serializeAddonRef.current) {
+      serializeAddonRef.current.dispose();
+      serializeAddonRef.current = null;
+    }
+    fitAddonRef.current = null;
+  }, [serializeBuffer]);
 
   return {
     terminalRef,
