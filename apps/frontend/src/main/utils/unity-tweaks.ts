@@ -306,16 +306,7 @@ export async function readUnityPackages(projectPath: string): Promise<{
 
   const manifestPath = path.join(projectPath, 'Packages', 'manifest.json');
 
-  if (!(await fs.pathExists(manifestPath))) {
-    return {
-      success: false,
-      error: 'manifest.json not found',
-    };
-  }
-
   try {
-    // Check if the file is readable before attempting to read
-    await fs.access(manifestPath, fs.constants.R_OK);
     const content = await fs.readFile(manifestPath, 'utf-8');
     const manifest = JSON.parse(content);
     const dependencies = manifest.dependencies || {};
@@ -330,9 +321,19 @@ export async function readUnityPackages(projectPath: string): Promise<{
       packages,
     };
   } catch (error) {
+    const err = error as NodeJS.ErrnoException | null | undefined;
+    let message = err?.message || 'Unknown error reading manifest.json';
+    
+    // Provide user-friendly error messages for common file system errors
+    if (err?.code === 'ENOENT') {
+      message = 'manifest.json not found';
+    } else if (err?.code === 'EACCES') {
+      message = 'Permission denied reading manifest.json';
+    }
+    
     return {
       success: false,
-      error: (error as Error).message,
+      error: message,
     };
   }
 }
