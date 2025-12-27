@@ -107,6 +107,29 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
 
+  // Templates
+  TEMPLATES_GET: 'templates:get',
+  TEMPLATES_SAVE: 'templates:save',
+  TEMPLATES_DELETE: 'templates:delete',
+  TEMPLATES_UPDATE: 'templates:update',
+  TEMPLATES_COPY: 'templates:copy',
+  TEMPLATES_COPY_WITH_NAME: 'templates:copyWithName',
+  TEMPLATES_PARSE_PARAMETERS: 'templates:parseParameters',
+  TEMPLATES_COPY_WITH_PARAMETERS: 'templates:copyWithParameters',
+
+  // Secrets (Encrypted storage - Group/Account model)
+  SECRETS_CHECK_ENCRYPTION: 'secrets:checkEncryption',
+  SECRETS_GET_GROUPS: 'secrets:getGroups',
+  SECRETS_GET_GROUP: 'secrets:getGroup',
+  SECRETS_CREATE_GROUP: 'secrets:createGroup',
+  SECRETS_UPDATE_GROUP: 'secrets:updateGroup',
+  SECRETS_DELETE_GROUP: 'secrets:deleteGroup',
+  SECRETS_ADD_ACCOUNT: 'secrets:addAccount',
+  SECRETS_UPDATE_ACCOUNT: 'secrets:updateAccount',
+  SECRETS_DELETE_ACCOUNT: 'secrets:deleteAccount',
+  SECRETS_DECRYPT_ACCOUNT: 'secrets:decryptAccount',
+  SECRETS_DECRYPT_ACCOUNT_KEY: 'secrets:decryptAccountKey',
+
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
   DIALOG_CREATE_PROJECT_FOLDER: 'dialog:createProjectFolder',
@@ -341,6 +364,7 @@ export const IPC_CHANNELS = {
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
+  GIT_CLONE_REPOSITORY: 'git:cloneRepository',
 
   // App auto-update operations
   APP_UPDATE_CHECK: 'app-update:check',

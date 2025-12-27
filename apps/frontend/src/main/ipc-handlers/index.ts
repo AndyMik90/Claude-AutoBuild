@@ -16,6 +16,8 @@ import { registerTaskHandlers } from './task-handlers';
 import { registerTerminalHandlers } from './terminal-handlers';
 import { registerAgenteventsHandlers } from './agent-events-handlers';
 import { registerSettingsHandlers } from './settings-handlers';
+import { registerTemplateHandlers } from './template-handlers';
+import { registerSecretsHandlers } from './secrets-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerRoadmapHandlers } from './roadmap-handlers';
 import { registerContextHandlers } from './context-handlers';
@@ -61,6 +63,12 @@ export function setupIpcHandlers(
 
   // Settings and dialog handlers
   registerSettingsHandlers(agentManager, getMainWindow);
+
+  // Template handlers
+  registerTemplateHandlers();
+
+  // Secrets handlers (encrypted storage)
+  registerSecretsHandlers();
 
   // File explorer handlers
   registerFileHandlers();
@@ -108,6 +116,8 @@ export {
   registerTerminalHandlers,
   registerAgenteventsHandlers,
   registerSettingsHandlers,
+  registerTemplateHandlers,
+  registerSecretsHandlers,
   registerFileHandlers,
   registerRoadmapHandlers,
   registerContextHandlers,

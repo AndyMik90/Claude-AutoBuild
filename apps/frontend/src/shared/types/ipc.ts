@@ -238,6 +238,29 @@ export interface ElectronAPI {
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
 
+  // Template operations
+  getTemplates: () => Promise<IPCResult<import('./template').Template[]>>;
+  saveTemplate: (template: Omit<import('./template').Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<import('./template').Template>>;
+  deleteTemplate: (templateId: string) => Promise<IPCResult>;
+  updateTemplate: (templateId: string, updates: Partial<Omit<import('./template').Template, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<IPCResult<import('./template').Template>>;
+  copyTemplate: (templateId: string, destinationPath: string) => Promise<IPCResult<{ path: string }>>;
+  copyTemplateWithName: (templateId: string, destinationPath: string, customName: string) => Promise<IPCResult<{ path: string }>>;
+  parseTemplateParameters: (templateId: string) => Promise<IPCResult<import('./template').ParsedTemplate>>;
+  copyTemplateWithParameters: (templateId: string, destinationPath: string, customName: string, parameterValues: Record<string, string>) => Promise<IPCResult<{ path: string }>>;
+
+  // Secrets operations (Encrypted storage - Group/Account model)
+  checkSecretsEncryption: () => Promise<IPCResult<boolean>>;
+  getSecretGroups: () => Promise<IPCResult<import('./secrets').SecretGroup[]>>;
+  getSecretGroup: (groupId: string) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  createSecretGroup: (groupInput: import('./secrets').SecretGroupInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  updateSecretGroup: (groupId: string, updates: Partial<import('./secrets').SecretGroupInput>) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  deleteSecretGroup: (groupId: string) => Promise<IPCResult>;
+  addSecretAccount: (groupId: string, accountInput: import('./secrets').SecretAccountInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  updateSecretAccount: (groupId: string, accountId: string, accountInput: import('./secrets').SecretAccountInput) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  deleteSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<import('./secrets').SecretGroup>>;
+  decryptSecretAccount: (groupId: string, accountId: string) => Promise<IPCResult<Record<string, string>>>;
+  decryptSecretAccountKey: (groupId: string, accountId: string, keyId: string) => Promise<IPCResult<string>>;
+
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
   createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;
@@ -548,6 +571,7 @@ export interface ElectronAPI {
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
+  cloneRepository: (repoUrl: string, destinationPath: string) => Promise<IPCResult<{ path: string }>>;
 
   // Ollama model detection operations
   checkOllamaStatus: (baseUrl?: string) => Promise<IPCResult<{

@@ -485,4 +485,53 @@ export function registerProjectHandlers(
       }
     }
   );
+
+  // Clone a git repository
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CLONE_REPOSITORY,
+    async (_, repoUrl: string, destinationPath: string): Promise<IPCResult<{ path: string }>> => {
+      try {
+        if (!existsSync(destinationPath)) {
+          return { success: false, error: 'Destination directory does not exist' };
+        }
+
+        // Extract repo name from URL (remove .git extension if present)
+        const repoName = repoUrl
+          .split('/')
+          .pop()
+          ?.replace(/\.git$/, '') || 'repo';
+
+        const clonePath = path.join(destinationPath, repoName);
+
+        // Check if directory already exists
+        if (existsSync(clonePath)) {
+          return { success: false, error: `Directory "${repoName}" already exists at this location` };
+        }
+
+        // Clone the repository
+        try {
+          execSync(`git clone "${repoUrl}" "${clonePath}"`, {
+            stdio: 'pipe',
+            encoding: 'utf-8'
+          });
+        } catch (gitError: any) {
+          // Parse git error message
+          const errorMessage = gitError.stderr || gitError.message || 'Git clone failed';
+          return { success: false, error: errorMessage };
+        }
+
+        // Verify the clone was successful
+        if (!existsSync(clonePath)) {
+          return { success: false, error: 'Repository cloned but directory not found' };
+        }
+
+        return { success: true, data: { path: clonePath } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clone repository'
+        };
+      }
+    }
+  );
 }

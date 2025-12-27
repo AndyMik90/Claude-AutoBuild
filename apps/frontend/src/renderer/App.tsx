@@ -45,6 +45,7 @@ import { GitHubPRs } from './components/github-prs';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { NewProjectScreen } from './components/NewProjectScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
 import { OnboardingWizard } from './components/onboarding';
@@ -59,7 +60,7 @@ import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-sto
 import { initializeGitHubListeners } from './stores/github';
 import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
-import type { Task, Project, ColorTheme } from '../shared/types';
+import type { Task, Project, ColorTheme, Template } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 
 export function App() {
@@ -88,6 +89,7 @@ export function App() {
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
+  const [isNewProjectScreenOpen, setIsNewProjectScreenOpen] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -391,12 +393,19 @@ export function App() {
     setSelectedTask(null);
   };
 
-  const handleAddProject = async () => {
+  const handleAddProject = () => {
+    setIsNewProjectScreenOpen(true);
+  };
+
+  const handleImportFolder = async () => {
     try {
       const path = await window.electronAPI.selectDirectory();
       if (path) {
         const project = await addProject(path);
         if (project) {
+          // Close the new project screen
+          setIsNewProjectScreenOpen(false);
+
           // Open a tab for the new project
           openProjectTab(project.id);
 
@@ -411,6 +420,53 @@ export function App() {
       }
     } catch (error) {
       console.error('Failed to add project:', error);
+    }
+  };
+
+  const handleSelectRecentProject = async (projectId: string) => {
+    // Reload projects to ensure the newly created project is in the store
+    await loadProjects();
+
+    setIsNewProjectScreenOpen(false);
+    openProjectTab(projectId);
+  };
+
+  const handleCreateFromTemplate = async (template: Template) => {
+    try {
+      // Get the default projects location
+      const defaultDir = await window.electronAPI.getDefaultProjectLocation();
+
+      // Ask user to select where to create the project
+      const path = await window.electronAPI.selectDirectory();
+      if (!path) return;
+
+      // Copy template folder to selected location
+      const result = await window.electronAPI.copyTemplate(template.id, path);
+
+      if (result.success && result.data) {
+        // Add the newly created project
+        const project = await addProject(result.data.path);
+        if (project) {
+          // Close the new project screen
+          setIsNewProjectScreenOpen(false);
+
+          // Open a tab for the new project
+          openProjectTab(project.id);
+
+          if (!project.autoBuildPath) {
+            // Project doesn't have Auto Claude initialized, show init dialog
+            setPendingProject(project);
+            setInitError(null);
+            setInitSuccess(false);
+            setShowInitDialog(true);
+          }
+        }
+      } else {
+        console.error('Failed to copy template:', result.error);
+        // TODO: Show error to user
+      }
+    } catch (error) {
+      console.error('Failed to create project from template:', error);
     }
   };
 
@@ -861,6 +917,16 @@ export function App() {
 
         {/* App Update Notification - shows when new app version is available */}
         <AppUpdateNotification />
+
+        {/* New Project Screen - modal dialog for creating/importing projects */}
+        <NewProjectScreen
+          open={isNewProjectScreenOpen}
+          projects={projects}
+          onImportFolder={handleImportFolder}
+          onSelectRecentProject={handleSelectRecentProject}
+          onCreateFromTemplate={handleCreateFromTemplate}
+          onOpenChange={setIsNewProjectScreenOpen}
+        />
       </div>
     </TooltipProvider>
   );

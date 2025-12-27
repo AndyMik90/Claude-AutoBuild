@@ -16,6 +16,8 @@ export * from './insights';
 export * from './roadmap';
 export * from './integrations';
 export * from './app-update';
+export * from './template';
+export * from './secrets';
 
 // IPC types (must be last to use types from other modules)
 export * from './ipc';
