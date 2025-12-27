@@ -1,0 +1,109 @@
+name: Prepare Release
+
+# Triggers when code is pushed to main (e.g., merging develop → main)
+# If package.json version is newer than the latest tag, creates a new tag
+# which then triggers the release.yml workflow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/package.json'
+      - 'package.json'
+
+jobs:
+  check-and-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      new_version: ${{ steps.check.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get package version
+        id: package
+        run: |
+          VERSION=$(node -p "require('./apps/frontend/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Get latest tag version
+        id: latest_tag
+        run: |
+          # Get the latest version tag (v*)
+          LATEST_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tags found"
+            echo "version=0.0.0" >> $GITHUB_OUTPUT
+          else
+            # Remove 'v' prefix
+            LATEST_VERSION=${LATEST_TAG#v}
+            echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+            echo "Latest tag: $LATEST_TAG (version: $LATEST_VERSION)"
+          fi
+
+      - name: Check if release needed
+        id: check
+        run: |
+          PACKAGE_VERSION="${{ steps.package.outputs.version }}"
+          LATEST_VERSION="${{ steps.latest_tag.outputs.version }}"
+
+          echo "Comparing: package=$PACKAGE_VERSION vs latest_tag=$LATEST_VERSION"
+
+          # Use sort -V for version comparison
+          HIGHER=$(printf '%s\n%s' "$PACKAGE_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)
+
+          if [ "$HIGHER" = "$PACKAGE_VERSION" ] && [ "$PACKAGE_VERSION" != "$LATEST_VERSION" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "new_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "✅ New release needed: v$PACKAGE_VERSION"
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No release needed (package version not newer than latest tag)"
+          fi
+
+      - name: Create and push tag
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.check.outputs.new_version }}"
+          TAG="v$VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Creating tag: $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+          echo "✅ Tag $TAG created and pushed"
+          echo "🚀 This will trigger the release workflow"
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.should_release }}" = "true" ]; then
+            echo "## 🚀 Release Triggered" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Version:** v${{ steps.check.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The release workflow has been triggered and will:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Build binaries for all platforms" >> $GITHUB_STEP_SUMMARY
+            echo "2. Generate changelog from PRs" >> $GITHUB_STEP_SUMMARY
+            echo "3. Create GitHub release" >> $GITHUB_STEP_SUMMARY
+            echo "4. Update README with new version" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⏭️ No Release Needed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Package version:** ${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Latest tag:** v${{ steps.latest_tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The package version is not newer than the latest tag." >> $GITHUB_STEP_SUMMARY
+            echo "To trigger a release, bump the version using:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "node scripts/bump-version.js patch  # or minor/major" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi

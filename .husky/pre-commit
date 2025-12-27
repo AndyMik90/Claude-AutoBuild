@@ -1,6 +1,158 @@
 #!/bin/sh
 
-# Run lint-staged in auto-claude-ui if there are staged files there
-if git diff --cached --name-only | grep -q "^auto-claude-ui/"; then
-  cd auto-claude-ui && pnpm exec lint-staged
+echo "Running pre-commit checks..."
+
+# =============================================================================
+# VERSION SYNC - Keep all version references in sync with root package.json
+# =============================================================================
+
+# Check if package.json is staged
+if git diff --cached --name-only | grep -q "^package.json$"; then
+  echo "package.json changed, syncing version to all files..."
+
+  # Extract version from root package.json
+  VERSION=$(node -p "require('./package.json').version")
+
+  if [ -n "$VERSION" ]; then
+    # Sync to apps/frontend/package.json
+    if [ -f "apps/frontend/package.json" ]; then
+      node -e "
+        const fs = require('fs');
+        const pkg = require('./apps/frontend/package.json');
+        if (pkg.version !== '$VERSION') {
+          pkg.version = '$VERSION';
+          fs.writeFileSync('./apps/frontend/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          console.log('  Updated apps/frontend/package.json to $VERSION');
+        }
+      "
+      git add apps/frontend/package.json
+    fi
+
+    # Sync to apps/backend/__init__.py
+    if [ -f "apps/backend/__init__.py" ]; then
+      sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py
+      rm -f apps/backend/__init__.py.bak
+      git add apps/backend/__init__.py
+      echo "  Updated apps/backend/__init__.py to $VERSION"
+    fi
+
+    # Sync to README.md
+    if [ -f "README.md" ]; then
+      # Update version badge
+      sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md
+      # Update download links
+      sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md
+      rm -f README.md.bak
+      git add README.md
+      echo "  Updated README.md to $VERSION"
+    fi
+
+    echo "Version sync complete: $VERSION"
+  fi
 fi
+
+# =============================================================================
+# BACKEND CHECKS (Python) - Run first, before frontend
+# =============================================================================
+
+# Check if there are staged Python files in apps/backend
+if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
+  echo "Python changes detected, running backend checks..."
+
+  # Determine ruff command (venv or global)
+  RUFF=""
+  if [ -f "apps/backend/.venv/bin/ruff" ]; then
+    RUFF="apps/backend/.venv/bin/ruff"
+  elif [ -f "apps/backend/.venv/Scripts/ruff.exe" ]; then
+    RUFF="apps/backend/.venv/Scripts/ruff.exe"
+  elif command -v ruff >/dev/null 2>&1; then
+    RUFF="ruff"
+  fi
+
+  if [ -n "$RUFF" ]; then
+    # Run ruff linting (auto-fix)
+    echo "Running ruff lint..."
+    $RUFF check apps/backend/ --fix
+    if [ $? -ne 0 ]; then
+      echo "Ruff lint failed. Please fix Python linting errors before committing."
+      exit 1
+    fi
+
+    # Run ruff format (auto-fix)
+    echo "Running ruff format..."
+    $RUFF format apps/backend/
+
+    # Stage any files that were auto-fixed by ruff (POSIX-compliant)
+    find apps/backend -name "*.py" -type f -exec git add {} + 2>/dev/null || true
+  else
+    echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
+  fi
+
+  # Run pytest (skip slow/integration tests and Windows-incompatible tests for pre-commit speed)
+  echo "Running Python tests..."
+  cd apps/backend
+  # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
+  IGNORE_TESTS="--ignore=../../tests/test_graphiti.py --ignore=../../tests/test_merge_file_tracker.py --ignore=../../tests/test_service_orchestrator.py --ignore=../../tests/test_worktree.py --ignore=../../tests/test_workspace.py"
+  if [ -d ".venv" ]; then
+    # Use venv if it exists
+    if [ -f ".venv/bin/pytest" ]; then
+      PYTHONPATH=. .venv/bin/pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+    elif [ -f ".venv/Scripts/pytest.exe" ]; then
+      # Windows
+      PYTHONPATH=. .venv/Scripts/pytest.exe ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+    else
+      PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+    fi
+  else
+    PYTHONPATH=. python -m pytest ../../tests/ -v --tb=short -x -m "not slow and not integration" $IGNORE_TESTS
+  fi
+  if [ $? -ne 0 ]; then
+    echo "Python tests failed. Please fix failing tests before committing."
+    exit 1
+  fi
+  cd ../..
+  
+  echo "Backend checks passed!"
+fi
+
+# =============================================================================
+# FRONTEND CHECKS (TypeScript/React)
+# =============================================================================
+
+# Check if there are staged files in apps/frontend
+if git diff --cached --name-only | grep -q "^apps/frontend/"; then
+  echo "Frontend changes detected, running frontend checks..."
+  cd apps/frontend
+  
+  # Run lint-staged (handles staged .ts/.tsx files)
+  npm exec lint-staged
+  
+  # Run TypeScript type check
+  echo "Running type check..."
+  npm run typecheck
+  if [ $? -ne 0 ]; then
+    echo "Type check failed. Please fix TypeScript errors before committing."
+    exit 1
+  fi
+  
+  # Run linting
+  echo "Running lint..."
+  npm run lint
+  if [ $? -ne 0 ]; then
+    echo "Lint failed. Run 'npm run lint:fix' to auto-fix issues."
+    exit 1
+  fi
+  
+  # Check for vulnerabilities (only high severity)
+  echo "Checking for vulnerabilities..."
+  npm audit --audit-level=high
+  if [ $? -ne 0 ]; then
+    echo "High severity vulnerabilities found. Run 'npm audit fix' to resolve."
+    exit 1
+  fi
+  
+  cd ../..
+  echo "Frontend checks passed!"
+fi
+
+echo "All pre-commit checks passed!"

@@ -1,0 +1,70 @@
+name: Quality DCO
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: DCO Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check DCO Sign-off
+        uses: dcoapp/dco-check@v1
+        with:
+          require-signoff: true
+
+      - name: DCO Help on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const helpMsg = `## ❌ DCO Sign-off Required
+
+This project requires all commits to be signed off with the Developer Certificate of Origin (DCO).
+
+### How to Fix
+
+**Option 1: Sign off your last commit**
+\`\`\`bash
+git commit --amend --signoff
+git push --force-with-lease
+\`\`\`
+
+**Option 2: Sign off all commits in this PR**
+\`\`\`bash
+git rebase HEAD~N --signoff  # Replace N with number of commits
+git push --force-with-lease
+\`\`\`
+
+**Option 3: Configure git to always sign off**
+\`\`\`bash
+git config --global format.signoff true
+\`\`\`
+
+### What is DCO?
+
+The [Developer Certificate of Origin](https://developercertificate.org/) is a lightweight way for contributors to certify that they wrote or have the right to submit the code they are contributing.
+
+By signing off, you agree to the DCO terms:
+- The contribution was created by you
+- You have the right to submit it under the project's license
+- You understand the contribution is public and recorded
+
+### Sign-off Format
+
+Your commit message should end with:
+\`\`\`
+Signed-off-by: Your Name <your.email@example.com>
+\`\`\`
+
+This line is automatically added when you use \`git commit -s\` or \`git commit --signoff\`.
+`;
+
+            core.summary.addRaw(helpMsg);
+            await core.summary.write();

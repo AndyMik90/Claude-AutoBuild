@@ -1,0 +1,86 @@
+{
+  "status": {
+    "backlog": "Backlog",
+    "todo": "À faire",
+    "in_progress": "En cours",
+    "review": "Révision",
+    "complete": "Terminé",
+    "archived": "Archivé"
+  },
+  "actions": {
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "recover": "Récupérer",
+    "resume": "Reprendre",
+    "archive": "Archiver",
+    "delete": "Supprimer",
+    "view": "Voir les détails"
+  },
+  "labels": {
+    "running": "En cours",
+    "aiReview": "Révision IA",
+    "needsReview": "À réviser",
+    "pending": "En attente",
+    "stuck": "Bloqué",
+    "incomplete": "Incomplet",
+    "recovering": "Récupération...",
+    "needsRecovery": "Récupération requise",
+    "needsResume": "Reprise requise"
+  },
+  "reviewReason": {
+    "completed": "Terminé",
+    "hasErrors": "Contient des erreurs",
+    "qaIssues": "Problèmes QA",
+    "approvePlan": "Approuver le plan"
+  },
+  "tooltips": {
+    "archiveTask": "Archiver la tâche",
+    "archiveAllDone": "Archiver toutes les tâches terminées"
+  },
+  "creation": {
+    "title": "Créer une nouvelle tâche",
+    "description": "Décrivez ce que vous voulez construire",
+    "placeholder": "Décrivez votre tâche..."
+  },
+  "empty": {
+    "title": "Aucune tâche",
+    "description": "Créez votre première tâche pour commencer"
+  },
+  "kanban": {
+    "emptyBacklog": "Aucune tâche planifiée",
+    "emptyBacklogHint": "Ajoutez une tâche pour commencer",
+    "emptyInProgress": "Rien en cours",
+    "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
+    "emptyAiReview": "Aucune tâche en révision",
+    "emptyAiReviewHint": "L'IA révisera les tâches terminées",
+    "emptyHumanReview": "Rien à réviser",
+    "emptyHumanReviewHint": "Les tâches attendent votre approbation ici",
+    "emptyDone": "Aucune tâche terminée",
+    "emptyDoneHint": "Les tâches approuvées apparaissent ici",
+    "emptyDefault": "Aucune tâche",
+    "dropHere": "Déposer ici",
+    "showArchived": "Afficher les archivées"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Inactif",
+      "planning": "Planification",
+      "coding": "Codage",
+      "reviewing": "Révision",
+      "fixing": "Correction",
+      "complete": "Terminé",
+      "failed": "Échoué"
+    },
+    "labels": {
+      "interrupted": "Interrompu",
+      "progress": "Progression",
+      "entry": "entrée",
+      "entries": "entrées"
+    },
+    "shortPhases": {
+      "plan": "Plan",
+      "code": "Code",
+      "qa": "QA"
+    }
+  }
+}

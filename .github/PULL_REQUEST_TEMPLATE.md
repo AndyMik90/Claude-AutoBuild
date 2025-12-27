@@ -1,44 +1,76 @@
-## Summary
+## Base Branch
 
-<!-- Brief description of what this PR does -->
+- [ ] This PR targets the `develop` branch (required for all feature/fix PRs)
+- [ ] This PR targets `main` (hotfix only - maintainers)
+
+## Description
+
+<!-- What does this PR do? 2-3 sentences -->
+
+## Related Issue
+
+Closes #
 
 ## Type of Change
 
-- [ ] Bug fix (non-breaking change that fixes an issue)
-- [ ] New feature (non-breaking change that adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
-- [ ] Documentation update
-- [ ] Refactoring (no functional changes)
-- [ ] Tests (adding or updating tests)
+- [ ] 🐛 Bug fix
+- [ ] ✨ New feature
+- [ ] 📚 Documentation
+- [ ] ♻️ Refactor
+- [ ] 🧪 Test
 
-## Related Issues
+## Area
 
-<!-- Link any related issues: Fixes #123, Closes #456 -->
+- [ ] Frontend
+- [ ] Backend
+- [ ] Fullstack
 
-## Changes Made
+## Commit Message Format
 
-<!-- List the main changes in this PR -->
+Follow conventional commits: `<type>: <subject>`
 
--
--
--
+**Types:** feat, fix, docs, style, refactor, test, chore
 
-## Screenshots
-
-<!-- If applicable, add screenshots for UI changes -->
+**Example:** `feat: add user authentication system`
 
 ## Checklist
 
-- [ ] I have run `pre-commit run --all-files` and fixed any issues
-- [ ] I have added tests for my changes (if applicable)
-- [ ] All existing tests pass locally
-- [ ] I have updated documentation (if applicable)
-- [ ] My code follows the project's code style
+- [ ] I've synced with `develop` branch
+- [ ] I've tested my changes locally
+- [ ] I've followed the code principles (SOLID, DRY, KISS)
+- [ ] My PR is small and focused (< 400 lines ideally)
 
-## Testing
+## CI/Testing Requirements
 
-<!-- Describe how you tested these changes -->
+- [ ] All CI checks pass
+- [ ] All existing tests pass
+- [ ] New features include test coverage
+- [ ] Bug fixes include regression tests
 
-## Additional Notes
+## Screenshots
 
-<!-- Any additional context or notes for reviewers -->
+<!-- Required for UI changes. Delete if not applicable. -->
+
+| Before | After |
+|--------|-------|
+|        |       |
+
+## Feature Toggle
+
+<!-- If feature is incomplete or experimental, how is it hidden from users? -->
+<!-- This ensures incomplete work can be merged without affecting production. -->
+
+- [ ] Behind localStorage flag: `use_feature_name`
+- [ ] Behind settings toggle
+- [ ] Behind environment variable/config
+- [ ] N/A - Feature is complete and ready for all users
+
+## Breaking Changes
+
+<!-- Does this PR introduce breaking changes? If yes, describe what breaks and migration steps. -->
+<!-- Delete this section if not applicable. -->
+
+**Breaking:** Yes / No
+
+**Details:**
+<!-- What breaks? What do users/developers need to change? -->

@@ -1,0 +1,63 @@
+import { ProjectAPI, createProjectAPI } from './project-api';
+import { TerminalAPI, createTerminalAPI } from './terminal-api';
+import { TaskAPI, createTaskAPI } from './task-api';
+import { SettingsAPI, createSettingsAPI } from './settings-api';
+import { FileAPI, createFileAPI } from './file-api';
+import { AgentAPI, createAgentAPI } from './agent-api';
+import { IdeationAPI, createIdeationAPI } from './modules/ideation-api';
+import { InsightsAPI, createInsightsAPI } from './modules/insights-api';
+import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
+import { GitHubAPI, createGitHubAPI } from './modules/github-api';
+
+export interface ElectronAPI extends
+  ProjectAPI,
+  TerminalAPI,
+  TaskAPI,
+  SettingsAPI,
+  FileAPI,
+  AgentAPI,
+  IdeationAPI,
+  InsightsAPI,
+  AppUpdateAPI {
+  github: GitHubAPI;
+}
+
+export const createElectronAPI = (): ElectronAPI => ({
+  ...createProjectAPI(),
+  ...createTerminalAPI(),
+  ...createTaskAPI(),
+  ...createSettingsAPI(),
+  ...createFileAPI(),
+  ...createAgentAPI(),
+  ...createIdeationAPI(),
+  ...createInsightsAPI(),
+  ...createAppUpdateAPI(),
+  github: createGitHubAPI()
+});
+
+// Export individual API creators for potential use in tests or specialized contexts
+export {
+  createProjectAPI,
+  createTerminalAPI,
+  createTaskAPI,
+  createSettingsAPI,
+  createFileAPI,
+  createAgentAPI,
+  createIdeationAPI,
+  createInsightsAPI,
+  createAppUpdateAPI,
+  createGitHubAPI
+};
+
+export type {
+  ProjectAPI,
+  TerminalAPI,
+  TaskAPI,
+  SettingsAPI,
+  FileAPI,
+  AgentAPI,
+  IdeationAPI,
+  InsightsAPI,
+  AppUpdateAPI,
+  GitHubAPI
+};

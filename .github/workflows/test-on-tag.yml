@@ -28,17 +28,19 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
-        working-directory: auto-claude
+        working-directory: apps/backend
         run: |
           uv venv
           uv pip install -r requirements.txt
-          uv pip install -r ../tests/requirements-test.txt
+          uv pip install -r ../../tests/requirements-test.txt
 
       - name: Run tests
-        working-directory: auto-claude
+        working-directory: apps/backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../tests/ -v --tb=short
+          pytest ../../tests/ -v --tb=short
 
   # Frontend tests
   test-frontend:
@@ -50,17 +52,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+          node-version: '24'
 
       - name: Install dependencies
-        working-directory: auto-claude-ui
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: apps/frontend
+        run: npm ci --ignore-scripts
 
       - name: Run tests
-        working-directory: auto-claude-ui
-        run: pnpm test
+        working-directory: apps/frontend
+        run: npm run test

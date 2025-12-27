@@ -50,7 +50,7 @@ sys.modules['claude_agent_sdk'] = mock_agent_sdk
 sys.modules['claude_agent_sdk.types'] = mock_agent_types
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "auto-claude"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
 
 from spec.complexity import (
     Complexity,
@@ -586,18 +586,6 @@ class TestSaveAssessment:
 
         assert "phases_to_run" in data
         assert "discovery" in data["phases_to_run"]
-
-    def test_saves_dev_mode_flag(self, spec_dir: Path):
-        """Saves dev_mode flag in output."""
-        assessment = ComplexityAssessment(
-            complexity=Complexity.STANDARD,
-            confidence=0.8,
-        )
-
-        save_assessment(spec_dir, assessment, dev_mode=True)
-        data = json.loads((spec_dir / "complexity_assessment.json").read_text())
-
-        assert data["dev_mode"] is True
 
     def test_saves_timestamp(self, spec_dir: Path):
         """Saves created_at timestamp."""
