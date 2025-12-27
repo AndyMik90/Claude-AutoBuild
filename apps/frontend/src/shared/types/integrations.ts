@@ -112,6 +112,11 @@ export interface GitHubSyncStatus {
   issueCount?: number;
   lastSyncedAt?: string;
   error?: string;
+  isFork?: boolean;
+  parentRepository?: {
+    fullName: string;
+    url: string;
+  };
 }
 
 export interface GitHubImportResult {
