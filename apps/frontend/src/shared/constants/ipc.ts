@@ -273,6 +273,11 @@ export const IPC_CHANNELS = {
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
 
+  // Code editor operations
+  CODE_EDITOR_LIST_DIR: 'codeEditor:listDir',
+  CODE_EDITOR_READ_FILE: 'codeEditor:readFile',
+  CODE_EDITOR_WRITE_FILE: 'codeEditor:writeFile',
+
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',

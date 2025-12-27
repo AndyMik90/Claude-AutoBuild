@@ -44,6 +44,7 @@ import { GitHubIssues } from './components/GitHubIssues';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { Unity } from './components/Unity';
+import { CodeEditor } from './components/CodeEditor';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -683,6 +684,9 @@ export function App() {
                 )}
                 {activeView === 'unity' && (activeProjectId || selectedProjectId) && (
                   <Unity projectId={activeProjectId || selectedProjectId!} />
+                )}
+                {activeView === 'code-editor' && (activeProjectId || selectedProjectId) && (
+                  <CodeEditor projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'agent-tools' && (
                   <div className="flex h-full items-center justify-center">
