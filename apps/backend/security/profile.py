@@ -11,6 +11,7 @@ from pathlib import Path
 from project_analyzer import (
     SecurityProfile,
     get_or_create_profile,
+    ProjectAnalyzer,
 )
 
 # =============================================================================
@@ -25,8 +26,6 @@ _cached_profile_mtime: float | None = None  # Track file modification time
 
 def _get_profile_path(project_dir: Path) -> Path:
     """Get the security profile file path for a project."""
-    from project_analyzer import ProjectAnalyzer
-
     return project_dir / ProjectAnalyzer.PROFILE_FILENAME
 
 

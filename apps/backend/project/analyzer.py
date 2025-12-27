@@ -115,11 +115,13 @@ class ProjectAnalyzer:
         hasher = hashlib.md5(usedforsecurity=False)
         files_found = 0
 
+        print(f"DEBUG: Computing hash for {self.project_dir}")
         for filename in hash_files:
             filepath = self.project_dir / filename
             if filepath.exists():
                 try:
                     stat = filepath.stat()
+                    # print(f"DEBUG: Hashing {filename} -> {stat.st_mtime}:{stat.st_size}")
                     hasher.update(f"{filename}:{stat.st_mtime}:{stat.st_size}".encode())
                     files_found += 1
                 except OSError:
@@ -131,11 +133,15 @@ class ProjectAnalyzer:
             # Count Python, JS, and other source files as a proxy for project structure
             for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
                 count = len(list(self.project_dir.glob(f"**/{ext}")))
+                print(f"DEBUG: Hashing extension {ext} count -> {count}")
                 hasher.update(f"{ext}:{count}".encode())
             # Also include the project directory name for uniqueness
+            print(f"DEBUG: Hashing project name -> {self.project_dir.name}")
             hasher.update(self.project_dir.name.encode())
 
-        return hasher.hexdigest()
+        final_hash = hasher.hexdigest()
+        print(f"DEBUG: Final hash -> {final_hash}")
+        return final_hash
 
     def should_reanalyze(self, profile: SecurityProfile) -> bool:
         """Check if project has changed since last analysis."""
