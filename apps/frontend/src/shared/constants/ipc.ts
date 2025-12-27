@@ -10,7 +10,6 @@ export const IPC_CHANNELS = {
   PROJECT_LIST: 'project:list',
   PROJECT_UPDATE_SETTINGS: 'project:updateSettings',
   PROJECT_INITIALIZE: 'project:initialize',
-  PROJECT_UPDATE_AUTOBUILD: 'project:updateAutoBuild',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
 
   // Tab state operations (persisted in main process)
@@ -106,6 +105,7 @@ export const IPC_CHANNELS = {
   // Settings
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
+  SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',

@@ -4,7 +4,8 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
-import { findPythonCommand, parsePythonCommand } from './python-detector';
+import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
+import { getConfiguredPythonPath } from './python-env-manager';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -21,8 +22,8 @@ function debug(...args: unknown[]): void {
  * Service for generating task titles from descriptions using Claude AI
  */
 export class TitleGenerator extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
   constructor() {
@@ -30,16 +31,25 @@ export class TitleGenerator extends EventEmitter {
     debug('TitleGenerator initialized');
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'TitleGenerator');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
+  }
+
+  /**
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
+   */
+  private get pythonPath(): string {
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    return getConfiguredPythonPath();
   }
 
   /**

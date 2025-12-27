@@ -35,7 +35,6 @@ interface SectionRouterProps {
   linearConnectionStatus: LinearSyncStatus | null;
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
-  handleUpdate: () => Promise<void>;
   handleClaudeSetup: () => Promise<void>;
   onOpenLinearImport: () => void;
 }
@@ -71,7 +70,6 @@ export function SectionRouter({
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
-  handleUpdate,
   handleClaudeSetup,
   onOpenLinearImport
 }: SectionRouterProps) {
@@ -90,7 +88,6 @@ export function SectionRouter({
             isCheckingVersion={isCheckingVersion}
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
-            handleUpdate={handleUpdate}
           />
         </SettingsSection>
       );

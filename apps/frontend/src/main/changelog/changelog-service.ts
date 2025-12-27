@@ -27,15 +27,16 @@ import {
   getCommits,
   getBranchDiffCommits
 } from './git-integration';
-import { findPythonCommand } from '../python-detector';
+import { getValidatedPythonPath } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Main changelog service - orchestrates all changelog operations
  * Delegates to specialized modules for specific concerns
  */
 export class ChangelogService extends EventEmitter {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  private _pythonPath: string | null = null;
   private claudePath: string = 'claude';
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;
@@ -125,16 +126,25 @@ export class ChangelogService extends EventEmitter {
     }
   }
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'ChangelogService');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
     }
+  }
+
+  /**
+   * Get the configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
+   */
+  private get pythonPath(): string {
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    return getConfiguredPythonPath();
   }
 
   /**

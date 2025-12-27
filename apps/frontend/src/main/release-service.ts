@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import path from 'path';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
-import { execSync, spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import type {
   ReleaseableVersion,
   ReleasePreflightStatus,
@@ -14,6 +14,7 @@ import type {
   TaskStatus
 } from '../shared/types';
 import { DEFAULT_CHANGELOG_PATH } from '../shared/constants';
+import { getToolPath } from './cli-tool-manager';
 
 /**
  * Service for creating GitHub releases with worktree-aware pre-flight checks.
@@ -126,10 +127,10 @@ export class ReleaseService extends EventEmitter {
    * Check if a git tag exists (locally or remote).
    */
   private checkTagExists(projectPath: string, tagName: string): boolean {
+    const git = getToolPath('git');
     try {
       // Check local tags
-      execSync(`git tag -l "${tagName}"`, { cwd: projectPath, encoding: 'utf-8' });
-      const localTags = execSync(`git tag -l "${tagName}"`, {
+      const localTags = execFileSync(git, ['tag', '-l', tagName], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -138,12 +139,7 @@ export class ReleaseService extends EventEmitter {
 
       // Check remote tags
       try {
-        execSync(`git ls-remote --tags origin refs/tags/${tagName}`, {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
-        const remoteTags = execSync(`git ls-remote --tags origin refs/tags/${tagName}`, {
+        const remoteTags = execFileSync(git, ['ls-remote', '--tags', 'origin', `refs/tags/${tagName}`], {
           cwd: projectPath,
           encoding: 'utf-8'
         }).trim();
@@ -161,8 +157,9 @@ export class ReleaseService extends EventEmitter {
    * Get GitHub release URL for a tag (if release exists).
    */
   private getGitHubReleaseUrl(projectPath: string, tagName: string): string | undefined {
+    const gh = getToolPath('gh');
     try {
-      const result = execSync(`gh release view ${tagName} --json url -q .url 2>/dev/null`, {
+      const result = execFileSync(gh, ['release', 'view', tagName, '--json', 'url', '-q', '.url'], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -201,7 +198,7 @@ export class ReleaseService extends EventEmitter {
 
     // Check 1: Git working directory is clean
     try {
-      const gitStatus = execSync('git status --porcelain', {
+      const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -230,10 +227,16 @@ export class ReleaseService extends EventEmitter {
 
     // Check 2: All commits are pushed
     try {
-      const unpushed = execSync('git log @{u}..HEAD --oneline 2>/dev/null || echo ""', {
-        cwd: projectPath,
-        encoding: 'utf-8'
-      }).trim();
+      let unpushed = '';
+      try {
+        unpushed = execFileSync(getToolPath('git'), ['log', '@{u}..HEAD', '--oneline'], {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim();
+      } catch {
+        // No upstream branch or other error - treat as empty
+        unpushed = '';
+      }
 
       if (!unpushed) {
         status.checks.commitsPushed = {
@@ -275,7 +278,7 @@ export class ReleaseService extends EventEmitter {
 
     // Check 4: GitHub CLI is available and authenticated
     try {
-      execSync('gh auth status', {
+      execFileSync(getToolPath('gh'), ['auth', 'status'], {
         cwd: projectPath,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -387,7 +390,7 @@ export class ReleaseService extends EventEmitter {
         // Get branch name
         let branch = 'unknown';
         try {
-          branch = execSync('git rev-parse --abbrev-ref HEAD', {
+          branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
             cwd: worktreePath,
             encoding: 'utf-8'
           }).trim();
@@ -417,28 +420,38 @@ export class ReleaseService extends EventEmitter {
   ): Promise<boolean> {
     try {
       // Get the current branch in the worktree
-      const worktreeBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      const worktreeBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: worktreePath,
         encoding: 'utf-8'
       }).trim();
 
       // Get the main branch
-      const mainBranch = execSync(
-        'git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo main',
-        { cwd: projectPath, encoding: 'utf-8' }
-      ).trim().replace('origin/', '');
+      let mainBranch: string;
+      try {
+        mainBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'origin/HEAD'], {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim().replace('origin/', '');
+      } catch {
+        mainBranch = 'main';
+      }
 
       // Check if worktree branch is fully merged into main
       // This returns empty if all commits are merged
-      const unmergedCommits = execSync(
-        `git log ${mainBranch}..${worktreeBranch} --oneline 2>/dev/null || echo "error"`,
-        { cwd: projectPath, encoding: 'utf-8' }
-      ).trim();
+      let unmergedCommits: string;
+      try {
+        unmergedCommits = execFileSync(getToolPath('git'), ['log', `${mainBranch}..${worktreeBranch}`, '--oneline'], {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim();
+      } catch {
+        unmergedCommits = 'error';
+      }
 
       // If empty or error checking, assume merged for safety
       if (unmergedCommits === 'error') {
         // Try alternative: check if worktree has any uncommitted changes
-        const hasChanges = execSync('git status --porcelain', {
+        const hasChanges = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
           cwd: worktreePath,
           encoding: 'utf-8'
         }).trim();
@@ -469,7 +482,7 @@ export class ReleaseService extends EventEmitter {
     let stashCreated = false;
 
     try {
-      originalBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+      originalBranch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();
@@ -478,7 +491,7 @@ export class ReleaseService extends EventEmitter {
     }
 
     // Check for uncommitted changes
-    const gitStatus = execSync('git status --porcelain', {
+    const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
       cwd: projectPath,
       encoding: 'utf-8'
     }).trim();
@@ -493,7 +506,7 @@ export class ReleaseService extends EventEmitter {
           message: 'Stashing current changes...'
         });
 
-        execSync('git stash push -m "auto-claude-release-temp"', {
+        execFileSync(getToolPath('git'), ['stash', 'push', '-m', 'auto-claude-release-temp'], {
           cwd: projectPath,
           encoding: 'utf-8'
         });
@@ -508,7 +521,7 @@ export class ReleaseService extends EventEmitter {
       });
 
       if (originalBranch !== mainBranch) {
-        execSync(`git checkout "${mainBranch}"`, {
+        execFileSync(getToolPath('git'), ['checkout', mainBranch], {
           cwd: projectPath,
           encoding: 'utf-8'
         });
@@ -522,7 +535,7 @@ export class ReleaseService extends EventEmitter {
       });
 
       try {
-        execSync(`git pull origin "${mainBranch}"`, {
+        execFileSync(getToolPath('git'), ['pull', 'origin', mainBranch], {
           cwd: projectPath,
           encoding: 'utf-8'
         });
@@ -557,12 +570,12 @@ export class ReleaseService extends EventEmitter {
         message: 'Committing version bump...'
       });
 
-      execSync('git add package.json', {
+      execFileSync(getToolPath('git'), ['add', 'package.json'], {
         cwd: projectPath,
         encoding: 'utf-8'
       });
 
-      execSync(`git commit -m "chore: release v${version}"`, {
+      execFileSync(getToolPath('git'), ['commit', '-m', `chore: release v${version}`], {
         cwd: projectPath,
         encoding: 'utf-8'
       });
@@ -574,7 +587,7 @@ export class ReleaseService extends EventEmitter {
         message: `Pushing to origin/${mainBranch}...`
       });
 
-      execSync(`git push origin "${mainBranch}"`, {
+      execFileSync(getToolPath('git'), ['push', 'origin', mainBranch], {
         cwd: projectPath,
         encoding: 'utf-8'
       });
@@ -589,7 +602,7 @@ export class ReleaseService extends EventEmitter {
       // Always restore user's original state
       try {
         if (originalBranch !== mainBranch) {
-          execSync(`git checkout "${originalBranch}"`, {
+          execFileSync(getToolPath('git'), ['checkout', originalBranch], {
             cwd: projectPath,
             encoding: 'utf-8'
           });
@@ -601,7 +614,7 @@ export class ReleaseService extends EventEmitter {
 
       if (stashCreated) {
         try {
-          execSync('git stash pop', {
+          execFileSync(getToolPath('git'), ['stash', 'pop'], {
             cwd: projectPath,
             encoding: 'utf-8'
           });
@@ -655,7 +668,7 @@ export class ReleaseService extends EventEmitter {
         message: `Creating tag ${tagName}...`
       });
 
-      execSync(`git tag -a "${tagName}" -m "Release ${tagName}"`, {
+      execFileSync(getToolPath('git'), ['tag', '-a', tagName, '-m', `Release ${tagName}`], {
         cwd: projectPath,
         encoding: 'utf-8'
       });
@@ -667,7 +680,7 @@ export class ReleaseService extends EventEmitter {
         message: `Pushing tag ${tagName} to origin...`
       });
 
-      execSync(`git push origin "${tagName}"`, {
+      execFileSync(getToolPath('git'), ['push', 'origin', tagName], {
         cwd: projectPath,
         encoding: 'utf-8'
       });
@@ -727,7 +740,7 @@ export class ReleaseService extends EventEmitter {
       if (!releaseUrl.startsWith('http')) {
         // Try to fetch the URL
         try {
-          releaseUrl = execSync(`gh release view ${tagName} --json url -q .url`, {
+          releaseUrl = execFileSync(getToolPath('gh'), ['release', 'view', tagName, '--json', 'url', '-q', '.url'], {
             cwd: projectPath,
             encoding: 'utf-8'
           }).trim();
@@ -754,7 +767,7 @@ export class ReleaseService extends EventEmitter {
 
       // Try to clean up the tag if it was created but release failed
       try {
-        execSync(`git tag -d "${tagName}" 2>/dev/null || true`, {
+        execFileSync(getToolPath('git'), ['tag', '-d', tagName], {
           cwd: projectPath,
           encoding: 'utf-8'
         });

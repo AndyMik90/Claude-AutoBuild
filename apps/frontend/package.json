@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.2",
+  "version": "2.7.2-beta.9",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
@@ -30,10 +30,11 @@
     "rebuild": "electron-rebuild",
     "python:download": "node scripts/download-python.cjs",
     "python:download:all": "node scripts/download-python.cjs --all",
-    "package": "npm run python:download && electron-vite build && electron-builder",
-    "package:mac": "npm run python:download && electron-vite build && electron-builder --mac",
-    "package:win": "npm run python:download && electron-vite build && electron-builder --win",
-    "package:linux": "npm run python:download && electron-vite build && electron-builder --linux",
+    "python:verify": "node scripts/verify-python-bundling.cjs",
+    "package": "npm run python:download && electron-vite build && electron-builder --publish never",
+    "package:mac": "npm run python:download && electron-vite build && electron-builder --mac --publish never",
+    "package:win": "npm run python:download && electron-vite build && electron-builder --win --publish never",
+    "package:linux": "npm run python:download && electron-vite build && electron-builder --linux --publish never",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -87,6 +88,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

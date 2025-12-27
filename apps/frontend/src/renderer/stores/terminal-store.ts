@@ -44,8 +44,6 @@ interface TerminalState {
   setClaudeMode: (id: string, isClaudeMode: boolean) => void;
   setClaudeSessionId: (id: string, sessionId: string) => void;
   setAssociatedTask: (id: string, taskId: string | undefined) => void;
-  appendOutput: (id: string, data: string) => void;
-  clearOutputBuffer: (id: string) => void;
   clearAllTerminals: () => void;
   setHasRestoredSessions: (value: boolean) => void;
 
@@ -181,18 +179,6 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         t.id === id ? { ...t, associatedTaskId: taskId } : t
       ),
     }));
-  },
-
-  // DEPRECATED: Use terminalBufferManager.append() directly
-  // Kept for backward compatibility, but does NOT trigger React re-renders
-  appendOutput: (id: string, data: string) => {
-    terminalBufferManager.append(id, data);
-    // No React state update - this is the key performance improvement!
-  },
-
-  // DEPRECATED: Use terminalBufferManager.clear() directly
-  clearOutputBuffer: (id: string) => {
-    terminalBufferManager.clear(id);
   },
 
   clearAllTerminals: () => {

@@ -123,7 +123,6 @@ export interface ElectronAPI {
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<IPCResult>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
-  updateProjectAutoBuild: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
 
   // Tab State (persisted in main process for reliability)
@@ -237,6 +236,11 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+  getCliToolsInfo: () => Promise<IPCResult<{
+    python: import('./cli').ToolDetectionResult;
+    git: import('./cli').ToolDetectionResult;
+    gh: import('./cli').ToolDetectionResult;
+  }>>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;

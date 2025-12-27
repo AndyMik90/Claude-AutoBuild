@@ -10,6 +10,7 @@ from pathlib import Path
 
 from core.client import create_client
 from phase_config import get_phase_thinking_budget
+from phase_event import ExecutionPhase, emit_phase
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -67,6 +68,7 @@ async def run_followup_planner(
     # Initialize status manager for ccstatusline
     status_manager = StatusManager(project_dir)
     status_manager.set_active(spec_dir.name, BuildState.PLANNING)
+    emit_phase(ExecutionPhase.PLANNING, "Follow-up planning")
 
     # Initialize task logger for persistent logging
     task_logger = get_task_logger(spec_dir)

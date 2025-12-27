@@ -8,6 +8,7 @@ import { execSync, execFileSync, spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import { getAugmentedEnv, findExecutable } from '../../env-utils';
+import { getToolPath } from '../../cli-tool-manager';
 
 // Debug logging helper
 const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
@@ -122,7 +123,7 @@ export function registerCheckGhCli(): void {
 
         // Get version using augmented environment
         debugLog('Getting gh version...');
-        const versionOutput = execSync('gh --version', {
+        const versionOutput = execFileSync(getToolPath('gh'), ['--version'], {
           encoding: 'utf-8',
           stdio: 'pipe',
           env: getAugmentedEnv()
@@ -158,13 +159,13 @@ export function registerCheckGhAuth(): void {
       try {
         // Check auth status
         debugLog('Running: gh auth status');
-        const authStatus = execSync('gh auth status', { encoding: 'utf-8', stdio: 'pipe', env });
+        const authStatus = execFileSync(getToolPath('gh'), ['auth', 'status'], { encoding: 'utf-8', stdio: 'pipe', env });
         debugLog('Auth status output:', authStatus);
 
         // Get username if authenticated
         try {
           debugLog('Getting username via: gh api user --jq .login');
-          const username = execSync('gh api user --jq .login', {
+          const username = execFileSync(getToolPath('gh'), ['api', 'user', '--jq', '.login'], {
             encoding: 'utf-8',
             stdio: 'pipe',
             env
@@ -377,7 +378,7 @@ export function registerGetGhToken(): void {
       debugLog('getGitHubToken handler called');
       try {
         debugLog('Running: gh auth token');
-        const token = execSync('gh auth token', {
+        const token = execFileSync(getToolPath('gh'), ['auth', 'token'], {
           encoding: 'utf-8',
           stdio: 'pipe'
         }).trim();
@@ -416,7 +417,7 @@ export function registerGetGhUser(): void {
       debugLog('getGitHubUser handler called');
       try {
         debugLog('Running: gh api user');
-        const userJson = execSync('gh api user', {
+        const userJson = execFileSync(getToolPath('gh'), ['api', 'user'], {
           encoding: 'utf-8',
           stdio: 'pipe'
         });
@@ -498,7 +499,7 @@ export function registerDetectGitHubRepo(): void {
       try {
         // Get the remote URL
         debugLog('Running: git remote get-url origin');
-        const remoteUrl = execSync('git remote get-url origin', {
+        const remoteUrl = execFileSync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
           encoding: 'utf-8',
           cwd: projectPath,
           stdio: 'pipe'
@@ -610,7 +611,7 @@ export function registerCreateGitHubRepo(): void {
 
       try {
         // Get the authenticated username
-        const username = execSync('gh api user --jq .login', {
+        const username = execFileSync(getToolPath('gh'), ['api', 'user', '--jq', '.login'], {
           encoding: 'utf-8',
           stdio: 'pipe'
         }).trim();
@@ -694,14 +695,14 @@ export function registerAddGitRemote(): void {
       try {
         // Check if origin already exists
         try {
-          execSync('git remote get-url origin', {
+          execFileSync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: 'pipe'
           });
           // Origin exists, remove it first
           debugLog('Removing existing origin remote');
-          execSync('git remote remove origin', {
+          execFileSync(getToolPath('git'), ['remote', 'remove', 'origin'], {
             cwd: projectPath,
             encoding: 'utf-8',
             stdio: 'pipe'
@@ -746,7 +747,7 @@ export function registerListGitHubOrgs(): void {
 
       try {
         // Get user's organizations
-        const output = execSync('gh api user/orgs --jq \'.[] | {login: .login, avatarUrl: .avatar_url}\'', {
+        const output = execFileSync(getToolPath('gh'), ['api', 'user/orgs', '--jq', '.[] | {login: .login, avatarUrl: .avatar_url}'], {
           encoding: 'utf-8',
           stdio: 'pipe'
         });

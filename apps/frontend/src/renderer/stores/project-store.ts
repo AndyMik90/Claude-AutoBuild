@@ -453,24 +453,3 @@ export async function initializeProject(
     return null;
   }
 }
-
-/**
- * Update auto-claude in a project
- */
-export async function updateProjectAutoBuild(
-  projectId: string
-): Promise<InitializationResult | null> {
-  const store = useProjectStore.getState();
-
-  try {
-    const result = await window.electronAPI.updateProjectAutoBuild(projectId);
-    if (result.success && result.data) {
-      return result.data;
-    }
-    store.setError(result.error || 'Failed to update auto-claude');
-    return null;
-  } catch (error) {
-    store.setError(error instanceof Error ? error.message : 'Unknown error');
-    return null;
-  }
-}
