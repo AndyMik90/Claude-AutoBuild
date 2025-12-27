@@ -46,6 +46,7 @@ export interface TerminalAPI {
     cols?: number,
     rows?: number
   ) => Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>>;
+  checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
 
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -132,6 +133,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
     rows?: number
   ): Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_RESTORE_FROM_DATE, date, projectPath, cols, rows),
+
+  checkTerminalPtyAlive: (terminalId: string): Promise<IPCResult<{ alive: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE, terminalId),
 
   // Terminal Event Listeners
   onTerminalOutput: (
