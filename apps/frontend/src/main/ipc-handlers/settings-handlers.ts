@@ -353,27 +353,30 @@ export function registerSettingsHandlers(
         const platform = process.platform;
 
         if (platform === 'darwin') {
-          // macOS: Open Terminal.app at the specified directory
-          execSync(`open -a Terminal "${dirPath}"`, { stdio: 'ignore' });
+          // macOS: Use execFileSync with argument array to prevent injection
+          execFileSync('open', ['-a', 'Terminal', dirPath], { stdio: 'ignore' });
         } else if (platform === 'win32') {
-          // Windows: Open cmd or PowerShell at the specified directory
-          // Validate and escape the path to prevent command injection
-          const sanitizedPath = dirPath.replace(/"/g, '\\"');
-          execSync(`start cmd /K cd /d "${sanitizedPath}"`, { stdio: 'ignore' });
+          // Windows: Use cmd.exe directly with argument array
+          // /C tells cmd to execute the command and terminate
+          // /K keeps the window open after executing cd
+          execFileSync('cmd.exe', ['/K', 'cd', '/d', dirPath], {
+            stdio: 'ignore',
+            windowsHide: false,
+            shell: false  // Explicitly disable shell to prevent injection
+          });
         } else {
-          // Linux: Try common terminal emulators
-          // Try in order: gnome-terminal, konsole, xfce4-terminal, xterm
-          const terminals = [
-            `gnome-terminal --working-directory="${dirPath}"`,
-            `konsole --workdir "${dirPath}"`,
-            `xfce4-terminal --working-directory="${dirPath}"`,
-            `xterm -e "cd '${dirPath}' && bash"`
+          // Linux: Try common terminal emulators with argument arrays
+          const terminals: Array<{ cmd: string; args: string[] }> = [
+            { cmd: 'gnome-terminal', args: ['--working-directory', dirPath] },
+            { cmd: 'konsole', args: ['--workdir', dirPath] },
+            { cmd: 'xfce4-terminal', args: ['--working-directory', dirPath] },
+            { cmd: 'xterm', args: ['-e', 'bash', '-c', `cd '${dirPath.replace(/'/g, "'\\''")}' && exec bash`] }
           ];
 
           let opened = false;
-          for (const terminalCmd of terminals) {
+          for (const { cmd, args } of terminals) {
             try {
-              execSync(terminalCmd, { stdio: 'ignore' });
+              execFileSync(cmd, args, { stdio: 'ignore' });
               opened = true;
               break;
             } catch {
