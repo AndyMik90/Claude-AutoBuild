@@ -270,7 +270,14 @@ export async function readUnityPackages(projectPath: string): Promise<{
   error?: string;
 }> {
   // Validate projectPath exists and is a directory
-  if (!projectPath || !(await fs.pathExists(projectPath))) {
+  if (!projectPath) {
+    return {
+      success: false,
+      error: 'Project path is required',
+    };
+  }
+
+  if (!(await fs.pathExists(projectPath))) {
     return {
       success: false,
       error: 'Project path does not exist',
