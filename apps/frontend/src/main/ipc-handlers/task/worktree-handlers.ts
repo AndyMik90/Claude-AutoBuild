@@ -443,7 +443,7 @@ export function registerWorktreeHandlers(
           });
 
           // Handler for when process exits
-          const handleProcessExit = (code: number | null, signal: string | null = null) => {
+          const handleProcessExit = async (code: number | null, signal: string | null = null) => {
             if (resolved) return; // Prevent double-resolution
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -539,13 +539,14 @@ export function registerWorktreeHandlers(
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
 
               // Read suggested commit message if staging succeeded
+              // OPTIMIZATION: Use async I/O to prevent blocking
               let suggestedCommitMessage: string | undefined;
               if (staged) {
                 const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
                 try {
                   if (existsSync(commitMsgPath)) {
-                    const { readFileSync } = require('fs');
-                    suggestedCommitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+                    const { promises: fsPromises } = require('fs');
+                    suggestedCommitMessage = (await fsPromises.readFile(commitMsgPath, 'utf-8')).trim();
                     debug('Read suggested commit message:', suggestedCommitMessage?.substring(0, 100));
                   }
                 } catch (e) {
@@ -556,17 +557,21 @@ export function registerWorktreeHandlers(
               // Persist the status change to implementation_plan.json
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
+              // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
               const planPaths = [
-                path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), // Main project
-                path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN) // Worktree
+                { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
+                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
               ];
 
-              const { readFileSync, writeFileSync } = require('fs');
+              const { promises: fsPromises } = require('fs');
 
-              for (const planPath of planPaths) {
-                try {
-                  if (existsSync(planPath)) {
-                    const planContent = readFileSync(planPath, 'utf-8');
+              // Fire and forget - don't block the response on file writes
+              const updatePlans = async () => {
+                const updates = planPaths.map(async ({ path: planPath, isMain }) => {
+                  try {
+                    if (!existsSync(planPath)) return;
+
+                    const planContent = await fsPromises.readFile(planPath, 'utf-8');
                     const plan = JSON.parse(planContent);
                     plan.status = newStatus;
                     plan.planStatus = planStatus;
@@ -575,17 +580,22 @@ export function registerWorktreeHandlers(
                       plan.stagedAt = new Date().toISOString();
                       plan.stagedInMainProject = true;
                     }
-                    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+                    await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+                  } catch (persistError) {
+                    // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
+                    if (isMain) {
+                      console.error('Failed to persist task status to main plan:', persistError);
+                    } else {
+                      debug('Failed to persist task status to worktree plan (non-critical):', persistError);
+                    }
                   }
-                } catch (persistError) {
-                  // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
-                  if (planPath.includes(specDir)) {
-                    console.error('Failed to persist task status to main plan:', persistError);
-                  } else {
-                    debug('Failed to persist task status to worktree plan (non-critical):', persistError);
-                  }
-                }
-              }
+                });
+
+                await Promise.all(updates);
+              };
+
+              // Run async updates without blocking the response
+              updatePlans().catch(err => debug('Background plan update failed:', err));
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
