@@ -9,6 +9,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { getClaudeProfileManager } from '../../claude-profile-manager';
+import { taskLogService } from '../../task-log-service';
 
 /**
  * Helper function to check subtask completion status
@@ -183,6 +184,20 @@ export function registerTaskExecutionHandlers(
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
+
+    // Update phase logs to mark active phases as stopped
+    // Wrapped in try-catch to ensure task stopping still works even if log update fails
+    try {
+      const { task, project } = findTaskAndProject(taskId);
+      if (task && project) {
+        // Mark any active phases as stopped in the log files
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        taskLogService.markActivePhasesStopped(task.specId, project.path, specsBaseDir);
+      }
+    } catch (error) {
+      // Log error but don't prevent task from stopping
+      console.error('[TASK_STOP] Failed to update phase logs:', error);
+    }
 
     const mainWindow = getMainWindow();
     if (mainWindow) {

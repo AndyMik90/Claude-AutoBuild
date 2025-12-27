@@ -1,0 +1,10 @@
+{
+  "status": {
+    "pending": "En attente",
+    "active": "En cours",
+    "completed": "Terminé",
+    "failed": "Échoué",
+    "stopped": "Arrêté",
+    "interrupted": "Interrompu"
+  }
+}

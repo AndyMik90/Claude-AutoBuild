@@ -1,5 +1,5 @@
 import path from 'path';
-import { existsSync, readFileSync, watchFile } from 'fs';
+import { existsSync, readFileSync, writeFileSync, watchFile } from 'fs';
 import { EventEmitter } from 'events';
 import type { TaskLogs, TaskLogPhase, TaskLogStreamChunk, TaskPhaseLog } from '../shared/types';
 
@@ -375,6 +375,71 @@ export class TaskLogService extends EventEmitter {
   hasLogs(specDir: string): boolean {
     const logFile = path.join(specDir, 'task_logs.json');
     return existsSync(logFile);
+  }
+
+  /**
+   * Mark all active phases as stopped when a task is interrupted
+   * Updates both main and worktree log files if they exist
+   *
+   * @param specId - The spec ID
+   * @param projectPath - Project root path (needed to find worktree)
+   * @param specsRelPath - Relative path to specs (e.g., ".auto-claude/specs")
+   */
+  markActivePhasesStopped(specId: string, projectPath: string, specsRelPath: string): void {
+    // Get watched paths for this spec
+    const watchedInfo = this.watchedPaths.get(specId);
+
+    // Build paths for main and worktree spec directories
+    const mainSpecDir = watchedInfo?.mainSpecDir || path.join(projectPath, specsRelPath, specId);
+    const worktreeSpecDir = watchedInfo?.worktreeSpecDir || path.join(projectPath, '.worktrees', specId, specsRelPath, specId);
+
+    // Update main spec dir logs
+    this.updateLogFilePhaseStatus(path.join(mainSpecDir, 'task_logs.json'));
+
+    // Update worktree spec dir logs if it exists
+    if (existsSync(worktreeSpecDir)) {
+      this.updateLogFilePhaseStatus(path.join(worktreeSpecDir, 'task_logs.json'));
+    }
+
+    // Reload and emit updated logs
+    const updatedLogs = this.loadLogs(mainSpecDir, projectPath, specsRelPath, specId);
+    if (updatedLogs) {
+      this.logCache.set(mainSpecDir, updatedLogs);
+      this.emit('logs-changed', specId, updatedLogs);
+    }
+  }
+
+  /**
+   * Update a single log file to mark active phases as stopped
+   */
+  private updateLogFilePhaseStatus(logFilePath: string): void {
+    try {
+      // Read file - if it doesn't exist, readFileSync will throw and we'll catch it
+      const content = readFileSync(logFilePath, 'utf-8');
+      const logs = JSON.parse(content) as TaskLogs;
+
+      let hasChanges = false;
+      const phases: TaskLogPhase[] = ['planning', 'coding', 'validation'];
+
+      for (const phase of phases) {
+        if (logs.phases[phase]?.status === 'active') {
+          // Mark as stopped since the task was stopped by the user
+          logs.phases[phase].status = 'stopped';
+          logs.phases[phase].completed_at = new Date().toISOString();
+          hasChanges = true;
+        }
+      }
+
+      // Only write if we made changes
+      if (hasChanges) {
+        logs.updated_at = new Date().toISOString();
+        writeFileSync(logFilePath, JSON.stringify(logs, null, 2), 'utf-8');
+        console.log(`[TaskLogService] Marked active phases as stopped in ${logFilePath}`);
+      }
+    } catch (error) {
+      // File doesn't exist, is corrupted, or write failed - log and continue
+      console.error(`[TaskLogService] Failed to update log file ${logFilePath}:`, error);
+    }
   }
 }
 

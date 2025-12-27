@@ -58,7 +58,7 @@ export interface QAIssue {
 
 // Task Log Types - for persistent, phase-based logging
 export type TaskLogPhase = 'planning' | 'coding' | 'validation';
-export type TaskLogPhaseStatus = 'pending' | 'active' | 'completed' | 'failed';
+export type TaskLogPhaseStatus = 'pending' | 'active' | 'completed' | 'failed' | 'stopped';
 export type TaskLogEntryType = 'text' | 'tool_start' | 'tool_end' | 'phase_start' | 'phase_end' | 'error' | 'success' | 'info';
 
 export interface TaskLogEntry {

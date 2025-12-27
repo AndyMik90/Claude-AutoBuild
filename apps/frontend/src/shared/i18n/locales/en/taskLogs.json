@@ -1,0 +1,10 @@
+{
+  "status": {
+    "pending": "Pending",
+    "active": "Running",
+    "completed": "Complete",
+    "failed": "Failed",
+    "stopped": "Stopped",
+    "interrupted": "Interrupted"
+  }
+}
