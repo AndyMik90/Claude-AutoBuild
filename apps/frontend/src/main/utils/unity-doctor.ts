@@ -637,7 +637,10 @@ export async function detectAndroidToolchain(editorRoot: string): Promise<Androi
         if (await fs.pathExists(ndkDir)) {
           const ndkVersions = await fs.readdir(ndkDir);
           if (ndkVersions.length > 0) {
-            info.ndkPath = path.join(ndkDir, ndkVersions[0]);
+            // Choose the highest (lexicographically last) NDK version to ensure deterministic selection
+            const sortedNdkVersions = ndkVersions.slice().sort();
+            const selectedNdkVersion = sortedNdkVersions[sortedNdkVersions.length - 1];
+            info.ndkPath = path.join(ndkDir, selectedNdkVersion);
           }
         }
       }
