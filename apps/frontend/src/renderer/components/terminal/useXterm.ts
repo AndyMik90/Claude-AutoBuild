@@ -17,6 +17,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
   const fitAddonRef = useRef<FitAddon | null>(null);
   const serializeAddonRef = useRef<SerializeAddon | null>(null);
   const commandBufferRef = useRef<string>('');
+  const isDisposedRef = useRef<boolean>(false);
 
   // Initialize xterm.js UI
   useEffect(() => {
@@ -174,6 +175,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
   }, [terminalId]);
 
   const dispose = useCallback(() => {
+    // Guard against double dispose (can happen in React StrictMode or rapid unmount)
+    if (isDisposedRef.current) return;
+    isDisposedRef.current = true;
+
     // Serialize buffer before disposing to preserve ANSI formatting
     serializeBuffer();
 
@@ -181,8 +186,11 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
       xtermRef.current.dispose();
       xtermRef.current = null;
     }
+    if (serializeAddonRef.current) {
+      serializeAddonRef.current.dispose();
+      serializeAddonRef.current = null;
+    }
     fitAddonRef.current = null;
-    serializeAddonRef.current = null;
   }, [serializeBuffer]);
 
   return {

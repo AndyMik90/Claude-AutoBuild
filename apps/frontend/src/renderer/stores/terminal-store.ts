@@ -212,46 +212,70 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 }));
 
+// Track in-progress restore operations to prevent race conditions
+const restoringProjects = new Set<string>();
+
 /**
  * Restore terminal sessions for a project from persisted storage
  */
 export async function restoreTerminalSessions(projectPath: string): Promise<void> {
-  const store = useTerminalStore.getState();
-
-  // Get terminals for this project that exist in state
-  const projectTerminals = store.terminals.filter(t => t.projectPath === projectPath);
-
-  if (projectTerminals.length > 0) {
-    // Check if PTY processes are alive for existing terminals
-    const aliveChecks = await Promise.all(
-      projectTerminals.map(async (terminal) => {
-        try {
-          const result = await window.electronAPI.checkTerminalPtyAlive(terminal.id);
-          return { terminal, alive: result.success && result.data?.alive === true };
-        } catch {
-          return { terminal, alive: false };
-        }
-      })
-    );
-
-    // Remove dead terminals from store (they have state but no PTY process)
-    const deadTerminals = aliveChecks.filter(c => !c.alive);
-    for (const { terminal } of deadTerminals) {
-      debugLog(`[TerminalStore] Removing dead terminal: ${terminal.id}`);
-      store.removeTerminal(terminal.id);
-    }
-
-    // If all terminals were alive, we're done
-    if (deadTerminals.length === 0) {
-      debugLog('[TerminalStore] All terminals have live PTY processes');
-      return;
-    }
-
-    debugLog(`[TerminalStore] ${deadTerminals.length} terminals had dead PTY, will restore from disk`);
+  // Validate input
+  if (!projectPath || typeof projectPath !== 'string') {
+    debugLog('[TerminalStore] Invalid projectPath, skipping restore');
+    return;
   }
 
-  // Restore from disk
+  // Prevent concurrent restores for same project (race condition protection)
+  if (restoringProjects.has(projectPath)) {
+    debugLog('[TerminalStore] Already restoring terminals for this project, skipping');
+    return;
+  }
+  restoringProjects.add(projectPath);
+
   try {
+    const store = useTerminalStore.getState();
+
+    // Get terminals for this project that exist in state
+    const projectTerminals = store.terminals.filter(t => t.projectPath === projectPath);
+
+    if (projectTerminals.length > 0) {
+      // Check if PTY processes are alive for existing terminals
+      const aliveChecks = await Promise.all(
+        projectTerminals.map(async (terminal) => {
+          try {
+            const result = await window.electronAPI.checkTerminalPtyAlive(terminal.id);
+            return { terminal, alive: result.success && result.data?.alive === true };
+          } catch {
+            return { terminal, alive: false };
+          }
+        })
+      );
+
+      // Remove dead terminals from store (they have state but no PTY process)
+      const deadTerminals = aliveChecks.filter(c => !c.alive);
+      const aliveTerminals = aliveChecks.filter(c => c.alive);
+
+      for (const { terminal } of deadTerminals) {
+        debugLog(`[TerminalStore] Removing dead terminal: ${terminal.id}`);
+        store.removeTerminal(terminal.id);
+      }
+
+      // If all terminals were alive, we're done
+      if (deadTerminals.length === 0) {
+        debugLog('[TerminalStore] All terminals have live PTY processes');
+        return;
+      }
+
+      // If some terminals are still alive, skip disk restore to avoid duplicates
+      if (aliveTerminals.length > 0) {
+        debugLog(`[TerminalStore] ${aliveTerminals.length} terminals still alive, skipping disk restore`);
+        return;
+      }
+
+      debugLog(`[TerminalStore] ${deadTerminals.length} terminals had dead PTY, will restore from disk`);
+    }
+
+    // Restore from disk
     const result = await window.electronAPI.getTerminalSessions(projectPath);
     if (!result.success || !result.data || result.data.length === 0) {
       return;
@@ -265,5 +289,7 @@ export async function restoreTerminalSessions(projectPath: string): Promise<void
     store.setHasRestoredSessions(true);
   } catch (error) {
     debugError('[TerminalStore] Error restoring sessions:', error);
+  } finally {
+    restoringProjects.delete(projectPath);
   }
 }
