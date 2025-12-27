@@ -44,11 +44,21 @@ vi.mock('electron', () => {
     }
   })();
 
+  // Mock BrowserWindow for sendDeviceCodeToRenderer
+  const mockBrowserWindow = {
+    getAllWindows: () => [{
+      webContents: {
+        send: vi.fn()
+      }
+    }]
+  };
+
   return {
     ipcMain: mockIpcMain,
     shell: {
       openExternal: (...args: unknown[]) => mockOpenExternal(...args)
-    }
+    },
+    BrowserWindow: mockBrowserWindow
   };
 });
 
@@ -413,11 +423,8 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh CLI Check Handler', () => {
     it('should return installed: true when gh CLI is found', async () => {
-      mockExecSync.mockImplementation((cmd: string) => {
-        if (cmd.includes('which gh') || cmd.includes('where gh')) {
-          return '/usr/local/bin/gh\n';
-        }
-        if (cmd === 'gh --version') {
+      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+        if (args && args[0] === '--version') {
           return 'gh version 2.65.0 (2024-01-15)\n';
         }
         return '';
@@ -435,7 +442,7 @@ describe('GitHub OAuth Handlers', () => {
     });
 
     it('should return installed: false when gh CLI is not found', async () => {
-      mockExecSync.mockImplementation(() => {
+      mockExecFileSync.mockImplementation(() => {
         throw new Error('Command not found');
       });
 
@@ -452,11 +459,11 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh Auth Check Handler', () => {
     it('should return authenticated: true with username when logged in', async () => {
-      mockExecSync.mockImplementation((cmd: string) => {
-        if (cmd === 'gh auth status') {
+      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+        if (args && args[0] === 'auth' && args[1] === 'status') {
           return 'Logged in to github.com as testuser\n';
         }
-        if (cmd === 'gh api user --jq .login') {
+        if (args && args[0] === 'api' && args[1] === 'user' && args[2] === '--jq' && args[3] === '.login') {
           return 'testuser\n';
         }
         return '';
@@ -474,7 +481,7 @@ describe('GitHub OAuth Handlers', () => {
     });
 
     it('should return authenticated: false when not logged in', async () => {
-      mockExecSync.mockImplementation(() => {
+      mockExecFileSync.mockImplementation(() => {
         throw new Error('You are not logged into any GitHub hosts');
       });
 

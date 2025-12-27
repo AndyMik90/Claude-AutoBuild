@@ -83,6 +83,111 @@ MERGE_LOCK_TIMEOUT = 300  # 5 minutes
 MAX_SYNTAX_FIX_RETRIES = 2
 
 
+def detect_file_renames(
+    project_dir: Path,
+    from_ref: str,
+    to_ref: str,
+) -> dict[str, str]:
+    """
+    Detect file renames between two git refs using git's rename detection.
+
+    This analyzes the commit history between two refs to find all file
+    renames/moves. Critical for merging changes from older branches that
+    used a different directory structure.
+
+    Uses git's -M flag for rename detection with high similarity threshold.
+
+    Args:
+        project_dir: Project directory
+        from_ref: Starting ref (e.g., merge-base commit or old branch)
+        to_ref: Target ref (e.g., current branch HEAD)
+
+    Returns:
+        Dict mapping old_path -> new_path for all renamed files
+    """
+    renames: dict[str, str] = {}
+
+    try:
+        # Use git log with rename detection to find all renames between refs
+        # -M flag enables rename detection
+        # --diff-filter=R shows only renames
+        # --name-status shows status and file names
+        result = subprocess.run(
+            [
+                "git",
+                "log",
+                "--name-status",
+                "-M",
+                "--diff-filter=R",
+                "--format=",  # No commit info, just file changes
+                f"{from_ref}..{to_ref}",
+            ],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode == 0:
+            for line in result.stdout.strip().split("\n"):
+                if line.startswith("R"):
+                    # Format: R100\told_path\tnew_path (tab-separated)
+                    parts = line.split("\t")
+                    if len(parts) >= 3:
+                        old_path = parts[1]
+                        new_path = parts[2]
+                        renames[old_path] = new_path
+
+    except Exception:
+        pass  # Return empty dict on error
+
+    return renames
+
+
+def apply_path_mapping(file_path: str, mappings: dict[str, str]) -> str:
+    """
+    Apply file path mappings to get the new path for a file.
+
+    Args:
+        file_path: Original file path (from older branch)
+        mappings: Dict of old_path -> new_path from detect_file_renames
+
+    Returns:
+        Mapped new path if found, otherwise original path
+    """
+    # Direct match
+    if file_path in mappings:
+        return mappings[file_path]
+
+    # No mapping found
+    return file_path
+
+
+def get_merge_base(project_dir: Path, ref1: str, ref2: str) -> str | None:
+    """
+    Get the merge-base commit between two refs.
+
+    Args:
+        project_dir: Project directory
+        ref1: First ref (branch/commit)
+        ref2: Second ref (branch/commit)
+
+    Returns:
+        Merge-base commit hash, or None if not found
+    """
+    try:
+        result = subprocess.run(
+            ["git", "merge-base", ref1, ref2],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def has_uncommitted_changes(project_dir: Path) -> bool:
     """Check if user has unsaved work."""
     result = subprocess.run(

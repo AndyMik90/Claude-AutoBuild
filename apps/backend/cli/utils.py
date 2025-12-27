@@ -54,35 +54,56 @@ def setup_environment() -> Path:
     return script_dir
 
 
-def find_spec(
-    project_dir: Path, spec_identifier: str, dev_mode: bool = False
-) -> Path | None:
+def find_spec(project_dir: Path, spec_identifier: str) -> Path | None:
     """
     Find a spec by number or full name.
 
     Args:
         project_dir: Project root directory
         spec_identifier: Either "001" or "001-feature-name"
-        dev_mode: If True, use dev/auto-claude/specs/
 
     Returns:
         Path to spec folder, or None if not found
     """
-    specs_dir = get_specs_dir(project_dir, dev_mode)
+    specs_dir = get_specs_dir(project_dir)
 
-    if not specs_dir.exists():
-        return None
+    if specs_dir.exists():
+        # Try exact match first
+        exact_path = specs_dir / spec_identifier
+        if exact_path.exists() and (exact_path / "spec.md").exists():
+            return exact_path
 
-    # Try exact match first
-    exact_path = specs_dir / spec_identifier
-    if exact_path.exists() and (exact_path / "spec.md").exists():
-        return exact_path
+        # Try matching by number prefix
+        for spec_folder in specs_dir.iterdir():
+            if spec_folder.is_dir() and spec_folder.name.startswith(
+                spec_identifier + "-"
+            ):
+                if (spec_folder / "spec.md").exists():
+                    return spec_folder
 
-    # Try matching by number prefix
-    for spec_folder in specs_dir.iterdir():
-        if spec_folder.is_dir() and spec_folder.name.startswith(spec_identifier + "-"):
-            if (spec_folder / "spec.md").exists():
-                return spec_folder
+    # Check worktree specs (for merge-preview, merge, review, discard operations)
+    worktree_base = project_dir / ".worktrees"
+    if worktree_base.exists():
+        # Try exact match in worktree
+        worktree_spec = (
+            worktree_base / spec_identifier / ".auto-claude" / "specs" / spec_identifier
+        )
+        if worktree_spec.exists() and (worktree_spec / "spec.md").exists():
+            return worktree_spec
+
+        # Try matching by prefix in worktrees
+        for worktree_dir in worktree_base.iterdir():
+            if worktree_dir.is_dir() and worktree_dir.name.startswith(
+                spec_identifier + "-"
+            ):
+                spec_in_worktree = (
+                    worktree_dir / ".auto-claude" / "specs" / worktree_dir.name
+                )
+                if (
+                    spec_in_worktree.exists()
+                    and (spec_in_worktree / "spec.md").exists()
+                ):
+                    return spec_in_worktree
 
     return None
 

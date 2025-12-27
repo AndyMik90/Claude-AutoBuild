@@ -134,10 +134,18 @@ function downloadFile(url, destPath) {
  * Extract zip file (using built-in tools)
  */
 function extractZip(zipPath, destDir) {
-  const { execSync } = require('child_process');
+  const { execFileSync } = require('child_process');
 
-  // Use PowerShell on Windows
-  execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`, {
+  // Use PowerShell on Windows without going through a shell
+  execFileSync('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    'Expand-Archive',
+    '-Path', zipPath,
+    '-DestinationPath', destDir,
+    '-Force',
+  ], {
     stdio: 'inherit',
   });
 }

@@ -543,10 +543,6 @@ class FollowupReviewer:
         Returns parsed AI response with finding resolutions and new findings,
         or None if AI review fails.
         """
-        # Use raw Anthropic client for simple message API calls
-        # (ClaudeSDKClient is for agent sessions, not direct message calls)
-        import anthropic
-
         self._report_progress(
             "analyzing", 65, "Running AI-powered review...", context.pr_number
         )
@@ -623,21 +619,51 @@ Please analyze this follow-up review context and provide your response in the JS
 """
 
         try:
-            # Create Anthropic client for simple message API call
-            # Note: For agent sessions with tools, use ClaudeSDKClient instead
-            client = anthropic.AsyncAnthropic()
+            # Use ClaudeSDKClient directly for simple message calls
+            # (no agent tools needed, just a single query/response)
+            from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
             model = self.config.model or "claude-sonnet-4-5-20250929"
 
-            response = await client.messages.create(
-                model=model,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": user_message}],
+            client = ClaudeSDKClient(
+                options=ClaudeAgentOptions(
+                    model=model,
+                    system_prompt="You are a code review assistant. Analyze the provided context and respond with valid JSON.",
+                    allowed_tools=[],
+                    max_turns=1,
+                    max_thinking_tokens=2048,
+                )
             )
 
-            # Parse the response
-            response_text = response.content[0].text
+            response_text = ""
+            async with client:
+                await client.query(user_message)
+
+                async for msg in client.receive_response():
+                    msg_type = type(msg).__name__
+                    logger.debug(f"AI response message type: {msg_type}")
+                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                        for block in msg.content:
+                            block_type = type(block).__name__
+                            logger.debug(f"  Content block type: {block_type}")
+                            if hasattr(block, "text"):
+                                response_text += block.text
+                            elif hasattr(block, "thinking"):
+                                # Skip thinking blocks - we only want the final text
+                                logger.debug("  (skipping thinking block)")
+
+            if not response_text:
+                logger.warning("AI returned empty response (no text blocks found)")
+                return None
+
+            logger.debug(f"AI response text (first 500 chars): {response_text[:500]}")
             return self._parse_ai_response(response_text)
 
+        except ValueError as e:
+            # OAuth token not found
+            logger.warning(f"No OAuth token available for AI review: {e}")
+            print("AI review failed: No OAuth token found", flush=True)
+            return None
         except Exception as e:
             logger.error(f"AI review failed: {e}")
             return None

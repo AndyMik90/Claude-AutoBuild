@@ -9,10 +9,10 @@
 
 import { spawn } from 'child_process';
 import * as path from 'path';
-import * as os from 'os';
 import * as fs from 'fs';
 import { app } from 'electron';
 import { findPythonCommand, parsePythonCommand } from './python-detector';
+import { getConfiguredPythonPath } from './python-env-manager';
 import { getMemoriesDir } from './config-paths';
 import type { MemoryEpisode } from '../shared/types';
 
@@ -93,21 +93,19 @@ export function getDefaultDbPath(): string {
  * Get the path to the query_memory.py script
  */
 function getQueryScriptPath(): string | null {
-  // Look for the script in backend directory (new apps structure)
+  // Look for the script in backend directory - validate using spec_runner.py marker
   const possiblePaths = [
-    // New apps structure: from dist/main -> apps/backend
+    // Apps structure: from dist/main -> apps/backend
     path.resolve(__dirname, '..', '..', '..', 'backend', 'query_memory.py'),
     path.resolve(app.getAppPath(), '..', 'backend', 'query_memory.py'),
-    path.resolve(process.cwd(), 'apps', 'backend', 'query_memory.py'),
-    // Legacy paths for backwards compatibility
-    path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'query_memory.py'),
-    path.resolve(app.getAppPath(), '..', 'auto-claude', 'query_memory.py'),
-    path.resolve(process.cwd(), 'auto-claude', 'query_memory.py'),
-    path.resolve(process.cwd(), '..', 'auto-claude', 'query_memory.py'),
+    path.resolve(process.cwd(), 'apps', 'backend', 'query_memory.py')
   ];
 
   for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
+    // Validate backend structure by checking for spec_runner.py marker
+    const backendPath = path.dirname(p);
+    const specRunnerPath = path.join(backendPath, 'runners', 'spec_runner.py');
+    if (fs.existsSync(p) && fs.existsSync(specRunnerPath)) {
       return p;
     }
   }
@@ -122,10 +120,7 @@ async function executeQuery(
   args: string[],
   timeout: number = 10000
 ): Promise<QueryResult> {
-  const pythonCmd = findPythonCommand();
-  if (!pythonCmd) {
-    return { success: false, error: 'Python not found' };
-  }
+  const pythonCmd = getConfiguredPythonPath();
 
   const scriptPath = getQueryScriptPath();
   if (!scriptPath) {
@@ -188,10 +183,7 @@ async function executeSemanticQuery(
   embedderConfig: EmbedderConfig,
   timeout: number = 30000 // Longer timeout for embedding operations
 ): Promise<QueryResult> {
-  const pythonCmd = findPythonCommand();
-  if (!pythonCmd) {
-    return { success: false, error: 'Python not found' };
-  }
+  const pythonCmd = getConfiguredPythonPath();
 
   const scriptPath = getQueryScriptPath();
   if (!scriptPath) {
@@ -593,7 +585,7 @@ export async function closeMemoryService(): Promise<void> {
  * Check if Python with LadybugDB is available
  */
 export function isKuzuAvailable(): boolean {
-  // Check if Python is available
+  // Check if Python is available (findPythonCommand can return null)
   const pythonCmd = findPythonCommand();
   if (!pythonCmd) {
     return false;
@@ -621,7 +613,7 @@ export function getMemoryServiceStatus(dbPath?: string): MemoryServiceStatus {
     ? fs.readdirSync(basePath).filter((name) => !name.startsWith('.'))
     : [];
 
-  // Check if Python and script are available
+  // Check if Python and script are available (findPythonCommand can return null)
   const pythonAvailable = findPythonCommand() !== null;
   const scriptAvailable = getQueryScriptPath() !== null;
 

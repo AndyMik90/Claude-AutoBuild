@@ -13,6 +13,15 @@ export const settingsMock = {
 
   saveSettings: async () => ({ success: true }),
 
+  getCliToolsInfo: async () => ({
+    success: true,
+    data: {
+      python: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
+      git: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' },
+      gh: { found: false, source: 'fallback' as const, message: 'Not available in browser mode' }
+    }
+  }),
+
   // App Info
   getAppVersion: async () => '0.1.0-browser',
 

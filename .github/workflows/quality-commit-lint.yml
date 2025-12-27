@@ -22,6 +22,8 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const title = pr.title;
+            // Sanitize title for safe markdown interpolation (prevent injection)
+            const sanitizedTitle = title.replace(/`/g, "'").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
             console.log(`::group::PR #${pr.number} - Validating PR title`);
             console.log(`Title: ${title}`);
@@ -37,9 +39,48 @@ jobs:
             console.log('::endgroup::');
 
             if (!isValid) {
+              // Log helpful error message to console (visible in workflow logs)
+              console.log('');
+              console.log('❌ PR title does not follow Conventional Commits format');
+              console.log('');
+              console.log('Expected format: type(scope): description');
+              console.log('');
+              console.log('Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert');
+              console.log('');
+              console.log('Examples of valid PR titles:');
+              console.log('  ✓ feat(auth): add OAuth2 login support');
+              console.log('  ✓ fix(api): handle null response correctly');
+              console.log('  ✓ docs: update README installation steps');
+              console.log('  ✓ chore: update dependencies');
+              console.log('');
+              console.log(`Your title: "${title}"`);
+              console.log('');
+              console.log('Suggested fix for your title:');
+              // Try to suggest a fix based on the title
+              const lowerTitle = title.toLowerCase();
+              const placeholder = '[add description here]';
+              if (lowerTitle.includes('fix') || lowerTitle.includes('bug')) {
+                const cleaned = title.replace(/^(fix(ed|es|ing)?|bug)[:\s]*/i, '').trim();
+                console.log(`  → fix: ${cleaned || placeholder}`);
+              } else if (lowerTitle.includes('add') || lowerTitle.includes('new') || lowerTitle.includes('feature')) {
+                const cleaned = title.replace(/^(add(ed|s|ing)?|new|features?)[:\s]*/i, '').trim();
+                console.log(`  → feat: ${cleaned || placeholder}`);
+              } else if (lowerTitle.includes('update') || lowerTitle.includes('change')) {
+                const cleaned = title.replace(/^(update[ds]?|chang(ed|es|ing)?)[:\s]*/i, '').trim();
+                console.log(`  → chore: ${cleaned || placeholder}`);
+              } else if (lowerTitle.includes('doc') || lowerTitle.includes('readme')) {
+                const cleaned = title.replace(/^(docs?|readme)[:\s]*/i, '').trim();
+                console.log(`  → docs: ${cleaned || placeholder}`);
+              } else {
+                console.log(`  → feat: ${title}`);
+                console.log(`  → fix: ${title}`);
+                console.log(`  → chore: ${title}`);
+              }
+              console.log('');
+
               let errorMsg = '## ❌ PR Title Validation Failed\n\n';
               errorMsg += `Your PR title does not follow [Conventional Commits](https://www.conventionalcommits.org/) format:\n\n`;
-              errorMsg += `> \`${title}\`\n\n`;
+              errorMsg += `> \`${sanitizedTitle}\`\n\n`;
               errorMsg += '### Expected Format\n\n';
               errorMsg += '```\ntype(scope): description\n```\n\n';
               errorMsg += '| Type | Description |\n';
@@ -69,6 +110,6 @@ jobs:
 
               core.summary
                 .addHeading('✅ PR Title Valid', 3)
-                .addRaw(`PR title follows Conventional Commits format: \`${title}\``);
+                .addRaw(`PR title follows Conventional Commits format: \`${sanitizedTitle}\``);
               await core.summary.write();
             }

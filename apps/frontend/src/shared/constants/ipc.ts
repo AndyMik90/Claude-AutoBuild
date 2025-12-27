@@ -10,7 +10,6 @@ export const IPC_CHANNELS = {
   PROJECT_LIST: 'project:list',
   PROJECT_UPDATE_SETTINGS: 'project:updateSettings',
   PROJECT_INITIALIZE: 'project:initialize',
-  PROJECT_UPDATE_AUTOBUILD: 'project:updateAutoBuild',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
 
   // Tab state operations (persisted in main process)
@@ -106,6 +105,7 @@ export const IPC_CHANNELS = {
   // Settings
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
+  SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
@@ -117,6 +117,7 @@ export const IPC_CHANNELS = {
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
+  SHELL_OPEN_TERMINAL: 'shell:openTerminal',
 
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',
@@ -199,6 +200,9 @@ export const IPC_CHANNELS = {
   GITHUB_CREATE_REPO: 'github:createRepo',
   GITHUB_ADD_REMOTE: 'github:addRemote',
   GITHUB_LIST_ORGS: 'github:listOrgs',
+
+  // GitHub OAuth events (main -> renderer) - for streaming device code during auth
+  GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',
 
   // GitHub events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',

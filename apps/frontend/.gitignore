@@ -6,6 +6,9 @@ out/
 dist/
 build/
 
+# Bundled Python runtime (downloaded during packaging)
+python-runtime/
+
 # Compiled TypeScript (source files are .ts)
 src/**/*.js
 src/**/*.js.map

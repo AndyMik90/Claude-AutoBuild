@@ -3,6 +3,7 @@
  */
 
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
+import type { ExecutionPhase as ExecutionPhaseType } from '../constants/phase-protocol';
 
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
 
@@ -15,8 +16,8 @@ export type ReviewReason = 'completed' | 'errors' | 'qa_rejected' | 'plan_review
 
 export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
-// Execution phases for visual progress tracking
-export type ExecutionPhase = 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
+// Re-exported from constants - single source of truth
+export type ExecutionPhase = ExecutionPhaseType;
 
 export interface ExecutionProgress {
   phase: ExecutionPhase;
@@ -25,6 +26,7 @@ export interface ExecutionProgress {
   currentSubtask?: string;  // Current subtask being processed
   message?: string;  // Current status message
   startedAt?: Date;
+  sequenceNumber?: number;  // Monotonically increasing counter to detect stale updates
 }
 
 export interface Subtask {
@@ -331,6 +333,13 @@ export interface MergeConflict {
   type?: ConflictType; // 'semantic' = parallel task conflict, 'git' = branch divergence
 }
 
+// Path-mapped file that needs AI merge due to rename
+export interface PathMappedAIMerge {
+  oldPath: string;
+  newPath: string;
+  reason: string;
+}
+
 // Git-level conflict information (branch divergence)
 export interface GitConflictInfo {
   hasConflicts: boolean;
@@ -339,6 +348,10 @@ export interface GitConflictInfo {
   commitsBehind: number;
   baseBranch: string;
   specBranch: string;
+  // Files that need AI merge due to path mappings (file renames)
+  pathMappedAIMerges?: PathMappedAIMerge[];
+  // Total number of file renames detected
+  totalRenames?: number;
 }
 
 // Summary statistics from merge preview/execution
@@ -350,6 +363,8 @@ export interface MergeStats {
   aiResolved?: number;
   humanRequired?: number;
   hasGitConflicts?: boolean; // True if there are git-level conflicts requiring rebase
+  // Count of files needing AI merge due to path mappings (file renames)
+  pathMappedAIMergeCount?: number;
 }
 
 export interface WorktreeMergeResult {

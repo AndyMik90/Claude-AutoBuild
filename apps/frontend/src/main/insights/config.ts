@@ -2,23 +2,22 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
-import { findPythonCommand } from '../python-detector';
+import { getValidatedPythonPath } from '../python-detector';
+import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Configuration manager for insights service
  * Handles path detection and environment variable loading
  */
 export class InsightsConfig {
-  // Auto-detect Python command on initialization
-  private pythonPath: string = findPythonCommand() || 'python';
+  // Python path will be configured by pythonEnvManager after venv is ready
+  // Use getter to always get current configured path
+  private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
 
-  /**
-   * Configure paths for Python and auto-claude source
-   */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     if (pythonPath) {
-      this.pythonPath = pythonPath;
+      this._pythonPath = getValidatedPythonPath(pythonPath, 'InsightsConfig');
     }
     if (autoBuildSourcePath) {
       this.autoBuildSourcePath = autoBuildSourcePath;
@@ -26,10 +25,17 @@ export class InsightsConfig {
   }
 
   /**
-   * Get configured Python path
+   * Get configured Python path.
+   * Returns explicitly configured path, or falls back to getConfiguredPythonPath()
+   * which uses the venv Python if ready.
    */
   getPythonPath(): string {
-    return this.pythonPath;
+    // If explicitly configured (by pythonEnvManager), use that
+    if (this._pythonPath) {
+      return this._pythonPath;
+    }
+    // Otherwise use the global configured path (venv if ready, else bundled/system)
+    return getConfiguredPythonPath();
   }
 
   /**
@@ -41,19 +47,14 @@ export class InsightsConfig {
     }
 
     const possiblePaths = [
-      // New apps structure: from out/main -> apps/backend
+      // Apps structure: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend'),
-      // Legacy paths for backwards compatibility
-      path.resolve(__dirname, '..', '..', '..', 'auto-claude'),
-      path.resolve(app.getAppPath(), '..', 'auto-claude'),
-      path.resolve(process.cwd(), 'auto-claude')
+      path.resolve(process.cwd(), 'apps', 'backend')
     ];
 
     for (const p of possiblePaths) {
-      // Use requirements.txt as marker - it always exists in auto-claude source
-      if (existsSync(p) && existsSync(path.join(p, 'requirements.txt'))) {
+      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
         return p;
       }
     }

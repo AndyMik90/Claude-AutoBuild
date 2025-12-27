@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -23,6 +23,7 @@ import {
 import { PythonEnvManager, type PythonEnvStatus } from '../python-env-manager';
 import { AgentManager } from '../agent';
 import { changelogService } from '../changelog-service';
+import { getToolPath } from '../cli-tool-manager';
 import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
@@ -37,7 +38,7 @@ import { getEffectiveSourcePath } from '../updater/path-resolver';
  */
 function getGitBranches(projectPath: string): string[] {
   try {
-    const result = execSync('git branch --list --format="%(refname:short)"', {
+    const result = execFileSync(getToolPath('git'), ['branch', '--list', '--format=%(refname:short)'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -53,7 +54,7 @@ function getGitBranches(projectPath: string): string[] {
  */
 function getCurrentGitBranch(projectPath: string): string | null {
   try {
-    const result = execSync('git rev-parse --abbrev-ref HEAD', {
+    const result = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -82,7 +83,7 @@ function detectMainBranch(projectPath: string): string | null {
 
   // If none of the common names found, check for origin/HEAD reference
   try {
-    const result = execSync('git symbolic-ref refs/remotes/origin/HEAD', {
+    const result = execFileSync(getToolPath('git'), ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -309,29 +310,6 @@ export function registerProjectHandlers(
         }
 
         return { success: result.success, data: result, error: result.error };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-    }
-  );
-
-  // PROJECT_UPDATE_AUTOBUILD is deprecated - .auto-claude only contains data, no code to update
-  // Kept for API compatibility, returns success immediately
-  ipcMain.handle(
-    IPC_CHANNELS.PROJECT_UPDATE_AUTOBUILD,
-    async (_, projectId: string): Promise<IPCResult<InitializationResult>> => {
-      try {
-        const project = projectStore.getProject(projectId);
-        if (!project) {
-          return { success: false, error: 'Project not found' };
-        }
-
-        // Nothing to update - .auto-claude only contains data directories
-        // The framework runs from the source repo
-        return { success: true, data: { success: true } };
       } catch (error) {
         return {
           success: false,

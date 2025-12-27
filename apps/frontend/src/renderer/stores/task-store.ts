@@ -50,11 +50,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // When status goes to backlog, reset execution progress to idle
-        // This ensures the planning/coding animation stops when task is stopped
-        const executionProgress = status === 'backlog'
-          ? { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 }
-          : t.executionProgress;
+        // Determine execution progress based on status transition
+        let executionProgress = t.executionProgress;
+        
+        if (status === 'backlog') {
+          // When status goes to backlog, reset execution progress to idle
+          // This ensures the planning/coding animation stops when task is stopped
+          executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+        } else if (status === 'in_progress' && !t.executionProgress?.phase) {
+          // When starting a task and no phase is set yet, default to planning
+          // This prevents the "no active phase" UI state during startup race condition
+          executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+        }
 
         return { ...t, status, executionProgress, updatedAt: new Date() };
       })
@@ -65,7 +72,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // Extract subtasks from plan
         const subtasks: Subtask[] = plan.phases.flatMap((phase) =>
           phase.subtasks.map((subtask) => ({
             id: subtask.id,
@@ -77,32 +83,27 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           }))
         );
 
-        // Determine status and reviewReason based on subtasks
-        // This logic must match the backend (project-store.ts) exactly
-        const allCompleted = subtasks.length > 0 && subtasks.every((s) => s.status === 'completed');
-        const anyInProgress = subtasks.some((s) => s.status === 'in_progress');
+        const allCompleted = subtasks.every((s) => s.status === 'completed');
         const anyFailed = subtasks.some((s) => s.status === 'failed');
+        const anyInProgress = subtasks.some((s) => s.status === 'in_progress');
         const anyCompleted = subtasks.some((s) => s.status === 'completed');
 
         let status: TaskStatus = t.status;
         let reviewReason: ReviewReason | undefined = t.reviewReason;
 
-        if (allCompleted) {
-          // Manual tasks skip AI review and go directly to human review
-          status = t.metadata?.sourceType === 'manual' ? 'human_review' : 'ai_review';
-          if (t.metadata?.sourceType === 'manual') {
-            reviewReason = 'completed';
-          } else {
-            reviewReason = undefined;
+        // RACE CONDITION FIX: Don't let stale plan data override status during active execution
+        const activePhases: ExecutionPhase[] = ['planning', 'coding', 'qa_review', 'qa_fixing'];
+        const isInActivePhase = t.executionProgress?.phase && activePhases.includes(t.executionProgress.phase);
+
+        if (!isInActivePhase) {
+          if (allCompleted) {
+            status = 'ai_review';
+          } else if (anyFailed) {
+            status = 'human_review';
+            reviewReason = 'errors';
+          } else if (anyInProgress || anyCompleted) {
+            status = 'in_progress';
           }
-        } else if (anyFailed) {
-          // Some subtasks failed - needs human attention
-          status = 'human_review';
-          reviewReason = 'errors';
-        } else if (anyInProgress || anyCompleted) {
-          // Work in progress
-          status = 'in_progress';
-          reviewReason = undefined;
         }
 
         return {
@@ -121,12 +122,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tasks: state.tasks.map((t) => {
         if (t.id !== taskId && t.specId !== taskId) return t;
 
-        // Merge with existing progress
         const existingProgress = t.executionProgress || {
           phase: 'idle' as ExecutionPhase,
           phaseProgress: 0,
-          overallProgress: 0
+          overallProgress: 0,
+          sequenceNumber: 0
         };
+
+        const incomingSeq = progress.sequenceNumber ?? 0;
+        const currentSeq = existingProgress.sequenceNumber ?? 0;
+        if (incomingSeq > 0 && currentSeq > 0 && incomingSeq < currentSeq) {
+          return t;
+        }
 
         return {
           ...t,

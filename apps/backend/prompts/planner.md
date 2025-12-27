@@ -737,26 +737,18 @@ chmod +x init.sh
 
 ---
 
-## PHASE 6: COMMIT IMPLEMENTATION PLAN
+## PHASE 6: VERIFY PLAN FILES
 
-**IMPORTANT: Branch/worktree management is handled by the Python orchestrator.**
-Do NOT run `git checkout` or `git branch` commands - your workspace is already set up.
+**IMPORTANT: Do NOT commit spec/plan files to git.**
 
-**Commit the implementation plan (if changes are present):**
-```bash
-# Add plan files
-git add implementation_plan.json init.sh
+The following files are gitignored and should NOT be committed:
+- `implementation_plan.json` - tracked locally only
+- `init.sh` - tracked locally only
+- `build-progress.txt` - tracked locally only
 
-# Check if there's anything to commit
-git diff --cached --quiet || git commit -m "auto-claude: Initialize subtask-based implementation plan
+These files live in `.auto-claude/specs/` which is gitignored. The orchestrator handles syncing them between worktrees and the main project.
 
-- Workflow type: [type]
-- Phases: [N]
-- Subtasks: [N]
-- Ready for autonomous implementation"
-```
-
-Note: If the commit fails (e.g., nothing to commit, or in a special workspace), that's okay - the plan is still saved.
+**Only code changes should be committed** - spec metadata stays local.
 
 ---
 
@@ -808,12 +800,7 @@ Example:
 === END SESSION 1 ===
 ```
 
-**Commit progress:**
-
-```bash
-git add build-progress.txt
-git commit -m "auto-claude: Add progress tracking"
-```
+**Note:** Do NOT commit `build-progress.txt` - it is gitignored along with other spec files.
 
 ---
 
@@ -826,7 +813,8 @@ Your session ends after:
 2. **Creating/updating context files** - project_index.json, context.json
 3. **Creating init.sh** - the setup script
 4. **Creating build-progress.txt** - progress tracking document
-5. **Committing all planning files**
+
+Note: These files are NOT committed to git - they are gitignored and managed locally.
 
 **STOP HERE. Do NOT:**
 - Start implementing any subtasks

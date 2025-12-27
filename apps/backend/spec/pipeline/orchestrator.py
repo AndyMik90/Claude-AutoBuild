@@ -61,7 +61,6 @@ class SpecOrchestrator:
         thinking_level: str = "medium",  # Thinking level for extended thinking
         complexity_override: str | None = None,  # Force a specific complexity
         use_ai_assessment: bool = True,  # Use AI for complexity assessment (vs heuristics)
-        dev_mode: bool = False,  # Dev mode: specs in gitignored folder, code changes to auto-claude/
     ):
         """Initialize the spec orchestrator.
 
@@ -74,7 +73,6 @@ class SpecOrchestrator:
             thinking_level: Thinking level (none, low, medium, high, ultrathink)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
-            dev_mode: Deprecated, kept for API compatibility
         """
         self.project_dir = Path(project_dir)
         self.task_description = task_description
@@ -82,10 +80,9 @@ class SpecOrchestrator:
         self.thinking_level = thinking_level
         self.complexity_override = complexity_override
         self.use_ai_assessment = use_ai_assessment
-        self.dev_mode = dev_mode
 
         # Get the appropriate specs directory (within the project)
-        self.specs_dir = get_specs_dir(self.project_dir, dev_mode)
+        self.specs_dir = get_specs_dir(self.project_dir)
 
         # Clean up orphaned pending folders before creating new spec
         cleanup_orphaned_pending_folders(self.specs_dir)
@@ -462,7 +459,7 @@ class SpecOrchestrator:
 
         # Save assessment
         if not assessment_file.exists():
-            complexity.save_assessment(self.spec_dir, self.assessment, self.dev_mode)
+            complexity.save_assessment(self.spec_dir, self.assessment)
 
         return phases.PhaseResult(
             "complexity_assessment", True, [str(assessment_file)], [], 0
