@@ -233,7 +233,7 @@ export class ReleaseService extends EventEmitter {
 
     // Check 2: All commits are pushed
     try {
-      const unpushed = execSync(`${getToolPath('git')} log @{u}..HEAD --oneline 2>/dev/null || echo ""', {
+      const unpushed = execSync(`${getToolPath('git')} log @{u}..HEAD --oneline 2>/dev/null || echo ""`, {
         cwd: projectPath,
         encoding: 'utf-8'
       }).trim();

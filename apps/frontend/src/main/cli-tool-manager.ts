@@ -24,7 +24,7 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { getAugmentedEnv, findExecutable } from './env-utils';
+import { findExecutable } from './env-utils';
 
 /**
  * Supported CLI tools managed by this system
@@ -109,7 +109,7 @@ class CLIToolManager {
   configure(config: ToolConfig): void {
     this.userConfig = config;
     this.cache.clear();
-    console.log('[CLI Tools] Configuration updated, cache cleared');
+    console.warn('[CLI Tools] Configuration updated, cache cleared');
   }
 
   /**
@@ -125,7 +125,7 @@ class CLIToolManager {
     // Check cache first
     const cached = this.cache.get(tool);
     if (cached) {
-      console.log(
+      console.warn(
         `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
       );
       return cached.path;
@@ -139,7 +139,7 @@ class CLIToolManager {
         version: result.version,
         source: result.source,
       });
-      console.log(`[CLI Tools] Detected ${tool}: ${result.path} (${result.source})`);
+      console.warn(`[CLI Tools] Detected ${tool}: ${result.path} (${result.source})`);
       return result.path;
     }
 
@@ -644,7 +644,7 @@ class CLIToolManager {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('[CLI Tools] Cache cleared');
+    console.warn('[CLI Tools] Cache cleared');
   }
 
   /**
