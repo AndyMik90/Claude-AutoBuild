@@ -19,7 +19,8 @@ import {
   insightsMock,
   infrastructureMock,
   settingsMock,
-  unityMock
+  unityMock,
+  fileMock
 } from './mocks';
 
 // Check if we're in a browser (not Electron)
@@ -112,7 +113,10 @@ const browserMockAPI: ElectronAPI = {
   ...infrastructureMock,
 
   // Unity Operations
-  ...unityMock
+  ...unityMock,
+
+  // File Operations
+  ...fileMock
 };
 
 /**

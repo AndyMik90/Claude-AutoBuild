@@ -537,6 +537,15 @@ export interface ElectronAPI {
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
 
+  // Code editor operations
+  codeEditorListDir: (workspaceRoot: string, relPath: string) => Promise<IPCResult<Array<{
+    name: string;
+    relPath: string;
+    isDir: boolean;
+  }>>>;
+  codeEditorReadFile: (workspaceRoot: string, relPath: string) => Promise<IPCResult<string>>;
+  codeEditorWriteFile: (workspaceRoot: string, relPath: string, content: string) => Promise<IPCResult<void>>;
+
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;

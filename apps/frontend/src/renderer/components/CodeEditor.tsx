@@ -206,7 +206,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   };
 
   // Render file tree node
-  const renderFileNode = (node: FileNode, depth: number = 0): JSX.Element => {
+  const renderFileNode = (node: FileNode, depth: number = 0) => {
     const isExpanded = folderState.expanded.has(node.relPath);
     const children = folderState.childrenByDir.get(node.relPath);
 
