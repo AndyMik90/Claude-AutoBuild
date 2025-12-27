@@ -21,12 +21,11 @@ class TestGetContextForSubtask:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_memories_found(self):
         """Returns empty string when no memories found."""
-        subtask = {
-            "id": "task_1",
-            "description": "Fix authentication bug"
-        }
+        subtask = {"id": "task_1", "description": "Fix authentication bug"}
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(return_value=[])
             mock_client_class.return_value = mock_client
@@ -41,10 +40,12 @@ class TestGetContextForSubtask:
         subtask = {
             "id": "task_1",
             "description": "Fix bug",
-            "files": ["/path/to/auth.py", "/path/to/login.py"]
+            "files": ["/path/to/auth.py", "/path/to/login.py"],
         }
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(return_value=[])
             mock_client_class.return_value = mock_client
@@ -63,10 +64,12 @@ class TestGetContextForSubtask:
         subtask = {
             "id": "task_1",
             "description": "Fix bug",
-            "files": ["file1.py", "file2.py", "file3.py", "file4.py", "file5.py"]
+            "files": ["file1.py", "file2.py", "file3.py", "file4.py", "file5.py"],
         }
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(return_value=[])
             mock_client_class.return_value = mock_client
@@ -85,17 +88,14 @@ class TestGetContextForSubtask:
     @pytest.mark.asyncio
     async def test_fetches_related_solutions_for_problems(self):
         """Fetches related solutions when problems are found."""
-        subtask = {
-            "id": "task_1",
-            "description": "Fix authentication bug"
-        }
+        subtask = {"id": "task_1", "description": "Fix authentication bug"}
 
         memories = [
             {
                 "id": "prob_1",
                 "type": "problem",
                 "title": "Auth failed",
-                "content": "JWT validation error"
+                "content": "JWT validation error",
             }
         ]
 
@@ -104,11 +104,13 @@ class TestGetContextForSubtask:
                 "id": "sol_1",
                 "type": "solution",
                 "title": "Fixed auth",
-                "content": "Added null check"
+                "content": "Added null check",
             }
         ]
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(return_value=memories)
             mock_client.get_related = AsyncMock(return_value=related_solutions)
@@ -125,21 +127,20 @@ class TestGetContextForSubtask:
     @pytest.mark.asyncio
     async def test_returns_formatted_context(self):
         """Returns formatted context when memories found."""
-        subtask = {
-            "id": "task_1",
-            "description": "Fix authentication bug"
-        }
+        subtask = {"id": "task_1", "description": "Fix authentication bug"}
 
         memories = [
             {
                 "id": "sol_1",
                 "type": "solution",
                 "title": "Fixed JWT validation",
-                "content": "Added null check before token decode"
+                "content": "Added null check before token decode",
             }
         ]
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(return_value=memories)
             mock_client.get_related = AsyncMock(return_value=[])
@@ -153,12 +154,11 @@ class TestGetContextForSubtask:
     @pytest.mark.asyncio
     async def test_handles_client_errors_gracefully(self):
         """Handles client errors gracefully."""
-        subtask = {
-            "id": "task_1",
-            "description": "Fix bug"
-        }
+        subtask = {"id": "task_1", "description": "Fix bug"}
 
-        with patch("integrations.memorygraph.context.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.context.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.recall = AsyncMock(side_effect=Exception("Connection failed"))
             mock_client_class.return_value = mock_client

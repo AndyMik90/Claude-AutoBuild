@@ -11,7 +11,7 @@ class TestExtractProblems:
         session_output = {
             "what_failed": [
                 "Authentication failed due to missing JWT token validation",
-                "Database connection timeout after 30 seconds"
+                "Database connection timeout after 30 seconds",
             ]
         }
 
@@ -27,9 +27,7 @@ class TestExtractProblems:
         """Extracts problems from errors field."""
         extractor = InsightExtractor()
         session_output = {
-            "errors": [
-                "TypeError: expected str, got None in auth.py line 42"
-            ]
+            "errors": ["TypeError: expected str, got None in auth.py line 42"]
         }
 
         problems = extractor.extract_problems(session_output)
@@ -41,9 +39,7 @@ class TestExtractProblems:
         """Extracts problems from QA rejection reasons."""
         extractor = InsightExtractor()
         session_output = {
-            "qa_rejections": [
-                "Tests failed: 3/10 test cases not passing"
-            ]
+            "qa_rejections": ["Tests failed: 3/10 test cases not passing"]
         }
 
         problems = extractor.extract_problems(session_output)
@@ -54,9 +50,7 @@ class TestExtractProblems:
     def test_empty_when_no_failures(self):
         """Returns empty list when no failures present."""
         extractor = InsightExtractor()
-        session_output = {
-            "what_worked": ["Everything worked fine"]
-        }
+        session_output = {"what_worked": ["Everything worked fine"]}
 
         problems = extractor.extract_problems(session_output)
 
@@ -81,7 +75,7 @@ class TestExtractSolutions:
         session_output = {
             "what_worked": [
                 "Fixed auth by adding null check before token validation",
-                "Increased database connection pool size to 20"
+                "Increased database connection pool size to 20",
             ]
         }
 
@@ -110,9 +104,7 @@ class TestExtractSolutions:
     def test_empty_when_no_successes(self):
         """Returns empty list when no successes present."""
         extractor = InsightExtractor()
-        session_output = {
-            "what_failed": ["Nothing worked"]
-        }
+        session_output = {"what_failed": ["Nothing worked"]}
 
         solutions = extractor.extract_solutions(session_output)
 
@@ -128,7 +120,7 @@ class TestExtractPatterns:
         session_output = {
             "patterns_found": [
                 "Use async/await for all I/O operations",
-                "Always validate input before database queries"
+                "Always validate input before database queries",
             ]
         }
 
@@ -145,7 +137,7 @@ class TestExtractPatterns:
             "what_worked": [
                 "Added type hints to function - caught bug early",
                 "Type hints helped IDE catch error before runtime",
-                "Type annotation prevented None-related bug"
+                "Type annotation prevented None-related bug",
             ]
         }
 
@@ -201,9 +193,7 @@ class TestSummarize:
         """Handles Unicode characters in content."""
         extractor = InsightExtractor()
         session_output = {
-            "what_failed": [
-                "Failed to parse émojis 🚀 and 中文 characters"
-            ]
+            "what_failed": ["Failed to parse émojis 🚀 and 中文 characters"]
         }
 
         problems = extractor.extract_problems(session_output)

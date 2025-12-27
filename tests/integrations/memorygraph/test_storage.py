@@ -14,10 +14,12 @@ class TestSaveToMemoryGraph:
         """Extracts and saves problems and solutions."""
         session_output = {
             "what_failed": ["Auth failed"],
-            "what_worked": ["Fixed auth by adding null check"]
+            "what_worked": ["Fixed auth by adding null check"],
         }
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.store = AsyncMock(side_effect=["prob_1", "sol_1"])
             mock_client.relate = AsyncMock(return_value=True)
@@ -34,11 +36,11 @@ class TestSaveToMemoryGraph:
     @pytest.mark.asyncio
     async def test_saves_patterns(self):
         """Extracts and saves patterns."""
-        session_output = {
-            "patterns_found": ["Always use async/await"]
-        }
+        session_output = {"patterns_found": ["Always use async/await"]}
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.store = AsyncMock(return_value="pattern_1")
             mock_client.relate = AsyncMock(return_value=True)
@@ -57,7 +59,9 @@ class TestSaveToMemoryGraph:
         """Handles empty session output gracefully."""
         session_output = {}
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.store = AsyncMock()
             mock_client_class.return_value = mock_client
@@ -71,12 +75,11 @@ class TestSaveToMemoryGraph:
     @pytest.mark.asyncio
     async def test_handles_mcp_server_unavailable(self):
         """Gracefully handles MCP server being unavailable."""
-        session_output = {
-            "what_failed": ["Some error"],
-            "what_worked": ["Some fix"]
-        }
+        session_output = {"what_failed": ["Some error"], "what_worked": ["Some fix"]}
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             # Simulate MCP server unavailable
             mock_client.store = AsyncMock(return_value=None)
@@ -91,14 +94,16 @@ class TestSaveToMemoryGraph:
     @pytest.mark.asyncio
     async def test_continues_on_storage_error(self):
         """Continues storing even if one memory fails."""
-        session_output = {
-            "what_failed": ["Error 1", "Error 2"]
-        }
+        session_output = {"what_failed": ["Error 1", "Error 2"]}
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             # First succeeds, second fails
-            mock_client.store = AsyncMock(side_effect=["prob_1", Exception("Storage failed")])
+            mock_client.store = AsyncMock(
+                side_effect=["prob_1", Exception("Storage failed")]
+            )
             mock_client_class.return_value = mock_client
 
             # Should not raise exception
@@ -110,12 +115,12 @@ class TestSaveToMemoryGraph:
     @pytest.mark.asyncio
     async def test_adds_project_context(self):
         """Adds project directory as tag."""
-        session_output = {
-            "what_worked": ["Fixed bug"]
-        }
+        session_output = {"what_worked": ["Fixed bug"]}
         project_dir = Path("/Users/test/my-project")
 
-        with patch("integrations.memorygraph.storage.MemoryGraphClient") as mock_client_class:
+        with patch(
+            "integrations.memorygraph.storage.MemoryGraphClient"
+        ) as mock_client_class:
             mock_client = AsyncMock()
             mock_client.store = AsyncMock(return_value="sol_1")
             mock_client_class.return_value = mock_client
@@ -127,5 +132,11 @@ class TestSaveToMemoryGraph:
             if call_args:
                 tags = call_args[1].get("tags", [])
                 # Should include project name or path info
-                assert any("project" in str(tag).lower() or "my-project" in str(tag).lower()
-                          for tag in tags) or len(tags) > 0
+                assert (
+                    any(
+                        "project" in str(tag).lower()
+                        or "my-project" in str(tag).lower()
+                        for tag in tags
+                    )
+                    or len(tags) > 0
+                )

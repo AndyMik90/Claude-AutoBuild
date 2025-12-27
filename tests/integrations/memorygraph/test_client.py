@@ -19,29 +19,31 @@ class TestMemoryGraphClient:
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps([
-                        {
-                            "id": "mem123",
-                            "type": "solution",
-                            "title": "Fixed auth bug",
-                            "content": "Added null check",
-                            "importance": 0.8,
-                            "tags": ["auth", "bugfix"]
-                        },
-                        {
-                            "id": "mem456",
-                            "type": "problem",
-                            "title": "Auth fails",
-                            "content": "NPE on login",
-                            "importance": 0.7,
-                            "tags": ["auth", "error"]
-                        }
-                    ])
+                    "text": json.dumps(
+                        [
+                            {
+                                "id": "mem123",
+                                "type": "solution",
+                                "title": "Fixed auth bug",
+                                "content": "Added null check",
+                                "importance": 0.8,
+                                "tags": ["auth", "bugfix"],
+                            },
+                            {
+                                "id": "mem456",
+                                "type": "problem",
+                                "title": "Auth fails",
+                                "content": "NPE on login",
+                                "importance": 0.7,
+                                "tags": ["auth", "error"],
+                            },
+                        ]
+                    ),
                 }
             ]
         }
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             memories = await client.recall("auth bug", limit=5)
 
         assert len(memories) == 2
@@ -69,16 +71,9 @@ Tags: auth, error
 
 NPE on login"""
 
-        mock_result = {
-            "content": [
-                {
-                    "type": "text",
-                    "text": formatted_text
-                }
-            ]
-        }
+        mock_result = {"content": [{"type": "text", "text": formatted_text}]}
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             memories = await client.recall("auth bug", limit=5)
 
         assert len(memories) == 2
@@ -92,7 +87,7 @@ NPE on login"""
         """Handles empty MCP response gracefully."""
         client = MemoryGraphClient()
 
-        with patch.object(client, '_call_tool', return_value=None):
+        with patch.object(client, "_call_tool", return_value=None):
             memories = await client.recall("nonexistent", limit=5)
 
         assert memories == []
@@ -107,18 +102,18 @@ NPE on login"""
             "content": [
                 {
                     "type": "text",
-                    "text": "Memory stored successfully with ID: abc123def456"
+                    "text": "Memory stored successfully with ID: abc123def456",
                 }
             ]
         }
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             memory_id = await client.store(
                 memory_type="solution",
                 title="Fixed bug",
                 content="Added check",
                 tags=["bugfix"],
-                importance=0.8
+                importance=0.8,
             )
 
         assert memory_id == "abc123def456"
@@ -134,16 +129,20 @@ NPE on login"""
             ("Created with ID:xyz789", "xyz789"),
             ("Memory ID: 123abc456def", "123abc456def"),
             # UUID-style IDs with hyphens
-            ("Memory ID: 550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440000"),
-            ("Created with ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890", "a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
+            (
+                "Memory ID: 550e8400-e29b-41d4-a716-446655440000",
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            (
+                "Created with ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            ),
         ]
 
         for message, expected_id in test_cases:
-            mock_result = {
-                "content": [{"type": "text", "text": message}]
-            }
+            mock_result = {"content": [{"type": "text", "text": message}]}
 
-            with patch.object(client, '_call_tool', return_value=mock_result):
+            with patch.object(client, "_call_tool", return_value=mock_result):
                 memory_id = await client.store(
                     memory_type="solution",
                     title="Test",
@@ -157,7 +156,7 @@ NPE on login"""
         """Returns None when store fails."""
         client = MemoryGraphClient()
 
-        with patch.object(client, '_call_tool', return_value=None):
+        with patch.object(client, "_call_tool", return_value=None):
             memory_id = await client.store(
                 memory_type="solution",
                 title="Test",
@@ -172,7 +171,7 @@ NPE on login"""
         client = MemoryGraphClient()
 
         # _call_tool already handles timeout and returns None
-        with patch.object(client, '_call_tool', return_value=None):
+        with patch.object(client, "_call_tool", return_value=None):
             # Should not raise exception
             memories = await client.recall("test")
             assert memories == []
@@ -183,16 +182,9 @@ NPE on login"""
         client = MemoryGraphClient()
 
         # Simulate response with invalid JSON
-        mock_result = {
-            "content": [
-                {
-                    "type": "text",
-                    "text": "{invalid json here"
-                }
-            ]
-        }
+        mock_result = {"content": [{"type": "text", "text": "{invalid json here"}]}
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             # Should not raise exception
             memories = await client.recall("test")
             # Should fall back to text parsing or return empty
@@ -206,7 +198,7 @@ NPE on login"""
         # Simulate response without content field
         mock_result = {"error": "Something went wrong"}
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             memories = await client.recall("test")
             assert memories == []
 
@@ -219,19 +211,21 @@ NPE on login"""
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps([
-                        {
-                            "id": "rel123",
-                            "type": "problem",
-                            "title": "Original issue",
-                            "relationship": "SOLVES"
-                        }
-                    ])
+                    "text": json.dumps(
+                        [
+                            {
+                                "id": "rel123",
+                                "type": "problem",
+                                "title": "Original issue",
+                                "relationship": "SOLVES",
+                            }
+                        ]
+                    ),
                 }
             ]
         }
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             related = await client.get_related("mem123")
 
         assert len(related) == 1
@@ -244,15 +238,10 @@ NPE on login"""
         client = MemoryGraphClient()
 
         mock_result = {
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Relationship created successfully"
-                }
-            ]
+            "content": [{"type": "text", "text": "Relationship created successfully"}]
         }
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             success = await client.relate("mem1", "mem2", "SOLVES")
 
         assert success is True
@@ -262,7 +251,7 @@ NPE on login"""
         """Returns False when relationship creation fails."""
         client = MemoryGraphClient()
 
-        with patch.object(client, '_call_tool', return_value=None):
+        with patch.object(client, "_call_tool", return_value=None):
             success = await client.relate("mem1", "mem2", "SOLVES")
 
         assert success is False
@@ -275,12 +264,14 @@ NPE on login"""
         # Mock subprocess to capture the request
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(return_value=(
-            json.dumps({"jsonrpc": "2.0", "id": 1, "result": {}}).encode(),
-            b""
-        ))
+        mock_proc.communicate = AsyncMock(
+            return_value=(
+                json.dumps({"jsonrpc": "2.0", "id": 1, "result": {}}).encode(),
+                b"",
+            )
+        )
 
-        with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             await client._call_tool("recall_memories", {"query": "test", "limit": 5})
 
         # Check that communicate was called with correct JSON-RPC request
@@ -299,7 +290,7 @@ NPE on login"""
         client = MemoryGraphClient()
 
         # Simulate FileNotFoundError when memorygraph command doesn't exist
-        with patch('asyncio.create_subprocess_exec', side_effect=FileNotFoundError()):
+        with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError()):
             memories = await client.recall("test")
 
         assert memories == []
@@ -312,19 +303,20 @@ NPE on login"""
         # Simulate MCP error response
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(return_value=(
-            json.dumps({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "error": {
-                    "code": -32600,
-                    "message": "Invalid request"
-                }
-            }).encode(),
-            b""
-        ))
+        mock_proc.communicate = AsyncMock(
+            return_value=(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "error": {"code": -32600, "message": "Invalid request"},
+                    }
+                ).encode(),
+                b"",
+            )
+        )
 
-        with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await client._call_tool("invalid_tool", {})
 
         assert result is None
@@ -351,11 +343,9 @@ Tags: auth, bugfix
 
 Added null check"""
 
-        mock_result = {
-            "content": [{"type": "text", "text": formatted_text}]
-        }
+        mock_result = {"content": [{"type": "text", "text": formatted_text}]}
 
-        with patch.object(client, '_call_tool', return_value=mock_result):
+        with patch.object(client, "_call_tool", return_value=mock_result):
             memories = await client.recall("auth bug", limit=5)
 
         assert len(memories) == 1
@@ -377,7 +367,7 @@ Added null check"""
         # Simulate slow response
         mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
 
-        with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await client._call_tool("slow_tool", {})
 
         assert result is None

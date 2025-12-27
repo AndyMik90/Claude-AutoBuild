@@ -12,10 +12,18 @@ class TestInferRelationships:
     async def test_links_solutions_to_problems(self):
         """Links solutions to problems from same session."""
         problems = [
-            {"id": "prob_1", "title": "Auth failed", "content": "JWT token validation failed"}
+            {
+                "id": "prob_1",
+                "title": "Auth failed",
+                "content": "JWT token validation failed",
+            }
         ]
         solutions = [
-            {"id": "sol_1", "title": "Fixed auth", "content": "Added null check for JWT"}
+            {
+                "id": "sol_1",
+                "title": "Fixed auth",
+                "content": "Added null check for JWT",
+            }
         ]
 
         # Mock client
@@ -36,11 +44,11 @@ class TestInferRelationships:
         """Creates all possible solution-problem links."""
         problems = [
             {"id": "prob_1", "content": "Problem 1"},
-            {"id": "prob_2", "content": "Problem 2"}
+            {"id": "prob_2", "content": "Problem 2"},
         ]
         solutions = [
             {"id": "sol_1", "content": "Solution 1"},
-            {"id": "sol_2", "content": "Solution 2"}
+            {"id": "sol_2", "content": "Solution 2"},
         ]
 
         client = AsyncMock()
@@ -82,7 +90,7 @@ class TestInferRelationships:
         """Continues creating relationships even if one fails."""
         problems = [
             {"id": "prob_1", "content": "Problem 1"},
-            {"id": "prob_2", "content": "Problem 2"}
+            {"id": "prob_2", "content": "Problem 2"},
         ]
         solutions = [{"id": "sol_1", "content": "Solution 1"}]
 

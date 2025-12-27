@@ -16,7 +16,7 @@ class TestFormatContext:
             {
                 "type": "solution",
                 "title": "Fixed JWT validation",
-                "content": "Added null check before token decode to prevent NPE"
+                "content": "Added null check before token decode to prevent NPE",
             }
         ]
 
@@ -32,7 +32,7 @@ class TestFormatContext:
         memories = [
             {
                 "type": "code_pattern",
-                "content": "Always validate input before database queries"
+                "content": "Always validate input before database queries",
             }
         ]
 
@@ -48,7 +48,7 @@ class TestFormatContext:
                 "type": "problem",
                 "title": "JWT expires silently",
                 "content": "Token expiration not handled properly",
-                "tags": ["gotcha", "auth"]
+                "tags": ["gotcha", "auth"],
             }
         ]
 
@@ -64,7 +64,7 @@ class TestFormatContext:
                 "type": "problem",
                 "title": "Database timeout",
                 "content": "Connection timed out",
-                "tags": ["database"]  # No gotcha tag
+                "tags": ["database"],  # No gotcha tag
             }
         ]
 
@@ -76,13 +76,7 @@ class TestFormatContext:
     def test_truncates_long_content(self):
         """Truncates long content to avoid bloating prompts."""
         long_content = "A" * 500  # 500 chars
-        memories = [
-            {
-                "type": "solution",
-                "title": "Solution",
-                "content": long_content
-            }
-        ]
+        memories = [{"type": "solution", "title": "Solution", "content": long_content}]
 
         context = format_context(memories, [])
 
@@ -131,7 +125,7 @@ class TestFormatContext:
                 "type": "problem",
                 "title": "Issue",
                 "content": "Description",
-                "tags": None
+                "tags": None,
             }
         ]
 
@@ -146,7 +140,7 @@ class TestFormatContext:
                 "type": "problem",
                 "title": "Some issue",
                 "content": "Description",
-                "tags": []  # No gotcha tag
+                "tags": [],  # No gotcha tag
             }
         ]
 
@@ -159,21 +153,14 @@ class TestFormatContext:
     def test_combines_all_sections(self):
         """Combines solutions, patterns, and gotchas in one context."""
         memories = [
-            {
-                "type": "solution",
-                "title": "Fixed auth",
-                "content": "Added validation"
-            },
-            {
-                "type": "code_pattern",
-                "content": "Use async/await for IO"
-            },
+            {"type": "solution", "title": "Fixed auth", "content": "Added validation"},
+            {"type": "code_pattern", "content": "Use async/await for IO"},
             {
                 "type": "problem",
                 "title": "Race condition",
                 "content": "Concurrent access issue",
-                "tags": ["gotcha"]
-            }
+                "tags": ["gotcha"],
+            },
         ]
 
         context = format_context(memories, [])

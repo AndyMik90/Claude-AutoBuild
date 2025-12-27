@@ -43,7 +43,8 @@ def format_context(memories: list[dict], solutions: list[dict]) -> str:
 
     # Gotchas to avoid
     problems = [
-        m for m in memories
+        m
+        for m in memories
         if m.get("type") == "problem" and "gotcha" in (m.get("tags") or [])
     ]
     if problems:

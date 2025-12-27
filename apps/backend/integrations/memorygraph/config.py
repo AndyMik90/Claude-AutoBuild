@@ -26,14 +26,12 @@ class MemoryGraphConfig:
 
         backend = os.environ.get("MEMORYGRAPH_BACKEND", "sqlite")
 
-        project_scoped_str = os.environ.get("MEMORYGRAPH_PROJECT_SCOPED", "true").lower()
+        project_scoped_str = os.environ.get(
+            "MEMORYGRAPH_PROJECT_SCOPED", "true"
+        ).lower()
         project_scoped = project_scoped_str in ("true", "1", "yes")
 
-        return cls(
-            enabled=enabled,
-            backend=backend,
-            project_scoped=project_scoped
-        )
+        return cls(enabled=enabled, backend=backend, project_scoped=project_scoped)
 
 
 @lru_cache(maxsize=1)

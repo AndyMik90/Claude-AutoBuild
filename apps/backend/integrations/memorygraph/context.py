@@ -65,8 +65,7 @@ async def get_context_for_subtask(subtask: dict, project_dir: Path) -> str:
             if memory_id:
                 try:
                     related = await client.get_related(
-                        memory_id,
-                        types=["SOLVES", "ADDRESSES"]
+                        memory_id, types=["SOLVES", "ADDRESSES"]
                     )
                     solutions.extend(related)
                 except Exception as e:

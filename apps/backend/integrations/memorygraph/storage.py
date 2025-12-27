@@ -73,7 +73,7 @@ async def save_to_memorygraph(session_output: dict, project_dir: Path) -> None:
                     title=problem["title"],
                     content=problem["content"],
                     tags=problem["tags"],
-                    importance=problem.get("importance", 0.7)
+                    importance=problem.get("importance", 0.7),
                 )
 
                 if memory_id:
@@ -96,7 +96,7 @@ async def save_to_memorygraph(session_output: dict, project_dir: Path) -> None:
                     title=solution["title"],
                     content=solution["content"],
                     tags=solution["tags"],
-                    importance=solution.get("importance", 0.8)
+                    importance=solution.get("importance", 0.8),
                 )
 
                 if memory_id:
@@ -118,7 +118,7 @@ async def save_to_memorygraph(session_output: dict, project_dir: Path) -> None:
                     title=pattern["title"],
                     content=pattern["content"],
                     tags=pattern["tags"],
-                    importance=pattern.get("importance", 0.6)
+                    importance=pattern.get("importance", 0.6),
                 )
 
                 if memory_id:

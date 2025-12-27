@@ -139,7 +139,9 @@ class MemoryGraphClient:
             in_content = False
             for line in lines:
                 # Skip lines with metadata markers
-                if re.match(r"^\*\*\d+\.", line) or re.match(r"^(Type|Tags|Importance):", line):
+                if re.match(r"^\*\*\d+\.", line) or re.match(
+                    r"^(Type|Tags|Importance):", line
+                ):
                     continue
                 if line.strip() and not line.startswith("(ID:"):
                     in_content = True
@@ -173,10 +175,7 @@ class MemoryGraphClient:
                 "jsonrpc": "2.0",
                 "id": self._next_id(),
                 "method": "tools/call",
-                "params": {
-                    "name": tool_name,
-                    "arguments": arguments
-                }
+                "params": {"name": tool_name, "arguments": arguments},
             }
 
             # Try to call memorygraph via subprocess
@@ -185,19 +184,20 @@ class MemoryGraphClient:
                 "memorygraph",
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
 
             # Send request with configurable timeout
             request_json = json.dumps(request) + "\n"
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(request_json.encode()),
-                timeout=self._timeout
+                proc.communicate(request_json.encode()), timeout=self._timeout
             )
 
             # Parse response
             if proc.returncode != 0:
-                logger.debug(f"MemoryGraph server returned error code {proc.returncode}")
+                logger.debug(
+                    f"MemoryGraph server returned error code {proc.returncode}"
+                )
                 return None
 
             response = json.loads(stdout.decode())
@@ -243,10 +243,9 @@ class MemoryGraphClient:
         Returns:
             List of memory dicts or empty list on error
         """
-        result = await self._call_tool("recall_memories", {
-            "query": query,
-            "limit": limit
-        })
+        result = await self._call_tool(
+            "recall_memories", {"query": query, "limit": limit}
+        )
 
         return self._parse_mcp_content(result)
 
@@ -256,7 +255,7 @@ class MemoryGraphClient:
         title: str,
         content: str,
         tags: list[str] | None = None,
-        importance: float = 0.7
+        importance: float = 0.7,
     ) -> str | None:
         """
         Call store_memory MCP tool.
@@ -271,13 +270,16 @@ class MemoryGraphClient:
         Returns:
             Memory ID or None on error
         """
-        result = await self._call_tool("store_memory", {
-            "type": memory_type,
-            "title": title,
-            "content": content,
-            "tags": tags or [],
-            "importance": importance
-        })
+        result = await self._call_tool(
+            "store_memory",
+            {
+                "type": memory_type,
+                "title": title,
+                "content": content,
+                "tags": tags or [],
+                "importance": importance,
+            },
+        )
 
         if result is None:
             return None
@@ -295,12 +297,7 @@ class MemoryGraphClient:
 
         return None
 
-    async def relate(
-        self,
-        from_id: str,
-        to_id: str,
-        relationship_type: str
-    ) -> bool:
+    async def relate(self, from_id: str, to_id: str, relationship_type: str) -> bool:
         """
         Call create_relationship MCP tool.
 
@@ -312,18 +309,19 @@ class MemoryGraphClient:
         Returns:
             True if successful, False on error
         """
-        result = await self._call_tool("create_relationship", {
-            "from_memory_id": from_id,
-            "to_memory_id": to_id,
-            "relationship_type": relationship_type
-        })
+        result = await self._call_tool(
+            "create_relationship",
+            {
+                "from_memory_id": from_id,
+                "to_memory_id": to_id,
+                "relationship_type": relationship_type,
+            },
+        )
 
         return result is not None
 
     async def get_related(
-        self,
-        memory_id: str,
-        types: list[str] | None = None
+        self, memory_id: str, types: list[str] | None = None
     ) -> list[dict]:
         """
         Call get_related_memories MCP tool.

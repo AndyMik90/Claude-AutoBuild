@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 async def infer_relationships(
-    problems: list[dict],
-    solutions: list[dict],
-    client: "MemoryGraphClient"
+    problems: list[dict], solutions: list[dict], client: "MemoryGraphClient"
 ) -> None:
     """
     Create relationships between stored memories.
@@ -46,7 +44,7 @@ async def infer_relationships(
                 await client.relate(
                     from_id=solution["id"],
                     to_id=problem["id"],
-                    relationship_type="SOLVES"
+                    relationship_type="SOLVES",
                 )
                 logger.debug(
                     f"Created SOLVES relationship: {solution['id']} -> {problem['id']}"

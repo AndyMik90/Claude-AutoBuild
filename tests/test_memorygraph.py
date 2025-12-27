@@ -70,10 +70,11 @@ class TestGetMemoryGraphConfig:
 
     def test_custom_backend(self):
         """Returns custom backend from environment."""
-        with patch.dict(os.environ, {
-            "MEMORYGRAPH_ENABLED": "true",
-            "MEMORYGRAPH_BACKEND": "neo4j"
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"MEMORYGRAPH_ENABLED": "true", "MEMORYGRAPH_BACKEND": "neo4j"},
+            clear=True,
+        ):
             config = get_memorygraph_config()
             assert config["enabled"] is True
             assert config["backend"] == "neo4j"
@@ -92,11 +93,15 @@ class TestMemoryGraphConfig:
 
     def test_from_env_custom_values(self):
         """Config reads custom environment values."""
-        with patch.dict(os.environ, {
-            "MEMORYGRAPH_ENABLED": "true",
-            "MEMORYGRAPH_BACKEND": "falkordb",
-            "MEMORYGRAPH_PROJECT_SCOPED": "false"
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "MEMORYGRAPH_ENABLED": "true",
+                "MEMORYGRAPH_BACKEND": "falkordb",
+                "MEMORYGRAPH_PROJECT_SCOPED": "false",
+            },
+            clear=True,
+        ):
             config = MemoryGraphConfig.from_env()
             assert config.enabled is True
             assert config.backend == "falkordb"
@@ -126,9 +131,7 @@ class TestMemoryGraphClient:
         """Store returns None when MCP server unavailable."""
         client = MemoryGraphClient()
         result = await client.store(
-            memory_type="solution",
-            title="test",
-            content="test content"
+            memory_type="solution", title="test", content="test content"
         )
         assert result is None
 
@@ -163,7 +166,7 @@ class TestContextFormatting:
                 "id": "mem_1",
                 "type": "solution",
                 "title": "Fixed auth bug",
-                "content": "Added null check to fix auth error"
+                "content": "Added null check to fix auth error",
             }
         ]
         result = format_context(memories, [])
@@ -178,7 +181,7 @@ class TestContextFormatting:
                 "id": "mem_2",
                 "type": "code_pattern",
                 "title": "Use async/await",
-                "content": "Always use async/await for I/O operations"
+                "content": "Always use async/await for I/O operations",
             }
         ]
         result = format_context(memories, [])
@@ -193,7 +196,7 @@ class TestContextFormatting:
                 "type": "problem",
                 "title": "Race condition",
                 "content": "Database race condition in concurrent requests",
-                "tags": ["gotcha"]
+                "tags": ["gotcha"],
             }
         ]
         result = format_context(memories, [])
@@ -207,11 +210,7 @@ class TestGetContextForSubtask:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_memories(self):
         """Returns empty string when no memories found."""
-        subtask = {
-            "id": "task_1",
-            "description": "Implement feature X",
-            "files": []
-        }
+        subtask = {"id": "task_1", "description": "Implement feature X", "files": []}
         # This will fail to connect to MCP server and return empty
         result = await get_context_for_subtask(subtask, Path("/tmp"))
         assert result == ""

@@ -49,27 +49,21 @@ class InsightExtractor:
 
         # Extract from what_failed
         for failure in session_output.get("what_failed", []):
-            problems.append(self._create_memory(
-                "problem",
-                failure,
-                importance=0.7
-            ))
+            problems.append(self._create_memory("problem", failure, importance=0.7))
 
         # Extract from errors - use "error" type for actual errors
         for error in session_output.get("errors", []):
-            problems.append(self._create_memory(
-                "error",
-                error,
-                importance=0.8  # Errors are more important
-            ))
+            problems.append(
+                self._create_memory(
+                    "error",
+                    error,
+                    importance=0.8,  # Errors are more important
+                )
+            )
 
         # Extract from QA rejections
         for rejection in session_output.get("qa_rejections", []):
-            problems.append(self._create_memory(
-                "problem",
-                rejection,
-                importance=0.7
-            ))
+            problems.append(self._create_memory("problem", rejection, importance=0.7))
 
         return problems
 
@@ -87,19 +81,11 @@ class InsightExtractor:
 
         # Extract from what_worked
         for success in session_output.get("what_worked", []):
-            solutions.append(self._create_memory(
-                "solution",
-                success,
-                importance=0.8
-            ))
+            solutions.append(self._create_memory("solution", success, importance=0.8))
 
         # Extract from fixes_applied
         for fix in session_output.get("fixes_applied", []):
-            solutions.append(self._create_memory(
-                "solution",
-                fix,
-                importance=0.8
-            ))
+            solutions.append(self._create_memory("solution", fix, importance=0.8))
 
         return solutions
 
@@ -117,11 +103,9 @@ class InsightExtractor:
 
         # Extract explicit patterns
         for pattern in session_output.get("patterns_found", []):
-            patterns.append(self._create_memory(
-                "code_pattern",
-                pattern,
-                importance=0.6
-            ))
+            patterns.append(
+                self._create_memory("code_pattern", pattern, importance=0.6)
+            )
 
         # Infer patterns from repeated successes
         what_worked = session_output.get("what_worked", [])
@@ -132,10 +116,7 @@ class InsightExtractor:
         return patterns
 
     def _create_memory(
-        self,
-        memory_type: str,
-        content: str,
-        importance: float = 0.7
+        self, memory_type: str, content: str, importance: float = 0.7
     ) -> dict:
         """
         Create a memory dict from content.
@@ -171,12 +152,12 @@ class InsightExtractor:
             return "Untitled"
 
         # Take first sentence if available
-        sentences = re.split(r'[.!?]\s+', text)
+        sentences = re.split(r"[.!?]\s+", text)
         first_sentence = sentences[0] if sentences else text
 
         # Truncate if too long
         if len(first_sentence) > max_len:
-            return first_sentence[:max_len-3].strip() + "..."
+            return first_sentence[: max_len - 3].strip() + "..."
 
         return first_sentence.strip()
 
@@ -227,25 +208,23 @@ class InsightExtractor:
         word_counts = {}
         for success in successes:
             # Extract meaningful words (3+ chars, lowercase)
-            words = re.findall(r'\b[a-z]{3,}\b', success.lower())
+            words = re.findall(r"\b[a-z]{3,}\b", success.lower())
             for word in words:
                 word_counts[word] = word_counts.get(word, 0) + 1
 
         # Find words that appear in multiple successes
         repeated_words = [
-            word for word, count in word_counts.items()
-            if count >= 2 and word not in {
-                "the", "and", "for", "with", "that", "this", "was", "from"
-            }
+            word
+            for word, count in word_counts.items()
+            if count >= 2
+            and word not in {"the", "and", "for", "with", "that", "this", "was", "from"}
         ]
 
         # Create pattern if we found repeated themes
         if repeated_words:
             pattern_content = f"Pattern: {', '.join(repeated_words[:3])} appeared in multiple solutions"
-            patterns.append(self._create_memory(
-                "code_pattern",
-                pattern_content,
-                importance=0.6
-            ))
+            patterns.append(
+                self._create_memory("code_pattern", pattern_content, importance=0.6)
+            )
 
         return patterns
