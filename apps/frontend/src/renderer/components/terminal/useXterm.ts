@@ -63,6 +63,25 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
 
     xterm.open(terminalRef.current);
 
+    // Allow certain key combinations to bubble up to window-level handlers
+    // This enables global shortcuts like Cmd/Ctrl+1-9 for project switching
+    xterm.attachCustomKeyEventHandler((event) => {
+      const isMod = event.metaKey || event.ctrlKey;
+
+      // Let Cmd/Ctrl + number keys pass through for project tab switching
+      if (isMod && event.key >= '1' && event.key <= '9') {
+        return false; // Don't handle in xterm, let it bubble up
+      }
+
+      // Let Cmd/Ctrl + Tab pass through for tab navigation
+      if (isMod && event.key === 'Tab') {
+        return false;
+      }
+
+      // Handle all other keys in xterm
+      return true;
+    });
+
     setTimeout(() => {
       fitAddon.fit();
     }, 50);
