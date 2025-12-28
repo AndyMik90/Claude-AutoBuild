@@ -12,6 +12,49 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFileSync } from 'child_process';
+
+/**
+ * Get npm global prefix directory dynamically
+ *
+ * Runs `npm config get prefix` to find where npm globals are installed.
+ * Works with standard npm, nvm-windows, nvm, and custom installations.
+ *
+ * On Windows: returns the prefix directory (e.g., C:\Users\user\AppData\Roaming\npm)
+ * On macOS/Linux: returns prefix/bin (e.g., /usr/local/bin)
+ *
+ * @returns npm global binaries directory, or null if npm not available or path doesn't exist
+ */
+function getNpmGlobalPrefix(): string | null {
+  try {
+    // On Windows, use npm.cmd for proper command resolution
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix'], {
+      encoding: 'utf-8',
+      timeout: 3000,
+      windowsHide: true,
+      shell: process.platform === 'win32', // Enable shell on Windows for .cmd resolution
+    }).trim();
+
+    if (!rawPrefix) {
+      return null;
+    }
+
+    // On non-Windows platforms, npm globals are installed in prefix/bin
+    // On Windows, they're installed directly in the prefix directory
+    const binPath = process.platform === 'win32'
+      ? rawPrefix
+      : path.join(rawPrefix, 'bin');
+
+    // Normalize and verify the path exists
+    const normalizedPath = path.normalize(binPath);
+
+    return fs.existsSync(normalizedPath) ? normalizedPath : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Common binary directories that should be in PATH
@@ -73,6 +116,12 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
     if (!currentPathSet.has(p) && fs.existsSync(p)) {
       pathsToAdd.push(p);
     }
+  }
+
+  // Add npm global prefix dynamically (cross-platform: works with standard npm, nvm, nvm-windows)
+  const npmPrefix = getNpmGlobalPrefix();
+  if (npmPrefix && !currentPathSet.has(npmPrefix) && fs.existsSync(npmPrefix)) {
+    pathsToAdd.push(npmPrefix);
   }
 
   // Add user-requested additional paths

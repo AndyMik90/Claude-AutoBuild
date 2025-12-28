@@ -82,6 +82,15 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Gemfile")
             self._detect_ruby_framework(content)
 
+        # Swift/iOS detection
+        elif self._exists("Package.swift") or any(self.path.glob("*.xcodeproj")):
+            self.analysis["language"] = "Swift"
+            if self._exists("Package.swift"):
+                self.analysis["package_manager"] = "Swift Package Manager"
+            else:
+                self.analysis["package_manager"] = "Xcode"
+            self._detect_swift_framework()
+
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
         from .port_detector import PortDetector
@@ -289,6 +298,109 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         if "sidekiq" in content.lower():
             self.analysis["task_queue"] = "Sidekiq"
+
+    def _detect_swift_framework(self) -> None:
+        """Detect Swift/iOS framework and dependencies."""
+        try:
+            # Scan Swift files for imports, excluding hidden/vendor dirs
+            swift_files = []
+            for swift_file in self.path.rglob("*.swift"):
+                # Skip hidden directories, node_modules, .worktrees, etc.
+                if any(
+                    part.startswith(".") or part in ("node_modules", "Pods", "Carthage")
+                    for part in swift_file.parts
+                ):
+                    continue
+                swift_files.append(swift_file)
+                if len(swift_files) >= 50:  # Limit for performance
+                    break
+
+            imports = set()
+            for swift_file in swift_files:
+                try:
+                    content = swift_file.read_text(encoding="utf-8", errors="ignore")
+                    for line in content.split("\n"):
+                        line = line.strip()
+                        if line.startswith("import "):
+                            module = line.replace("import ", "").split()[0]
+                            imports.add(module)
+                except Exception:
+                    continue
+
+            # Detect UI framework
+            if "SwiftUI" in imports:
+                self.analysis["framework"] = "SwiftUI"
+                self.analysis["type"] = "mobile"
+            elif "UIKit" in imports:
+                self.analysis["framework"] = "UIKit"
+                self.analysis["type"] = "mobile"
+            elif "AppKit" in imports:
+                self.analysis["framework"] = "AppKit"
+                self.analysis["type"] = "desktop"
+
+            # Detect iOS/Apple frameworks
+            apple_frameworks = []
+            framework_map = {
+                "Combine": "Combine",
+                "CoreData": "CoreData",
+                "MapKit": "MapKit",
+                "WidgetKit": "WidgetKit",
+                "CoreLocation": "CoreLocation",
+                "StoreKit": "StoreKit",
+                "CloudKit": "CloudKit",
+                "ActivityKit": "ActivityKit",
+                "UserNotifications": "UserNotifications",
+            }
+            for key, name in framework_map.items():
+                if key in imports:
+                    apple_frameworks.append(name)
+
+            if apple_frameworks:
+                self.analysis["apple_frameworks"] = apple_frameworks
+
+            # Detect SPM dependencies from Package.swift or xcodeproj
+            dependencies = self._detect_spm_dependencies()
+            if dependencies:
+                self.analysis["spm_dependencies"] = dependencies
+        except Exception:
+            # Silently fail if Swift detection has issues
+            pass
+
+    def _detect_spm_dependencies(self) -> list[str]:
+        """Detect Swift Package Manager dependencies."""
+        dependencies = []
+
+        # Try Package.swift first
+        if self._exists("Package.swift"):
+            content = self._read_file("Package.swift")
+            # Look for .package(url: "...", patterns
+            import re
+
+            urls = re.findall(r'\.package\s*\([^)]*url:\s*"([^"]+)"', content)
+            for url in urls:
+                # Extract package name from URL
+                name = url.rstrip("/").split("/")[-1].replace(".git", "")
+                if name:
+                    dependencies.append(name)
+
+        # Also check xcodeproj for XCRemoteSwiftPackageReference
+        for xcodeproj in self.path.glob("*.xcodeproj"):
+            pbxproj = xcodeproj / "project.pbxproj"
+            if pbxproj.exists():
+                try:
+                    content = pbxproj.read_text(encoding="utf-8", errors="ignore")
+                    import re
+
+                    # Match repositoryURL patterns
+                    urls = re.findall(r'repositoryURL\s*=\s*"([^"]+)"', content)
+                    for url in urls:
+                        name = url.rstrip("/").split("/")[-1].replace(".git", "")
+                        if name and name not in dependencies:
+                            dependencies.append(name)
+                except Exception:
+                    continue
+
+        return dependencies
 
     def _detect_node_package_manager(self) -> str:
         """Detect Node.js package manager."""
