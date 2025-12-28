@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Task, TaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft } from '../../shared/types';
 import { useProjectStore } from './project-store';
+import { checkDependenciesMet } from '../utils/dependency-validator';
 
 interface TaskState {
   tasks: Task[];
@@ -215,12 +216,13 @@ export async function createTask(
   projectId: string,
   title: string,
   description: string,
-  metadata?: TaskMetadata
+  metadata?: TaskMetadata,
+  dependsOn?: string[]
 ): Promise<Task | null> {
   const store = useTaskStore.getState();
 
   try {
-    const result = await window.electronAPI.createTask(projectId, title, description, metadata);
+    const result = await window.electronAPI.createTask(projectId, title, description, metadata, dependsOn);
     if (result.success && result.data) {
       store.addTask(result.data);
       return result.data;
@@ -238,7 +240,7 @@ export async function createTask(
  * Helper function to automatically start the next queued task if there's capacity
  * Called when a task leaves "in_progress" status
  */
-async function promoteNextQueuedTask(): Promise<void> {
+export async function promoteNextQueuedTask(): Promise<void> {
   const taskStore = useTaskStore.getState();
   const projectStore = useProjectStore.getState();
 
@@ -256,10 +258,30 @@ async function promoteNextQueuedTask(): Promise<void> {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Oldest first
 
     if (queuedTasks.length > 0) {
-      const nextTask = queuedTasks[0];
-      console.log(`[Queue] Auto-promoting task from queue: ${nextTask.title}`);
-      // Start the task directly via IPC (bypass the enforcement check since we know there's space)
-      window.electronAPI.startTask(nextTask.id);
+      // Find first task with all dependencies met
+      for (const task of queuedTasks) {
+        const canStart = checkDependenciesMet(task, taskStore.tasks);
+
+        if (canStart.ready) {
+          console.log(`[Queue] Auto-promoting task from queue: ${task.title}`);
+          // Clear blocked reason if it was set
+          if (task.blockedReason) {
+            await persistUpdateTask(task.id, { dependsOn: task.dependsOn });
+          }
+          // Start the task directly via IPC (bypass the enforcement check since we know there's space)
+          window.electronAPI.startTask(task.id);
+          return;
+        } else {
+          // Update blocked reason if it changed
+          if (task.blockedReason !== canStart.reason) {
+            console.log(`[Queue] Task ${task.title} blocked: ${canStart.reason}`);
+            await persistUpdateTask(task.id, { dependsOn: task.dependsOn });
+            taskStore.updateTask(task.id, { blockedReason: canStart.reason });
+          }
+        }
+      }
+
+      console.log(`[Queue] All queued tasks are blocked by dependencies`);
     }
   }
 }
@@ -365,7 +387,7 @@ export async function persistTaskStatus(
  */
 export async function persistUpdateTask(
   taskId: string,
-  updates: { title?: string; description?: string; metadata?: Partial<TaskMetadata> }
+  updates: { title?: string; description?: string; metadata?: Partial<TaskMetadata>; dependsOn?: string[] }
 ): Promise<boolean> {
   const store = useTaskStore.getState();
 
@@ -379,6 +401,7 @@ export async function persistUpdateTask(
         title: result.data.title,
         description: result.data.description,
         metadata: result.data.metadata,
+        dependsOn: result.data.dependsOn,
         updatedAt: new Date()
       });
       return true;

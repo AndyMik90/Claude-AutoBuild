@@ -250,6 +250,8 @@ export interface Task {
   stagedAt?: string;  // ISO timestamp when changes were staged
   location?: 'main' | 'worktree';  // Where task was loaded from (main project or worktree)
   specsPath?: string;  // Full path to specs directory for this task
+  dependsOn?: string[];  // Array of task IDs this task depends on
+  blockedReason?: string;  // Human-readable reason why task is blocked (e.g., waiting for dependencies)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -270,6 +272,8 @@ export interface ImplementationPlan {
   planStatus?: string;
   recoveryNote?: string;
   description?: string;
+  // Task dependencies
+  dependsOn?: string[];
 }
 
 export interface Phase {

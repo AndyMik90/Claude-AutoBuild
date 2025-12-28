@@ -35,7 +35,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       projectId: string,
       title: string,
       description: string,
-      metadata?: TaskMetadata
+      metadata?: TaskMetadata,
+      dependsOn?: string[]
     ): Promise<IPCResult<Task>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -149,7 +150,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         created_at: now,
         updated_at: now,
         status: 'pending',
-        phases: []
+        phases: [],
+        ...(dependsOn && dependsOn.length > 0 ? { dependsOn } : {})
       };
 
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
@@ -190,6 +192,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         subtasks: [],
         logs: [],
         metadata: taskMetadata,
+        ...(dependsOn && dependsOn.length > 0 ? { dependsOn } : {}),
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -249,7 +252,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
     async (
       _,
       taskId: string,
-      updates: { title?: string; description?: string; metadata?: Partial<TaskMetadata> }
+      updates: { title?: string; description?: string; metadata?: Partial<TaskMetadata>; dependsOn?: string[] }
     ): Promise<IPCResult<Task>> => {
       try {
         // Find task and project
@@ -303,6 +306,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             }
             if (updates.description !== undefined) {
               plan.description = updates.description;
+            }
+            if (updates.dependsOn !== undefined) {
+              if (updates.dependsOn.length > 0) {
+                plan.dependsOn = updates.dependsOn;
+              } else {
+                delete plan.dependsOn;
+              }
             }
             plan.updated_at = new Date().toISOString();
 
@@ -415,6 +425,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           title: finalTitle ?? task.title,
           description: updates.description ?? task.description,
           metadata: updatedMetadata,
+          ...(updates.dependsOn !== undefined ? { dependsOn: updates.dependsOn.length > 0 ? updates.dependsOn : undefined } : {}),
           updatedAt: new Date()
         };
 

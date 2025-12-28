@@ -461,6 +461,7 @@ export class ProjectStore {
           stagedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          ...(plan?.dependsOn && plan.dependsOn.length > 0 ? { dependsOn: plan.dependsOn } : {}), // Include dependencies from plan
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });

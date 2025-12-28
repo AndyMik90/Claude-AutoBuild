@@ -18,17 +18,19 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, Settings } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, Settings, ListPlus } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, archiveTasks, promoteNextQueuedTask } from '../stores/task-store';
 import { updateProjectSettings } from '../stores/project-store';
 import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskStatus } from '../../shared/types';
@@ -47,6 +49,7 @@ interface DroppableColumnProps {
   onAddClick?: () => void;
   onArchiveAll?: () => void;
   onQueueSettings?: () => void;
+  onQueueAll?: () => void;
 }
 
 // Empty state content for each column
@@ -96,7 +99,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, onQueueSettings }: DroppableColumnProps) {
+function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll }: DroppableColumnProps) {
   const { t } = useTranslation('tasks');
   const { setNodeRef } = useDroppable({
     id: status
@@ -146,15 +149,43 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {status === 'backlog' && onQueueAll && tasks.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
+                  onClick={onQueueAll}
+                >
+                  <ListPlus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipPrimitive.Portal>
+                <TooltipContent>
+                  <p>Queue all tasks - Move all tasks from Planning to Queue</p>
+                </TooltipContent>
+              </TooltipPrimitive.Portal>
+            </Tooltip>
+          )}
           {status === 'backlog' && onAddClick && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={onAddClick}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
+                  onClick={onAddClick}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipPrimitive.Portal>
+                <TooltipContent>
+                  <p>Create new task</p>
+                </TooltipContent>
+              </TooltipPrimitive.Portal>
+            </Tooltip>
           )}
           {status === 'queue' && onQueueSettings && (
             <Button
@@ -316,6 +347,31 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     }
   };
 
+  const handleQueueAll = async () => {
+    const backlogTasks = tasksByStatus.backlog;
+    if (backlogTasks.length === 0) return;
+
+    console.log(`[KanbanBoard] Queuing ${backlogTasks.length} tasks from backlog`);
+
+    // Update all backlog tasks to queue status
+    for (const task of backlogTasks) {
+      const success = await persistTaskStatus(task.id, 'queue');
+      if (!success) {
+        console.error(`[KanbanBoard] Failed to queue task ${task.id}`);
+      }
+    }
+
+    // Wait a bit for state to update, then trigger queue promotion
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // The queue promotion logic will automatically start tasks that:
+    // 1. Have no dependencies, OR
+    // 2. Have all dependencies met (completed and merged)
+    // 3. Are within parallel capacity
+    console.log('[KanbanBoard] Triggering queue promotion after bulk queue');
+    await promoteNextQueuedTask();
+  };
+
   const handleSaveQueueSettings = async (newMaxParallel: number) => {
     if (!projectId) {
       console.error('[KanbanBoard] No projectId found');
@@ -467,6 +523,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onQueueSettings={status === 'queue' ? () => setShowQueueSettings(true) : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+              onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
             />
           ))}
         </div>

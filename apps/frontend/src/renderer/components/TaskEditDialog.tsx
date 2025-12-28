@@ -25,7 +25,7 @@
  * ```
  */
 import { useState, useEffect, useCallback, useRef, type ClipboardEvent, type DragEvent } from 'react';
-import { Loader2, Image as ImageIcon, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Loader2, Image as ImageIcon, ChevronDown, ChevronUp, X, Link } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,7 @@ import {
   resolveFilename
 } from './ImageUpload';
 import { AgentProfileSelector } from './AgentProfileSelector';
+import { TaskDependencySelector } from './TaskDependencySelector';
 import { persistUpdateTask } from '../stores/task-store';
 import { cn } from '../lib/utils';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
@@ -106,6 +107,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [priority, setPriority] = useState<TaskPriority | ''>(task.metadata?.priority || '');
   const [complexity, setComplexity] = useState<TaskComplexity | ''>(task.metadata?.complexity || '');
   const [impact, setImpact] = useState<TaskImpact | ''>(task.metadata?.impact || '');
+
+  // Dependencies state
+  const [showDependencies, setShowDependencies] = useState(false);
+  const [selectedDependencies, setSelectedDependencies] = useState<string[]>(task.dependsOn || []);
+  const [dependencyError, setDependencyError] = useState<string | null>(null);
 
   // Agent profile / model configuration
   const [profileId, setProfileId] = useState<string>(() => {
@@ -402,7 +408,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
-      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []);
+      JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
+      JSON.stringify(selectedDependencies) !== JSON.stringify(task.dependsOn || []);
 
     if (!hasChanges) {
       // No changes, just close
@@ -437,7 +444,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
       description: trimmedDescription,
-      metadata: metadataUpdates
+      metadata: metadataUpdates,
+      dependsOn: selectedDependencies.length > 0 ? selectedDependencies : undefined
     });
 
     if (success) {
@@ -722,6 +730,47 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               </p>
             </div>
           </div>
+
+          {/* Dependencies Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowDependencies(!showDependencies)}
+            className={cn(
+              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+            )}
+            disabled={isSaving}
+          >
+            <span className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              Task Dependencies (optional)
+              {selectedDependencies.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  {selectedDependencies.length}
+                </span>
+              )}
+            </span>
+            {showDependencies ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+
+          {showDependencies && (
+            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+              <TaskDependencySelector
+                projectId={task.projectId}
+                selectedDependencies={selectedDependencies}
+                onDependenciesChange={setSelectedDependencies}
+                onError={setDependencyError}
+                disabled={isSaving}
+                currentTaskId={task.id}
+              />
+              {dependencyError && (
+                <div className="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-2.5 text-xs text-destructive">
+                  <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{dependencyError}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Error */}
           {error && (

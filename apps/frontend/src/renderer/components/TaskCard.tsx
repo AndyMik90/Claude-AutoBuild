@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, Link, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
+import { getDependencyStatus } from '../utils/dependency-validator';
+import { useTaskStore } from '../stores/task-store';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -43,8 +45,14 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const { t } = useTranslation('tasks');
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const tasks = useTaskStore(state => state.tasks);
 
   const isRunning = task.status === 'in_progress';
+
+  // Calculate dependency status
+  const dependencyStatus = task.dependsOn && task.dependsOn.length > 0
+    ? getDependencyStatus(task, tasks)
+    : null;
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
@@ -316,6 +324,31 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 {task.metadata.securitySeverity} severity
+              </Badge>
+            )}
+            {/* Dependency status */}
+            {dependencyStatus && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] px-1.5 py-0 flex items-center gap-1',
+                  dependencyStatus.deleted > 0
+                    ? 'bg-destructive/10 text-destructive border-destructive/30'
+                    : dependencyStatus.unmet > 0
+                    ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30'
+                    : 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30'
+                )}
+                title={task.blockedReason || `${dependencyStatus.met}/${dependencyStatus.total} dependencies met`}
+              >
+                <Link className="h-2.5 w-2.5" />
+                {dependencyStatus.deleted > 0 ? (
+                  <>
+                    <AlertCircle className="h-2.5 w-2.5" />
+                    {dependencyStatus.deleted} deleted
+                  </>
+                ) : (
+                  `${dependencyStatus.met}/${dependencyStatus.total}`
+                )}
               </Badge>
             )}
           </div>
