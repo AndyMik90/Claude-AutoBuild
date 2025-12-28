@@ -3,12 +3,13 @@
  * Tests workspace-scoped file operations with security validation
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync } from 'fs';
+import { mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync, mkdtempSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
+import os from 'os';
 
 // Test data directory
-const TEST_DIR = '/tmp/file-handlers-test';
+const TEST_DIR = mkdtempSync(path.join(os.tmpdir(), 'file-handlers-test-'));
 const TEST_WORKSPACE = path.join(TEST_DIR, 'workspace');
 
 // Mock electron before importing
