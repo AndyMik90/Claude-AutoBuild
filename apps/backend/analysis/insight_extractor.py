@@ -26,8 +26,6 @@ try:
     from phase_config import resolve_model_id
 
     SDK_AVAILABLE = True
-
-    SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
     ClaudeAgentOptions = None

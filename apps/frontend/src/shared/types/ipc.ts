@@ -270,6 +270,7 @@ export interface ElectronAPI {
   updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
   deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
   setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
+  // Note: AbortSignal is handled in preload via separate cancel IPC channels, not passed through IPC
   testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<TestConnectionResult>>;
   discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<DiscoverModelsResult>>;
 
