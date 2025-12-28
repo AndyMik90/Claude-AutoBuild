@@ -79,19 +79,36 @@ export class PythonEnvManager extends EventEmitter {
 
   /**
    * Check if required dependencies are installed.
-   * Verifies critical packages that must be present for the backend to work.
+   * Verifies all packages that must be present for the backend to work.
+   * This ensures users don't encounter broken functionality when using features.
    */
   private async checkDepsInstalled(): Promise<boolean> {
     const venvPython = this.getVenvPythonPath();
     if (!venvPython || !existsSync(venvPython)) return false;
 
     try {
-      // Check all critical dependencies - if any fail, we need to reinstall
+      // Check all dependencies - if any fail, we need to reinstall
       // This prevents issues where partial installs leave some packages missing
       // See: https://github.com/AndyMik90/Auto-Claude/issues/359
-      execSync(`"${venvPython}" -c "import claude_agent_sdk; import dotenv"`, {
+      //
+      // Dependencies checked:
+      // - claude_agent_sdk: Core agent SDK (required)
+      // - dotenv: Environment variable loading (required)
+      // - google.generativeai: Google AI/Gemini support (required for full functionality)
+      // - real_ladybug + graphiti_core: Graphiti memory system (Python 3.12+ only)
+      const checkScript = `
+import sys
+import claude_agent_sdk
+import dotenv
+import google.generativeai
+# Graphiti dependencies only available on Python 3.12+
+if sys.version_info >= (3, 12):
+    import real_ladybug
+    import graphiti_core
+`;
+      execSync(`"${venvPython}" -c "${checkScript.replace(/\n/g, '; ').replace(/; ; /g, '; ')}"`, {
         stdio: 'pipe',
-        timeout: 10000
+        timeout: 15000
       });
       return true;
     } catch {
