@@ -59,6 +59,24 @@ class TestInferRelationships:
         # 2 solutions × 2 problems = 4 relationships
         assert client.relate.call_count == 4
 
+        # Verify correct pairing by checking actual call arguments
+        # Extract all (from_id, to_id) pairs from calls
+        call_pairs = set()
+        for call in client.relate.call_args_list:
+            kwargs = call[1]
+            call_pairs.add((kwargs["from_id"], kwargs["to_id"]))
+            # All relationships should be SOLVES type
+            assert kwargs["relationship_type"] == "SOLVES"
+
+        # Verify all expected pairings exist
+        expected_pairs = {
+            ("sol_1", "prob_1"),
+            ("sol_1", "prob_2"),
+            ("sol_2", "prob_1"),
+            ("sol_2", "prob_2"),
+        }
+        assert call_pairs == expected_pairs
+
     @pytest.mark.asyncio
     async def test_no_relationships_when_no_problems(self):
         """No relationships created when no problems."""
