@@ -698,7 +698,6 @@ function isTaskReadyForAutoMerge(task: Task): boolean {
   if (task.subtasks && task.subtasks.length > 0) {
     const allCompleted = task.subtasks.every(s => s.status === 'completed');
     if (allCompleted) {
-      console.log(`[Auto-Merge] Task ${task.id} has all subtasks completed (possibly stuck), eligible for auto-merge`);
       return true;
     }
   }
@@ -706,65 +705,112 @@ function isTaskReadyForAutoMerge(task: Task): boolean {
   return false;
 }
 
+// Track tasks that have already been checked for auto-merge to avoid redundant checks
+const autoMergeCheckedTasks = new Set<string>();
+
+/**
+ * Check a specific task for auto-merge eligibility
+ * Only checks once per task to avoid redundant merge previews
+ */
+export async function checkTaskForAutoMerge(taskId: string): Promise<void> {
+  // Skip if already checked
+  if (autoMergeCheckedTasks.has(taskId)) {
+    return;
+  }
+
+  const taskStore = useTaskStore.getState();
+  const task = taskStore.tasks.find(t => t.id === taskId);
+
+  if (!task) {
+    return;
+  }
+
+  // Skip tasks that are already done or merged
+  if (task.status === 'done' || task.stagedInMainProject) {
+    return;
+  }
+
+  // Check if task is ready for auto-merge
+  if (!isTaskReadyForAutoMerge(task)) {
+    return;
+  }
+
+  // Mark as checked to avoid redundant checks
+  autoMergeCheckedTasks.add(taskId);
+
+  const tasks = taskStore.tasks.filter(t => t.projectId === task.projectId);
+  const hasDependents = hasOtherTasksDependingOn(task.id, tasks);
+
+  if (!hasDependents) {
+    console.log(`[Auto-Merge] Task ${task.id} has no dependent tasks, skipping auto-merge`);
+    return;
+  }
+
+  console.log(`[Auto-Merge] Task ${task.id} (${task.title}) has dependent tasks, checking for conflicts...`);
+
+  try {
+    // Check if there are merge conflicts first
+    const previewResult = await window.electronAPI.mergeWorktreePreview(task.id);
+
+    if (previewResult.success && previewResult.data?.preview?.summary) {
+      const summary = previewResult.data.preview.summary;
+
+      // Only auto-merge if there are no conflicts
+      if (summary.totalConflicts === 0 && !summary.hasGitConflicts) {
+        console.log(`[Auto-Merge] No conflicts detected, triggering auto-merge for ${task.id}`);
+
+        // Trigger the merge
+        const mergeResult = await window.electronAPI.mergeWorktree(task.id, {
+          noCommit: true // Stage changes without committing
+        });
+
+        if (mergeResult.success) {
+          console.log(`[Auto-Merge] ✅ Successfully auto-merged task ${task.id} (${task.title})`);
+          console.log(`[Auto-Merge] Dependent tasks can now proceed from queue`);
+
+          // Trigger queue promotion for dependent tasks
+          await promoteNextQueuedTask();
+        } else {
+          console.error(`[Auto-Merge] ❌ Failed to merge task ${task.id}:`, mergeResult.error);
+          // Remove from checked set so it can be retried
+          autoMergeCheckedTasks.delete(taskId);
+        }
+      } else {
+        console.warn(`[Auto-Merge] ⚠️  Task ${task.id} has conflicts, skipping auto-merge`);
+        console.warn(`  Total conflicts: ${summary.totalConflicts}, Git conflicts: ${summary.hasGitConflicts}`);
+      }
+    } else {
+      console.warn(`[Auto-Merge] Could not get merge preview for task ${task.id}`);
+      // Remove from checked set so it can be retried
+      autoMergeCheckedTasks.delete(taskId);
+    }
+  } catch (error) {
+    console.error(`[Auto-Merge] Error checking task ${task.id} for auto-merge:`, error);
+    // Remove from checked set so it can be retried
+    autoMergeCheckedTasks.delete(taskId);
+  }
+}
+
 /**
  * Check for tasks that have dependencies and trigger auto-merge
- * This is called when tasks are loaded or when a task status changes
+ * This scans all tasks in a project and checks new eligible tasks
  */
 export async function checkAndAutoMergeTasks(projectId: string): Promise<void> {
   const taskStore = useTaskStore.getState();
   const tasks = taskStore.tasks.filter(t => t.projectId === projectId);
 
-  console.log('[Auto-Merge] Checking for tasks that can be auto-merged');
+  console.log('[Auto-Merge] Scanning for new tasks eligible for auto-merge');
 
   for (const task of tasks) {
-    // Skip tasks that are already done or merged
-    if (task.status === 'done' || task.stagedInMainProject) {
+    // Skip tasks that are already done, merged, or have been checked
+    if (task.status === 'done' || task.stagedInMainProject || autoMergeCheckedTasks.has(task.id)) {
       continue;
     }
 
     // Check if task is ready for auto-merge
     if (isTaskReadyForAutoMerge(task)) {
-      const hasDependents = hasOtherTasksDependingOn(task.id, tasks);
-
-      if (hasDependents) {
-        console.log(`[Auto-Merge] Task ${task.id} (${task.title}) has dependent tasks, checking for conflicts...`);
-
-        try {
-          // Check if there are merge conflicts first
-          const previewResult = await window.electronAPI.mergeWorktreePreview(task.id);
-
-          if (previewResult.success && previewResult.data?.preview?.summary) {
-            const summary = previewResult.data.preview.summary;
-
-            // Only auto-merge if there are no conflicts
-            if (summary.totalConflicts === 0 && !summary.hasGitConflicts) {
-              console.log(`[Auto-Merge] No conflicts detected, triggering auto-merge for ${task.id}`);
-
-              // Trigger the merge
-              const mergeResult = await window.electronAPI.mergeWorktree(task.id, {
-                noCommit: true // Stage changes without committing
-              });
-
-              if (mergeResult.success) {
-                console.log(`[Auto-Merge] ✅ Successfully auto-merged task ${task.id} (${task.title})`);
-                console.log(`[Auto-Merge] Dependent tasks can now proceed from queue`);
-
-                // Trigger queue promotion for dependent tasks
-                await promoteNextQueuedTask();
-              } else {
-                console.error(`[Auto-Merge] ❌ Failed to merge task ${task.id}:`, mergeResult.error);
-              }
-            } else {
-              console.warn(`[Auto-Merge] ⚠️  Task ${task.id} has conflicts, skipping auto-merge`);
-              console.warn(`  Total conflicts: ${summary.totalConflicts}, Git conflicts: ${summary.hasGitConflicts}`);
-            }
-          } else {
-            console.warn(`[Auto-Merge] Could not get merge preview for task ${task.id}`);
-          }
-        } catch (error) {
-          console.error(`[Auto-Merge] Error checking task ${task.id} for auto-merge:`, error);
-        }
-      }
+      // Check this specific task (will be added to checked set)
+      await checkTaskForAutoMerge(task.id);
     }
   }
 }

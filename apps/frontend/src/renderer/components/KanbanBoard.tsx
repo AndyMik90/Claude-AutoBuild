@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -291,15 +291,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     return tasks.filter((t) => !t.metadata?.archivedAt);
   }, [tasks, showArchived]);
 
-  // Check for tasks that can be auto-merged when tasks change
+  // Check for tasks that can be auto-merged on initial load only
+  const hasCheckedAutoMerge = useRef(false);
   useEffect(() => {
-    if (projectId && tasks.length > 0) {
-      // Run auto-merge check in the background
+    if (projectId && tasks.length > 0 && !hasCheckedAutoMerge.current) {
+      hasCheckedAutoMerge.current = true;
+
+      // Run auto-merge check once on mount
+      console.log('[KanbanBoard] Running initial auto-merge check');
       checkAndAutoMergeTasks(projectId).catch(error => {
         console.error('[KanbanBoard] Auto-merge check failed:', error);
       });
     }
-  }, [tasks, projectId]);
+  }, [projectId, tasks.length]); // Only depend on projectId and task count, not full tasks array
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
