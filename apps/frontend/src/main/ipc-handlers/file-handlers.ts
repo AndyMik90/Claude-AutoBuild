@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants, existsSync, statSync } from 'fs';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, FileNode } from '../../shared/types';
@@ -81,6 +81,11 @@ export function registerFileHandlers(): void {
    */
   function validateWorkspacePath(workspaceRoot: string, relPath: string): { valid: boolean; absPath?: string; error?: string } {
     try {
+      // Check if workspace root exists before calling realpathSync
+      if (!existsSync(workspaceRoot)) {
+        return { valid: false, error: 'Workspace root does not exist' };
+      }
+
       // Resolve workspace root to canonical path
       const workspaceRootResolved = realpathSync(workspaceRoot);
 
@@ -156,8 +161,8 @@ export function registerFileHandlers(): void {
             if (!targetRealForCompare.startsWith(workspaceRootForCompare + path.sep) && targetRealForCompare !== workspaceRootForCompare) {
               return { success: false, error: 'Symlink target is outside workspace root' };
             }
-            // Re-stat the resolved target
-            stats = lstatSync(targetReal);
+            // Re-stat the resolved target (use statSync since targetReal is already resolved)
+            stats = statSync(targetReal);
           } catch {
             return { success: false, error: 'Cannot resolve symlink' };
           }

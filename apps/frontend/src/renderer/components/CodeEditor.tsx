@@ -132,23 +132,8 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     });
   }, [loadDirectory]);
 
-  // Open file
-  const openFile = useCallback(async (relPath: string) => {
-    if (!workspaceRoot) return;
-
-    // If dirty, show confirmation dialog
-    if (isDirty) {
-      setPendingFilePath(relPath);
-      setShowUnsavedDialog(true);
-      return;
-    }
-
-    // Proceed with opening the file
-    await performOpenFile(relPath);
-  }, [workspaceRoot, isDirty]);
-
   // Actually open the file (extracted to be reusable)
-  const performOpenFile = async (relPath: string) => {
+  const performOpenFile = useCallback(async (relPath: string) => {
     if (!workspaceRoot) return;
 
     setStatus('loading');
@@ -170,22 +155,37 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to read file');
       setStatus('error');
     }
-  };
+  }, [workspaceRoot]);
+
+  // Open file
+  const openFile = useCallback(async (relPath: string) => {
+    if (!workspaceRoot) return;
+
+    // If dirty, show confirmation dialog
+    if (isDirty) {
+      setPendingFilePath(relPath);
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    // Proceed with opening the file
+    await performOpenFile(relPath);
+  }, [workspaceRoot, isDirty, performOpenFile]);
 
   // Handle unsaved changes dialog confirmation
-  const handleDiscardChanges = async () => {
+  const handleDiscardChanges = useCallback(async () => {
     setShowUnsavedDialog(false);
     if (pendingFilePath) {
       await performOpenFile(pendingFilePath);
       setPendingFilePath(null);
     }
-  };
+  }, [pendingFilePath, performOpenFile]);
 
   // Handle unsaved changes dialog cancellation
-  const handleKeepEditing = () => {
+  const handleKeepEditing = useCallback(() => {
     setShowUnsavedDialog(false);
     setPendingFilePath(null);
-  };
+  }, []);
 
   // Save file
   const saveFile = useCallback(async () => {
@@ -237,7 +237,8 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   // Get Monaco language from file extension
   const getMonacoLanguage = (relPath: string): string => {
     // Handle files without extensions (Makefile, Dockerfile, etc.)
-    const fileName = relPath.split('/').pop() || '';
+    // Split by both forward and backward slashes to handle both Windows and Unix paths
+    const fileName = relPath.split(/[/\\]/).pop() || '';
     
     // Special cases for files without extensions
     const noExtensionFiles: Record<string, string> = {
@@ -282,7 +283,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   };
 
   // Render file tree node
-  const renderFileNode = (node: FileNode, depth: number = 0) => {
+  const renderFileNode = useCallback((node: FileNode, depth: number = 0) => {
     const isExpanded = folderState.expanded.has(node.relPath);
     const children = folderState.childrenByDir.get(node.relPath);
 
@@ -354,7 +355,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
         </div>
       );
     }
-  };
+  }, [folderState, selectedFilePath, toggleFolder, openFile]);
 
   const rootChildren = folderState.childrenByDir.get('');
 
