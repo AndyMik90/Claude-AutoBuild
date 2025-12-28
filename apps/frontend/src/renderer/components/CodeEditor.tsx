@@ -347,8 +347,8 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-full flex-col p-6">
-        <Card className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex h-full flex-col">
+        <Card className="flex-1 flex flex-col overflow-hidden rounded-none border-0">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
