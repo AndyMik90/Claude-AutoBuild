@@ -1,4 +1,6 @@
 """Tests for context formatting."""
+import re
+
 from integrations.memorygraph.formatting import format_context
 
 
@@ -92,8 +94,10 @@ class TestFormatContext:
 
         context = format_context(memories, [])
 
-        # Should only include 3 solutions
-        assert context.count("Solution") <= 3
+        # Count solution entries by matching the formatted pattern: - **Solution N**:
+        solution_pattern = re.compile(r"- \*\*Solution \d+\*\*:")
+        matches = solution_pattern.findall(context)
+        assert len(matches) == 3
 
     def test_limits_number_of_patterns(self):
         """Limits to top 2 patterns."""
