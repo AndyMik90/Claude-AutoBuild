@@ -88,6 +88,21 @@ export function registerAgenteventsHandlers(
 
           if (code === 0) {
             notificationService.notifyReviewNeeded(taskTitle, project.id, taskId);
+            
+            // Fallback: Ensure status is updated even if COMPLETE phase event was missed
+            // This prevents tasks from getting stuck in ai_review status
+            const isActiveStatus = task.status === 'in_progress' || task.status === 'ai_review';
+            const allSubtasksCompleted = task.subtasks && task.subtasks.length > 0 && 
+              task.subtasks.every((s) => s.status === 'completed');
+            
+            if (isActiveStatus && allSubtasksCompleted) {
+              console.log(`[Task ${taskId}] Fallback: Moving to human_review (all subtasks completed)`);
+              mainWindow.webContents.send(
+                IPC_CHANNELS.TASK_STATUS_CHANGE,
+                taskId,
+                'human_review' as TaskStatus
+              );
+            }
           } else {
             notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
             mainWindow.webContents.send(
