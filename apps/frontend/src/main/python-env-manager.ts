@@ -689,10 +689,12 @@ if sys.version_info >= (3, 12):
 // Singleton instance
 export const pythonEnvManager = new PythonEnvManager();
 
-// Register cleanup on app exit
-app.on('will-quit', () => {
-  pythonEnvManager.cleanup();
-});
+// Register cleanup on app exit (guard for test environments where app.on may not exist)
+if (typeof app?.on === 'function') {
+  app.on('will-quit', () => {
+    pythonEnvManager.cleanup();
+  });
+}
 
 /**
  * Get the configured venv Python path if ready, otherwise fall back to system Python.
