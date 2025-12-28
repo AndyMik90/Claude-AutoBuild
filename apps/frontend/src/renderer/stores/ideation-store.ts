@@ -650,9 +650,16 @@ export function setupIdeationListeners(): () => void {
       store().addLog(`✓ ${ideationType} completed with ${ideas.length} ideas`);
 
       // Update progress based on completed types
-      const typeStates = store().typeStates;
+      // Calculate with the expected state since React 18 batches state updates.
+      // The Zustand update from addIdeasForType() is batched and won't be visible
+      // until after this event handler completes, so we manually include the
+      // just-completed type in the calculation.
       const config = store().config;
-      const completedCount = Object.entries(typeStates).filter(
+      const typeStates = store().typeStates;
+
+      // Mark as completed in the calculation
+      const updatedStates = { ...typeStates, [ideationType]: 'completed' };
+      const completedCount = Object.entries(updatedStates).filter(
         ([type, state]) =>
           config.enabledTypes.includes(type as IdeationType) &&
           (state === 'completed' || state === 'failed')

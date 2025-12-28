@@ -120,6 +120,91 @@ export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: Gl
 }
 
 /**
+ * Embedding configuration validation result
+ */
+export interface EmbeddingValidationResult {
+  valid: boolean;
+  provider: string;
+  reason?: string;
+}
+
+/**
+ * Validate embedding configuration based on the configured provider
+ * Supports: openai, ollama, google, voyage, azure_openai
+ * 
+ * @returns validation result with provider info and reason if invalid
+ */
+export function validateEmbeddingConfiguration(
+  projectEnvVars: EnvironmentVars,
+  globalSettings: GlobalSettings
+): EmbeddingValidationResult {
+  // Get the configured embedding provider (default to openai for backwards compatibility)
+  const provider = (
+    projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] ||
+    process.env.GRAPHITI_EMBEDDER_PROVIDER ||
+    'openai'
+  ).toLowerCase();
+
+  switch (provider) {
+    case 'openai': {
+      if (hasOpenAIKey(projectEnvVars, globalSettings)) {
+        return { valid: true, provider: 'openai' };
+      }
+      return {
+        valid: false,
+        provider: 'openai',
+        reason: 'OPENAI_API_KEY not set (required for OpenAI embeddings)'
+      };
+    }
+
+    case 'ollama': {
+      // Ollama is local, no API key needed - works with default localhost
+      return { valid: true, provider: 'ollama' };
+    }
+
+    case 'google': {
+      const googleKey = projectEnvVars['GOOGLE_API_KEY'] || process.env.GOOGLE_API_KEY;
+      if (googleKey) {
+        return { valid: true, provider: 'google' };
+      }
+      return {
+        valid: false,
+        provider: 'google',
+        reason: 'GOOGLE_API_KEY not set (required for Google AI embeddings)'
+      };
+    }
+
+    case 'voyage': {
+      const voyageKey = projectEnvVars['VOYAGE_API_KEY'] || process.env.VOYAGE_API_KEY;
+      if (voyageKey) {
+        return { valid: true, provider: 'voyage' };
+      }
+      return {
+        valid: false,
+        provider: 'voyage',
+        reason: 'VOYAGE_API_KEY not set (required for Voyage AI embeddings)'
+      };
+    }
+
+    case 'azure_openai': {
+      const azureKey = projectEnvVars['AZURE_OPENAI_API_KEY'] || process.env.AZURE_OPENAI_API_KEY;
+      if (azureKey) {
+        return { valid: true, provider: 'azure_openai' };
+      }
+      return {
+        valid: false,
+        provider: 'azure_openai',
+        reason: 'AZURE_OPENAI_API_KEY not set (required for Azure OpenAI embeddings)'
+      };
+    }
+
+    default:
+      // Unknown provider - assume it might work
+      return { valid: true, provider };
+  }
+}
+
+/**
  * Get Graphiti database details (LadybugDB - embedded database)
  */
 export interface GraphitiDatabaseDetails {
