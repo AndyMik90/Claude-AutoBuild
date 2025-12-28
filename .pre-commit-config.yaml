@@ -25,12 +25,15 @@ repos:
               # Sync to apps/backend/__init__.py
               sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py && rm -f apps/backend/__init__.py.bak
 
-              # Sync to README.md - shields.io version badge (link requires escaped hyphens for version)
+              # Sync to README.md - shields.io version badge (text and URL)
               ESCAPED_VERSION=$(echo "$VERSION" | sed 's/-/--/g')
-              sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*\(-\{1,2\}[a-z]*\.[0-9]*\)*-blue/version-$ESCAPED_VERSION-blue/g" README.md
+              sed -i.bak -e "s/version-[0-9]*\.[0-9]*\.[0-9]*\(-\{1,2\}[a-z]*\.[0-9]*\)*-blue/version-$ESCAPED_VERSION-blue/g" -e "s|releases/tag/v[0-9.a-z-]*)|releases/tag/v$VERSION)|g" README.md
 
-              # Sync to README.md - download filenames (no escaping needed)
-              sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*\(-[a-z]*\.[0-9]*\)*/Auto-Claude-$VERSION/g" README.md && rm -f README.md.bak
+              # Sync to README.md - download links with correct filenames and URLs
+              for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb"; do
+                sed -i.bak "s|Auto-Claude-[0-9.a-z-]*-${SUFFIX}](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-${SUFFIX})|Auto-Claude-${VERSION}-${SUFFIX}](https://github.com/AndyMik90/Auto-Claude/releases/download/v${VERSION}/Auto-Claude-${VERSION}-${SUFFIX})|g" README.md
+              done
+              rm -f README.md.bak
 
               # Stage changes
               git add apps/frontend/package.json apps/backend/__init__.py README.md 2>/dev/null || true
