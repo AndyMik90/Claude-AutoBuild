@@ -7,8 +7,10 @@ redirect URI and supports extended scopes for full API access.
 """
 
 import secrets
+from typing import TypedDict
 from urllib.parse import urlencode
 
+from authlib.integrations.httpx_client import OAuth2Client
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 
 
@@ -79,3 +81,111 @@ def create_authorization_url() -> tuple[str, str, str]:
     authorization_url = f"{OAUTH_AUTHORIZATION_ENDPOINT}?{urlencode(params, safe=':')}"
 
     return authorization_url, state, code_verifier
+
+
+class OAuthTokenResponse(TypedDict, total=False):
+    """OAuth token response structure."""
+
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str
+    scope: str
+
+
+class OAuthTokenError(Exception):
+    """Exception raised for OAuth token exchange errors."""
+
+    def __init__(self, error: str, description: str | None = None) -> None:
+        """
+        Initialize OAuth token error.
+
+        Args:
+            error: OAuth error code (e.g., 'invalid_grant', 'invalid_request')
+            description: Human-readable error description
+        """
+        self.error = error
+        self.description = description or error
+        super().__init__(f"{error}: {self.description}")
+
+
+def exchange_code_for_token(
+    code: str,
+    code_verifier: str,
+    redirect_uri: str | None = None,
+) -> OAuthTokenResponse:
+    """
+    Exchange an authorization code for an access token using PKCE.
+
+    Performs the OAuth 2.0 token exchange by sending the authorization code
+    along with the PKCE code verifier to the token endpoint. This completes
+    the authorization code flow with PKCE.
+
+    Args:
+        code: The authorization code received from the OAuth callback
+        code_verifier: The PKCE code verifier that was used to generate
+                       the code challenge in the authorization request
+        redirect_uri: Optional redirect URI (defaults to OAUTH_REDIRECT_URI)
+
+    Returns:
+        OAuthTokenResponse containing the access token and related fields
+
+    Raises:
+        OAuthTokenError: If the token exchange fails (invalid code, expired, etc.)
+    """
+    # Use provided redirect_uri or fall back to default
+    actual_redirect_uri = redirect_uri or OAUTH_REDIRECT_URI
+
+    # Create OAuth 2.0 client (public client - no secret)
+    # token_endpoint_auth_method='none' indicates PKCE replaces client secret
+    client = OAuth2Client(
+        client_id=OAUTH_CLIENT_ID,
+        token_endpoint_auth_method="none",
+    )
+
+    try:
+        # Exchange authorization code for token
+        # code_verifier is sent as part of the token request body
+        token = client.fetch_token(
+            url=OAUTH_TOKEN_ENDPOINT,
+            grant_type="authorization_code",
+            code=code,
+            code_verifier=code_verifier,
+            redirect_uri=actual_redirect_uri,
+        )
+    except Exception as e:
+        # Handle OAuth errors from authlib
+        error_str = str(e)
+        # Extract error details if available
+        if hasattr(e, "error"):
+            raise OAuthTokenError(
+                error=getattr(e, "error", "token_exchange_failed"),
+                description=getattr(e, "description", error_str),
+            ) from e
+        raise OAuthTokenError(
+            error="token_exchange_failed",
+            description=error_str,
+        ) from e
+
+    # Validate token response
+    access_token = token.get("access_token")
+    if not access_token:
+        raise OAuthTokenError(
+            error="invalid_token_response",
+            description="Token response did not contain an access token",
+        )
+
+    # Validate token format (Claude OAuth tokens start with sk-ant-oat01-)
+    if not access_token.startswith("sk-ant-oat01-"):
+        raise OAuthTokenError(
+            error="invalid_token_format",
+            description="Access token does not have expected Claude OAuth format",
+        )
+
+    return OAuthTokenResponse(
+        access_token=access_token,
+        token_type=token.get("token_type", "bearer"),
+        expires_in=token.get("expires_in", 0),
+        refresh_token=token.get("refresh_token", ""),
+        scope=token.get("scope", ""),
+    )
