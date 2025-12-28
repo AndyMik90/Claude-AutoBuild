@@ -266,6 +266,19 @@ export function registerFileHandlers(): void {
             return { success: false, error: 'File does not exist' };
           }
           if (error.code === 'ELOOP' || error.code === 'EMLINK') {
+            // Provide more informative error by checking where symlink points
+            // (safe to do since we're NOT using it, just for error message)
+            try {
+              const targetReal = realpathSync(absPath);
+              const targetRealForCompare = isCaseInsensitiveFs
+                ? targetReal.toLowerCase()
+                : targetReal;
+              if (!targetRealForCompare.startsWith(workspaceRootForCompare + path.sep) && targetRealForCompare !== workspaceRootForCompare) {
+                return { success: false, error: 'Symlink target is outside workspace root' };
+              }
+            } catch {
+              // If we can't resolve it, just say symlinks not allowed
+            }
             return { success: false, error: 'Symlinks are not allowed' };
           }
           throw err;
@@ -363,7 +376,22 @@ export function registerFileHandlers(): void {
               }
               throw createErr;
             }
+          } else if (error.code === 'EISDIR') {
+            return { success: false, error: 'Not a file' };
           } else if (error.code === 'ELOOP' || error.code === 'EMLINK') {
+            // Provide more informative error by checking where symlink points
+            // (safe to do since we're NOT using it, just for error message)
+            try {
+              const targetReal = realpathSync(absPath);
+              const targetRealForCompare = isCaseInsensitiveFs
+                ? targetReal.toLowerCase()
+                : targetReal;
+              if (!targetRealForCompare.startsWith(workspaceRootForCompare + path.sep) && targetRealForCompare !== workspaceRootForCompare) {
+                return { success: false, error: 'Symlink target is outside workspace root' };
+              }
+            } catch {
+              // If we can't resolve it, just say symlinks not allowed
+            }
             return { success: false, error: 'Cannot write to symlinks' };
           } else {
             throw err;
