@@ -241,6 +241,7 @@ export interface ElectronAPI {
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
     gh: import('./cli').ToolDetectionResult;
+    claude: import('./cli').ToolDetectionResult;
   }>>;
 
   // Dialog operations
