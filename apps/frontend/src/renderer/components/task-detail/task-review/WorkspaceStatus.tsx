@@ -4,24 +4,20 @@ import {
   Plus,
   Minus,
   Eye,
-  ExternalLink,
   GitMerge,
   FolderX,
   Loader2,
   RotateCcw,
   AlertTriangle,
   CheckCircle,
-  GitCommit,
-  Terminal
+  GitCommit
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
-import type { Task, WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
-import { useTerminalHandler } from '../hooks/useTerminalHandler';
+import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
 
 interface WorkspaceStatusProps {
-  task: Task;
   worktreeStatus: WorktreeStatus;
   workspaceError: string | null;
   stageOnly: boolean;
@@ -41,7 +37,6 @@ interface WorkspaceStatusProps {
  * Displays the workspace status including change summary, merge preview, and action buttons
  */
 export function WorkspaceStatus({
-  task,
   worktreeStatus,
   workspaceError,
   stageOnly,
@@ -56,7 +51,6 @@ export function WorkspaceStatus({
   onStageOnlyChange,
   onMerge
 }: WorkspaceStatusProps) {
-  const { openTerminal, error: terminalError, isOpening } = useTerminalHandler();
   const hasGitConflicts = mergePreview?.gitConflicts?.hasConflicts;
   const hasUncommittedChanges = mergePreview?.uncommittedChanges?.hasChanges;
   const uncommittedCount = mergePreview?.uncommittedChanges?.count || 0;
@@ -87,29 +81,15 @@ export function WorkspaceStatus({
             <GitBranch className="h-4 w-4 text-purple-400" />
             Build Ready for Review
           </h3>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onShowDiffDialog(true)}
-              className="h-7 px-2 text-xs"
-            >
-              <Eye className="h-3.5 w-3.5 mr-1" />
-              View
-            </Button>
-            {worktreeStatus.worktreePath && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openTerminal(`open-${task.id}`, worktreeStatus.worktreePath!)}
-                className="h-7 px-2"
-                title="Open in terminal"
-                disabled={isOpening}
-              >
-                <Terminal className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onShowDiffDialog(true)}
+            className="h-7 px-2 text-xs"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            View
+          </Button>
         </div>
 
         {/* Compact stats row */}
@@ -147,13 +127,6 @@ export function WorkspaceStatus({
             📁 {worktreeStatus.worktreePath}
           </div>
         )}
-
-        {/* Terminal error display */}
-        {terminalError && (
-          <div className="mt-2 text-sm text-red-600">
-            {terminalError}
-          </div>
-        )}
       </div>
 
       {/* Status/Warnings Section */}
@@ -175,23 +148,8 @@ export function WorkspaceStatus({
                 {uncommittedCount} uncommitted {uncommittedCount === 1 ? 'change' : 'changes'} in main project
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Commit or stash them before staging to avoid conflicts.
+                Commit or stash them in your terminal before staging to avoid conflicts.
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const mainProjectPath = worktreeStatus.worktreePath?.replace('.worktrees/' + task.specId, '') || '';
-                  if (mainProjectPath) {
-                    openTerminal(`stash-${task.id}`, mainProjectPath);
-                  }
-                }}
-                className="text-xs h-6 mt-2"
-                disabled={isOpening}
-              >
-                <Terminal className="h-3 w-3 mr-1" />
-                {isOpening ? 'Opening...' : 'Open Terminal'}
-              </Button>
             </div>
           </div>
         )}
