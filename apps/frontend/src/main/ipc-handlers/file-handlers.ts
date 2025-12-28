@@ -166,7 +166,6 @@ export function registerFileHandlers(): void {
 
         // Read directory
         const entries = readdirSync(absPath, { withFileTypes: true });
-        const workspaceRootResolved = realpathSync(workspaceRoot);
 
         const nodes: CodeEditorFileNode[] = [];
 
