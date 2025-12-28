@@ -318,15 +318,15 @@ export class AgentProcessManager {
     });
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
-    
+
     const processLog = (line: string) => {
       allOutput = (allOutput + line).slice(-10000);
-      
+
       const hasMarker = line.includes('__EXEC_PHASE__');
       if (isDebug && hasMarker) {
         console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
       }
-      
+
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
 
       if (isDebug && hasMarker) {
@@ -335,11 +335,11 @@ export class AgentProcessManager {
 
       if (phaseUpdate) {
         const phaseChanged = phaseUpdate.phase !== currentPhase;
-        
+
         if (isDebug) {
           console.log(`[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`);
         }
-        
+
         currentPhase = phaseUpdate.phase;
 
         if (phaseUpdate.currentSubtask) {
@@ -377,15 +377,15 @@ export class AgentProcessManager {
         console.log(`[PhaseDebug:${taskId}] Raw chunk with marker (${newData.length} bytes): "${newData.substring(0, 300)}"`);
         console.log(`[PhaseDebug:${taskId}] Current buffer before append (${buffer.length} bytes): "${buffer.substring(0, 100)}"`);
       }
-      
+
       buffer += newData;
       const lines = buffer.split('\n');
       const remaining = lines.pop() || '';
-      
+
       if (isDebug && newData.includes('__EXEC_PHASE__')) {
         console.log(`[PhaseDebug:${taskId}] Split into ${lines.length} complete lines, remaining buffer: "${remaining.substring(0, 100)}"`);
       }
-      
+
       for (const line of lines) {
         if (line.trim()) {
           this.emitter.emit('log', taskId, line + '\n');
@@ -395,7 +395,7 @@ export class AgentProcessManager {
           }
         }
       }
-      
+
       return remaining;
     };
 
@@ -416,7 +416,7 @@ export class AgentProcessManager {
         this.emitter.emit('log', taskId, stderrBuffer + '\n');
         processLog(stderrBuffer);
       }
-      
+
       this.state.deleteProcess(taskId);
 
       if (this.state.wasSpawnKilled(spawnId)) {
