@@ -62,7 +62,7 @@ export const createSettingsAPI = (): SettingsAPI => ({
     authToken: string;
     model?: string;
   }): Promise<IPCResult> =>
-    ipcRenderer.invoke('SAVE_CUSTOM_API_SETTINGS', settings),
+    ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_CUSTOM_API, settings),
 
   // Auto-Build Source Environment
   getSourceEnv: (): Promise<IPCResult<SourceEnvConfig>> =>

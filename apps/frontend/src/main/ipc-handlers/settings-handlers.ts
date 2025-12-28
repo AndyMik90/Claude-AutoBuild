@@ -1,5 +1,5 @@
 import { ipcMain, dialog, app, shell } from 'electron';
-import { existsSync, writeFileSync, mkdirSync, statSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
@@ -443,7 +443,7 @@ export function registerSettingsHandlers(
   // ============================================
 
   ipcMain.handle(
-    'SAVE_CUSTOM_API_SETTINGS',
+    IPC_CHANNELS.SETTINGS_SAVE_CUSTOM_API,
     async (
       _,
       settings: { baseUrl: string; authToken: string; model?: string }
@@ -483,7 +483,6 @@ export function registerSettingsHandlers(
 
         const envPath = path.join(autoBuildPath, '.env');
         console.log('[SAVE_CUSTOM_API_SETTINGS] Writing to:', envPath);
-        const { readFileSync } = await import('fs');
 
         // Read existing .env file or create new content
         let envContent = '';
@@ -493,13 +492,25 @@ export function registerSettingsHandlers(
           console.log('[SAVE_CUSTOM_API_SETTINGS] .env file does not exist, creating new one');
         }
 
-        // Update or add settings
+        // Helper function to escape special regex characters
+        const escapeRegex = (str: string): string => {
+          return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        };
+
+        // Helper function to escape $ in replacement string
+        const escapeReplacement = (str: string): string => {
+          return str.replace(/\$/g, '$$$$');
+        };
+
+        // Update or add settings with proper escaping
         const updateEnvVar = (content: string, key: string, value: string): string => {
-          const regex = new RegExp(`^${key}=.*$`, 'm');
+          const escapedKey = escapeRegex(key);
+          const escapedValue = escapeReplacement(value);
+          const regex = new RegExp(`^${escapedKey}=.*$`, 'm');
           if (regex.test(content)) {
-            return content.replace(regex, `${key}=${value}`);
+            return content.replace(regex, `${key}=${escapedValue}`);
           } else {
-            return content + `\n${key}=${value}`;
+            return content + `\n${key}=${escapedValue}`;
           }
         };
 

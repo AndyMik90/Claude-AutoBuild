@@ -32,7 +32,20 @@
     "title": "Claude Authentication",
     "description": "Connect your Claude account to enable AI features",
     "keychainTitle": "Secure Storage",
-    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again."
+    "keychainDescription": "Your tokens are encrypted using your system's keychain. You may see a password prompt from macOS — click \"Always Allow\" to avoid seeing it again.",
+    "customApi": {
+      "title": "Custom API Settings (Proxy/OpenRouter)",
+      "description": "Configure custom API endpoint for proxy services (litellm, OpenRouter) or self-hosted instances.",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "http://localhost:8000",
+      "authToken": "Auth Token / API Key",
+      "authTokenPlaceholder": "your-api-key-here",
+      "model": "Custom Model Name (optional)",
+      "modelPlaceholder": "gemini-claude-sonnet-4-5",
+      "modelDescription": "Override the default model ID for all agent operations",
+      "cancel": "Cancel",
+      "save": "Save Settings"
+    }
   },
   "memory": {
     "title": "Memory",

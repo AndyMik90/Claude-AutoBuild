@@ -641,7 +641,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                 >
                   <div className="flex items-center gap-2">
                     <Key className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Custom API Settings (Proxy/OpenRouter)</span>
+                    <span className="text-sm font-medium">{t('onboarding:oauth.customApi.title')}</span>
                   </div>
                   {showCustomApi ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -653,13 +653,13 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                 {showCustomApi && (
                   <div className="bg-muted/30 rounded-lg p-4 mt-2 space-y-3">
                     <p className="text-xs text-muted-foreground mb-3">
-                      Configure custom API endpoint for proxy services (litellm, OpenRouter) or self-hosted instances.
+                      {t('onboarding:oauth.customApi.description')}
                     </p>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium">Base URL</Label>
+                      <Label className="text-xs font-medium">{t('onboarding:oauth.customApi.baseUrl')}</Label>
                       <Input
-                        placeholder="http://14.225.27.135:8317"
+                        placeholder={t('onboarding:oauth.customApi.baseUrlPlaceholder')}
                         value={customBaseUrl}
                         onChange={(e) => setCustomBaseUrl(e.target.value)}
                         className="font-mono text-xs h-9"
@@ -667,11 +667,11 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium">Auth Token / API Key</Label>
+                      <Label className="text-xs font-medium">{t('onboarding:oauth.customApi.authToken')}</Label>
                       <div className="relative">
                         <Input
                           type={showCustomAuthToken ? 'text' : 'password'}
-                          placeholder="your-api-key-here"
+                          placeholder={t('onboarding:oauth.customApi.authTokenPlaceholder')}
                           value={customAuthToken}
                           onChange={(e) => setCustomAuthToken(e.target.value)}
                           className="pr-10 font-mono text-xs h-9"
@@ -688,16 +688,16 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">
-                        Custom Model Name (optional)
+                        {t('onboarding:oauth.customApi.model')}
                       </Label>
                       <Input
-                        placeholder="gemini-claude-sonnet-4-5"
+                        placeholder={t('onboarding:oauth.customApi.modelPlaceholder')}
                         value={customModel}
                         onChange={(e) => setCustomModel(e.target.value)}
                         className="font-mono text-xs h-9"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Override the default model ID for all agent operations
+                        {t('onboarding:oauth.customApi.modelDescription')}
                       </p>
                     </div>
 
@@ -714,7 +714,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                         }}
                         className="h-8 text-xs"
                       >
-                        Cancel
+                        {t('onboarding:oauth.customApi.cancel')}
                       </Button>
                       <Button
                         size="sm"
@@ -727,7 +727,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                         ) : (
                           <Check className="h-3 w-3" />
                         )}
-                        Save Settings
+                        {t('onboarding:oauth.customApi.save')}
                       </Button>
                     </div>
                   </div>

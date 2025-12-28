@@ -32,7 +32,20 @@
     "title": "Authentification Claude",
     "description": "Connectez votre compte Claude pour activer les fonctionnalités IA",
     "keychainTitle": "Stockage sécurisé",
-    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir."
+    "keychainDescription": "Vos jetons sont chiffrés à l'aide du trousseau de clés de votre système. Une demande de mot de passe macOS peut apparaître — cliquez sur « Toujours autoriser » pour ne plus la revoir.",
+    "customApi": {
+      "title": "Paramètres API personnalisés (Proxy/OpenRouter)",
+      "description": "Configurez un point de terminaison API personnalisé pour les services proxy (litellm, OpenRouter) ou les instances auto-hébergées.",
+      "baseUrl": "URL de base",
+      "baseUrlPlaceholder": "http://localhost:8000",
+      "authToken": "Jeton d'authentification / Clé API",
+      "authTokenPlaceholder": "votre-clé-api-ici",
+      "model": "Nom de modèle personnalisé (optionnel)",
+      "modelPlaceholder": "gemini-claude-sonnet-4-5",
+      "modelDescription": "Remplacer l'ID de modèle par défaut pour toutes les opérations d'agent",
+      "cancel": "Annuler",
+      "save": "Enregistrer les paramètres"
+    }
   },
   "memory": {
     "title": "Mémoire",
