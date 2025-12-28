@@ -20,16 +20,37 @@ import { execFileSync } from 'child_process';
  * Runs `npm config get prefix` to find where npm globals are installed.
  * Works with standard npm, nvm-windows, nvm, and custom installations.
  *
- * @returns npm global prefix directory, or null if npm not available
+ * On Windows: returns the prefix directory (e.g., C:\Users\user\AppData\Roaming\npm)
+ * On macOS/Linux: returns prefix/bin (e.g., /usr/local/bin)
+ *
+ * @returns npm global binaries directory, or null if npm not available or path doesn't exist
  */
 function getNpmGlobalPrefix(): string | null {
   try {
-    const prefix = execFileSync('npm', ['config', 'get', 'prefix'], {
+    // On Windows, use npm.cmd for proper command resolution
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+    const rawPrefix = execFileSync(npmCommand, ['config', 'get', 'prefix'], {
       encoding: 'utf-8',
       timeout: 3000,
       windowsHide: true,
+      shell: process.platform === 'win32', // Enable shell on Windows for .cmd resolution
     }).trim();
-    return prefix || null;
+
+    if (!rawPrefix) {
+      return null;
+    }
+
+    // On non-Windows platforms, npm globals are installed in prefix/bin
+    // On Windows, they're installed directly in the prefix directory
+    const binPath = process.platform === 'win32'
+      ? rawPrefix
+      : path.join(rawPrefix, 'bin');
+
+    // Normalize and verify the path exists
+    const normalizedPath = path.normalize(binPath);
+
+    return fs.existsSync(normalizedPath) ? normalizedPath : null;
   } catch {
     return null;
   }
