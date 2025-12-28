@@ -95,10 +95,12 @@ class TestInferRelationships:
         solutions = [{"id": "sol_1", "content": "Solution 1"}]
 
         client = AsyncMock()
-        # First call succeeds, second fails
-        client.relate = AsyncMock(side_effect=[True, False])
+        # First call succeeds, second raises exception
+        client.relate = AsyncMock(
+            side_effect=[True, Exception("Relationship creation failed")]
+        )
 
-        # Should not raise exception
+        # Should not raise exception - continues despite error
         await infer_relationships(problems, solutions, client)
 
         assert client.relate.call_count == 2

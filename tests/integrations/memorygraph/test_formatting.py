@@ -148,7 +148,7 @@ class TestFormatContext:
 
         # Should return empty since no useful sections
         # (problems without gotcha aren't shown)
-        assert context == "" or "Prior Knowledge" in context
+        assert context == ""
 
     def test_combines_all_sections(self):
         """Combines solutions, patterns, and gotchas in one context."""

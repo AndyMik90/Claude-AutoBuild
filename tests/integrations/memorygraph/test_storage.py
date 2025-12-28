@@ -129,14 +129,7 @@ class TestSaveToMemoryGraph:
 
             # Check that store was called with project name in tags
             call_args = mock_client.store.call_args
-            if call_args:
-                tags = call_args[1].get("tags", [])
-                # Should include project name or path info
-                assert (
-                    any(
-                        "project" in str(tag).lower()
-                        or "my-project" in str(tag).lower()
-                        for tag in tags
-                    )
-                    or len(tags) > 0
-                )
+            assert call_args is not None, "store was not called"
+            tags = call_args[1].get("tags", [])
+            # Should include project tag in format "project:<project_name>"
+            assert "project:my-project" in tags
