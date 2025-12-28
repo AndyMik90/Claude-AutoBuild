@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -30,7 +30,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks, promoteNextQueuedTask } from '../stores/task-store';
+import { persistTaskStatus, archiveTasks, promoteNextQueuedTask, checkAndAutoMergeTasks } from '../stores/task-store';
 import { updateProjectSettings } from '../stores/project-store';
 import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskStatus } from '../../shared/types';
@@ -290,6 +290,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     }
     return tasks.filter((t) => !t.metadata?.archivedAt);
   }, [tasks, showArchived]);
+
+  // Check for tasks that can be auto-merged when tasks change
+  useEffect(() => {
+    if (projectId && tasks.length > 0) {
+      // Run auto-merge check in the background
+      checkAndAutoMergeTasks(projectId).catch(error => {
+        console.error('[KanbanBoard] Auto-merge check failed:', error);
+      });
+    }
+  }, [tasks, projectId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

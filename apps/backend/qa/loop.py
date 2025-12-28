@@ -6,7 +6,10 @@ Main QA loop that coordinates reviewer and fixer sessions until
 approval or max iterations.
 """
 
+import json
+import subprocess
 import time as time_module
+from datetime import datetime
 from pathlib import Path
 
 from core.client import create_client
@@ -47,6 +50,95 @@ from .reviewer import run_qa_agent_session
 # Configuration
 MAX_QA_ITERATIONS = 50
 MAX_CONSECUTIVE_ERRORS = 3  # Stop after 3 consecutive errors without progress
+
+
+# =============================================================================
+# AUTO-MERGE FOR TASKS WITH DEPENDENCIES
+# =============================================================================
+
+
+def has_dependent_tasks(project_dir: Path, current_spec_id: str) -> bool:
+    """
+    Check if any other tasks depend on this task.
+
+    Args:
+        project_dir: Root project directory
+        current_spec_id: The spec ID to check for dependents
+
+    Returns:
+        True if any task has this task in their dependsOn array
+    """
+    specs_dir = project_dir / ".auto-claude" / "specs"
+
+    if not specs_dir.exists():
+        return False
+
+    # Scan all spec directories
+    for spec_path in specs_dir.iterdir():
+        if not spec_path.is_dir():
+            continue
+        if spec_path.name == current_spec_id:
+            continue  # Skip self
+
+        plan_file = spec_path / "implementation_plan.json"
+        if not plan_file.exists():
+            continue
+
+        try:
+            with open(plan_file) as f:
+                plan = json.load(f)
+                depends_on = plan.get("dependsOn", [])
+                if current_spec_id in depends_on:
+                    debug(
+                        "auto_merge",
+                        f"Found dependent task: {spec_path.name} depends on {current_spec_id}"
+                    )
+                    return True
+        except Exception as e:
+            debug_error("auto_merge", f"Error reading {plan_file}: {e}")
+            continue
+
+    return False
+
+
+async def mark_for_auto_merge(spec_dir: Path, spec_id: str) -> bool:
+    """
+    Mark a task for automatic merging by setting a flag in implementation_plan.json.
+    The frontend will detect this flag and automatically trigger the merge.
+
+    Args:
+        spec_dir: Spec directory for this task
+        spec_id: The spec ID
+
+    Returns:
+        True if flag was set successfully, False otherwise
+    """
+    try:
+        plan_file = spec_dir / "implementation_plan.json"
+
+        if not plan_file.exists():
+            debug_warning("auto_merge", f"implementation_plan.json not found for {spec_id}")
+            return False
+
+        # Read current plan
+        with open(plan_file) as f:
+            plan = json.load(f)
+
+        # Set auto-merge flag
+        plan["autoMergeRequested"] = True
+        plan["autoMergeReason"] = "Has dependent tasks waiting"
+        plan["updated_at"] = datetime.now().isoformat()
+
+        # Write back to file
+        with open(plan_file, "w") as f:
+            json.dump(plan, f, indent=2)
+
+        debug_success("auto_merge", f"Marked {spec_id} for auto-merge")
+        return True
+
+    except Exception as e:
+        debug_error("auto_merge", f"Error marking task for auto-merge: {e}")
+        return False
 
 
 # =============================================================================
@@ -285,6 +377,30 @@ async def run_qa_validation_loop(
             if linear_task and linear_task.task_id:
                 await linear_qa_approved(spec_dir)
                 print("\nLinear: Task marked as QA approved, awaiting human review")
+
+            # Check if other tasks depend on this task (mark for auto-merge if yes)
+            spec_id = spec_dir.name
+            if has_dependent_tasks(project_dir, spec_id):
+                print(f"\n🔍 Dependency check: Other tasks depend on {spec_id}")
+                print("    Marking task for automatic merge...")
+
+                marked = await mark_for_auto_merge(spec_dir, spec_id)
+
+                if marked:
+                    # Task marked for auto-merge - frontend will detect and merge
+                    print("\n" + "=" * 70)
+                    print("  🤖 TASK MARKED FOR AUTO-MERGE")
+                    print("=" * 70)
+                    print("\nThis task has dependent tasks waiting.")
+                    print("It will be automatically merged when you return to the UI.")
+                    print("\nDependent tasks will be unblocked and can auto-start from queue.")
+                else:
+                    # Failed to mark - manual merge required
+                    print("\n⚠️  Could not mark for auto-merge - manual merge required")
+                    print("    Please merge manually to unblock dependent tasks")
+            else:
+                # No dependent tasks - normal workflow (manual review and merge)
+                debug("auto_merge", f"No dependent tasks found for {spec_id}")
 
             return True
 

@@ -672,3 +672,68 @@ export function getTaskProgress(task: Task): { completed: number; total: number;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { completed, total, percentage };
 }
+
+/**
+ * Check if any other tasks depend on the given task
+ */
+function hasOtherTasksDependingOn(taskId: string, allTasks: Task[]): boolean {
+  return allTasks.some(t =>
+    t.id !== taskId && t.dependsOn && t.dependsOn.includes(taskId)
+  );
+}
+
+/**
+ * Check for tasks in human_review that have dependencies and trigger auto-merge
+ * This is called when tasks are loaded or when a task moves to human_review status
+ */
+export async function checkAndAutoMergeTasks(projectId: string): Promise<void> {
+  const taskStore = useTaskStore.getState();
+  const tasks = taskStore.tasks.filter(t => t.projectId === projectId);
+
+  console.log('[Auto-Merge] Checking for tasks that can be auto-merged');
+
+  for (const task of tasks) {
+    // Check if task is in human_review and has other tasks depending on it
+    if (task.status === 'human_review' && task.reviewReason === 'completed') {
+      const hasDependents = hasOtherTasksDependingOn(task.id, tasks);
+
+      if (hasDependents) {
+        console.log(`[Auto-Merge] Task ${task.id} has dependent tasks, checking for conflicts...`);
+
+        try {
+          // Check if there are merge conflicts first
+          const previewResult = await window.electronAPI.mergeWorktreePreview(task.id);
+
+          if (previewResult.success && previewResult.data) {
+            const summary = previewResult.data.summary;
+
+            // Only auto-merge if there are no conflicts
+            if (summary.totalConflicts === 0 && !summary.hasGitConflicts) {
+              console.log(`[Auto-Merge] No conflicts detected, triggering auto-merge for ${task.id}`);
+
+              // Trigger the merge
+              const mergeResult = await window.electronAPI.mergeWorktree(task.id, {
+                noCommit: true // Stage changes without committing
+              });
+
+              if (mergeResult.success) {
+                console.log(`[Auto-Merge] Successfully auto-merged task ${task.id}`);
+                console.log(`[Auto-Merge] Dependent tasks can now proceed from queue`);
+
+                // Trigger queue promotion for dependent tasks
+                await promoteNextQueuedTask();
+              } else {
+                console.error(`[Auto-Merge] Failed to merge task ${task.id}:`, mergeResult.error);
+              }
+            } else {
+              console.warn(`[Auto-Merge] Task ${task.id} has conflicts, skipping auto-merge`);
+              console.warn(`  Total conflicts: ${summary.totalConflicts}, Git conflicts: ${summary.hasGitConflicts}`);
+            }
+          }
+        } catch (error) {
+          console.error(`[Auto-Merge] Error checking task ${task.id} for auto-merge:`, error);
+        }
+      }
+    }
+  }
+}
