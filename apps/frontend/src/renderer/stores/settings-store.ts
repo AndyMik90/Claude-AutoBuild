@@ -191,6 +191,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         set({ testConnectionResult: result.data, isTestingConnection: false });
 
         // Show toast on success
+        // TODO: Use i18n translation keys (settings:connection.successTitle, settings:connection.successDescription)
+        // Note: Zustand stores can't use useTranslation() hook - need to pass t() or use i18n.t()
         if (result.data.success) {
           toast({
             title: 'Connection successful',

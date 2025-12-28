@@ -319,7 +319,7 @@ describe('ModelSearchableSelect', () => {
       { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5' }
     ]);
 
-    const { container } = render(
+    render(
       <div>
         <ModelSearchableSelect
           value=""
