@@ -168,3 +168,69 @@ class TestFormatContext:
         assert "What's worked before" in context
         assert "Patterns to follow" in context
         assert "Watch out for" in context
+
+    def test_includes_solutions_parameter(self):
+        """Related solutions from solutions parameter are included."""
+        memories = []  # No solutions in memories
+        solutions = [
+            {
+                "id": "sol_1",
+                "type": "solution",
+                "title": "Related Solution",
+                "content": "This solved a related problem",
+            }
+        ]
+
+        context = format_context(memories, solutions)
+
+        assert "What's worked before" in context
+        assert "Related Solution" in context
+
+    def test_deduplicates_solutions_by_id(self):
+        """Solutions with same ID are not duplicated."""
+        memories = [
+            {
+                "id": "sol_1",
+                "type": "solution",
+                "title": "Solution From Recall",
+                "content": "Content A",
+            }
+        ]
+        solutions = [
+            {
+                "id": "sol_1",  # Same ID as in memories
+                "type": "solution",
+                "title": "Solution From Related",
+                "content": "Content B",
+            }
+        ]
+
+        context = format_context(memories, solutions)
+
+        # Should only appear once (from memories, which is processed first)
+        assert context.count("Solution From Recall") == 1
+        assert "Solution From Related" not in context
+
+    def test_combines_solutions_from_both_sources(self):
+        """Combines unique solutions from memories and solutions parameter."""
+        memories = [
+            {
+                "id": "sol_1",
+                "type": "solution",
+                "title": "Direct Solution",
+                "content": "From recall",
+            }
+        ]
+        solutions = [
+            {
+                "id": "sol_2",  # Different ID
+                "type": "solution",
+                "title": "Related Solution",
+                "content": "From get_related",
+            }
+        ]
+
+        context = format_context(memories, solutions)
+
+        assert "Direct Solution" in context
+        assert "Related Solution" in context
