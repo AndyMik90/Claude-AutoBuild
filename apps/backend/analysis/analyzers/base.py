@@ -83,6 +83,11 @@ SERVICE_ROOT_FILES = {
     "build.gradle",
     "Makefile",
     "Dockerfile",
+    "Package.swift",  # Swift Package Manager
+    "*.xcodeproj",  # Xcode projects (Swift/Objective-C)
+    "*.xcworkspace",  # Xcode workspaces
+    "*.sln",  # Visual Studio solution (.NET)
+    "*.csproj",  # C# project
 }
 
 
