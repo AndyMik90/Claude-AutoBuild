@@ -61,6 +61,7 @@ import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
+import { AddProjectModal } from './components/AddProjectModal';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -96,6 +97,7 @@ export function App() {
   const [initSuccess, setInitSuccess] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
   // GitHub setup state (shown after Auto Claude init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
@@ -391,26 +393,17 @@ export function App() {
     setSelectedTask(null);
   };
 
-  const handleAddProject = async () => {
-    try {
-      const path = await window.electronAPI.selectDirectory();
-      if (path) {
-        const project = await addProject(path);
-        if (project) {
-          // Open a tab for the new project
-          openProjectTab(project.id);
+  const handleAddProject = () => {
+    setShowAddProjectModal(true);
+  };
 
-          if (!project.autoBuildPath) {
-            // Project doesn't have Auto Claude initialized, show init dialog
-            setPendingProject(project);
-            setInitError(null); // Clear any previous errors
-            setInitSuccess(false); // Reset success flag
-            setShowInitDialog(true);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to add project:', error);
+  const handleProjectAdded = (project: Project, needsInit: boolean) => {
+    openProjectTab(project.id);
+    if (needsInit) {
+      setPendingProject(project);
+      setInitError(null);
+      setInitSuccess(false);
+      setShowInitDialog(true);
     }
   };
 
@@ -747,6 +740,13 @@ export function App() {
             // Open onboarding wizard
             setIsOnboardingWizardOpen(true);
           }}
+        />
+
+        {/* Add Project Modal */}
+        <AddProjectModal
+          open={showAddProjectModal}
+          onOpenChange={setShowAddProjectModal}
+          onProjectAdded={handleProjectAdded}
         />
 
         {/* Initialize Auto Claude Dialog */}
