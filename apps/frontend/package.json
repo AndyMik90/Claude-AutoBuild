@@ -157,6 +157,10 @@
         "to": "python"
       },
       {
+        "from": "python-runtime/${os}-${arch}/site-packages",
+        "to": "python-site-packages"
+      },
+      {
         "from": "../backend",
         "to": "backend",
         "filter": [

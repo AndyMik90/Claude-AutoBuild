@@ -8,21 +8,33 @@ import { findPythonCommand, getBundledPythonPath } from './python-detector';
 export interface PythonEnvStatus {
   ready: boolean;
   pythonPath: string | null;
+  sitePackagesPath: string | null;
   venvExists: boolean;
   depsInstalled: boolean;
+  usingBundledPackages: boolean;
   error?: string;
 }
 
 /**
- * Manages the Python virtual environment for the auto-claude backend.
- * Automatically creates venv and installs dependencies if needed.
+ * Manages the Python environment for the auto-claude backend.
+ *
+ * For packaged apps:
+ *   - Uses bundled Python binary (resources/python/)
+ *   - Uses bundled site-packages (resources/python-site-packages/)
+ *   - No venv creation or pip install needed - everything is pre-bundled
+ *
+ * For development mode:
+ *   - Creates venv in the source directory
+ *   - Installs dependencies via pip
  *
  * On packaged apps (especially Linux AppImages), the bundled source is read-only,
- * so we create the venv in userData instead of inside the source directory.
+ * so for dev mode fallback we create the venv in userData instead.
  */
 export class PythonEnvManager extends EventEmitter {
   private autoBuildSourcePath: string | null = null;
   private pythonPath: string | null = null;
+  private sitePackagesPath: string | null = null;
+  private usingBundledPackages = false;
   private isInitializing = false;
   private isReady = false;
   private initializationPromise: Promise<PythonEnvStatus> | null = null;
@@ -75,6 +87,56 @@ export class PythonEnvManager extends EventEmitter {
   private venvExists(): boolean {
     const venvPython = this.getVenvPythonPath();
     return venvPython ? existsSync(venvPython) : false;
+  }
+
+  /**
+   * Get the path to bundled site-packages (for packaged apps).
+   * These are pre-installed during the build process.
+   */
+  private getBundledSitePackagesPath(): string | null {
+    if (!app.isPackaged) {
+      return null;
+    }
+
+    const sitePackagesPath = path.join(process.resourcesPath, 'python-site-packages');
+
+    if (existsSync(sitePackagesPath)) {
+      console.log(`[PythonEnvManager] Found bundled site-packages at: ${sitePackagesPath}`);
+      return sitePackagesPath;
+    }
+
+    console.log(`[PythonEnvManager] Bundled site-packages not found at: ${sitePackagesPath}`);
+    return null;
+  }
+
+  /**
+   * Check if bundled packages are available and valid.
+   * For packaged apps, we check if the bundled site-packages directory exists
+   * and contains the marker file indicating successful bundling.
+   */
+  private hasBundledPackages(): boolean {
+    const sitePackagesPath = this.getBundledSitePackagesPath();
+    if (!sitePackagesPath) {
+      return false;
+    }
+
+    // Check for the marker file that indicates successful bundling
+    const markerPath = path.join(sitePackagesPath, '.bundled');
+    if (existsSync(markerPath)) {
+      console.log(`[PythonEnvManager] Found bundle marker, using bundled packages`);
+      return true;
+    }
+
+    // Fallback: check if key packages exist
+    // This handles cases where the marker might be missing but packages are there
+    const claudeSdkPath = path.join(sitePackagesPath, 'claude_agent_sdk');
+    const dotenvPath = path.join(sitePackagesPath, 'dotenv');
+    if (existsSync(claudeSdkPath) || existsSync(dotenvPath)) {
+      console.log(`[PythonEnvManager] Found key packages, using bundled packages`);
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -314,7 +376,9 @@ if sys.version_info >= (3, 12):
 
   /**
    * Initialize the Python environment.
-   * Creates venv and installs deps if needed.
+   *
+   * For packaged apps: Uses bundled Python + site-packages (no pip install needed)
+   * For development: Creates venv and installs deps if needed.
    *
    * If initialization is already in progress, this will wait for and return
    * the existing initialization promise instead of starting a new one.
@@ -331,8 +395,10 @@ if sys.version_info >= (3, 12):
       return {
         ready: true,
         pythonPath: this.pythonPath,
+        sitePackagesPath: this.sitePackagesPath,
         venvExists: true,
-        depsInstalled: true
+        depsInstalled: true,
+        usingBundledPackages: this.usingBundledPackages
       };
     }
 
@@ -357,6 +423,39 @@ if sys.version_info >= (3, 12):
     console.warn('[PythonEnvManager] Initializing with path:', autoBuildSourcePath);
 
     try {
+      // For packaged apps, try to use bundled packages first (no pip install needed!)
+      if (app.isPackaged && this.hasBundledPackages()) {
+        console.warn('[PythonEnvManager] Using bundled Python packages (no pip install needed)');
+
+        const bundledPython = getBundledPythonPath();
+        const bundledSitePackages = this.getBundledSitePackagesPath();
+
+        if (bundledPython && bundledSitePackages) {
+          this.pythonPath = bundledPython;
+          this.sitePackagesPath = bundledSitePackages;
+          this.usingBundledPackages = true;
+          this.isReady = true;
+          this.isInitializing = false;
+
+          this.emit('ready', this.pythonPath);
+          console.warn('[PythonEnvManager] Ready with bundled Python:', this.pythonPath);
+          console.warn('[PythonEnvManager] Using bundled site-packages:', this.sitePackagesPath);
+
+          return {
+            ready: true,
+            pythonPath: this.pythonPath,
+            sitePackagesPath: this.sitePackagesPath,
+            venvExists: false, // Not using venv
+            depsInstalled: true,
+            usingBundledPackages: true
+          };
+        }
+      }
+
+      // Fallback to venv-based setup (for development or if bundled packages missing)
+      console.warn('[PythonEnvManager] Using venv-based setup (development mode or bundled packages missing)');
+      this.usingBundledPackages = false;
+
       // Check if venv exists
       if (!this.venvExists()) {
         console.warn('[PythonEnvManager] Venv not found, creating...');
@@ -366,8 +465,10 @@ if sys.version_info >= (3, 12):
           return {
             ready: false,
             pythonPath: null,
+            sitePackagesPath: null,
             venvExists: false,
             depsInstalled: false,
+            usingBundledPackages: false,
             error: 'Failed to create virtual environment'
           };
         }
@@ -385,8 +486,10 @@ if sys.version_info >= (3, 12):
           return {
             ready: false,
             pythonPath: this.getVenvPythonPath(),
+            sitePackagesPath: null,
             venvExists: true,
             depsInstalled: false,
+            usingBundledPackages: false,
             error: 'Failed to install dependencies'
           };
         }
@@ -395,6 +498,17 @@ if sys.version_info >= (3, 12):
       }
 
       this.pythonPath = this.getVenvPythonPath();
+      // For venv, site-packages is inside the venv
+      const venvBase = this.getVenvBasePath();
+      if (venvBase) {
+        this.sitePackagesPath = path.join(
+          venvBase,
+          process.platform === 'win32' ? 'Lib' : 'lib',
+          'python3.12', // Match the bundled Python version
+          'site-packages'
+        );
+      }
+
       this.isReady = true;
       this.isInitializing = false;
 
@@ -404,8 +518,10 @@ if sys.version_info >= (3, 12):
       return {
         ready: true,
         pythonPath: this.pythonPath,
+        sitePackagesPath: this.sitePackagesPath,
         venvExists: true,
-        depsInstalled: true
+        depsInstalled: true,
+        usingBundledPackages: false
       };
     } catch (error) {
       this.isInitializing = false;
@@ -413,8 +529,10 @@ if sys.version_info >= (3, 12):
       return {
         ready: false,
         pythonPath: null,
+        sitePackagesPath: null,
         venvExists: this.venvExists(),
         depsInstalled: false,
+        usingBundledPackages: false,
         error: message
       };
     }
@@ -428,6 +546,20 @@ if sys.version_info >= (3, 12):
   }
 
   /**
+   * Get the site-packages path (only valid after initialization)
+   */
+  getSitePackagesPath(): string | null {
+    return this.sitePackagesPath;
+  }
+
+  /**
+   * Check if using bundled packages (vs venv)
+   */
+  isUsingBundledPackages(): boolean {
+    return this.usingBundledPackages;
+  }
+
+  /**
    * Check if the environment is ready
    */
   isEnvReady(): boolean {
@@ -435,17 +567,53 @@ if sys.version_info >= (3, 12):
   }
 
   /**
+   * Get environment variables that should be set when spawning Python processes.
+   * This ensures Python finds the bundled packages or venv packages.
+   */
+  getPythonEnv(): Record<string, string> {
+    const env: Record<string, string> = {
+      // Don't write bytecode - not needed and avoids permission issues
+      PYTHONDONTWRITEBYTECODE: '1',
+      // Use UTF-8 encoding
+      PYTHONIOENCODING: 'utf-8',
+      // Disable user site-packages to avoid conflicts
+      PYTHONNOUSERSITE: '1',
+    };
+
+    // Set PYTHONPATH to our site-packages
+    if (this.sitePackagesPath) {
+      env.PYTHONPATH = this.sitePackagesPath;
+    }
+
+    return env;
+  }
+
+  /**
    * Get current status
    */
   async getStatus(): Promise<PythonEnvStatus> {
+    // If using bundled packages, we're always ready
+    if (this.usingBundledPackages && this.pythonPath && this.sitePackagesPath) {
+      return {
+        ready: true,
+        pythonPath: this.pythonPath,
+        sitePackagesPath: this.sitePackagesPath,
+        venvExists: false,
+        depsInstalled: true,
+        usingBundledPackages: true
+      };
+    }
+
     const venvExists = this.venvExists();
     const depsInstalled = venvExists ? await this.checkDepsInstalled() : false;
 
     return {
       ready: this.isReady,
       pythonPath: this.pythonPath,
+      sitePackagesPath: this.sitePackagesPath,
       venvExists,
-      depsInstalled
+      depsInstalled,
+      usingBundledPackages: this.usingBundledPackages
     };
   }
 }

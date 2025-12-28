@@ -10,6 +10,7 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailu
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 
 /**
  * Process spawning and lifecycle management
@@ -172,16 +173,19 @@ export class AgentProcessManager {
     // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
     const profileEnv = getProfileEnv();
 
+    // Get Python environment (PYTHONPATH for bundled packages, etc.)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
     // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {
         ...process.env,
+        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
         ...extraEnv,
         ...profileEnv, // Include active Claude profile config
         PYTHONUNBUFFERED: '1', // Ensure real-time output
-        PYTHONIOENCODING: 'utf-8', // Ensure UTF-8 encoding on Windows
         PYTHONUTF8: '1' // Force Python UTF-8 mode on Windows (Python 3.7+)
       }
     });

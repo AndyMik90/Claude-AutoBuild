@@ -5,7 +5,7 @@ import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
-import { PythonEnvManager } from '../../python-env-manager';
+import { PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
@@ -370,15 +370,18 @@ export function registerWorktreeHandlers(
           let timeoutId: NodeJS.Timeout | null = null;
           let resolved = false;
 
+          // Get Python environment for bundled packages
+          const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
             env: {
               ...process.env,
+              ...pythonEnv, // Include bundled packages PYTHONPATH
               ...profileEnv, // Include active Claude profile OAuth token
               PYTHONUNBUFFERED: '1',
-              PYTHONIOENCODING: 'utf-8',
               PYTHONUTF8: '1'
             },
             stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
@@ -716,13 +719,15 @@ export function registerWorktreeHandlers(
 
         // Get profile environment for consistency
         const previewProfileEnv = getProfileEnv();
+        // Get Python environment for bundled packages
+        const previewPythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
         return new Promise((resolve) => {
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
-            env: { ...process.env, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', DEBUG: 'true' }
+            env: { ...process.env, ...previewPythonEnv, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1', DEBUG: 'true' }
           });
 
           let stdout = '';

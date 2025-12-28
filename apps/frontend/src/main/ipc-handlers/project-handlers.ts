@@ -131,8 +131,10 @@ const initializePythonEnvironment = async (
     return {
       ready: false,
       pythonPath: null,
+      sitePackagesPath: null,
       venvExists: false,
       depsInstalled: false,
+      usingBundledPackages: false,
       error: 'Auto-build source not found'
     };
   }
