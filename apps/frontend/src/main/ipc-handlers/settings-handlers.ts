@@ -299,4 +299,88 @@ export function registerSettingsHandlers(
       await shell.openExternal(url);
     }
   );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_PATH,
+    async (_, folderPath: string): Promise<void> => {
+      await shell.openPath(folderPath);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_IN_IDE,
+    async (_, folderPath: string, ide?: 'cursor' | 'vscode' | 'finder'): Promise<IPCResult> => {
+      try {
+        // Validate path exists
+        if (!existsSync(folderPath)) {
+          return { success: false, error: `Path does not exist: ${folderPath}` };
+        }
+
+        // Determine which IDE to use
+        const ideToUse = ide || 'cursor'; // Default to Cursor
+
+        if (ideToUse === 'finder') {
+          // Open in Finder (macOS) or Explorer (Windows)
+          await shell.openPath(folderPath);
+          return { success: true };
+        }
+
+        // Try to open in the specified IDE
+        const commands: Record<string, string[]> = {
+          cursor: ['cursor', '.'],
+          vscode: ['code', '.']
+        };
+
+        const [cmd, ...args] = commands[ideToUse] || commands.cursor;
+
+        try {
+          // Use execSync to run the command - this opens the IDE
+          execSync(`${cmd} ${args.join(' ')}`, {
+            cwd: folderPath,
+            stdio: 'ignore',
+            timeout: 5000
+          });
+          return { success: true };
+        } catch (execError) {
+          // If the command fails, try alternative approaches
+          console.warn(`[SHELL_OPEN_IN_IDE] ${cmd} command failed:`, execError);
+
+          // On macOS, try using 'open' command with the app
+          if (process.platform === 'darwin') {
+            const appNames: Record<string, string[]> = {
+              cursor: ['Cursor', 'Cursor.app'],
+              vscode: ['Visual Studio Code', 'Visual Studio Code.app', 'VSCode', 'Code']
+            };
+
+            const apps = appNames[ideToUse] || appNames.cursor;
+            for (const appName of apps) {
+              try {
+                execSync(`open -a "${appName}" "${folderPath}"`, {
+                  stdio: 'ignore',
+                  timeout: 5000
+                });
+                return { success: true };
+              } catch {
+                // Try next app name
+                continue;
+              }
+            }
+          }
+
+          // Fallback: open in Finder/Explorer
+          console.warn(`[SHELL_OPEN_IN_IDE] Falling back to system file browser`);
+          await shell.openPath(folderPath);
+          return {
+            success: true,
+            error: `${ideToUse} not found. Opened in file browser instead.`
+          };
+        }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to open in IDE'
+        };
+      }
+    }
+  );
 }

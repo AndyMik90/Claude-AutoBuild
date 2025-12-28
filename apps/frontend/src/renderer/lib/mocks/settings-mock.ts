@@ -24,5 +24,18 @@ export const settingsMock = {
   // App Update Event Listeners (no-op in browser mode)
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
-  onAppUpdateProgress: () => () => {}
+  onAppUpdateProgress: () => () => {},
+
+  // Shell Operations (limited functionality in browser mode)
+  openExternal: async (url: string) => {
+    console.warn('[browser-mock] openExternal called with:', url);
+    window.open(url, '_blank');
+  },
+  openPath: async (path: string) => {
+    console.warn('[browser-mock] openPath called with:', path);
+  },
+  openInIde: async (path: string, ide?: string) => {
+    console.warn('[browser-mock] openInIde called with:', path, ide);
+    return { success: false, error: 'IDE opening not supported in browser mode' };
+  }
 };

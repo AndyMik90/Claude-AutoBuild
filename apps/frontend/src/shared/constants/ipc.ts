@@ -117,6 +117,8 @@ export const IPC_CHANNELS = {
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
+  SHELL_OPEN_PATH: 'shell:openPath',           // Open folder in Finder/Explorer
+  SHELL_OPEN_IN_IDE: 'shell:openInIde',        // Open folder in VS Code/Cursor
 
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',

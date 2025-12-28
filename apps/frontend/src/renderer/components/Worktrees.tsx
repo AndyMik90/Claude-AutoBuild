@@ -12,7 +12,9 @@ import {
   Minus,
   ChevronRight,
   Check,
-  X
+  X,
+  Code2,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -305,13 +307,41 @@ export function Worktrees({ projectId }: WorktreesProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          // Copy worktree path to clipboard
-                          navigator.clipboard.writeText(worktree.path);
+                        onClick={async () => {
+                          // Open in Cursor (default IDE)
+                          const result = await window.electronAPI.openInIde(worktree.path, 'cursor');
+                          if (!result.success) {
+                            setError(result.error || 'Failed to open in Cursor');
+                          }
+                        }}
+                      >
+                        <Code2 className="h-3.5 w-3.5 mr-1.5" />
+                        Open in Cursor
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          // Open in VS Code
+                          const result = await window.electronAPI.openInIde(worktree.path, 'vscode');
+                          if (!result.success) {
+                            setError(result.error || 'Failed to open in VS Code');
+                          }
+                        }}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                        VS Code
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          // Open in Finder
+                          await window.electronAPI.openInIde(worktree.path, 'finder');
                         }}
                       >
                         <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-                        Copy Path
+                        Finder
                       </Button>
                       <Button
                         variant="outline"

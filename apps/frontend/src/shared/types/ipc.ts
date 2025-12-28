@@ -448,6 +448,8 @@ export interface ElectronAPI {
 
   // Shell operations
   openExternal: (url: string) => Promise<void>;
+  openPath: (path: string) => Promise<void>;
+  openInIde: (path: string, ide?: 'cursor' | 'vscode' | 'finder') => Promise<IPCResult>;
 
   // Auto Claude source environment operations
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
