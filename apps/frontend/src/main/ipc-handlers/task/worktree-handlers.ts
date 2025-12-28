@@ -1648,11 +1648,10 @@ export function registerWorktreeHandlers(
 
               // Fire and forget - don't block the response on file writes
               // But add retry logic for transient failures and verification
+              // Uses EAFP pattern (try/catch) instead of LBYL (existsSync check) to avoid TOCTOU race conditions
               const updatePlanWithRetry = async (planPath: string, isMain: boolean, maxRetries = 3) => {
                 for (let attempt = 1; attempt <= maxRetries; attempt++) {
                   try {
-                    if (!existsSync(planPath)) return true; // File doesn't exist, nothing to update
-
                     const planContent = await fsPromises.readFile(planPath, 'utf-8');
                     const plan = JSON.parse(planContent);
                     plan.status = newStatus;
@@ -1671,7 +1670,11 @@ export function registerWorktreeHandlers(
                       return true; // Write verified
                     }
                     throw new Error('Write verification failed - status mismatch');
-                  } catch (persistError) {
+                  } catch (persistError: unknown) {
+                    // File doesn't exist - nothing to update (not an error)
+                    if (persistError && typeof persistError === 'object' && 'code' in persistError && persistError.code === 'ENOENT') {
+                      return true;
+                    }
                     const isLastAttempt = attempt === maxRetries;
                     if (isLastAttempt) {
                       // Only log error if main plan fails; worktree plan might legitimately be missing or read-only

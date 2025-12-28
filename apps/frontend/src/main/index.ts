@@ -159,17 +159,10 @@ app.whenReady().then(() => {
               validAutoBuildPath = correctedPath;
               migrated = true;
 
-              // Save the corrected setting
-              // Read current settings atomically to avoid race conditions
+              // Save the corrected setting using the settings object we already have
+              // This avoids TOCTOU race conditions from re-reading the file
               try {
-                let currentSettings: Record<string, unknown> = {};
-                try {
-                  currentSettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-                } catch {
-                  // File may not exist or be invalid, start with empty settings
-                }
-                currentSettings.autoBuildPath = correctedPath;
-                writeFileSync(settingsPath, JSON.stringify(currentSettings, null, 2), 'utf-8');
+                writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
                 console.log('[main] Successfully saved migrated autoBuildPath to settings');
               } catch (writeError) {
                 console.warn('[main] Failed to save migrated autoBuildPath:', writeError);

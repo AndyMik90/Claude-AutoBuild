@@ -393,7 +393,7 @@ async def test_memory_creation(test_db_path: Path) -> tuple[Path, Path, bool]:
     discoveries = {
         "api/routes/auth.py": "Authentication API endpoints (login, logout, refresh)",
         "middleware/auth.py": "JWT verification middleware for protected routes",
-        "models/user.py": "User model with password hashing and role management",
+        "models/user.py": "User model with credential hashing and role management",
         "services/oauth.py": "OAuth provider integrations (Google, GitHub, Microsoft)",
     }
 
