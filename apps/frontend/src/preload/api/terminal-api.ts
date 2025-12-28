@@ -257,6 +257,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
   setClaudeProfileToken: (profileId: string, token: string, email?: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_SET_TOKEN, profileId, token, email),
 
+  getClaudeProfileDecryptedToken: (profileId: string): Promise<IPCResult<string | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_GET_DECRYPTED_TOKEN, profileId),
+
   getAutoSwitchSettings: (): Promise<IPCResult<import('../../shared/types').ClaudeAutoSwitchSettings>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS),
 

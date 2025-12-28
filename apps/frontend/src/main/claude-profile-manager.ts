@@ -49,7 +49,7 @@ import {
   hasValidToken,
   expandHomePath
 } from './claude-profile/profile-utils';
-import { getTokenFromKeychain, getEmailFromKeychain } from './claude-profile/keychain-utils';
+import { getCredentialsFromKeychain } from './claude-profile/keychain-utils';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -122,26 +122,26 @@ export class ClaudeProfileManager {
    * - This allows users who authenticated via `claude setup-token` to use their token
    */
   getSettings(): ClaudeProfileSettings {
-    // Clone profiles to avoid mutating stored data
+    // Clone ALL profiles to avoid mutating stored data
     const profiles = this.data.profiles.map(profile => {
+      // Clone the profile object
+      const clonedProfile = { ...profile };
+
       // Only enrich Default profile with Keychain token
       if (profile.isDefault && !profile.oauthToken && profile.configDir) {
-        const keychainToken = getTokenFromKeychain();
-        if (keychainToken) {
-          // Return a new profile object with the Keychain token (encrypted)
-          // Don't save to disk - this is runtime enrichment only
+        const keychainCreds = getCredentialsFromKeychain();
+        if (keychainCreds.token) {
+          // Enrich with Keychain token (encrypted) - runtime only, not saved to disk
           console.warn('[ClaudeProfileManager] Enriching Default profile with Keychain token');
-          const email = profile.email || getEmailFromKeychain();
-          return {
-            ...profile,
-            oauthToken: encryptToken(keychainToken),
-            email: email || undefined,
-            // Mark that this was auto-populated from Keychain (for debugging)
-            keychainPopulated: true
-          } as ClaudeProfile;
+          clonedProfile.oauthToken = encryptToken(keychainCreds.token);
+          // Use nullish coalescing to preserve empty strings
+          clonedProfile.email = profile.email ?? keychainCreds.email ?? undefined;
+          // Add tokenCreatedAt for expiry tracking
+          clonedProfile.tokenCreatedAt = new Date();
         }
       }
-      return profile;
+
+      return clonedProfile;
     });
 
     return {

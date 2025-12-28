@@ -160,9 +160,18 @@ export function EnvConfigModal({
         return;
       }
 
-      // Save the token to auto-claude .env
+      // Get the decrypted token from the main process
+      // (profile.oauthToken is encrypted - we need the raw token for .env)
+      const tokenResult = await window.electronAPI.getClaudeProfileDecryptedToken(selectedProfileId);
+      if (!tokenResult.success || !tokenResult.data) {
+        setError('Failed to retrieve token');
+        setIsSaving(false);
+        return;
+      }
+
+      // Save the decrypted token to auto-claude .env
       const result = await window.electronAPI.updateSourceEnv({
-        claudeOAuthToken: profile.oauthToken
+        claudeOAuthToken: tokenResult.data
       });
 
       if (result.success) {

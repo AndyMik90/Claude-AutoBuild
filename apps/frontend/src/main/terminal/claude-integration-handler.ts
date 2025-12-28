@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
+import { clearKeychainCache } from '../claude-profile/keychain-utils';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
@@ -104,6 +105,8 @@ export function handleOAuthToken(
     const success = profileManager.setProfileToken(profileId, token, email || undefined);
 
     if (success) {
+      // Clear keychain cache so next getCredentialsFromKeychain() fetches fresh token
+      clearKeychainCache();
       console.warn('[ClaudeIntegration] OAuth token auto-saved to profile:', profileId);
 
       const win = getWindow();
@@ -145,6 +148,8 @@ export function handleOAuthToken(
     const success = profileManager.setProfileToken(activeProfile.id, token, email || undefined);
 
     if (success) {
+      // Clear keychain cache so next getCredentialsFromKeychain() fetches fresh token
+      clearKeychainCache();
       console.warn('[ClaudeIntegration] OAuth token auto-saved to active profile:', activeProfile.name);
 
       const win = getWindow();
