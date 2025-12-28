@@ -683,8 +683,32 @@ function hasOtherTasksDependingOn(taskId: string, allTasks: Task[]): boolean {
 }
 
 /**
- * Check for tasks in human_review that have dependencies and trigger auto-merge
- * This is called when tasks are loaded or when a task moves to human_review status
+ * Check if a task is ready for auto-merge
+ * A task is ready if:
+ * 1. It's in human_review with reviewReason 'completed', OR
+ * 2. All subtasks are completed (regardless of stuck status)
+ */
+function isTaskReadyForAutoMerge(task: Task): boolean {
+  // Option 1: Task in human_review with completed review reason
+  if (task.status === 'human_review' && task.reviewReason === 'completed') {
+    return true;
+  }
+
+  // Option 2: Task has all subtasks completed (handles stuck tasks after validation)
+  if (task.subtasks && task.subtasks.length > 0) {
+    const allCompleted = task.subtasks.every(s => s.status === 'completed');
+    if (allCompleted) {
+      console.log(`[Auto-Merge] Task ${task.id} has all subtasks completed (possibly stuck), eligible for auto-merge`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check for tasks that have dependencies and trigger auto-merge
+ * This is called when tasks are loaded or when a task status changes
  */
 export async function checkAndAutoMergeTasks(projectId: string): Promise<void> {
   const taskStore = useTaskStore.getState();
@@ -693,12 +717,17 @@ export async function checkAndAutoMergeTasks(projectId: string): Promise<void> {
   console.log('[Auto-Merge] Checking for tasks that can be auto-merged');
 
   for (const task of tasks) {
-    // Check if task is in human_review and has other tasks depending on it
-    if (task.status === 'human_review' && task.reviewReason === 'completed') {
+    // Skip tasks that are already done or merged
+    if (task.status === 'done' || task.stagedInMainProject) {
+      continue;
+    }
+
+    // Check if task is ready for auto-merge
+    if (isTaskReadyForAutoMerge(task)) {
       const hasDependents = hasOtherTasksDependingOn(task.id, tasks);
 
       if (hasDependents) {
-        console.log(`[Auto-Merge] Task ${task.id} has dependent tasks, checking for conflicts...`);
+        console.log(`[Auto-Merge] Task ${task.id} (${task.title}) has dependent tasks, checking for conflicts...`);
 
         try {
           // Check if there are merge conflicts first
@@ -717,16 +746,16 @@ export async function checkAndAutoMergeTasks(projectId: string): Promise<void> {
               });
 
               if (mergeResult.success) {
-                console.log(`[Auto-Merge] Successfully auto-merged task ${task.id}`);
+                console.log(`[Auto-Merge] ✅ Successfully auto-merged task ${task.id} (${task.title})`);
                 console.log(`[Auto-Merge] Dependent tasks can now proceed from queue`);
 
                 // Trigger queue promotion for dependent tasks
                 await promoteNextQueuedTask();
               } else {
-                console.error(`[Auto-Merge] Failed to merge task ${task.id}:`, mergeResult.error);
+                console.error(`[Auto-Merge] ❌ Failed to merge task ${task.id}:`, mergeResult.error);
               }
             } else {
-              console.warn(`[Auto-Merge] Task ${task.id} has conflicts, skipping auto-merge`);
+              console.warn(`[Auto-Merge] ⚠️  Task ${task.id} has conflicts, skipping auto-merge`);
               console.warn(`  Total conflicts: ${summary.totalConflicts}, Git conflicts: ${summary.hasGitConflicts}`);
             }
           }
