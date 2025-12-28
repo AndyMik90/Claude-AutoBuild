@@ -5,7 +5,6 @@
  * Helps users understand what tools are available during different execution phases.
  */
 
-import { useTranslation } from 'react-i18next';
 import {
   Server,
   Wrench,
@@ -462,7 +461,6 @@ function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
 }
 
 export function AgentTools() {
-  const { t } = useTranslation('navigation');
   const settings = useSettingsStore((state) => state.settings);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['spec', 'build', 'qa'])

@@ -350,10 +350,12 @@ function extractTarGz(archivePath, destDir) {
 
   // On Windows, use Windows' built-in bsdtar (not Git Bash tar which has path issues)
   // Git Bash's /usr/bin/tar interprets D: as a remote host, causing extraction to fail
-  // Windows Server 2019+ and Windows 10+ have bsdtar at C:\Windows\System32\tar.exe
+  // Windows Server 2019+ and Windows 10+ have bsdtar at %SystemRoot%\System32\tar.exe
   if (isWindows) {
     // Use explicit path to Windows tar to avoid Git Bash's /usr/bin/tar
-    const windowsTar = 'C:\\Windows\\System32\\tar.exe';
+    // Use SystemRoot environment variable to handle non-standard Windows installations
+    const systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+    const windowsTar = path.join(systemRoot, 'System32', 'tar.exe');
 
     const result = spawnSync(windowsTar, ['-xzf', archivePath, '-C', destDir], {
       stdio: 'inherit',

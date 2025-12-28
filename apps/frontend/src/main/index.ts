@@ -160,8 +160,14 @@ app.whenReady().then(() => {
               migrated = true;
 
               // Save the corrected setting
+              // Re-read the file before writing to avoid race conditions
+              // (file may have changed since initial read)
               try {
-                writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+                const currentSettings = existsSync(settingsPath)
+                  ? JSON.parse(readFileSync(settingsPath, 'utf-8'))
+                  : {};
+                currentSettings.autoBuildPath = correctedPath;
+                writeFileSync(settingsPath, JSON.stringify(currentSettings, null, 2), 'utf-8');
                 console.log('[main] Successfully saved migrated autoBuildPath to settings');
               } catch (writeError) {
                 console.warn('[main] Failed to save migrated autoBuildPath:', writeError);

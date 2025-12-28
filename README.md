@@ -17,11 +17,11 @@ Get the latest pre-built release for your platform:
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **Windows** | [Auto-Claude-2.7.2-beta.10-beta.10-beta.10-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-beta.10-beta.10-win32-x64.exe) | Installer (NSIS) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.10-beta.10-beta.10-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-beta.10-beta.10-darwin-arm64.dmg) | M1/M2/M3 Macs |
-| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.10-beta.10-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-beta.10-beta.10-darwin-x64.dmg) | Intel Macs |
-| **Linux** | [Auto-Claude-2.7.2-beta.10-beta.10-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-beta.10-beta.10-linux-x86_64.AppImage) | Universal |
-| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.10-beta.10-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-beta.10-beta.10-linux-amd64.deb) | Ubuntu/Debian |
+| **Windows** | [Auto-Claude-2.7.2-beta.10-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-win32-x64.exe) | Installer (NSIS) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg) | M1/M2/M3 Macs |
+| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-x64.dmg) | Intel Macs |
+| **Linux** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage) | Universal |
+| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-amd64.deb) | Ubuntu/Debian |
 
 > All releases include SHA256 checksums and VirusTotal scan results for security verification.
 

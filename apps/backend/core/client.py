@@ -171,9 +171,6 @@ def create_client(
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
     graphiti_mcp_enabled = "graphiti" in required_servers
 
-    # Check if Electron MCP is enabled
-    electron_mcp_enabled = "electron" in required_servers
-
     # Determine browser tools for permissions (already in allowed_tools_list)
     browser_tools_permissions = []
     if "electron" in required_servers:

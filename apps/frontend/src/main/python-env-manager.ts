@@ -1,5 +1,5 @@
 import { spawn, execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
@@ -501,10 +501,27 @@ if sys.version_info >= (3, 12):
       // For venv, site-packages is inside the venv
       const venvBase = this.getVenvBasePath();
       if (venvBase) {
+        // Dynamically detect Python version from venv lib directory
+        // This handles different Python versions (3.10, 3.11, 3.12, 3.13, etc.)
+        const libDir = path.join(venvBase, process.platform === 'win32' ? 'Lib' : 'lib');
+        let pythonVersion = 'python3.12'; // Fallback to bundled version
+
+        if (process.platform !== 'win32' && existsSync(libDir)) {
+          try {
+            const entries = readdirSync(libDir);
+            const pythonDir = entries.find(e => e.startsWith('python3.'));
+            if (pythonDir) {
+              pythonVersion = pythonDir;
+            }
+          } catch {
+            // Use fallback version
+          }
+        }
+
         this.sitePackagesPath = path.join(
           venvBase,
           process.platform === 'win32' ? 'Lib' : 'lib',
-          'python3.12', // Match the bundled Python version
+          pythonVersion,
           'site-packages'
         );
       }

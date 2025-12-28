@@ -47,12 +47,11 @@ Usage:
 
 import argparse
 import asyncio
-import json
 import os
 import shutil
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 # Add auto-claude to path

@@ -3,7 +3,7 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
-import { execSync, execFileSync, spawn, spawnSync, exec } from 'child_process';
+import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
@@ -14,6 +14,7 @@ import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * IDE and Terminal detection and launching utilities
@@ -630,6 +631,42 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
 };
 
 /**
+ * Security helper functions for safe path handling
+ */
+
+/**
+ * Escape single quotes in a path for use in AppleScript strings
+ * This prevents command injection via malicious directory names
+ */
+function escapeAppleScriptPath(dirPath: string): string {
+  // In AppleScript, single quotes are escaped by ending the string,
+  // adding an escaped quote, and starting a new string: ' -> '\''
+  return dirPath.replace(/'/g, "'\\''");
+}
+
+/**
+ * Escape a path for use in Windows cmd.exe commands
+ * This prevents command injection via special characters
+ */
+function escapeWindowsCmdPath(dirPath: string): string {
+  // Wrap in quotes and escape internal quotes
+  return `"${dirPath.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Validate a path doesn't contain path traversal attempts after variable expansion
+ */
+function isPathSafe(expandedPath: string): boolean {
+  // Normalize and check for path traversal
+  const normalized = path.normalize(expandedPath);
+  // Check for explicit traversal patterns
+  if (normalized.includes('..')) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Smart app detection using native OS APIs for faster, more comprehensive discovery
  */
 
@@ -643,7 +680,8 @@ async function detectMacApps(): Promise<Set<string>> {
   const apps = new Set<string>();
   try {
     // Use mdfind to query Spotlight for all applications - much faster than directory scanning
-    const { stdout } = await execAsync('mdfind "kMDItemKind == Application" 2>/dev/null | head -500');
+    // Timeout after 10 seconds to prevent hangs on systems with slow Spotlight indexing
+    const { stdout } = await execAsync('mdfind -onlyin /Applications "kMDItemKind == Application" 2>/dev/null | head -500', { timeout: 10000 });
     const appPaths = stdout.trim().split('\n').filter(p => p);
 
     for (const appPath of appPaths) {
@@ -794,6 +832,12 @@ function isAppInstalled(
       .replace('%USERNAME%', process.env.USERNAME || process.env.USER || '')
       .replace('~', process.env.HOME || '');
 
+    // Validate path doesn't contain traversal attempts after expansion
+    if (!isPathSafe(expandedPath)) {
+      console.warn('[detectTool] Skipping potentially unsafe path:', checkPath);
+      continue;
+    }
+
     // Handle glob patterns (e.g., JetBrains*) - just check if directory exists for base path
     const basePath = expandedPath.split('*')[0];
     if (existsSync(expandedPath) || (basePath !== expandedPath && existsSync(basePath))) {
@@ -913,8 +957,12 @@ async function openInIDE(dirPath: string, ide: SupportedIDE, customPath?: string
 
   try {
     if (ide === 'custom' && customPath) {
-      // Use custom IDE path
-      await execAsync(`"${customPath}" "${dirPath}"`);
+      // Use custom IDE path with execFileAsync to prevent shell injection
+      // Validate the custom path is a valid executable path
+      if (!isPathSafe(customPath)) {
+        return { success: false, error: 'Invalid custom IDE path' };
+      }
+      await execFileAsync(customPath, [dirPath]);
       return { success: true };
     }
 
@@ -932,14 +980,14 @@ async function openInIDE(dirPath: string, ide: SupportedIDE, customPath?: string
     if (platform === 'darwin') {
       const appPath = config.paths.darwin?.[0];
       if (appPath && existsSync(appPath)) {
-        // Use 'open' command for .app bundles
-        await execAsync(`open -a "${path.basename(appPath, '.app')}" "${dirPath}"`);
+        // Use 'open' command with execFileAsync to prevent shell injection
+        await execFileAsync('open', ['-a', path.basename(appPath, '.app'), dirPath]);
         return { success: true };
       }
     }
 
-    // Use command line tool
-    await execAsync(`${command} "${dirPath}"`);
+    // Use command line tool with execFileAsync
+    await execFileAsync(command, [dirPath]);
     return { success: true };
   } catch (error) {
     console.error(`Failed to open in IDE ${ide}:`, error);
@@ -955,8 +1003,11 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
 
   try {
     if (terminal === 'custom' && customPath) {
-      // Use custom terminal path
-      await execAsync(`"${customPath}" "${dirPath}"`);
+      // Use custom terminal path with execFileAsync to prevent shell injection
+      if (!isPathSafe(customPath)) {
+        return { success: false, error: 'Invalid custom terminal path' };
+      }
+      await execFileAsync(customPath, [dirPath]);
       return { success: true };
     }
 
@@ -974,51 +1025,56 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
 
     if (platform === 'darwin') {
       // macOS: Use open command with the directory
+      // Escape single quotes in dirPath to prevent AppleScript injection
+      const escapedPath = escapeAppleScriptPath(dirPath);
+
       if (terminal === 'system') {
         // Use AppleScript to open Terminal.app at the directory
-        const script = `tell application "Terminal" to do script "cd '${dirPath}'"`;
-        await execAsync(`osascript -e '${script}'`);
+        const script = `tell application "Terminal" to do script "cd '${escapedPath}'"`;
+        await execFileAsync('osascript', ['-e', script]);
       } else if (terminal === 'iterm2') {
         // Use AppleScript to open iTerm2 at the directory
         const script = `tell application "iTerm"
           create window with default profile
           tell current session of current window
-            write text "cd '${dirPath}'"
+            write text "cd '${escapedPath}'"
           end tell
         end tell`;
-        await execAsync(`osascript -e '${script}'`);
+        await execFileAsync('osascript', ['-e', script]);
       } else if (terminal === 'warp') {
-        // Warp can be opened with just the directory
-        await execAsync(`open -a Warp "${dirPath}"`);
+        // Warp can be opened with just the directory using execFileAsync
+        await execFileAsync('open', ['-a', 'Warp', dirPath]);
       } else {
-        // For other terminals, use the commands array with the directory appended
-        const fullCommand = [...commands, dirPath].join(' ');
-        await execAsync(fullCommand);
+        // For other terminals, use execFileAsync with arguments array
+        await execFileAsync(commands[0], [...commands.slice(1), dirPath]);
       }
     } else if (platform === 'win32') {
-      // Windows: Start terminal at directory
+      // Windows: Start terminal at directory using spawn to avoid shell injection
       if (terminal === 'system') {
-        await execAsync(`start cmd.exe /K "cd /d ${dirPath}"`);
-      } else {
-        const fullCommand = [...commands, dirPath].join(' ');
-        await execAsync(fullCommand);
+        // Use spawn with proper argument separation
+        spawn('cmd.exe', ['/K', 'cd', '/d', dirPath], { detached: true, stdio: 'ignore' }).unref();
+      } else if (commands.length > 0) {
+        spawn(commands[0], [...commands.slice(1), dirPath], { detached: true, stdio: 'ignore' }).unref();
       }
     } else {
-      // Linux: Use the configured terminal
+      // Linux: Use the configured terminal with execFileAsync
       if (terminal === 'system') {
-        // Try common terminal emulators
+        // Try common terminal emulators with proper argument arrays
         try {
-          await execAsync(`x-terminal-emulator --working-directory="${dirPath}" -e bash`);
+          await execFileAsync('x-terminal-emulator', ['--working-directory', dirPath, '-e', 'bash']);
         } catch {
           try {
-            await execAsync(`gnome-terminal --working-directory="${dirPath}"`);
+            await execFileAsync('gnome-terminal', ['--working-directory', dirPath]);
           } catch {
-            await execAsync(`xterm -e "cd '${dirPath}' && bash"`);
+            // xterm doesn't have --working-directory, use -e with a script
+            // Escape the path for shell use within the xterm command
+            const escapedPath = escapeAppleScriptPath(dirPath);
+            await execFileAsync('xterm', ['-e', `cd '${escapedPath}' && bash`]);
           }
         }
       } else {
-        const fullCommand = [...commands, dirPath].join(' ');
-        await execAsync(fullCommand);
+        // Use execFileAsync with arguments array
+        await execFileAsync(commands[0], [...commands.slice(1), dirPath]);
       }
     }
 
@@ -1414,15 +1470,28 @@ export function registerWorktreeHandlers(
             if (!resolved) {
               debug('TIMEOUT: Merge process exceeded', MERGE_TIMEOUT_MS, 'ms, killing...');
               resolved = true;
-              mergeProcess.kill('SIGTERM');
-              // Give it a moment to clean up, then force kill
-              setTimeout(() => {
+
+              // Platform-specific process termination
+              if (process.platform === 'win32') {
+                // On Windows, .kill() without signal terminates the process tree
+                // SIGTERM/SIGKILL are not supported the same way on Windows
                 try {
-                  mergeProcess.kill('SIGKILL');
+                  mergeProcess.kill();
                 } catch {
                   // Process may already be dead
                 }
-              }, 5000);
+              } else {
+                // On Unix-like systems, use SIGTERM first, then SIGKILL as fallback
+                mergeProcess.kill('SIGTERM');
+                // Give it a moment to clean up, then force kill
+                setTimeout(() => {
+                  try {
+                    mergeProcess.kill('SIGKILL');
+                  } catch {
+                    // Process may already be dead
+                  }
+                }, 5000);
+              }
 
               // Check if merge might have succeeded before the hang
               // Look for success indicators in the output
