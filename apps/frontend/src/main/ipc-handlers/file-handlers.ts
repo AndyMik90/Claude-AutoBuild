@@ -527,9 +527,39 @@ export function registerFileHandlers(): void {
           args.push('--glob', `!${pattern}`);
         });
 
+        const isSafeGlob = (pattern: string): boolean => {
+          // Basic sanity checks to avoid excessively complex or malformed patterns
+          // Limit overall length
+          if (pattern.length > 256) {
+            return false;
+          }
+
+          // Disallow control characters
+          if (/[\0-\x1F]/.test(pattern)) {
+            return false;
+          }
+
+          // Limit the total number of wildcard-like characters
+          const wildcardMatches = pattern.match(/[*?\[\]]/g);
+          if (wildcardMatches && wildcardMatches.length > 50) {
+            return false;
+          }
+
+          // Limit the number of double-star segments
+          const doubleStarMatches = pattern.match(/\*\*/g);
+          if (doubleStarMatches && doubleStarMatches.length > 10) {
+            return false;
+          }
+
+          return true;
+        };
+
         // Add user-provided glob filter if specified
         if (options.glob) {
-          args.push('--glob', options.glob);
+          const userGlob = options.glob;
+          if (typeof userGlob === 'string' && isSafeGlob(userGlob)) {
+            args.push('--glob', userGlob);
+          }
         }
 
         // Add the search query
