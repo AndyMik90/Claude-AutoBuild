@@ -59,7 +59,9 @@ async def cleanup_background_tasks(timeout: float = 5.0) -> None:
     """
     Cancel and wait for all pending background tasks.
 
-    Call this on shutdown to ensure clean termination.
+    Call this on application shutdown to ensure clean termination.
+    Should be invoked from shutdown hooks, signal handlers, or
+    framework-specific shutdown events (e.g., FastAPI on_event("shutdown")).
 
     Args:
         timeout: Maximum seconds to wait for tasks to complete
@@ -77,11 +79,16 @@ async def cleanup_background_tasks(timeout: float = 5.0) -> None:
     # Use try/finally to ensure task set is cleared even if wait raises
     try:
         if _background_tasks:
-            await asyncio.wait(
+            done, pending = await asyncio.wait(
                 _background_tasks,
                 timeout=timeout,
                 return_when=asyncio.ALL_COMPLETED,
             )
+            if pending:
+                logger.warning(
+                    f"{len(pending)} background task(s) did not complete "
+                    f"within {timeout}s timeout"
+                )
     finally:
         _background_tasks.clear()
 
