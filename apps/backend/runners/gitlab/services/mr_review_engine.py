@@ -11,6 +11,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 try:
     from ..models import (
@@ -45,12 +46,14 @@ class ProgressCallback:
 class MRReviewEngine:
     """Handles MR review workflow using Claude AI."""
 
+    progress_callback: Callable[[ProgressCallback], None] | None
+
     def __init__(
         self,
         project_dir: Path,
         gitlab_dir: Path,
         config: GitLabRunnerConfig,
-        progress_callback=None,
+        progress_callback: Callable[[ProgressCallback], None] | None = None,
     ):
         self.project_dir = Path(project_dir)
         self.gitlab_dir = Path(gitlab_dir)
