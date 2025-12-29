@@ -291,12 +291,12 @@ export function useCSharpLsp({ workspaceRoot, monaco, editor }: UseCSharpLspOpti
       return;
     }
 
-    // Clear previous timeout
+    // Clear previous timeout before incrementing version
     if (doc.changeTimeout) {
       clearTimeout(doc.changeTimeout);
     }
 
-    // Debounce changes (300ms)
+    // Increment version after clearing timeout
     const newVersion = doc.version + 1;
     doc.version = newVersion;
 

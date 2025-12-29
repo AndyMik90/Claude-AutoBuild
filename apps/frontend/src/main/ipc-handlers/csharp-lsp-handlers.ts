@@ -1,10 +1,53 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import { existsSync, realpathSync } from 'fs';
+import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import { CSharpLspServerManager } from '../csharp-lsp/lsp-server-manager';
 
 // Global LSP server manager instance
 let lspManager: CSharpLspServerManager | null = null;
+
+/**
+ * Validates that a path is within the workspace root.
+ * Prevents directory traversal and symlink escape attacks.
+ */
+function validateWorkspacePath(
+  workspaceRoot: string,
+  relPath: string
+): { valid: boolean; absPath?: string; error?: string } {
+  try {
+    // Check if workspace root exists before calling realpathSync
+    if (!existsSync(workspaceRoot)) {
+      return { valid: false, error: 'Workspace root does not exist' };
+    }
+
+    // Resolve workspace root to canonical path
+    const workspaceRootResolved = realpathSync(workspaceRoot);
+
+    // Resolve the target path
+    const absPath = path.resolve(workspaceRootResolved, relPath);
+
+    // Normalize paths for comparison on case-insensitive file systems
+    const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
+    const workspaceRootForCompare = isCaseInsensitiveFs
+      ? workspaceRootResolved.toLowerCase()
+      : workspaceRootResolved;
+    const absPathForCompare = isCaseInsensitiveFs ? absPath.toLowerCase() : absPath;
+
+    // Check if path starts with workspace root
+    if (
+      !absPathForCompare.startsWith(workspaceRootForCompare + path.sep) &&
+      absPathForCompare !== workspaceRootForCompare
+    ) {
+      return { valid: false, error: 'Path escapes workspace root' };
+    }
+
+    return { valid: true, absPath };
+  } catch (error) {
+    return { valid: false, error: error instanceof Error ? error.message : 'Invalid path' };
+  }
+}
 
 /**
  * Register all C# LSP-related IPC handlers
@@ -83,8 +126,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
           return { success: false, error: 'LSP server not started' };
         }
 
-        // Validate path (get workspace root from manager)
-        // For now, we trust the relPath since it's already validated in the renderer
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
+        }
+
         await lspManager.didOpen(relPath, text);
 
         return { success: true, data: undefined };
@@ -103,6 +155,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
       try {
         if (!lspManager) {
           return { success: false, error: 'LSP server not started' };
+        }
+
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
         }
 
         await lspManager.didChange(relPath, text, version);
@@ -125,6 +188,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
           return { success: false, error: 'LSP server not started' };
         }
 
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
+        }
+
         await lspManager.didSave(relPath, text);
 
         return { success: true, data: undefined };
@@ -143,6 +217,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
       try {
         if (!lspManager) {
           return { success: false, error: 'LSP server not started' };
+        }
+
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
         }
 
         await lspManager.didClose(relPath);
@@ -172,6 +257,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
           };
         }
 
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
+        }
+
         const result = await lspManager.completion(relPath, line, column);
         return { success: true, data: result };
       } catch (error) {
@@ -189,6 +285,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
       try {
         if (!lspManager) {
           return { success: true, data: null };
+        }
+
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
         }
 
         const result = await lspManager.hover(relPath, line, column);
@@ -210,6 +317,17 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
           return { success: true, data: null };
         }
 
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
+        }
+
         const result = await lspManager.definition(relPath, line, column);
         return { success: true, data: result };
       } catch (error) {
@@ -223,10 +341,21 @@ export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle(
     IPC_CHANNELS.CSHARP_LSP_FORMAT_DOCUMENT,
-    async (_, relPath: string, text: string): Promise<IPCResult<unknown>> => {
+    async (_, relPath: string): Promise<IPCResult<unknown>> => {
       try {
         if (!lspManager) {
           return { success: true, data: [] };
+        }
+
+        const workspaceRoot = lspManager.getWorkspaceRoot();
+        if (!workspaceRoot) {
+          return { success: false, error: 'Workspace root not set' };
+        }
+
+        // Validate path to prevent directory traversal attacks
+        const validation = validateWorkspacePath(workspaceRoot, relPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error || 'Invalid path' };
         }
 
         const result = await lspManager.formatDocument(relPath);

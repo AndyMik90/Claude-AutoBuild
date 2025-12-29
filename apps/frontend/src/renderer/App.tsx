@@ -58,6 +58,7 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { useIpcListeners } from './hooks/useIpc';
+import { isMonacoEditorFocused } from './lib/utils';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
@@ -265,13 +266,7 @@ export function App() {
       }
 
       // Skip if focus is in Monaco Editor
-      const target = e.target as HTMLElement;
-      if (
-        target?.closest('.monaco-editor') ||
-        target?.classList?.contains('monaco-editor') ||
-        target?.closest('[data-mode-id]') ||
-        target?.classList?.contains('inputarea')
-      ) {
+      if (isMonacoEditorFocused(e.target as HTMLElement)) {
         return;
       }
 

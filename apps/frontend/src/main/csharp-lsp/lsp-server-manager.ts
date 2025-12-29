@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import { BrowserWindow } from 'electron';
-import { realpathSync, existsSync } from 'fs';
+import { realpathSync, existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -145,6 +145,13 @@ export class CSharpLspServerManager {
    */
   getStatus(): { state: CSharpLspStatus; message?: string } {
     return { state: this.status };
+  }
+
+  /**
+   * Get the workspace root path
+   */
+  getWorkspaceRoot(): string | null {
+    return this.workspaceRoot;
   }
 
   /**
@@ -344,10 +351,8 @@ export class CSharpLspServerManager {
       return {};
     }
 
-    const fs = require('fs');
-
     // Look for .sln file
-    const files = fs.readdirSync(this.workspaceRoot);
+    const files = readdirSync(this.workspaceRoot);
     const slnFile = files.find((f: string) => f.endsWith('.sln'));
     if (slnFile) {
       return { solution: path.join(this.workspaceRoot, slnFile) };
@@ -367,13 +372,16 @@ export class CSharpLspServerManager {
       throw new Error('Workspace root not set');
     }
 
+    // Create properly formatted file URI
+    const workspaceUri = this.createFileUri(this.workspaceRoot);
+
     const result = await this.sendRequest('initialize', {
       processId: process.pid,
       clientInfo: {
         name: 'jungle-assistant',
         version: '1.0.0'
       },
-      rootUri: `file://${this.workspaceRoot}`,
+      rootUri: workspaceUri,
       capabilities: {
         textDocument: {
           completion: {
@@ -397,7 +405,7 @@ export class CSharpLspServerManager {
       },
       workspaceFolders: [
         {
-          uri: `file://${this.workspaceRoot}`,
+          uri: workspaceUri,
           name: path.basename(this.workspaceRoot)
         }
       ]
@@ -405,8 +413,25 @@ export class CSharpLspServerManager {
 
     this.initialized = true;
     this.sendNotification('initialized', {});
+  }
 
-    return result as Promise<void>;
+  /**
+   * Create a properly formatted file URI from an absolute path
+   */
+  private createFileUri(absPath: string): string {
+    // Convert to forward slashes
+    let uriPath = absPath.replace(/\\/g, '/');
+    
+    // For Windows, ensure proper file URI format: file:///C:/path
+    if (process.platform === 'win32') {
+      // If path starts with drive letter, ensure three slashes
+      if (/^[a-zA-Z]:/.test(uriPath)) {
+        return `file:///${uriPath}`;
+      }
+    }
+    
+    // For Unix-like systems: file:///path (with three slashes)
+    return uriPath.startsWith('/') ? `file://${uriPath}` : `file:///${uriPath}`;
   }
 
   private sendRequest(method: string, params: unknown): Promise<unknown> {
@@ -566,7 +591,20 @@ export class CSharpLspServerManager {
       throw new Error('Workspace root not set');
     }
     const absPath = path.resolve(this.workspaceRoot, relPath);
-    return `file://${absPath.replace(/\\/g, '/')}`;
+    
+    // Convert to forward slashes for URI
+    let uriPath = absPath.replace(/\\/g, '/');
+    
+    // For Windows, ensure proper file URI format: file:///C:/path
+    if (process.platform === 'win32') {
+      // If path starts with drive letter, ensure three slashes
+      if (/^[a-zA-Z]:/.test(uriPath)) {
+        return `file:///${uriPath}`;
+      }
+    }
+    
+    // For Unix-like systems: file:///path
+    return `file://${uriPath}`;
   }
 
   private uriToPath(uri: string): string | null {

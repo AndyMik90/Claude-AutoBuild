@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog';
-import { cn } from '../lib/utils';
+import { cn, isMonacoEditorFocused } from '../lib/utils';
 import {
   useProjectStore,
   removeProject,
@@ -124,7 +124,7 @@ export function Sidebar({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs or editors
+      // Don't trigger shortcuts when typing in input/textarea/select elements or contentEditable
       if (
           e.target instanceof HTMLInputElement ||
           e.target instanceof HTMLTextAreaElement ||
@@ -134,14 +134,8 @@ export function Sidebar({
         return;
       }
 
-      // Don't trigger shortcuts when focus is in Monaco Editor
-      const target = e.target as HTMLElement;
-      if (
-        target?.closest('.monaco-editor') ||
-        target?.classList?.contains('monaco-editor') ||
-        target?.closest('[data-mode-id]') || // Monaco editor text area
-        target?.classList?.contains('inputarea') // Monaco input area
-      ) {
+      // Don't trigger shortcuts when focus is in Monaco Editor (checked separately)
+      if (isMonacoEditorFocused(e.target as HTMLElement)) {
         return;
       }
 
