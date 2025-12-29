@@ -9,53 +9,6 @@ import { CSharpLspServerManager } from '../csharp-lsp/lsp-server-manager';
 let lspManager: CSharpLspServerManager | null = null;
 
 /**
- * Validates that a path is within the workspace root.
- * Prevents directory traversal and symlink escape attacks.
- */
-function validateWorkspacePath(workspaceRoot: string, relPath: string): {
-  valid: boolean;
-  absPath?: string;
-  error?: string;
-} {
-  try {
-    // Check if workspace root exists
-    if (!existsSync(workspaceRoot)) {
-      return { valid: false, error: 'Workspace root does not exist' };
-    }
-
-    // Resolve workspace root to canonical path
-    const workspaceRootResolved = realpathSync(workspaceRoot);
-
-    // Resolve the target path
-    const absPath = path.resolve(workspaceRootResolved, relPath);
-
-    // Normalize paths for comparison on case-insensitive file systems
-    const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
-    const workspaceRootForCompare = isCaseInsensitiveFs
-      ? workspaceRootResolved.toLowerCase()
-      : workspaceRootResolved;
-    const absPathForCompare = isCaseInsensitiveFs
-      ? absPath.toLowerCase()
-      : absPath;
-
-    // Check if path starts with workspace root
-    if (
-      !absPathForCompare.startsWith(workspaceRootForCompare + path.sep) &&
-      absPathForCompare !== workspaceRootForCompare
-    ) {
-      return { valid: false, error: 'Path escapes workspace root' };
-    }
-
-    return { valid: true, absPath };
-  } catch (error) {
-    return {
-      valid: false,
-      error: error instanceof Error ? error.message : 'Invalid path'
-    };
-  }
-}
-
-/**
  * Register all C# LSP-related IPC handlers
  */
 export function registerCSharpLspHandlers(mainWindow: BrowserWindow): void {
