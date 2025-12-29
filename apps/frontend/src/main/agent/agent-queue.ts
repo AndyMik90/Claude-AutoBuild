@@ -10,6 +10,7 @@ import type { IdeationConfig, Idea } from '../../shared/types';
 import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
+import { getOAuthModeClearVars } from './env-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
 import { pythonEnvManager } from '../python-env-manager';
@@ -218,6 +219,9 @@ export class AgentQueueManager {
     // Get active API profile environment variables
     const apiProfileEnv = await getAPIProfileEnv();
 
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
@@ -238,14 +242,15 @@ export class AgentQueueManager {
     // 1. process.env (system)
     // 2. pythonEnv (bundled packages environment)
     // 3. combinedEnv (auto-claude/.env for CLI usage)
-    // 4. profileEnv (Electron app OAuth token)
-    // 5. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
-    // 6. Our specific overrides
-    // 5. Our specific overrides
+    // 4. oauthModeClearVars (clear stale ANTHROPIC_* vars when in OAuth mode)
+    // 5. profileEnv (Electron app OAuth token)
+    // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 7. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
       ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,
@@ -536,6 +541,9 @@ export class AgentQueueManager {
     // Get active API profile environment variables
     const apiProfileEnv = await getAPIProfileEnv();
 
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
@@ -556,14 +564,15 @@ export class AgentQueueManager {
     // 1. process.env (system)
     // 2. pythonEnv (bundled packages environment)
     // 3. combinedEnv (auto-claude/.env for CLI usage)
-    // 4. profileEnv (Electron app OAuth token)
-    // 5. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
-    // 6. Our specific overrides
-    // 5. Our specific overrides
+    // 4. oauthModeClearVars (clear stale ANTHROPIC_* vars when in OAuth mode)
+    // 5. profileEnv (Electron app OAuth token)
+    // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 7. Our specific overrides
     const finalEnv = {
       ...process.env,
       ...pythonEnv,
       ...combinedEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
       ...apiProfileEnv,
       PYTHONPATH: combinedPythonPath,

@@ -365,10 +365,10 @@ export class AgentProcessManager {
       // Continue with empty profile env (falls back to OAuth mode)
     }
 
-    // Get OAuth mode clear vars (to clear stale ANTHROPIC_* vars when using OAuth)
-    const oauthModeClearVars = getOAuthModeClearVars();
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
-    // Parse Python command to handle space-separated commands like "py -3"
+    // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
