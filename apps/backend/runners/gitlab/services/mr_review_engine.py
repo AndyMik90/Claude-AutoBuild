@@ -7,6 +7,7 @@ Core logic for AI-powered MR code review.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from dataclasses import dataclass
@@ -221,8 +222,6 @@ Provide your review in the following JSON format:
         self, result_text: str
     ) -> tuple[list[MRReviewFinding], MergeVerdict, str, list[str]]:
         """Parse the AI review result."""
-        import json
-
         findings = []
         verdict = MergeVerdict.READY_TO_MERGE
         summary = ""
