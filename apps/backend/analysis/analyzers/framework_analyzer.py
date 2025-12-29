@@ -75,14 +75,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Cargo.toml")
             self._detect_rust_framework(content)
 
-        # Ruby detection
-        elif self._exists("Gemfile"):
-            self.analysis["language"] = "Ruby"
-            self.analysis["package_manager"] = "bundler"
-            content = self._read_file("Gemfile")
-            self._detect_ruby_framework(content)
-
-        # Swift/iOS detection
+        # Swift/iOS detection (check BEFORE Ruby - iOS projects often have Gemfile for CocoaPods/Fastlane)
         elif self._exists("Package.swift") or any(self.path.glob("*.xcodeproj")):
             self.analysis["language"] = "Swift"
             if self._exists("Package.swift"):
@@ -90,6 +83,13 @@ class FrameworkAnalyzer(BaseAnalyzer):
             else:
                 self.analysis["package_manager"] = "Xcode"
             self._detect_swift_framework()
+
+        # Ruby detection
+        elif self._exists("Gemfile"):
+            self.analysis["language"] = "Ruby"
+            self.analysis["package_manager"] = "bundler"
+            content = self._read_file("Gemfile")
+            self._detect_ruby_framework(content)
 
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
