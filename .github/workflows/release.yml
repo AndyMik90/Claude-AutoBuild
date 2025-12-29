@@ -250,6 +250,14 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Setup Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+          flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
@@ -273,6 +281,7 @@ jobs:
           path: |
             apps/frontend/dist/*.AppImage
             apps/frontend/dist/*.deb
+            apps/frontend/dist/*.flatpak
 
   create-release:
     needs: [build-macos-intel, build-macos-arm64, build-windows, build-linux]
@@ -292,12 +301,12 @@ jobs:
       - name: Flatten and validate artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-assets/ \;
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) -exec cp {} release-assets/ \;
 
           # Validate that at least one artifact was copied
-          artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) | wc -l)
+          artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
           if [ "$artifact_count" -eq 0 ]; then
-            echo "::error::No build artifacts found! Expected .dmg, .zip, .exe, .AppImage, or .deb files."
+            echo "::error::No build artifacts found! Expected .dmg, .zip, .exe, .AppImage, .deb, or .flatpak files."
             exit 1
           fi
 
@@ -326,7 +335,7 @@ jobs:
           echo "## VirusTotal Scan Results" > vt_results.md
           echo "" >> vt_results.md
 
-          for file in release-assets/*.{exe,dmg,AppImage,deb}; do
+          for file in release-assets/*.{exe,dmg,AppImage,deb,flatpak}; do
             [ -f "$file" ] || continue
             filename=$(basename "$file")
             filesize=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")

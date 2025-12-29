@@ -22,6 +22,7 @@ Get the latest pre-built release for your platform:
 | **macOS (Intel)** | [Auto-Claude-2.7.2-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-x64.dmg) | Intel Macs |
 | **Linux** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage) | Universal |
 | **Linux (Debian)** | [Auto-Claude-2.7.2-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-amd64.deb) | Ubuntu/Debian |
+| **Linux (Flatpak)** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak) | Sandboxed |
 
 > All releases include SHA256 checksums and VirusTotal scan results for security verification.
 
@@ -161,6 +162,28 @@ npm start
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup.
 
+### Building Flatpak
+
+To build the Flatpak package, you need additional dependencies:
+
+```bash
+# Fedora/RHEL
+sudo dnf install flatpak-builder
+
+# Ubuntu/Debian
+sudo apt install flatpak-builder
+
+# Install required Flatpak runtimes
+flatpak install flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
+flatpak install flathub org.electronjs.Electron2.BaseApp//25.08
+
+# Build the Flatpak
+cd apps/frontend
+npm run package:flatpak
+```
+
+The Flatpak will be created in `apps/frontend/dist/`.
+
 ---
 
 ## Security
@@ -189,6 +212,7 @@ All releases are:
 | `npm run package:mac` | Package for macOS |
 | `npm run package:win` | Package for Windows |
 | `npm run package:linux` | Package for Linux |
+| `npm run package:flatpak` | Package as Flatpak |
 | `npm run lint` | Run linter |
 | `npm test` | Run frontend tests |
 | `npm run test:backend` | Run backend tests |

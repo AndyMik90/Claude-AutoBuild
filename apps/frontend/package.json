@@ -35,6 +35,7 @@
     "package:mac": "npm run python:download && electron-vite build && electron-builder --mac --publish never",
     "package:win": "npm run python:download && electron-vite build && electron-builder --win --publish never",
     "package:linux": "npm run python:download && electron-vite build && electron-builder --linux --publish never",
+    "package:flatpak": "npm run python:download && electron-vite build && electron-builder --linux flatpak --publish never",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
@@ -200,9 +201,26 @@
       "icon": "resources/icon.png",
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "flatpak"
       ],
       "category": "Development"
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "runtimeVersion": "25.08",
+      "sdk": "org.freedesktop.Sdk",
+      "base": "org.electronjs.Electron2.BaseApp",
+      "baseVersion": "25.08",
+      "finishArgs": [
+        "--socket=wayland",
+        "--socket=x11",
+        "--share=ipc",
+        "--share=network",
+        "--device=dri",
+        "--filesystem=home",
+        "--talk-name=org.freedesktop.Notifications"
+      ]
     }
   },
   "lint-staged": {
