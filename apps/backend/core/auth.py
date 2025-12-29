@@ -34,20 +34,30 @@ SDK_ENV_VARS = [
 
 def get_token_from_keychain() -> str | None:
     """
-    Get authentication token from macOS Keychain.
+    Get authentication token from system credential store.
 
-    Reads Claude Code credentials from macOS Keychain and extracts the OAuth token.
-    Only works on macOS (Darwin platform).
+    Reads Claude Code credentials from:
+    - macOS: Keychain
+    - Windows: Credential Manager
+    - Linux: Not yet supported (use env var)
 
     Returns:
-        Token string if found in Keychain, None otherwise
+        Token string if found, None otherwise
     """
-    # Only attempt on macOS
-    if platform.system() != "Darwin":
+    system = platform.system()
+
+    if system == "Darwin":
+        return _get_token_from_macos_keychain()
+    elif system == "Windows":
+        return _get_token_from_windows_credential_manager()
+    else:
+        # Linux: secret-service not yet implemented
         return None
 
+
+def _get_token_from_macos_keychain() -> str | None:
+    """Get token from macOS Keychain."""
     try:
-        # Query macOS Keychain for Claude Code credentials
         result = subprocess.run(
             [
                 "/usr/bin/security",
@@ -64,14 +74,11 @@ def get_token_from_keychain() -> str | None:
         if result.returncode != 0:
             return None
 
-        # Parse JSON response
         credentials_json = result.stdout.strip()
         if not credentials_json:
             return None
 
         data = json.loads(credentials_json)
-
-        # Extract OAuth token from nested structure
         token = data.get("claudeAiOauth", {}).get("accessToken")
 
         if not token:
@@ -84,18 +91,45 @@ def get_token_from_keychain() -> str | None:
         return token
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
-        # Silently fail - this is a fallback mechanism
+        return None
+
+
+def _get_token_from_windows_credential_manager() -> str | None:
+    """Get token from Windows credential file.
+
+    Claude Code on Windows stores credentials in ~/.claude/.credentials.json
+    """
+    try:
+        # Claude Code stores credentials in ~/.claude/.credentials.json
+        cred_paths = [
+            os.path.expandvars(r"%USERPROFILE%\.claude\.credentials.json"),
+            os.path.expandvars(r"%USERPROFILE%\.claude\credentials.json"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Claude\credentials.json"),
+            os.path.expandvars(r"%APPDATA%\Claude\credentials.json"),
+        ]
+
+        for cred_path in cred_paths:
+            if os.path.exists(cred_path):
+                with open(cred_path, encoding="utf-8") as f:
+                    data = json.load(f)
+                    token = data.get("claudeAiOauth", {}).get("accessToken")
+                    if token and token.startswith("sk-ant-oat01-"):
+                        return token
+
+        return None
+
+    except (json.JSONDecodeError, KeyError, FileNotFoundError, Exception):
         return None
 
 
 def get_auth_token() -> str | None:
     """
-    Get authentication token from environment variables or macOS Keychain.
+    Get authentication token from environment variables or system credential store.
 
     Checks multiple sources in priority order:
     1. CLAUDE_CODE_OAUTH_TOKEN (env var)
     2. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
-    3. macOS Keychain (if on Darwin platform)
+    3. System credential store (macOS Keychain, Windows Credential Manager)
 
     NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
     silent billing to user's API credits when OAuth is misconfigured.
@@ -109,7 +143,7 @@ def get_auth_token() -> str | None:
         if token:
             return token
 
-    # Fallback to macOS Keychain
+    # Fallback to system credential store
     return get_token_from_keychain()
 
 
@@ -120,9 +154,15 @@ def get_auth_token_source() -> str | None:
         if os.environ.get(var):
             return var
 
-    # Check if token came from macOS Keychain
+    # Check if token came from system credential store
     if get_token_from_keychain():
-        return "macOS Keychain"
+        system = platform.system()
+        if system == "Darwin":
+            return "macOS Keychain"
+        elif system == "Windows":
+            return "Windows Credential Manager"
+        else:
+            return "System Credential Store"
 
     return None
 
@@ -142,12 +182,21 @@ def require_auth_token() -> str:
             "Direct API keys (ANTHROPIC_API_KEY) are not supported.\n\n"
         )
         # Provide platform-specific guidance
-        if platform.system() == "Darwin":
+        system = platform.system()
+        if system == "Darwin":
             error_msg += (
                 "To authenticate:\n"
                 "  1. Run: claude setup-token\n"
                 "  2. The token will be saved to macOS Keychain automatically\n\n"
                 "Or set CLAUDE_CODE_OAUTH_TOKEN in your .env file."
+            )
+        elif system == "Windows":
+            error_msg += (
+                "To authenticate:\n"
+                "  1. Run: claude setup-token\n"
+                "  2. The token should be saved to Windows Credential Manager\n\n"
+                "If auto-detection fails, set CLAUDE_CODE_OAUTH_TOKEN in your .env file.\n"
+                "Check: %LOCALAPPDATA%\\Claude\\credentials.json"
             )
         else:
             error_msg += (

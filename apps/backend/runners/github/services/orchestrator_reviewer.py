@@ -616,7 +616,7 @@ class OrchestratorReviewer:
         )
 
         if prompt_file.exists():
-            base_prompt = prompt_file.read_text()
+            base_prompt = prompt_file.read_text(encoding="utf-8")
         else:
             logger.warning("Orchestrator prompt not found!")
             base_prompt = "You are a PR reviewer. Review the provided PR."

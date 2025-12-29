@@ -46,6 +46,11 @@ import os
 import sys
 from pathlib import Path
 
+# Fix Windows console encoding for Unicode output (emojis, special chars)
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -79,34 +84,60 @@ def print_progress(callback: ProgressCallback) -> None:
 
 def get_config(args) -> GitHubRunnerConfig:
     """Build config from CLI args and environment."""
+    import shutil
+    import subprocess
+
     token = args.token or os.environ.get("GITHUB_TOKEN", "")
     bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
     repo = args.repo or os.environ.get("GITHUB_REPO", "")
 
-    if not token:
-        # Try to get from gh CLI
-        import subprocess
+    # Find gh CLI - use shutil.which for cross-platform support
+    gh_path = shutil.which("gh")
+    if not gh_path and sys.platform == "win32":
+        # Fallback: check common Windows installation paths
+        common_paths = [
+            r"C:\Program Files\GitHub CLI\gh.exe",
+            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                gh_path = path
+                break
 
+    print(f"[DEBUG] gh CLI path: {gh_path}", flush=True)
+    print(f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...", flush=True)
+
+    if not token and gh_path:
+        # Try to get from gh CLI
         result = subprocess.run(
-            ["gh", "auth", "token"],
+            [gh_path, "auth", "token"],
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
             token = result.stdout.strip()
 
-    if not repo:
+    if not repo and gh_path:
         # Try to detect from git remote
-        import subprocess
-
         result = subprocess.run(
-            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+            [
+                gh_path,
+                "repo",
+                "view",
+                "--json",
+                "nameWithOwner",
+                "-q",
+                ".nameWithOwner",
+            ],
             cwd=args.project,
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
             repo = result.stdout.strip()
+        else:
+            print(f"[DEBUG] gh repo view failed: {result.stderr}", flush=True)
 
     if not token:
         print("Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'")

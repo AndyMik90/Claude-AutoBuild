@@ -59,7 +59,9 @@ export function runPythonSubprocess<T = unknown>(
   // This is safe because: (1) user must explicitly enable via npm run dev:debug,
   // (2) it only enables our internal debug logging, not third-party framework debugging,
   // (3) no sensitive values are logged - only LLM reasoning and response text.
-  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG'];
+  // Include platform-specific vars needed for shell commands and CLI tools
+  // Windows: SYSTEMROOT, COMSPEC, PATHEXT, WINDIR for shell; USERPROFILE, APPDATA, LOCALAPPDATA for gh CLI auth
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
   const filteredEnv: Record<string, string> = {};
   for (const key of safeEnvVars) {
     if (process.env[key]) {
@@ -185,7 +187,9 @@ export function runPythonSubprocess<T = unknown>(
  * Get the Python path for a project's backend
  */
 export function getPythonPath(backendPath: string): string {
-  return path.join(backendPath, '.venv', 'bin', 'python');
+  return process.platform === 'win32'
+    ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
+    : path.join(backendPath, '.venv', 'bin', 'python');
 }
 
 /**
@@ -315,11 +319,15 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 
   // 2. Check gh CLI installation
   try {
-    await execAsync('which gh');
+    const whichCommand = process.platform === 'win32' ? 'where gh' : 'which gh';
+    await execAsync(whichCommand);
     result.ghCliInstalled = true;
   } catch {
     result.ghCliInstalled = false;
-    result.error = 'GitHub CLI (gh) is not installed. Install it with:\n  macOS: brew install gh\n  Linux: See https://cli.github.com/';
+    const installInstructions = process.platform === 'win32'
+      ? 'GitHub CLI (gh) is not installed. Install it with:\n  Windows: winget install --id GitHub.cli\n  Or download from: https://cli.github.com/'
+      : 'GitHub CLI (gh) is not installed. Install it with:\n  macOS: brew install gh\n  Linux: See https://cli.github.com/';
+    result.error = installInstructions;
     return result;
   }
 
@@ -341,7 +349,9 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
   }
 
   // 4. Check Python virtual environment
-  const venvPath = path.join(backendPath, '.venv', 'bin', 'python');
+  const venvPath = process.platform === 'win32'
+    ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
+    : path.join(backendPath, '.venv', 'bin', 'python');
   result.pythonEnvValid = fs.existsSync(venvPath);
 
   if (!result.pythonEnvValid) {
