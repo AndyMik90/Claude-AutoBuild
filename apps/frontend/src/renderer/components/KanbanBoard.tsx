@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, Settings, ArrowRight } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, Settings, ListPlus } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -203,6 +203,17 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
         <div className="flex items-center gap-1">
           {status === 'backlog' && (
             <>
+              {onQueueAll && tasks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+                  onClick={onQueueAll}
+                  title={t('tooltips.queueAll')}
+                >
+                  <ListPlus className="h-4 w-4" />
+                </Button>
+              )}
               {onAddClick && (
                 <Button
                   variant="ghost"
@@ -212,17 +223,6 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   title={t('tooltips.addTask')}
                 >
                   <Plus className="h-4 w-4" />
-                </Button>
-              )}
-              {onQueueAll && tasks.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
-                  onClick={onQueueAll}
-                  title={t('tooltips.queueAll')}
-                >
-                  <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
             </>
