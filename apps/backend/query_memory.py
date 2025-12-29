@@ -25,6 +25,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from file_lock import FileLock, FileLockTimeout
+
 
 # Apply LadybugDB monkeypatch BEFORE any graphiti imports
 def apply_monkeypatch():
@@ -61,6 +63,34 @@ def serialize_value(val):
     return val
 
 
+def result_to_rows(result) -> list[dict]:
+    """
+    Convert a kuzu/LadybugDB query result into a list of dictionaries.
+
+    Avoids requiring optional pandas dependency (get_as_df()) which is not
+    guaranteed to be present in the bundled Python environment.
+    """
+    try:
+        rows = list(result.rows_as_dict())
+        # Normalize any non-serializable values
+        return [
+            {k: serialize_value(v) for k, v in (row or {}).items()} for row in rows
+        ]
+    except Exception:
+        # Best-effort fallback
+        rows = []
+        try:
+            while result.has_next():
+                row = result.get_next()
+                if isinstance(row, dict):
+                    rows.append({k: serialize_value(v) for k, v in row.items()})
+                else:
+                    rows.append({"value": serialize_value(row)})
+        except Exception:
+            pass
+        return rows
+
+
 def output_json(success: bool, data=None, error: str = None):
     """Output JSON result to stdout and exit."""
     result = {"success": success}
@@ -79,8 +109,24 @@ def output_error(message: str):
     output_json(False, error=message)
 
 
-def get_db_connection(db_path: str, database: str):
-    """Get a database connection."""
+def _get_db_full_path(db_path: str, database: str) -> Path:
+    # Expand ~ for UI-provided paths
+    return Path(db_path).expanduser() / database
+
+
+def _lock_timeout_seconds() -> float:
+    try:
+        return float(os.environ.get("AUTO_CLAUDE_MEMORY_LOCK_TIMEOUT", "10"))
+    except Exception:
+        return 10.0
+
+
+def get_db_connection(db_path: str, database: str, *, create_if_missing: bool = False):
+    """Get a database connection.
+
+    If create_if_missing is True, this will create/open the database and
+    best-effort initialize the schema required for basic queries.
+    """
     try:
         # Try to import kuzu (might be real_ladybug via monkeypatch or native)
         try:
@@ -88,12 +134,33 @@ def get_db_connection(db_path: str, database: str):
         except ImportError:
             import real_ladybug as kuzu
 
-        full_path = Path(db_path) / database
+        full_path = _get_db_full_path(db_path, database)
         if not full_path.exists():
-            return None, f"Database not found at {full_path}"
+            if not create_if_missing:
+                return None, f"Database not found at {full_path}"
+            full_path.parent.mkdir(parents=True, exist_ok=True)
 
         db = kuzu.Database(str(full_path))
         conn = kuzu.Connection(db)
+
+        # Best-effort schema init when creating/opening fresh DB.
+        if create_if_missing:
+            try:
+                conn.execute("INSTALL fts")
+            except Exception:
+                pass
+            try:
+                conn.execute("LOAD EXTENSION fts")
+            except Exception:
+                pass
+            try:
+                from graphiti_core.driver.kuzu_driver import SCHEMA_QUERIES
+
+                conn.execute(SCHEMA_QUERIES)
+            except Exception:
+                # Still allow DB to be used for whatever queries are possible
+                pass
+
         return conn, None
     except Exception as e:
         return None, str(e)
@@ -132,18 +199,22 @@ def cmd_get_status(args):
                 continue
             databases.append(item.name)
 
-    # Try to connect and verify
-    conn, error = get_db_connection(str(db_path), database)
+    # Try to connect and verify (non-destructive: do NOT create DB here)
+    conn, error = get_db_connection(str(db_path), database, create_if_missing=False)
     connected = conn is not None
 
     if connected:
         try:
             # Test query
-            result = conn.execute("RETURN 1 as test")
-            _ = result.get_as_df()
+            conn.execute("RETURN 1 as test")
         except Exception as e:
             connected = False
             error = str(e)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     output_json(
         True,
@@ -166,58 +237,72 @@ def cmd_get_memories(args):
         output_error("Neither kuzu nor LadybugDB is installed")
         return
 
-    conn, error = get_db_connection(args.db_path, args.database)
-    if not conn:
-        output_error(error or "Failed to connect to database")
-        return
-
+    full_path = _get_db_full_path(args.db_path, args.database)
     try:
-        limit = args.limit or 20
+        with FileLock(full_path, timeout=_lock_timeout_seconds()):
+            conn, error = get_db_connection(
+                args.db_path, args.database, create_if_missing=True
+            )
+            if not conn:
+                output_error(error or "Failed to connect to database")
+                return
 
-        # Query episodic nodes with parameterized query
-        query = """
-            MATCH (e:Episodic)
-            RETURN e.uuid as uuid, e.name as name, e.created_at as created_at,
-                   e.content as content, e.source_description as description,
-                   e.group_id as group_id
-            ORDER BY e.created_at DESC
-            LIMIT $limit
-        """
+            try:
+                limit = args.limit or 20
 
-        result = conn.execute(query, parameters={"limit": limit})
-        df = result.get_as_df()
+                # Query episodic nodes with parameterized query
+                query = """
+                    MATCH (e:Episodic)
+                    RETURN e.uuid as uuid, e.name as name, e.created_at as created_at,
+                           e.content as content, e.source_description as description,
+                           e.group_id as group_id
+                    ORDER BY e.created_at DESC
+                    LIMIT $limit
+                """
 
-        memories = []
-        for _, row in df.iterrows():
-            memory = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content")
-                or row.get("description")
-                or row.get("name", ""),
-                "description": row.get("description", ""),
-                "group_id": row.get("group_id", ""),
-            }
+                result = conn.execute(query, parameters={"limit": limit})
+                rows = result_to_rows(result)
 
-            # Extract session number if present
-            session_num = extract_session_number(row.get("name", ""))
-            if session_num:
-                memory["session_number"] = session_num
+                memories = []
+                for row in rows:
+                    memory = {
+                        "id": row.get("uuid") or row.get("name", "unknown"),
+                        "name": row.get("name", ""),
+                        "type": infer_episode_type(
+                            row.get("name", ""), row.get("content", "")
+                        ),
+                        "timestamp": row.get("created_at") or datetime.now().isoformat(),
+                        "content": row.get("content")
+                        or row.get("description")
+                        or row.get("name", ""),
+                        "description": row.get("description", ""),
+                        "group_id": row.get("group_id", ""),
+                    }
 
-            memories.append(memory)
+                    # Extract session number if present
+                    session_num = extract_session_number(row.get("name", ""))
+                    if session_num:
+                        memory["session_number"] = session_num
 
-        output_json(True, data={"memories": memories, "count": len(memories)})
+                    memories.append(memory)
 
-    except Exception as e:
-        # Table might not exist yet
-        if "Episodic" in str(e) and (
-            "not exist" in str(e).lower() or "cannot" in str(e).lower()
-        ):
-            output_json(True, data={"memories": [], "count": 0})
-        else:
-            output_error(f"Query failed: {e}")
+                output_json(True, data={"memories": memories, "count": len(memories)})
+
+            except Exception as e:
+                # Table might not exist yet
+                if "Episodic" in str(e) and (
+                    "not exist" in str(e).lower() or "cannot" in str(e).lower()
+                ):
+                    output_json(True, data={"memories": [], "count": 0})
+                else:
+                    output_error(f"Query failed: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    except FileLockTimeout as e:
+        output_error(str(e))
 
 
 def cmd_search(args):
@@ -226,66 +311,86 @@ def cmd_search(args):
         output_error("Neither kuzu nor LadybugDB is installed")
         return
 
-    conn, error = get_db_connection(args.db_path, args.database)
-    if not conn:
-        output_error(error or "Failed to connect to database")
-        return
-
+    full_path = _get_db_full_path(args.db_path, args.database)
     try:
-        limit = args.limit or 20
-        search_query = args.query.lower()
+        with FileLock(full_path, timeout=_lock_timeout_seconds()):
+            conn, error = get_db_connection(
+                args.db_path, args.database, create_if_missing=True
+            )
+            if not conn:
+                output_error(error or "Failed to connect to database")
+                return
 
-        # Search in episodic nodes using CONTAINS with parameterized query
-        query = """
-            MATCH (e:Episodic)
-            WHERE toLower(e.name) CONTAINS $search_query
-               OR toLower(e.content) CONTAINS $search_query
-               OR toLower(e.source_description) CONTAINS $search_query
-            RETURN e.uuid as uuid, e.name as name, e.created_at as created_at,
-                   e.content as content, e.source_description as description,
-                   e.group_id as group_id
-            ORDER BY e.created_at DESC
-            LIMIT $limit
-        """
+            try:
+                limit = args.limit or 20
+                search_query = args.query.lower()
 
-        result = conn.execute(
-            query, parameters={"search_query": search_query, "limit": limit}
-        )
-        df = result.get_as_df()
+                # Search in episodic nodes using CONTAINS with parameterized query
+                query = """
+                    MATCH (e:Episodic)
+                    WHERE toLower(e.name) CONTAINS $search_query
+                       OR toLower(e.content) CONTAINS $search_query
+                       OR toLower(e.source_description) CONTAINS $search_query
+                    RETURN e.uuid as uuid, e.name as name, e.created_at as created_at,
+                           e.content as content, e.source_description as description,
+                           e.group_id as group_id
+                    ORDER BY e.created_at DESC
+                    LIMIT $limit
+                """
 
-        memories = []
-        for _, row in df.iterrows():
-            memory = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_episode_type(row.get("name", ""), row.get("content", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("content")
-                or row.get("description")
-                or row.get("name", ""),
-                "description": row.get("description", ""),
-                "group_id": row.get("group_id", ""),
-                "score": 1.0,  # Keyword match score
-            }
+                result = conn.execute(
+                    query, parameters={"search_query": search_query, "limit": limit}
+                )
+                rows = result_to_rows(result)
 
-            session_num = extract_session_number(row.get("name", ""))
-            if session_num:
-                memory["session_number"] = session_num
+                memories = []
+                for row in rows:
+                    memory = {
+                        "id": row.get("uuid") or row.get("name", "unknown"),
+                        "name": row.get("name", ""),
+                        "type": infer_episode_type(
+                            row.get("name", ""), row.get("content", "")
+                        ),
+                        "timestamp": row.get("created_at") or datetime.now().isoformat(),
+                        "content": row.get("content")
+                        or row.get("description")
+                        or row.get("name", ""),
+                        "description": row.get("description", ""),
+                        "group_id": row.get("group_id", ""),
+                        "score": 1.0,  # Keyword match score
+                    }
 
-            memories.append(memory)
+                    session_num = extract_session_number(row.get("name", ""))
+                    if session_num:
+                        memory["session_number"] = session_num
 
-        output_json(
-            True,
-            data={"memories": memories, "count": len(memories), "query": args.query},
-        )
+                    memories.append(memory)
 
-    except Exception as e:
-        if "Episodic" in str(e) and (
-            "not exist" in str(e).lower() or "cannot" in str(e).lower()
-        ):
-            output_json(True, data={"memories": [], "count": 0, "query": args.query})
-        else:
-            output_error(f"Search failed: {e}")
+                output_json(
+                    True,
+                    data={
+                        "memories": memories,
+                        "count": len(memories),
+                        "query": args.query,
+                    },
+                )
+
+            except Exception as e:
+                if "Episodic" in str(e) and (
+                    "not exist" in str(e).lower() or "cannot" in str(e).lower()
+                ):
+                    output_json(
+                        True, data={"memories": [], "count": 0, "query": args.query}
+                    )
+                else:
+                    output_error(f"Search failed: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    except FileLockTimeout as e:
+        output_error(str(e))
 
 
 def cmd_semantic_search(args):
@@ -304,14 +409,16 @@ def cmd_semantic_search(args):
         # No embedder configured, fall back to keyword search
         return cmd_search(args)
 
-    # Try semantic search
+    # Try semantic search (serialize access with DB lock)
     try:
-        result = asyncio.run(_async_semantic_search(args))
-        if result.get("success"):
-            output_json(True, data=result.get("data"))
-        else:
-            # Semantic search failed, fall back to keyword search
-            return cmd_search(args)
+        full_path = _get_db_full_path(args.db_path, args.database)
+        with FileLock(full_path, timeout=_lock_timeout_seconds()):
+            result = asyncio.run(_async_semantic_search(args))
+            if result.get("success"):
+                output_json(True, data=result.get("data"))
+            else:
+                # Semantic search failed, fall back to keyword search
+                return cmd_search(args)
     except Exception as e:
         # Any error, fall back to keyword search
         sys.stderr.write(f"Semantic search failed, falling back to keyword: {e}\n")
@@ -443,49 +550,61 @@ def cmd_get_entities(args):
         output_error("Neither kuzu nor LadybugDB is installed")
         return
 
-    conn, error = get_db_connection(args.db_path, args.database)
-    if not conn:
-        output_error(error or "Failed to connect to database")
-        return
-
+    full_path = _get_db_full_path(args.db_path, args.database)
     try:
-        limit = args.limit or 20
+        with FileLock(full_path, timeout=_lock_timeout_seconds()):
+            conn, error = get_db_connection(
+                args.db_path, args.database, create_if_missing=True
+            )
+            if not conn:
+                output_error(error or "Failed to connect to database")
+                return
 
-        # Query entity nodes with parameterized query
-        query = """
-            MATCH (e:Entity)
-            RETURN e.uuid as uuid, e.name as name, e.summary as summary,
-                   e.created_at as created_at
-            ORDER BY e.created_at DESC
-            LIMIT $limit
-        """
+            try:
+                limit = args.limit or 20
 
-        result = conn.execute(query, parameters={"limit": limit})
-        df = result.get_as_df()
+                # Query entity nodes with parameterized query
+                query = """
+                    MATCH (e:Entity)
+                    RETURN e.uuid as uuid, e.name as name, e.summary as summary,
+                           e.created_at as created_at
+                    ORDER BY e.created_at DESC
+                    LIMIT $limit
+                """
 
-        entities = []
-        for _, row in df.iterrows():
-            if not row.get("summary"):
-                continue
+                result = conn.execute(query, parameters={"limit": limit})
+                rows = result_to_rows(result)
 
-            entity = {
-                "id": row.get("uuid") or row.get("name", "unknown"),
-                "name": row.get("name", ""),
-                "type": infer_entity_type(row.get("name", "")),
-                "timestamp": row.get("created_at") or datetime.now().isoformat(),
-                "content": row.get("summary", ""),
-            }
-            entities.append(entity)
+                entities = []
+                for row in rows:
+                    if not row.get("summary"):
+                        continue
 
-        output_json(True, data={"entities": entities, "count": len(entities)})
+                    entity = {
+                        "id": row.get("uuid") or row.get("name", "unknown"),
+                        "name": row.get("name", ""),
+                        "type": infer_entity_type(row.get("name", "")),
+                        "timestamp": row.get("created_at") or datetime.now().isoformat(),
+                        "content": row.get("summary", ""),
+                    }
+                    entities.append(entity)
 
-    except Exception as e:
-        if "Entity" in str(e) and (
-            "not exist" in str(e).lower() or "cannot" in str(e).lower()
-        ):
-            output_json(True, data={"entities": [], "count": 0})
-        else:
-            output_error(f"Query failed: {e}")
+                output_json(True, data={"entities": entities, "count": len(entities)})
+
+            except Exception as e:
+                if "Entity" in str(e) and (
+                    "not exist" in str(e).lower() or "cannot" in str(e).lower()
+                ):
+                    output_json(True, data={"entities": [], "count": 0})
+                else:
+                    output_error(f"Query failed: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    except FileLockTimeout as e:
+        output_error(str(e))
 
 
 def infer_episode_type(name: str, content: str = "") -> str:
