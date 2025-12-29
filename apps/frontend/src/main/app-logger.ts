@@ -14,14 +14,18 @@
  * - Beta version detection for enhanced logging
  */
 
-import log from 'electron-log/main';
+import log from 'electron-log/main.js';
 import { app } from 'electron';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import os from 'os';
 
-// Configure electron-log
-log.initialize();
+// Configure electron-log (wrapped in try-catch for re-import scenarios in tests)
+try {
+  log.initialize();
+} catch {
+  // Already initialized, ignore
+}
 
 // File transport configuration
 log.transports.file.maxSize = 10 * 1024 * 1024; // 10MB max file size

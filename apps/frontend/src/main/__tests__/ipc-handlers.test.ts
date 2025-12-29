@@ -56,6 +56,30 @@ vi.mock('../notification-service', () => ({
   }
 }));
 
+// Mock electron-log to prevent Electron binary dependency
+vi.mock('electron-log/main.js', () => ({
+  default: {
+    initialize: vi.fn(),
+    transports: {
+      file: {
+        maxSize: 10 * 1024 * 1024,
+        format: '',
+        fileName: 'main.log',
+        level: 'info',
+        getFile: vi.fn(() => ({ path: '/tmp/test.log' }))
+      },
+      console: {
+        level: 'warn',
+        format: ''
+      }
+    },
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }
+}));
+
 // Mock modules before importing
 vi.mock('electron', () => {
   const mockIpcMain = new (class extends EventEmitter {

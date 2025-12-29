@@ -1,12 +1,16 @@
 #!/bin/sh
 
 # Commit message validation
-# Enforces conventional commit format: type(scope): description
+# Enforces conventional commit format: type(scope)!?: description
 #
 # Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# Scope allows: letters, numbers, hyphens, underscores, slashes, dots
+# Optional ! for breaking changes
 # Examples:
 #   feat(tasks): add drag and drop support
 #   fix(terminal): resolve scroll position issue
+#   feat!: breaking change without scope
+#   feat(api)!: breaking change with scope
 #   docs: update README with setup instructions
 #   chore: update dependencies
 
@@ -14,8 +18,10 @@ commit_msg_file=$1
 commit_msg=$(cat "$commit_msg_file")
 
 # Regex for conventional commits
-# Format: type(optional-scope): description
-pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?: .{1,100}$"
+# Format: type(optional-scope)!?: description
+# Scope allows: letters, numbers, hyphens, underscores, slashes, dots (consistent with GitHub workflow)
+# Optional ! for breaking changes: feat!: or feat(scope)!:
+pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_/.-]+\))?!?: .{1,100}$"
 
 # Allow merge commits
 if echo "$commit_msg" | grep -qE "^Merge "; then
@@ -36,7 +42,7 @@ if ! echo "$first_line" | grep -qE "$pattern"; then
   echo ""
   echo "Your message: $first_line"
   echo ""
-  echo "Expected format: type(scope): description"
+  echo "Expected format: type(scope)!?: description"
   echo ""
   echo "Valid types:"
   echo "  feat     - A new feature"
@@ -54,6 +60,8 @@ if ! echo "$first_line" | grep -qE "$pattern"; then
   echo "Examples:"
   echo "  feat(tasks): add drag and drop support"
   echo "  fix(terminal): resolve scroll position issue"
+  echo "  feat!: breaking change without scope"
+  echo "  feat(api)!: breaking change with scope"
   echo "  docs: update README"
   echo "  chore: update dependencies"
   echo ""

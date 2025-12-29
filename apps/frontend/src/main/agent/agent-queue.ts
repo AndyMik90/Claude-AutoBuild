@@ -406,7 +406,8 @@ export class AgentQueueManager {
       if (wasIntentionallyStopped) {
         debugLog('[Agent Queue] Ideation process was intentionally stopped, ignoring exit');
         this.state.clearKilledSpawn(spawnId);
-        this.state.deleteProcess(projectId);
+        // Note: Don't call deleteProcess here - killProcess() already deleted it.
+        // A new process with the same projectId may have been started.
         // Emit stopped event to ensure UI updates
         this.emitter.emit('ideation-stopped', projectId);
         return;
@@ -648,7 +649,8 @@ export class AgentQueueManager {
       if (wasIntentionallyStopped) {
         debugLog('[Agent Queue] Roadmap process was intentionally stopped, ignoring exit');
         this.state.clearKilledSpawn(spawnId);
-        this.state.deleteProcess(projectId);
+        // Note: Don't call deleteProcess here - killProcess() already deleted it.
+        // A new process with the same projectId may have been started.
         return;
       }
 
