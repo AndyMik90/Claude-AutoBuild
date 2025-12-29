@@ -20,6 +20,7 @@ interface TerminalHeaderProps {
   onTaskSelect: (taskId: string) => void;
   onClearTask: () => void;
   onNewTaskClick?: () => void;
+  terminalCount?: number;
 }
 
 export function TerminalHeader({
@@ -35,6 +36,7 @@ export function TerminalHeader({
   onTaskSelect,
   onClearTask,
   onNewTaskClick,
+  terminalCount = 1,
 }: TerminalHeaderProps) {
   const backlogTasks = tasks.filter((t) => t.status === 'backlog');
 
@@ -48,6 +50,7 @@ export function TerminalHeader({
             title={title}
             associatedTask={associatedTask}
             onTitleChange={onTitleChange}
+            terminalCount={terminalCount}
           />
         </div>
         {isClaudeMode && (

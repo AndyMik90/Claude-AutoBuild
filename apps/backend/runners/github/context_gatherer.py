@@ -101,27 +101,75 @@ class AIBotComment:
 
 
 # Known AI code review bots and their display names
+# Organized by category for maintainability
 AI_BOT_PATTERNS: dict[str, str] = {
+    # === AI Code Review Tools ===
     "coderabbitai": "CodeRabbit",
     "coderabbit-ai": "CodeRabbit",
     "coderabbit[bot]": "CodeRabbit",
     "greptile": "Greptile",
     "greptile[bot]": "Greptile",
+    "greptile-ai": "Greptile",
+    "greptile-apps": "Greptile",
+    "cursor": "Cursor",
     "cursor-ai": "Cursor",
     "cursor[bot]": "Cursor",
     "sourcery-ai": "Sourcery",
     "sourcery-ai[bot]": "Sourcery",
+    "sourcery-ai-bot": "Sourcery",
     "codiumai": "Qodo",
     "codium-ai[bot]": "Qodo",
+    "codiumai-agent": "Qodo",
     "qodo-merge-bot": "Qodo",
+    # === AI Coding Assistants ===
     "copilot": "GitHub Copilot",
     "copilot[bot]": "GitHub Copilot",
+    "copilot-swe-agent[bot]": "GitHub Copilot",
+    "sweep-ai[bot]": "Sweep AI",
+    "sweep-nightly[bot]": "Sweep AI",
+    "sweep-canary[bot]": "Sweep AI",
+    "bitoagent": "Bito AI",
+    "codeium-ai-superpowers": "Codeium",
+    "devin-ai-integration": "Devin AI",
+    # === GitHub Native Bots ===
     "github-actions": "GitHub Actions",
     "github-actions[bot]": "GitHub Actions",
-    "deepsource-autofix": "DeepSource",
-    "deepsource-autofix[bot]": "DeepSource",
+    "github-advanced-security": "GitHub Advanced Security",
+    "github-advanced-security[bot]": "GitHub Advanced Security",
+    "dependabot": "Dependabot",
+    "dependabot[bot]": "Dependabot",
+    "github-merge-queue[bot]": "GitHub Merge Queue",
+    # === Code Quality & Static Analysis ===
     "sonarcloud": "SonarCloud",
     "sonarcloud[bot]": "SonarCloud",
+    "deepsource-autofix": "DeepSource",
+    "deepsource-autofix[bot]": "DeepSource",
+    "deepsourcebot": "DeepSource",
+    "codeclimate[bot]": "CodeClimate",
+    "codefactor-io[bot]": "CodeFactor",
+    "codacy[bot]": "Codacy",
+    # === Security Scanning ===
+    "snyk-bot": "Snyk",
+    "snyk[bot]": "Snyk",
+    "snyk-security-bot": "Snyk",
+    "gitguardian[bot]": "GitGuardian",
+    "semgrep-app[bot]": "Semgrep",
+    "semgrep-bot": "Semgrep",
+    # === Code Coverage ===
+    "codecov[bot]": "Codecov",
+    "codecov-commenter": "Codecov",
+    "coveralls": "Coveralls",
+    "coveralls[bot]": "Coveralls",
+    # === Dependency Management ===
+    "renovate[bot]": "Renovate",
+    "renovate-bot": "Renovate",
+    "self-hosted-renovate[bot]": "Renovate",
+    # === PR Automation ===
+    "mergify[bot]": "Mergify",
+    "imgbotapp": "Imgbot",
+    "imgbot[bot]": "Imgbot",
+    "allstar[bot]": "Allstar",
+    "percy[bot]": "Percy",
 }
 
 
@@ -1013,6 +1061,15 @@ class FollowupContextGatherer:
             print(f"[Followup] Error fetching comments: {e}", flush=True)
             comments = {"review_comments": [], "issue_comments": []}
 
+        # Get formal PR reviews since last review (from Cursor, CodeRabbit, etc.)
+        try:
+            pr_reviews = await self.gh_client.get_reviews_since(
+                self.pr_number, self.previous_review.reviewed_at
+            )
+        except Exception as e:
+            print(f"[Followup] Error fetching PR reviews: {e}", flush=True)
+            pr_reviews = []
+
         # Separate AI bot comments from contributor comments
         ai_comments = []
         contributor_comments = []
@@ -1035,8 +1092,33 @@ class FollowupContextGatherer:
             else:
                 contributor_comments.append(comment)
 
+        # Separate AI bot reviews from contributor reviews
+        ai_reviews = []
+        contributor_reviews = []
+
+        for review in pr_reviews:
+            author = ""
+            if isinstance(review.get("user"), dict):
+                author = review["user"].get("login", "").lower()
+
+            is_ai_bot = any(pattern in author for pattern in AI_BOT_PATTERNS.keys())
+
+            if is_ai_bot:
+                ai_reviews.append(review)
+            else:
+                contributor_reviews.append(review)
+
+        # Combine AI comments and reviews for reporting
+        total_ai_feedback = len(ai_comments) + len(ai_reviews)
+        total_contributor_feedback = len(contributor_comments) + len(
+            contributor_reviews
+        )
+
         print(
-            f"[Followup] Found {len(contributor_comments)} contributor comments, {len(ai_comments)} AI comments",
+            f"[Followup] Found {total_contributor_feedback} contributor feedback "
+            f"({len(contributor_comments)} comments, {len(contributor_reviews)} reviews), "
+            f"{total_ai_feedback} AI feedback "
+            f"({len(ai_comments)} comments, {len(ai_reviews)} reviews)",
             flush=True,
         )
 
@@ -1048,6 +1130,8 @@ class FollowupContextGatherer:
             commits_since_review=commits,
             files_changed_since_review=files_changed,
             diff_since_review=diff_since_review,
-            contributor_comments_since_review=contributor_comments,
+            contributor_comments_since_review=contributor_comments
+            + contributor_reviews,
             ai_bot_comments_since_review=ai_comments,
+            pr_reviews_since_review=pr_reviews,
         )

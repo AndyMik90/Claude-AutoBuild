@@ -288,7 +288,7 @@ export class ChangelogGenerator extends EventEmitter {
     this.debug('Spawn environment', {
       HOME: spawnEnv.HOME,
       USER: spawnEnv.USER,
-      pathDirs: spawnEnv.PATH?.split(':').length,
+      pathDirs: spawnEnv.PATH?.split(path.delimiter).length,
       authMethod: spawnEnv.CLAUDE_CODE_OAUTH_TOKEN ? 'oauth-token' : (spawnEnv.CLAUDE_CONFIG_DIR ? `config-dir:${spawnEnv.CLAUDE_CONFIG_DIR}` : 'default')
     });
 

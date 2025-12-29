@@ -112,6 +112,9 @@ class ProjectAnalyzer:
             # PHP
             "composer.json",
             "composer.lock",
+            # Dart/Flutter
+            "pubspec.yaml",
+            "pubspec.lock",
             # Java/Kotlin/Scala
             "pom.xml",
             "build.gradle",
@@ -170,6 +173,7 @@ class ProjectAnalyzer:
                 "*.ts",
                 "*.go",
                 "*.rs",
+                "*.dart",
                 "*.cs",
                 "*.swift",
                 "*.kt",

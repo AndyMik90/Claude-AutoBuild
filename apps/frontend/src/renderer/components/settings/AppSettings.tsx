@@ -16,7 +16,8 @@ import {
   Database,
   Sparkles,
   Monitor,
-  Globe
+  Globe,
+  Code
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -47,6 +48,7 @@ import { LanguageSettings } from './LanguageSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
+import { DevToolsSettings } from './DevToolsSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -61,7 +63,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -72,6 +74,7 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'appearance', icon: Palette },
   { id: 'display', icon: Monitor },
   { id: 'language', icon: Globe },
+  { id: 'devtools', icon: Code },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
   { id: 'integrations', icon: Key },
@@ -178,6 +181,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <DisplaySettings settings={settings} onSettingsChange={setSettings} />;
       case 'language':
         return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
+      case 'devtools':
+        return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':

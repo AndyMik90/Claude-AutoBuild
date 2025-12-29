@@ -97,7 +97,13 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
 
   const getAvailableTypesToAdd = (): IdeationType[] => {
     if (!session) return ALL_IDEATION_TYPES;
-    const existingTypes = new Set(session.ideas.map((idea) => idea.type));
+    // Only count types with active ideas (not dismissed or archived)
+    // This allows users to regenerate types where all ideas were dismissed
+    const existingTypes = new Set(
+      session.ideas
+        .filter((idea) => idea.status !== 'dismissed' && idea.status !== 'archived')
+        .map((idea) => idea.type)
+    );
     return ALL_IDEATION_TYPES.filter((type) => !existingTypes.has(type));
   };
 

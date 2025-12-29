@@ -183,9 +183,12 @@ export function runPythonSubprocess<T = unknown>(
 
 /**
  * Get the Python path for a project's backend
+ * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
  */
 export function getPythonPath(backendPath: string): string {
-  return path.join(backendPath, '.venv', 'bin', 'python');
+  return process.platform === 'win32'
+    ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
+    : path.join(backendPath, '.venv', 'bin', 'python');
 }
 
 /**
@@ -313,13 +316,19 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     return result;
   }
 
-  // 2. Check gh CLI installation
+  // 2. Check gh CLI installation (cross-platform)
   try {
-    await execAsync('which gh');
+    const whichCommand = process.platform === 'win32' ? 'where gh' : 'which gh';
+    await execAsync(whichCommand);
     result.ghCliInstalled = true;
   } catch {
     result.ghCliInstalled = false;
-    result.error = 'GitHub CLI (gh) is not installed. Install it with:\n  macOS: brew install gh\n  Linux: See https://cli.github.com/';
+    const installInstructions = process.platform === 'win32'
+      ? 'winget install --id GitHub.cli'
+      : process.platform === 'darwin'
+        ? 'brew install gh'
+        : 'See https://cli.github.com/';
+    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
     return result;
   }
 
@@ -340,8 +349,8 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     result.ghAuthenticated = true;
   }
 
-  // 4. Check Python virtual environment
-  const venvPath = path.join(backendPath, '.venv', 'bin', 'python');
+  // 4. Check Python virtual environment (cross-platform)
+  const venvPath = getPythonPath(backendPath);
   result.pythonEnvValid = fs.existsSync(venvPath);
 
   if (!result.pythonEnvValid) {

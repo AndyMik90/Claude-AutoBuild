@@ -421,6 +421,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                                 onActivate={() => setActiveTerminal(terminal.id)}
                                 tasks={tasks}
                                 onNewTaskClick={onNewTaskClick}
+                                terminalCount={terminals.length}
                               />
                             </div>
                           </Panel>

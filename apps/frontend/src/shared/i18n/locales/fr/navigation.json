@@ -15,7 +15,8 @@
     "githubPRs": "PRs GitHub",
     "gitlabIssues": "Issues GitLab",
     "gitlabMRs": "MRs GitLab",
-    "worktrees": "Worktrees"
+    "worktrees": "Worktrees",
+    "agentTools": "Aperçu MCP"
   },
   "actions": {
     "settings": "Paramètres",

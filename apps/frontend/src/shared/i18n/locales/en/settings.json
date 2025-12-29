@@ -17,6 +17,10 @@
       "title": "Language",
       "description": "Choose your preferred language"
     },
+    "devtools": {
+      "title": "Developer Tools",
+      "description": "IDE and terminal preferences"
+    },
     "agent": {
       "title": "Agent Settings",
       "description": "Default model and framework"
@@ -104,6 +108,30 @@
     "colorTheme": "Color Theme",
     "colorThemeDescription": "Choose your preferred color palette"
   },
+  "devtools": {
+    "title": "Developer Tools",
+    "description": "Configure your preferred IDE and terminal for working with worktrees",
+    "detecting": "Detecting installed tools...",
+    "detectAgain": "Detect Again",
+    "ide": {
+      "label": "Preferred IDE",
+      "description": "Auto Claude will open worktrees in this editor",
+      "placeholder": "Select IDE...",
+      "customPath": "Custom IDE Path",
+      "customPathPlaceholder": "/path/to/your/ide"
+    },
+    "terminal": {
+      "label": "Preferred Terminal",
+      "description": "Auto Claude will open terminal sessions here",
+      "placeholder": "Select terminal...",
+      "customPath": "Custom Terminal Path",
+      "customPathPlaceholder": "/path/to/your/terminal"
+    },
+    "detected": "Detected",
+    "notInstalled": "Not installed",
+    "detectedSummary": "Detected on your system:",
+    "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)"
+  },
   "updates": {
     "title": "Updates",
     "description": "Manage Auto Claude updates",
@@ -147,7 +175,9 @@
   "projectSections": {
     "general": {
       "title": "General",
-      "description": "Auto-Build and agent config"
+      "description": "Auto-Build and agent config",
+      "useClaudeMd": "Use CLAUDE.md",
+      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
     },
     "claude": {
       "title": "Claude Auth",

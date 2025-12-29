@@ -2,7 +2,7 @@ name: PR Status Gate
 
 on:
   workflow_run:
-    workflows: [CI, Lint, Quality Security, Quality DCO, Quality Commit Lint]
+    workflows: [CI, Lint, Quality Security, CLA Assistant, Quality Commit Lint]
     types: [completed]
 
 permissions:
@@ -50,8 +50,8 @@ jobs:
               'Quality Security / CodeQL (python) (pull_request)',
               'Quality Security / Python Security (Bandit) (pull_request)',
               'Quality Security / Security Summary (pull_request)',
-              // Quality DCO workflow (quality-dco.yml) - 1 check
-              'Quality DCO / DCO Check (pull_request)',
+              // CLA Assistant workflow (cla.yml) - 1 check
+              'CLA Assistant / CLA Check',
               // Quality Commit Lint workflow (quality-commit-lint.yml) - 1 check
               'Quality Commit Lint / Conventional Commits (pull_request)'
             ];

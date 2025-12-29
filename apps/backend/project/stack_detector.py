@@ -113,6 +113,10 @@ class StackDetector:
         if self.parser.file_exists("Package.swift", "*.swift", "**/*.swift"):
             self.stack.languages.append("swift")
 
+        # Dart/Flutter
+        if self.parser.file_exists("pubspec.yaml", "*.dart", "**/*.dart"):
+            self.stack.languages.append("dart")
+
     def detect_package_managers(self) -> None:
         """Detect package managers used."""
         # Node.js package managers

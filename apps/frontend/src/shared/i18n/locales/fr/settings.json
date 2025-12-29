@@ -17,6 +17,10 @@
       "title": "Langue",
       "description": "Choisissez votre langue préférée"
     },
+    "devtools": {
+      "title": "Outils de développement",
+      "description": "Préférences IDE et terminal"
+    },
     "agent": {
       "title": "Paramètres de l'agent",
       "description": "Modèle par défaut et framework"
@@ -104,6 +108,30 @@
     "colorTheme": "Thème de couleur",
     "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
   },
+  "devtools": {
+    "title": "Outils de développement",
+    "description": "Configurez votre IDE et terminal préférés pour travailler avec les worktrees",
+    "detecting": "Détection des outils installés...",
+    "detectAgain": "Détecter à nouveau",
+    "ide": {
+      "label": "IDE préféré",
+      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "placeholder": "Sélectionner un IDE...",
+      "customPath": "Chemin IDE personnalisé",
+      "customPathPlaceholder": "/chemin/vers/votre/ide"
+    },
+    "terminal": {
+      "label": "Terminal préféré",
+      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "placeholder": "Sélectionner un terminal...",
+      "customPath": "Chemin terminal personnalisé",
+      "customPathPlaceholder": "/chemin/vers/votre/terminal"
+    },
+    "detected": "Détecté",
+    "notInstalled": "Non installé",
+    "detectedSummary": "Détecté sur votre système :",
+    "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)"
+  },
   "updates": {
     "title": "Mises à jour",
     "description": "Gérer les mises à jour de Auto Claude",
@@ -147,7 +175,9 @@
   "projectSections": {
     "general": {
       "title": "Général",
-      "description": "Auto-Build et configuration de l'agent"
+      "description": "Auto-Build et configuration de l'agent",
+      "useClaudeMd": "Utiliser CLAUDE.md",
+      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },
     "claude": {
       "title": "Auth Claude",
