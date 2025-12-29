@@ -37,7 +37,9 @@
     "archiveTask": "Archive task",
     "archiveAllDone": "Archive all done tasks",
     "addTask": "Add new task",
-    "queueAll": "Move all tasks to Queue"
+    "addTaskWithShortcut": "Add new task ({{shortcut}})",
+    "queueAll": "Move all tasks to Queue",
+    "queueAllWithShortcut": "Move all tasks to Queue ({{shortcut}})"
   },
   "creation": {
     "title": "Create New Task",

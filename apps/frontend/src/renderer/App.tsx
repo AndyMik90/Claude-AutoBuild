@@ -306,6 +306,29 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeView, openProjectTab]);
 
+  // Global keyboard shortcut: Cmd/Ctrl+N to open new task modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input fields
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // Cmd/Ctrl+N: Open new task modal (only when a project is selected)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n' && (activeProjectId || selectedProjectId)) {
+        e.preventDefault();
+        setIsNewTaskDialogOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProjectId, selectedProjectId]);
+
   // Load tasks when project changes
   useEffect(() => {
     const currentProjectId = activeProjectId || selectedProjectId;

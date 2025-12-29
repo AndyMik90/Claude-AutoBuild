@@ -88,7 +88,7 @@ export function Sidebar({
   activeView = 'kanban',
   onViewChange
 }: SidebarProps) {
-  const { t } = useTranslation(['navigation', 'dialogs', 'common']);
+  const { t } = useTranslation(['navigation', 'dialogs', 'common', 'tasks']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
@@ -327,6 +327,9 @@ export function Sidebar({
             className="w-full"
             onClick={onNewTaskClick}
             disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+            title={t('tasks:tooltips.addTaskWithShortcut', {
+              shortcut: `${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+N`
+            })}
           >
             <Plus className="mr-2 h-4 w-4" />
             {t('actions.newTask')}

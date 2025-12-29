@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -168,7 +168,9 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   size="icon"
                   className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
                   onClick={onQueueAll}
-                  title={t('tooltips.queueAll')}
+                  title={t('tooltips.queueAllWithShortcut', {
+                    shortcut: `${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+B`
+                  })}
                 >
                   <ListPlus className="h-4 w-4" />
                 </Button>
@@ -179,7 +181,9 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   size="icon"
                   className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
                   onClick={onAddClick}
-                  title={t('tooltips.addTask')}
+                  title={t('tooltips.addTaskWithShortcut', {
+                    shortcut: `${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+N`
+                  })}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -375,6 +379,32 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     // After all tasks are queued, process the queue to start filling In Progress
     await processQueue();
   };
+
+  // Keyboard shortcut: Cmd/Ctrl+B to trigger bulk queue action
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input fields
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // Cmd/Ctrl+B: Trigger bulk queue (only if there are backlog tasks)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        const backlogTasks = tasksByStatus.backlog;
+        if (backlogTasks.length > 0) {
+          handleQueueAll();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tasksByStatus.backlog]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

@@ -37,7 +37,9 @@
     "archiveTask": "Archiver la tâche",
     "archiveAllDone": "Archiver toutes les tâches terminées",
     "addTask": "Ajouter une nouvelle tâche",
-    "queueAll": "Déplacer toutes les tâches vers la file d'attente"
+    "addTaskWithShortcut": "Ajouter une nouvelle tâche ({{shortcut}})",
+    "queueAll": "Déplacer toutes les tâches vers la file d'attente",
+    "queueAllWithShortcut": "Déplacer toutes les tâches vers la file d'attente ({{shortcut}})"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
