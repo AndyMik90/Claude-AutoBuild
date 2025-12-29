@@ -3,14 +3,19 @@
  * Tests logging functionality, debug info collection, and cross-platform compatibility
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 
-// Create a fixed test directory path for predictable mocking
-const TEST_BASE_DIR = path.join(tmpdir(), 'app-logger-test-fixed');
-const TEST_LOGS_DIR = path.join(TEST_BASE_DIR, 'logs');
-const TEST_LOG_FILE = path.join(TEST_LOGS_DIR, 'main.log');
+// Use secure temp directory with random suffix to prevent symlink attacks
+// These will be initialized in beforeEach with mkdtempSync
+let TEST_BASE_DIR: string;
+let TEST_LOGS_DIR: string;
+let TEST_LOG_FILE: string;
+
+// Store mock functions for dynamic path updates
+const mockGetFile = vi.fn();
+const mockGetPath = vi.fn();
 
 // Mock electron-log before importing
 vi.mock('electron-log/main', () => ({
@@ -22,9 +27,7 @@ vi.mock('electron-log/main', () => ({
         format: '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}',
         fileName: 'main.log',
         level: 'info',
-        getFile: vi.fn(() => ({
-          path: path.join(tmpdir(), 'app-logger-test-fixed', 'logs', 'main.log')
-        }))
+        getFile: mockGetFile
       },
       console: {
         level: 'warn',
@@ -44,18 +47,27 @@ vi.mock('electron', () => ({
     getVersion: vi.fn(() => '2.7.2-beta.10'),
     getLocale: vi.fn(() => 'en-US'),
     isPackaged: false,
-    getPath: vi.fn((name: string) => {
-      const baseDir = path.join(tmpdir(), 'app-logger-test-fixed');
-      if (name === 'userData') return baseDir;
-      if (name === 'logs') return path.join(baseDir, 'logs');
-      return baseDir;
-    })
+    getPath: mockGetPath
   }
 }));
 
 // Setup and cleanup helpers
-function setupTestLogs(): void {
+function setupTestEnvironment(): void {
+  // Create secure temp directory with random suffix (prevents symlink attacks)
+  TEST_BASE_DIR = mkdtempSync(path.join(tmpdir(), 'app-logger-test-'));
+  TEST_LOGS_DIR = path.join(TEST_BASE_DIR, 'logs');
+  TEST_LOG_FILE = path.join(TEST_LOGS_DIR, 'main.log');
+
+  // Create logs directory
   mkdirSync(TEST_LOGS_DIR, { recursive: true });
+
+  // Configure mocks to use the secure temp directory
+  mockGetFile.mockReturnValue({ path: TEST_LOG_FILE });
+  mockGetPath.mockImplementation((name: string) => {
+    if (name === 'userData') return TEST_BASE_DIR;
+    if (name === 'logs') return TEST_LOGS_DIR;
+    return TEST_BASE_DIR;
+  });
 }
 
 function createTestLogFile(content: string): void {
@@ -63,15 +75,15 @@ function createTestLogFile(content: string): void {
 }
 
 function cleanupTestDirs(): void {
-  if (existsSync(TEST_BASE_DIR)) {
+  if (TEST_BASE_DIR && existsSync(TEST_BASE_DIR)) {
     rmSync(TEST_BASE_DIR, { recursive: true, force: true });
   }
 }
 
 describe('Application Logger', () => {
   beforeEach(() => {
-    cleanupTestDirs();
-    setupTestLogs();
+    // Setup fresh secure temp directory for each test
+    setupTestEnvironment();
     vi.clearAllMocks();
   });
 
