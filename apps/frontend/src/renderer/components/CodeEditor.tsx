@@ -387,6 +387,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const performSearch = useCallback(async () => {
     if (!workspaceRoot || !searchQuery.trim()) {
       setSearchResults([]);
+      setSearchError(undefined);
       return;
     }
 
