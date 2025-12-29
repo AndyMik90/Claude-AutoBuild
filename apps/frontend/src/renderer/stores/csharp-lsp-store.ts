@@ -43,7 +43,7 @@ export const useCSharpLspStore = create<CSharpLspState>((set, get) => ({
   isStarting: false,
 
   setStatus: (status: CSharpLspStatus, message?: string) => {
-    set({ status, statusMessage: message, isStarting: status === 'starting' });
+    set({ status, statusMessage: message });
   },
 
   setWorkspaceRoot: (workspaceRoot: string | null) => {
