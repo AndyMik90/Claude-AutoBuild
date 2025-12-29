@@ -1,7 +1,10 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import monacoEditorPlugin from 'vite-plugin-monaco-editor';
+import monacoEditorPluginModule from 'vite-plugin-monaco-editor';
+
+// Handle both CJS and ESM exports
+const monacoEditorPlugin = (monacoEditorPluginModule as any).default || monacoEditorPluginModule;
 
 export default defineConfig({
   main: {
