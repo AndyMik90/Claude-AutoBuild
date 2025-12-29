@@ -56,6 +56,7 @@ class GitHubProvider:
             self._gh_client = GHClient(
                 project_dir=project_dir,
                 enable_rate_limiting=self.enable_rate_limiting,
+                repo=self._repo,
             )
 
     @property

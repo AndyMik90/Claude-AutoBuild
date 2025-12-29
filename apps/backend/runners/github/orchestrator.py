@@ -129,6 +129,7 @@ class GitHubOrchestrator:
             default_timeout=30.0,
             max_retries=3,
             enable_rate_limiting=True,
+            repo=config.repo,
         )
 
         # Initialize bot detector for preventing infinite loops
@@ -300,7 +301,9 @@ class GitHubOrchestrator:
         try:
             # Gather PR context
             print("[DEBUG orchestrator] Creating context gatherer...", flush=True)
-            gatherer = PRContextGatherer(self.project_dir, pr_number)
+            gatherer = PRContextGatherer(
+                self.project_dir, pr_number, repo=self.config.repo
+            )
 
             print("[DEBUG orchestrator] Gathering PR context...", flush=True)
             pr_context = await gatherer.gather()

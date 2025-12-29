@@ -84,6 +84,7 @@ class GHClient:
         default_timeout: float = 30.0,
         max_retries: int = 3,
         enable_rate_limiting: bool = True,
+        repo: str | None = None,
     ):
         """
         Initialize GitHub CLI client.
@@ -93,11 +94,14 @@ class GHClient:
             default_timeout: Default timeout in seconds for commands
             max_retries: Maximum number of retry attempts
             enable_rate_limiting: Whether to enforce rate limiting (default: True)
+            repo: Repository in 'owner/repo' format. If provided, uses -R flag
+                  instead of inferring from git remotes.
         """
         self.project_dir = Path(project_dir)
         self.default_timeout = default_timeout
         self.max_retries = max_retries
         self.enable_rate_limiting = enable_rate_limiting
+        self.repo = repo
 
         # Initialize rate limiter singleton
         if enable_rate_limiting:
@@ -255,6 +259,28 @@ class GHClient:
         raise GHCommandError(f"gh {args[0]} failed after {self.max_retries} attempts")
 
     # =========================================================================
+    # Helper methods
+    # =========================================================================
+
+    def _add_repo_flag(self, args: list[str]) -> list[str]:
+        """
+        Add -R flag to command args if repo is configured.
+
+        This ensures gh CLI uses the correct repository instead of
+        inferring from git remotes, which can fail with multiple remotes
+        or when working in worktrees.
+
+        Args:
+            args: Command arguments list
+
+        Returns:
+            Modified args list with -R flag if repo is set
+        """
+        if self.repo:
+            return args + ["-R", self.repo]
+        return args
+
+    # =========================================================================
     # Convenience methods for common gh commands
     # =========================================================================
 
@@ -295,6 +321,7 @@ class GHClient:
             "--json",
             ",".join(json_fields),
         ]
+        args = self._add_repo_flag(args)
 
         result = await self.run(args)
         return json.loads(result.stdout)
@@ -334,6 +361,7 @@ class GHClient:
             "--json",
             ",".join(json_fields),
         ]
+        args = self._add_repo_flag(args)
 
         result = await self.run(args)
         return json.loads(result.stdout)
@@ -352,6 +380,7 @@ class GHClient:
             PRTooLargeError: If PR exceeds GitHub's 20,000 line diff limit
         """
         args = ["pr", "diff", str(pr_number)]
+        args = self._add_repo_flag(args)
         try:
             result = await self.run(args)
             return result.stdout
@@ -396,6 +425,7 @@ class GHClient:
             args.append("--comment")
 
         args.extend(["--body", body])
+        args = self._add_repo_flag(args)
 
         await self.run(args)
         return 0  # gh CLI doesn't return review ID
@@ -574,6 +604,7 @@ class GHClient:
             args.extend(["--subject", commit_title])
         if commit_message:
             args.extend(["--body", commit_message])
+        args = self._add_repo_flag(args)
 
         await self.run(args)
 
@@ -586,6 +617,7 @@ class GHClient:
             body: Comment body
         """
         args = ["pr", "comment", str(pr_number), "--body", body]
+        args = self._add_repo_flag(args)
         await self.run(args)
 
     async def pr_get_assignees(self, pr_number: int) -> list[str]:
