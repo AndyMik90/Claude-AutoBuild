@@ -82,11 +82,14 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | undefined>();
+  const [expandedSearchFiles, setExpandedSearchFiles] = useState<Set<string>>(new Set());
 
   // Recent files state
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
 
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const codeEditorContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Get active tab
   const activeTab = tabs.find(t => t.id === activeTabId);
@@ -393,6 +396,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
 
     setStatus('searching');
     setSearchError(undefined);
+    setExpandedSearchFiles(new Set()); // Reset expanded files on new search
 
     try {
       const result = await window.electronAPI.codeEditorSearchText(workspaceRoot, searchQuery);
@@ -409,6 +413,19 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
       setStatus('idle');
     }
   }, [workspaceRoot, searchQuery]);
+
+  // Toggle expanded state for search result file
+  const toggleSearchFileExpanded = useCallback((relPath: string) => {
+    setExpandedSearchFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(relPath)) {
+        newSet.delete(relPath);
+      } else {
+        newSet.add(relPath);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Wait for Monaco editor instance to be ready before jumping to a location
   const waitForEditorReady = useCallback(
@@ -477,6 +494,12 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts if CodeEditor has focus (or one of its descendants)
+      const codeEditorHasFocus = codeEditorContainerRef.current?.contains(document.activeElement);
+      if (!codeEditorHasFocus) {
+        return;
+      }
+
       // Ctrl/Cmd+S: Save active tab
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -494,7 +517,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
       }
 
       // Enter in search: perform search
-      if (e.key === 'Enter' && document.activeElement?.getAttribute('data-search-input') === 'true') {
+      if (e.key === 'Enter' && document.activeElement === searchInputRef.current) {
         performSearch();
       }
     };
@@ -582,7 +605,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-full flex-col">
+      <div ref={codeEditorContainerRef} className="flex h-full flex-col">
         <Card className="flex-1 flex flex-col overflow-hidden rounded-none border-0">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -648,12 +671,12 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
               <div className="p-3 border-b">
                 <div className="flex gap-2">
                   <Input
+                    ref={searchInputRef}
                     type="text"
                     placeholder="Search in workspace..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && performSearch()}
-                    data-search-input="true"
                     className="flex-1"
                   />
                   <Button
@@ -681,27 +704,38 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
                     <div className="text-xs font-medium text-muted-foreground mb-2">
                       {searchResults.reduce((acc, r) => acc + r.matches.length, 0)} results in {searchResults.length} files
                     </div>
-                    {searchResults.map(result => (
-                      <div key={result.relPath} className="mb-2">
-                        <div className="text-xs font-medium text-foreground mb-1">{result.relPath}</div>
-                        {result.matches.slice(0, 5).map((match, idx) => (
-                          <div
-                            key={idx}
-                            className="text-xs py-1 px-2 hover:bg-accent cursor-pointer rounded truncate"
-                            onClick={() => handleSearchResultClick(result.relPath, match.line, match.column)}
-                            title={match.preview}
-                          >
-                            <span className="text-muted-foreground">Line {match.line}:</span>{' '}
-                            <span className="font-mono">{match.preview}</span>
-                          </div>
-                        ))}
-                        {result.matches.length > 5 && (
-                          <div className="text-xs text-muted-foreground italic px-2">
-                            +{result.matches.length - 5} more matches
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {searchResults.map(result => {
+                      const isExpanded = expandedSearchFiles.has(result.relPath);
+                      const matchesToShow = isExpanded ? result.matches : result.matches.slice(0, 5);
+                      const hasMore = result.matches.length > 5;
+
+                      return (
+                        <div key={result.relPath} className="mb-2">
+                          <div className="text-xs font-medium text-foreground mb-1">{result.relPath}</div>
+                          {matchesToShow.map((match, idx) => (
+                            <div
+                              key={idx}
+                              className="text-xs py-1 px-2 hover:bg-accent cursor-pointer rounded truncate"
+                              onClick={() => handleSearchResultClick(result.relPath, match.line, match.column)}
+                              title={match.preview}
+                            >
+                              <span className="text-muted-foreground">Line {match.line}:</span>{' '}
+                              <span className="font-mono">{match.preview}</span>
+                            </div>
+                          ))}
+                          {hasMore && (
+                            <div
+                              className="text-xs text-primary hover:underline cursor-pointer px-2 py-1"
+                              onClick={() => toggleSearchFileExpanded(result.relPath)}
+                            >
+                              {isExpanded
+                                ? '− Show less'
+                                : `+ Show ${result.matches.length - 5} more matches`}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

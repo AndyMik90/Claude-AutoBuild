@@ -692,6 +692,8 @@ export function registerFileHandlers(): void {
           rg.on('error', (error) => {
             if ((error as any).code === 'ENOENT') {
               resolve({ success: false, error: 'ripgrep (rg) is not installed. Please install ripgrep to use search.' });
+            } else if ((error as any).code === 'ETIMEDOUT') {
+              resolve({ success: false, error: 'Search timed out. Try narrowing your search with a more specific query or glob pattern.' });
             } else {
               resolve({ success: false, error: error.message });
             }
