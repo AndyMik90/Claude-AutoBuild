@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants, existsSync, statSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants, statSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -82,12 +82,8 @@ export function registerFileHandlers(): void {
    */
   function validateWorkspacePath(workspaceRoot: string, relPath: string): { valid: boolean; absPath?: string; error?: string } {
     try {
-      // Check if workspace root exists before calling realpathSync
-      if (!existsSync(workspaceRoot)) {
-        return { valid: false, error: 'Workspace root does not exist' };
-      }
-
       // Resolve workspace root to canonical path
+      // realpathSync will throw ENOENT if workspace root doesn't exist
       const workspaceRootResolved = realpathSync(workspaceRoot);
 
       // Resolve the target path
@@ -492,11 +488,8 @@ export function registerFileHandlers(): void {
     IPC_CHANNELS.CODE_EDITOR_SEARCH_TEXT,
     async (_, workspaceRoot: string, query: string, options: SearchOptions = {}): Promise<IPCResult<SearchResult[]>> => {
       try {
-        // Validate workspace root exists
-        if (!existsSync(workspaceRoot)) {
-          return { success: false, error: 'Workspace root does not exist' };
-        }
-
+        // Resolve workspace root to canonical path
+        // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
 
         // Validate query
