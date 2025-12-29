@@ -1,6 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { realpathSync, existsSync } from 'fs';
-import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import { CSharpLspServerManager } from '../csharp-lsp/lsp-server-manager';
