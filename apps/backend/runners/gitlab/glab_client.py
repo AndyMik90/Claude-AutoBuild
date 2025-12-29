@@ -13,6 +13,8 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -92,13 +94,25 @@ class GitLabClient:
 
                 # Handle rate limit (429) with exponential backoff
                 if e.code == 429:
-                    # Check for Retry-After header
+                    # Default to exponential backoff: 1s, 2s, 4s
+                    wait_time = 2**attempt
+
+                    # Check for Retry-After header (can be integer seconds or HTTP-date)
                     retry_after = e.headers.get("Retry-After")
                     if retry_after:
-                        wait_time = int(retry_after)
-                    else:
-                        # Exponential backoff: 1s, 2s, 4s
-                        wait_time = 2**attempt
+                        try:
+                            # Try parsing as integer seconds first
+                            wait_time = int(retry_after)
+                        except ValueError:
+                            # Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
+                            try:
+                                retry_date = parsedate_to_datetime(retry_after)
+                                now = datetime.now(timezone.utc)
+                                delta = (retry_date - now).total_seconds()
+                                wait_time = max(1, int(delta))  # At least 1 second
+                            except (ValueError, TypeError):
+                                # Parsing failed, keep exponential backoff default
+                                pass
 
                     if attempt < max_retries - 1:
                         print(
