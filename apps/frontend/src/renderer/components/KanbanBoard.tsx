@@ -468,20 +468,26 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   };
 
   /**
-   * Automatically move the next task from Queue to In Progress if capacity allows
+   * Automatically move tasks from Queue to In Progress to fill available capacity
+   * Promotes multiple tasks if needed (e.g., after bulk queue)
    */
   const processQueue = async () => {
-    // Get CURRENT state from store to ensure accuracy
-    const currentTasks = useTaskStore.getState().tasks;
-    const inProgressCount = currentTasks.filter((t) =>
-      t.status === 'in_progress' && !t.metadata?.archivedAt
-    ).length;
-    const queuedTasks = currentTasks.filter((t) =>
-      t.status === 'queue' && !t.metadata?.archivedAt
-    );
+    // Loop until capacity is full or queue is empty
+    while (true) {
+      // Get CURRENT state from store to ensure accuracy
+      const currentTasks = useTaskStore.getState().tasks;
+      const inProgressCount = currentTasks.filter((t) =>
+        t.status === 'in_progress' && !t.metadata?.archivedAt
+      ).length;
+      const queuedTasks = currentTasks.filter((t) =>
+        t.status === 'queue' && !t.metadata?.archivedAt
+      );
 
-    // Check if we have capacity and queued tasks
-    if (inProgressCount < maxParallelTasks && queuedTasks.length > 0) {
+      // Stop if no capacity or no queued tasks
+      if (inProgressCount >= maxParallelTasks || queuedTasks.length === 0) {
+        break;
+      }
+
       // Get the oldest task in queue (FIFO ordering)
       const nextTask = queuedTasks.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
@@ -489,7 +495,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
         return dateA - dateB; // Ascending order (oldest first)
       })[0];
 
-      console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress`);
+      console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress (${inProgressCount + 1}/${maxParallelTasks})`);
       await persistTaskStatus(nextTask.id, 'in_progress');
     }
   };
