@@ -201,13 +201,15 @@ class PRContext:
 class PRContextGatherer:
     """Gathers all context needed for PR review BEFORE the AI starts."""
 
-    def __init__(self, project_dir: Path, pr_number: int):
+    def __init__(self, project_dir: Path, pr_number: int, repo: str | None = None):
         self.project_dir = Path(project_dir)
         self.pr_number = pr_number
+        self.repo = repo
         self.gh_client = GHClient(
             project_dir=self.project_dir,
             default_timeout=30.0,
             max_retries=3,
+            repo=repo,
         )
 
     async def gather(self) -> PRContext:
@@ -953,14 +955,17 @@ class FollowupContextGatherer:
         project_dir: Path,
         pr_number: int,
         previous_review: PRReviewResult,  # Forward reference
+        repo: str | None = None,
     ):
         self.project_dir = Path(project_dir)
         self.pr_number = pr_number
         self.previous_review = previous_review
+        self.repo = repo
         self.gh_client = GHClient(
             project_dir=self.project_dir,
             default_timeout=30.0,
             max_retries=3,
+            repo=repo,
         )
 
     async def gather(self) -> FollowupReviewContext:
