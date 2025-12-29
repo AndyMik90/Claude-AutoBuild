@@ -1,4 +1,4 @@
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type {
   GitBranchInfo,
   GitTagInfo,
@@ -89,8 +89,9 @@ export function getBranches(projectPath: string, debugEnabled = false): GitBranc
 export function getTags(projectPath: string, debugEnabled = false): GitTagInfo[] {
   try {
     // Get tags sorted by creation date (newest first)
-    const output = execSync(
-      'git tag -l --sort=-creatordate --format="%(refname:short)|%(creatordate:iso-strict)|%(objectname:short)"',
+    const output = execFileSync(
+      getToolPath('git'),
+      ['tag', '-l', '--sort=-creatordate', '--format=%(refname:short)|%(creatordate:iso-strict)|%(objectname:short)'],
       {
         cwd: projectPath,
         encoding: 'utf-8'
@@ -179,40 +180,40 @@ export function getCommits(
   try {
     // Build the git log command based on options
     const format = '%h|%H|%s|%an|%ae|%aI';
-    let command = `git log --pretty=format:"${format}"`;
+    const args = ['log', `--pretty=format:${format}`];
 
     // Add merge commit handling
     if (!options.includeMergeCommits) {
-      command += ' --no-merges';
+      args.push('--no-merges');
     }
 
     // Add range/filters based on type
     switch (options.type) {
       case 'recent':
-        command += ` -n ${options.count || 25}`;
+        args.push('-n', String(options.count || 25));
         break;
       case 'since-date':
         if (options.sinceDate) {
-          command += ` --since="${options.sinceDate}"`;
+          args.push(`--since=${options.sinceDate}`);
         }
         break;
       case 'tag-range':
         if (options.fromTag) {
           const toRef = options.toTag || 'HEAD';
-          command += ` ${options.fromTag}..${toRef}`;
+          args.push(`${options.fromTag}..${toRef}`);
         }
         break;
       case 'since-version':
         // Get all commits since the specified version/tag up to HEAD
         if (options.fromTag) {
-          command += ` ${options.fromTag}..HEAD`;
+          args.push(`${options.fromTag}..HEAD`);
         }
         break;
     }
 
-    debug(debugEnabled, 'Getting commits with command:', command);
+    debug(debugEnabled, 'Getting commits with args:', args);
 
-    const output = execSync(command, {
+    const output = execFileSync(getToolPath('git'), args, {
       cwd: projectPath,
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large histories
@@ -236,11 +237,11 @@ export function getBranchDiffCommits(
   try {
     const format = '%h|%H|%s|%an|%ae|%aI';
     // Get commits in compareBranch that are not in baseBranch
-    const command = `git log --pretty=format:"${format}" --no-merges ${options.baseBranch}..${options.compareBranch}`;
+    const args = ['log', `--pretty=format:${format}`, '--no-merges', `${options.baseBranch}..${options.compareBranch}`];
 
-    debug(debugEnabled, 'Getting branch diff commits with command:', command);
+    debug(debugEnabled, 'Getting branch diff commits with args:', args);
 
-    const output = execSync(command, {
+    const output = execFileSync(getToolPath('git'), args, {
       cwd: projectPath,
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024
