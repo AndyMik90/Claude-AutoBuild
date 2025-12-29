@@ -24,6 +24,7 @@ from .models import (
     get_agent_config,
     get_required_mcp_servers,
 )
+from .registry import is_tools_available
 
 
 def get_allowed_tools(
@@ -55,9 +56,8 @@ def get_allowed_tools(
     # Get agent configuration (raises ValueError if unknown type)
     config = get_agent_config(agent_type)
 
-    # Start with base tools + auto-claude tools from config
+    # Start with base tools from config
     tools = list(config.get("tools", []))
-    tools.extend(config.get("auto_claude_tools", []))
 
     # Get required MCP servers for this agent
     required_servers = get_required_mcp_servers(
@@ -65,6 +65,11 @@ def get_allowed_tools(
         project_capabilities,
         linear_enabled,
     )
+
+    # Add auto-claude tools ONLY if the MCP server is available
+    # This prevents allowing tools that won't work because the server isn't running
+    if "auto-claude" in required_servers and is_tools_available():
+        tools.extend(config.get("auto_claude_tools", []))
 
     # Add MCP tool names based on required servers
     tools.extend(_get_mcp_tools_for_servers(required_servers))
