@@ -545,15 +545,30 @@ export function registerFileHandlers(): void {
           const results: SearchResult[] = [];
           const resultsByFile = new Map<string, SearchMatch[]>();
           let totalMatches = 0;
+          const MAX_SEARCH_OUTPUT_BYTES = 5 * 1024 * 1024; // 5 MB cap per stream
           let stdout = '';
           let stderr = '';
+          let stdoutBytes = 0;
+          let stderrBytes = 0;
 
           rg.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
+            if (stdoutBytes >= MAX_SEARCH_OUTPUT_BYTES) {
+              return;
+            }
+            const remaining = MAX_SEARCH_OUTPUT_BYTES - stdoutBytes;
+            const chunk = remaining >= data.length ? data : data.subarray(0, remaining);
+            stdout += chunk.toString();
+            stdoutBytes += chunk.length;
           });
 
           rg.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
+            if (stderrBytes >= MAX_SEARCH_OUTPUT_BYTES) {
+              return;
+            }
+            const remaining = MAX_SEARCH_OUTPUT_BYTES - stderrBytes;
+            const chunk = remaining >= data.length ? data : data.subarray(0, remaining);
+            stderr += chunk.toString();
+            stderrBytes += chunk.length;
           });
 
           rg.on('close', (code) => {
