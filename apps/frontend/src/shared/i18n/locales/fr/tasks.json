@@ -35,7 +35,11 @@
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
-    "archiveAllDone": "Archiver toutes les tâches terminées"
+    "archiveAllDone": "Archiver toutes les tâches terminées",
+    "addTask": "Ajouter une nouvelle tâche",
+    "addTaskWithShortcut": "Ajouter une nouvelle tâche ({{shortcut}})",
+    "queueAll": "Déplacer toutes les tâches vers la file d'attente",
+    "queueAllWithShortcut": "Déplacer toutes les tâches vers la file d'attente ({{shortcut}})"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
@@ -49,6 +53,8 @@
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",
+    "emptyQueue": "File d'attente vide",
+    "emptyQueueHint": "Les tâches attendent ici avant de démarrer",
     "emptyInProgress": "Rien en cours",
     "emptyInProgressHint": "Démarrez une tâche depuis le Backlog",
     "emptyAiReview": "Aucune tâche en révision",
@@ -81,6 +87,18 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
+    }
+  },
+  "queue": {
+    "limitReached": "Tâche mise en file d'attente. Limite de tâches parallèles atteinte ({{count}}). Démarrera automatiquement quand un emplacement se libère.",
+    "movedToQueue": "Tâche déplacée vers la file d'attente ({{current}}/{{max}} tâches en cours)",
+    "autoPromoted": "Tâche automatiquement promue de la file d'attente vers En cours",
+    "capacityAvailable": "{{available}} emplacement(s) disponible(s)",
+    "settings": {
+      "title": "Paramètres de la file d'attente",
+      "maxParallel": "Tâches parallèles maximales",
+      "description": "Définir le nombre maximum de tâches pouvant s'exécuter en parallèle",
+      "save": "Enregistrer les paramètres"
     }
   }
 }

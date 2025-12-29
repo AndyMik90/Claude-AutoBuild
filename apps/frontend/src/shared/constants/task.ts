@@ -10,6 +10,7 @@
 // Task status columns in Kanban board order
 export const TASK_STATUS_COLUMNS = [
   'backlog',
+  'queue',
   'in_progress',
   'ai_review',
   'human_review',
@@ -19,6 +20,7 @@ export const TASK_STATUS_COLUMNS = [
 // Human-readable status labels
 export const TASK_STATUS_LABELS: Record<string, string> = {
   backlog: 'Planning',
+  queue: 'Queue',
   in_progress: 'In Progress',
   ai_review: 'AI Review',
   human_review: 'Human Review',
@@ -28,6 +30,7 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
 // Status colors for UI
 export const TASK_STATUS_COLORS: Record<string, string> = {
   backlog: 'bg-muted text-muted-foreground',
+  queue: 'bg-cyan-500/10 text-cyan-400',
   in_progress: 'bg-info/10 text-info',
   ai_review: 'bg-warning/10 text-warning',
   human_review: 'bg-purple-500/10 text-purple-400',

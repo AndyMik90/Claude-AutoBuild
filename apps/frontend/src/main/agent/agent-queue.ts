@@ -11,6 +11,7 @@ import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { parsePythonCommand } from '../python-detector';
+import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
@@ -216,18 +217,32 @@ export class AgentQueueManager {
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
+    // Get Python environment from pythonEnvManager (includes bundled site-packages)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
+    // Build PYTHONPATH: bundled site-packages (if any) + autoBuildSource for local imports
+    const pythonPathParts: string[] = [];
+    if (pythonEnv.PYTHONPATH) {
+      pythonPathParts.push(pythonEnv.PYTHONPATH);
+    }
+    if (autoBuildSource) {
+      pythonPathParts.push(autoBuildSource);
+    }
+    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+
     // Build final environment with proper precedence:
     // 1. process.env (system)
-    // 2. combinedEnv (auto-claude/.env for CLI usage)
-    // 3. profileEnv (Electron app OAuth token - highest priority)
-    // 4. Our specific overrides
+    // 2. pythonEnv (bundled packages environment)
+    // 3. combinedEnv (auto-claude/.env for CLI usage)
+    // 4. profileEnv (Electron app OAuth token - highest priority)
+    // 5. Our specific overrides
     const finalEnv = {
       ...process.env,
+      ...pythonEnv,
       ...combinedEnv,
       ...profileEnv,
-      PYTHONPATH: autoBuildSource || '', // Allow imports from auto-claude directory
+      PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'
     };
 
@@ -514,18 +529,32 @@ export class AgentQueueManager {
     // Get Python path from process manager (uses venv if configured)
     const pythonPath = this.processManager.getPythonPath();
 
+    // Get Python environment from pythonEnvManager (includes bundled site-packages)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
+    // Build PYTHONPATH: bundled site-packages (if any) + autoBuildSource for local imports
+    const pythonPathParts: string[] = [];
+    if (pythonEnv.PYTHONPATH) {
+      pythonPathParts.push(pythonEnv.PYTHONPATH);
+    }
+    if (autoBuildSource) {
+      pythonPathParts.push(autoBuildSource);
+    }
+    const combinedPythonPath = pythonPathParts.join(process.platform === 'win32' ? ';' : ':');
+
     // Build final environment with proper precedence:
     // 1. process.env (system)
-    // 2. combinedEnv (auto-claude/.env for CLI usage)
-    // 3. profileEnv (Electron app OAuth token - highest priority)
-    // 4. Our specific overrides
+    // 2. pythonEnv (bundled packages environment)
+    // 3. combinedEnv (auto-claude/.env for CLI usage)
+    // 4. profileEnv (Electron app OAuth token - highest priority)
+    // 5. Our specific overrides
     const finalEnv = {
       ...process.env,
+      ...pythonEnv,
       ...combinedEnv,
       ...profileEnv,
-      PYTHONPATH: autoBuildSource || '', // Allow imports from auto-claude directory
+      PYTHONPATH: combinedPythonPath,
       PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'
     };
 

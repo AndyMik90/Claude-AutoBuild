@@ -35,7 +35,11 @@
   },
   "tooltips": {
     "archiveTask": "Archive task",
-    "archiveAllDone": "Archive all done tasks"
+    "archiveAllDone": "Archive all done tasks",
+    "addTask": "Add new task",
+    "addTaskWithShortcut": "Add new task ({{shortcut}})",
+    "queueAll": "Move all tasks to Queue",
+    "queueAllWithShortcut": "Move all tasks to Queue ({{shortcut}})"
   },
   "creation": {
     "title": "Create New Task",
@@ -49,6 +53,8 @@
   "kanban": {
     "emptyBacklog": "No tasks planned",
     "emptyBacklogHint": "Add a task to get started",
+    "emptyQueue": "Queue is empty",
+    "emptyQueueHint": "Tasks wait here before starting",
     "emptyInProgress": "Nothing running",
     "emptyInProgressHint": "Start a task from Backlog",
     "emptyAiReview": "No tasks in review",
@@ -81,6 +87,18 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
+    }
+  },
+  "queue": {
+    "limitReached": "Task queued. Maximum parallel tasks limit reached ({{count}}). Will start automatically when a slot opens.",
+    "movedToQueue": "Task moved to Queue ({{current}}/{{max}} tasks running)",
+    "autoPromoted": "Task automatically promoted from Queue to In Progress",
+    "capacityAvailable": "{{available}} slot(s) available",
+    "settings": {
+      "title": "Queue Settings",
+      "maxParallel": "Maximum Parallel Tasks",
+      "description": "Set the maximum number of tasks that can run in parallel",
+      "save": "Save Settings"
     }
   }
 }

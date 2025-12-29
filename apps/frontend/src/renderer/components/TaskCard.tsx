@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, Trash2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from './ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -18,7 +34,7 @@ import {
   EXECUTION_PHASE_LABELS,
   EXECUTION_PHASE_BADGE_COLORS
 } from '../../shared/constants';
-import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, deleteTask } from '../stores/task-store';
 import type { Task, TaskCategory, ReviewReason } from '../../shared/types';
 
 // Category icon mapping
@@ -43,6 +59,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const { t } = useTranslation('tasks');
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
@@ -173,17 +193,47 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
   const isArchived = !!task.metadata?.archivedAt;
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Only open modal if clicking the card itself, not interactive elements
+    onClick();
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenuOpen(true);
+  };
+
+  const handleDeleteClick = () => {
+    setContextMenuOpen(false);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteTask(task.id);
+      setShowDeleteDialog(false);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete task');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <Card
-      className={cn(
-        'card-surface task-card-enhanced cursor-pointer',
-        isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
-        isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
-        isArchived && 'opacity-60 hover:opacity-80'
-      )}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
+    <>
+      <Card
+        className={cn(
+          'card-surface task-card-enhanced cursor-pointer',
+          isRunning && !isStuck && 'ring-2 ring-primary border-primary task-running-pulse',
+          isStuck && 'ring-2 ring-warning border-warning task-stuck-pulse',
+          isArchived && 'opacity-60 hover:opacity-80'
+        )}
+        onClick={handleCardClick}
+        onContextMenu={handleContextMenu}
+      >
+        <CardContent className="p-4">
         {/* Header - improved visual hierarchy */}
         <div className="flex items-start justify-between gap-3">
           <h3
@@ -404,6 +454,70 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           )}
         </div>
       </CardContent>
-    </Card>
+      </Card>
+
+      {/* Context Menu */}
+      <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <div style={{ position: 'fixed', pointerEvents: 'none' }} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-48">
+          <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive focus:text-destructive cursor-pointer">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Task
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Delete Task
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-sm text-muted-foreground space-y-3">
+              <p>
+                Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
+              </p>
+              <p className="text-destructive">
+                This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
+              </p>
+              {deleteError && (
+                <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
+                  {deleteError}
+                </p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              handleDelete();
+            }}
+            disabled={isDeleting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Permanently
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

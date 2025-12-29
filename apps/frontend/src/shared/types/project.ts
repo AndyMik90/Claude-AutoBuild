@@ -24,6 +24,10 @@ export interface ProjectSettings {
   graphitiMcpUrl?: string;
   /** Main branch name for worktree creation (default: auto-detected or 'main') */
   mainBranch?: string;
+  /** Include CLAUDE.md instructions in agent system prompt (default: true) */
+  useClaudeMd?: boolean;
+  /** Maximum number of tasks that can run in parallel in "In Progress" (default: 3) */
+  maxParallelTasks?: number;
 }
 
 export interface NotificationSettings {

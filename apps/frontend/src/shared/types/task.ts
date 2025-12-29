@@ -5,7 +5,7 @@
 import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
 import type { ExecutionPhase as ExecutionPhaseType } from '../constants/phase-protocol';
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
+export type TaskStatus = 'backlog' | 'queue' | 'in_progress' | 'ai_review' | 'human_review' | 'done';
 
 // Reason why a task is in human_review status
 // - 'completed': All subtasks done and QA passed, ready for final approval/merge

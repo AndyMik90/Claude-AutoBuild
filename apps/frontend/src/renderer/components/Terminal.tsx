@@ -19,7 +19,8 @@ export function Terminal({
   onClose,
   onActivate,
   tasks = [],
-  onNewTaskClick
+  onNewTaskClick,
+  terminalCount = 1
 }: TerminalProps) {
   const isMountedRef = useRef(true);
   const isCreatedRef = useRef(false);
@@ -184,6 +185,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         onTaskSelect={handleTaskSelect}
         onClearTask={handleClearTask}
         onNewTaskClick={onNewTaskClick}
+        terminalCount={terminalCount}
       />
 
       <div

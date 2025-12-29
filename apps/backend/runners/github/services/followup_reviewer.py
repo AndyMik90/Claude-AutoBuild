@@ -608,6 +608,16 @@ class FollowupReviewer:
             ]
         )
 
+        # Format PR reviews (formal review submissions from Cursor, CodeRabbit, etc.)
+        # These often contain detailed findings in the body, so we include more content
+        pr_reviews_text = "\n\n".join(
+            [
+                f"**@{r.get('user', {}).get('login', 'unknown')}** ({r.get('state', 'COMMENTED')}):\n{r.get('body', '')[:2000]}"
+                for r in context.pr_reviews_since_review
+                if r.get("body", "").strip()  # Only include reviews with body content
+            ]
+        )
+
         # Build the full message
         user_message = f"""
 {prompt_template}
@@ -640,7 +650,15 @@ class FollowupReviewer:
 ### AI BOT COMMENTS SINCE LAST REVIEW:
 {ai_comments_text if ai_comments_text else "No AI bot comments."}
 
+### PR REVIEWS SINCE LAST REVIEW (Cursor, CodeRabbit, etc.):
+{pr_reviews_text if pr_reviews_text else "No PR reviews since last review."}
+
 ---
+
+**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like Cursor, CodeRabbit, Greptile, etc. that may have identified issues in the recent changes. You should:
+1. Consider their findings when evaluating the code
+2. Create new findings for valid issues they identified that haven't been addressed
+3. Note if the recent commits addressed concerns raised in these reviews
 
 Analyze this follow-up review context and provide your structured response.
 """
@@ -649,8 +667,11 @@ Analyze this follow-up review context and provide your structured response.
             # Use Claude Agent SDK query() with structured outputs
             # Reference: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
             from claude_agent_sdk import ClaudeAgentOptions, query
+            from phase_config import get_thinking_budget
 
             model = self.config.model or "claude-sonnet-4-5-20250929"
+            thinking_level = self.config.thinking_level or "medium"
+            thinking_budget = get_thinking_budget(thinking_level)
 
             # Debug: Log the schema being sent
             schema = FollowupReviewResponse.model_json_schema()
@@ -668,7 +689,7 @@ Analyze this follow-up review context and provide your structured response.
                     system_prompt="You are a code review assistant. Analyze the provided context and provide structured feedback.",
                     allowed_tools=[],
                     max_turns=2,  # Need 2 turns for structured output tool call
-                    max_thinking_tokens=2048,
+                    max_thinking_tokens=thinking_budget,
                     output_format={
                         "type": "json_schema",
                         "schema": schema,

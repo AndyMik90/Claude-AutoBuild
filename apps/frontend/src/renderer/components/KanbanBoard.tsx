@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -18,16 +18,19 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, Settings, ListPlus } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
+import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, archiveTasks } from '../stores/task-store';
+import { persistTaskStatus, archiveTasks, useTaskStore } from '../stores/task-store';
+import { updateProjectSettings } from '../stores/project-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskStatus } from '../../shared/types';
 
 interface KanbanBoardProps {
@@ -43,6 +46,9 @@ interface DroppableColumnProps {
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
+  onQueueSettings?: () => void;
+  onQueueAll?: () => void;
+  maxParallelTasks?: number;
 }
 
 // Empty state content for each column
@@ -53,6 +59,12 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
         icon: <Inbox className="h-6 w-6 text-muted-foreground/50" />,
         message: t('kanban.emptyBacklog'),
         subtext: t('kanban.emptyBacklogHint')
+      };
+    case 'queue':
+      return {
+        icon: <Loader2 className="h-6 w-6 text-muted-foreground/50" />,
+        message: t('kanban.emptyQueue'),
+        subtext: t('kanban.emptyQueueHint')
       };
     case 'in_progress':
       return {
@@ -86,7 +98,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
+function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks }: DroppableColumnProps) {
   const { t } = useTranslation('tasks');
   const { setNodeRef } = useDroppable({
     id: status
@@ -94,10 +106,15 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
 
   const taskIds = tasks.map((t) => t.id);
 
+  // Check if In Progress column is at capacity
+  const isInProgressFull = status === 'in_progress' && maxParallelTasks && tasks.length >= maxParallelTasks;
+
   const getColumnBorderColor = (): string => {
     switch (status) {
       case 'backlog':
         return 'column-backlog';
+      case 'queue':
+        return 'column-queue';
       case 'in_progress':
         return 'column-in-progress';
       case 'ai_review':
@@ -129,19 +146,59 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
           <h2 className="font-semibold text-sm text-foreground">
             {TASK_STATUS_LABELS[status]}
           </h2>
-          <span className="column-count-badge">
-            {tasks.length}
-          </span>
+          {status === 'in_progress' && maxParallelTasks ? (
+            <span className={cn(
+              "column-count-badge",
+              isInProgressFull && "bg-warning/20 text-warning border-warning/30"
+            )}>
+              {tasks.length}/{maxParallelTasks}
+            </span>
+          ) : (
+            <span className="column-count-badge">
+              {tasks.length}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          {status === 'backlog' && onAddClick && (
+          {status === 'backlog' && (
+            <>
+              {onQueueAll && tasks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+                  onClick={onQueueAll}
+                  title={t('tooltips.queueAllWithShortcut', {
+                    shortcut: `${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+B`
+                  })}
+                >
+                  <ListPlus className="h-4 w-4" />
+                </Button>
+              )}
+              {onAddClick && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
+                  onClick={onAddClick}
+                  title={t('tooltips.addTaskWithShortcut', {
+                    shortcut: `${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+N`
+                  })}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+            </>
+          )}
+          {status === 'queue' && onQueueSettings && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={onAddClick}
+              className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+              onClick={onQueueSettings}
+              title="Queue Settings"
             >
-              <Plus className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
             </Button>
           )}
           {status === 'done' && onArchiveAll && tasks.length > 0 && (
@@ -216,6 +273,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showQueueSettings, setShowQueueSettings] = useState(false);
+
+  // Get active project for queue settings
+  const { getActiveProject } = useProjectStore();
+  const activeProject = getActiveProject();
+  const projectId = tasks.length > 0 ? tasks[0].projectId : activeProject?.id || '';
+  const maxParallelTasks = activeProject?.settings.maxParallelTasks ?? 3;
 
   // Count archived tasks for display
   const archivedCount = useMemo(() => {
@@ -244,6 +308,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, Task[]> = {
       backlog: [],
+      queue: [],
       in_progress: [],
       ai_review: [],
       human_review: [],
@@ -285,6 +350,62 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     }
   };
 
+  const handleSaveQueueSettings = async (newMaxParallel: number) => {
+    if (!projectId) {
+      console.error('[KanbanBoard] No projectId found');
+      return;
+    }
+
+    const success = await updateProjectSettings(projectId, {
+      maxParallelTasks: newMaxParallel
+    });
+
+    if (!success) {
+      console.error('[KanbanBoard] Failed to save queue settings');
+    }
+  };
+
+  const handleQueueAll = async () => {
+    const backlogTasks = tasksByStatus.backlog;
+    if (backlogTasks.length === 0) return;
+
+    console.log(`[Queue] Moving ${backlogTasks.length} tasks from Planning to Queue`);
+
+    // Move all backlog tasks to queue
+    for (const task of backlogTasks) {
+      await persistTaskStatus(task.id, 'queue');
+    }
+
+    // After all tasks are queued, process the queue to start filling In Progress
+    await processQueue();
+  };
+
+  // Keyboard shortcut: Cmd/Ctrl+B to trigger bulk queue action
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input fields
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      // Cmd/Ctrl+B: Trigger bulk queue (only if there are backlog tasks)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        const backlogTasks = tasksByStatus.backlog;
+        if (backlogTasks.length > 0) {
+          handleQueueAll();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tasksByStatus.backlog]);
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
@@ -316,7 +437,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumnId(null);
@@ -326,26 +447,86 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
+    // Determine target status
+    let newStatus: TaskStatus | null = null;
+
     // Check if dropped on a column
     if (TASK_STATUS_COLUMNS.includes(overId as TaskStatus)) {
-      const newStatus = overId as TaskStatus;
-      const task = tasks.find((t) => t.id === activeTaskId);
-
-      if (task && task.status !== newStatus) {
-        // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, newStatus);
+      newStatus = overId as TaskStatus;
+    } else {
+      // Check if dropped on another task - move to that task's column
+      const overTask = tasks.find((t) => t.id === overId);
+      if (overTask) {
+        newStatus = overTask.status;
       }
-      return;
     }
 
-    // Check if dropped on another task - move to that task's column
-    const overTask = tasks.find((t) => t.id === overId);
-    if (overTask) {
-      const task = tasks.find((t) => t.id === activeTaskId);
-      if (task && task.status !== overTask.status) {
-        // Persist status change to file and update local state
-        persistTaskStatus(activeTaskId, overTask.status);
+    if (!newStatus) return;
+
+    const task = tasks.find((t) => t.id === activeTaskId);
+    if (!task || task.status === newStatus) return;
+
+    const oldStatus = task.status;
+
+    // ============================================
+    // QUEUE SYSTEM: Enforce parallel task limit
+    // ============================================
+    if (newStatus === 'in_progress') {
+      // Get CURRENT state from store directly to avoid stale prop/memo issues during rapid dragging
+      const currentTasks = useTaskStore.getState().tasks;
+      const inProgressCount = currentTasks.filter((t) =>
+        t.status === 'in_progress' && !t.metadata?.archivedAt
+      ).length;
+
+      // If limit reached, move to queue instead (unless already coming from queue)
+      if (inProgressCount >= maxParallelTasks && oldStatus !== 'queue') {
+        console.log(`[Queue] In Progress full (${inProgressCount}/${maxParallelTasks}), moving task to Queue`);
+        newStatus = 'queue';
       }
+    }
+
+    // Persist status change to file and update local state
+    await persistTaskStatus(activeTaskId, newStatus);
+
+    // ============================================
+    // QUEUE SYSTEM: Auto-process queue when slot opens
+    // ============================================
+    if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+      // A task left In Progress - check if we can promote from queue
+      await processQueue();
+    }
+  };
+
+  /**
+   * Automatically move tasks from Queue to In Progress to fill available capacity
+   * Promotes multiple tasks if needed (e.g., after bulk queue)
+   */
+  const processQueue = async () => {
+    // Loop until capacity is full or queue is empty
+    while (true) {
+      // Get CURRENT state from store to ensure accuracy
+      const currentTasks = useTaskStore.getState().tasks;
+      const inProgressCount = currentTasks.filter((t) =>
+        t.status === 'in_progress' && !t.metadata?.archivedAt
+      ).length;
+      const queuedTasks = currentTasks.filter((t) =>
+        t.status === 'queue' && !t.metadata?.archivedAt
+      );
+
+      // Stop if no capacity or no queued tasks
+      if (inProgressCount >= maxParallelTasks || queuedTasks.length === 0) {
+        break;
+      }
+
+      // Get the oldest task in queue (FIFO ordering)
+      const nextTask = queuedTasks.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateA - dateB; // Ascending order (oldest first)
+      })[0];
+
+      console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress (${inProgressCount + 1}/${maxParallelTasks})`);
+      await persistTaskStatus(nextTask.id, 'in_progress');
     }
   };
 
@@ -391,7 +572,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
               onTaskClick={onTaskClick}
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
+              onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
+              onQueueSettings={status === 'queue' ? () => setShowQueueSettings(true) : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+              maxParallelTasks={status === 'in_progress' ? maxParallelTasks : undefined}
             />
           ))}
         </div>
@@ -405,6 +589,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Queue Settings Modal */}
+      <QueueSettingsModal
+        open={showQueueSettings}
+        onOpenChange={setShowQueueSettings}
+        projectId={projectId}
+        currentMaxParallel={maxParallelTasks}
+        onSave={handleSaveQueueSettings}
+      />
     </div>
   );
 }

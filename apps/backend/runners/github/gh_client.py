@@ -695,6 +695,73 @@ class GHClient:
             "issue_comments": issue_comments,
         }
 
+    async def get_reviews_since(
+        self, pr_number: int, since_timestamp: str
+    ) -> list[dict]:
+        """
+        Get all PR reviews (formal review submissions) since a timestamp.
+
+        This fetches formal reviews submitted via the GitHub review mechanism,
+        which is different from review comments (inline comments on files).
+
+        Reviews from AI tools like Cursor, CodeRabbit, Greptile etc. are
+        submitted as formal reviews with body text containing their findings.
+
+        Args:
+            pr_number: PR number
+            since_timestamp: ISO timestamp to filter from (e.g., "2025-12-25T10:30:00Z")
+
+        Returns:
+            List of review objects with fields:
+            - id: Review ID
+            - user: User who submitted the review
+            - body: Review body text (contains AI findings)
+            - state: APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED, PENDING
+            - submitted_at: When the review was submitted
+            - commit_id: Commit SHA the review was made on
+        """
+        # Fetch all reviews for the PR
+        # Note: The reviews endpoint doesn't support 'since' parameter,
+        # so we fetch all and filter client-side
+        reviews_endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews"
+        reviews_args = ["api", "--method", "GET", reviews_endpoint]
+        reviews_result = await self.run(reviews_args, raise_on_error=False)
+
+        reviews = []
+        if reviews_result.returncode == 0:
+            try:
+                all_reviews = json.loads(reviews_result.stdout)
+                # Filter reviews submitted after the timestamp
+                from datetime import datetime, timezone
+
+                # Parse since_timestamp, handling both naive and aware formats
+                since_dt = datetime.fromisoformat(
+                    since_timestamp.replace("Z", "+00:00")
+                )
+                # Ensure since_dt is timezone-aware (assume UTC if naive)
+                if since_dt.tzinfo is None:
+                    since_dt = since_dt.replace(tzinfo=timezone.utc)
+
+                for review in all_reviews:
+                    submitted_at = review.get("submitted_at", "")
+                    if submitted_at:
+                        try:
+                            review_dt = datetime.fromisoformat(
+                                submitted_at.replace("Z", "+00:00")
+                            )
+                            # Ensure review_dt is also timezone-aware
+                            if review_dt.tzinfo is None:
+                                review_dt = review_dt.replace(tzinfo=timezone.utc)
+                            if review_dt > since_dt:
+                                reviews.append(review)
+                        except ValueError:
+                            # If we can't parse the date, include the review
+                            reviews.append(review)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse reviews for PR #{pr_number}")
+
+        return reviews
+
     async def get_pr_head_sha(self, pr_number: int) -> str | None:
         """
         Get the current HEAD SHA of a PR.
