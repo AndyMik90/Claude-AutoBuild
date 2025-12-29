@@ -1,16 +1,21 @@
-import { spawn } from 'child_process';
-import path from 'path';
-import { existsSync, readFileSync } from 'fs';
-import { app } from 'electron';
-import { EventEmitter } from 'events';
-import { AgentState } from './agent-state';
-import { AgentEvents } from './agent-events';
-import { ProcessType, ExecutionProgressData } from './types';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
-import { projectStore } from '../project-store';
-import { getClaudeProfileManager } from '../claude-profile-manager';
-import { parsePythonCommand, validatePythonPath } from '../python-detector';
-import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { spawn } from "child_process";
+import path from "path";
+import { existsSync, readFileSync } from "fs";
+import { app } from "electron";
+import { EventEmitter } from "events";
+import { AgentState } from "./agent-state";
+import { AgentEvents } from "./agent-events";
+import { ProcessType, ExecutionProgressData } from "./types";
+import {
+  detectRateLimit,
+  createSDKRateLimitInfo,
+  getProfileEnv,
+  detectAuthFailure,
+} from "../rate-limit-detector";
+import { projectStore } from "../project-store";
+import { getClaudeProfileManager } from "../claude-profile-manager";
+import { parsePythonCommand, validatePythonPath } from "../python-detector";
+import { pythonEnvManager, getConfiguredPythonPath } from "../python-env-manager";
 
 /**
  * Process spawning and lifecycle management
@@ -22,7 +27,7 @@ export class AgentProcessManager {
   // Python path will be configured by pythonEnvManager after venv is ready
   // Use null to indicate not yet configured - getPythonPath() will use fallback
   private _pythonPath: string | null = null;
-  private autoBuildSourcePath: string = '';
+  private autoBuildSourcePath: string = "";
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
     this.state = state;
@@ -36,8 +41,12 @@ export class AgentProcessManager {
       if (validation.valid) {
         this._pythonPath = validation.sanitizedPath || pythonPath;
       } else {
-        console.error(`[AgentProcess] Invalid Python path rejected: ${validation.reason}`);
-        console.error(`[AgentProcess] Falling back to getConfiguredPythonPath()`);
+        console.error(
+          `[AgentProcess] Invalid Python path rejected: ${validation.reason}`
+        );
+        console.error(
+          `[AgentProcess] Falling back to getConfiguredPythonPath()`
+        );
         // Don't set _pythonPath - let getPythonPath() use getConfiguredPythonPath() fallback
       }
     }
@@ -54,10 +63,51 @@ export class AgentProcessManager {
       ...process.env,
       ...extraEnv,
       ...profileEnv,
-      PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1'
+      PYTHONUNBUFFERED: "1",
+      PYTHONIOENCODING: "utf-8",
+      PYTHONUTF8: "1",
     } as NodeJS.ProcessEnv;
+  }
+
+  /**
+   * Load environment variables from a .env file (simple KEY=VALUE parser).
+   * This is intentionally lightweight (no dotenv dependency in the Electron main bundle path).
+   */
+  private loadEnvFile(envPath: string): Record<string, string> {
+    if (!existsSync(envPath)) return {};
+    try {
+      const envContent = readFileSync(envPath, "utf-8");
+      const envVars: Record<string, string> = {};
+
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        // Skip comments and empty lines
+        if (!trimmed || trimmed.startsWith("#")) {
+          continue;
+        }
+
+        const eqIndex = trimmed.indexOf("=");
+        if (eqIndex > 0) {
+          const key = trimmed.substring(0, eqIndex).trim();
+          let value = trimmed.substring(eqIndex + 1).trim();
+
+          // Remove quotes if present
+          if (
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))
+          ) {
+            value = value.slice(1, -1);
+          }
+
+          envVars[key] = value;
+        }
+      }
+
+      return envVars;
+    } catch {
+      return {};
+    }
   }
 
   private handleProcessFailure(
@@ -65,15 +115,18 @@ export class AgentProcessManager {
     allOutput: string,
     processType: ProcessType
   ): boolean {
-    console.log('[AgentProcess] Checking for rate limit in output (last 500 chars):', allOutput.slice(-500));
+    console.log(
+      "[AgentProcess] Checking for rate limit in output (last 500 chars):",
+      allOutput.slice(-500)
+    );
 
     const rateLimitDetection = detectRateLimit(allOutput);
-    console.log('[AgentProcess] Rate limit detection result:', {
+    console.log("[AgentProcess] Rate limit detection result:", {
       isRateLimited: rateLimitDetection.isRateLimited,
       resetTime: rateLimitDetection.resetTime,
       limitType: rateLimitDetection.limitType,
       profileId: rateLimitDetection.profileId,
-      suggestedProfile: rateLimitDetection.suggestedProfile
+      suggestedProfile: rateLimitDetection.suggestedProfile,
     });
 
     if (rateLimitDetection.isRateLimited) {
@@ -84,10 +137,15 @@ export class AgentProcessManager {
       );
       if (wasHandled) return true;
 
-      const source = processType === 'spec-creation' ? 'roadmap' : 'task';
-      const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, { taskId });
-      console.log('[AgentProcess] Emitting sdk-rate-limit event (manual):', rateLimitInfo);
-      this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+      const source = processType === "spec-creation" ? "roadmap" : "task";
+      const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
+        taskId,
+      });
+      console.log(
+        "[AgentProcess] Emitting sdk-rate-limit event (manual):",
+        rateLimitInfo
+      );
+      this.emitter.emit("sdk-rate-limit", rateLimitInfo);
       return true;
     }
 
@@ -102,63 +160,97 @@ export class AgentProcessManager {
     const profileManager = getClaudeProfileManager();
     const autoSwitchSettings = profileManager.getAutoSwitchSettings();
 
-    console.log('[AgentProcess] Auto-switch settings:', {
+    console.log("[AgentProcess] Auto-switch settings:", {
       enabled: autoSwitchSettings.enabled,
       autoSwitchOnRateLimit: autoSwitchSettings.autoSwitchOnRateLimit,
-      proactiveSwapEnabled: autoSwitchSettings.proactiveSwapEnabled
+      proactiveSwapEnabled: autoSwitchSettings.proactiveSwapEnabled,
     });
 
-    if (!autoSwitchSettings.enabled || !autoSwitchSettings.autoSwitchOnRateLimit) {
-      console.log('[AgentProcess] Auto-switch disabled - showing manual modal');
+    if (
+      !autoSwitchSettings.enabled ||
+      !autoSwitchSettings.autoSwitchOnRateLimit
+    ) {
+      console.log("[AgentProcess] Auto-switch disabled - showing manual modal");
       return false;
     }
 
     const currentProfileId = rateLimitDetection.profileId;
-    const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
+    const bestProfile =
+      profileManager.getBestAvailableProfile(currentProfileId);
 
-    console.log('[AgentProcess] Best available profile:', bestProfile ? {
-      id: bestProfile.id,
-      name: bestProfile.name
-    } : 'NONE');
+    console.log(
+      "[AgentProcess] Best available profile:",
+      bestProfile
+        ? {
+            id: bestProfile.id,
+            name: bestProfile.name,
+          }
+        : "NONE"
+    );
 
     if (!bestProfile) {
-      console.log('[AgentProcess] No alternative profile available - falling back to manual modal');
+      console.log(
+        "[AgentProcess] No alternative profile available - falling back to manual modal"
+      );
       return false;
     }
 
-    console.log('[AgentProcess] AUTO-SWAP: Switching from', currentProfileId, 'to', bestProfile.id);
+    console.log(
+      "[AgentProcess] AUTO-SWAP: Switching from",
+      currentProfileId,
+      "to",
+      bestProfile.id
+    );
     profileManager.setActiveProfile(bestProfile.id);
 
-    const source = processType === 'spec-creation' ? 'roadmap' : 'task';
-    const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, { taskId });
+    const source = processType === "spec-creation" ? "roadmap" : "task";
+    const rateLimitInfo = createSDKRateLimitInfo(source, rateLimitDetection, {
+      taskId,
+    });
     rateLimitInfo.wasAutoSwapped = true;
-    rateLimitInfo.swappedToProfile = { id: bestProfile.id, name: bestProfile.name };
-    rateLimitInfo.swapReason = 'reactive';
+    rateLimitInfo.swappedToProfile = {
+      id: bestProfile.id,
+      name: bestProfile.name,
+    };
+    rateLimitInfo.swapReason = "reactive";
 
-    console.log('[AgentProcess] Emitting sdk-rate-limit event (auto-swapped):', rateLimitInfo);
-    this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+    console.log(
+      "[AgentProcess] Emitting sdk-rate-limit event (auto-swapped):",
+      rateLimitInfo
+    );
+    this.emitter.emit("sdk-rate-limit", rateLimitInfo);
 
-    console.log('[AgentProcess] Emitting auto-swap-restart-task event for task:', taskId);
-    this.emitter.emit('auto-swap-restart-task', taskId, bestProfile.id);
+    console.log(
+      "[AgentProcess] Emitting auto-swap-restart-task event for task:",
+      taskId
+    );
+    this.emitter.emit("auto-swap-restart-task", taskId, bestProfile.id);
     return true;
   }
 
   private handleAuthFailure(taskId: string, allOutput: string): boolean {
-    console.log('[AgentProcess] No rate limit detected - checking for auth failure');
+    console.log(
+      "[AgentProcess] No rate limit detected - checking for auth failure"
+    );
     const authFailureDetection = detectAuthFailure(allOutput);
 
     if (authFailureDetection.isAuthFailure) {
-      console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
-      this.emitter.emit('auth-failure', taskId, {
+      console.log(
+        "[AgentProcess] Auth failure detected:",
+        authFailureDetection
+      );
+      this.emitter.emit("auth-failure", taskId, {
         profileId: authFailureDetection.profileId,
         failureType: authFailureDetection.failureType,
         message: authFailureDetection.message,
-        originalError: authFailureDetection.originalError
+        originalError: authFailureDetection.originalError,
       });
       return true;
     }
 
-    console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
+    console.log(
+      "[AgentProcess] Process failed but no rate limit or auth failure detected"
+    );
     return false;
   }
 
@@ -172,6 +264,21 @@ export class AgentProcessManager {
     if (this._pythonPath) {
       return this._pythonPath;
     }
+
+    // Dev quality-of-life: Prefer the repo backend venv if available.
+    // This avoids accidentally running against an older bundled backend that
+    // may not include recent shim modules (e.g. graphiti_memory).
+    if (!app.isPackaged) {
+      const autoBuildSource = this.getAutoBuildSourcePath();
+      if (autoBuildSource) {
+        const venvPython = path.join(autoBuildSource, ".venv", "bin", "python");
+        const validation = validatePythonPath(venvPython);
+        if (validation.valid) {
+          return validation.sanitizedPath || venvPython;
+        }
+      }
+    }
+
     // Otherwise use the global configured path (venv if ready, else bundled/system)
     return getConfiguredPythonPath();
   }
@@ -182,7 +289,9 @@ export class AgentProcessManager {
   getAutoBuildSourcePath(): string | null {
     // Use runners/spec_runner.py as the validation marker - this is the file actually needed
     const validatePath = (p: string): boolean => {
-      return existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'));
+      return (
+        existsSync(p) && existsSync(path.join(p, "runners", "spec_runner.py"))
+      );
     };
 
     // If manually configured AND valid, use that
@@ -192,16 +301,23 @@ export class AgentProcessManager {
 
     // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
-      // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
+      // Dev mode: from dist/main -> ../../../backend (apps/frontend/out/main -> apps/backend)
+      // out/main -> out -> frontend -> apps -> backend
+      path.resolve(__dirname, "..", "..", "..", "..", "backend"),
+      // Dev mode (alternative cwd): if cwd is apps/frontend, ../backend is apps/backend
+      path.resolve(process.cwd(), "..", "backend"),
+      // Dev mode (repo root): apps/backend
+      path.resolve(process.cwd(), "apps", "backend"),
       // Alternative: from app root -> apps/backend
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      // If running from repo root with apps structure
-      path.resolve(process.cwd(), 'apps', 'backend')
+      path.resolve(app.getAppPath(), "..", "backend"),
     ];
 
     for (const p of possiblePaths) {
       if (validatePath(p)) {
+        // Helpful breadcrumb in dev when debugging backend selection.
+        if (!app.isPackaged) {
+          console.warn("[AgentProcess] Auto-build source selected:", p);
+        }
         return p;
       }
     }
@@ -221,8 +337,9 @@ export class AgentProcessManager {
     if (project?.settings) {
       // Graphiti MCP integration
       if (project.settings.graphitiMcpEnabled) {
-        const graphitiUrl = project.settings.graphitiMcpUrl || 'http://localhost:8000/mcp/';
-        env['GRAPHITI_MCP_URL'] = graphitiUrl;
+        const graphitiUrl =
+          project.settings.graphitiMcpUrl || "http://localhost:8000/mcp/";
+        env["GRAPHITI_MCP_URL"] = graphitiUrl;
       }
 
       // CLAUDE.md integration (enabled by default)
@@ -231,7 +348,14 @@ export class AgentProcessManager {
       }
     }
 
-    return env;
+    // Project-scoped .env (what users expect to configure per-project)
+    // Example: /projects/snapper-desktop/.auto-claude/.env
+    const projectAutoBuildDir = project?.autoBuildPath || ".auto-claude";
+    const projectEnvPath = path.join(projectPath, projectAutoBuildDir, ".env");
+    const projectEnv = this.loadEnvFile(projectEnvPath);
+
+    // Merge: file-based env first, then explicit computed env overrides
+    return { ...projectEnv, ...env };
   }
 
   /**
@@ -294,42 +418,8 @@ export class AgentProcessManager {
       return {};
     }
 
-    const envPath = path.join(autoBuildSource, '.env');
-    if (!existsSync(envPath)) {
-      return {};
-    }
-
-    try {
-      const envContent = readFileSync(envPath, 'utf-8');
-      const envVars: Record<string, string> = {};
-
-      // Handle both Unix (\n) and Windows (\r\n) line endings
-      for (const line of envContent.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        // Skip comments and empty lines
-        if (!trimmed || trimmed.startsWith('#')) {
-          continue;
-        }
-
-        const eqIndex = trimmed.indexOf('=');
-        if (eqIndex > 0) {
-          const key = trimmed.substring(0, eqIndex).trim();
-          let value = trimmed.substring(eqIndex + 1).trim();
-
-          // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-
-          envVars[key] = value;
-        }
-      }
-
-      return envVars;
-    } catch {
-      return {};
-    }
+    const envPath = path.join(autoBuildSource, ".env");
+    return this.loadEnvFile(envPath);
   }
 
   spawnProcess(
@@ -337,9 +427,9 @@ export class AgentProcessManager {
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
-    processType: ProcessType = 'task-execution'
+    processType: ProcessType = "task-execution"
   ): void {
-    const isSpecRunner = processType === 'spec-creation';
+    const isSpecRunner = processType === "spec-creation";
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
@@ -349,50 +439,72 @@ export class AgentProcessManager {
     const pythonEnv = pythonEnvManager.getPythonEnv();
 
     // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(
+      this.getPythonPath()
+    );
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {
         ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-        ...pythonEnv // Include Python environment (PYTHONPATH for bundled packages)
-      }
+        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+      },
     });
 
     this.state.addProcess(taskId, {
       taskId,
       process: childProcess,
       startedAt: new Date(),
-      spawnId
+      spawnId,
     });
 
-    let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
+    let currentPhase: ExecutionProgressData["phase"] = isSpecRunner
+      ? "planning"
+      : "planning";
     let phaseProgress = 0;
     let currentSubtask: string | undefined;
     let lastMessage: string | undefined;
-    let allOutput = '';
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
+    let allOutput = "";
+    let stdoutBuffer = "";
+    let stderrBuffer = "";
     let sequenceNumber = 0;
 
-    this.emitter.emit('execution-progress', taskId, {
+    this.emitter.emit("execution-progress", taskId, {
       phase: currentPhase,
       phaseProgress: 0,
       overallProgress: this.events.calculateOverallProgress(currentPhase, 0),
-      message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
-      sequenceNumber: ++sequenceNumber
+      message: isSpecRunner
+        ? "Starting spec creation..."
+        : "Starting build process...",
+      sequenceNumber: ++sequenceNumber,
     });
 
-    const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
+    const isDebug = ["true", "1", "yes", "on"].includes(
+      process.env.DEBUG?.toLowerCase() ?? ""
+    );
+    // Mirror ALL Python subprocess output to Electron main console (so it shows up in `npm run dev`)
+    // This is intentionally separate from DEBUG to keep normal logs clean.
+    const mirrorPythonLogs = ["true", "1", "yes", "on"].includes(
+      (process.env.AUTO_CLAUDE_PYTHON_CONSOLE_LOGS ?? "").toLowerCase()
+    );
 
     const processLog = (line: string) => {
       allOutput = (allOutput + line).slice(-10000);
 
-      const hasMarker = line.includes('__EXEC_PHASE__');
+      const hasMarker = line.includes("__EXEC_PHASE__");
       if (isDebug && hasMarker) {
-        console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
+        console.log(
+          `[PhaseDebug:${taskId}] Found marker in line: "${line.substring(
+            0,
+            200
+          )}"`
+        );
       }
 
-      const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
+      const phaseUpdate = this.events.parseExecutionPhase(
+        line,
+        currentPhase,
+        isSpecRunner
+      );
 
       if (isDebug && hasMarker) {
         console.log(`[PhaseDebug:${taskId}] Parse result:`, phaseUpdate);
@@ -402,7 +514,9 @@ export class AgentProcessManager {
         const phaseChanged = phaseUpdate.phase !== currentPhase;
 
         if (isDebug) {
-          console.log(`[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`);
+          console.log(
+            `[PhaseDebug:${taskId}] Phase update: ${currentPhase} -> ${phaseUpdate.phase} (changed: ${phaseChanged})`
+          );
         }
 
         currentPhase = phaseUpdate.phase;
@@ -420,41 +534,68 @@ export class AgentProcessManager {
           phaseProgress = Math.min(90, phaseProgress + 5);
         }
 
-        const overallProgress = this.events.calculateOverallProgress(currentPhase, phaseProgress);
+        const overallProgress = this.events.calculateOverallProgress(
+          currentPhase,
+          phaseProgress
+        );
 
         if (isDebug) {
-          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, { phase: currentPhase, phaseProgress, overallProgress });
+          console.log(`[PhaseDebug:${taskId}] Emitting execution-progress:`, {
+            phase: currentPhase,
+            phaseProgress,
+            overallProgress,
+          });
         }
 
-        this.emitter.emit('execution-progress', taskId, {
+        this.emitter.emit("execution-progress", taskId, {
           phase: currentPhase,
           phaseProgress,
           overallProgress,
           currentSubtask,
           message: lastMessage,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
         });
       }
     };
 
-    const processBufferedOutput = (buffer: string, newData: string): string => {
-      if (isDebug && newData.includes('__EXEC_PHASE__')) {
-        console.log(`[PhaseDebug:${taskId}] Raw chunk with marker (${newData.length} bytes): "${newData.substring(0, 300)}"`);
-        console.log(`[PhaseDebug:${taskId}] Current buffer before append (${buffer.length} bytes): "${buffer.substring(0, 100)}"`);
+    const processBufferedOutput = (
+      buffer: string,
+      newData: string,
+      stream: "stdout" | "stderr"
+    ): string => {
+      if (isDebug && newData.includes("__EXEC_PHASE__")) {
+        console.log(
+          `[PhaseDebug:${taskId}] Raw chunk with marker (${
+            newData.length
+          } bytes): "${newData.substring(0, 300)}"`
+        );
+        console.log(
+          `[PhaseDebug:${taskId}] Current buffer before append (${
+            buffer.length
+          } bytes): "${buffer.substring(0, 100)}"`
+        );
       }
 
       buffer += newData;
-      const lines = buffer.split('\n');
-      const remaining = lines.pop() || '';
+      const lines = buffer.split("\n");
+      const remaining = lines.pop() || "";
 
-      if (isDebug && newData.includes('__EXEC_PHASE__')) {
-        console.log(`[PhaseDebug:${taskId}] Split into ${lines.length} complete lines, remaining buffer: "${remaining.substring(0, 100)}"`);
+      if (isDebug && newData.includes("__EXEC_PHASE__")) {
+        console.log(
+          `[PhaseDebug:${taskId}] Split into ${
+            lines.length
+          } complete lines, remaining buffer: "${remaining.substring(0, 100)}"`
+        );
       }
 
       for (const line of lines) {
         if (line.trim()) {
-          this.emitter.emit('log', taskId, line + '\n');
+          this.emitter.emit("log", taskId, line + "\n");
           processLog(line);
+          if (mirrorPythonLogs) {
+            // Prefix so it's easy to grep in the `npm run dev` output
+            console.warn(`[Py:${taskId}:${stream}] ${line}`);
+          }
           if (isDebug) {
             console.log(`[Agent:${taskId}] ${line}`);
           }
@@ -464,21 +605,29 @@ export class AgentProcessManager {
       return remaining;
     };
 
-    childProcess.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
+    childProcess.stdout?.on("data", (data: Buffer) => {
+      stdoutBuffer = processBufferedOutput(
+        stdoutBuffer,
+        data.toString("utf8"),
+        "stdout"
+      );
     });
 
-    childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+    childProcess.stderr?.on("data", (data: Buffer) => {
+      stderrBuffer = processBufferedOutput(
+        stderrBuffer,
+        data.toString("utf8"),
+        "stderr"
+      );
     });
 
-    childProcess.on('exit', (code: number | null) => {
+    childProcess.on("exit", (code: number | null) => {
       if (stdoutBuffer.trim()) {
-        this.emitter.emit('log', taskId, stdoutBuffer + '\n');
+        this.emitter.emit("log", taskId, stdoutBuffer + "\n");
         processLog(stdoutBuffer);
       }
       if (stderrBuffer.trim()) {
-        this.emitter.emit('log', taskId, stderrBuffer + '\n');
+        this.emitter.emit("log", taskId, stderrBuffer + "\n");
         processLog(stderrBuffer);
       }
 
@@ -490,41 +639,57 @@ export class AgentProcessManager {
       }
 
       if (code !== 0) {
-        console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
-        const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
+        console.log(
+          "[AgentProcess] Process failed with code:",
+          code,
+          "for task:",
+          taskId
+        );
+        const wasHandled = this.handleProcessFailure(
+          taskId,
+          allOutput,
+          processType
+        );
         if (wasHandled) {
-          this.emitter.emit('exit', taskId, code, processType);
+          this.emitter.emit("exit", taskId, code, processType);
           return;
         }
       }
 
-      if (code !== 0 && currentPhase !== 'complete' && currentPhase !== 'failed') {
-        this.emitter.emit('execution-progress', taskId, {
-          phase: 'failed',
+      if (
+        code !== 0 &&
+        currentPhase !== "complete" &&
+        currentPhase !== "failed"
+      ) {
+        this.emitter.emit("execution-progress", taskId, {
+          phase: "failed",
           phaseProgress: 0,
-          overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
+          overallProgress: this.events.calculateOverallProgress(
+            currentPhase,
+            phaseProgress
+          ),
           message: `Process exited with code ${code}`,
-          sequenceNumber: ++sequenceNumber
+          sequenceNumber: ++sequenceNumber,
         });
       }
 
-      this.emitter.emit('exit', taskId, code, processType);
+      this.emitter.emit("exit", taskId, code, processType);
     });
 
     // Handle process error
-    childProcess.on('error', (err: Error) => {
-      console.error('[AgentProcess] Process error:', err.message);
+    childProcess.on("error", (err: Error) => {
+      console.error("[AgentProcess] Process error:", err.message);
       this.state.deleteProcess(taskId);
 
-      this.emitter.emit('execution-progress', taskId, {
-        phase: 'failed',
+      this.emitter.emit("execution-progress", taskId, {
+        phase: "failed",
         phaseProgress: 0,
         overallProgress: 0,
         message: `Error: ${err.message}`,
-        sequenceNumber: ++sequenceNumber
+        sequenceNumber: ++sequenceNumber,
       });
 
-      this.emitter.emit('error', taskId, err.message);
+      this.emitter.emit("error", taskId, err.message);
     });
   }
 
@@ -539,12 +704,12 @@ export class AgentProcessManager {
         this.state.markSpawnAsKilled(agentProcess.spawnId);
 
         // Send SIGTERM first for graceful shutdown
-        agentProcess.process.kill('SIGTERM');
+        agentProcess.process.kill("SIGTERM");
 
         // Force kill after timeout
         setTimeout(() => {
           if (!agentProcess.process.killed) {
-            agentProcess.process.kill('SIGKILL');
+            agentProcess.process.kill("SIGKILL");
           }
         }, 5000);
 
