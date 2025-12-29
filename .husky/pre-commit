@@ -38,10 +38,12 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
 
     # Sync to README.md
     if [ -f "README.md" ]; then
-      # Update version badge
-      sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*-blue/version-$VERSION-blue/g" README.md
-      # Update download links
-      sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*/Auto-Claude-$VERSION/g" README.md
+      # Escape hyphens for shields.io badge format (shields.io uses -- for literal hyphens)
+      ESCAPED_VERSION=$(echo "$VERSION" | sed 's/-/--/g')
+      # Update version badge - match both stable (X.Y.Z) and prerelease (X.Y.Z-prerelease.N or X.Y.Z--prerelease.N)
+      sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*\(-\{1,2\}[a-z]*\.[0-9]*\)*-blue/version-$ESCAPED_VERSION-blue/g" README.md
+      # Update download links - match both stable and prerelease versions
+      sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*\(-[a-z]*\.[0-9]*\)*/Auto-Claude-$VERSION/g" README.md
       rm -f README.md.bak
       git add README.md
       echo "  Updated README.md to $VERSION"

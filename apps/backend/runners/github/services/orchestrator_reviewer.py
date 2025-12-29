@@ -21,6 +21,7 @@ DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
 try:
     from ...core.client import create_client
+    from ...phase_config import get_thinking_budget
     from ..context_gatherer import PRContext
     from ..models import (
         GitHubRunnerConfig,
@@ -51,6 +52,7 @@ except (ImportError, ValueError, SystemError):
         ReviewCategory,
         ReviewSeverity,
     )
+    from phase_config import get_thinking_budget
     from services.pydantic_models import OrchestratorReviewResponse
     from services.review_tools import (
         check_coverage,
@@ -178,19 +180,29 @@ class OrchestratorReviewer:
             # Build orchestrator prompt with tool definitions
             prompt = self._build_orchestrator_prompt(context)
 
-            # Create Opus 4.5 client with extended thinking
+            # Create client with user-configured model and thinking level
             project_root = (
                 self.project_dir.parent.parent
                 if self.project_dir.name == "backend"
                 else self.project_dir
             )
 
+            # Use model and thinking level from config (user settings)
+            model = self.config.model or "claude-sonnet-4-5-20250929"
+            thinking_level = self.config.thinking_level or "medium"
+            thinking_budget = get_thinking_budget(thinking_level)
+
+            logger.info(
+                f"[Orchestrator] Using model={model}, thinking_level={thinking_level}, "
+                f"thinking_budget={thinking_budget}"
+            )
+
             client = create_client(
                 project_dir=project_root,
                 spec_dir=self.github_dir,
-                model="claude-opus-4-5-20251101",  # Opus for strategic thinking
+                model=model,
                 agent_type="pr_reviewer",  # Read-only - no bash, no edits
-                max_thinking_tokens=10000,  # High budget for strategy
+                max_thinking_tokens=thinking_budget,
                 output_format={
                     "type": "json_schema",
                     "schema": OrchestratorReviewResponse.model_json_schema(),
@@ -218,7 +230,7 @@ class OrchestratorReviewer:
                 await client.query(prompt)
 
                 print(
-                    "[Orchestrator] Waiting for LLM response (Opus 4.5 with extended thinking)...",
+                    f"[Orchestrator] Waiting for LLM response ({model} with {thinking_level} thinking)...",
                     flush=True,
                 )
                 if DEBUG_MODE:

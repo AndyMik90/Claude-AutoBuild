@@ -67,5 +67,27 @@ export const workspaceMock = {
     data: {
       worktrees: []
     }
+  }),
+
+  worktreeOpenInIDE: async () => ({
+    success: true,
+    data: { opened: true }
+  }),
+
+  worktreeOpenInTerminal: async () => ({
+    success: true,
+    data: { opened: true }
+  }),
+
+  worktreeDetectTools: async () => ({
+    success: true,
+    data: {
+      ides: [
+        { id: 'vscode', name: 'Visual Studio Code', path: '/Applications/Visual Studio Code.app', installed: true }
+      ],
+      terminals: [
+        { id: 'system', name: 'System Terminal', path: '', installed: true }
+      ]
+    }
   })
 };

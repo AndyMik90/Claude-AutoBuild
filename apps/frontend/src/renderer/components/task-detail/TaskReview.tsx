@@ -94,8 +94,6 @@ export function TaskReview({
       {stagedSuccess && (
         <StagedSuccessMessage
           stagedSuccess={stagedSuccess}
-          stagedProjectPath={stagedProjectPath}
-          task={task}
           suggestedCommitMessage={suggestedCommitMessage}
         />
       )}
@@ -105,7 +103,6 @@ export function TaskReview({
         <LoadingMessage />
       ) : worktreeStatus?.exists && !stagedSuccess ? (
         <WorkspaceStatus
-          task={task}
           worktreeStatus={worktreeStatus}
           workspaceError={workspaceError}
           stageOnly={stageOnly}

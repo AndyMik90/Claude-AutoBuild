@@ -30,6 +30,7 @@ export class AgentManager extends EventEmitter {
     taskDescription?: string;
     specDir?: string;
     metadata?: SpecCreationMetadata;
+    baseBranch?: string;
     swapCount: number;
   }> = new Map();
 
@@ -91,7 +92,8 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     taskDescription: string,
     specDir?: string,
-    metadata?: SpecCreationMetadata
+    metadata?: SpecCreationMetadata,
+    baseBranch?: string
   ): void {
     // Pre-flight auth check: Verify active profile has valid authentication
     const profileManager = getClaudeProfileManager();
@@ -125,6 +127,11 @@ export class AgentManager extends EventEmitter {
       args.push('--spec-dir', specDir);
     }
 
+    // Pass base branch if specified (ensures worktrees are created from the correct branch)
+    if (baseBranch) {
+      args.push('--base-branch', baseBranch);
+    }
+
     // Check if user requires review before coding
     if (!metadata?.requireReviewBeforeCoding) {
       // Auto-approve: When user starts a task from the UI without requiring review
@@ -146,7 +153,7 @@ export class AgentManager extends EventEmitter {
     }
 
     // Store context for potential restart
-    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata);
+    this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
     // Note: This is spec-creation but it chains to task-execution via run.py
     this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
@@ -332,7 +339,8 @@ export class AgentManager extends EventEmitter {
     isSpecCreation?: boolean,
     taskDescription?: string,
     specDir?: string,
-    metadata?: SpecCreationMetadata
+    metadata?: SpecCreationMetadata,
+    baseBranch?: string
   ): void {
     // Preserve swapCount if context already exists (for restarts)
     const existingContext = this.taskExecutionContext.get(taskId);
@@ -346,6 +354,7 @@ export class AgentManager extends EventEmitter {
       taskDescription,
       specDir,
       metadata,
+      baseBranch,
       swapCount // Preserve existing count instead of resetting
     });
   }
@@ -407,7 +416,8 @@ export class AgentManager extends EventEmitter {
           context.projectPath,
           context.taskDescription!,
           context.specDir,
-          context.metadata
+          context.metadata,
+          context.baseBranch
         );
       } else {
         console.log('[AgentManager] Restarting as task execution');

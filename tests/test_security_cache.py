@@ -56,36 +56,44 @@ def get_dir_hash(project_dir):
 @pytest.mark.xfail(reason="Flaky test - hash mismatch between first call (before file save) and test's get_dir_hash (after file exists)")
 def test_cache_invalidation_on_file_creation(mock_project_dir, mock_profile_path):
     reset_profile_cache()
-    
-    # 1. First call - file doesn't exist
+
+    # Compute hash first, before any files are created
+    # This hash will be used in the profile we create later
+    current_hash = get_dir_hash(mock_project_dir)
+
+    # 1. First call - file doesn't exist, analyzer will create one with BASE_COMMANDS
     profile1 = get_security_profile(mock_project_dir)
     assert "unique_cmd_A" not in profile1.get_all_allowed_commands()
-    
-    # 2. Create the file with valid JSON and CORRECT HASH
-    current_hash = get_dir_hash(mock_project_dir)
+
+    # 2. Wait to ensure filesystem mtime has different second
+    # (some filesystems have 1-second resolution)
+    time.sleep(1.0)
+
+    # 3. Overwrite the file with our custom content
+    # Use the SAME hash we computed before (directory structure hasn't changed)
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
-    
-    # 3. Second call - should detect file creation and reload
+
+    # 4. Second call - should detect file modification and reload
     profile2 = get_security_profile(mock_project_dir)
     assert "unique_cmd_A" in profile2.get_all_allowed_commands()
 
 def test_cache_invalidation_on_file_modification(mock_project_dir, mock_profile_path):
     reset_profile_cache()
-    
+
     # 1. Create initial file
     current_hash = get_dir_hash(mock_project_dir)
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
-    
+
     # 2. Load initial profile
     profile1 = get_security_profile(mock_project_dir)
     assert "unique_cmd_A" in profile1.get_all_allowed_commands()
-    
-    # Wait to ensure mtime changes
-    time.sleep(0.1)
-    
+
+    # Wait to ensure mtime changes (some filesystems have 1-second resolution)
+    time.sleep(1.0)
+
     # 3. Modify the file
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_B"], current_hash))
-    
+
     # 4. Call again - should detect modification
     profile2 = get_security_profile(mock_project_dir)
     assert "unique_cmd_B" in profile2.get_all_allowed_commands()

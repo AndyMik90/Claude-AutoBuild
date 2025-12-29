@@ -222,18 +222,20 @@ class TestElectronToolScoping:
     """Verify Electron MCP tools are scoped to QA agents only."""
 
     def test_qa_reviewer_has_electron_tools_when_enabled(self, monkeypatch):
-        """QA reviewer gets Electron tools when ELECTRON_MCP_ENABLED=true."""
+        """QA reviewer gets Electron tools when ELECTRON_MCP_ENABLED=true and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
         # Re-import to pick up env change
-        from auto_claude_tools import get_allowed_tools, ELECTRON_TOOLS
+        from auto_claude_tools import ELECTRON_TOOLS, get_allowed_tools
 
-        qa_tools = get_allowed_tools("qa_reviewer")
+        # Must pass is_electron=True for Electron tools to be included
+        # This is the new phase-aware behavior
+        qa_tools = get_allowed_tools("qa_reviewer", project_capabilities={"is_electron": True})
 
         # At least one Electron tool should be present
         has_electron = any("electron" in tool.lower() for tool in qa_tools)
         assert has_electron, (
-            "QA reviewer should have Electron tools when ELECTRON_MCP_ENABLED=true. "
+            "QA reviewer should have Electron tools when ELECTRON_MCP_ENABLED=true and is_electron=True. "
             f"Got tools: {qa_tools}"
         )
 
@@ -242,16 +244,17 @@ class TestElectronToolScoping:
             assert tool in qa_tools, f"Expected {tool} in qa_reviewer tools"
 
     def test_qa_fixer_has_electron_tools_when_enabled(self, monkeypatch):
-        """QA fixer gets Electron tools when ELECTRON_MCP_ENABLED=true."""
+        """QA fixer gets Electron tools when ELECTRON_MCP_ENABLED=true and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
-        from auto_claude_tools import get_allowed_tools, ELECTRON_TOOLS
+        from auto_claude_tools import ELECTRON_TOOLS, get_allowed_tools
 
-        qa_fixer_tools = get_allowed_tools("qa_fixer")
+        # Must pass is_electron=True for Electron tools to be included
+        qa_fixer_tools = get_allowed_tools("qa_fixer", project_capabilities={"is_electron": True})
 
         has_electron = any("electron" in tool.lower() for tool in qa_fixer_tools)
         assert has_electron, (
-            "QA fixer should have Electron tools when ELECTRON_MCP_ENABLED=true. "
+            "QA fixer should have Electron tools when ELECTRON_MCP_ENABLED=true and is_electron=True. "
             f"Got tools: {qa_fixer_tools}"
         )
 
@@ -259,12 +262,13 @@ class TestElectronToolScoping:
             assert tool in qa_fixer_tools, f"Expected {tool} in qa_fixer tools"
 
     def test_coder_no_electron_tools(self, monkeypatch):
-        """Coder should NOT get Electron tools even when enabled."""
+        """Coder should NOT get Electron tools even when enabled and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
         from auto_claude_tools import get_allowed_tools
 
-        coder_tools = get_allowed_tools("coder")
+        # Even with is_electron=True, coder should not get Electron tools
+        coder_tools = get_allowed_tools("coder", project_capabilities={"is_electron": True})
 
         has_electron = any("electron" in tool.lower() for tool in coder_tools)
         assert not has_electron, (
@@ -273,12 +277,13 @@ class TestElectronToolScoping:
         )
 
     def test_planner_no_electron_tools(self, monkeypatch):
-        """Planner should NOT get Electron tools even when enabled."""
+        """Planner should NOT get Electron tools even when enabled and project is Electron."""
         monkeypatch.setenv("ELECTRON_MCP_ENABLED", "true")
 
         from auto_claude_tools import get_allowed_tools
 
-        planner_tools = get_allowed_tools("planner")
+        # Even with is_electron=True, planner should not get Electron tools
+        planner_tools = get_allowed_tools("planner", project_capabilities={"is_electron": True})
 
         has_electron = any("electron" in tool.lower() for tool in planner_tools)
         assert not has_electron, (
@@ -293,7 +298,8 @@ class TestElectronToolScoping:
         from auto_claude_tools import get_allowed_tools
 
         for agent_type in ["planner", "coder", "qa_reviewer", "qa_fixer"]:
-            tools = get_allowed_tools(agent_type)
+            # Even with is_electron=True, no tools without env var
+            tools = get_allowed_tools(agent_type, project_capabilities={"is_electron": True})
             has_electron = any("electron" in tool.lower() for tool in tools)
             assert not has_electron, (
                 f"{agent_type} should NOT have Electron tools when ELECTRON_MCP_ENABLED is not set"
