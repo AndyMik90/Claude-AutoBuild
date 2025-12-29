@@ -608,6 +608,23 @@ export interface ElectronAPI {
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
+
+  // Debug operations
+  getDebugInfo: () => Promise<{
+    systemInfo: Record<string, string>;
+    recentErrors: string[];
+    logsPath: string;
+    debugReport: string;
+  }>;
+  openLogsFolder: () => Promise<{ success: boolean; error?: string }>;
+  copyDebugInfo: () => Promise<{ success: boolean; error?: string }>;
+  getRecentErrors: (maxCount?: number) => Promise<string[]>;
+  listLogFiles: () => Promise<Array<{
+    name: string;
+    path: string;
+    size: number;
+    modified: string;
+  }>>;
 }
 
 declare global {

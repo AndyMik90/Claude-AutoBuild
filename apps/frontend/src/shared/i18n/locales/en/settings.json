@@ -40,6 +40,10 @@
     "notifications": {
       "title": "Notifications",
       "description": "Alert preferences"
+    },
+    "debug": {
+      "title": "Debug & Logs",
+      "description": "Troubleshooting tools"
     }
   },
   "language": {
@@ -284,5 +288,19 @@
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
     "openaiKeyDescription": "Required for Graphiti memory backend (embeddings)"
+  },
+  "debug": {
+    "title": "Debug & Logs",
+    "description": "Access logs and debug information for troubleshooting",
+    "openLogsFolder": "Open Logs Folder",
+    "copyDebugInfo": "Copy Debug Info",
+    "copied": "Copied!",
+    "loadInfo": "Load Debug Info",
+    "systemInfo": "System Information",
+    "logsLocation": "Logs Location",
+    "recentErrors": "Recent Errors",
+    "noRecentErrors": "No recent errors",
+    "helpTitle": "Reporting Issues",
+    "helpText": "When reporting bugs, click \"Copy Debug Info\" to get system information and recent errors that help us diagnose the issue."
   }
 }

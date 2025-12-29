@@ -366,5 +366,12 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Debug operations
+  DEBUG_GET_INFO: 'debug:getInfo',
+  DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
+  DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
+  DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles'
 } as const;

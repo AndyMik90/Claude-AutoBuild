@@ -11,7 +11,11 @@ import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handle
 import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
+import { logger, setupErrorLogging } from './app-logger';
 import type { AppSettings } from '../shared/types';
+
+// Setup error logging early (captures uncaught exceptions)
+setupErrorLogging();
 
 /**
  * Load app settings synchronously (for use during startup).
@@ -274,11 +278,5 @@ app.on('before-quit', async () => {
   }
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled rejection:', reason);
-});
+// Note: Uncaught exceptions and unhandled rejections are now
+// logged by setupErrorLogging() in app-logger.ts
