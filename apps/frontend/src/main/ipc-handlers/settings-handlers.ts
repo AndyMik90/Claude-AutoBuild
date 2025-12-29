@@ -134,6 +134,7 @@ export function registerSettingsHandlers(
         pythonPath: settings.pythonPath,
         gitPath: settings.gitPath,
         githubCLIPath: settings.githubCLIPath,
+        claudePath: settings.claudePath,
       });
 
       return { success: true, data: settings as AppSettings };
@@ -159,12 +160,14 @@ export function registerSettingsHandlers(
         if (
           settings.pythonPath !== undefined ||
           settings.gitPath !== undefined ||
-          settings.githubCLIPath !== undefined
+          settings.githubCLIPath !== undefined ||
+          settings.claudePath !== undefined
         ) {
           configureTools({
             pythonPath: newSettings.pythonPath,
             gitPath: newSettings.gitPath,
             githubCLIPath: newSettings.githubCLIPath,
+            claudePath: newSettings.claudePath,
           });
         }
 
@@ -190,6 +193,7 @@ export function registerSettingsHandlers(
       python: ReturnType<typeof getToolInfo>;
       git: ReturnType<typeof getToolInfo>;
       gh: ReturnType<typeof getToolInfo>;
+      claude: ReturnType<typeof getToolInfo>;
     }>> => {
       try {
         return {
@@ -198,6 +202,7 @@ export function registerSettingsHandlers(
             python: getToolInfo('python'),
             git: getToolInfo('git'),
             gh: getToolInfo('gh'),
+            claude: getToolInfo('claude'),
           },
         };
       } catch (error) {
