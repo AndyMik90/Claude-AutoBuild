@@ -150,7 +150,11 @@
     "extraResources": [
       {
         "from": "node_modules/@lydell/node-pty",
-        "to": "node_modules/@lydell/node-pty"
+        "to": "node_modules/@lydell/node-pty",
+        "filter": [
+          "!**/*-darwin-*",
+          "!**/*-linux-*"
+        ]
       },
       {
         "from": "resources/icon.ico",
@@ -198,9 +202,12 @@
     "win": {
       "icon": "resources/icon.ico",
       "target": [
-        "nsis",
-        "zip"
-      ]
+        {
+          "target": "dir",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
     },
     "linux": {
       "icon": "resources/icon.png",

@@ -21,6 +21,16 @@ import frOnboarding from './locales/fr/onboarding.json';
 import frDialogs from './locales/fr/dialogs.json';
 import frTaskReview from './locales/fr/taskReview.json';
 
+// Import Hebrew translation resources
+import heCommon from './locales/he/common.json';
+import heNavigation from './locales/he/navigation.json';
+import heSettings from './locales/he/settings.json';
+import heTasks from './locales/he/tasks.json';
+import heWelcome from './locales/he/welcome.json';
+import heOnboarding from './locales/he/onboarding.json';
+import heDialogs from './locales/he/dialogs.json';
+import heTaskReview from './locales/he/taskReview.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -43,6 +53,16 @@ export const resources = {
     onboarding: frOnboarding,
     dialogs: frDialogs,
     taskReview: frTaskReview
+  },
+  he: {
+    common: heCommon,
+    navigation: heNavigation,
+    settings: heSettings,
+    tasks: heTasks,
+    welcome: heWelcome,
+    onboarding: heOnboarding,
+    dialogs: heDialogs,
+    taskReview: heTaskReview
   }
 } as const;
 

@@ -1,0 +1,86 @@
+{
+  "status": {
+    "backlog": "רשימת משימות",
+    "todo": "לביצוע",
+    "in_progress": "בתהליך",
+    "review": "בדיקה",
+    "complete": "הושלם",
+    "archived": "בארכיון"
+  },
+  "actions": {
+    "start": "התחל",
+    "stop": "עצור",
+    "recover": "שחזר",
+    "resume": "המשך",
+    "archive": "העבר לארכיון",
+    "delete": "מחק",
+    "view": "הצג פרטים"
+  },
+  "labels": {
+    "running": "רץ",
+    "aiReview": "בדיקת AI",
+    "needsReview": "דורש בדיקה",
+    "pending": "ממתין",
+    "stuck": "תקוע",
+    "incomplete": "לא הושלם",
+    "recovering": "משחזר...",
+    "needsRecovery": "דורש שחזור",
+    "needsResume": "דורש המשך"
+  },
+  "reviewReason": {
+    "completed": "הושלם",
+    "hasErrors": "יש שגיאות",
+    "qaIssues": "בעיות QA",
+    "approvePlan": "אשר תוכנית"
+  },
+  "tooltips": {
+    "archiveTask": "העבר משימה לארכיון",
+    "archiveAllDone": "העבר את כל המשימות שהושלמו לארכיון"
+  },
+  "creation": {
+    "title": "צור משימה חדשה",
+    "description": "תאר מה ברצונך לבנות",
+    "placeholder": "תאר את המשימה שלך..."
+  },
+  "empty": {
+    "title": "אין משימות עדיין",
+    "description": "צור את המשימה הראשונה שלך כדי להתחיל"
+  },
+  "kanban": {
+    "emptyBacklog": "אין משימות מתוכננות",
+    "emptyBacklogHint": "הוסף משימה כדי להתחיל",
+    "emptyInProgress": "אין משימות רצות",
+    "emptyInProgressHint": "התחל משימה מרשימת המשימות",
+    "emptyAiReview": "אין משימות בבדיקה",
+    "emptyAiReviewHint": "AI יבדוק משימות שהושלמו",
+    "emptyHumanReview": "אין משימות לבדיקה",
+    "emptyHumanReviewHint": "משימות ממתינות לאישורך כאן",
+    "emptyDone": "אין משימות שהושלמו",
+    "emptyDoneHint": "משימות מאושרות מופיעות כאן",
+    "emptyDefault": "אין משימות",
+    "dropHere": "שחרר כאן",
+    "showArchived": "הצג משימות בארכיון"
+  },
+  "execution": {
+    "phases": {
+      "idle": "לא פעיל",
+      "planning": "תכנון",
+      "coding": "קידוד",
+      "reviewing": "בודק",
+      "fixing": "מתקן",
+      "complete": "הושלם",
+      "failed": "נכשל"
+    },
+    "labels": {
+      "interrupted": "הופרע",
+      "progress": "התקדמות",
+      "entry": "ערך",
+      "entries": "ערכים"
+    },
+    "shortPhases": {
+      "plan": "תכנון",
+      "code": "קוד",
+      "qa": "בדיקה"
+    }
+  }
+}

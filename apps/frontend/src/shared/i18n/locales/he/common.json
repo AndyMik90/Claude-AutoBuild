@@ -1,0 +1,102 @@
+{
+  "buttons": {
+    "save": "שמור",
+    "cancel": "ביטול",
+    "skip": "דלג",
+    "next": "הבא",
+    "back": "הקודם",
+    "close": "סגור",
+    "initialize": "אתחל",
+    "delete": "מחק",
+    "confirm": "אישור",
+    "retry": "נסה שוב",
+    "create": "צור",
+    "open": "פתח",
+    "start": "התחל",
+    "stop": "עצור",
+    "refresh": "רענן",
+    "merge": "מזג",
+    "discard": "התעלם",
+    "switch": "החלף",
+    "add": "הוסף",
+    "gotIt": "הבנתי",
+    "continue": "המשך",
+    "saving": "שומר..."
+  },
+  "labels": {
+    "loading": "טוען...",
+    "error": "שגיאה",
+    "success": "הצלחה",
+    "initializing": "מאתחל...",
+    "saving": "שומר...",
+    "noData": "אין נתונים",
+    "optional": "אופציונלי",
+    "required": "נדרש",
+    "dismiss": "סגור"
+  },
+  "time": {
+    "justNow": "זה עתה",
+    "minutesAgo": "לפני {{count}} דקות",
+    "hoursAgo": "לפני {{count}} שעות",
+    "daysAgo": "לפני {{count}} ימים"
+  },
+  "errors": {
+    "generic": "אירעה שגיאה",
+    "networkError": "שגיאת רשת",
+    "notFound": "לא נמצא",
+    "unauthorized": "לא מורשה"
+  },
+  "notification": {
+    "accountSwitched": "חשבון הוחלף",
+    "swapFrom": "הוחלף מ-",
+    "swapTo": "אל",
+    "swapReason": "(החלפה עקב {{reason}})"
+  },
+  "rateLimit": {
+    "title": "הגבלת קצב",
+    "resetsAt": "מתאפס {{time}}",
+    "hitLimit": "{{source}} הגיע למגבלת השימוש",
+    "clickToManage": "לחץ לניהול →",
+    "modalTitle": "הגעת למגבלת שימוש ב-Claude Code",
+    "modalDescription": "הגעת למגבלת שימוש ב-Claude Code לתקופה זו.",
+    "profile": "פרופיל: {{name}}",
+    "autoSwitching": "מחליף אוטומטית ל-{{name}}",
+    "autoSwitchingDescription": "Claude יתחיל מחדש עם החשבון האחר שלך באופן אוטומטי",
+    "resetsTime": "מתאפס {{time}}",
+    "usageRestored": "השימוש שלך ישוחזר בזמן זה",
+    "switchAccount": "החלף חשבון Claude",
+    "useAnotherAccount": "השתמש בחשבון אחר",
+    "recommended": "מומלץ: ל-{{name}} יש יותר קיבולת זמינה.",
+    "otherSubscriptions": "יש לך מנויי Claude אחרים מוגדרים. החלף כדי להמשיך לעבוד:",
+    "selectAccount": "בחר חשבון...",
+    "switching": "מחליף...",
+    "addNewAccount": "הוסף חשבון חדש...",
+    "addAnotherSubscription": "הוסף מנוי Claude נוסף כדי להחליף אוטומטית כשאתה מגיע למגבלות.",
+    "addAnotherAccount": "הוסף חשבון אחר:",
+    "connectAccount": "חבר חשבון Claude:",
+    "accountNamePlaceholder": "שם חשבון (לדוגמה: עבודה, אישי)",
+    "willOpenLogin": "זה יפתח את התחברות Claude לאימות החשבון החדש.",
+    "autoSwitchOnRateLimit": "החלף אוטומטית בהגבלת קצב",
+    "upgradeTitle": "שדרג לשימוש נוסף",
+    "upgradeDescription": "שדרג את מנוי Claude שלך למגבלות שימוש גבוהות יותר.",
+    "upgradeSubscription": "שדרג מנוי",
+    "sources": {
+      "changelog": "יומן שינויים",
+      "task": "משימה",
+      "roadmap": "מפת דרכים",
+      "ideation": "רעיונות",
+      "titleGenerator": "יוצר כותרות",
+      "claude": "Claude"
+    }
+  },
+  "prReview": {
+    "reviewing": "בוחן",
+    "reviewed": "נבדק",
+    "approved": "אושר",
+    "changesRequested": "התבקשו שינויים",
+    "commented": "הוערה",
+    "readyForFollowup": "מוכן למעקב",
+    "readyToMerge": "מוכן למיזוג",
+    "pendingPost": "ממתין לפרסום"
+  }
+}

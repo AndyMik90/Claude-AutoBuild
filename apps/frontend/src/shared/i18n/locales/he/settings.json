@@ -1,0 +1,258 @@
+{
+  "title": "הגדרות",
+  "tabs": {
+    "app": "הגדרות אפליקציה",
+    "project": "הגדרות פרויקט"
+  },
+  "sections": {
+    "appearance": {
+      "title": "מראה",
+      "description": "התאם אישית את מראה Auto Claude"
+    },
+    "display": {
+      "title": "תצוגה",
+      "description": "התאם את גודל אלמנטי ממשק המשתמש"
+    },
+    "language": {
+      "title": "שפה",
+      "description": "בחר את השפה המועדפת עליך"
+    },
+    "agent": {
+      "title": "הגדרות סוכן",
+      "description": "מודל ומסגרת ברירת מחדל"
+    },
+    "paths": {
+      "title": "נתיבים",
+      "description": "כלי CLI ונתיבי מסגרת"
+    },
+    "integrations": {
+      "title": "אינטגרציות",
+      "description": "מפתחות API וחשבונות Claude"
+    },
+    "updates": {
+      "title": "עדכונים",
+      "description": "עדכוני Auto Claude"
+    },
+    "notifications": {
+      "title": "התראות",
+      "description": "העדפות התראות"
+    }
+  },
+  "language": {
+    "label": "שפת ממשק",
+    "description": "בחר את השפה לממשק האפליקציה"
+  },
+  "scale": {
+    "presets": "הגדרות קנה מידה מוכנות",
+    "presetsDescription": "אפשרויות קנה מידה מהירות להעדפות נפוצות",
+    "fineTune": "כוונון דק של קנה מידה",
+    "fineTuneDescription": "התאם מ-75% עד 200% בקפיצות של 5%",
+    "default": "ברירת מחדל",
+    "comfortable": "נוח",
+    "large": "גדול"
+  },
+  "general": {
+    "otherAgentSettings": "הגדרות סוכן נוסxxx",
+    "otherAgentSettingsDescription": "אפשרויות תצורת סוכן נוספות",
+    "agentFramework": "מסגרת סוכן",
+    "agentFrameworkDescription": "מסגרת הקידוד המשמשת למשימות אוטונומיות",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "שמות מסוף AI",
+    "aiTerminalNamingDescription": "שם מסופים אוטומטית בהתבסס על פקודות (משתמש ב-Haiku)",
+    "featureModelSettings": "הגדרות מודל תכונה",
+    "featureModelSettingsDescription": "מודל ורמת חשיבה עבור תובנות, רעיונות ומפת דרכים",
+    "model": "מודל",
+    "thinkingLevel": "רמת חשיבה",
+    "paths": "נתיבים",
+    "pathsDescription": "הגדר נתיבים הניתנים להרצה ונתיבי מסגרת",
+    "pythonPath": "נתיב Python",
+    "pythonPathDescription": "נתיב ל-Python הניתן להרצה (השאר ריק לזיהוי אוטומטי)",
+    "pythonPathPlaceholder": "python3 (ברירת מחדל)",
+    "gitPath": "נתיב Git",
+    "gitPathDescription": "נתיב ל-Git הניתן להרצה (השאר ריק לזיהוי אוטומטי)",
+    "gitPathPlaceholder": "git (ברירת מחדל)",
+    "githubCLIPath": "נתיב GitHub CLI",
+    "githubCLIPathDescription": "נתיב ל-GitHub CLI (gh) הניתן להרצה (השאר ריק לזיהוי אוטומטי)",
+    "githubCLIPathPlaceholder": "gh (ברירת מחדל)",
+    "claudePath": "נתיב Claude CLI",
+    "claudePathDescription": "נתיב ל-Claude CLI הניתן להרצה (השאר ריק לזיהוי אוטומטי)",
+    "claudePathPlaceholder": "claude (ברירת מחדל)",
+    "detectedPath": "זוהה אוטומטית",
+    "detectedVersion": "גרסה",
+    "detectedSource": "מקור",
+    "sourceUserConfig": "תצורת משתמש",
+    "sourceVenv": "סביבה וירטואלית",
+    "sourceHomebrew": "Homebrew",
+    "sourceSystemPath": "נתיב מערכת",
+    "sourceBundled": "מצורף",
+    "sourceFallback": "גיבוי",
+    "notDetected": "לא זוהה",
+    "autoClaudePath": "נתיב Auto Claude",
+    "autoClaudePathDescription": "נתיב יחסי לתיקיית auto-claude בפרויקטים",
+    "autoClaudePathPlaceholder": "auto-claude (ברירת מחדל)",
+    "autoNameTerminals": "שם מסופים אוטומטית",
+    "autoNameTerminalsDescription": "השתמש ב-AI כדי ליצור שמות תיאוריים לכרטיסיות מסוף בהתבסס על הפעילות שלהם"
+  },
+  "theme": {
+    "title": "מראה",
+    "description": "התאם אישית את מראה Auto Claude",
+    "mode": "מצב",
+    "modeDescription": "בחר בין ערכות נושא בהירות וכהות",
+    "light": "בהיר",
+    "dark": "כהה",
+    "system": "מערכת",
+    "colorTheme": "ערכת צבעים",
+    "colorThemeDescription": "בחר את לוח הצבעים המועדף עליך"
+  },
+  "updates": {
+    "title": "עדכונים",
+    "description": "נהל עדכוני Auto Claude",
+    "appUpdateReady": "עדכון אפליקציה מוכן",
+    "newVersion": "גרסה חדשה",
+    "released": "שוחרר",
+    "downloading": "מוריד...",
+    "updateDownloaded": "העדכון הורד! לחץ על התקן כדי להפעיל מחדש ולהחיל את העדכון.",
+    "installAndRestart": "התקן והפעל מחדש",
+    "downloadUpdate": "הורד עדכון",
+    "version": "גרסה",
+    "loading": "טוען...",
+    "checkingForUpdates": "בודק עדכונים...",
+    "newVersionAvailable": "גרסה חדשה זמינה:",
+    "latestVersion": "אתה מריץ את הגרסה העדכנית ביותר.",
+    "viewRelease": "הצג שחרור מלא ב-GitHub",
+    "unableToCheck": "לא ניתן לבדוק עדכונים",
+    "checkForUpdates": "בדוק עדכונים",
+    "autoUpdateProjects": "עדכן פרויקטים אוטומטית",
+    "autoUpdateProjectsDescription": "עדכן אוטומטית את Auto Claude בפרויקטים כשגרסה חדשה זמינה",
+    "betaUpdates": "עדכוני בטא",
+    "betaUpdatesDescription": "קבל גרסאות בטא מקדימות עם תכונות חדשות (עשויות להיות פחות יציבות)"
+  },
+  "notifications": {
+    "title": "התראות",
+    "description": "הגדר העדפות התראות ברירת מחדל",
+    "onTaskComplete": "כשמשימה מושלמת",
+    "onTaskCompleteDescription": "הודע כשמשימה מסתיימת בהצלחה",
+    "onTaskFailed": "כשמשימה נכשלת",
+    "onTaskFailedDescription": "הודע כשמשימה נתקלת בשגיאה",
+    "onReviewNeeded": "כשנדרשת בדיקה",
+    "onReviewNeededDescription": "הודע כש-QA דורש את הבדיקה שלך",
+    "sound": "צליל",
+    "soundDescription": "נגן צליל עם התראות"
+  },
+  "actions": {
+    "save": "שמור הגדרות",
+    "rerunWizard": "הפעל אשף מחדש",
+    "rerunWizardDescription": "התחל את אשף ההגדרה שוב"
+  },
+  "projectSections": {
+    "general": {
+      "title": "כללי",
+      "description": "בנייה אוטומטית ותצורת סוכן"
+    },
+    "claude": {
+      "title": "אימות Claude",
+      "description": "אימות Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "אינטגרציה עם Linear"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "סנכרון בעיות GitHub"
+    },
+    "memory": {
+      "title": "זיכרון",
+      "description": "מערכת זיכרון Graphiti"
+    }
+  },
+  "agentProfile": {
+    "label": "פרופיל סוכן",
+    "title": "פרופיל סוכן ברירת מחדל",
+    "sectionDescription": "בחר תצורה מוכנה למודל ורמת חשיבה",
+    "profilesInfo": "פרופילי סוכן מספקים תצורות מוכנות למודל Claude ורמת חשיבה. כשאתה יוצר משימה חדשה, ההגדרות האלה ישמשו כברירות מחדל. אתה תמיד יכול לעקוף אותן באשף יצירת המשימה.",
+    "custom": "מותאם אישית",
+    "customConfiguration": "תצורה מותאמת אישית",
+    "customDescription": "בחר מודל ורמת חשיבה",
+    "phaseConfiguration": "תצורת שלבים",
+    "phaseConfigurationDescription": "התאם אישית מודל ורמת חשיבה לכל שלב",
+    "clickToCustomize": "לחץ להתאמה אישית",
+    "model": "מודל",
+    "thinking": "חשיבה",
+    "thinkingLevel": "רמת חשיבה",
+    "selectModel": "בחר מודל",
+    "selectThinkingLevel": "בחר רמת חשיבה",
+    "perPhaseOptimization": "(אופטימיזציה לפי שלב)",
+    "resetToDefaults": "אפס לברירות מחדל",
+    "phaseConfigNote": "ההגדרות האלה ישמשו כברירות מחדל בעת יצירת משימות חדשות עם פרופיל Auto. אתה יכול לעקוף אותן לכל משימה באשף יצירת המשימה.",
+    "phases": {
+      "spec": {
+        "label": "יצירת מפרט",
+        "description": "גילוי, דרישות, איסוף הקשר"
+      },
+      "planning": {
+        "label": "תכנון",
+        "description": "תכנון יישום וארכיטקטורה"
+      },
+      "coding": {
+        "label": "קידוד",
+        "description": "יישום קוד בפועל"
+      },
+      "qa": {
+        "label": "בדיקת QA",
+        "description": "בטחת איכות ואימות"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "mobile": "Mobile",
+      "shared": "משותף",
+      "apiGateway": "שער API",
+      "worker": "Worker",
+      "other": "אחר"
+    }
+  },
+  "integrations": {
+    "title": "אינטגרציות",
+    "description": "נהל חשבונות Claude ומפתחות API",
+    "claudeAccounts": "חשבונות Claude",
+    "claudeAccountsDescription": "הוסף מספר מנויי Claude כדי להחליף אוטומטית ביניהם כשאתה מגיע למגבלות.",
+    "noAccountsYet": "אין חשבונות מוגדרים עדיין",
+    "default": "ברירת מחדל",
+    "active": "פעיל",
+    "authenticated": "מאומת",
+    "needsAuth": "דורש אימות",
+    "authenticate": "אמת",
+    "setActive": "הגדר כפעיל",
+    "manualTokenEntry": "הזנת אסימון ידנית",
+    "runSetupToken": "הרץ claude setup-token כדי לקבל את האסימון שלך",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "אימייל (אופציונלי, לתצוגה)",
+    "saveToken": "שמור אסימון",
+    "accountNamePlaceholder": "שם חשבון (לדוגמה: עבודה, אישי)",
+    "autoSwitching": "החלפת חשבון אוטומטית",
+    "autoSwitchingDescription": "החלף אוטומטית בין חשבונות Claude כדי להימנע מהפרעות. הגדר ניטור פרואקטיבי כדי להחליף לפני הגעה למגבלות.",
+    "enableAutoSwitching": "הפעל החלפה אוטומטית",
+    "masterSwitch": "מתג ראשי לכל תכונות החלפה אוטומטית",
+    "proactiveMonitoring": "ניטור פרואקטיבי",
+    "proactiveDescription": "בדוק שימוש באופן קבוע והחלף לפני הגעה למגבלות",
+    "checkUsageEvery": "בדוק שימוש כל",
+    "seconds15": "15 שניות",
+    "seconds30": "30 שניות (מומלץ)",
+    "minute1": "דקה אחת",
+    "disabled": "מושבת",
+    "sessionThreshold": "סף שימוש בהפעלה",
+    "sessionThresholdDescription": "החלף כשהשימוש בהפעלה מגיע לרמה זו (מומלץ: 95%)",
+    "weeklyThreshold": "סף שימוש שבועי",
+    "weeklyThresholdDescription": "החלף כשהשימוש השבועי מגיע לרמה זו (מומלץ: 99%)",
+    "reactiveRecovery": "שחזור תגובתי",
+    "reactiveDescription": "החלף אוטומטית כשמגבלת קצב בלתי צפויה נפגעת",
+    "apiKeys": "מפתחות API",
+    "apiKeysInfo": "מפתחות שנקבעו כאן משמשים כברירות מחדל. פרויקטים בודדים יכולים לעקוף אותם בהגדרות שלהם.",
+    "openaiKey": "מפתח API של OpenAI",
+    "openaiKeyDescription": "נדרש עבור מערכת זיכרון Graphiti (embeddings)"
+  }
+}

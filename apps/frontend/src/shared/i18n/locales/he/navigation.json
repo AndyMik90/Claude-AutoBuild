@@ -1,0 +1,31 @@
+{
+  "sections": {
+    "project": "פרויקט",
+    "tools": "כלים"
+  },
+  "items": {
+    "kanban": "לוח קנבאן",
+    "terminals": "מסופי סוכן",
+    "insights": "תובנות",
+    "roadmap": "מפת דרכים",
+    "ideation": "רעיונות",
+    "changelog": "יומן שינויים",
+    "context": "הקשר",
+    "githubIssues": "בעיות GitHub",
+    "githubPRs": "בקשות משיכה GitHub",
+    "gitlabIssues": "בעיות GitLab",
+    "worktrees": "עצי עבודה"
+  },
+  "actions": {
+    "settings": "הגדרות",
+    "help": "עזרה ומשוב",
+    "newTask": "משימה חדשה"
+  },
+  "tooltips": {
+    "settings": "הגדרות אפליקציה",
+    "help": "עזרה ומשוב"
+  },
+  "messages": {
+    "initializeToCreateTasks": "אתחל את Auto Claude כדי ליצור משימות"
+  }
+}

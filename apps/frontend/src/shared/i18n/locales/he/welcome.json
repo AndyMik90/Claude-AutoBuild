@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "ברוכים הבאים ל-Auto Claude",
+    "subtitle": "בנה תוכנה באופן אוטונומי עם סוכני AI"
+  },
+  "actions": {
+    "newProject": "פרויקט חדש",
+    "openProject": "פתח פרויקט"
+  },
+  "recentProjects": {
+    "title": "פרויקטים אחרונים",
+    "empty": "אין פרויקטים עדיין",
+    "emptyDescription": "צור פרויקט חדש או פתח פרויקט קיים כדי להתחיל",
+    "openFolder": "פתח תיקייה"
+  }
+}
