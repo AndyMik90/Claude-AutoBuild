@@ -1141,7 +1141,7 @@ body {
 }
 
 .column-queue {
-  border-top-color: #06B6D4; /* cyan-500 */
+  border-top-color: var(--info);
 }
 
 .column-in-progress {

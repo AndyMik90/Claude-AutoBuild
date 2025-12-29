@@ -1563,8 +1563,9 @@ export function registerWorktreeHandlers(
                     try {
                       // Check if current branch contains all commits from spec branch
                       // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
-                      execSync(
-                        `git merge-base --is-ancestor ${specBranch} HEAD`,
+                      execFileSync(
+                        getToolPath('git'),
+                        ['merge-base', '--is-ancestor', specBranch, 'HEAD'],
                         { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
                       );
                       // If we reach here, the command succeeded (exit code 0) - branch is merged

@@ -627,6 +627,26 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
 }
 
 /**
+ * Find the project root by looking for pnpm-workspace.yaml or package.json.
+ * This provides more robust path resolution than assuming directory structure.
+ *
+ * @param {string} startDir - Directory to start searching from
+ * @returns {string} Project root directory path
+ * @throws {Error} If project root cannot be found
+ */
+function findProjectRoot(startDir) {
+  let currentDir = startDir;
+  while (currentDir !== path.dirname(currentDir)) { // Until we reach filesystem root
+    if (fs.existsSync(path.join(currentDir, 'pnpm-workspace.yaml')) ||
+        fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+  throw new Error('Could not find project root (no pnpm-workspace.yaml or package.json found)');
+}
+
+/**
  * Main function to download and set up Python.
  * Downloads Python binary and installs all dependencies into site-packages.
  *
@@ -655,8 +675,16 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
 
   const sitePackagesDir = path.join(platformDir, 'site-packages');
 
-  // Path to requirements.txt (in backend directory)
-  const requirementsPath = customRequirementsPath || path.join(frontendDir, '..', 'backend', 'requirements.txt');
+  // Path to requirements.txt (in backend directory, relative to project root)
+  const requirementsPath = customRequirementsPath || (() => {
+    try {
+      const projectRoot = findProjectRoot(__dirname);
+      return path.join(projectRoot, 'apps', 'backend', 'requirements.txt');
+    } catch {
+      // Fallback to old behavior if project root cannot be found
+      return path.join(frontendDir, '..', 'backend', 'requirements.txt');
+    }
+  })();
 
   // Check if already fully set up (Python + packages)
   const packagesMarker = path.join(sitePackagesDir, '.bundled');
