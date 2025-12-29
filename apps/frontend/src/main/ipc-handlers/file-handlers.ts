@@ -535,12 +535,13 @@ export function registerFileHandlers(): void {
           }
 
           // Disallow control characters
+          // eslint-disable-next-line no-control-regex
           if (/[\0-\x1F]/.test(pattern)) {
             return false;
           }
 
           // Limit the total number of wildcard-like characters
-          const wildcardMatches = pattern.match(/[*?\[\]]/g);
+          const wildcardMatches = pattern.match(/[*?[\]]/g);
           if (wildcardMatches && wildcardMatches.length > 50) {
             return false;
           }
