@@ -2,11 +2,12 @@
  * GitLab MR Review IPC handlers
  *
  * Handles AI-powered MR review:
- * 1. Run AI review with code analysis
- * 2. Post review comments (notes)
- * 3. Merge MR
- * 4. Assign users
- * 5. Approve MR
+ * 1. Get MR diff
+ * 2. Run AI review with code analysis
+ * 3. Post review comments (notes)
+ * 4. Merge MR
+ * 5. Assign users
+ * 6. Approve MR
  */
 
 import { ipcMain } from 'electron';
@@ -265,6 +266,37 @@ export function registerMRReviewHandlers(
   getMainWindow: () => BrowserWindow | null
 ): void {
   debugLog('Registering MR review handlers');
+
+  // Get MR diff (feature parity with GitHub PR diff)
+  ipcMain.handle(
+    IPC_CHANNELS.GITLAB_MR_GET_DIFF,
+    async (_, projectId: string, mrIid: number): Promise<string | null> => {
+      return withProjectOrNull(projectId, async (project) => {
+        const config = await getGitLabConfig(project);
+        if (!config) return null;
+
+        try {
+          // Validate mrIid
+          if (!Number.isInteger(mrIid) || mrIid <= 0) {
+            throw new Error('Invalid MR IID');
+          }
+
+          const encodedProject = encodeProjectPath(config.project);
+          const diff = await gitlabFetch(
+            config.token,
+            config.instanceUrl,
+            `/projects/${encodedProject}/merge_requests/${mrIid}/changes`
+          ) as { changes: Array<{ diff: string }> };
+
+          // Combine all file diffs
+          return diff.changes.map(c => c.diff).join('\n');
+        } catch (error) {
+          debugLog('Failed to get MR diff', { mrIid, error: error instanceof Error ? error.message : error });
+          return null;
+        }
+      });
+    }
+  );
 
   // Get saved review
   ipcMain.handle(

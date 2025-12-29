@@ -248,6 +248,7 @@ export const IPC_CHANNELS = {
   GITLAB_INVESTIGATION_ERROR: 'gitlab:investigationError',
 
   // GitLab MR Review operations
+  GITLAB_MR_GET_DIFF: 'gitlab:mr:getDiff',
   GITLAB_MR_REVIEW: 'gitlab:mr:review',
   GITLAB_MR_REVIEW_CANCEL: 'gitlab:mr:reviewCancel',
   GITLAB_MR_GET_REVIEW: 'gitlab:mr:getReview',
