@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -42,6 +43,8 @@ export function GeneralSettings({
   isUpdating,
   handleInitialize
 }: GeneralSettingsProps) {
+  const { t } = useTranslation(['settings']);
+
   return (
     <>
       {/* Auto-Build Integration */}
@@ -126,6 +129,22 @@ export function GeneralSettings({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="space-y-0.5">
+                <Label className="font-normal text-foreground">
+                  {t('projectSections.general.useClaudeMd')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('projectSections.general.useClaudeMdDescription')}
+                </p>
+              </div>
+              <Switch
+                checked={settings.useClaudeMd ?? true}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, useClaudeMd: checked })
+                }
+              />
             </div>
           </section>
 

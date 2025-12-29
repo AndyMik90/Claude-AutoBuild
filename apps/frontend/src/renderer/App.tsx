@@ -44,6 +44,7 @@ import { GitHubIssues } from './components/GitHubIssues';
 import { GitHubPRs } from './components/github-prs';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
+import { AgentTools } from './components/AgentTools';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -57,10 +58,13 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
+import { initDownloadProgressListener } from './stores/download-store';
+import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
+import { AddProjectModal } from './components/AddProjectModal';
 
 export function App() {
   // Load IPC listeners for real-time updates
@@ -96,6 +100,7 @@ export function App() {
   const [initSuccess, setInitSuccess] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
   // GitHub setup state (shown after Auto Claude init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
@@ -123,6 +128,12 @@ export function App() {
     loadSettings();
     // Initialize global GitHub listeners (PR reviews, etc.) so they persist across navigation
     initializeGitHubListeners();
+    // Initialize global download progress listener for Ollama model downloads
+    const cleanupDownloadListener = initDownloadProgressListener();
+
+    return () => {
+      cleanupDownloadListener();
+    };
   }, []);
 
   // Restore tab state and open tabs for loaded projects
@@ -416,26 +427,17 @@ export function App() {
     }
   };
 
-  const handleAddProject = async () => {
-    try {
-      const path = await window.electronAPI.selectDirectory();
-      if (path) {
-        const project = await addProject(path);
-        if (project) {
-          // Open a tab for the new project
-          openProjectTab(project.id);
+  const handleAddProject = () => {
+    setShowAddProjectModal(true);
+  };
 
-          if (!project.autoBuildPath) {
-            // Project doesn't have Auto Claude initialized, show init dialog
-            setPendingProject(project);
-            setInitError(null); // Clear any previous errors
-            setInitSuccess(false); // Reset success flag
-            setShowInitDialog(true);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to add project:', error);
+  const handleProjectAdded = (project: Project, needsInit: boolean) => {
+    openProjectTab(project.id);
+    if (needsInit) {
+      setPendingProject(project);
+      setInitError(null);
+      setInitSuccess(false);
+      setShowInitDialog(true);
     }
   };
 
@@ -712,16 +714,7 @@ export function App() {
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
                   <Worktrees projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'agent-tools' && (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="text-center">
-                      <h2 className="text-lg font-semibold text-foreground">Agent Tools</h2>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Configure and manage agent tools - Coming soon
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {activeView === 'agent-tools' && <AgentTools />}
               </>
             ) : (
               <WelcomeScreen
@@ -774,6 +767,13 @@ export function App() {
             // Open onboarding wizard
             setIsOnboardingWizardOpen(true);
           }}
+        />
+
+        {/* Add Project Modal */}
+        <AddProjectModal
+          open={showAddProjectModal}
+          onOpenChange={setShowAddProjectModal}
+          onProjectAdded={handleProjectAdded}
         />
 
         {/* Initialize Auto Claude Dialog */}
@@ -888,6 +888,9 @@ export function App() {
 
         {/* App Update Notification - shows when new app version is available */}
         <AppUpdateNotification />
+
+        {/* Global Download Indicator - shows Ollama model download progress */}
+        <GlobalDownloadIndicator />
       </div>
     </TooltipProvider>
   );

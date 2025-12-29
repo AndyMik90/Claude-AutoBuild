@@ -366,19 +366,19 @@ async def run_insight_extraction(
     cwd = str(project_dir.resolve()) if project_dir else os.getcwd()
 
     try:
-        # Create a minimal SDK client for insight extraction
-        # No tools needed - just text generation
-        client = ClaudeSDKClient(
-            options=ClaudeAgentOptions(
-                model=model,
-                system_prompt=(
-                    "You are an expert code analyst. You extract structured insights from coding sessions. "
-                    "Always respond with valid JSON only, no markdown formatting or explanations."
-                ),
-                allowed_tools=[],  # No tools needed for extraction
-                max_turns=1,  # Single turn extraction
-                cwd=cwd,
-            )
+        # Use simple_client for insight extraction
+        from pathlib import Path
+
+        from core.simple_client import create_simple_client
+
+        client = create_simple_client(
+            agent_type="insights",
+            model=model,
+            system_prompt=(
+                "You are an expert code analyst. You extract structured insights from coding sessions. "
+                "Always respond with valid JSON only, no markdown formatting or explanations."
+            ),
+            cwd=Path(cwd) if cwd else None,
         )
 
         # Use async context manager

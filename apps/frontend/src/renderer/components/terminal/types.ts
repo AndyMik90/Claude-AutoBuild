@@ -11,6 +11,19 @@ export interface TerminalProps {
   onActivate: () => void;
   tasks?: Task[];
   onNewTaskClick?: () => void;
+  terminalCount?: number;
+}
+
+/**
+ * Get the responsive max-width class for terminal title based on terminal count.
+ * More terminals = narrower title to fit all elements.
+ */
+export function getTitleMaxWidthClass(terminalCount: number): string {
+  if (terminalCount <= 2) return 'max-w-64'; // 256px - large
+  if (terminalCount <= 4) return 'max-w-48'; // 192px - medium
+  if (terminalCount <= 6) return 'max-w-40'; // 160px - default
+  if (terminalCount <= 9) return 'max-w-32'; // 128px - compact
+  return 'max-w-24'; // 96px - very compact for 10-12 terminals
 }
 
 export const STATUS_COLORS: Record<TerminalStatus, string> = {

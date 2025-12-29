@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
   ProjectSettings,
@@ -149,6 +150,9 @@ export interface ElectronAPI {
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   discardWorktree: (taskId: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
+  worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
+  worktreeOpenInTerminal: (worktreePath: string, terminal: SupportedTerminal, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
+  worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
 
   // Task archive operations
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
@@ -604,6 +608,23 @@ export interface ElectronAPI {
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
+
+  // Debug operations
+  getDebugInfo: () => Promise<{
+    systemInfo: Record<string, string>;
+    recentErrors: string[];
+    logsPath: string;
+    debugReport: string;
+  }>;
+  openLogsFolder: () => Promise<{ success: boolean; error?: string }>;
+  copyDebugInfo: () => Promise<{ success: boolean; error?: string }>;
+  getRecentErrors: (maxCount?: number) => Promise<string[]>;
+  listLogFiles: () => Promise<Array<{
+    name: string;
+    path: string;
+    size: number;
+    modified: string;
+  }>>;
 }
 
 declare global {

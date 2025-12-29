@@ -9,8 +9,8 @@ summarized and passed as context to subsequent phases.
 
 from pathlib import Path
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from core.auth import get_sdk_env_vars, require_auth_token
+from core.auth import require_auth_token
+from core.simple_client import create_simple_client
 
 
 async def summarize_phase_output(
@@ -58,18 +58,14 @@ Be concise and use bullet points. Skip boilerplate and meta-commentary.
 ## Summary:
 """
 
-    client = ClaudeSDKClient(
-        options=ClaudeAgentOptions(
-            model=model,
-            system_prompt=(
-                "You are a concise technical summarizer. Extract only the most "
-                "critical information from phase outputs. Use bullet points. "
-                "Focus on decisions, discoveries, and actionable insights."
-            ),
-            allowed_tools=[],  # No tools needed for summarization
-            max_turns=1,
-            env=get_sdk_env_vars(),
-        )
+    client = create_simple_client(
+        agent_type="spec_compaction",
+        model=model,
+        system_prompt=(
+            "You are a concise technical summarizer. Extract only the most "
+            "critical information from phase outputs. Use bullet points. "
+            "Focus on decisions, discoveries, and actionable insights."
+        ),
     )
 
     try:

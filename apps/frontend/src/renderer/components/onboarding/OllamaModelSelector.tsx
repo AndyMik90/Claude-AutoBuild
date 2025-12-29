@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Check,
   Download,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
+import { useDownloadStore } from '../../stores/download-store';
 
 interface OllamaModel {
   name: string;
@@ -15,6 +16,7 @@ interface OllamaModel {
   size_estimate?: string;
   dim: number;
   installed: boolean;
+  badge?: 'recommended' | 'quality' | 'fast';
 }
 
 interface OllamaModelSelectorProps {
@@ -25,11 +27,35 @@ interface OllamaModelSelectorProps {
 }
 
 // Recommended embedding models for Auto Claude Memory
-// embeddinggemma is first as the recommended default
+// qwen3-embedding:4b is first as the recommended default (balanced quality/speed)
 const RECOMMENDED_MODELS: OllamaModel[] = [
   {
+    name: 'qwen3-embedding:4b',
+    description: 'Qwen3 4B - Balanced quality and speed',
+    size_estimate: '3.1 GB',
+    dim: 2560,
+    installed: false,
+    badge: 'recommended',
+  },
+  {
+    name: 'qwen3-embedding:8b',
+    description: 'Qwen3 8B - Best embedding quality',
+    size_estimate: '6.0 GB',
+    dim: 4096,
+    installed: false,
+    badge: 'quality',
+  },
+  {
+    name: 'qwen3-embedding:0.6b',
+    description: 'Qwen3 0.6B - Smallest and fastest',
+    size_estimate: '494 MB',
+    dim: 1024,
+    installed: false,
+    badge: 'fast',
+  },
+  {
     name: 'embeddinggemma',
-    description: "Google's lightweight embedding model (Recommended)",
+    description: "Google's lightweight embedding model",
     size_estimate: '621 MB',
     dim: 768,
     installed: false,
@@ -41,26 +67,8 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
     dim: 768,
     installed: false,
   },
-  {
-    name: 'mxbai-embed-large',
-    description: 'MixedBread AI large embeddings',
-    size_estimate: '670 MB',
-    dim: 1024,
-    installed: false,
-  },
 ];
 
-/**
- * Progress state for a single model download.
- * Tracks percentage completion, download speed, and estimated time remaining.
- */
-interface DownloadProgress {
-  [modelName: string]: {
-    percentage: number;
-    speed?: string;
-    timeRemaining?: string;
-  };
-}
 
 /**
  * OllamaModelSelector Component
@@ -98,18 +106,14 @@ export function OllamaModelSelector({
 }: OllamaModelSelectorProps) {
   const [models, setModels] = useState<OllamaModel[]>(RECOMMENDED_MODELS);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ollamaAvailable, setOllamaAvailable] = useState(true);
-  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({});
 
-  // Track previous progress for speed calculation
-  const downloadProgressRef = useRef<{
-    [modelName: string]: {
-      lastCompleted: number;
-      lastUpdate: number;
-    };
-  }>({});
+  // Use global download store for tracking downloads
+  const downloads = useDownloadStore((state) => state.downloads);
+  const startDownload = useDownloadStore((state) => state.startDownload);
+  const completeDownload = useDownloadStore((state) => state.completeDownload);
+  const failDownload = useDownloadStore((state) => state.failDownload);
 
   /**
    * Checks Ollama service status and fetches list of installed embedding models.
@@ -140,21 +144,32 @@ export function OllamaModelSelector({
       if (abortSignal?.aborted) return;
 
       if (result?.success && result?.data?.embedding_models) {
-        const installedNames = new Set(
-          result.data.embedding_models.map((m: { name: string }) => {
-            // Normalize: "embeddinggemma:latest" -> "embeddinggemma"
-            const name = m.name;
-            return name.includes(':') ? name.split(':')[0] : name;
-          })
-        );
+        // Build a set of installed model names (both full name and normalized)
+        const installedFullNames = new Set<string>();
+        const installedBaseNames = new Set<string>();
+
+        result.data.embedding_models.forEach((m: { name: string }) => {
+          const name = m.name;
+          installedFullNames.add(name);
+          // Only normalize :latest suffix, not version tags like :4b, :8b, :0.6b
+          if (name.endsWith(':latest')) {
+            installedBaseNames.add(name.replace(':latest', ''));
+          } else if (!name.includes(':')) {
+            installedBaseNames.add(name);
+          }
+        });
 
         // Update models with installation status
         setModels(
           RECOMMENDED_MODELS.map(model => {
-            const baseName = model.name.includes(':') ? model.name.split(':')[0] : model.name;
+            // Check exact match first, then base name (for :latest normalization)
+            const isInstalled = installedFullNames.has(model.name) ||
+              installedBaseNames.has(model.name) ||
+              // Also check if model without tag is installed (e.g., "embeddinggemma" matches "embeddinggemma")
+              (model.name.includes(':') ? false : installedFullNames.has(model.name + ':latest'));
             return {
               ...model,
-              installed: installedNames.has(baseName) || installedNames.has(model.name),
+              installed: isInstalled,
             };
           })
         );
@@ -178,116 +193,34 @@ export function OllamaModelSelector({
     return () => controller.abort();
   }, []);
 
-   /**
-    * Progress listener effect:
-    * Subscribes to real-time download progress events from the main process.
-    * Calculates and formats download speed (MB/s, KB/s, B/s) and time remaining.
-    * Uses useRef to track previous state for accurate speed calculations.
-    */
-   useEffect(() => {
-     const handleProgress = (data: {
-       modelName: string;
-       status: string;
-       completed: number;
-       total: number;
-       percentage: number;
-     }) => {
-      const now = Date.now();
-
-      // Initialize tracking for this model if needed
-      if (!downloadProgressRef.current[data.modelName]) {
-        downloadProgressRef.current[data.modelName] = {
-          lastCompleted: data.completed,
-          lastUpdate: now
-        };
-      }
-
-      const prevData = downloadProgressRef.current[data.modelName];
-      const timeDelta = now - prevData.lastUpdate;
-      const bytesDelta = data.completed - prevData.lastCompleted;
-
-      // Calculate speed only if we have meaningful time delta (> 100ms)
-      let speedStr = '';
-      let timeStr = '';
-
-      if (timeDelta > 100 && bytesDelta > 0) {
-        const speed = (bytesDelta / timeDelta) * 1000; // bytes per second
-        const remaining = data.total - data.completed;
-        const timeRemaining = speed > 0 ? Math.ceil(remaining / speed) : 0;
-
-        // Format speed (MB/s or KB/s)
-        if (speed > 1024 * 1024) {
-          speedStr = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
-        } else if (speed > 1024) {
-          speedStr = `${(speed / 1024).toFixed(1)} KB/s`;
-        } else if (speed > 0) {
-          speedStr = `${Math.round(speed)} B/s`;
-        }
-
-        // Format time remaining
-        if (timeRemaining > 3600) {
-          timeStr = `${Math.ceil(timeRemaining / 3600)}h remaining`;
-        } else if (timeRemaining > 60) {
-          timeStr = `${Math.ceil(timeRemaining / 60)}m remaining`;
-        } else if (timeRemaining > 0) {
-          timeStr = `${Math.ceil(timeRemaining)}s remaining`;
-        }
-      }
-
-      // Update tracking
-      downloadProgressRef.current[data.modelName] = {
-        lastCompleted: data.completed,
-        lastUpdate: now
-      };
-
-      setDownloadProgress(prev => {
-        const updated = { ...prev };
-        updated[data.modelName] = {
-          percentage: data.percentage,
-          speed: speedStr,
-          timeRemaining: timeStr
-        };
-        return updated;
-      });
-    };
-
-    // Register the progress listener
-    let unsubscribe: (() => void) | undefined;
-    if (window.electronAPI?.onDownloadProgress) {
-      unsubscribe = window.electronAPI.onDownloadProgress(handleProgress);
-    }
-
-    return () => {
-      // Clean up listener
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, []);
+  // Progress is now handled globally by the download store listener initialized in App.tsx
 
    /**
     * Initiates download of an Ollama embedding model.
-    * Updates UI state during download and refreshes model list after completion.
+    * Uses global download store for state tracking and refreshes model list after completion.
     *
     * @param {string} modelName - Name of the model to download (e.g., 'embeddinggemma')
     * @returns {Promise<void>}
     */
    const handleDownload = async (modelName: string) => {
-     setIsDownloading(modelName);
+     startDownload(modelName);
      setError(null);
 
      try {
        const result = await window.electronAPI.pullOllamaModel(modelName);
        if (result?.success) {
+         completeDownload(modelName);
          // Refresh the model list
          await checkInstalledModels();
        } else {
-         setError(result?.error || `Failed to download ${modelName}`);
+         const errorMsg = result?.error || `Failed to download ${modelName}`;
+         failDownload(modelName, errorMsg);
+         setError(errorMsg);
        }
      } catch (err) {
-       setError(err instanceof Error ? err.message : 'Download failed');
-     } finally {
-       setIsDownloading(null);
+       const errorMsg = err instanceof Error ? err.message : 'Download failed';
+       failDownload(modelName, errorMsg);
+       setError(errorMsg);
      }
    };
 
@@ -348,8 +281,9 @@ export function OllamaModelSelector({
        <div className="space-y-2">
          {models.map(model => {
            const isSelected = selectedModel === model.name;
-           const isCurrentlyDownloading = isDownloading === model.name;
-           const progress = downloadProgress[model.name];
+           const download = downloads[model.name];
+           const isCurrentlyDownloading = download?.status === 'starting' || download?.status === 'downloading';
+           const progress = download;
 
            return (
              <div
@@ -386,6 +320,21 @@ export function OllamaModelSelector({
                        <span className="text-xs text-muted-foreground">
                          ({model.dim} dim)
                        </span>
+                       {model.badge === 'recommended' && (
+                         <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                           Recommended
+                         </span>
+                       )}
+                       {model.badge === 'quality' && (
+                         <span className="inline-flex items-center rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+                           Highest Quality
+                         </span>
+                       )}
+                       {model.badge === 'fast' && (
+                         <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                           Fastest
+                         </span>
+                       )}
                        {model.installed && (
                          <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
                            Installed
@@ -429,23 +378,28 @@ export function OllamaModelSelector({
                </div>
 
                {/* Progress bar for downloading models */}
-               {isCurrentlyDownloading && progress && (
+               {isCurrentlyDownloading && (
                  <div className="px-3 pb-3 space-y-1.5">
                    {/* Progress bar */}
-                   <div className="w-full bg-muted rounded-full h-2">
-                     <div
-                       className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300"
-                       style={{ width: `${Math.max(0, Math.min(100, progress.percentage))}%` }}
-                     />
+                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                     {progress && progress.percentage > 0 ? (
+                       <div
+                         className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300"
+                         style={{ width: `${Math.max(0, Math.min(100, progress.percentage))}%` }}
+                       />
+                     ) : (
+                       /* Indeterminate/sliding state while waiting for progress events */
+                       <div className="h-full w-1/4 rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 animate-indeterminate" />
+                     )}
                    </div>
                    {/* Progress info: percentage, speed, time remaining */}
                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                      <span className="font-medium text-foreground">
-                       {Math.round(progress.percentage)}%
+                       {progress && progress.percentage > 0 ? `${Math.round(progress.percentage)}%` : 'Starting download...'}
                      </span>
                      <div className="flex items-center gap-2">
-                       {progress.speed && <span>{progress.speed}</span>}
-                       {progress.timeRemaining && <span className="text-primary">{progress.timeRemaining}</span>}
+                       {progress?.speed && <span>{progress.speed}</span>}
+                       {progress?.timeRemaining && <span className="text-primary">{progress.timeRemaining}</span>}
                      </div>
                    </div>
                  </div>

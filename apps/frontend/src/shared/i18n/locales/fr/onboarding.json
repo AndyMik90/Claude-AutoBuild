@@ -64,7 +64,30 @@
   "steps": {
     "welcome": "Bienvenue",
     "auth": "Auth",
+    "devtools": "Outils dev",
     "memory": "Mémoire",
     "done": "Terminé"
+  },
+  "devtools": {
+    "title": "Outils de développement",
+    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Auto Claude",
+    "detecting": "Détection des outils installés...",
+    "detectAgain": "Détecter à nouveau",
+    "whyConfigure": "Pourquoi configurer ceci ?",
+    "whyConfigureDescription": "Quand Auto Claude construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
+    "ide": {
+      "label": "IDE préféré",
+      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "customPath": "Chemin IDE personnalisé"
+    },
+    "terminal": {
+      "label": "Terminal préféré",
+      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "customPath": "Chemin terminal personnalisé"
+    },
+    "detectedSummary": "Détecté sur votre système :",
+    "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)",
+    "custom": "Personnalisé...",
+    "saveAndContinue": "Enregistrer et continuer"
   }
 }

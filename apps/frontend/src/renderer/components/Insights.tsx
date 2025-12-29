@@ -15,6 +15,8 @@ import {
   PanelLeftClose,
   PanelLeft
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
@@ -43,6 +45,44 @@ import {
   TASK_COMPLEXITY_LABELS,
   TASK_COMPLEXITY_COLORS
 } from '../../shared/constants';
+
+// Safe link renderer for ReactMarkdown to prevent phishing and ensure external links open safely
+const SafeLink = ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+  // Validate URL - only allow http, https, and relative links
+  const isValidUrl = href && (
+    href.startsWith('http://') ||
+    href.startsWith('https://') ||
+    href.startsWith('/') ||
+    href.startsWith('#')
+  );
+
+  if (!isValidUrl) {
+    // For invalid or potentially malicious URLs, render as plain text
+    return <span className="text-muted-foreground">{children}</span>;
+  }
+
+  // External links get security attributes
+  const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
+
+  return (
+    <a
+      href={href}
+      {...props}
+      {...(isExternal && {
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      })}
+      className="text-primary hover:underline"
+    >
+      {children}
+    </a>
+  );
+};
+
+// Markdown components with safe link rendering
+const markdownComponents = {
+  a: SafeLink,
+};
 
 interface InsightsProps {
   projectId: string;
@@ -273,7 +313,9 @@ export function Insights({ projectId }: InsightsProps) {
                   </div>
                   {streamingContent && (
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <p className="whitespace-pre-wrap">{streamingContent}</p>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                        {streamingContent}
+                      </ReactMarkdown>
                     </div>
                   )}
                   {/* Tool usage indicator */}
@@ -377,7 +419,9 @@ function MessageBubble({
           {isUser ? 'You' : 'Assistant'}
         </div>
         <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {message.content}
+          </ReactMarkdown>
         </div>
 
         {/* Tool usage history for assistant messages */}

@@ -1407,23 +1407,20 @@ async def _merge_file_with_ai_async(
 
             # Call Claude Haiku for fast merge
             try:
-                from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+                from core.simple_client import create_simple_client
             except ImportError:
                 return ParallelMergeResult(
                     file_path=task.file_path,
                     merged_content=None,
                     success=False,
-                    error="claude_agent_sdk not installed",
+                    error="core.simple_client not available",
                 )
 
-            client = ClaudeSDKClient(
-                options=ClaudeAgentOptions(
-                    model="claude-haiku-4-5-20251001",
-                    system_prompt=AI_MERGE_SYSTEM_PROMPT,
-                    allowed_tools=[],
-                    max_turns=1,
-                    max_thinking_tokens=1024,  # Low thinking for speed
-                )
+            client = create_simple_client(
+                agent_type="merge_resolver",
+                model="claude-haiku-4-5-20251001",
+                system_prompt=AI_MERGE_SYSTEM_PROMPT,
+                max_thinking_tokens=1024,  # Low thinking for speed
             )
 
             response_text = ""

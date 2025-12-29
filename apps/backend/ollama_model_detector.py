@@ -58,16 +58,31 @@ KNOWN_EMBEDDING_MODELS = {
 # Recommended embedding models for download (shown in UI)
 RECOMMENDED_EMBEDDING_MODELS = [
     {
+        "name": "qwen3-embedding:4b",
+        "description": "Qwen3 4B - Balanced quality and speed",
+        "size_estimate": "3.1 GB",
+        "dim": 2560,
+        "badge": "recommended",
+    },
+    {
+        "name": "qwen3-embedding:8b",
+        "description": "Qwen3 8B - Best embedding quality",
+        "size_estimate": "6.0 GB",
+        "dim": 4096,
+        "badge": "quality",
+    },
+    {
+        "name": "qwen3-embedding:0.6b",
+        "description": "Qwen3 0.6B - Smallest and fastest",
+        "size_estimate": "494 MB",
+        "dim": 1024,
+        "badge": "fast",
+    },
+    {
         "name": "embeddinggemma",
         "description": "Google's lightweight embedding model (768 dim)",
         "size_estimate": "621 MB",
         "dim": 768,
-    },
-    {
-        "name": "qwen3-embedding:0.6b",
-        "description": "Qwen3 small embedding model (1024 dim)",
-        "size_estimate": "494 MB",
-        "dim": 1024,
     },
     {
         "name": "nomic-embed-text",
@@ -340,50 +355,59 @@ def cmd_get_recommended_models(args) -> None:
 
 
 def cmd_pull_model(args) -> None:
-    """Pull (download) an Ollama model."""
-    import subprocess
-
+    """Pull (download) an Ollama model using the HTTP API for progress tracking."""
     model_name = args.model
+    base_url = getattr(args, "base_url", None) or DEFAULT_OLLAMA_URL
+
     if not model_name:
         output_error("Model name is required")
         return
 
     try:
-        # Run ollama pull command
-        process = subprocess.Popen(
-            ["ollama", "pull", model_name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
+        url = f"{base_url.rstrip('/')}/api/pull"
+        data = json.dumps({"name": model_name}).encode("utf-8")
+
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/json")
+
+        with urllib.request.urlopen(req, timeout=600) as response:
+            # Ollama streams NDJSON (newline-delimited JSON) progress
+            for line in response:
+                try:
+                    progress = json.loads(line.decode("utf-8"))
+
+                    # Emit progress as NDJSON to stderr for main process to parse
+                    if "completed" in progress and "total" in progress:
+                        print(
+                            json.dumps(
+                                {
+                                    "status": progress.get("status", "downloading"),
+                                    "completed": progress.get("completed", 0),
+                                    "total": progress.get("total", 0),
+                                }
+                            ),
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                    elif progress.get("status") == "success":
+                        # Download complete
+                        pass
+                except json.JSONDecodeError:
+                    continue
+
+        output_json(
+            True,
+            data={
+                "model": model_name,
+                "status": "completed",
+                "output": ["Download completed successfully"],
+            },
         )
 
-        output_lines = []
-        for line in iter(process.stdout.readline, ""):
-            line = line.strip()
-            if line:
-                output_lines.append(line)
-                # Print progress to stderr for streaming
-                print(line, file=sys.stderr, flush=True)
-
-        process.wait()
-
-        if process.returncode == 0:
-            output_json(
-                True,
-                data={
-                    "model": model_name,
-                    "status": "completed",
-                    "output": output_lines,
-                },
-            )
-        else:
-            output_json(
-                False, error=f"Failed to pull model: {' '.join(output_lines[-3:])}"
-            )
-
-    except FileNotFoundError:
-        output_error("Ollama CLI not found. Please install Ollama first.")
+    except urllib.error.URLError as e:
+        output_error(f"Failed to connect to Ollama: {str(e)}")
+    except urllib.error.HTTPError as e:
+        output_error(f"Ollama API error: {e.code} - {e.reason}")
     except Exception as e:
         output_error(f"Failed to pull model: {str(e)}")
 

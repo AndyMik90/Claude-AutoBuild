@@ -8,26 +8,29 @@ pollution and accidental misuse.
 Supports dynamic tool filtering based on project capabilities to optimize
 context window usage. For example, Electron tools are only included for
 Electron projects, not for Next.js or CLI projects.
+
+This module now uses AGENT_CONFIGS from models.py as the single source of truth
+for tool permissions. The get_allowed_tools() function remains the primary API
+for backwards compatibility.
 """
 
 from .models import (
-    BASE_READ_TOOLS,
-    BASE_WRITE_TOOLS,
+    AGENT_CONFIGS,
+    CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
+    GRAPHITI_MCP_TOOLS,
+    LINEAR_TOOLS,
     PUPPETEER_TOOLS,
-    TOOL_GET_BUILD_PROGRESS,
-    TOOL_GET_SESSION_CONTEXT,
-    TOOL_RECORD_DISCOVERY,
-    TOOL_RECORD_GOTCHA,
-    TOOL_UPDATE_QA_STATUS,
-    TOOL_UPDATE_SUBTASK_STATUS,
-    is_electron_mcp_enabled,
+    get_agent_config,
+    get_required_mcp_servers,
 )
+from .registry import is_tools_available
 
 
 def get_allowed_tools(
     agent_type: str,
     project_capabilities: dict | None = None,
+    linear_enabled: bool = False,
 ) -> list[str]:
     """
     Get the list of allowed tools for a specific agent type.
@@ -35,113 +38,80 @@ def get_allowed_tools(
     This ensures each agent only sees tools relevant to their role,
     preventing context pollution and accidental misuse.
 
-    When project_capabilities is provided, MCP tools are filtered based on
-    the project type. For example:
-    - Electron projects get Electron MCP tools
-    - Web frontends (non-Electron) get Puppeteer MCP tools
-    - CLI projects get neither
+    Uses AGENT_CONFIGS as the single source of truth for tool permissions.
+    Dynamic MCP tools are added based on project capabilities and required servers.
 
     Args:
-        agent_type: One of 'planner', 'coder', 'qa_reviewer', 'qa_fixer'
+        agent_type: Agent type identifier (e.g., 'coder', 'planner', 'qa_reviewer')
         project_capabilities: Optional dict from detect_project_capabilities()
                             containing flags like is_electron, is_web_frontend, etc.
+        linear_enabled: Whether Linear integration is enabled for this project
 
     Returns:
         List of allowed tool names
+
+    Raises:
+        ValueError: If agent_type is not found in AGENT_CONFIGS
     """
-    # Auto-claude tool mappings by agent type
-    tool_mappings = {
-        "planner": {
-            "base": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
-            "auto_claude": [
-                TOOL_GET_BUILD_PROGRESS,
-                TOOL_GET_SESSION_CONTEXT,
-                TOOL_RECORD_DISCOVERY,
-            ],
-        },
-        "coder": {
-            "base": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
-            "auto_claude": [
-                TOOL_UPDATE_SUBTASK_STATUS,
-                TOOL_GET_BUILD_PROGRESS,
-                TOOL_RECORD_DISCOVERY,
-                TOOL_RECORD_GOTCHA,
-                TOOL_GET_SESSION_CONTEXT,
-            ],
-        },
-        "qa_reviewer": {
-            "base": BASE_READ_TOOLS + ["Bash"],  # Can run tests but not edit
-            "auto_claude": [
-                TOOL_GET_BUILD_PROGRESS,
-                TOOL_UPDATE_QA_STATUS,
-                TOOL_GET_SESSION_CONTEXT,
-            ],
-        },
-        "pr_reviewer": {
-            # PR reviewers can ONLY read - no bash, no edits, no writes
-            # This prevents the agent from switching branches or making changes
-            "base": BASE_READ_TOOLS,
-            "auto_claude": [],  # No auto-claude tools needed for PR review
-        },
-        "qa_fixer": {
-            "base": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
-            "auto_claude": [
-                TOOL_UPDATE_SUBTASK_STATUS,
-                TOOL_GET_BUILD_PROGRESS,
-                TOOL_UPDATE_QA_STATUS,
-                TOOL_RECORD_GOTCHA,
-            ],
-        },
-    }
+    # Get agent configuration (raises ValueError if unknown type)
+    config = get_agent_config(agent_type)
 
-    if agent_type not in tool_mappings:
-        # Default to coder tools
-        agent_type = "coder"
+    # Start with base tools from config
+    tools = list(config.get("tools", []))
 
-    mapping = tool_mappings[agent_type]
-    tools = mapping["base"] + mapping["auto_claude"]
+    # Get required MCP servers for this agent
+    required_servers = get_required_mcp_servers(
+        agent_type,
+        project_capabilities,
+        linear_enabled,
+    )
 
-    # Add MCP tools for QA agents only, based on project capabilities
-    if agent_type in ("qa_reviewer", "qa_fixer"):
-        tools.extend(_get_qa_mcp_tools(project_capabilities))
+    # Add auto-claude tools ONLY if the MCP server is available
+    # This prevents allowing tools that won't work because the server isn't running
+    if "auto-claude" in required_servers and is_tools_available():
+        tools.extend(config.get("auto_claude_tools", []))
+
+    # Add MCP tool names based on required servers
+    tools.extend(_get_mcp_tools_for_servers(required_servers))
 
     return tools
 
 
-def _get_qa_mcp_tools(project_capabilities: dict | None) -> list[str]:
+def _get_mcp_tools_for_servers(servers: list[str]) -> list[str]:
     """
-    Get the list of MCP tools for QA agents based on project capabilities.
+    Get the list of MCP tools for a list of required servers.
 
-    This function determines which MCP tools to include based on:
-    1. Project type detection (Electron, web frontend, etc.)
-    2. Environment variables (ELECTRON_MCP_ENABLED)
+    Maps server names to their corresponding tool lists.
 
     Args:
-        project_capabilities: Dict from detect_project_capabilities() or None
+        servers: List of MCP server names (e.g., ['context7', 'linear', 'electron'])
 
     Returns:
-        List of MCP tool names to include
+        List of MCP tool names for all specified servers
     """
     tools = []
 
-    # If no capabilities provided, fall back to legacy behavior
-    # (check env var only)
-    if project_capabilities is None:
-        if is_electron_mcp_enabled():
+    for server in servers:
+        if server == "context7":
+            tools.extend(CONTEXT7_TOOLS)
+        elif server == "linear":
+            tools.extend(LINEAR_TOOLS)
+        elif server == "graphiti":
+            tools.extend(GRAPHITI_MCP_TOOLS)
+        elif server == "electron":
             tools.extend(ELECTRON_TOOLS)
-        return tools
-
-    # Project-capability-based tool selection
-    is_electron = project_capabilities.get("is_electron", False)
-    is_web_frontend = project_capabilities.get("is_web_frontend", False)
-
-    # Electron projects get Electron MCP tools (if enabled)
-    if is_electron and is_electron_mcp_enabled():
-        tools.extend(ELECTRON_TOOLS)
-
-    # Web frontends (non-Electron) get Puppeteer tools
-    # Puppeteer is always available, no env var check needed
-    if is_web_frontend and not is_electron:
-        tools.extend(PUPPETEER_TOOLS)
+        elif server == "puppeteer":
+            tools.extend(PUPPETEER_TOOLS)
+        # auto-claude tools are already added via config["auto_claude_tools"]
 
     return tools
+
+
+def get_all_agent_types() -> list[str]:
+    """
+    Get all registered agent types.
+
+    Returns:
+        Sorted list of all agent type identifiers
+    """
+    return sorted(AGENT_CONFIGS.keys())

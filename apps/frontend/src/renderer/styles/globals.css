@@ -90,11 +90,20 @@
     0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(71, 159, 250, 0.4); }
     50% { opacity: 0.95; box-shadow: 0 0 0 4px rgba(71, 159, 250, 0.1); }
   }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
 }
 
 /* Animation utility classes (outside @theme for Tailwind v4 compatibility) */
 .animate-pulse-subtle {
   animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.5s ease-in-out infinite;
 }
 
 /* CSS variables for light mode (secondary consideration per design system) */

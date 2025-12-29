@@ -148,6 +148,21 @@ FRAMEWORK_COMMANDS: dict[str, set[str]] = {
     # Elixir/Erlang
     "phoenix": {"mix", "iex"},
     "ecto": {"mix"},
+    # Dart/Flutter
+    "flutter": {
+        "flutter",
+        "dart",
+        "pub",
+        "fvm",  # Flutter Version Manager
+    },
+    "dart_frog": {"dart_frog", "dart"},  # Dart backend framework
+    "serverpod": {"serverpod", "dart"},  # Dart backend framework
+    "shelf": {"dart", "pub"},  # Dart HTTP server middleware
+    "aqueduct": {
+        "aqueduct",
+        "dart",
+        "pub",
+    },  # Dart HTTP framework (deprecated but still used)
 }
 
 

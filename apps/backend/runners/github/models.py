@@ -525,6 +525,10 @@ class FollowupReviewContext:
     contributor_comments_since_review: list[dict] = field(default_factory=list)
     ai_bot_comments_since_review: list[dict] = field(default_factory=list)
 
+    # PR reviews since last review (formal review submissions from Cursor, CodeRabbit, etc.)
+    # These are different from comments - they're full review submissions with body text
+    pr_reviews_since_review: list[dict] = field(default_factory=list)
+
 
 @dataclass
 class TriageResult:

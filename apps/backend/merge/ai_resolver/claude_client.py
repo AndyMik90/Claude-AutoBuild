@@ -43,9 +43,9 @@ def create_claude_resolver() -> AIResolver:
     ensure_claude_code_oauth_token()
 
     try:
-        from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+        from core.simple_client import create_simple_client
     except ImportError:
-        logger.warning("claude_agent_sdk not installed, AI resolution unavailable")
+        logger.warning("core.simple_client not available, AI resolution unavailable")
         return AIResolver()
 
     def call_claude(system: str, user: str) -> str:
@@ -53,13 +53,10 @@ def create_claude_resolver() -> AIResolver:
 
         async def _run_merge() -> str:
             # Create a minimal client for merge resolution
-            client = ClaudeSDKClient(
-                options=ClaudeAgentOptions(
-                    model="sonnet",
-                    system_prompt=system,
-                    allowed_tools=[],  # No tools needed for merge
-                    max_turns=1,
-                )
+            client = create_simple_client(
+                agent_type="merge_resolver",
+                model="sonnet",
+                system_prompt=system,
             )
 
             try:
