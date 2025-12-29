@@ -1,4 +1,5 @@
-import { Monitor, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
@@ -30,19 +31,63 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
 
   const currentScale = settings.uiScale ?? UI_SCALE_DEFAULT;
 
-  const handleScaleChange = (newScale: number) => {
-    // Clamp to valid range
+  // Local state for pending scale changes - prevents view reload until user applies
+  const [pendingScale, setPendingScale] = useState<number | null>(null);
+
+  // Track the last scale that was committed to the store (triggers view reload)
+  // This is different from currentScale which updates on every onSettingsChange call
+  const [committedScale, setCommittedScale] = useState<number>(currentScale);
+
+  // Display value: use pending scale if set, otherwise use current applied scale
+  const displayScale = pendingScale ?? currentScale;
+
+  // Check if there are pending changes to apply
+  // Compare against committedScale (store-applied value), not currentScale (display value)
+  const hasPendingChanges = pendingScale !== null && pendingScale !== committedScale;
+
+  // Update pending scale (for slider and +/- buttons) - doesn't trigger view reload
+  const updatePendingScale = (newScale: number) => {
     const clampedScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, newScale));
-
-    // Update local draft state
+    setPendingScale(clampedScale);
+    // Update settings for display but don't trigger store update (no view reload)
     onSettingsChange({ ...settings, uiScale: clampedScale });
+  };
 
-    // Apply immediately to store for live preview (triggers App.tsx useEffect)
+  // Apply pending changes to store (triggers view reload)
+  const handleApplyChanges = () => {
+    if (pendingScale !== null) {
+      updateStoreSettings({ uiScale: pendingScale });
+      setCommittedScale(pendingScale);
+      setPendingScale(null);
+    }
+  };
+
+  // Handle preset button clicks - apply immediately (presets are intentional selections)
+  const handlePresetChange = (newScale: number) => {
+    const clampedScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, newScale));
+    onSettingsChange({ ...settings, uiScale: clampedScale });
     updateStoreSettings({ uiScale: clampedScale });
+    setCommittedScale(clampedScale);
+    setPendingScale(null);
+  };
+
+  // Handle slider drag - only update pending state
+  const handleSliderChange = (newScale: number) => {
+    if (Number.isNaN(newScale)) return;
+    updatePendingScale(newScale);
+  };
+
+  // Handle zoom button clicks - increment/decrement by step (updates pending state)
+  const handleZoomOut = () => {
+    updatePendingScale(displayScale - UI_SCALE_STEP);
+  };
+
+  const handleZoomIn = () => {
+    updatePendingScale(displayScale + UI_SCALE_STEP);
   };
 
   const handleReset = () => {
-    handleScaleChange(UI_SCALE_DEFAULT);
+    handlePresetChange(UI_SCALE_DEFAULT);
   };
 
   return (
@@ -62,8 +107,9 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               const isSelected = currentScale === preset.value;
               return (
                 <button
+                  type="button"
                   key={preset.value}
-                  onClick={() => handleScaleChange(preset.value)}
+                  onClick={() => handlePresetChange(preset.value)}
                   className={cn(
                     'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -89,10 +135,11 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
             <Label className="text-sm font-medium text-foreground">{t('scale.fineTune')}</Label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-mono text-muted-foreground">
-                {currentScale}%
+                {displayScale}%
               </span>
-              {currentScale !== UI_SCALE_DEFAULT && (
+              {displayScale !== UI_SCALE_DEFAULT && (
                 <button
+                  type="button"
                   onClick={handleReset}
                   className={cn(
                     'p-1.5 rounded-md transition-colors',
@@ -110,16 +157,29 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
             {t('scale.fineTuneDescription')}
           </p>
 
-          {/* Slider with icons */}
+          {/* Slider with zoom buttons and apply button */}
           <div className="flex items-center gap-3 pt-1">
-            <ZoomOut className="h-4 w-4 text-muted-foreground shrink-0" />
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={displayScale <= UI_SCALE_MIN}
+              className={cn(
+                'p-1 rounded-md transition-colors shrink-0',
+                'hover:bg-accent text-muted-foreground hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+              )}
+              title={`Decrease scale by ${UI_SCALE_STEP}%`}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
             <input
               type="range"
               min={UI_SCALE_MIN}
               max={UI_SCALE_MAX}
               step={UI_SCALE_STEP}
-              value={currentScale}
-              onChange={(e) => handleScaleChange(parseInt(e.target.value, 10))}
+              value={displayScale}
+              onChange={(e) => handleSliderChange(parseInt(e.target.value, 10))}
               className={cn(
                 'flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -143,7 +203,35 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                 '[&::-moz-range-thumb]:hover:scale-110'
               )}
             />
-            <ZoomIn className="h-4 w-4 text-muted-foreground shrink-0" />
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={displayScale >= UI_SCALE_MAX}
+              className={cn(
+                'p-1 rounded-md transition-colors shrink-0',
+                'hover:bg-accent text-muted-foreground hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+              )}
+              title={`Increase scale by ${UI_SCALE_STEP}%`}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleApplyChanges}
+              disabled={!hasPendingChanges}
+              className={cn(
+                'px-2 py-1 rounded-md transition-colors shrink-0 flex items-center gap-1',
+                'bg-primary text-primary-foreground hover:bg-primary/90',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary'
+              )}
+              title="Apply scale changes"
+            >
+              <Check className="h-4 w-4" />
+              <span className="text-sm font-medium">Apply</span>
+            </button>
           </div>
 
           {/* Scale markers */}
@@ -151,13 +239,6 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
             <span>{UI_SCALE_MIN}%</span>
             <span>{UI_SCALE_MAX}%</span>
           </div>
-        </div>
-
-        {/* Preview hint */}
-        <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm">
-          <p className="text-muted-foreground">
-            {t('scale.preview')}
-          </p>
         </div>
       </div>
     </SettingsSection>

@@ -55,7 +55,11 @@ export function runPythonSubprocess<T = unknown>(
   // Don't set PYTHONPATH - let runner.py manage its own import paths
   // Setting PYTHONPATH can interfere with runner.py's sys.path manipulation
   // Filter environment variables to only include necessary ones (prevent leaking secrets)
-  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP'];
+  // Note: DEBUG is included for PR review debugging (shows LLM thinking blocks).
+  // This is safe because: (1) user must explicitly enable via npm run dev:debug,
+  // (2) it only enables our internal debug logging, not third-party framework debugging,
+  // (3) no sensitive values are logged - only LLM reasoning and response text.
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG'];
   const filteredEnv: Record<string, string> = {};
   for (const key of safeEnvVars) {
     if (process.env[key]) {

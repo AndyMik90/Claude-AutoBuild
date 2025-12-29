@@ -16,7 +16,6 @@ Supports both:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 from datetime import datetime
@@ -35,6 +34,7 @@ try:
         ReviewSeverity,
     )
     from .prompt_manager import PromptManager
+    from .pydantic_models import FollowupReviewResponse
 except (ImportError, ValueError, SystemError):
     from models import (
         MergeVerdict,
@@ -44,18 +44,38 @@ except (ImportError, ValueError, SystemError):
         ReviewSeverity,
     )
     from services.prompt_manager import PromptManager
+    from services.pydantic_models import FollowupReviewResponse
 
 logger = logging.getLogger(__name__)
 
 # Category mapping for AI responses
 _CATEGORY_MAPPING = {
+    # Direct matches (already valid)
     "security": ReviewCategory.SECURITY,
     "quality": ReviewCategory.QUALITY,
-    "logic": ReviewCategory.QUALITY,
+    "style": ReviewCategory.STYLE,
     "test": ReviewCategory.TEST,
     "docs": ReviewCategory.DOCS,
     "pattern": ReviewCategory.PATTERN,
     "performance": ReviewCategory.PERFORMANCE,
+    "verification_failed": ReviewCategory.VERIFICATION_FAILED,
+    "redundancy": ReviewCategory.REDUNDANCY,
+    # AI-generated alternatives that need mapping
+    "correctness": ReviewCategory.QUALITY,  # Logic/code correctness → quality
+    "consistency": ReviewCategory.PATTERN,  # Code consistency → pattern adherence
+    "testing": ReviewCategory.TEST,  # Testing → test
+    "documentation": ReviewCategory.DOCS,  # Documentation → docs
+    "bug": ReviewCategory.QUALITY,  # Bug → quality
+    "logic": ReviewCategory.QUALITY,  # Logic error → quality
+    "error_handling": ReviewCategory.QUALITY,  # Error handling → quality
+    "maintainability": ReviewCategory.QUALITY,  # Maintainability → quality
+    "readability": ReviewCategory.STYLE,  # Readability → style
+    "best_practices": ReviewCategory.PATTERN,  # Best practices → pattern
+    "best-practices": ReviewCategory.PATTERN,  # With hyphen
+    "architecture": ReviewCategory.PATTERN,  # Architecture → pattern
+    "complexity": ReviewCategory.QUALITY,  # Complexity → quality
+    "dead_code": ReviewCategory.REDUNDANCY,  # Dead code → redundancy
+    "unused": ReviewCategory.REDUNDANCY,  # Unused → redundancy
 }
 
 # Severity mapping for AI responses
@@ -291,10 +311,14 @@ class FollowupReviewer:
 
         return resolved, unresolved
 
-    def _line_appears_changed(self, file: str, line: int, diff: str) -> bool:
+    def _line_appears_changed(self, file: str, line: int | None, diff: str) -> bool:
         """Check if a specific line appears to have been changed in the diff."""
         if not diff:
             return False
+
+        # Handle None or invalid line numbers (legacy data)
+        if line is None or line <= 0:
+            return True  # Assume changed if line unknown
 
         # Look for the file in the diff
         file_marker = f"--- a/{file}"
@@ -538,7 +562,10 @@ class FollowupReviewer:
         unresolved: list[PRReviewFinding],
     ) -> dict[str, Any] | None:
         """
-        Run AI-powered follow-up review using the prompt template.
+        Run AI-powered follow-up review using structured outputs.
+
+        Uses Claude Agent SDK's native structured output support to guarantee
+        valid JSON responses matching the FollowupReviewResponse schema.
 
         Returns parsed AI response with finding resolutions and new findings,
         or None if AI review fails.
@@ -548,7 +575,7 @@ class FollowupReviewer:
         )
 
         # Build the context for the AI
-        prompt = self.prompt_manager.get_followup_review_prompt()
+        prompt_template = self.prompt_manager.get_followup_review_prompt()
 
         # Format previous findings for the prompt
         previous_findings_text = "\n".join(
@@ -583,7 +610,7 @@ class FollowupReviewer:
 
         # Build the full message
         user_message = f"""
-{prompt}
+{prompt_template}
 
 ---
 
@@ -615,49 +642,77 @@ class FollowupReviewer:
 
 ---
 
-Please analyze this follow-up review context and provide your response in the JSON format specified in the prompt.
+Analyze this follow-up review context and provide your structured response.
 """
 
         try:
-            # Use ClaudeSDKClient directly for simple message calls
-            # (no agent tools needed, just a single query/response)
-            from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+            # Use Claude Agent SDK query() with structured outputs
+            # Reference: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+            from claude_agent_sdk import ClaudeAgentOptions, query
 
             model = self.config.model or "claude-sonnet-4-5-20250929"
 
-            client = ClaudeSDKClient(
+            # Debug: Log the schema being sent
+            schema = FollowupReviewResponse.model_json_schema()
+            logger.debug(
+                f"[Followup] Using output_format schema: {list(schema.get('properties', {}).keys())}"
+            )
+            print(f"[Followup] SDK query with output_format, model={model}", flush=True)
+
+            # Iterate through messages from the query
+            # Note: max_turns=2 because structured output uses a tool call + response
+            async for message in query(
+                prompt=user_message,
                 options=ClaudeAgentOptions(
                     model=model,
-                    system_prompt="You are a code review assistant. Analyze the provided context and respond with valid JSON.",
+                    system_prompt="You are a code review assistant. Analyze the provided context and provide structured feedback.",
                     allowed_tools=[],
-                    max_turns=1,
+                    max_turns=2,  # Need 2 turns for structured output tool call
                     max_thinking_tokens=2048,
-                )
-            )
+                    output_format={
+                        "type": "json_schema",
+                        "schema": schema,
+                    },
+                ),
+            ):
+                msg_type = type(message).__name__
 
-            response_text = ""
-            async with client:
-                await client.query(user_message)
+                # SDK delivers structured output via ToolUseBlock named 'StructuredOutput'
+                # in an AssistantMessage
+                if msg_type == "AssistantMessage":
+                    content = getattr(message, "content", [])
+                    for block in content:
+                        block_type = type(block).__name__
+                        if block_type == "ToolUseBlock":
+                            tool_name = getattr(block, "name", "")
+                            if tool_name == "StructuredOutput":
+                                # Extract structured data from tool input
+                                structured_data = getattr(block, "input", None)
+                                if structured_data:
+                                    logger.info(
+                                        "[Followup] Found StructuredOutput tool use"
+                                    )
+                                    print(
+                                        "[Followup] Using SDK structured output",
+                                        flush=True,
+                                    )
+                                    # Validate with Pydantic and convert
+                                    result = FollowupReviewResponse.model_validate(
+                                        structured_data
+                                    )
+                                    return self._convert_structured_to_internal(result)
 
-                async for msg in client.receive_response():
-                    msg_type = type(msg).__name__
-                    logger.debug(f"AI response message type: {msg_type}")
-                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
-                        for block in msg.content:
-                            block_type = type(block).__name__
-                            logger.debug(f"  Content block type: {block_type}")
-                            if hasattr(block, "text"):
-                                response_text += block.text
-                            elif hasattr(block, "thinking"):
-                                # Skip thinking blocks - we only want the final text
-                                logger.debug("  (skipping thinking block)")
+                # Handle ResultMessage for errors
+                if msg_type == "ResultMessage":
+                    subtype = getattr(message, "subtype", None)
+                    if subtype == "error_max_structured_output_retries":
+                        logger.warning(
+                            "Claude could not produce valid structured output after retries"
+                        )
+                        return None
 
-            if not response_text:
-                logger.warning("AI returned empty response (no text blocks found)")
-                return None
-
-            logger.debug(f"AI response text (first 500 chars): {response_text[:500]}")
-            return self._parse_ai_response(response_text)
+            logger.warning("No structured output received from AI")
+            return None
 
         except ValueError as e:
             # OAuth token not found
@@ -665,96 +720,69 @@ Please analyze this follow-up review context and provide your response in the JS
             print("AI review failed: No OAuth token found", flush=True)
             return None
         except Exception as e:
-            logger.error(f"AI review failed: {e}")
+            logger.error(f"AI review with structured output failed: {e}")
             return None
 
-    def _parse_ai_response(self, response_text: str) -> dict[str, Any] | None:
-        """Parse the AI response JSON."""
-        # Extract JSON from response (may be wrapped in markdown code blocks)
-        json_match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            # Try to find raw JSON
-            json_match = re.search(r"\{[\s\S]*\}", response_text)
-            if json_match:
-                json_str = json_match.group(0)
-            else:
-                logger.warning("No JSON found in AI response")
-                return None
+    def _convert_structured_to_internal(
+        self, result: FollowupReviewResponse
+    ) -> dict[str, Any]:
+        """
+        Convert Pydantic FollowupReviewResponse to internal dict format.
 
-        try:
-            data = json.loads(json_str)
+        Converts Pydantic finding models to PRReviewFinding dataclass objects
+        for compatibility with existing codebase.
+        """
+        # Convert new_findings to PRReviewFinding objects
+        new_findings = []
+        for f in result.new_findings:
+            new_findings.append(
+                PRReviewFinding(
+                    id=f.id,
+                    severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.MEDIUM),
+                    category=_CATEGORY_MAPPING.get(f.category, ReviewCategory.QUALITY),
+                    title=f.title,
+                    description=f.description,
+                    file=f.file,
+                    line=f.line,
+                    suggested_fix=f.suggested_fix,
+                    fixable=f.fixable,
+                )
+            )
 
-            # Convert new_findings to PRReviewFinding objects
-            new_findings = []
-            for f in data.get("new_findings", []):
-                try:
-                    new_findings.append(
-                        PRReviewFinding(
-                            id=f.get(
-                                "id",
-                                hashlib.md5(
-                                    f.get("title", "").encode(), usedforsecurity=False
-                                ).hexdigest()[:12],
-                            ),
-                            severity=_SEVERITY_MAPPING.get(
-                                f.get("severity", "medium").lower(),
-                                ReviewSeverity.MEDIUM,
-                            ),
-                            category=_CATEGORY_MAPPING.get(
-                                f.get("category", "quality").lower(),
-                                ReviewCategory.QUALITY,
-                            ),
-                            title=f.get("title", "Untitled finding"),
-                            description=f.get("description", ""),
-                            file=f.get("file", ""),
-                            line=f.get("line", 0),
-                            suggested_fix=f.get("suggested_fix"),
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to parse finding: {e}")
+        # Convert comment_findings to PRReviewFinding objects
+        comment_findings = []
+        for f in result.comment_findings:
+            comment_findings.append(
+                PRReviewFinding(
+                    id=f.id,
+                    severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.LOW),
+                    category=_CATEGORY_MAPPING.get(f.category, ReviewCategory.QUALITY),
+                    title=f.title,
+                    description=f.description,
+                    file=f.file,
+                    line=f.line,
+                    suggested_fix=f.suggested_fix,
+                    fixable=f.fixable,
+                )
+            )
 
-            # Convert comment_findings similarly
-            comment_findings = []
-            for f in data.get("comment_findings", []):
-                try:
-                    comment_findings.append(
-                        PRReviewFinding(
-                            id=f.get(
-                                "id",
-                                hashlib.md5(
-                                    f.get("title", "").encode(), usedforsecurity=False
-                                ).hexdigest()[:12],
-                            ),
-                            severity=_SEVERITY_MAPPING.get(
-                                f.get("severity", "low").lower(), ReviewSeverity.LOW
-                            ),
-                            category=_CATEGORY_MAPPING.get(
-                                f.get("category", "quality").lower(),
-                                ReviewCategory.QUALITY,
-                            ),
-                            title=f.get("title", "Comment needs attention"),
-                            description=f.get("description", ""),
-                            file=f.get("file", ""),
-                            line=f.get("line", 0),
-                        )
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to parse comment finding: {e}")
-
-            return {
-                "finding_resolutions": data.get("finding_resolutions", []),
-                "new_findings": new_findings,
-                "comment_findings": comment_findings,
-                "verdict": data.get("verdict"),
-                "verdict_reasoning": data.get("verdict_reasoning"),
+        # Convert finding_resolutions to dict format
+        finding_resolutions = [
+            {
+                "finding_id": r.finding_id,
+                "status": r.status,
+                "resolution_notes": r.resolution_notes,
             }
+            for r in result.finding_resolutions
+        ]
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI response JSON: {e}")
-            return None
+        return {
+            "finding_resolutions": finding_resolutions,
+            "new_findings": new_findings,
+            "comment_findings": comment_findings,
+            "verdict": result.verdict,
+            "verdict_reasoning": result.verdict_reasoning,
+        }
 
     def _apply_ai_resolutions(
         self,

@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
+
+# Check if debug mode is enabled (via DEBUG=true env var)
+DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
 try:
     from ...core.client import create_client
@@ -26,6 +30,7 @@ try:
         ReviewCategory,
         ReviewSeverity,
     )
+    from .pydantic_models import OrchestratorReviewResponse
     from .review_tools import (
         check_coverage,
         get_file_content,
@@ -46,6 +51,7 @@ except (ImportError, ValueError, SystemError):
         ReviewCategory,
         ReviewSeverity,
     )
+    from services.pydantic_models import OrchestratorReviewResponse
     from services.review_tools import (
         check_coverage,
         get_file_content,
@@ -185,6 +191,10 @@ class OrchestratorReviewer:
                 model="claude-opus-4-5-20251101",  # Opus for strategic thinking
                 agent_type="pr_reviewer",  # Read-only - no bash, no edits
                 max_thinking_tokens=10000,  # High budget for strategy
+                output_format={
+                    "type": "json_schema",
+                    "schema": OrchestratorReviewResponse.model_json_schema(),
+                },
             )
 
             self._report_progress(
@@ -199,6 +209,7 @@ class OrchestratorReviewer:
             test_result = None
             result_text = ""
             tool_calls_made = []
+            structured_output = None  # For SDK structured outputs
 
             logger.info(f"[Orchestrator] Sending prompt (length: {len(prompt)} chars)")
             logger.debug(f"[Orchestrator] Prompt preview: {prompt[:500]}...")
@@ -206,9 +217,88 @@ class OrchestratorReviewer:
             async with client:
                 await client.query(prompt)
 
+                print(
+                    "[Orchestrator] Waiting for LLM response (Opus 4.5 with extended thinking)...",
+                    flush=True,
+                )
+                if DEBUG_MODE:
+                    print(
+                        "[DEBUG Orchestrator] Starting to receive LLM response stream...",
+                        flush=True,
+                    )
+
+                message_count = 0
+                thinking_received = False
+                text_started = False
+
                 async for msg in client.receive_response():
                     msg_type = type(msg).__name__
+                    message_count += 1
                     logger.debug(f"[Orchestrator] Received message type: {msg_type}")
+
+                    # DEBUG: Log all message types received
+                    if DEBUG_MODE:
+                        print(
+                            f"[DEBUG Orchestrator] Received message #{message_count}: {msg_type}",
+                            flush=True,
+                        )
+
+                    # Handle extended thinking blocks (shows LLM reasoning)
+                    if msg_type == "ThinkingBlock" or (
+                        hasattr(msg, "type") and msg.type == "thinking"
+                    ):
+                        if not thinking_received:
+                            print(
+                                "[Orchestrator] LLM is thinking (extended thinking)...",
+                                flush=True,
+                            )
+                            thinking_received = True
+
+                        thinking_text = (
+                            msg.thinking
+                            if hasattr(msg, "thinking")
+                            else getattr(msg, "text", "")
+                        )
+                        if DEBUG_MODE and thinking_text:
+                            print(
+                                "[DEBUG Orchestrator] ===== LLM THINKING START =====",
+                                flush=True,
+                            )
+                            # Print thinking in chunks to avoid buffer issues
+                            for i in range(0, len(thinking_text), 1000):
+                                print(thinking_text[i : i + 1000], flush=True)
+                            print(
+                                "[DEBUG Orchestrator] ===== LLM THINKING END =====",
+                                flush=True,
+                            )
+                        else:
+                            # Even without DEBUG, show thinking length
+                            print(
+                                f"[Orchestrator] Thinking block received ({len(thinking_text)} chars)",
+                                flush=True,
+                            )
+                        logger.debug(
+                            f"[Orchestrator] Thinking block (length: {len(thinking_text)})"
+                        )
+
+                    # Handle text delta streaming (real-time output)
+                    if msg_type == "TextDelta" or (
+                        hasattr(msg, "type") and msg.type == "text_delta"
+                    ):
+                        if not text_started:
+                            print(
+                                "[Orchestrator] LLM is generating response...",
+                                flush=True,
+                            )
+                            text_started = True
+
+                        delta_text = (
+                            msg.text
+                            if hasattr(msg, "text")
+                            else getattr(msg, "delta", "")
+                        )
+                        if DEBUG_MODE and delta_text:
+                            print(delta_text, end="", flush=True)
 
                     # Handle tool calls from orchestrator
                     if msg_type == "ToolUseBlock" or (
@@ -223,6 +313,20 @@ class OrchestratorReviewer:
                         )
                         tool_calls_made.append(tool_name)
                         logger.info(f"[Orchestrator] Tool call detected: {tool_name}")
+
+                        # SDK delivers structured output via StructuredOutput tool
+                        if tool_name == "StructuredOutput":
+                            structured_data = getattr(msg, "input", None)
+                            if structured_data:
+                                structured_output = structured_data
+                                logger.info(
+                                    "[Orchestrator] Found StructuredOutput tool use"
+                                )
+                                print(
+                                    "[Orchestrator] Received SDK structured output",
+                                    flush=True,
+                                )
+                            continue  # No need to handle as regular tool
 
                         tool_result = await self._handle_tool_call(msg, context)
                         # Tools already executed, agent will receive results
@@ -259,11 +363,33 @@ class OrchestratorReviewer:
                     # Collect final orchestrator output
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
+                            block_type = type(block).__name__
                             if hasattr(block, "text"):
                                 result_text += block.text
                                 logger.debug(
                                     f"[Orchestrator] Received text block (length: {len(block.text)})"
                                 )
+                            # Also check for StructuredOutput in AssistantMessage content
+                            if block_type == "ToolUseBlock":
+                                tool_name = getattr(block, "name", "")
+                                if tool_name == "StructuredOutput":
+                                    structured_data = getattr(block, "input", None)
+                                    if structured_data:
+                                        structured_output = structured_data
+                                        logger.info(
+                                            "[Orchestrator] Found StructuredOutput in AssistantMessage"
+                                        )
+                                        print(
+                                            "[Orchestrator] Received SDK structured output",
+                                            flush=True,
+                                        )
+
+                    # Check for structured output (SDK validated JSON)
+                    if hasattr(msg, "structured_output") and msg.structured_output:
+                        structured_output = msg.structured_output
+                        logger.info(
+                            "[Orchestrator] Received structured output from SDK"
+                        )
 
             logger.info(
                 f"[Orchestrator] Session complete. Tool calls made: {tool_calls_made}"
@@ -293,8 +419,28 @@ class OrchestratorReviewer:
                 pr_number=context.pr_number,
             )
 
-            # Parse orchestrator's final output
-            orchestrator_findings = self._parse_orchestrator_output(result_text)
+            # Use structured output if available, otherwise fall back to parsing
+            if structured_output:
+                logger.info("[Orchestrator] Using validated structured output")
+                print("[Orchestrator] Using SDK structured output", flush=True)
+                orchestrator_findings = self._parse_structured_output(structured_output)
+                # Fallback to text parsing only if structured output parsing FAILED (None)
+                # An empty list means the PR is clean - don't trigger fallback
+                if orchestrator_findings is None and result_text:
+                    logger.warning(
+                        "[Orchestrator] Structured output parsing failed, falling back to text"
+                    )
+                    print(
+                        "[Orchestrator] Structured output failed, trying text parsing fallback",
+                        flush=True,
+                    )
+                    orchestrator_findings = self._parse_orchestrator_output(result_text)
+                elif orchestrator_findings is None:
+                    orchestrator_findings = []  # No fallback available, use empty
+            else:
+                logger.info("[Orchestrator] Falling back to text parsing")
+                print("[Orchestrator] Falling back to text parsing", flush=True)
+                orchestrator_findings = self._parse_orchestrator_output(result_text)
             all_findings.extend(orchestrator_findings)
 
             # Deduplicate findings
@@ -548,6 +694,75 @@ Now perform your strategic review and use the available tools to spawn subagents
 
         return base_prompt + pr_context
 
+    def _parse_structured_output(
+        self, structured_output: dict[str, Any]
+    ) -> list[PRReviewFinding] | None:
+        """
+        Parse findings from SDK structured output.
+
+        Uses the validated OrchestratorReviewResponse schema for type-safe parsing.
+
+        Returns:
+            List of findings on success (may be empty for clean PRs),
+            None on parsing failure (triggers fallback to text parsing).
+        """
+        findings = []
+
+        try:
+            # Validate with Pydantic
+            result = OrchestratorReviewResponse.model_validate(structured_output)
+
+            logger.info(
+                f"[Orchestrator] Structured output: verdict={result.verdict}, "
+                f"{len(result.findings)} findings"
+            )
+
+            for f in result.findings:
+                # Generate unique ID for this finding
+                import hashlib
+
+                finding_id = hashlib.md5(
+                    f"{f.file}:{f.line}:{f.title}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()[:12]
+
+                # Map category using flexible mapping
+                category = _map_category(f.category)
+
+                # Map severity
+                try:
+                    severity = ReviewSeverity(f.severity.lower())
+                except ValueError:
+                    severity = ReviewSeverity.MEDIUM
+
+                finding = PRReviewFinding(
+                    id=finding_id,
+                    file=f.file,
+                    line=f.line,
+                    title=f.title,
+                    description=f.description,
+                    category=category,
+                    severity=severity,
+                    suggested_fix=f.suggestion or "",
+                    confidence=self._normalize_confidence(f.confidence),
+                )
+                findings.append(finding)
+                logger.debug(
+                    f"[Orchestrator] Added structured finding: {finding.title} ({finding.severity.value})"
+                )
+
+            print(
+                f"[Orchestrator] Processed {len(findings)} findings from structured output",
+                flush=True,
+            )
+
+        except Exception as e:
+            logger.error(f"[Orchestrator] Failed to parse structured output: {e}")
+            print(f"[Orchestrator] Structured output parsing failed: {e}", flush=True)
+            return None  # Signal failure - triggers fallback to text parsing
+
+        return findings
+
     def _parse_orchestrator_output(self, output: str) -> list[PRReviewFinding]:
         """Parse findings from orchestrator's final output."""
         findings = []
@@ -666,9 +881,9 @@ Now perform your strategic review and use the available tools to spawn subagents
                             suggested_fix=data.get(
                                 "suggestion", data.get("suggested_fix", "")
                             ),
-                            confidence=data.get("confidence", 85) / 100.0
-                            if data.get("confidence", 85) > 1
-                            else data.get("confidence", 0.85),
+                            confidence=self._normalize_confidence(
+                                data.get("confidence", 85)
+                            ),
                         )
                         findings.append(finding)
                         logger.debug(
@@ -733,9 +948,9 @@ Now perform your strategic review and use the available tools to spawn subagents
                             suggested_fix=data.get(
                                 "suggestion", data.get("suggested_fix", "")
                             ),
-                            confidence=data.get("confidence", 85) / 100.0
-                            if data.get("confidence", 85) > 1
-                            else data.get("confidence", 0.85),
+                            confidence=self._normalize_confidence(
+                                data.get("confidence", 85)
+                            ),
                         )
                         findings.append(finding)
                         logger.debug(
@@ -750,6 +965,27 @@ Now perform your strategic review and use the available tools to spawn subagents
 
         logger.info(f"[Orchestrator] Parsed {len(findings)} total findings from output")
         return findings
+
+    def _normalize_confidence(self, confidence_value: int | float) -> float:
+        """
+        Normalize confidence value to 0.0-1.0 range.
+
+        AI models may return confidence as:
+        - Percentage (0-100): divide by 100
+        - Decimal (0.0-1.0): use as-is
+
+        Args:
+            confidence_value: Raw confidence value from AI output
+
+        Returns:
+            Normalized confidence as float in 0.0-1.0 range
+        """
+        if confidence_value > 1:
+            # Percentage format (e.g., 85 -> 0.85)
+            return confidence_value / 100.0
+        else:
+            # Already decimal format (e.g., 0.85)
+            return float(confidence_value)
 
     def _extract_findings_from_data(
         self, findings_data: list[dict]
@@ -791,9 +1027,7 @@ Now perform your strategic review and use the available tools to spawn subagents
                 category=category,
                 severity=severity,
                 suggested_fix=data.get("suggestion", data.get("suggested_fix", "")),
-                confidence=data.get("confidence", 85) / 100.0
-                if data.get("confidence", 85) > 1
-                else data.get("confidence", 0.85),
+                confidence=self._normalize_confidence(data.get("confidence", 85)),
             )
             findings.append(finding)
             logger.debug(
