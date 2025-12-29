@@ -277,6 +277,7 @@ export const IPC_CHANNELS = {
   CODE_EDITOR_LIST_DIR: 'codeEditor:listDir',
   CODE_EDITOR_READ_FILE: 'codeEditor:readFile',
   CODE_EDITOR_WRITE_FILE: 'codeEditor:writeFile',
+  CODE_EDITOR_SEARCH_TEXT: 'codeEditor:searchText',
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',

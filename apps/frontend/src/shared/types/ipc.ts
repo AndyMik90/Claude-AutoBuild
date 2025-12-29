@@ -545,6 +545,18 @@ export interface ElectronAPI {
   }>>>;
   codeEditorReadFile: (workspaceRoot: string, relPath: string) => Promise<IPCResult<string>>;
   codeEditorWriteFile: (workspaceRoot: string, relPath: string, content: string) => Promise<IPCResult<void>>;
+  codeEditorSearchText: (workspaceRoot: string, query: string, options?: {
+    glob?: string;
+    caseSensitive?: boolean;
+    maxResults?: number;
+  }) => Promise<IPCResult<Array<{
+    relPath: string;
+    matches: Array<{
+      line: number;
+      column: number;
+      preview: string;
+    }>;
+  }>>>;
 
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;

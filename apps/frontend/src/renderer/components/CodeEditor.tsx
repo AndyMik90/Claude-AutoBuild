@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Loader2, Save, FileCode, Folder, FolderOpen, ChevronRight, ChevronDown, File } from 'lucide-react';
+import { Loader2, Save, FileCode, Folder, FolderOpen, ChevronRight, ChevronDown, File, X, Search, Clock, AlertCircle } from 'lucide-react';
 import Editor, { loader } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import * as monaco from 'monaco-editor';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { Input } from './ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,12 +18,9 @@ import {
   AlertDialogTitle
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
-import { TooltipProvider } from './ui/tooltip';
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 // Import Monaco directly so Vite can bundle it properly.
-// This works for both dev and production in Electron. In a pure browser
-// environment, however, the `monaco` module or this configuration step
-// may not be available, so guard it to avoid runtime errors on import.
 const isElectronRenderer =
   typeof window !== 'undefined' &&
   typeof (window as any).process === 'object' &&
@@ -33,9 +31,9 @@ try {
     loader.config({ monaco });
   }
 } catch {
-  // In non-Electron or mocked environments, fall back to the default loader
-  // behavior and avoid failing during module evaluation.
+  // Fallback to default loader behavior
 }
+
 interface CodeEditorProps {
   projectId: string;
 }
@@ -51,19 +49,43 @@ interface FolderState {
   childrenByDir: Map<string, FileNode[] | 'loading' | { error: string }>;
 }
 
+interface EditorTab {
+  id: string;
+  relPath: string;
+  fileName: string;
+  language: string;
+  originalContent: string;
+  content: string;
+  isDirty: boolean;
+  lastOpenedAt: number;
+}
+
+interface SearchMatch {
+  line: number;
+  column: number;
+  preview: string;
+}
+
+interface SearchResult {
+  relPath: string;
+  matches: SearchMatch[];
+}
+
 export function CodeEditor({ projectId }: CodeEditorProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const workspaceRoot = selectedProject?.path;
 
-  // Editor state
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string>('');
-  const [isDirty, setIsDirty] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'error'>('idle');
+  // Tabs state
+  const [tabs, setTabs] = useState<EditorTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  // UI state
+  const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'searching' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [pendingFilePath, setPendingFilePath] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [tabToClose, setTabToClose] = useState<string | null>(null);
 
   // File explorer state
   const [folderState, setFolderState] = useState<FolderState>({
@@ -71,7 +93,46 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     childrenByDir: new Map()
   });
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchError, setSearchError] = useState<string | undefined>();
+
+  // Recent files state
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  // Get active tab
+  const activeTab = tabs.find(t => t.id === activeTabId);
+
+  // Load recent files from project settings
+  useEffect(() => {
+    if (selectedProject?.settings.codeEditorRecentFiles) {
+      setRecentFiles(selectedProject.settings.codeEditorRecentFiles);
+    }
+  }, [selectedProject?.settings.codeEditorRecentFiles]);
+
+  // Save recent files to project settings
+  const saveRecentFiles = useCallback(async (files: string[]) => {
+    if (!selectedProject) return;
+    try {
+      await window.electronAPI.updateProjectSettings(projectId, {
+        codeEditorRecentFiles: files
+      });
+    } catch (error) {
+      console.error('Failed to save recent files:', error);
+    }
+  }, [projectId, selectedProject]);
+
+  // Update recent files when a file is opened
+  const addToRecentFiles = useCallback((relPath: string) => {
+    setRecentFiles(prev => {
+      const newRecents = [relPath, ...prev.filter(f => f !== relPath)].slice(0, 30);
+      saveRecentFiles(newRecents);
+      return newRecents;
+    });
+  }, [saveRecentFiles]);
 
   // Load directory contents
   const loadDirectory = useCallback(async (relPath: string) => {
@@ -119,7 +180,6 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
         newExpanded.delete(relPath);
       } else {
         newExpanded.add(relPath);
-        // Load children if not already loaded
         if (!prev.childrenByDir.has(relPath)) {
           loadDirectory(relPath);
         }
@@ -132,131 +192,24 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     });
   }, [loadDirectory]);
 
-  // Actually open the file (extracted to be reusable)
-  const performOpenFile = useCallback(async (relPath: string) => {
-    if (!workspaceRoot) return;
-
-    setStatus('loading');
-    setErrorMessage(undefined);
-
-    try {
-      const result = await window.electronAPI.codeEditorReadFile(workspaceRoot, relPath);
-
-      if (result.success && result.data !== undefined) {
-        setFileContent(result.data);
-        setSelectedFilePath(relPath);
-        setIsDirty(false);
-        setStatus('idle');
-      } else {
-        setErrorMessage(result.error || 'Failed to read file');
-        setStatus('error');
-      }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to read file');
-      setStatus('error');
-    }
-  }, [workspaceRoot]);
-
-  // Open file
-  const openFile = useCallback(async (relPath: string) => {
-    if (!workspaceRoot) return;
-
-    // If dirty, show confirmation dialog
-    if (isDirty) {
-      setPendingFilePath(relPath);
-      setShowUnsavedDialog(true);
-      return;
-    }
-
-    // Proceed with opening the file
-    await performOpenFile(relPath);
-  }, [workspaceRoot, isDirty, performOpenFile]);
-
-  // Handle unsaved changes dialog confirmation
-  const handleDiscardChanges = useCallback(async () => {
-    setShowUnsavedDialog(false);
-    if (pendingFilePath) {
-      await performOpenFile(pendingFilePath);
-      setPendingFilePath(null);
-    }
-  }, [pendingFilePath, performOpenFile]);
-
-  // Handle unsaved changes dialog cancellation
-  const handleKeepEditing = useCallback(() => {
-    setShowUnsavedDialog(false);
-    setPendingFilePath(null);
-  }, []);
-
-  // Save file
-  const saveFile = useCallback(async () => {
-    if (!workspaceRoot || !selectedFilePath || !isDirty) return;
-
-    setStatus('saving');
-    setErrorMessage(undefined);
-
-    try {
-      const result = await window.electronAPI.codeEditorWriteFile(workspaceRoot, selectedFilePath, fileContent);
-
-      if (result.success) {
-        setIsDirty(false);
-        setStatus('idle');
-      } else {
-        setErrorMessage(result.error || 'Failed to save file');
-        setStatus('error');
-      }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to save file');
-      setStatus('error');
-    }
-  }, [workspaceRoot, selectedFilePath, fileContent, isDirty]);
-
-  // Handle editor change
-  const handleEditorChange = useCallback((value: string | undefined) => {
-    if (value !== undefined) {
-      setFileContent(value);
-      setIsDirty(true);
-    }
-  }, []);
-
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S (Win/Linux) or Cmd+S (macOS)
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (selectedFilePath && isDirty) {
-          saveFile();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFilePath, isDirty, saveFile]);
-
   // Get Monaco language from file extension
   const getMonacoLanguage = (relPath: string): string => {
-    // Handle files without extensions (Makefile, Dockerfile, etc.)
-    // Split by both forward and backward slashes to handle both Windows and Unix paths
     const fileName = relPath.split(/[/\\]/).pop() || '';
-    
-    // Special cases for files without extensions
+
     const noExtensionFiles: Record<string, string> = {
       'Makefile': 'makefile',
       'Dockerfile': 'dockerfile',
       'Jenkinsfile': 'groovy',
       'Vagrantfile': 'ruby',
     };
-    
+
     if (noExtensionFiles[fileName]) {
       return noExtensionFiles[fileName];
     }
-    
-    // Get the last extension (handles file.test.ts correctly)
+
     const ext = relPath.split('.').pop()?.toLowerCase();
-    
+
     if (!ext || ext === relPath) {
-      // No extension found
       return 'plaintext';
     }
 
@@ -281,6 +234,249 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
       default: return 'plaintext';
     }
   };
+
+  // Open or activate file in a tab
+  const openFile = useCallback(async (relPath: string) => {
+    if (!workspaceRoot) return;
+
+    // Check if file is already open
+    const existingTab = tabs.find(t => t.relPath === relPath);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      addToRecentFiles(relPath);
+      return;
+    }
+
+    // Check if active tab is dirty
+    const currentActiveTab = tabs.find(t => t.id === activeTabId);
+    if (currentActiveTab?.isDirty) {
+      setPendingFilePath(relPath);
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    // Load file
+    setStatus('loading');
+    setErrorMessage(undefined);
+
+    try {
+      const result = await window.electronAPI.codeEditorReadFile(workspaceRoot, relPath);
+
+      if (result.success && result.data !== undefined) {
+        const fileName = relPath.split('/').pop() || relPath;
+        const language = getMonacoLanguage(relPath);
+
+        const newTab: EditorTab = {
+          id: `${Date.now()}-${Math.random()}`,
+          relPath,
+          fileName,
+          language,
+          originalContent: result.data,
+          content: result.data,
+          isDirty: false,
+          lastOpenedAt: Date.now()
+        };
+
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab.id);
+        addToRecentFiles(relPath);
+        setStatus('idle');
+      } else {
+        setErrorMessage(result.error || 'Failed to read file');
+        setStatus('error');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to read file');
+      setStatus('error');
+    }
+  }, [workspaceRoot, tabs, activeTabId, addToRecentFiles]);
+
+  // Handle unsaved changes dialog confirmation
+  const handleDiscardChanges = useCallback(async () => {
+    setShowUnsavedDialog(false);
+    if (pendingFilePath) {
+      await openFile(pendingFilePath);
+      setPendingFilePath(null);
+    } else if (tabToClose) {
+      // Actually close the tab
+      setTabs(prev => {
+        const filtered = prev.filter(t => t.id !== tabToClose);
+
+        // If we're closing the active tab, switch to another
+        if (activeTabId === tabToClose && filtered.length > 0) {
+          const closingIndex = prev.findIndex(t => t.id === tabToClose);
+          const nextTab = filtered[Math.max(0, closingIndex - 1)];
+          setActiveTabId(nextTab.id);
+        } else if (filtered.length === 0) {
+          setActiveTabId(null);
+        }
+
+        return filtered;
+      });
+      setTabToClose(null);
+    }
+  }, [pendingFilePath, tabToClose, activeTabId, openFile]);
+
+  // Handle unsaved changes dialog cancellation
+  const handleKeepEditing = useCallback(() => {
+    setShowUnsavedDialog(false);
+    setPendingFilePath(null);
+    setTabToClose(null);
+  }, []);
+
+  // Close tab
+  const closeTab = useCallback((tabId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    if (tab.isDirty) {
+      setTabToClose(tabId);
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    // Close immediately if not dirty
+    setTabs(prev => {
+      const filtered = prev.filter(t => t.id !== tabId);
+
+      if (activeTabId === tabId && filtered.length > 0) {
+        const closingIndex = prev.findIndex(t => t.id === tabId);
+        const nextTab = filtered[Math.max(0, closingIndex - 1)];
+        setActiveTabId(nextTab.id);
+      } else if (filtered.length === 0) {
+        setActiveTabId(null);
+      }
+
+      return filtered;
+    });
+  }, [tabs, activeTabId]);
+
+  // Save active tab
+  const saveActiveTab = useCallback(async () => {
+    if (!workspaceRoot || !activeTab || !activeTab.isDirty) return;
+
+    setStatus('saving');
+    setErrorMessage(undefined);
+
+    try {
+      const result = await window.electronAPI.codeEditorWriteFile(workspaceRoot, activeTab.relPath, activeTab.content);
+
+      if (result.success) {
+        setTabs(prev => prev.map(t =>
+          t.id === activeTab.id
+            ? { ...t, originalContent: t.content, isDirty: false }
+            : t
+        ));
+        setStatus('idle');
+      } else {
+        setErrorMessage(result.error || 'Failed to save file');
+        setStatus('error');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to save file');
+      setStatus('error');
+    }
+  }, [workspaceRoot, activeTab]);
+
+  // Handle editor change
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    if (value !== undefined && activeTab) {
+      setTabs(prev => prev.map(t =>
+        t.id === activeTab.id
+          ? { ...t, content: value, isDirty: value !== t.originalContent }
+          : t
+      ));
+    }
+  }, [activeTab]);
+
+  // Search functionality
+  const performSearch = useCallback(async () => {
+    if (!workspaceRoot || !searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setStatus('searching');
+    setSearchError(undefined);
+
+    try {
+      const result = await window.electronAPI.codeEditorSearchText(workspaceRoot, searchQuery);
+
+      if (result.success && result.data) {
+        setSearchResults(result.data);
+        setStatus('idle');
+      } else {
+        setSearchError(result.error || 'Search failed');
+        setStatus('idle');
+      }
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Search failed');
+      setStatus('idle');
+    }
+  }, [workspaceRoot, searchQuery]);
+
+  // Handle search result click - open file and jump to line
+  const handleSearchResultClick = useCallback(async (relPath: string, line: number, column: number) => {
+    // Check if file is already open
+    const existingTab = tabs.find(t => t.relPath === relPath);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      addToRecentFiles(relPath);
+
+      // Jump to line after a short delay to ensure editor is ready
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.revealLineInCenter(line);
+          editorRef.current.setPosition({ lineNumber: line, column });
+          editorRef.current.focus();
+        }
+      }, 100);
+      return;
+    }
+
+    // Open file first
+    await openFile(relPath);
+
+    // Jump to line after file loads
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.revealLineInCenter(line);
+        editorRef.current.setPosition({ lineNumber: line, column });
+        editorRef.current.focus();
+      }
+    }, 200);
+  }, [tabs, addToRecentFiles, openFile]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+S: Save active tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (activeTab?.isDirty) {
+          saveActiveTab();
+        }
+      }
+
+      // Ctrl/Cmd+W: Close active tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault();
+        if (activeTabId) {
+          closeTab(activeTabId);
+        }
+      }
+
+      // Enter in search: perform search
+      if (e.key === 'Enter' && document.activeElement?.getAttribute('data-search-input') === 'true') {
+        performSearch();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, activeTabId, saveActiveTab, closeTab, performSearch]);
 
   // Render file tree node
   const renderFileNode = useCallback((node: FileNode, depth: number = 0) => {
@@ -345,7 +541,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
         <div
           key={node.relPath}
           className={`flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer text-sm ${
-            selectedFilePath === node.relPath ? 'bg-accent' : ''
+            activeTab?.relPath === node.relPath ? 'bg-accent' : ''
           }`}
           style={{ paddingLeft: `${depth * 12 + 24}px` }}
           onClick={() => openFile(node.relPath)}
@@ -355,7 +551,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
         </div>
       );
     }
-  }, [folderState, selectedFilePath, toggleFolder, openFile]);
+  }, [folderState, activeTab, toggleFolder, openFile]);
 
   const rootChildren = folderState.childrenByDir.get('');
 
@@ -363,22 +559,15 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
     <TooltipProvider>
       <div className="flex h-full flex-col">
         <Card className="flex-1 flex flex-col overflow-hidden rounded-none border-0">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileCode className="h-5 w-5" />
                 <CardTitle>Code Editor</CardTitle>
-                {selectedFilePath && (
-                  <>
-                    <span className="text-muted-foreground">—</span>
-                    <span className="text-sm font-normal text-muted-foreground">{selectedFilePath}</span>
-                    {isDirty && <span className="text-orange-500 font-bold">●</span>}
-                  </>
-                )}
               </div>
               <Button
-                onClick={saveFile}
-                disabled={!selectedFilePath || !isDirty || status === 'saving'}
+                onClick={saveActiveTab}
+                disabled={!activeTab || !activeTab.isDirty || status === 'saving'}
                 size="sm"
               >
                 {status === 'saving' ? (
@@ -394,16 +583,137 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
                 )}
               </Button>
             </div>
+
+            {/* Tabs */}
+            {tabs.length > 0 && (
+              <div className="flex items-center gap-1 mt-2 overflow-x-auto">
+                {tabs.map(tab => (
+                  <div
+                    key={tab.id}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer text-sm border transition-colors ${
+                      activeTabId === tab.id
+                        ? 'bg-accent border-accent-foreground/20'
+                        : 'bg-muted border-transparent hover:bg-accent/50'
+                    }`}
+                    onClick={() => setActiveTabId(tab.id)}
+                  >
+                    <File className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate max-w-[150px]" title={tab.relPath}>{tab.fileName}</span>
+                    {tab.isDirty && <span className="text-orange-500 font-bold">●</span>}
+                    <X
+                      className="h-3 w-3 flex-shrink-0 hover:bg-destructive/20 rounded"
+                      onClick={(e) => closeTab(tab.id, e)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             {errorMessage && (
-              <div className="mt-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded">
-                {errorMessage}
+              <div className="mt-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{errorMessage}</span>
               </div>
             )}
           </CardHeader>
           <CardContent className="flex-1 flex gap-4 overflow-hidden p-0">
-            {/* File Explorer */}
-            <div className="w-64 border-r flex-shrink-0">
-              <ScrollArea className="h-full">
+            {/* Left Sidebar */}
+            <div className="w-64 border-r flex-shrink-0 flex flex-col">
+              {/* Search */}
+              <div className="p-3 border-b">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Search in workspace..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && performSearch()}
+                    data-search-input="true"
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={performSearch}
+                    disabled={!searchQuery.trim() || status === 'searching'}
+                  >
+                    {status === 'searching' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {searchError && (
+                  <div className="mt-2 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
+                    {searchError}
+                  </div>
+                )}
+
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="mt-3 max-h-64 overflow-y-auto">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                      {searchResults.reduce((acc, r) => acc + r.matches.length, 0)} results in {searchResults.length} files
+                    </div>
+                    {searchResults.map(result => (
+                      <div key={result.relPath} className="mb-2">
+                        <div className="text-xs font-medium text-foreground mb-1">{result.relPath}</div>
+                        {result.matches.slice(0, 5).map((match, idx) => (
+                          <div
+                            key={idx}
+                            className="text-xs py-1 px-2 hover:bg-accent cursor-pointer rounded truncate"
+                            onClick={() => handleSearchResultClick(result.relPath, match.line, match.column)}
+                            title={match.preview}
+                          >
+                            <span className="text-muted-foreground">Line {match.line}:</span>{' '}
+                            <span className="font-mono">{match.preview}</span>
+                          </div>
+                        ))}
+                        {result.matches.length > 5 && (
+                          <div className="text-xs text-muted-foreground italic px-2">
+                            +{result.matches.length - 5} more matches
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Files */}
+              {recentFiles.length > 0 && (
+                <div className="p-3 border-b">
+                  <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                    <Clock className="h-4 w-4" />
+                    <span>Recent</span>
+                  </div>
+                  <div className="space-y-1">
+                    {recentFiles.slice(0, 10).map(relPath => {
+                      const fileName = relPath.split('/').pop() || relPath;
+                      return (
+                        <Tooltip key={relPath}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={`flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer text-xs rounded truncate ${
+                                activeTab?.relPath === relPath ? 'bg-accent' : ''
+                              }`}
+                              onClick={() => openFile(relPath)}
+                            >
+                              <File className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                              <span className="truncate">{fileName}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>{relPath}</TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* File Explorer */}
+              <ScrollArea className="flex-1">
                 <div className="p-2">
                   {rootChildren === 'loading' && (
                     <div className="flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
@@ -421,9 +731,9 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
                       {[...rootChildren]
                         .sort((a, b) => {
                           if (a.isDir !== b.isDir) {
-                            return a.isDir ? -1 : 1; // Directories first
+                            return a.isDir ? -1 : 1;
                           }
-                          return a.name.localeCompare(b.name); // Alphabetical within type
+                          return a.name.localeCompare(b.name);
                         })
                         .map(node => renderFileNode(node, 0))}
                     </>
@@ -434,11 +744,11 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
 
             {/* Monaco Editor */}
             <div className="flex-1 overflow-hidden">
-              {selectedFilePath ? (
+              {activeTab ? (
                 <Editor
                   height="100%"
-                  language={getMonacoLanguage(selectedFilePath)}
-                  value={fileContent}
+                  language={activeTab.language}
+                  value={activeTab.content}
                   onChange={handleEditorChange}
                   theme="vs-dark"
                   loading={
@@ -475,7 +785,7 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
               <AlertDialogDescription>
-                You have unsaved changes in the current file. If you continue, your changes will be lost.
+                You have unsaved changes. If you continue, your changes will be lost.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

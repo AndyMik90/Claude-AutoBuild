@@ -24,6 +24,8 @@ export interface ProjectSettings {
   graphitiMcpUrl?: string;
   /** Main branch name for worktree creation (default: auto-detected or 'main') */
   mainBranch?: string;
+  /** Recent files in code editor (workspace-relative paths, most recent first) */
+  codeEditorRecentFiles?: string[];
 }
 
 export interface NotificationSettings {
