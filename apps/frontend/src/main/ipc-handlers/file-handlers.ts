@@ -345,20 +345,29 @@ export function registerFileHandlers(): void {
     async (_, workspaceRoot: string, relPath: string, content: string): Promise<IPCResult<void>> => {
       let fd: number | undefined;
       try {
-        // Validate workspace path
-        const validation = validateWorkspacePath(workspaceRoot, relPath);
-        if (!validation.valid || !validation.absPath) {
-          return { success: false, error: validation.error || 'Invalid path' };
-        }
-
-        const absPath = validation.absPath;
+        // Resolve workspace root to canonical path
+        // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
+
+        // Construct absolute path (but don't validate yet to avoid TOCTOU)
+        const absPath = path.resolve(workspaceRootResolved, relPath);
 
         // Normalize paths for comparison on case-insensitive file systems
         const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
         const workspaceRootForCompare = isCaseInsensitiveFs
           ? workspaceRootResolved.toLowerCase()
           : workspaceRootResolved;
+        const absPathForCompare = isCaseInsensitiveFs
+          ? absPath.toLowerCase()
+          : absPath;
+
+        // Basic directory traversal check (string-based, before opening)
+        if (
+          !absPathForCompare.startsWith(workspaceRootForCompare + path.sep) &&
+          absPathForCompare !== workspaceRootForCompare
+        ) {
+          return { success: false, error: 'Path escapes workspace root' };
+        }
 
         // Try to open file atomically without following symlinks
         // Note: O_NOFOLLOW is not supported on Windows, so we conditionally use it
@@ -395,19 +404,7 @@ export function registerFileHandlers(): void {
           } else if (error.code === 'EISDIR') {
             return { success: false, error: 'Not a file' };
           } else if (error.code === 'ELOOP') {
-            // Provide more informative error by checking where symlink points
-            // (safe to do since we're NOT using it, just for error message)
-            try {
-              const targetReal = realpathSync(absPath);
-              const targetRealForCompare = isCaseInsensitiveFs
-                ? targetReal.toLowerCase()
-                : targetReal;
-              if (!targetRealForCompare.startsWith(workspaceRootForCompare + path.sep) && targetRealForCompare !== workspaceRootForCompare) {
-                return { success: false, error: 'Symlink target is outside workspace root' };
-              }
-            } catch {
-              // If we can't resolve it, just say symlinks not allowed
-            }
+            // Symlink detected - reject without following it
             return { success: false, error: 'Cannot write to symlinks' };
           } else {
             throw err;
@@ -425,15 +422,23 @@ export function registerFileHandlers(): void {
 
         // Verify parent directory is within workspace
         // (protects against hardlinks to files outside workspace)
-        const parentDir = path.dirname(absPath);
-        const parentReal = realpathSync(parentDir);
-        const parentRealForCompare = isCaseInsensitiveFs
-          ? parentReal.toLowerCase()
-          : parentReal;
+        // Note: We reconstruct parent path here, but immediately resolve it
+        // The actual validation is done AFTER opening the file (above)
+        try {
+          const parentDir = path.dirname(absPath);
+          const parentReal = realpathSync(parentDir);
+          const parentRealForCompare = isCaseInsensitiveFs
+            ? parentReal.toLowerCase()
+            : parentReal;
 
-        if (!parentRealForCompare.startsWith(workspaceRootForCompare + path.sep) && parentRealForCompare !== workspaceRootForCompare) {
+          if (!parentRealForCompare.startsWith(workspaceRootForCompare + path.sep) && parentRealForCompare !== workspaceRootForCompare) {
+            closeSync(fd);
+            return { success: false, error: 'Parent directory resolves outside workspace root' };
+          }
+        } catch (realpathErr) {
+          // If we can't resolve parent directory, fail closed
           closeSync(fd);
-          return { success: false, error: 'Parent directory resolves outside workspace root' };
+          throw realpathErr;
         }
 
         // Write content using the file descriptor
