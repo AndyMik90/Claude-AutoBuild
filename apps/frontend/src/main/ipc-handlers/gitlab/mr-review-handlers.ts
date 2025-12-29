@@ -468,16 +468,22 @@ export function registerMRReviewHandlers(
           debugLog('Review note posted successfully', { mrIid });
 
           // Update the stored review result with posted findings
+          // Use atomic write with temp file to prevent race conditions
           const reviewPath = path.join(getGitLabDir(project), 'mr', `review_${mrIid}.json`);
+          const tempPath = `${reviewPath}.tmp.${Date.now()}`;
           try {
             const data = JSON.parse(fs.readFileSync(reviewPath, 'utf-8'));
             data.has_posted_findings = true;
             const newPostedIds = findings.map(f => f.id);
             const existingPostedIds = data.posted_finding_ids || [];
             data.posted_finding_ids = [...new Set([...existingPostedIds, ...newPostedIds])];
-            fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), 'utf-8');
+            // Write to temp file first, then rename atomically
+            fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+            fs.renameSync(tempPath, reviewPath);
             debugLog('Updated review result with posted findings', { mrIid, postedCount: newPostedIds.length });
           } catch (error) {
+            // Clean up temp file if it exists
+            try { fs.unlinkSync(tempPath); } catch { /* ignore cleanup errors */ }
             debugLog('Failed to update review result file', { error: error instanceof Error ? error.message : error });
           }
 

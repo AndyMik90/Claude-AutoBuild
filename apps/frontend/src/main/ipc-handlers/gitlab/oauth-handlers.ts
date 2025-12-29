@@ -12,13 +12,40 @@ import type { GitLabAuthStartResult } from './types';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
-// Debug logging helper
-const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+// Debug logging helper - only enabled in development, never in production
+const DEBUG = process.env.NODE_ENV === 'development' && process.env.DEBUG === 'true';
+
+/**
+ * Redact sensitive information from data before logging
+ */
+function redactSensitiveData(data: unknown): unknown {
+  if (typeof data === 'string') {
+    // Redact anything that looks like a token (glpat-*, private token patterns)
+    return data.replace(/glpat-[A-Za-z0-9_-]+/g, 'glpat-[REDACTED]')
+               .replace(/private[_-]?token[=:]\s*["']?[A-Za-z0-9_-]+["']?/gi, 'private_token=[REDACTED]');
+  }
+  if (typeof data === 'object' && data !== null) {
+    if (Array.isArray(data)) {
+      return data.map(redactSensitiveData);
+    }
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      // Redact known sensitive keys
+      if (/token|password|secret|credential|auth/i.test(key)) {
+        result[key] = '[REDACTED]';
+      } else {
+        result[key] = redactSensitiveData(value);
+      }
+    }
+    return result;
+  }
+  return data;
+}
 
 function debugLog(message: string, data?: unknown): void {
   if (DEBUG) {
     if (data !== undefined) {
-      console.debug(`[GitLab OAuth] ${message}`, data);
+      console.debug(`[GitLab OAuth] ${message}`, redactSensitiveData(data));
     } else {
       console.debug(`[GitLab OAuth] ${message}`);
     }

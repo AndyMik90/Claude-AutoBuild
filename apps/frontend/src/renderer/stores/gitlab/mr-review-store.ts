@@ -176,6 +176,7 @@ export const useMRReviewStore = create<MRReviewStoreState>((set, get) => ({
  * regardless of which component is mounted.
  */
 let mrReviewListenersInitialized = false;
+let cleanupFunctions: (() => void)[] = [];
 
 export function initializeMRReviewListeners(): void {
   if (mrReviewListenersInitialized) {
@@ -191,27 +192,53 @@ export function initializeMRReviewListeners(): void {
   }
 
   // Listen for MR review progress events
-  window.electronAPI.onGitLabMRReviewProgress(
-    (projectId: string, progress: GitLabMRReviewProgress) => {
-      store.setMRReviewProgress(projectId, progress);
-    }
-  );
+  const progressHandler = (projectId: string, progress: GitLabMRReviewProgress) => {
+    store.setMRReviewProgress(projectId, progress);
+  };
+  window.electronAPI.onGitLabMRReviewProgress(progressHandler);
 
   // Listen for MR review completion events
-  window.electronAPI.onGitLabMRReviewComplete(
-    (projectId: string, result: GitLabMRReviewResult) => {
-      store.setMRReviewResult(projectId, result);
-    }
-  );
+  const completeHandler = (projectId: string, result: GitLabMRReviewResult) => {
+    store.setMRReviewResult(projectId, result);
+  };
+  window.electronAPI.onGitLabMRReviewComplete(completeHandler);
 
   // Listen for MR review error events
-  window.electronAPI.onGitLabMRReviewError(
-    (projectId: string, data: { mrIid: number; error: string }) => {
-      store.setMRReviewError(projectId, data.mrIid, data.error);
-    }
-  );
+  const errorHandler = (projectId: string, data: { mrIid: number; error: string }) => {
+    store.setMRReviewError(projectId, data.mrIid, data.error);
+  };
+  window.electronAPI.onGitLabMRReviewError(errorHandler);
+
+  // Store cleanup functions if the API supports removeListener
+  // Note: These are optional methods that may not exist in the ElectronAPI
+  const api = window.electronAPI as unknown as Record<string, unknown>;
+  if (typeof api.removeGitLabMRReviewProgress === 'function') {
+    cleanupFunctions.push(() => (api.removeGitLabMRReviewProgress as (handler: unknown) => void)?.(progressHandler));
+  }
+  if (typeof api.removeGitLabMRReviewComplete === 'function') {
+    cleanupFunctions.push(() => (api.removeGitLabMRReviewComplete as (handler: unknown) => void)?.(completeHandler));
+  }
+  if (typeof api.removeGitLabMRReviewError === 'function') {
+    cleanupFunctions.push(() => (api.removeGitLabMRReviewError as (handler: unknown) => void)?.(errorHandler));
+  }
 
   mrReviewListenersInitialized = true;
+}
+
+/**
+ * Cleanup MR review listeners.
+ * Call this when the app is being unmounted or during hot-reload.
+ */
+export function cleanupMRReviewListeners(): void {
+  for (const cleanup of cleanupFunctions) {
+    try {
+      cleanup();
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  cleanupFunctions = [];
+  mrReviewListenersInitialized = false;
 }
 
 /**

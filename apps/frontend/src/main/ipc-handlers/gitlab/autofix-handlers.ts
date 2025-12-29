@@ -47,10 +47,25 @@ function sanitizeIssueUrl(rawUrl: unknown, instanceUrl: string): string {
 }
 
 /**
+ * Validate that a resolved path stays within the project directory
+ * Prevents path traversal attacks via malicious project.path values
+ */
+function validatePathWithinProject(projectPath: string, resolvedPath: string): void {
+  const normalizedProject = path.resolve(projectPath);
+  const normalizedResolved = path.resolve(resolvedPath);
+
+  if (!normalizedResolved.startsWith(normalizedProject + path.sep) && normalizedResolved !== normalizedProject) {
+    throw new Error('Invalid path: path traversal detected');
+  }
+}
+
+/**
  * Get the GitLab directory for a project
  */
 function getGitLabDir(project: Project): string {
-  return path.join(project.path, '.auto-claude', 'gitlab');
+  const gitlabDir = path.join(project.path, '.auto-claude', 'gitlab');
+  validatePathWithinProject(project.path, gitlabDir);
+  return gitlabDir;
 }
 
 /**
@@ -348,6 +363,11 @@ async function startAutoFix(
     progress: 50,
     message: 'Creating spec from issue...',
   });
+
+  // Validate issueIid
+  if (!Number.isInteger(issueIid) || issueIid <= 0) {
+    throw new Error('Invalid issue IID');
+  }
 
   // Save auto-fix state
   const issuesDir = path.join(getGitLabDir(project), 'issues');

@@ -33,6 +33,42 @@ def encode_project_path(project: str) -> str:
     return urllib.parse.quote(project, safe="")
 
 
+# Valid GitLab API endpoint patterns
+VALID_ENDPOINT_PATTERNS = (
+    "/projects/",
+    "/user",
+    "/users/",
+    "/groups/",
+    "/merge_requests/",
+    "/issues/",
+)
+
+
+def validate_endpoint(endpoint: str) -> None:
+    """
+    Validate that an endpoint is a legitimate GitLab API path.
+    Raises ValueError if the endpoint is suspicious.
+    """
+    if not endpoint:
+        raise ValueError("Endpoint cannot be empty")
+
+    # Must start with /
+    if not endpoint.startswith("/"):
+        raise ValueError("Endpoint must start with /")
+
+    # Check for path traversal attempts
+    if ".." in endpoint:
+        raise ValueError("Endpoint contains path traversal sequence")
+
+    # Check for null bytes
+    if "\x00" in endpoint:
+        raise ValueError("Endpoint contains null byte")
+
+    # Validate against known patterns
+    if not any(endpoint.startswith(pattern) for pattern in VALID_ENDPOINT_PATTERNS):
+        raise ValueError(f"Endpoint does not match known GitLab API patterns: {endpoint}")
+
+
 class GitLabClient:
     """Client for GitLab API operations."""
 
@@ -62,6 +98,7 @@ class GitLabClient:
         max_retries: int = 3,
     ) -> Any:
         """Make an API request to GitLab with rate limit handling."""
+        validate_endpoint(endpoint)
         url = self._api_url(endpoint)
         headers = {
             "PRIVATE-TOKEN": self.config.token,

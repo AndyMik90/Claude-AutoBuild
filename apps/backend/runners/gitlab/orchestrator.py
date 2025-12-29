@@ -25,7 +25,8 @@ try:
         MRReviewResult,
     )
     from .services import MRReviewEngine
-except (ImportError, ValueError, SystemError):
+except ImportError:
+    # Fallback for direct script execution (not as a module)
     from glab_client import GitLabClient, GitLabConfig
     from models import (
         GitLabRunnerConfig,

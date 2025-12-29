@@ -23,7 +23,8 @@ try:
         ReviewCategory,
         ReviewSeverity,
     )
-except (ImportError, ValueError, SystemError):
+except ImportError:
+    # Fallback for direct script execution (not as a module)
     from models import (
         GitLabRunnerConfig,
         MergeVerdict,
@@ -270,7 +271,11 @@ Provide your review in the following JSON format:
 
             except json.JSONDecodeError as e:
                 print(f"[AI] Failed to parse JSON: {e}", flush=True)
-                summary = "Review completed but failed to parse structured output."
+                print(f"[AI] Raw response (first 500 chars): {result_text[:500]}", flush=True)
+                summary = "Review completed but failed to parse structured output. Please re-run the review."
+                # Return with empty findings but keep verdict as READY_TO_MERGE
+                # since we couldn't determine if there are actual issues
+                verdict = MergeVerdict.MERGE_WITH_CHANGES  # Indicate caution needed
 
         return findings, verdict, summary, blockers
 

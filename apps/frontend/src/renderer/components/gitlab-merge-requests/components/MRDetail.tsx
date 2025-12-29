@@ -23,6 +23,7 @@ import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Progress } from '../../ui/progress';
+import { ErrorBoundary } from '../../ui/error-boundary';
 import { ReviewFindings } from './ReviewFindings';
 import type {
   GitLabMergeRequest,
@@ -342,6 +343,7 @@ export function MRDetail({
   };
 
   return (
+    <ErrorBoundary>
     <ScrollArea className="flex-1">
       <div className="p-4 space-y-4">
         {/* Header */}
@@ -671,5 +673,6 @@ export function MRDetail({
         )}
       </div>
     </ScrollArea>
+    </ErrorBoundary>
   );
 }
