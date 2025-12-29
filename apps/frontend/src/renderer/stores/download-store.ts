@@ -25,6 +25,18 @@ interface DownloadState {
   getActiveDownloads: () => DownloadProgress[];
 }
 
+// Progress tracking state for speed calculation
+// Defined before store so cleanup can be called from store actions
+const progressTracker: Record<string, { lastCompleted: number; lastUpdate: number }> = {};
+
+/**
+ * Clean up progress tracker entry to prevent memory leaks.
+ * Called when downloads are cleared.
+ */
+function cleanupProgressTracker(modelName: string): void {
+  delete progressTracker[modelName];
+}
+
 export const useDownloadStore = create<DownloadState>((set, get) => ({
   downloads: {},
 
@@ -64,6 +76,9 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
       const existing = state.downloads[modelName];
       if (!existing) return state;
 
+      // Clean up progress tracker when download completes
+      cleanupProgressTracker(modelName);
+
       return {
         downloads: {
           ...state.downloads,
@@ -81,6 +96,9 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
       const existing = state.downloads[modelName];
       if (!existing) return state;
 
+      // Clean up progress tracker when download fails
+      cleanupProgressTracker(modelName);
+
       return {
         downloads: {
           ...state.downloads,
@@ -95,6 +113,9 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
 
   clearDownload: (modelName: string) =>
     set((state) => {
+      // Clean up progress tracker to prevent memory leaks
+      cleanupProgressTracker(modelName);
+
       const { [modelName]: _, ...rest } = state.downloads;
       return { downloads: rest };
     }),
@@ -113,9 +134,6 @@ export const useDownloadStore = create<DownloadState>((set, get) => ({
     );
   },
 }));
-
-// Progress tracking state for speed calculation
-const progressTracker: Record<string, { lastCompleted: number; lastUpdate: number }> = {};
 
 /**
  * Subscribe to download progress events from the main process.

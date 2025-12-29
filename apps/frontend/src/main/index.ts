@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell, nativeImage } from 'electron';
 import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -144,10 +144,19 @@ app.whenReady().then(() => {
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
 
     // Validate and migrate autoBuildPath - must contain runners/spec_runner.py
+    // Uses EAFP pattern (try/catch with accessSync) instead of existsSync to avoid TOCTOU race conditions
     let validAutoBuildPath = settings.autoBuildPath;
     if (validAutoBuildPath) {
       const specRunnerPath = join(validAutoBuildPath, 'runners', 'spec_runner.py');
-      if (!existsSync(specRunnerPath)) {
+      let specRunnerExists = false;
+      try {
+        accessSync(specRunnerPath);
+        specRunnerExists = true;
+      } catch {
+        // File doesn't exist or isn't accessible
+      }
+
+      if (!specRunnerExists) {
         // Migration: Try to fix stale paths from old project structure
         // Old structure: /path/to/project/auto-claude
         // New structure: /path/to/project/apps/backend
@@ -157,7 +166,15 @@ app.whenReady().then(() => {
           const correctedPath = join(basePath, 'apps', 'backend');
           const correctedSpecRunnerPath = join(correctedPath, 'runners', 'spec_runner.py');
 
-          if (existsSync(correctedSpecRunnerPath)) {
+          let correctedPathExists = false;
+          try {
+            accessSync(correctedSpecRunnerPath);
+            correctedPathExists = true;
+          } catch {
+            // Corrected path doesn't exist
+          }
+
+          if (correctedPathExists) {
             console.log('[main] Migrating autoBuildPath from old structure:', validAutoBuildPath, '->', correctedPath);
             settings.autoBuildPath = correctedPath;
             validAutoBuildPath = correctedPath;
