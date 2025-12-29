@@ -11,7 +11,7 @@ import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handle
 import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
-import { logger, setupErrorLogging } from './app-logger';
+import { setupErrorLogging } from './app-logger';
 import type { AppSettings } from '../shared/types';
 
 // Setup error logging early (captures uncaught exceptions)
