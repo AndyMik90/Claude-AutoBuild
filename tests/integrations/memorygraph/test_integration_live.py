@@ -19,8 +19,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "apps" / "backend"))
 
 from integrations.memorygraph.client import MemoryGraphClient
-from integrations.memorygraph.storage import save_to_memorygraph
 from integrations.memorygraph.context import get_context_for_subtask
+from integrations.memorygraph.storage import save_to_memorygraph
 
 
 def is_memorygraph_server_available() -> bool:

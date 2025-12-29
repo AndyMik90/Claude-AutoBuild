@@ -75,7 +75,7 @@ MEMORYGRAPH_ENABLED=true
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │              Auto-Claude Agent                  │
 │                                                 │
@@ -198,7 +198,8 @@ if is_memorygraph_enabled():
 ## Troubleshooting
 
 ### MemoryGraph server not found
-```
+
+```text
 ERROR: MemoryGraph command not found - is it installed?
 ```
 
@@ -229,7 +230,7 @@ pipx install memorygraph
 
 ## Files
 
-```
+```text
 apps/backend/integrations/memorygraph/
 ├── __init__.py          # Module exports + lazy loading
 ├── config.py            # Configuration management
