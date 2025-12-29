@@ -6,7 +6,10 @@ Handles episode storage, retrieval, and filtering operations.
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
+
+from file_lock import FileLock
 
 from .schema import (
     EPISODE_TYPE_CODEBASE_DISCOVERY,
@@ -40,6 +43,20 @@ class GraphitiQueries:
         self.group_id = group_id
         self.spec_context_id = spec_context_id
 
+    def _lock_timeout_seconds(self) -> float:
+        try:
+            return float(os.environ.get("AUTO_CLAUDE_MEMORY_LOCK_TIMEOUT", "10"))
+        except Exception:
+            return 10.0
+
+    def _db_lock_path(self):
+        # Lock on the DB path (file/dir) used by the driver
+        return self.client.config.get_db_path()
+
+    async def _add_episode_locked(self, **kwargs) -> None:
+        async with FileLock(self._db_lock_path(), timeout=self._lock_timeout_seconds()):
+            await self.client.graphiti.add_episode(**kwargs)
+
     async def add_session_insight(
         self,
         session_num: int,
@@ -66,7 +83,7 @@ class GraphitiQueries:
                 **insights,
             }
 
-            await self.client.graphiti.add_episode(
+            await self._add_episode_locked(
                 name=f"session_{session_num:03d}_{self.spec_context_id}",
                 episode_body=json.dumps(episode_content),
                 source=EpisodeType.text,
@@ -110,7 +127,7 @@ class GraphitiQueries:
                 "files": discoveries,
             }
 
-            await self.client.graphiti.add_episode(
+            await self._add_episode_locked(
                 name=f"codebase_discovery_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                 episode_body=json.dumps(episode_content),
                 source=EpisodeType.text,
@@ -146,7 +163,7 @@ class GraphitiQueries:
                 "pattern": pattern,
             }
 
-            await self.client.graphiti.add_episode(
+            await self._add_episode_locked(
                 name=f"pattern_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                 episode_body=json.dumps(episode_content),
                 source=EpisodeType.text,
@@ -182,7 +199,7 @@ class GraphitiQueries:
                 "gotcha": gotcha,
             }
 
-            await self.client.graphiti.add_episode(
+            await self._add_episode_locked(
                 name=f"gotcha_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                 episode_body=json.dumps(episode_content),
                 source=EpisodeType.text,
@@ -230,7 +247,7 @@ class GraphitiQueries:
                 **(metadata or {}),
             }
 
-            await self.client.graphiti.add_episode(
+            await self._add_episode_locked(
                 name=f"task_outcome_{task_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                 episode_body=json.dumps(episode_content),
                 source=EpisodeType.text,
@@ -281,7 +298,7 @@ class GraphitiQueries:
                         "gotchas": file_insight.get("gotchas", []),
                     }
 
-                    await self.client.graphiti.add_episode(
+                    await self._add_episode_locked(
                         name=f"file_insight_{file_insight.get('path', 'unknown').replace('/', '_')}",
                         episode_body=json.dumps(episode_content),
                         source=EpisodeType.text,
@@ -324,7 +341,7 @@ class GraphitiQueries:
                         "example": example,
                     }
 
-                    await self.client.graphiti.add_episode(
+                    await self._add_episode_locked(
                         name=f"pattern_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S%f')}",
                         episode_body=json.dumps(episode_content),
                         source=EpisodeType.text,
@@ -365,7 +382,7 @@ class GraphitiQueries:
                         "solution": solution,
                     }
 
-                    await self.client.graphiti.add_episode(
+                    await self._add_episode_locked(
                         name=f"gotcha_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S%f')}",
                         episode_body=json.dumps(episode_content),
                         source=EpisodeType.text,
@@ -402,7 +419,7 @@ class GraphitiQueries:
                         "changed_files": insights.get("changed_files", []),
                     }
 
-                    await self.client.graphiti.add_episode(
+                    await self._add_episode_locked(
                         name=f"task_outcome_{subtask_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                         episode_body=json.dumps(episode_content),
                         source=EpisodeType.text,
@@ -435,7 +452,7 @@ class GraphitiQueries:
                         "success": insights.get("success", False),
                     }
 
-                    await self.client.graphiti.add_episode(
+                    await self._add_episode_locked(
                         name=f"recommendations_{insights.get('subtask_id', 'unknown')}",
                         episode_body=json.dumps(episode_content),
                         source=EpisodeType.text,
