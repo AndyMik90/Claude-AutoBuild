@@ -6,16 +6,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
+import { getTitleMaxWidthClass } from './types';
+import { cn } from '../../lib/utils';
 
 interface TerminalTitleProps {
   title: string;
   associatedTask?: Task;
   onTitleChange: (newTitle: string) => void;
+  terminalCount?: number;
 }
 
-export function TerminalTitle({ title, associatedTask, onTitleChange }: TerminalTitleProps) {
+export function TerminalTitle({ title, associatedTask, onTitleChange, terminalCount = 1 }: TerminalTitleProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const maxWidthClass = getTitleMaxWidthClass(terminalCount);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleStartEdit = useCallback(() => {
@@ -60,7 +64,7 @@ export function TerminalTitle({ title, associatedTask, onTitleChange }: Terminal
         onKeyDown={handleKeyDown}
         onBlur={handleSave}
         onClick={(e) => e.stopPropagation()}
-        className="text-xs font-medium text-foreground bg-transparent border border-primary/50 rounded px-1 py-0.5 outline-none focus:border-primary max-w-32"
+        className={cn("text-xs font-medium text-foreground bg-transparent border border-primary/50 rounded px-1 py-0.5 outline-none focus:border-primary", maxWidthClass)}
         style={{ width: `${Math.max(editedTitle.length * 6 + 16, 60)}px` }}
       />
     );
@@ -72,7 +76,7 @@ export function TerminalTitle({ title, associatedTask, onTitleChange }: Terminal
         <Tooltip>
           <TooltipTrigger asChild>
             <span
-              className="text-xs font-medium text-foreground truncate max-w-32 cursor-text hover:text-primary/80 transition-colors"
+              className={cn("text-xs font-medium text-foreground truncate cursor-text hover:text-primary/80 transition-colors", maxWidthClass)}
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 handleStartEdit();
@@ -95,7 +99,7 @@ export function TerminalTitle({ title, associatedTask, onTitleChange }: Terminal
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className="text-xs font-medium text-foreground truncate max-w-32 cursor-text hover:text-primary/80 transition-colors"
+            className={cn("text-xs font-medium text-foreground truncate cursor-text hover:text-primary/80 transition-colors", maxWidthClass)}
             onDoubleClick={(e) => {
               e.stopPropagation();
               handleStartEdit();

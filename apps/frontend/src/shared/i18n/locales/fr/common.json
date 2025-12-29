@@ -98,5 +98,18 @@
     "readyForFollowup": "Prêt pour suivi",
     "readyToMerge": "Prêt à fusionner",
     "pendingPost": "En attente de publication"
+  },
+  "downloads": {
+    "toggleExpand": "Afficher/masquer les détails",
+    "downloading": "Téléchargement de {{count}} modèle",
+    "downloading_plural": "Téléchargement de {{count}} modèles",
+    "complete": "{{count}} téléchargement terminé",
+    "complete_plural": "{{count}} téléchargements terminés",
+    "failed": "{{count}} téléchargement échoué",
+    "failed_plural": "{{count}} téléchargements échoués",
+    "clearAll": "Effacer tous les téléchargements terminés",
+    "done": "Terminé",
+    "failedLabel": "Échoué",
+    "starting": "Démarrage..."
   }
 }

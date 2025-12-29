@@ -10,7 +10,7 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailu
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
+import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Process spawning and lifecycle management
@@ -224,9 +224,65 @@ export class AgentProcessManager {
         const graphitiUrl = project.settings.graphitiMcpUrl || 'http://localhost:8000/mcp/';
         env['GRAPHITI_MCP_URL'] = graphitiUrl;
       }
+
+      // CLAUDE.md integration (enabled by default)
+      if (project.settings.useClaudeMd !== false) {
+        env['USE_CLAUDE_MD'] = 'true';
+      }
     }
 
     return env;
+  }
+
+  /**
+   * Load environment variables from project's .auto-claude/.env file
+   * This contains frontend-configured settings like memory/Graphiti configuration
+   */
+  private loadProjectEnv(projectPath: string): Record<string, string> {
+    // Find project by path to get autoBuildPath
+    const projects = projectStore.getProjects();
+    const project = projects.find((p) => p.path === projectPath);
+
+    if (!project?.autoBuildPath) {
+      return {};
+    }
+
+    const envPath = path.join(projectPath, project.autoBuildPath, '.env');
+    if (!existsSync(envPath)) {
+      return {};
+    }
+
+    try {
+      const envContent = readFileSync(envPath, 'utf-8');
+      const envVars: Record<string, string> = {};
+
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      for (const line of envContent.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        // Skip comments and empty lines
+        if (!trimmed || trimmed.startsWith('#')) {
+          continue;
+        }
+
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.substring(0, eqIndex).trim();
+          let value = trimmed.substring(eqIndex + 1).trim();
+
+          // Remove quotes if present
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+
+          envVars[key] = value;
+        }
+      }
+
+      return envVars;
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -289,9 +345,18 @@ export class AgentProcessManager {
     const spawnId = this.state.generateSpawnId();
     const env = this.setupProcessEnvironment(extraEnv);
 
+    // Get Python environment (PYTHONPATH for bundled packages, etc.)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
     // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], { cwd, env });
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+      cwd,
+      env: {
+        ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
+        ...pythonEnv // Include Python environment (PYTHONPATH for bundled packages)
+      }
+    });
 
     this.state.addProcess(taskId, {
       taskId,
@@ -507,10 +572,16 @@ export class AgentProcessManager {
 
   /**
    * Get combined environment variables for a project
+   *
+   * Priority (later sources override earlier):
+   * 1. Backend source .env (apps/backend/.env) - CLI defaults
+   * 2. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
+   * 3. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
     const autoBuildEnv = this.loadAutoBuildEnv();
-    const projectEnv = this.getProjectEnvVars(projectPath);
-    return { ...autoBuildEnv, ...projectEnv };
+    const projectFileEnv = this.loadProjectEnv(projectPath);
+    const projectSettingsEnv = this.getProjectEnvVars(projectPath);
+    return { ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }

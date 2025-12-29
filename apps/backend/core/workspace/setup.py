@@ -143,6 +143,43 @@ def choose_workspace(
         return WorkspaceMode.ISOLATED
 
 
+def copy_env_files_to_worktree(project_dir: Path, worktree_path: Path) -> list[str]:
+    """
+    Copy .env files from project root to worktree (without overwriting).
+
+    This ensures the worktree has access to environment variables needed
+    to run the project (e.g., API keys, database URLs).
+
+    Args:
+        project_dir: The main project directory
+        worktree_path: Path to the worktree
+
+    Returns:
+        List of copied file names
+    """
+    copied = []
+    # Common .env file patterns - copy if they exist
+    env_patterns = [
+        ".env",
+        ".env.local",
+        ".env.development",
+        ".env.development.local",
+        ".env.test",
+        ".env.test.local",
+    ]
+
+    for pattern in env_patterns:
+        env_file = project_dir / pattern
+        if env_file.is_file():
+            target = worktree_path / pattern
+            if not target.exists():
+                shutil.copy2(env_file, target)
+                copied.append(pattern)
+                debug(MODULE, f"Copied {pattern} to worktree")
+
+    return copied
+
+
 def copy_spec_to_worktree(
     source_spec_dir: Path,
     worktree_path: Path,
@@ -222,6 +259,13 @@ def setup_workspace(
 
     # Get or create worktree for THIS SPECIFIC SPEC
     worktree_info = manager.get_or_create_worktree(spec_name)
+
+    # Copy .env files to worktree so user can run the project
+    copied_env_files = copy_env_files_to_worktree(project_dir, worktree_info.path)
+    if copied_env_files:
+        print_status(
+            f"Environment files copied: {', '.join(copied_env_files)}", "success"
+        )
 
     # Copy spec files to worktree if provided
     localized_spec_dir = None

@@ -117,17 +117,18 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
-      // Get base branch from project settings for worktree creation
-      const baseBranch = project.settings?.mainBranch;
+      // Get base branch: task-level override takes precedence over project settings
+      const baseBranch = task.metadata?.baseBranch || project.settings?.mainBranch;
 
       if (needsSpecCreation) {
         // No spec file - need to run spec_runner.py to create the spec
         const taskDescription = task.description || task.title;
-        console.warn('[TASK_START] Starting spec creation for:', task.specId, 'in:', specDir);
+        console.warn('[TASK_START] Starting spec creation for:', task.specId, 'in:', specDir, 'baseBranch:', baseBranch);
 
         // Start spec creation process - pass the existing spec directory
         // so spec_runner uses it instead of creating a new one
-        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
+        // Also pass baseBranch so worktrees are created from the correct branch
+        agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata, baseBranch);
       } else if (needsImplementation) {
         // Spec exists but no subtasks - run run.py to create implementation plan and execute
         // Read the spec.md to get the task description
@@ -483,11 +484,14 @@ export function registerTaskExecutionHandlers(
 
           console.warn('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
+          // Get base branch: task-level override takes precedence over project settings
+          const baseBranchForUpdate = task.metadata?.baseBranch || project.settings?.mainBranch;
+
           if (needsSpecCreation) {
             // No spec file - need to run spec_runner.py to create the spec
             const taskDescription = task.description || task.title;
             console.warn('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
-            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata);
+            agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDir, task.metadata, baseBranchForUpdate);
           } else if (needsImplementation) {
             // Spec exists but no subtasks - run run.py to create implementation plan and execute
             console.warn('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
@@ -497,7 +501,8 @@ export function registerTaskExecutionHandlers(
               task.specId,
               {
                 parallel: false,
-                workers: 1
+                workers: 1,
+                baseBranch: baseBranchForUpdate
               }
             );
           } else {
@@ -510,7 +515,8 @@ export function registerTaskExecutionHandlers(
               task.specId,
               {
                 parallel: false,
-                workers: 1
+                workers: 1,
+                baseBranch: baseBranchForUpdate
               }
             );
           }
@@ -755,11 +761,14 @@ export function registerTaskExecutionHandlers(
             const hasSpec = existsSync(specFilePath);
             const needsSpecCreation = !hasSpec;
 
+            // Get base branch: task-level override takes precedence over project settings
+            const baseBranchForRecovery = task.metadata?.baseBranch || project.settings?.mainBranch;
+
             if (needsSpecCreation) {
               // No spec file - need to run spec_runner.py to create the spec
               const taskDescription = task.description || task.title;
               console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-              agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata);
+              agentManager.startSpecCreation(task.specId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery);
             } else {
               // Spec exists - run task execution
               console.warn(`[Recovery] Starting task execution for: ${task.specId}`);
@@ -769,7 +778,8 @@ export function registerTaskExecutionHandlers(
                 task.specId,
                 {
                   parallel: false,
-                  workers: 1
+                  workers: 1,
+                  baseBranch: baseBranchForRecovery
                 }
               );
             }

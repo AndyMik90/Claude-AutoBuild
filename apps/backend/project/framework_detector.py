@@ -37,6 +37,7 @@ class FrameworkDetector:
         self.detect_python_frameworks()
         self.detect_ruby_frameworks()
         self.detect_php_frameworks()
+        self.detect_dart_frameworks()
         return self.frameworks
 
     def detect_nodejs_frameworks(self) -> None:
@@ -239,3 +240,26 @@ class FrameworkDetector:
             self.frameworks.append("symfony")
         if "phpunit/phpunit" in deps:
             self.frameworks.append("phpunit")
+
+    def detect_dart_frameworks(self) -> None:
+        """Detect Dart/Flutter frameworks from pubspec.yaml."""
+        # Read pubspec.yaml as text since we don't have a YAML parser
+        content = self.parser.read_text("pubspec.yaml")
+        if not content:
+            return
+
+        content_lower = content.lower()
+
+        # Detect Flutter
+        if "flutter:" in content_lower or "sdk: flutter" in content_lower:
+            self.frameworks.append("flutter")
+
+        # Detect Dart backend frameworks
+        if "dart_frog" in content_lower:
+            self.frameworks.append("dart_frog")
+        if "serverpod" in content_lower:
+            self.frameworks.append("serverpod")
+        if "shelf" in content_lower:
+            self.frameworks.append("shelf")
+        if "aqueduct" in content_lower:
+            self.frameworks.append("aqueduct")

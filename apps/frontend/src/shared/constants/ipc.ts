@@ -35,6 +35,9 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
+  TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
+  TASK_WORKTREE_DETECT_TOOLS: 'task:worktreeDetectTools',  // Detect installed IDEs/terminals
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
@@ -363,5 +366,12 @@ export const IPC_CHANNELS = {
   RELEASE_GET_VERSIONS: 'release:getVersions',
 
   // Release events (main -> renderer)
-  RELEASE_PROGRESS: 'release:progress'
+  RELEASE_PROGRESS: 'release:progress',
+
+  // Debug operations
+  DEBUG_GET_INFO: 'debug:getInfo',
+  DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
+  DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
+  DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles'
 } as const;
