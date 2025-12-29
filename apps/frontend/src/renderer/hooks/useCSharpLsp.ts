@@ -45,7 +45,7 @@ export function useCSharpLsp({ workspaceRoot, monaco, editor }: UseCSharpLspOpti
         lspStore.stop();
       }
     };
-  }, [workspaceRoot]);
+  }, [workspaceRoot, lspStore.status, lspStore.stop]);
 
   // Register Monaco language providers
   useEffect(() => {
