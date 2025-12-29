@@ -49,8 +49,7 @@
     "fineTuneDescription": "Ajustez de 75% à 200% par incréments de 5%",
     "default": "Par défaut",
     "comfortable": "Confortable",
-    "large": "Grand",
-    "preview": "Les changements sont prévisualisés immédiatement. Cliquez sur Enregistrer pour les conserver."
+    "large": "Grand"
   },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
@@ -75,6 +74,9 @@
     "githubCLIPath": "Chemin GitHub CLI",
     "githubCLIPathDescription": "Chemin vers l'exécutable GitHub CLI (gh) (laisser vide pour détection automatique)",
     "githubCLIPathPlaceholder": "gh (par défaut)",
+    "claudePath": "Chemin Claude CLI",
+    "claudePathDescription": "Chemin vers l'exécutable Claude CLI (laisser vide pour détection automatique)",
+    "claudePathPlaceholder": "claude (par défaut)",
     "detectedPath": "Détecté automatiquement",
     "detectedVersion": "Version",
     "detectedSource": "Source",

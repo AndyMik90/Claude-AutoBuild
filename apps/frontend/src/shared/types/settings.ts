@@ -86,6 +86,7 @@ export interface AppSettings {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  claudePath?: string;
   autoBuildPath?: string;
   projectPath?: string;
   autoUpdateAutoBuild: boolean;

@@ -159,7 +159,9 @@ export function App() {
       }
       console.log('[App] Tabs already persisted, checking active project');
       // If there's an active project but no tabs open for it, open a tab
-      if (activeProjectId && !projectTabs.some(tab => tab.id === activeProjectId)) {
+      // Note: Use openProjectIds instead of projectTabs to avoid re-render loop
+      // (projectTabs creates a new array on every render)
+      if (activeProjectId && !openProjectIds.includes(activeProjectId)) {
         console.log('[App] Active project has no tab, opening:', activeProjectId);
         openProjectTab(activeProjectId);
       }
@@ -172,7 +174,7 @@ export function App() {
         console.log('[App] Tab state is valid, no action needed');
       }
     }
-  }, [projects, activeProjectId, selectedProjectId, openProjectIds, projectTabs, openProjectTab, setActiveProject]);
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);

@@ -178,6 +178,7 @@ export interface ElectronAPI {
   getTerminalSessionsForDate: (date: string, projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
+  checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
 
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -240,6 +241,7 @@ export interface ElectronAPI {
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
     gh: import('./cli').ToolDetectionResult;
+    claude: import('./cli').ToolDetectionResult;
   }>>;
 
   // Template operations

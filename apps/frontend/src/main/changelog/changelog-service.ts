@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
 import * as path from 'path';
-import * as os from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { app } from 'electron';
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../../shared/constants';
+import { getToolPath } from '../cli-tool-manager';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -37,7 +37,7 @@ import { getConfiguredPythonPath } from '../python-env-manager';
 export class ChangelogService extends EventEmitter {
   // Python path will be configured by pythonEnvManager after venv is ready
   private _pythonPath: string | null = null;
-  private claudePath: string = 'claude';
+  private claudePath: string;
   private autoBuildSourcePath: string = '';
   private cachedEnv: Record<string, string> | null = null;
   private debugEnabled: boolean | null = null;
@@ -46,48 +46,9 @@ export class ChangelogService extends EventEmitter {
 
   constructor() {
     super();
-    this.detectClaudePath();
-    this.debug('ChangelogService initialized');
-  }
-
-  /**
-   * Detect the full path to the claude CLI
-   * Electron apps don't inherit shell PATH, so we need to find it explicitly
-   */
-  private detectClaudePath(): void {
-    const homeDir = os.homedir();
-
-    // Platform-specific possible paths
-    const possiblePaths = process.platform === 'win32'
-      ? [
-          // Windows paths
-          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-          path.join(homeDir, '.local', 'bin', 'claude.exe'),
-          'C:\\Program Files\\Claude\\claude.exe',
-          'C:\\Program Files (x86)\\Claude\\claude.exe',
-          // Also check if claude is in system PATH
-          'claude'
-        ]
-      : [
-          // Unix paths (macOS/Linux)
-          '/usr/local/bin/claude',
-          '/opt/homebrew/bin/claude',
-          path.join(homeDir, '.local/bin/claude'),
-          path.join(homeDir, 'bin/claude'),
-          // Also check if claude is in system PATH
-          'claude'
-        ];
-
-    for (const claudePath of possiblePaths) {
-      if (claudePath === 'claude' || existsSync(claudePath)) {
-        this.claudePath = claudePath;
-        this.debug('Claude CLI found at:', claudePath);
-        return;
-      }
-    }
-
-    this.debug('Claude CLI not found in common locations, using default');
+    // Use centralized CLI tool manager for Claude detection
+    this.claudePath = getToolPath('claude');
+    this.debug('ChangelogService initialized with Claude CLI:', this.claudePath);
   }
 
   /**

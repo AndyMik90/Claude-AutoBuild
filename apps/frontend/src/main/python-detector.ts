@@ -359,7 +359,7 @@ function verifyIsPython(pythonCmd: string): boolean {
       windowsHide: true,
       shell: false
     }).toString().trim();
-    
+
     // Must output "Python X.Y.Z"
     return /^Python \d+\.\d+/.test(output);
   } catch {
@@ -369,13 +369,13 @@ function verifyIsPython(pythonCmd: string): boolean {
 
 /**
  * Validate a Python path for security before use in spawn().
- * 
+ *
  * Security checks:
  * 1. No shell metacharacters that could enable command injection
  * 2. Path must match allowlist of known Python locations OR be a safe command
  * 3. If a file path, must exist and be executable
  * 4. Must actually be Python (verified via --version)
- * 
+ *
  * @param pythonPath - The Python path or command to validate
  * @returns Validation result with success status and reason
  */
@@ -385,7 +385,7 @@ export function validatePythonPath(pythonPath: string): PythonPathValidation {
   }
 
   const trimmedPath = pythonPath.trim();
-  
+
   // Strip surrounding quotes for validation
   let cleanPath = trimmedPath;
   if ((cleanPath.startsWith('"') && cleanPath.endsWith('"')) ||
@@ -395,9 +395,9 @@ export function validatePythonPath(pythonPath: string): PythonPathValidation {
 
   // Security check 1: No shell metacharacters
   if (DANGEROUS_SHELL_CHARS.test(cleanPath)) {
-    return { 
-      valid: false, 
-      reason: 'Path contains dangerous shell metacharacters' 
+    return {
+      valid: false,
+      reason: 'Path contains dangerous shell metacharacters'
     };
   }
 
@@ -407,56 +407,56 @@ export function validatePythonPath(pythonPath: string): PythonPathValidation {
     if (verifyIsPython(cleanPath)) {
       return { valid: true, sanitizedPath: cleanPath };
     }
-    return { 
-      valid: false, 
-      reason: `Command '${cleanPath}' does not appear to be Python` 
+    return {
+      valid: false,
+      reason: `Command '${cleanPath}' does not appear to be Python`
     };
   }
 
   // It's a file path - apply stricter validation
   const isFilePath = cleanPath.includes('/') || cleanPath.includes('\\');
-  
+
   if (isFilePath) {
     // Normalize the path to prevent directory traversal tricks
     const normalizedPath = path.normalize(cleanPath);
-    
+
     // Check for path traversal attempts
     if (normalizedPath.includes('..')) {
-      return { 
-        valid: false, 
-        reason: 'Path contains directory traversal sequences' 
+      return {
+        valid: false,
+        reason: 'Path contains directory traversal sequences'
       };
     }
 
     // Security check 2: Must match allowlist
     if (!matchesAllowedPattern(normalizedPath)) {
-      return { 
-        valid: false, 
-        reason: 'Path does not match allowed Python locations. Expected: system Python, Homebrew, pyenv, or virtual environment paths' 
+      return {
+        valid: false,
+        reason: 'Path does not match allowed Python locations. Expected: system Python, Homebrew, pyenv, or virtual environment paths'
       };
     }
 
     // Security check 3: File must exist
     if (!existsSync(normalizedPath)) {
-      return { 
-        valid: false, 
-        reason: 'Python executable does not exist at specified path' 
+      return {
+        valid: false,
+        reason: 'Python executable does not exist at specified path'
       };
     }
 
     // Security check 4: Must be executable (Unix) or .exe (Windows)
     if (process.platform !== 'win32' && !isExecutable(normalizedPath)) {
-      return { 
-        valid: false, 
-        reason: 'File exists but is not executable' 
+      return {
+        valid: false,
+        reason: 'File exists but is not executable'
       };
     }
 
     // Security check 5: Verify it's actually Python
     if (!verifyIsPython(normalizedPath)) {
-      return { 
-        valid: false, 
-        reason: 'File exists but does not appear to be a Python interpreter' 
+      return {
+        valid: false,
+        reason: 'File exists but does not appear to be a Python interpreter'
       };
     }
 
@@ -464,9 +464,9 @@ export function validatePythonPath(pythonPath: string): PythonPathValidation {
   }
 
   // Unknown format - reject
-  return { 
-    valid: false, 
-    reason: 'Unrecognized Python path format' 
+  return {
+    valid: false,
+    reason: 'Unrecognized Python path format'
   };
 }
 
@@ -474,12 +474,12 @@ export function getValidatedPythonPath(providedPath: string | undefined, service
   if (!providedPath) {
     return findPythonCommand() || 'python';
   }
-  
+
   const validation = validatePythonPath(providedPath);
   if (validation.valid) {
     return validation.sanitizedPath || providedPath;
   }
-  
+
   console.error(`[${serviceName}] Invalid Python path rejected: ${validation.reason}`);
   return findPythonCommand() || 'python';
 }

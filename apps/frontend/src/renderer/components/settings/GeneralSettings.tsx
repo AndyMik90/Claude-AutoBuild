@@ -96,6 +96,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
     python: ToolDetectionResult;
     git: ToolDetectionResult;
     gh: ToolDetectionResult;
+    claude: ToolDetectionResult;
   } | null>(null);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
 
@@ -105,7 +106,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
       setIsLoadingTools(true);
       window.electronAPI
         .getCliToolsInfo()
-        .then((result: { success: boolean; data?: { python: ToolDetectionResult; git: ToolDetectionResult; gh: ToolDetectionResult } }) => {
+        .then((result: { success: boolean; data?: { python: ToolDetectionResult; git: ToolDetectionResult; gh: ToolDetectionResult; claude: ToolDetectionResult } }) => {
           if (result.success && result.data) {
             setToolsInfo(result.data);
           }
@@ -310,6 +311,24 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           {!settings.githubCLIPath && (
             <ToolDetectionDisplay
               info={toolsInfo?.gh || null}
+              isLoading={isLoadingTools}
+              t={t}
+            />
+          )}
+        </div>
+        <div className="space-y-3">
+          <Label htmlFor="claudePath" className="text-sm font-medium text-foreground">{t('general.claudePath')}</Label>
+          <p className="text-sm text-muted-foreground">{t('general.claudePathDescription')}</p>
+          <Input
+            id="claudePath"
+            placeholder={t('general.claudePathPlaceholder')}
+            className="w-full max-w-lg"
+            value={settings.claudePath || ''}
+            onChange={(e) => onSettingsChange({ ...settings, claudePath: e.target.value })}
+          />
+          {!settings.claudePath && (
+            <ToolDetectionDisplay
+              info={toolsInfo?.claude || null}
               isLoading={isLoadingTools}
               t={t}
             />

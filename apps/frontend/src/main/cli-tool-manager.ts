@@ -1,7 +1,7 @@
 /**
  * CLI Tool Manager
  *
- * Centralized management for CLI tools (Python, Git, GitHub CLI) used throughout
+ * Centralized management for CLI tools (Python, Git, GitHub CLI, Claude CLI) used throughout
  * the application. Provides intelligent multi-level detection with user
  * configuration support.
  *
@@ -23,6 +23,7 @@
 import { execSync, execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
+import os from 'os';
 import { app } from 'electron';
 import { findExecutable } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
@@ -30,7 +31,7 @@ import type { ToolDetectionResult } from '../shared/types';
 /**
  * Supported CLI tools managed by this system
  */
-export type CLITool = 'python' | 'git' | 'gh';
+export type CLITool = 'python' | 'git' | 'gh' | 'claude';
 
 /**
  * User configuration for CLI tool paths
@@ -40,6 +41,7 @@ export interface ToolConfig {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  claudePath?: string;
 }
 
 /**
@@ -147,6 +149,8 @@ class CLIToolManager {
         return this.detectGit();
       case 'gh':
         return this.detectGitHubCLI();
+      case 'claude':
+        return this.detectClaude();
       default:
         return {
           found: false,
@@ -441,6 +445,111 @@ class CLIToolManager {
   }
 
   /**
+   * Detect Claude CLI with multi-level priority
+   *
+   * Priority order:
+   * 1. User configuration
+   * 2. Homebrew claude (macOS)
+   * 3. System PATH
+   * 4. Windows/macOS/Linux standard locations
+   *
+   * @returns Detection result for Claude CLI
+   */
+  private detectClaude(): ToolDetectionResult {
+    // 1. User configuration
+    if (this.userConfig.claudePath) {
+      const validation = this.validateClaude(this.userConfig.claudePath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: this.userConfig.claudePath,
+          version: validation.version,
+          source: 'user-config',
+          message: `Using user-configured Claude CLI: ${this.userConfig.claudePath}`,
+        };
+      }
+      console.warn(
+        `[Claude CLI] User-configured path invalid: ${validation.message}`
+      );
+    }
+
+    // 2. Homebrew (macOS)
+    if (process.platform === 'darwin') {
+      const homebrewPaths = [
+        '/opt/homebrew/bin/claude', // Apple Silicon
+        '/usr/local/bin/claude', // Intel Mac
+      ];
+
+      for (const claudePath of homebrewPaths) {
+        if (existsSync(claudePath)) {
+          const validation = this.validateClaude(claudePath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: claudePath,
+              version: validation.version,
+              source: 'homebrew',
+              message: `Using Homebrew Claude CLI: ${claudePath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 3. System PATH (augmented)
+    const claudePath = findExecutable('claude');
+    if (claudePath) {
+      const validation = this.validateClaude(claudePath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: claudePath,
+          version: validation.version,
+          source: 'system-path',
+          message: `Using system Claude CLI: ${claudePath}`,
+        };
+      }
+    }
+
+    // 4. Platform-specific standard locations
+    const homeDir = os.homedir();
+    const platformPaths = process.platform === 'win32'
+      ? [
+          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+          path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+          path.join(homeDir, '.local', 'bin', 'claude.exe'),
+          'C:\\Program Files\\Claude\\claude.exe',
+          'C:\\Program Files (x86)\\Claude\\claude.exe',
+        ]
+      : [
+          path.join(homeDir, '.local', 'bin', 'claude'),
+          path.join(homeDir, 'bin', 'claude'),
+        ];
+
+    for (const claudePath of platformPaths) {
+      if (existsSync(claudePath)) {
+        const validation = this.validateClaude(claudePath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: claudePath,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using Claude CLI: ${claudePath}`,
+          };
+        }
+      }
+    }
+
+    // 5. Not found
+    return {
+      found: false,
+      source: 'fallback',
+      message: 'Claude CLI not found. Install from https://claude.ai/download',
+    };
+  }
+
+  /**
    * Validate Python version and availability
    *
    * Checks that Python executable exists and meets minimum version requirement
@@ -553,6 +662,37 @@ class CLIToolManager {
       return {
         valid: false,
         message: `Failed to validate GitHub CLI: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Validate Claude CLI availability and version
+   *
+   * @param claudeCmd - The Claude CLI command to validate
+   * @returns Validation result with version information
+   */
+  private validateClaude(claudeCmd: string): ToolValidation {
+    try {
+      const version = execFileSync(claudeCmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+      }).trim();
+
+      // Claude CLI version output format: "claude-code version X.Y.Z" or similar
+      const match = version.match(/(\d+\.\d+\.\d+)/);
+      const versionStr = match ? match[1] : version.split('\n')[0];
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `Claude CLI ${versionStr} is available`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate Claude CLI: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
