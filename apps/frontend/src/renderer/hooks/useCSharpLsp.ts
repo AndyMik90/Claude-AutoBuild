@@ -21,14 +21,15 @@ interface DocumentState {
 
 export function useCSharpLsp({ workspaceRoot, monaco, editor }: UseCSharpLspOptions) {
   const lspStore = useCSharpLspStore();
+  const initializeLspStore = useCallback(() => lspStore.initialize(), [lspStore]);
   const documentsRef = useRef<Map<string, DocumentState>>(new Map());
   const providersRef = useRef<Monaco.IDisposable[]>([]);
 
   // Initialize LSP store event listeners
   useEffect(() => {
-    const cleanup = lspStore.initialize();
+    const cleanup = initializeLspStore();
     return cleanup;
-  }, []);
+  }, [initializeLspStore]);
 
   // Start LSP server when workspace changes
   useEffect(() => {
