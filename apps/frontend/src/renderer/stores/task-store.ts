@@ -263,10 +263,60 @@ export function startTask(taskId: string, options?: { parallel?: boolean; worker
 }
 
 /**
- * Stop a task
+ * Stop a task and auto-promote from queue if needed
  */
-export function stopTask(taskId: string): void {
+export async function stopTask(taskId: string): Promise<void> {
+  const store = useTaskStore.getState();
+  const task = store.tasks.find((t) => t.id === taskId || t.specId === taskId);
+
+  // Stop the task
   window.electronAPI.stopTask(taskId);
+
+  // If the task was in progress, process queue to fill the now-empty slot
+  if (task && task.status === 'in_progress') {
+    // Get project settings for maxParallelTasks
+    const projectId = task.projectId;
+    if (projectId) {
+      const projectStore = useProjectStore.getState();
+      const project = projectStore.projects.find((p) => p.id === projectId);
+      const maxParallelTasks = project?.settings.maxParallelTasks ?? 3;
+
+      // Wait a bit for the backend to update the task status
+      setTimeout(async () => {
+        await processQueueForProject(projectId, maxParallelTasks);
+      }, 500);
+    }
+  }
+}
+
+/**
+ * Process queue for a specific project - auto-promote tasks to fill capacity
+ */
+async function processQueueForProject(projectId: string, maxParallelTasks: number): Promise<void> {
+  // Loop until capacity is full or queue is empty
+  while (true) {
+    // Get CURRENT state from store
+    const currentTasks = useTaskStore.getState().tasks;
+    const projectTasks = currentTasks.filter((t) => t.projectId === projectId && !t.metadata?.archivedAt);
+
+    const inProgressCount = projectTasks.filter((t) => t.status === 'in_progress').length;
+    const queuedTasks = projectTasks.filter((t) => t.status === 'queue');
+
+    // Stop if no capacity or no queued tasks
+    if (inProgressCount >= maxParallelTasks || queuedTasks.length === 0) {
+      break;
+    }
+
+    // Get the oldest task in queue (FIFO ordering)
+    const nextTask = queuedTasks.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateA - dateB;
+    })[0];
+
+    console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress (${inProgressCount + 1}/${maxParallelTasks})`);
+    await persistTaskStatus(nextTask.id, 'in_progress');
+  }
 }
 
 /**
