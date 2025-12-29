@@ -211,11 +211,13 @@ pipx install memorygraph
 ```
 
 ### No memories being stored
+
 1. Check that `MEMORYGRAPH_ENABLED=true` in your `.env`
 2. Verify MemoryGraph server is running: `memorygraph --health`
 3. Check logs for warnings about storage failures
 
 ### No context being retrieved
+
 1. Verify memories exist: `memorygraph recall "your query"`
 2. Check that subtask description matches stored content
 3. Enable debug logging to see retrieval attempts
@@ -223,6 +225,7 @@ pipx install memorygraph
 ## Next Steps (Not Yet Implemented)
 
 ### Phase 4: Polish
+
 - Performance monitoring and optimization
 - Enhanced error reporting
 - Integration testing with live MCP server

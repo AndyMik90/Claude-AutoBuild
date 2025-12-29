@@ -10,14 +10,11 @@ Run with: pytest tests/integrations/memorygraph/test_integration_live.py -v
 import asyncio
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "apps" / "backend"))
-
+# sys.path is configured in conftest.py
 from integrations.memorygraph.client import MemoryGraphClient
 from integrations.memorygraph.context import get_context_for_subtask
 from integrations.memorygraph.storage import save_to_memorygraph
