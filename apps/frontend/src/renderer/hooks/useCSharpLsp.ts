@@ -379,7 +379,21 @@ function mapCompletionItemKind(monaco: typeof Monaco, kind: number): Monaco.lang
     8: monaco.languages.CompletionItemKind.Interface,
     9: monaco.languages.CompletionItemKind.Module,
     10: monaco.languages.CompletionItemKind.Property,
-    // ... add more mappings as needed
+    11: monaco.languages.CompletionItemKind.Unit,
+    12: monaco.languages.CompletionItemKind.Value,
+    13: monaco.languages.CompletionItemKind.Enum,
+    14: monaco.languages.CompletionItemKind.Keyword,
+    15: monaco.languages.CompletionItemKind.Snippet,
+    16: monaco.languages.CompletionItemKind.Color,
+    17: monaco.languages.CompletionItemKind.File,
+    18: monaco.languages.CompletionItemKind.Reference,
+    19: monaco.languages.CompletionItemKind.Folder,
+    20: monaco.languages.CompletionItemKind.EnumMember,
+    21: monaco.languages.CompletionItemKind.Constant,
+    22: monaco.languages.CompletionItemKind.Struct,
+    23: monaco.languages.CompletionItemKind.Event,
+    24: monaco.languages.CompletionItemKind.Operator,
+    25: monaco.languages.CompletionItemKind.TypeParameter
   };
   return map[kind] || monaco.languages.CompletionItemKind.Text;
 }
