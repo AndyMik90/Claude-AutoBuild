@@ -210,7 +210,15 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     if (!projectId) return false;
 
     try {
-      return await window.electronAPI.github.postPRReview(projectId, prNumber, selectedFindingIds);
+      const success = await window.electronAPI.github.postPRReview(projectId, prNumber, selectedFindingIds);
+      if (success) {
+        // Reload review result to get updated postedAt and finding status
+        const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
+        if (result) {
+          usePRReviewStore.getState().setPRReviewResult(projectId, result);
+        }
+      }
+      return success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to post review');
       return false;

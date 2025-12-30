@@ -109,6 +109,7 @@ export interface PRReviewResult {
   // Track if findings have been posted to GitHub (enables follow-up review)
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
+  postedAt?: string;
 }
 
 /**
@@ -205,6 +206,7 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       // Track posted findings for follow-up review eligibility
       hasPostedFindings: data.has_posted_findings ?? false,
       postedFindingIds: data.posted_finding_ids ?? [],
+      postedAt: data.posted_at,
     };
   } catch {
     // File doesn't exist or couldn't be read
@@ -708,6 +710,7 @@ export function registerPRHandlers(
             const newPostedIds = findings.map(f => f.id);
             const existingPostedIds = data.posted_finding_ids || [];
             data.posted_finding_ids = [...new Set([...existingPostedIds, ...newPostedIds])];
+            data.posted_at = new Date().toISOString();
             fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), 'utf-8');
             debugLog('Updated review result with review ID and posted findings', { prNumber, reviewId, postedCount: newPostedIds.length });
           } catch {

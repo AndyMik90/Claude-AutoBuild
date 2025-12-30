@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ExternalLink,
   User,
-  Users,
   Clock,
   GitBranch,
   FileDiff,
@@ -17,6 +16,11 @@ import {
   MessageSquare,
   AlertTriangle,
   CheckCheck,
+  ChevronRight,
+  ChevronDown,
+  Circle,
+  CircleDot,
+  Play
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -24,7 +28,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Progress } from '../../ui/progress';
 import { ReviewFindings } from './ReviewFindings';
-import type { PRData, PRReviewResult, PRReviewProgress, PRReviewFinding } from '../hooks/useGitHubPRs';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../ui/collapsible';
+import { cn } from '../../../lib/utils';
+import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
 
 interface PRDetailProps {
@@ -61,6 +67,254 @@ function getStatusColor(status: PRReviewResult['overallStatus']): string {
     default:
       return 'bg-muted';
   }
+}
+
+// Compact Tree View for Review Process
+function ReviewStatusTree({
+  status,
+  isReviewing,
+  reviewResult,
+  postedCount,
+  onRunReview,
+  onRunFollowupReview,
+  onCancelReview,
+  newCommitsCheck,
+  lastPostedAt
+}: {
+  status: 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain';
+  isReviewing: boolean;
+  reviewResult: PRReviewResult | null;
+  postedCount: number;
+  onRunReview: () => void;
+  onRunFollowupReview: () => void;
+  onCancelReview: () => void;
+  newCommitsCheck: NewCommitsCheck | null;
+  lastPostedAt?: number | null;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  // If not reviewed, show simple status
+  if (status === 'not_reviewed' && !isReviewing) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-y-3 p-4 border rounded-lg bg-card shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
+          <span className="font-medium text-muted-foreground truncate">Not Reviewed</span>
+        </div>
+        <Button onClick={onRunReview} size="sm" className="gap-2 shrink-0 ml-auto sm:ml-0">
+          <Play className="h-3.5 w-3.5" />
+          Run AI Review
+        </Button>
+      </div>
+    );
+  }
+
+  // Determine steps for the tree
+  const steps: { id: string; label: string; status: string; date?: string | null; action?: React.ReactNode }[] = [];
+
+  // Step 1: Start
+  steps.push({
+    id: 'start',
+    label: 'Review Started',
+    status: 'completed',
+    date: reviewResult?.reviewedAt || new Date().toISOString()
+  });
+
+  // Step 2: AI Analysis
+  if (isReviewing) {
+    steps.push({
+      id: 'analysis',
+      label: 'AI Analysis in Progress...',
+      status: 'current',
+      date: null
+    });
+  } else if (reviewResult) {
+    steps.push({
+      id: 'analysis',
+      label: `Analysis Complete (${reviewResult.findings.length} findings)`,
+      status: 'completed',
+      date: reviewResult.reviewedAt
+    });
+  }
+
+  // Step 3: Posting
+  if (postedCount > 0 || reviewResult?.hasPostedFindings) {
+    steps.push({
+      id: 'posted',
+      label: 'Findings Posted to GitHub',
+      status: 'completed',
+      date: reviewResult?.postedAt || (lastPostedAt ? new Date(lastPostedAt).toISOString() : null)
+    });
+  } else if (reviewResult && reviewResult.findings.length > 0) {
+    steps.push({
+      id: 'posted',
+      label: 'Pending Post',
+      status: 'pending',
+      date: null
+    });
+  }
+
+  // Step 4: Follow-up
+  if (newCommitsCheck?.hasNewCommits) {
+    steps.push({
+      id: 'new_commits',
+      label: `${newCommitsCheck.newCommitCount} New Commits`,
+      status: 'alert',
+      date: null
+    });
+    steps.push({
+      id: 'followup',
+      label: 'Ready for Follow-up',
+      status: 'pending',
+      action: (
+        <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
+          Run Follow-up
+        </Button>
+      )
+    });
+  }
+
+  return (
+    <Collapsible 
+      open={isOpen} 
+      onOpenChange={setIsOpen}
+      className="border rounded-lg bg-card shadow-sm overflow-hidden"
+    >
+      {/* Header / Status Bar */}
+      <div className="p-4 flex flex-wrap items-center justify-between gap-y-2 bg-muted/30">
+        <div className="flex items-center gap-3 min-w-0 pr-2">
+          <div className={cn("h-2.5 w-2.5 shrink-0 rounded-full",
+            isReviewing ? "bg-blue-500 animate-pulse" :
+            status === 'ready_to_merge' ? "bg-success" :
+            status === 'waiting_for_changes' ? "bg-warning" :
+            status === 'reviewed_pending_post' ? "bg-primary" :
+            status === 'ready_for_followup' ? "bg-info" :
+            "bg-muted-foreground"
+          )} />
+          <span className="font-medium truncate">
+            {isReviewing ? 'AI Review in Progress' :
+             status === 'ready_to_merge' ? 'Ready to Merge' :
+             status === 'waiting_for_changes' ? 'Waiting for Changes' :
+             status === 'reviewed_pending_post' ? 'Review Complete' :
+             status === 'ready_for_followup' ? 'Ready for Follow-up' :
+             'Review Status'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+           {isReviewing && (
+             <Button variant="ghost" size="sm" onClick={onCancelReview} className="h-7 text-destructive hover:text-destructive">
+               Cancel
+             </Button>
+           )}
+           <CollapsibleTrigger asChild>
+             <Button variant="ghost" size="icon" className="h-6 w-6">
+               {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+             </Button>
+           </CollapsibleTrigger>
+        </div>
+      </div>
+
+      {/* Collapsible Tree */}
+      <CollapsibleContent>
+        <div className="p-4 pt-0">
+          <div className="relative pl-2 ml-2 border-l border-border/50 space-y-4 pt-4">
+            {steps.map((step) => (
+              <div key={step.id} className="relative flex items-start gap-3 pl-4">
+                 {/* Node Dot */}
+                 <div className={cn("absolute -left-[13px] top-1 bg-background rounded-full p-0.5 border",
+                    step.status === 'completed' ? "border-success text-success" :
+                    step.status === 'current' ? "border-primary text-primary animate-pulse" :
+                    step.status === 'alert' ? "border-warning text-warning" :
+                    "border-muted-foreground text-muted-foreground"
+                 )}>
+                    {step.status === 'completed' ? <CheckCircle className="h-3 w-3" /> :
+                     step.status === 'current' ? <CircleDot className="h-3 w-3" /> :
+                     <Circle className="h-3 w-3" />}
+                 </div>
+
+                 <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className={cn("text-sm font-medium truncate max-w-full",
+                        step.status === 'completed' ? "text-foreground" :
+                        step.status === 'current' ? "text-primary" :
+                        "text-muted-foreground"
+                      )}>
+                        {step.label}
+                      </span>
+                      {step.action}
+                    </div>
+                    {step.date && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                         {formatDate(step.date)}
+                      </div>
+                    )}
+                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// Modern Header Component
+function PRHeader({ pr }: { pr: PRData }) {
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+         <div className="flex items-center gap-3">
+            <Badge variant={pr.state.toLowerCase() === 'open' ? 'success' : 'secondary'} className={cn(
+              "capitalize px-2.5 py-0.5",
+              pr.state.toLowerCase() === 'open' ? "bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25 border-emerald-500/20" : ""
+            )}>
+              {pr.state}
+            </Badge>
+            <span className="text-muted-foreground text-sm font-mono">#{pr.number}</span>
+         </div>
+         <Button variant="ghost" size="icon" asChild className="h-8 w-8 text-muted-foreground hover:text-foreground">
+           <a href={pr.htmlUrl} target="_blank" rel="noopener noreferrer">
+             <ExternalLink className="h-4 w-4" />
+           </a>
+         </Button>
+      </div>
+
+      <h1 className="text-xl font-bold mb-4 leading-tight">{pr.title}</h1>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground border-b border-border/40 pb-5">
+        <div className="flex items-center gap-2">
+          <div className="bg-muted rounded-full p-1">
+            <User className="h-3.5 w-3.5" />
+          </div>
+          <span className="font-medium text-foreground">{pr.author.login}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+           <Clock className="h-4 w-4 opacity-70" />
+           <span>{formatDate(pr.createdAt)}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 font-mono text-xs border border-border/50">
+           <GitBranch className="h-3 w-3" />
+           <span className="text-foreground">{pr.headRefName}</span>
+           <span className="text-muted-foreground/50 mx-1">→</span>
+           <span className="text-foreground">{pr.baseRefName}</span>
+        </div>
+
+        <div className="flex items-center gap-4 ml-auto">
+           <div className="flex items-center gap-1.5" title={`${pr.changedFiles} files changed`}>
+              <FileDiff className="h-4 w-4" />
+              <span className="font-medium text-foreground">{pr.changedFiles}</span>
+              <span className="text-xs">files</span>
+           </div>
+           <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">+{pr.additions}</span>
+              <span className="text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">-{pr.deletions}</span>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PRDetail({
@@ -330,230 +584,98 @@ export function PRDetail({
 
   return (
     <ScrollArea className="flex-1">
-      <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-success/20 text-success border-success/50">
-                Open
-              </Badge>
-              <span className="text-sm text-muted-foreground">#{pr.number}</span>
-            </div>
-            <Button variant="ghost" size="icon" asChild>
-              <a href={pr.htmlUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
-          </div>
-          <h2 className="text-lg font-semibold text-foreground">{pr.title}</h2>
-        </div>
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
+        
+        {/* Refactored Header */}
+        <PRHeader pr={pr} />
 
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <User className="h-4 w-4" />
-            {pr.author.login}
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            {formatDate(pr.createdAt)}
-          </div>
-          <div className="flex items-center gap-1">
-            <GitBranch className="h-4 w-4" />
-            {pr.headRefName} → {pr.baseRefName}
-          </div>
-          {pr.assignees && pr.assignees.length > 0 && (
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              {pr.assignees.map(a => a.login).join(', ')}
-            </div>
-          )}
-        </div>
+        {/* Review Status & Actions */}
+        <ReviewStatusTree
+          status={prStatus.status}
+          isReviewing={isReviewing}
+          reviewResult={reviewResult}
+          postedCount={postedFindingIds.size + (reviewResult?.postedFindingIds?.length ?? 0)}
+          onRunReview={onRunReview}
+          onRunFollowupReview={onRunFollowupReview}
+          onCancelReview={onCancelReview}
+          newCommitsCheck={newCommitsCheck}
+          lastPostedAt={postSuccess?.timestamp}
+        />
 
-        {/* Stats */}
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <FileDiff className="h-3 w-3" />
-            {pr.changedFiles} files
-          </Badge>
-          <span className="text-sm text-success">+{pr.additions}</span>
-          <span className="text-sm text-destructive">-{pr.deletions}</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            {/* Show Follow-up Review button if there are new commits since last review */}
-            {newCommitsCheck?.hasNewCommits && !isReviewing ? (
-              <Button
-                onClick={onRunFollowupReview}
-                disabled={isReviewing}
-                className="flex-1"
-                variant="secondary"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Follow-up Review ({newCommitsCheck.newCommitCount} new commit{newCommitsCheck.newCommitCount !== 1 ? 's' : ''})
-              </Button>
-            ) : (
-              <Button
-                onClick={onRunReview}
-                disabled={isReviewing}
-                className="flex-1"
-              >
-                {isReviewing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Reviewing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Run AI Review
-                  </>
-                )}
-              </Button>
-            )}
-            {isReviewing && (
-              <Button onClick={onCancelReview} variant="destructive">
-                <XCircle className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            )}
-            {reviewResult && reviewResult.success && selectedCount > 0 && !isReviewing && (
-              <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings}>
-                {isPostingFindings ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Post {selectedCount} Finding{selectedCount !== 1 ? 's' : ''}
-                  </>
-                )}
-              </Button>
-            )}
-            {/* Success message */}
-            {postSuccess && (
-              <div className="flex items-center gap-2 text-success text-sm">
-                <CheckCircle className="h-4 w-4" />
-                Posted {postSuccess.count} finding{postSuccess.count !== 1 ? 's' : ''} to GitHub
-              </div>
-            )}
-          </div>
-
-          {/* Approval and Merge buttons */}
-          {reviewResult && reviewResult.success && isReadyToMerge && (
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleApprove}
-                disabled={isPosting}
-                variant="default"
-                className="flex-1 bg-success hover:bg-success/90"
-              >
-                {isPosting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleMerge}
-                disabled={isMerging}
-                variant="outline"
-                className="flex-1"
-              >
-                {isMerging ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Merging...
-                  </>
-                ) : (
-                  <>
-                    <GitMerge className="h-4 w-4 mr-2" />
-                    Merge PR
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* PR Review Status Banner */}
-        <Card className={`border-2 ${prStatus.color} ${prStatus.status === 'ready_for_followup' ? 'animate-pulse-subtle' : ''}`}>
-          <CardContent className="py-3">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${prStatus.color}`}>
-                {prStatus.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">{prStatus.label}</div>
-                <div className="text-sm text-muted-foreground truncate">{prStatus.description}</div>
-              </div>
-              {prStatus.status === 'ready_for_followup' && (
-                <Button
-                  onClick={onRunFollowupReview}
-                  disabled={isReviewing}
-                  className="bg-info hover:bg-info/90 text-info-foreground shrink-0"
-                >
-                  {isReviewing ? (
+        {/* Action Bar (Legacy Actions that fit under the tree context) */}
+        {reviewResult && reviewResult.success && !isReviewing && (
+          <div className="flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+             {selectedCount > 0 && (
+                <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings} className="flex-1 sm:flex-none">
+                  {isPostingFindings ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Reviewing...
+                      Posting...
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Run Follow-up Review
+                      <Send className="h-4 w-4 mr-2" />
+                      Post {selectedCount} Finding{selectedCount !== 1 ? 's' : ''}
                     </>
                   )}
                 </Button>
-              )}
-              {prStatus.status === 'waiting_for_changes' && newCommitsCheck?.hasNewCommits && (
-                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/50 shrink-0">
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  {newCommitsCheck.newCommitCount} new commit{newCommitsCheck.newCommitCount !== 1 ? 's' : ''}
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+             )}
+             
+             {isReadyToMerge && (
+                <>
+                  <Button
+                    onClick={handleApprove}
+                    disabled={isPosting}
+                    variant="default"
+                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={handleMerge}
+                    disabled={isMerging}
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                  >
+                    {isMerging ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <GitMerge className="h-4 w-4 mr-2" />}
+                    Merge
+                  </Button>
+                </>
+             )}
+
+             {postSuccess && (
+               <div className="ml-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
+                 <CheckCircle className="h-4 w-4" />
+                 Posted {postSuccess.count} finding{postSuccess.count !== 1 ? 's' : ''}
+               </div>
+             )}
+          </div>
+        )}
 
         {/* Review Progress */}
         {reviewProgress && (
-          <Card>
-            <CardContent className="pt-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{reviewProgress.message}</span>
-                  <span className="text-muted-foreground">{reviewProgress.progress}%</span>
-                </div>
-                <Progress value={reviewProgress.progress} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{reviewProgress.message}</span>
+              <span className="text-muted-foreground">{reviewProgress.progress}%</span>
+            </div>
+            <Progress value={reviewProgress.progress} className="h-2" />
+          </div>
         )}
 
-        {/* Review Result */}
+        {/* Review Result / Findings */}
         {reviewResult && reviewResult.success && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center justify-between">
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <CardTitle className="text-sm font-medium flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   {reviewResult.isFollowupReview ? (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4 text-blue-500" />
                   ) : (
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4 text-purple-500" />
                   )}
-                  {reviewResult.isFollowupReview ? 'Follow-up Review' : 'AI Review Result'}
+                  {reviewResult.isFollowupReview ? 'Follow-up Review Details' : 'AI Analysis Results'}
                 </span>
                 <Badge variant="outline" className={getStatusColor(reviewResult.overallStatus)}>
                   {reviewResult.overallStatus === 'approve' && 'Approve'}
@@ -562,32 +684,34 @@ export function PRDetail({
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 overflow-hidden">
+            <CardContent className="space-y-6 pt-6">
               {/* Follow-up Review Resolution Status */}
               {reviewResult.isFollowupReview && (
-                <div className="flex flex-wrap gap-2 pb-2 border-b border-border">
+                <div className="flex flex-wrap gap-3 pb-4 border-b border-border/50">
                   {(reviewResult.resolvedFindings?.length ?? 0) > 0 && (
-                    <Badge variant="outline" className="bg-success/20 text-success border-success/50">
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/30 px-3 py-1">
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                       {reviewResult.resolvedFindings?.length} resolved
                     </Badge>
                   )}
                   {(reviewResult.unresolvedFindings?.length ?? 0) > 0 && (
-                    <Badge variant="outline" className="bg-warning/20 text-warning border-warning/50">
-                      <AlertCircle className="h-3 w-3 mr-1" />
+                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 px-3 py-1">
+                      <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
                       {reviewResult.unresolvedFindings?.length} still open
                     </Badge>
                   )}
                   {(reviewResult.newFindingsSinceLastReview?.length ?? 0) > 0 && (
-                    <Badge variant="outline" className="bg-destructive/20 text-destructive border-destructive/50">
-                      <XCircle className="h-3 w-3 mr-1" />
+                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 px-3 py-1">
+                      <XCircle className="h-3.5 w-3.5 mr-1.5" />
                       {reviewResult.newFindingsSinceLastReview?.length} new issue{reviewResult.newFindingsSinceLastReview?.length !== 1 ? 's' : ''}
                     </Badge>
                   )}
                 </div>
               )}
 
-              <p className="text-sm text-muted-foreground break-words">{reviewResult.summary}</p>
+              <div className="bg-muted/30 p-4 rounded-lg text-sm text-muted-foreground leading-relaxed">
+                 {reviewResult.summary}
+              </div>
 
               {/* Interactive Findings with Selection */}
               <ReviewFindings
@@ -596,26 +720,20 @@ export function PRDetail({
                 postedIds={postedFindingIds}
                 onSelectionChange={setSelectedFindingIds}
               />
-
-              {reviewResult.reviewedAt && (
-                <p className="text-xs text-muted-foreground">
-                  Reviewed: {formatDate(reviewResult.reviewedAt)}
-                  {reviewResult.reviewedCommitSha && (
-                    <> at commit {reviewResult.reviewedCommitSha.substring(0, 7)}</>
-                  )}
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
 
         {/* Review Error */}
         {reviewResult && !reviewResult.success && reviewResult.error && (
-          <Card className="border-destructive">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-destructive">
-                <XCircle className="h-4 w-4" />
-                <span className="text-sm">{reviewResult.error}</span>
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3 text-destructive">
+                <XCircle className="h-5 w-5 mt-0.5" />
+                <div className="space-y-1">
+                   <p className="font-semibold">Review Failed</p>
+                   <p className="text-sm opacity-90">{reviewResult.error}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -624,47 +742,20 @@ export function PRDetail({
         {/* Description */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Description</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Description</CardTitle>
           </CardHeader>
-          <CardContent className="overflow-hidden">
-            {pr.body ? (
-              <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans break-words max-w-full overflow-hidden">
-                {pr.body}
-              </pre>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">
-                No description provided.
-              </p>
-            )}
+          <CardContent>
+             <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/10">
+              {pr.body ? (
+                <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans break-words">
+                  {pr.body}
+                </pre>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No description provided.</p>
+              )}
+            </ScrollArea>
           </CardContent>
         </Card>
-
-        {/* Changed Files */}
-        {pr.files && pr.files.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Changed Files ({pr.files.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {pr.files.map((file) => (
-                  <div
-                    key={file.path}
-                    className="flex items-center justify-between text-xs py-1"
-                  >
-                    <code className="text-muted-foreground truncate flex-1">
-                      {file.path}
-                    </code>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span className="text-success">+{file.additions}</span>
-                      <span className="text-destructive">-{file.deletions}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </ScrollArea>
   );
