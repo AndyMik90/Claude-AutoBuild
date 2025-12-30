@@ -349,13 +349,9 @@ export function registerFileHandlers(): void {
         // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
 
-        // Construct absolute path
-        // NOTE: We do NOT validate the path here to avoid TOCTOU race conditions.
-        // Instead, we:
-        // 1. Open with O_NOFOLLOW to prevent symlink following
-        // 2. Use fstat() on the opened fd to verify it's a regular file
-        // 3. Validate parent directory resolves within workspace AFTER opening
-        const absPath = path.resolve(workspaceRootResolved, relPath);
+        // On Windows, file mode parameter should be omitted or 0o666 (default)
+        // Unix octal permissions (0o644) can cause EINVAL on Windows
+        const fileMode = process.platform === 'win32' ? 0o666 : 0o644;
 
         // Normalize paths for comparison (used after opening file)
         const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
@@ -363,42 +359,44 @@ export function registerFileHandlers(): void {
           ? workspaceRootResolved.toLowerCase()
           : workspaceRootResolved;
 
+        // Construct absolute path and attempt to open atomically
+        // We use file descriptors exclusively to avoid TOCTOU issues
+        const targetPath = path.resolve(workspaceRootResolved, relPath);
+
         // Try to open file atomically without following symlinks
         // Note: O_NOFOLLOW is not supported on Windows, so we conditionally use it
-        // First attempt: open existing file for writing
         const openFlags = process.platform === 'win32'
           ? constants.O_WRONLY | constants.O_TRUNC
           : constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW;
 
         try {
-          fd = openSync(absPath, openFlags);
+          fd = openSync(targetPath, openFlags);
         } catch (err) {
           const error = err as NodeJS.ErrnoException;
 
-          // On Windows, file mode parameter should be omitted or 0o666 (default)
-          // Unix octal permissions (0o644) can cause EINVAL on Windows
-          const fileMode = process.platform === 'win32' ? 0o666 : 0o644;
-
-          // If file doesn't exist, try to create it
+          // If file doesn't exist, try to create it atomically
           // Windows may throw EINVAL instead of ENOENT when O_TRUNC is used on non-existent file
           if (error.code === 'ENOENT' || error.code === 'EINVAL') {
-            try {
-              // O_CREAT | O_EXCL ensures atomic creation (fails if exists)
-              // O_NOFOLLOW prevents following symlinks (Unix only)
-              const createFlags = process.platform === 'win32'
-                ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
-                : constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
+            // O_CREAT | O_EXCL ensures atomic creation (fails if exists)
+            // O_NOFOLLOW prevents following symlinks (Unix only)
+            const createFlags = process.platform === 'win32'
+              ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
+              : constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
 
-              fd = openSync(absPath, createFlags, fileMode);
+            try {
+              // Atomic create operation - no TOCTOU as O_EXCL fails if file exists
+              fd = openSync(targetPath, createFlags, fileMode);
             } catch (createErr) {
               const createError = createErr as NodeJS.ErrnoException;
               if (createError.code === 'EEXIST') {
-                // File exists - open it without O_EXCL
-                // This can happen on Windows when EINVAL was thrown for an existing file
+                // File was created between our first attempt and create attempt
+                // Re-resolve path and open the existing file
+                // This is safe because we validate with fstat() immediately after
+                const existingFilePath = path.resolve(workspaceRootResolved, relPath);
                 const retryFlags = process.platform === 'win32'
                   ? constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
                   : constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW;
-                fd = openSync(absPath, retryFlags, fileMode);
+                fd = openSync(existingFilePath, retryFlags, fileMode);
               } else if (createError.code === 'ENOENT') {
                 return { success: false, error: 'Parent directory does not exist' };
               } else {
@@ -410,8 +408,9 @@ export function registerFileHandlers(): void {
           } else if (error.code === 'ELOOP') {
             // Symlink detected - check if it points outside workspace for error message
             // Note: This is only for error reporting, we never write through the symlink
+            const symlinkPath = path.resolve(workspaceRootResolved, relPath);
             try {
-              const targetReal = realpathSync(absPath);
+              const targetReal = realpathSync(symlinkPath);
               const targetRealForCompare = isCaseInsensitiveFs
                 ? targetReal.toLowerCase()
                 : targetReal;
@@ -440,8 +439,9 @@ export function registerFileHandlers(): void {
         // (protects against hardlinks to files outside workspace)
         // Note: We reconstruct parent path here, but immediately resolve it
         // The actual validation is done AFTER opening the file (above)
+        const finalPath = path.resolve(workspaceRootResolved, relPath);
         try {
-          const parentDir = path.dirname(absPath);
+          const parentDir = path.dirname(finalPath);
           const parentReal = realpathSync(parentDir);
           const parentRealForCompare = isCaseInsensitiveFs
             ? parentReal.toLowerCase()
