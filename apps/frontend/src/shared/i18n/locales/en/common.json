@@ -97,7 +97,21 @@
     "commented": "Commented",
     "readyForFollowup": "Ready for Follow-up",
     "readyToMerge": "Ready to Merge",
-    "pendingPost": "Pending Post"
+    "pendingPost": "Pending Post",
+    "posted": "Posted",
+    "notReviewed": "Not Reviewed",
+    "allStatuses": "All statuses",
+    "allContributors": "All contributors",
+    "searchPlaceholder": "Search PRs...",
+    "contributors": "Contributors",
+    "contributorsSelected": "Contributors ({{count}})",
+    "status": "Status",
+    "filters": "Filters",
+    "clearFilters": "Clear",
+    "searchContributors": "Search contributors...",
+    "selectedCount": "{{count}} selected",
+    "noResultsFound": "No results found",
+    "reset": "Reset"
   },
   "downloads": {
     "toggleExpand": "Toggle download details",

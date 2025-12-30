@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 import { GitPullRequest, RefreshCw, ExternalLink, Settings } from 'lucide-react';
 import { useProjectStore } from '../../stores/project-store';
-import { useGitHubPRs } from './hooks';
-import { PRList, PRDetail } from './components';
+import { useGitHubPRs, usePRFiltering } from './hooks';
+import { PRList, PRDetail, PRFilterBar } from './components';
 import { Button } from '../ui/button';
+import { ResizablePanels } from '../ui/resizable-panels';
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
@@ -76,6 +77,18 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
   } = useGitHubPRs(selectedProject?.id);
 
   const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
+
+  // PR filtering
+  const {
+    filteredPRs,
+    contributors,
+    filters,
+    setSearchQuery,
+    setContributors,
+    setStatuses,
+    clearFilters,
+    hasActiveFilters,
+  } = usePRFiltering(prs, getReviewStateForPR);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {
@@ -166,24 +179,36 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
         </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex min-h-0">
-        {/* PR List */}
-        <div className="w-1/2 border-r border-border flex flex-col">
-          <PRList
-            prs={prs}
-            selectedPRNumber={selectedPRNumber}
-            isLoading={isLoading}
-            error={error}
-            activePRReviews={activePRReviews}
-            getReviewStateForPR={getReviewStateForPR}
-            onSelectPR={selectPR}
-          />
-        </div>
-
-        {/* PR Detail */}
-        <div className="w-1/2 flex flex-col">
-          {selectedPR ? (
+      {/* Content - Resizable split panels */}
+      <ResizablePanels
+        defaultLeftWidth={50}
+        minLeftWidth={30}
+        maxLeftWidth={70}
+        storageKey="github-prs-panel-width"
+        leftPanel={
+          <div className="flex flex-col h-full">
+            <PRFilterBar
+              filters={filters}
+              contributors={contributors}
+              hasActiveFilters={hasActiveFilters}
+              onSearchChange={setSearchQuery}
+              onContributorsChange={setContributors}
+              onStatusesChange={setStatuses}
+              onClearFilters={clearFilters}
+            />
+            <PRList
+              prs={filteredPRs}
+              selectedPRNumber={selectedPRNumber}
+              isLoading={isLoading}
+              error={error}
+              activePRReviews={activePRReviews}
+              getReviewStateForPR={getReviewStateForPR}
+              onSelectPR={selectPR}
+            />
+          </div>
+        }
+        rightPanel={
+          selectedPR ? (
             <PRDetail
               pr={selectedPR}
               reviewResult={reviewResult}
@@ -200,9 +225,9 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
             />
           ) : (
             <EmptyState message="Select a pull request to view details" />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
     </div>
   );
 }

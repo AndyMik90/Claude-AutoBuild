@@ -1,4 +1,4 @@
-import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare, RefreshCw } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare, RefreshCw, Send } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
@@ -129,7 +129,7 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReviews, getReviewStateForPR, onSelectPR }: PRListProps) {
+export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReviews: _activePRReviews, getReviewStateForPR, onSelectPR }: PRListProps) {
   const { t } = useTranslation('common');
 
   if (isLoading && prs.length === 0) {
@@ -200,10 +200,17 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                     {!isReviewingPR && hasReviewResult && reviewState?.result && (
                       <>
                         {/* Show "Reviewed" if AI review is complete but not yet posted to GitHub */}
-                        {!reviewState.result.reviewId && (
+                        {!reviewState.result.reviewId && !reviewState.result.hasPostedFindings && (
                           <Badge variant="outline" className="text-xs flex items-center gap-1 text-blue-500 border-blue-500/50">
                             <CheckCircle2 className="h-3 w-3" />
                             {t('prReview.reviewed')}
+                          </Badge>
+                        )}
+                        {/* Show "Posted" when findings posted to GitHub but no full review ID */}
+                        {!reviewState.result.reviewId && reviewState.result.hasPostedFindings && (
+                          <Badge variant="purple" className="text-xs flex items-center gap-1">
+                            <Send className="h-3 w-3" />
+                            {t('prReview.posted')}
                           </Badge>
                         )}
                         {/* Show actual status only after posted to GitHub (has reviewId) */}

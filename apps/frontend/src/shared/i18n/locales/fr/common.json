@@ -97,7 +97,21 @@
     "commented": "Commenté",
     "readyForFollowup": "Prêt pour suivi",
     "readyToMerge": "Prêt à fusionner",
-    "pendingPost": "En attente de publication"
+    "pendingPost": "En attente de publication",
+    "posted": "Publié",
+    "notReviewed": "Non révisé",
+    "allStatuses": "Tous les statuts",
+    "allContributors": "Tous les contributeurs",
+    "searchPlaceholder": "Rechercher des PRs...",
+    "contributors": "Contributeurs",
+    "contributorsSelected": "Contributeurs ({{count}})",
+    "status": "Statut",
+    "filters": "Filtres",
+    "clearFilters": "Effacer",
+    "searchContributors": "Rechercher des contributeurs...",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "noResultsFound": "Aucun résultat trouvé",
+    "reset": "Réinitialiser"
   },
   "downloads": {
     "toggleExpand": "Afficher/masquer les détails",
