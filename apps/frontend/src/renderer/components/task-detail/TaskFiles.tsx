@@ -7,11 +7,15 @@ import {
   AlertCircle,
   FolderOpen,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  ExternalLink,
+  Pencil
 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn } from '../../lib/utils';
+import { useSettingsStore } from '../../stores/settings-store';
 import type { Task } from '../../../shared/types';
 import type { FileNode } from '../../../shared/types/project';
 
@@ -32,6 +36,7 @@ function getFileIcon(filename: string) {
 
 export function TaskFiles({ task }: TaskFilesProps) {
   const { t } = useTranslation(['tasks']);
+  const { settings } = useSettingsStore();
 
   // State for file listing
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -101,6 +106,28 @@ export function TaskFiles({ task }: TaskFilesProps) {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+
+  // Auto-select first file (spec.md) when files are loaded
+  useEffect(() => {
+    if (files.length > 0 && !selectedFile) {
+      loadFileContent(files[0].path);
+    }
+  }, [files, selectedFile, loadFileContent]);
+
+  // Open spec directory in IDE
+  const handleOpenInIDE = useCallback(async () => {
+    if (!settings.preferredIDE || !task.specsPath) return;
+
+    try {
+      await window.electronAPI.worktreeOpenInIDE(
+        task.specsPath,
+        settings.preferredIDE,
+        settings.customIDEPath
+      );
+    } catch (err) {
+      console.error('Failed to open in IDE:', err);
+    }
+  }, [settings.preferredIDE, settings.customIDEPath, task.specsPath]);
 
   // Handle no specsPath
   if (!task.specsPath) {
@@ -187,10 +214,28 @@ export function TaskFiles({ task }: TaskFilesProps) {
     );
   };
 
+  // Get selected filename
+  const selectedFileName = selectedFile ? selectedFile.split('/').pop() : null;
+
   return (
     <div className="h-full flex">
       {/* File list sidebar */}
-      <div className="w-48 border-r border-border flex flex-col">
+      <div className="w-52 border-r border-border flex flex-col">
+        {/* Sidebar header */}
+        <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {t('tasks:files.title')}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={loadFiles}
+            disabled={isLoadingFiles}
+          >
+            <RefreshCw className={cn("h-3 w-3", isLoadingFiles && "animate-spin")} />
+          </Button>
+        </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
             {isLoadingFiles ? (
@@ -242,8 +287,32 @@ export function TaskFiles({ task }: TaskFilesProps) {
       </div>
 
       {/* File content area */}
-      <div className="flex-1 min-w-0">
-        <ScrollArea className="h-full">
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Content header */}
+        {selectedFileName && (
+          <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 bg-muted/30">
+            {getFileIcon(selectedFileName)}
+            <span className="text-sm font-medium flex-1">{selectedFileName}</span>
+            {settings.preferredIDE && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleOpenInIDE}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('tasks:files.openInIDE')}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
+        <ScrollArea className="flex-1">
           {renderContent()}
         </ScrollArea>
       </div>

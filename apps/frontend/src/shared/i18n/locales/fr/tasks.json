@@ -84,6 +84,7 @@
     }
   },
   "files": {
+    "title": "Fichiers",
     "tab": "Fichiers",
     "noSpecPath": "Aucun fichier de spécification disponible",
     "noFiles": "Aucun fichier trouvé",
@@ -92,6 +93,7 @@
     "errorLoading": "Échec du chargement des fichiers",
     "errorLoadingContent": "Échec du chargement du contenu du fichier",
     "retry": "Réessayer",
-    "selectFile": "Sélectionnez un fichier pour voir son contenu"
+    "selectFile": "Sélectionnez un fichier pour voir son contenu",
+    "openInIDE": "Ouvrir dans l'IDE"
   }
 }

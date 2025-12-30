@@ -37,6 +37,7 @@ import { TaskMetadata } from './TaskMetadata';
 import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
+import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
 import type { Task } from '../../../shared/types';
 
@@ -370,6 +371,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                   >
                     Logs
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="files"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+                  >
+                    Files
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -439,6 +446,11 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     onLogsScroll={state.handleLogsScroll}
                     onTogglePhase={state.togglePhase}
                   />
+                </TabsContent>
+
+                {/* Files Tab */}
+                <TabsContent value="files" className="flex-1 min-h-0 overflow-hidden mt-0">
+                  <TaskFiles task={task} />
                 </TabsContent>
               </Tabs>
             </div>
