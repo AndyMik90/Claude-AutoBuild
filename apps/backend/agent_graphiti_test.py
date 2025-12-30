@@ -1,11 +1,20 @@
 import asyncio
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 from integrations.graphiti.memory import GraphitiMemory
 
 spec_dir = Path.home() / ".auto-claude" / "agent_style_spec"
 spec_dir.mkdir(parents=True, exist_ok=True)
-project_dir = Path("/Users/peter/projects/Auto-Claude")
+project_dir_env = os.getenv("PROJECT_DIR")
+# Prefer a portable PROJECT_DIR override; otherwise fall back to the repository root
+# (…/apps/backend/agent_graphiti_test.py -> parents[2] == repo root).
+project_dir = (
+    Path(project_dir_env).expanduser().resolve()
+    if project_dir_env
+    else Path(__file__).resolve().parents[2]
+)
+project_dir.mkdir(parents=True, exist_ok=True)
 
 msg = f"agent-style write {datetime.now(timezone.utc).isoformat()}"
 
