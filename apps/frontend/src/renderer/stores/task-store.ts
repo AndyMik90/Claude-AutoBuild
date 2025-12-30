@@ -208,7 +208,11 @@ export async function createTask(
   const store = useTaskStore.getState();
 
   try {
-    const result = await window.electronAPI.createTask(projectId, title, description, metadata);
+    // Get current language from settings
+    const settings = await window.electronAPI.getSettings();
+    const language = settings.success ? settings.data?.language : undefined;
+    
+    const result = await window.electronAPI.createTask(projectId, title, description, metadata, language);
     if (result.success && result.data) {
       store.addTask(result.data);
       return result.data;

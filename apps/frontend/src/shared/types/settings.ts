@@ -226,7 +226,8 @@ export interface AppSettings {
   autoNameTerminals: boolean;
   notifications: NotificationSettings;
   // Global API keys (used as defaults for all projects)
-  globalClaudeOAuthToken?: string;
+  globalClaudeSessionKey?: string; // Browser sessionKey (recommended)
+  globalClaudeOAuthToken?: string; // OAuth token (alternative)
   globalOpenAIApiKey?: string;
   globalAnthropicApiKey?: string;
   globalGoogleApiKey?: string;
@@ -268,7 +269,8 @@ export interface AppSettings {
 export interface SourceEnvConfig {
   // Claude Authentication (required for ideation, roadmap generation, etc.)
   hasClaudeToken: boolean;
-  claudeOAuthToken?: string;
+  claudeSessionKey?: string; // Browser sessionKey (recommended)
+  claudeOAuthToken?: string; // OAuth token (alternative)
 
   // Source path info
   sourcePath?: string;

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ExternalLink, FileCode } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getTextDirection } from '../lib/rtl-utils';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 
 interface MarkdownContentProps {
@@ -142,10 +143,10 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
           case 'code':
             return (
               <div key={index} className="relative group">
-                <div className="absolute right-2 top-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                <div className="absolute right-2 top-2 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded border border-border">
                   {block.language}
                 </div>
-                <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-sm">
+                <pre className="overflow-x-auto rounded-lg bg-muted/50 border border-border p-4 text-sm font-mono">
                   <code className={`language-${block.language}`}>
                     {block.content}
                   </code>
@@ -174,8 +175,16 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
 
           case 'text':
           default:
+            const textDir = getTextDirection(block.content);
             return (
-              <p key={index} className="whitespace-pre-wrap text-sm leading-relaxed">
+              <p 
+                key={index} 
+                dir={textDir}
+                className={cn(
+                  'whitespace-pre-wrap text-sm leading-relaxed',
+                  textDir === 'rtl' ? 'text-right' : 'text-left'
+                )}
+              >
                 {block.content}
               </p>
             );

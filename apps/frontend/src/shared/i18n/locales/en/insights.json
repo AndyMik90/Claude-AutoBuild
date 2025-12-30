@@ -17,7 +17,32 @@
   "older": "Older",
   "placeholder": "Ask about your codebase...",
   "sendHint": "Press Enter to send, Shift+Enter for new line",
+  "formatting": {
+    "show": "✎ Show formatting",
+    "hide": "✕ Hide formatting",
+    "bold": "Bold",
+    "italic": "Italic",
+    "code": "Inline code",
+    "codeBlock": "Code block",
+    "heading": "Heading",
+    "list": "Bullet list",
+    "orderedList": "Numbered list",
+    "quote": "Quote",
+    "link": "Link"
+  },
   "stop": "Stop",
+  "edit": {
+    "button": "Edit message",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saveHint": "Ctrl+Enter to save",
+    "cancelHint": "Esc to cancel",
+    "edited": "edited"
+  },
+  "draft": {
+    "saved": "Draft saved automatically",
+    "restored": "Draft restored"
+  },
   "profileSelector": {
     "label": "Agent Profile",
     "custom": "Custom...",

@@ -26,6 +26,8 @@ interface InsightsState {
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
   isLoadingSessions: boolean;
+  draftMessage: string; // Draft message being typed (persisted across interruptions)
+  editingMessageId: string | null; // ID of message being edited
 
   // Actions
   setSession: (session: InsightsSession | null) => void;
@@ -42,12 +44,18 @@ interface InsightsState {
   finalizeStreamingMessage: (suggestedTask?: InsightsChatMessage['suggestedTask']) => void;
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
+  setDraftMessage: (message: string) => void;
+  setEditingMessageId: (id: string | null) => void;
+  editMessage: (messageId: string, newContent: string) => void;
 }
 
 const initialStatus: InsightsChatStatus = {
   phase: 'idle',
   message: ''
 };
+
+// Helper to get draft key for localStorage
+const getDraftKey = (projectId: string) => `insights-draft-${projectId}`;
 
 export const useInsightsStore = create<InsightsState>((set, _get) => ({
   // Initial state
@@ -59,6 +67,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   currentTool: null,
   toolsUsed: [],
   isLoadingSessions: false,
+  draftMessage: '',
+  editingMessageId: null,
 
   // Actions
   setSession: (session) => set({ session }),
@@ -70,6 +80,41 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   setLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
 
   setPendingMessage: (message) => set({ pendingMessage: message }),
+
+  setDraftMessage: (message) => {
+    set({ draftMessage: message });
+    // Auto-save draft to localStorage
+    const state = _get();
+    if (state.session?.projectId) {
+      try {
+        localStorage.setItem(getDraftKey(state.session.projectId), message);
+      } catch (e) {
+        console.warn('Failed to save draft:', e);
+      }
+    }
+  },
+
+  setEditingMessageId: (id) => set({ editingMessageId: id }),
+
+  editMessage: (messageId, newContent) =>
+    set((state) => {
+      if (!state.session) return state;
+
+      const messages = state.session.messages.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, content: newContent, edited: true, editedAt: new Date() }
+          : msg
+      );
+
+      return {
+        session: {
+          ...state.session,
+          messages,
+          updatedAt: new Date()
+        },
+        editingMessageId: null
+      };
+    }),
 
   addMessage: (message) =>
     set((state) => {
@@ -189,7 +234,9 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       pendingMessage: '',
       streamingContent: '',
       currentTool: null,
-      toolsUsed: []
+      toolsUsed: [],
+      draftMessage: '',
+      editingMessageId: null
     })
 }));
 
@@ -220,6 +267,14 @@ export async function loadInsightsSession(projectId: string): Promise<void> {
   }
   // Also load the sessions list
   await loadInsightsSessions(projectId);
+  
+  // Load saved draft message if exists
+  try {
+    const draft = localStorage.getItem(getDraftKey(projectId)) || '';
+    useInsightsStore.getState().setDraftMessage(draft);
+  } catch (e) {
+    console.warn('Failed to load draft:', e);
+  }
 }
 
 export function sendMessage(projectId: string, message: string, modelConfig?: InsightsModelConfig): void {
@@ -239,6 +294,7 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   store.setPendingMessage('');
   store.clearStreamingContent();
   store.clearToolsUsed(); // Clear tools from previous response
+  store.setDraftMessage(''); // Clear draft after sending
   store.setStatus({
     phase: 'thinking',
     message: 'Processing your message...'

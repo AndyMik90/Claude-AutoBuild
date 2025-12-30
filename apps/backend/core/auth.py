@@ -13,9 +13,10 @@ import subprocess
 
 # Priority order for auth token resolution
 # NOTE: We intentionally do NOT fall back to ANTHROPIC_API_KEY.
-# Auto Claude is designed to use Claude Code OAuth tokens only.
+# Auto Claude is designed to use Claude Code OAuth tokens or browser session keys.
 # This prevents silent billing to user's API credits when OAuth fails.
 AUTH_TOKEN_ENV_VARS = [
+    "CLAUDE_SESSION_KEY",  # Browser sessionKey (most reliable, same as browser extension)
     "CLAUDE_CODE_OAUTH_TOKEN",  # OAuth token from Claude Code CLI
     "ANTHROPIC_AUTH_TOKEN",  # CCR/proxy token (for enterprise setups)
 ]
@@ -93,9 +94,10 @@ def get_auth_token() -> str | None:
     Get authentication token from environment variables or macOS Keychain.
 
     Checks multiple sources in priority order:
-    1. CLAUDE_CODE_OAUTH_TOKEN (env var)
-    2. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
-    3. macOS Keychain (if on Darwin platform)
+    1. CLAUDE_SESSION_KEY (browser sessionKey - most reliable)
+    2. CLAUDE_CODE_OAUTH_TOKEN (OAuth token from Claude Code CLI)
+    3. ANTHROPIC_AUTH_TOKEN (CCR/proxy env var for enterprise setups)
+    4. macOS Keychain (if on Darwin platform)
 
     NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
     silent billing to user's API credits when OAuth is misconfigured.
@@ -137,23 +139,37 @@ def require_auth_token() -> str:
     token = get_auth_token()
     if not token:
         error_msg = (
-            "No OAuth token found.\n\n"
-            "Auto Claude requires Claude Code OAuth authentication.\n"
+            "No authentication token found.\n\n"
+            "Auto Claude supports multiple authentication methods:\n"
+            "1. Browser sessionKey (recommended - most reliable)\n"
+            "2. Claude Code OAuth token\n"
             "Direct API keys (ANTHROPIC_API_KEY) are not supported.\n\n"
         )
         # Provide platform-specific guidance
         if platform.system() == "Darwin":
             error_msg += (
                 "To authenticate:\n"
-                "  1. Run: claude setup-token\n"
-                "  2. The token will be saved to macOS Keychain automatically\n\n"
-                "Or set CLAUDE_CODE_OAUTH_TOKEN in your .env file."
+                "  Option 1 (Recommended): Copy sessionKey from browser\n"
+                "    - Open claude.ai in browser\n"
+                "    - Open DevTools (F12) → Application → Cookies\n"
+                "    - Copy 'sessionKey' value\n"
+                "    - Set CLAUDE_SESSION_KEY in your .env file\n\n"
+                "  Option 2: Use OAuth token\n"
+                "    - Run: claude setup-token\n"
+                "    - Token will be saved to macOS Keychain automatically\n"
+                "    - Or set CLAUDE_CODE_OAUTH_TOKEN in your .env file"
             )
         else:
             error_msg += (
                 "To authenticate:\n"
-                "  1. Run: claude setup-token\n"
-                "  2. Set CLAUDE_CODE_OAUTH_TOKEN in your .env file"
+                "  Option 1 (Recommended): Copy sessionKey from browser\n"
+                "    - Open claude.ai in browser\n"
+                "    - Open DevTools (F12) → Application → Cookies\n"
+                "    - Copy 'sessionKey' value\n"
+                "    - Set CLAUDE_SESSION_KEY in your .env file\n\n"
+                "  Option 2: Use OAuth token\n"
+                "    - Run: claude setup-token\n"
+                "    - Set CLAUDE_CODE_OAUTH_TOKEN in your .env file"
             )
         raise ValueError(error_msg)
     return token

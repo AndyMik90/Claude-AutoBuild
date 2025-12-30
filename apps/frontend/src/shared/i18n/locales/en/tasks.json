@@ -1,4 +1,34 @@
 {
+  "categories": {
+    "feature": "Feature",
+    "bug_fix": "Bug Fix",
+    "refactoring": "Refactoring",
+    "documentation": "Docs",
+    "security": "Security",
+    "performance": "Performance",
+    "ui_ux": "UI/UX",
+    "infrastructure": "Infrastructure",
+    "testing": "Testing"
+  },
+  "complexity": {
+    "trivial": "Trivial",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "complex": "Complex"
+  },
+  "impact": {
+    "low": "Low Impact",
+    "medium": "Medium Impact",
+    "high": "High Impact",
+    "critical": "Critical Impact"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
   "status": {
     "backlog": "Planning",
     "in_progress": "In Progress",
@@ -149,6 +179,34 @@
     "created": "Created",
     "updated": "Updated",
     "source": "Source"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "subtasks": "Subtasks",
+    "logs": "Logs"
+  },
+  "phases": {
+    "planning": "Planning",
+    "coding": "Coding",
+    "validation": "Validation"
+  },
+  "phaseLabels": {
+    "planning": "Planning",
+    "coding": "Coding",
+    "validation": "Validation"
+  },
+  "subtasks": {
+    "noSubtasks": "No subtasks yet",
+    "afterPlanning": "Subtasks will be created after the planning phase",
+    "completedOf": "{{completed}} of {{total}} completed"
+  },
+  "logs": {
+    "noLogs": "No logs yet",
+    "loadingLogs": "Loading logs...",
+    "showOutput": "Show output",
+    "hideOutput": "Hide output",
+    "entries": "entries",
+    "entry": "entry"
   },
   "buttons": {
     "startTask": "Start Task",

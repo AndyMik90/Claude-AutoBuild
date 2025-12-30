@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Database, ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import {
   Collapsible,
@@ -13,6 +14,7 @@ interface DatabaseSectionProps {
 }
 
 export function DatabaseSection({ database }: DatabaseSectionProps) {
+  const { t } = useTranslation('context');
   const [expanded, setExpanded] = useState(false);
 
   if (!database || database.total_models === 0) {
@@ -28,7 +30,7 @@ export function DatabaseSection({ database }: DatabaseSectionProps) {
       <CollapsibleTrigger className="flex w-full items-center justify-between text-xs font-medium hover:text-foreground">
         <div className="flex items-center gap-2">
           <Database className="h-3 w-3" />
-          Database Models ({database.total_models})
+          {t('projectIndex.sections.databaseModels')} ({database.total_models})
         </div>
         {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </CollapsibleTrigger>
@@ -40,7 +42,7 @@ export function DatabaseSection({ database }: DatabaseSectionProps) {
               <Badge variant="outline" className="text-xs shrink-0">{model.orm}</Badge>
               <code className="flex-1 font-mono text-muted-foreground truncate">{modelName}</code>
               <span className="text-muted-foreground shrink-0 text-xs">
-                {Object.keys(model.fields).length} fields
+                {Object.keys(model.fields).length} {t('projectIndex.sections.fields')}
               </span>
             </div>
           );

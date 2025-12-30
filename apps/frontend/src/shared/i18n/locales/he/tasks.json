@@ -1,4 +1,34 @@
 {
+  "categories": {
+    "feature": "תכונה",
+    "bug_fix": "תיקון באג",
+    "refactoring": "שיפוץ קוד",
+    "documentation": "תיעוד",
+    "security": "אבטחה",
+    "performance": "ביצועים",
+    "ui_ux": "ממשק משתמש",
+    "infrastructure": "תשתית",
+    "testing": "בדיקות"
+  },
+  "complexity": {
+    "trivial": "טריוויאלי",
+    "small": "קטן",
+    "medium": "בינוני",
+    "large": "גדול",
+    "complex": "מורכב"
+  },
+  "impact": {
+    "low": "השפעה נמוכה",
+    "medium": "השפעה בינונית",
+    "high": "השפעה גבוהה",
+    "critical": "השפעה קריטית"
+  },
+  "priority": {
+    "low": "נמוכה",
+    "medium": "בינונית",
+    "high": "גבוהה",
+    "urgent": "דחופה"
+  },
   "status": {
     "backlog": "תכנון",
     "in_progress": "בתהליך",
@@ -158,6 +188,29 @@
     "overview": "סקירה",
     "subtasks": "תתי-משימות",
     "logs": "יומנים"
+  },
+  "phases": {
+    "planning": "תכנון",
+    "coding": "קידוד",
+    "validation": "אימות"
+  },
+  "phaseLabels": {
+    "planning": "תכנון",
+    "coding": "קידוד",
+    "validation": "אימות"
+  },
+  "subtasks": {
+    "noSubtasks": "עדיין אין תתי-משימות",
+    "afterPlanning": "תתי-משימות ייווצרו לאחר שלב התכנון",
+    "completedOf": "{{completed}} מתוך {{total}} הושלמו"
+  },
+  "logs": {
+    "noLogs": "אין יומנים עדיין",
+    "loadingLogs": "טוען יומנים...",
+    "showOutput": "הצג פלט",
+    "hideOutput": "הסתר פלט",
+    "entries": "ערכים",
+    "entry": "ערך"
   },
   "metadata": {
     "created": "נוצר",

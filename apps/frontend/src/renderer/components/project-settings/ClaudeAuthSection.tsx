@@ -80,35 +80,49 @@ export function ClaudeAuthSection({
             </div>
           </div>
 
-          {/* Manual OAuth Token */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium text-foreground">
-                OAuth Token {envConfig.claudeTokenIsGlobal ? '(Override)' : ''}
-              </Label>
-              {envConfig.claudeTokenIsGlobal && (
-                <span className="flex items-center gap-1 text-xs text-info">
-                  <Globe className="h-3 w-3" />
-                  Using global token
-                </span>
-              )}
-            </div>
-            {envConfig.claudeTokenIsGlobal ? (
+          {/* Manual Token Entry - supports both sessionKey and OAuth */}
+          <div className="space-y-3">
+            {/* Session Key (Recommended) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-foreground">
+                  Session Key (Recommended) {envConfig.claudeTokenIsGlobal ? '(Override)' : ''}
+                </Label>
+                {envConfig.claudeTokenIsGlobal && (
+                  <span className="flex items-center gap-1 text-xs text-info">
+                    <Globe className="h-3 w-3" />
+                    Using global token
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Using token from App Settings. Enter a project-specific token below to override.
+                Copy from browser: DevTools (F12) → Application → Cookies → claude.ai → sessionKey
               </p>
-            ) : (
+              <PasswordInput
+                value={envConfig.claudeTokenIsGlobal ? '' : (envConfig.claudeSessionKey || '')}
+                onChange={(value) => onUpdateConfig({
+                  claudeSessionKey: value || undefined,
+                })}
+                placeholder={envConfig.claudeTokenIsGlobal ? 'Enter to override global sessionKey...' : 'sesskey-...'}
+              />
+            </div>
+
+            {/* OAuth Token (Alternative) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                OAuth Token (Alternative)
+              </Label>
               <p className="text-xs text-muted-foreground">
                 Paste a token from <code className="px-1 bg-muted rounded">claude setup-token</code>
               </p>
-            )}
-            <PasswordInput
-              value={envConfig.claudeTokenIsGlobal ? '' : (envConfig.claudeOAuthToken || '')}
-              onChange={(value) => onUpdateConfig({
-                claudeOAuthToken: value || undefined,
-              })}
-              placeholder={envConfig.claudeTokenIsGlobal ? 'Enter to override global token...' : 'your-oauth-token-here'}
-            />
+              <PasswordInput
+                value={envConfig.claudeTokenIsGlobal ? '' : (envConfig.claudeOAuthToken || '')}
+                onChange={(value) => onUpdateConfig({
+                  claudeOAuthToken: value || undefined,
+                })}
+                placeholder={envConfig.claudeTokenIsGlobal ? 'Enter to override global token...' : 'sk-ant-oat01-...'}
+              />
+            </div>
           </div>
         </>
       ) : envError ? (

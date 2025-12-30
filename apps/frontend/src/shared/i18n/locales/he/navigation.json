@@ -14,7 +14,8 @@
     "githubIssues": "בעיות GitHub",
     "githubPRs": "בקשות משיכה GitHub",
     "gitlabIssues": "בעיות GitLab",
-    "worktrees": "עצי עבודה"
+    "worktrees": "עצי עבודה",
+    "agentTools": "כלי סוכן"
   },
   "actions": {
     "settings": "הגדרות",

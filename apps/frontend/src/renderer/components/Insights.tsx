@@ -14,7 +14,10 @@ import {
   FolderSearch,
   PanelLeftClose,
   PanelLeft,
-  StopCircle
+  StopCircle,
+  Edit2,
+  X,
+  Check
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,6 +28,7 @@ import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
+import { getTextDirection, getDirAttribute } from '../lib/rtl-utils';
 import {
   useInsightsStore,
   loadInsightsSession,
@@ -42,6 +46,7 @@ import { loadTasks } from '../stores/task-store';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
 import { MarkdownContent } from './MarkdownContent';
+import { FormattingToolbar, applyFormatting, handleFormattingShortcut, type FormatType } from './FormattingToolbar';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -100,14 +105,25 @@ export function Insights({ projectId }: InsightsProps) {
   const streamingContent = useInsightsStore((state) => state.streamingContent);
   const currentTool = useInsightsStore((state) => state.currentTool);
   const isLoadingSessions = useInsightsStore((state) => state.isLoadingSessions);
+  const draftMessage = useInsightsStore((state) => state.draftMessage);
+  const setDraftMessage = useInsightsStore((state) => state.setDraftMessage);
+  const editingMessageId = useInsightsStore((state) => state.editingMessageId);
+  const setEditingMessageId = useInsightsStore((state) => state.setEditingMessageId);
+  const editMessage = useInsightsStore((state) => state.editMessage);
 
   const [inputValue, setInputValue] = useState('');
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showFormatting, setShowFormatting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync inputValue with draftMessage from store
+  useEffect(() => {
+    setInputValue(draftMessage);
+  }, [draftMessage]);
 
   // Load session and set up listeners on mount
   useEffect(() => {
@@ -136,6 +152,7 @@ export function Insights({ projectId }: InsightsProps) {
     if (!message || status.phase === 'thinking' || status.phase === 'streaming') return;
 
     setInputValue('');
+    setDraftMessage(''); // Clear draft in store
     sendMessage(projectId, message);
   };
 
@@ -143,7 +160,15 @@ export function Insights({ projectId }: InsightsProps) {
     await stopInsights(projectId);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Check for formatting shortcuts first
+    const formatType = handleFormattingShortcut(e);
+    if (formatType && textareaRef.current) {
+      applyFormatting(textareaRef.current, formatType);
+      return;
+    }
+
+    // Handle Enter to send
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -153,7 +178,23 @@ export function Insights({ projectId }: InsightsProps) {
   const handleNewSession = async () => {
     await newSession(projectId);
     setTaskCreated(new Set());
+    setDraftMessage(''); // Clear draft on new session
     textareaRef.current?.focus();
+  };
+
+  const handleInputChange = (value: string) => {
+    setInputValue(value);
+    setDraftMessage(value); // Auto-save to store (which persists to localStorage)
+  };
+
+  const handleFormat = (formatType: FormatType) => {
+    if (textareaRef.current) {
+      applyFormatting(textareaRef.current, formatType);
+      // Update the input value after formatting
+      const newValue = textareaRef.current.value;
+      setInputValue(newValue);
+      setDraftMessage(newValue);
+    }
   };
 
   const handleSelectSession = async (sessionId: string) => {
@@ -306,6 +347,10 @@ export function Insights({ projectId }: InsightsProps) {
                 onCreateTask={() => handleCreateTask(message)}
                 isCreatingTask={creatingTask === message.id}
                 taskCreated={taskCreated.has(message.id)}
+                isEditing={editingMessageId === message.id}
+                onStartEdit={() => setEditingMessageId(message.id)}
+                onCancelEdit={() => setEditingMessageId(null)}
+                onEdit={editMessage}
               />
             ))}
 
@@ -320,7 +365,13 @@ export function Insights({ projectId }: InsightsProps) {
                     {t('assistant')}
                   </div>
                   {streamingContent && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div 
+                      dir={getTextDirection(streamingContent)}
+                      className={cn(
+                        'prose prose-sm dark:prose-invert max-w-none',
+                        getTextDirection(streamingContent) === 'rtl' ? 'text-right' : 'text-left'
+                      )}
+                    >
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                         {streamingContent}
                       </ReactMarkdown>
@@ -361,43 +412,64 @@ export function Insights({ projectId }: InsightsProps) {
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-border p-4">
-        <div className="flex gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('placeholder')}
-            className="min-h-[80px] resize-none"
-            disabled={isLoading}
-          />
-          <div className="flex flex-col gap-2 self-end">
-            {isLoading && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleStop}
-                title={t('stop')}
-              >
-                <StopCircle className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
+      <div className="border-t border-border">
+        {/* Formatting Toolbar */}
+        {showFormatting && (
+          <FormattingToolbar onFormat={handleFormat} />
+        )}
+        
+        <div className="p-4">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('placeholder')}
+                className="min-h-[80px] resize-none"
+                dir={getDirAttribute(inputValue)}
+                // Allow typing even when streaming - only disable send button
+              />
+              <div className="mt-2 flex items-center justify-between">
+                {/* ## Formatting toolbar button - uncomment if needed
+                <button
+                  type="button"
+                  onClick={() => setShowFormatting(!showFormatting)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showFormatting ? t('formatting.hide') : t('formatting.show')}
+                </button>
+                */}
+                <p className="text-xs text-muted-foreground">
+                  {t('sendHint')}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 self-end">
+              {isLoading && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleStop}
+                  title={t('stop')}
+                >
+                  <StopCircle className="h-4 w-4" />
+                </Button>
               )}
-            </Button>
+              <Button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t('sendHint')}
-        </p>
       </div>
       </div>
     </div>
@@ -409,18 +481,53 @@ interface MessageBubbleProps {
   onCreateTask: () => void;
   isCreatingTask: boolean;
   taskCreated: boolean;
+  onEdit?: (messageId: string, newContent: string) => void;
+  isEditing?: boolean;
+  onStartEdit?: () => void;
+  onCancelEdit?: () => void;
 }
 
 function MessageBubble({
   message,
   onCreateTask,
   isCreatingTask,
-  taskCreated
+  taskCreated,
+  onEdit,
+  isEditing = false,
+  onStartEdit,
+  onCancelEdit
 }: MessageBubbleProps) {
+  const [editValue, setEditValue] = useState(message.content);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing && editTextareaRef.current) {
+      editTextareaRef.current.focus();
+      editTextareaRef.current.selectionStart = editValue.length;
+    }
+  }, [isEditing]);
+
+  const handleSaveEdit = () => {
+    if (editValue.trim() && onEdit) {
+      onEdit(message.id, editValue.trim());
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      onCancelEdit?.();
+    }
+  };
+  
   const isUser = message.role === 'user';
+  const textDir = getTextDirection(message.content);
+  const isRTL = textDir === 'rtl';
 
   return (
-    <div className="flex gap-3">
+    <div className={cn('flex gap-3 group', isRTL && 'flex-row-reverse')}>
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
@@ -434,10 +541,64 @@ function MessageBubble({
         )}
       </div>
       <div className="flex-1 space-y-2">
-        <div className="text-sm font-medium text-foreground">
-          {isUser ? 'You' : 'Assistant'}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {isUser ? 'You' : 'Assistant'}
+            </span>
+            {message.edited && (
+              <span className="text-xs text-muted-foreground italic">
+                (edited)
+              </span>
+            )}
+          </div>
+          {isUser && !isEditing && onStartEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={onStartEdit}
+              title="Edit message"
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+          )}
         </div>
-        <MarkdownContent content={message.content} className="prose prose-sm dark:prose-invert max-w-none" />
+
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              ref={editTextareaRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="min-h-[60px] resize-none text-sm"
+              dir={getDirAttribute(editValue)}
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleSaveEdit}
+                disabled={!editValue.trim()}
+              >
+                <Check className="mr-1 h-3 w-3" />
+                {t('edit.save')} (Ctrl+Enter)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onCancelEdit}
+              >
+                <X className="mr-1 h-3 w-3" />
+                {t('edit.cancel')} (Esc)
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div dir={textDir} className={isRTL ? 'text-right' : 'text-left'}>
+            <MarkdownContent content={message.content} className="prose prose-sm dark:prose-invert max-w-none" />
+          </div>
+        )}
 
         {/* Tool usage history for assistant messages */}
         {!isUser && message.toolsUsed && message.toolsUsed.length > 0 && (

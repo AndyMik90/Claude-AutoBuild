@@ -35,7 +35,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       projectId: string,
       title: string,
       description: string,
-      metadata?: TaskMetadata
+      metadata?: TaskMetadata,
+      language?: string
     ): Promise<IPCResult<Task>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
@@ -164,7 +165,8 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       // Create requirements.json with attached images
       const requirements: Record<string, unknown> = {
         task_description: description,
-        workflow_type: taskMetadata.category || 'feature'
+        workflow_type: taskMetadata.category || 'feature',
+        preferred_language: language || 'en' // Add language preference for AI responses
       };
 
       // Add attached images to requirements if present

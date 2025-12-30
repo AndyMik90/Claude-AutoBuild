@@ -1,0 +1,136 @@
+{
+  "title": "סקירת שרת MCP",
+  "subtitle": "הצג אילו שרתי MCP וכלים זמינים עבור כל שלב של הסוכן",
+  "availableServers": "שרתי MCP זמינים",
+  "toolsAvailable": "כלים זמינים",
+  "agentsCount": "סוכנים",
+  "mcpServersSection": "MCP Servers",
+  "availableToolsSection": "כלים זמינים",
+  "noMcpServers": "לא נדרשים שרתי MCP",
+  "textOnly": "טקסט בלבד (ללא כלים)",
+  "conditional": "משולב",
+  "more": "נוספים",
+  "mcpServers": {
+    "context7": {
+      "name": "Context7",
+      "description": "חיפוש תיעוד לספריות ו-frameworks דרך @upstash/context7-mcp"
+    },
+    "graphiti": {
+      "name": "זיכרון Graphiti",
+      "description": "גרף ידע עבור הקשר בין-סשנים. דורש משתנה סביבה GRAPHITI_MCP_URL"
+    },
+    "autoClaude": {
+      "name": "כלי Auto-Claude",
+      "description": "מעקב אחר התקדמות בנייה, הקשר סשן, רישום גילויים ומלכודות"
+    },
+    "linear": {
+      "name": "Linear",
+      "description": "ניהול פרויקט דרך Linear API. דורש משתנה סביבה LINEAR_API_KEY"
+    },
+    "electron": {
+      "name": "Electron MCP",
+      "description": "אוטומציה של אפליקציות דסקטופ דרך Chrome DevTools Protocol. דורש ELECTRON_MCP_ENABLED=true"
+    },
+    "puppeteer": {
+      "name": "Puppeteer MCP",
+      "description": "אוטומציה של דפדפן אינטרנט עבור front-ends שאינם Electron"
+    }
+  },
+  "categories": {
+    "spec": "יצירת מפרט",
+    "build": "בנייה",
+    "qa": "בקרת איכות",
+    "utility": "כלים עזר",
+    "ideation": "רעיונות"
+  },
+  "agents": {
+    "specGatherer": {
+      "label": "אוסף מפרט",
+      "description": "אוסף דרישות ראשוניות מהמשתמש"
+    },
+    "specResearcher": {
+      "label": "חוקר מפרט",
+      "description": "מאמת אינטגרציות חיצוניות ו-API"
+    },
+    "specWriter": {
+      "label": "כותב מפרט",
+      "description": "יוצר את מסמך spec.md"
+    },
+    "specCritic": {
+      "label": "מבקר מפרט",
+      "description": "ביקורת עצמית באמצעות ניתוח עמוק"
+    },
+    "specDiscovery": {
+      "label": "גילוי מפרט",
+      "description": "גילוי וניתוח ראשוני של הפרויקט"
+    },
+    "specContext": {
+      "label": "הקשר מפרט",
+      "description": "בונה הקשר מבסיס קוד קיים"
+    },
+    "specValidation": {
+      "label": "אימות מפרט",
+      "description": "מאמת שלמות ואיכות של המפרט"
+    },
+    "planner": {
+      "label": "מתכנן",
+      "description": "יוצר תוכנית יישום עם תתי-משימות"
+    },
+    "coder": {
+      "label": "מתכנת",
+      "description": "מיישם תתי-משימות בודדות"
+    },
+    "qaReviewer": {
+      "label": "סוקר בקרת איכות",
+      "description": "מאמת קריטריוני קבלה. משתמש ב-Electron או Puppeteer לפי סוג הפרויקט"
+    },
+    "qaFixer": {
+      "label": "מתקן בקרת איכות",
+      "description": "מתקן בעיות שדווחו על ידי בקרת איכות. משתמש ב-Electron או Puppeteer לפי סוג הפרויקט"
+    },
+    "discovery": {
+      "label": "גילוי",
+      "description": "מנתח את הפרויקט ומגלה תובנות"
+    },
+    "insights": {
+      "label": "תובנות",
+      "description": "עוזר AI אינטראקטיבי לניתוח קוד ותכנון תכונות"
+    },
+    "githubIssuesReviewer": {
+      "label": "סוקר בעיות GitHub",
+      "description": "מנתח ומעדף בעיות GitHub"
+    },
+    "githubPrsReviewer": {
+      "label": "סוקר PR של GitHub",
+      "description": "סוקר בקשות משיכה של GitHub"
+    },
+    "prReviewer": {
+      "label": "סוקר PR",
+      "description": "סוקר בקשות משיכה של GitHub"
+    },
+    "commitMessage": {
+      "label": "הודעת commit",
+      "description": "מייצר הודעות commit"
+    },
+    "mergeResolver": {
+      "label": "פותר קונפליקטים",
+      "description": "פותר קונפליקטים במיזוג"
+    },
+    "analysis": {
+      "label": "ניתוח",
+      "description": "ניתוח בסיס קוד עם חיפוש הקשר"
+    },
+    "batchAnalysis": {
+      "label": "ניתוח אצווה",
+      "description": "עיבוד אצווה של בעיות או פריטים"
+    },
+    "ideation": {
+      "label": "רעיונות",
+      "description": "מייצר רעיונות לתכונות"
+    },
+    "roadmapDiscovery": {
+      "label": "גילוי מפת דרכים",
+      "description": "מגלה פריטי מפת דרכים"
+    }
+  }
+}

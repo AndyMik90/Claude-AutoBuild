@@ -19,6 +19,65 @@
     "error": {
       "title": "נכשל בטעינת אינדקס הפרויקט",
       "retry": "נסה שוב"
+    },
+    "overview": {
+      "title": "סקירה כללית",
+      "projectType": "סוג פרויקט",
+      "services": "שירותים",
+      "service": "שירות"
+    },
+    "sections": {
+      "services": "שירותים",
+      "infrastructure": "תשתיות",
+      "conventions": "מוסכמות",
+      "environmentVariables": "משתני סביבה",
+      "apiRoutes": "נתיבי API",
+      "dependencies": "תלויות",
+      "database": "מסד נתונים",
+      "databaseModels": "מודלים של מסד נתונים",
+      "externalServices": "שירותים חיצוניים",
+      "monitoring": "ניטור",
+      "moreItems": "נוספים",
+      "fields": "שדות",
+      "databases": "מסדי נתונים",
+      "email": "דואר אלקטרוני",
+      "payments": "תשלומים",
+      "cache": "מטמון",
+      "metrics": "מדדים",
+      "health": "בריאות"
+    },
+    "infrastructure": {
+      "dockerCompose": "Docker Compose",
+      "cicd": "CI/CD",
+      "deployment": "פריסה",
+      "dockerServices": "שירותי Docker"
+    },
+    "conventions": {
+      "pythonLinting": "Python Linting",
+      "jsLinting": "JS Linting",
+      "formatting": "עיצוב קוד",
+      "gitHooks": "Git Hooks",
+      "typescript": "TypeScript",
+      "enabled": "מופעל"
+    },
+    "service": {
+      "testing": "בדיקות",
+      "orm": "ORM",
+      "port": "פורט",
+      "styling": "עיצוב",
+      "state": "ניהול מצב",
+      "appleFrameworks": "Apple Frameworks",
+      "spmDependencies": "תלויות SPM",
+      "keyDirectories": "תיקיות מרכזיות",
+      "entryPoint": "נקודת כניסה",
+      "connected": "מחובר",
+      "database": "מסד נתונים",
+      "path": "נתיב",
+      "episodes": "אפיזודות",
+      "lastSession": "סשן אחרון",
+      "resultsFound": "תוצאות נמצאו",
+      "result": "תוצאה",
+      "score": "ציון"
     }
   },
   "memories": {

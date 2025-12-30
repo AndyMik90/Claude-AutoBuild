@@ -208,6 +208,24 @@
     "rerunWizard": "Re-run Wizard",
     "rerunWizardDescription": "Start the setup wizard again"
   },
+  "devtools": {
+    "title": "Developer Tools",
+    "description": "Configure your preferred IDE and terminal for working with worktrees",
+    "detectAgain": "Detect Again",
+    "ide": {
+      "label": "Preferred IDE",
+      "description": "Auto Claude will open worktrees in this editor",
+      "placeholder": "Select IDE..."
+    },
+    "terminal": {
+      "label": "Preferred Terminal",
+      "description": "Auto Claude will open terminal sessions here",
+      "placeholder": "Select terminal..."
+    },
+    "customPath": "Custom path",
+    "detected": "Detected on your system",
+    "noToolsDetected": "No additional tools detected"
+  },
   "projectSections": {
     "general": {
       "title": "General",
@@ -217,10 +235,17 @@
     },
     "claude": {
       "title": "Claude Authentication",
-      "description": "Configure Claude CLI authentication for this project",
+      "description": "Configure Claude CLI authentication for this project. Supported: sessionKey from browser (recommended) or OAuth token",
       "guardTitle": "Claude Authentication",
       "guardDescription": "Configure Claude CLI authentication",
-      "initMessage": "Initialize Auto-Build first to configure claude authentication"
+      "initMessage": "Initialize Auto-Build first to configure claude authentication",
+      "sessionKeyLabel": "Session Key (Recommended)",
+      "sessionKeyDescription": "Copy from browser: DevTools (F12) → Application → Cookies → claude.ai → sessionKey",
+      "sessionKeyPlaceholder": "sesskey-...",
+      "oauthTokenLabel": "OAuth Token (Alternative)",
+      "oauthTokenDescription": "Paste token from claude setup-token",
+      "oauthTokenPlaceholder": "sk-ant-oat01-...",
+      "overrideGlobal": "Override global setting"
     },
     "linear": {
       "title": "Linear Integration",

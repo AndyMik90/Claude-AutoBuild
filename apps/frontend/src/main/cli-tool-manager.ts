@@ -230,7 +230,7 @@ class CLIToolManager {
     // 4. System PATH (augmented)
     const candidates =
       process.platform === 'win32'
-        ? ['py -3', 'python', 'python3', 'py']
+        ? ['python', 'python3', 'py -3', 'py']
         : ['python3', 'python'];
 
     for (const cmd of candidates) {

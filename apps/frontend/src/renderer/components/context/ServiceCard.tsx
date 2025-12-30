@@ -1,4 +1,5 @@
 import { Database, CheckCircle, FileCode, Globe, Code, Package } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -20,6 +21,7 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ name, service }: ServiceCardProps) {
+  const { t } = useTranslation('context');
   const Icon = serviceTypeIcons[service.type || 'unknown'];
   const colorClass = serviceTypeColors[service.type || 'unknown'];
 
@@ -77,31 +79,31 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
           {service.testing && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <CheckCircle className="h-3 w-3 shrink-0" />
-              <span>Testing: {service.testing}</span>
+              <span>{t('projectIndex.service.testing')}: {service.testing}</span>
             </div>
           )}
           {service.orm && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Database className="h-3 w-3 shrink-0" />
-              <span>ORM: {service.orm}</span>
+              <span>{t('projectIndex.service.orm')}: {service.orm}</span>
             </div>
           )}
           {service.default_port && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Globe className="h-3 w-3 shrink-0" />
-              <span>Port: {service.default_port}</span>
+              <span>{t('projectIndex.service.port')}: {service.default_port}</span>
             </div>
           )}
           {service.styling && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Code className="h-3 w-3 shrink-0" />
-              <span>Styling: {service.styling}</span>
+              <span>{t('projectIndex.service.styling')}: {service.styling}</span>
             </div>
           )}
           {service.state_management && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-3 w-3 shrink-0" />
-              <span>State: {service.state_management}</span>
+              <span>{t('projectIndex.service.state')}: {service.state_management}</span>
             </div>
           )}
         </div>
@@ -109,7 +111,7 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
         {/* Apple Frameworks (iOS/Swift) */}
         {service.apple_frameworks && service.apple_frameworks.length > 0 && (
           <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-1.5">Apple Frameworks</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{t('projectIndex.service.appleFrameworks')}</p>
             <div className="flex flex-wrap gap-1">
               {service.apple_frameworks.map((fw) => (
                 <Badge key={fw} variant="secondary" className="text-xs">
@@ -123,7 +125,7 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
         {/* SPM Dependencies (iOS/Swift) */}
         {service.spm_dependencies && service.spm_dependencies.length > 0 && (
           <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-1.5">SPM Dependencies</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{t('projectIndex.service.spmDependencies')}</p>
             <div className="flex flex-wrap gap-1">
               {service.spm_dependencies.map((dep) => (
                 <Badge key={dep} variant="outline" className="text-xs font-mono">
@@ -145,7 +147,7 @@ export function ServiceCard({ name, service }: ServiceCardProps) {
         {/* Key Directories */}
         {service.key_directories && Object.keys(service.key_directories).length > 0 && (
           <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-1.5">Key Directories</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{t('projectIndex.service.keyDirectories')}</p>
             <div className="flex flex-wrap gap-1">
               {Object.entries(service.key_directories).slice(0, 6).map(([dir, info]) => (
                 <Tooltip key={dir}>

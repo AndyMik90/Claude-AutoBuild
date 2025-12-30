@@ -101,7 +101,7 @@ export function GenerationProgressScreen({
                 {completedCount}/{enabledTypes.length} {t('generation.complete')}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{generationStatus.message}</p>
+            <p className="text-sm text-muted-foreground">{t('generation.inProgress')}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button

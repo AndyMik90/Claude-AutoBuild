@@ -176,6 +176,24 @@
     "rerunWizard": "הפעל אשף מחדש",
     "rerunWizardDescription": "התחל את אשף ההגדרה שוב"
   },
+  "devtools": {
+    "title": "כלי פיתוח",
+    "description": "הגדר את ה-IDE והטרמינל המועדפים עליך לעבודה עם worktrees",
+    "detectAgain": "זהה שוב",
+    "ide": {
+      "label": "IDE מועדף",
+      "description": "Auto Claude יפתח worktrees בעורך זה",
+      "placeholder": "בחר IDE..."
+    },
+    "terminal": {
+      "label": "טרמינל מועדף",
+      "description": "Auto Claude יפתח סשני טרמינל כאן",
+      "placeholder": "בחר טרמינל..."
+    },
+    "customPath": "נתיב מותאם אישית",
+    "detected": "זוהה במערכת שלך",
+    "noToolsDetected": "לא זוהו כלים נוספים"
+  },
   "projectSections": {
     "general": {
       "title": "כללי",
@@ -183,10 +201,17 @@
     },
     "claude": {
       "title": "אימות Claude",
-      "description": "הגדר אימות Claude CLI לפרויקט זה",
+      "description": "הגדר אימות Claude CLI לפרויקט זה. שיטות אימות נתמכות: sessionKey מדפדפן (מומלץ) או OAuth token",
       "guardTitle": "אימות Claude",
       "guardDescription": "הגדר אימות Claude CLI",
-      "initMessage": "אתחל את Auto-Build תחילה כדי להגדיר אימות Claude"
+      "initMessage": "אתחל את Auto-Build תחילה כדי להגדיר אימות Claude",
+      "sessionKeyLabel": "Session Key (מומלץ)",
+      "sessionKeyDescription": "העתק מהדפדפן: DevTools (F12) → Application → Cookies → claude.ai → sessionKey",
+      "sessionKeyPlaceholder": "sesskey-...",
+      "oauthTokenLabel": "OAuth Token (חלופי)",
+      "oauthTokenDescription": "הדבק טוקן מ-claude setup-token",
+      "oauthTokenPlaceholder": "sk-ant-oat01-...",
+      "overrideGlobal": "עקוף הגדרה גלובלית"
     },
     "linear": {
       "title": "אינטגרציית Linear",

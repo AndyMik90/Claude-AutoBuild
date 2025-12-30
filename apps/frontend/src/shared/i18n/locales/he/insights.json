@@ -17,7 +17,32 @@
   "older": "ישנים יותר",
   "placeholder": "שאל על בסיס הקוד שלך...",
   "sendHint": "לחץ Enter לשליחה, Shift+Enter לשורה חדשה",
+  "formatting": {
+    "show": "✎ הצג עיצוב",
+    "hide": "✕ הסתר עיצוב",
+    "bold": "מודגש",
+    "italic": "נטוי",
+    "code": "קוד משולב",
+    "codeBlock": "בלוק קוד",
+    "heading": "כותרת",
+    "list": "רשימה מצביעים",
+    "orderedList": "רשימה ממוספרת",
+    "quote": "ציטוט",
+    "link": "קישור"
+  },
   "stop": "עצור",
+  "edit": {
+    "button": "ערוך הודעה",
+    "save": "שמור",
+    "cancel": "בטל",
+    "saveHint": "Ctrl+Enter לשמירה",
+    "cancelHint": "Esc לביטול",
+    "edited": "נערך"
+  },
+  "draft": {
+    "saved": "טיוטה נשמרה אוטומטית",
+    "restored": "טיוטה שוחזרה"
+  },
   "profileSelector": {
     "label": "פרופיל סוכן",
     "custom": "מותאם אישית...",

@@ -53,6 +53,33 @@ def generate_environment_context(project_dir: Path, spec_dir: Path) -> str:
         Markdown string with environment context
     """
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
+    
+    # Read preferred language from requirements.json if available
+    language_instruction = ""
+    requirements_file = spec_dir / "requirements.json"
+    if requirements_file.exists():
+        try:
+            with open(requirements_file, "r", encoding="utf-8") as f:
+                requirements = json.load(f)
+                preferred_lang = requirements.get("preferred_language")
+                if preferred_lang and preferred_lang != "en":
+                    # Map language codes to readable names
+                    lang_names = {
+                        "he": "Hebrew (עברית)",
+                        "ar": "Arabic (العربية)",
+                        "es": "Spanish (Español)",
+                        "fr": "French (Français)",
+                        "de": "German (Deutsch)",
+                        "zh": "Chinese (中文)",
+                        "ja": "Japanese (日本語)",
+                        "ko": "Korean (한국어)",
+                        "ru": "Russian (Русский)",
+                        "pt": "Portuguese (Português)"
+                    }
+                    lang_name = lang_names.get(preferred_lang, preferred_lang.upper())
+                    language_instruction = f"\n\n**IMPORTANT:** Write all your progress messages, status updates, and explanations in {lang_name}. The user interface language is set to {lang_name}.\n"
+        except Exception:
+            pass  # Silently ignore if file doesn't exist or parsing fails
 
     return f"""## YOUR ENVIRONMENT
 
@@ -67,7 +94,7 @@ relative to this location. Do NOT use absolute paths.
 - Plan: `{relative_spec}/implementation_plan.json`
 - Progress: `{relative_spec}/build-progress.txt`
 - Context: `{relative_spec}/context.json`
-
+{language_instruction}
 ---
 
 """

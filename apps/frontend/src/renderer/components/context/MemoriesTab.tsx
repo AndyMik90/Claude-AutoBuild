@@ -66,7 +66,7 @@ export function MemoriesTab({
               {memoryStatus?.available ? (
                 <Badge variant="outline" className="bg-success/10 text-success border-success/30">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Connected
+                  {t('projectIndex.service.connected')}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-muted text-muted-foreground">
@@ -80,15 +80,15 @@ export function MemoriesTab({
             {memoryStatus?.available ? (
               <>
                 <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                  <InfoItem label="Database" value={memoryStatus.database || 'auto_claude_memory'} />
-                  <InfoItem label="Path" value={memoryStatus.dbPath || '~/.auto-claude/graphs'} />
+                  <InfoItem label={t('projectIndex.service.database')} value={memoryStatus.database || 'auto_claude_memory'} />
+                  <InfoItem label={t('projectIndex.service.path')} value={memoryStatus.dbPath || '~/.auto-claude/graphs'} />
                   {memoryState && (
-                    <InfoItem label="Episodes" value={memoryState.episode_count.toString()} />
+                    <InfoItem label={t('projectIndex.service.episodes')} value={memoryState.episode_count.toString()} />
                   )}
                 </div>
                 {memoryState?.last_session && (
                   <p className="text-xs text-muted-foreground">
-                    Last session: #{memoryState.last_session}
+                    {t('projectIndex.service.lastSession')}: #{memoryState.last_session}
                   </p>
                 )}
               </>
@@ -124,7 +124,7 @@ export function MemoriesTab({
           {searchResults.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
+                {searchResults.length} {searchResults.length === 1 ? t('projectIndex.service.result') : t('projectIndex.service.resultsFound')}
               </p>
               {searchResults.map((result, idx) => (
                 <Card key={idx} className="bg-muted/50">
@@ -134,7 +134,7 @@ export function MemoriesTab({
                         {result.type.replace('_', ' ')}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        Score: {result.score.toFixed(2)}
+                        {t('projectIndex.service.score')}: {result.score.toFixed(2)}
                       </span>
                     </div>
                     <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-40 overflow-auto">

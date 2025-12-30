@@ -273,7 +273,8 @@ export interface ProjectContextData {
 // Environment Configuration for project .env files
 export interface ProjectEnvConfig {
   // Claude Authentication
-  claudeOAuthToken?: string;
+  claudeSessionKey?: string; // Browser sessionKey (recommended - most reliable)
+  claudeOAuthToken?: string; // OAuth token (alternative method)
   claudeAuthStatus: 'authenticated' | 'token_set' | 'not_configured';
   // Indicates if the Claude token is from global settings (not project-specific)
   claudeTokenIsGlobal?: boolean;

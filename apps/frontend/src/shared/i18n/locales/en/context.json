@@ -19,6 +19,64 @@
     "error": {
       "title": "Failed to load project index",
       "retry": "Try Again"
+    },
+    "overview": {
+      "title": "Overview",
+      "projectType": "Project Type",
+      "services": "services",
+      "service": "service"
+    },
+    "sections": {
+      "services": "Services",
+      "infrastructure": "Infrastructure",
+      "conventions": "Conventions",
+      "environmentVariables": "Environment Variables",
+      "apiRoutes": "API Routes",
+      "dependencies": "Dependencies",
+      "database": "Database",
+      "databaseModels": "Database Models",
+      "externalServices": "External Services",
+      "monitoring": "Monitoring",
+      "moreItems": "more",
+      "fields": "fields",
+      "databases": "Databases",
+      "email": "Email",
+      "payments": "Payments",
+      "cache": "Cache",
+      "metrics": "Metrics",
+      "health": "Health"    },
+    "infrastructure": {
+      "dockerCompose": "Docker Compose",
+      "cicd": "CI/CD",
+      "deployment": "Deployment",
+      "dockerServices": "Docker Services"
+    },
+    "conventions": {
+      "pythonLinting": "Python Linting",
+      "jsLinting": "JS Linting",
+      "formatting": "Formatting",
+      "gitHooks": "Git Hooks",
+      "typescript": "TypeScript",
+      "enabled": "Enabled"
+    },
+    "service": {
+      "testing": "Testing",
+      "orm": "ORM",
+      "port": "Port",
+      "styling": "Styling",
+      "state": "State",
+      "appleFrameworks": "Apple Frameworks",
+      "spmDependencies": "SPM Dependencies",
+      "keyDirectories": "Key Directories",
+      "entryPoint": "Entry Point",
+      "connected": "Connected",
+      "database": "Database",
+      "path": "Path",
+      "episodes": "Episodes",
+      "lastSession": "Last session",
+      "resultsFound": "results found",
+      "result": "result",
+      "score": "Score"
     }
   },
   "memories": {

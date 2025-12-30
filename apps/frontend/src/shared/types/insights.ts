@@ -180,6 +180,9 @@ export interface InsightsChatMessage {
   role: InsightsChatRole;
   content: string;
   timestamp: Date;
+  // For edited messages
+  edited?: boolean;
+  editedAt?: Date;
   // For assistant messages that suggest task creation
   suggestedTask?: {
     title: string;

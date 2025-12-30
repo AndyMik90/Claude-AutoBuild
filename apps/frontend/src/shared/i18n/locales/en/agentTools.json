@@ -1,0 +1,136 @@
+{
+  "title": "MCP Server Overview",
+  "subtitle": "View which MCP servers and tools are available for each agent phase",
+  "availableServers": "Available MCP Servers",
+  "toolsAvailable": "tools available",
+  "agentsCount": "agents",
+  "mcpServersSection": "MCP Servers",
+  "availableToolsSection": "Available Tools",
+  "noMcpServers": "No MCP servers required",
+  "textOnly": "Text-only (no tools)",
+  "conditional": "conditional",
+  "more": "more",
+  "mcpServers": {
+    "context7": {
+      "name": "Context7",
+      "description": "Documentation lookup for libraries and frameworks via @upstash/context7-mcp"
+    },
+    "graphiti": {
+      "name": "Graphiti Memory",
+      "description": "Knowledge graph for cross-session context. Requires GRAPHITI_MCP_URL env var."
+    },
+    "autoClaude": {
+      "name": "Auto-Claude Tools",
+      "description": "Build progress tracking, session context, discoveries & gotchas recording"
+    },
+    "linear": {
+      "name": "Linear",
+      "description": "Project management via Linear API. Requires LINEAR_API_KEY env var."
+    },
+    "electron": {
+      "name": "Electron MCP",
+      "description": "Desktop app automation via Chrome DevTools Protocol. Requires ELECTRON_MCP_ENABLED=true."
+    },
+    "puppeteer": {
+      "name": "Puppeteer MCP",
+      "description": "Web browser automation for non-Electron web frontends."
+    }
+  },
+  "categories": {
+    "spec": "Spec Creation",
+    "build": "Build",
+    "qa": "QA",
+    "utility": "Utility",
+    "ideation": "Ideation"
+  },
+  "agents": {
+    "specGatherer": {
+      "label": "Spec Gatherer",
+      "description": "Collects initial requirements from user"
+    },
+    "specResearcher": {
+      "label": "Spec Researcher",
+      "description": "Validates external integrations and APIs"
+    },
+    "specWriter": {
+      "label": "Spec Writer",
+      "description": "Creates the spec.md document"
+    },
+    "specCritic": {
+      "label": "Spec Critic",
+      "description": "Self-critique using deep analysis"
+    },
+    "specDiscovery": {
+      "label": "Spec Discovery",
+      "description": "Initial project discovery and analysis"
+    },
+    "specContext": {
+      "label": "Spec Context",
+      "description": "Builds context from existing codebase"
+    },
+    "specValidation": {
+      "label": "Spec Validation",
+      "description": "Validates spec completeness and quality"
+    },
+    "planner": {
+      "label": "Planner",
+      "description": "Creates implementation plan with subtasks"
+    },
+    "coder": {
+      "label": "Coder",
+      "description": "Implements individual subtasks"
+    },
+    "qaReviewer": {
+      "label": "QA Reviewer",
+      "description": "Validates acceptance criteria. Uses Electron or Puppeteer based on project type."
+    },
+    "qaFixer": {
+      "label": "QA Fixer",
+      "description": "Fixes QA-reported issues. Uses Electron or Puppeteer based on project type."
+    },
+    "discovery": {
+      "label": "Discovery",
+      "description": "Analyzes project and discovers insights"
+    },
+    "insights": {
+      "label": "Insights",
+      "description": "Interactive AI assistant for code analysis and feature planning"
+    },
+    "githubIssuesReviewer": {
+      "label": "GitHub Issues Reviewer",
+      "description": "Analyzes and prioritizes GitHub issues"
+    },
+    "githubPrsReviewer": {
+      "label": "GitHub PRs Reviewer",
+      "description": "Reviews GitHub pull requests"
+    },
+    "prReviewer": {
+      "label": "PR Reviewer",
+      "description": "Reviews GitHub pull requests"
+    },
+    "commitMessage": {
+      "label": "Commit Message",
+      "description": "Generates commit messages"
+    },
+    "mergeResolver": {
+      "label": "Merge Resolver",
+      "description": "Resolves merge conflicts"
+    },
+    "analysis": {
+      "label": "Analysis",
+      "description": "Codebase analysis with context lookup"
+    },
+    "batchAnalysis": {
+      "label": "Batch Analysis",
+      "description": "Batch processing of issues or items"
+    },
+    "ideation": {
+      "label": "Ideation",
+      "description": "Generates feature ideas"
+    },
+    "roadmapDiscovery": {
+      "label": "Roadmap Discovery",
+      "description": "Discovers roadmap items"
+    }
+  }
+}

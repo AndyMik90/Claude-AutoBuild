@@ -86,7 +86,7 @@ export function findPythonCommand(): string | null {
   // Build candidate list prioritizing Homebrew Python on macOS
   let candidates: string[];
   if (isWindows) {
-    candidates = ['py -3', 'python', 'python3', 'py'];
+    candidates = ['python', 'python3', 'py -3', 'py'];
   } else {
     const homebrewPython = findHomebrewPython();
     candidates = homebrewPython

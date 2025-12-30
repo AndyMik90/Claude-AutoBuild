@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Package, ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import {
   Collapsible,
@@ -12,6 +13,7 @@ interface DependenciesSectionProps {
 }
 
 export function DependenciesSection({ dependencies }: DependenciesSectionProps) {
+  const { t } = useTranslation('context');
   const [expanded, setExpanded] = useState(false);
 
   if (!dependencies || dependencies.length === 0) {
@@ -27,7 +29,7 @@ export function DependenciesSection({ dependencies }: DependenciesSectionProps) 
       <CollapsibleTrigger className="flex w-full items-center justify-between text-xs font-medium hover:text-foreground">
         <div className="flex items-center gap-2">
           <Package className="h-3 w-3" />
-          Dependencies ({dependencies.length})
+          {t('projectIndex.sections.dependencies')} ({dependencies.length})
         </div>
         {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </CollapsibleTrigger>
@@ -40,7 +42,7 @@ export function DependenciesSection({ dependencies }: DependenciesSectionProps) 
           ))}
           {dependencies.length > 20 && (
             <Badge variant="secondary" className="text-xs">
-              +{dependencies.length - 20} more
+              +{dependencies.length - 20} {t('projectIndex.sections.moreItems')}
             </Badge>
           )}
         </div>

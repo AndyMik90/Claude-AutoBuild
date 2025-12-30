@@ -312,7 +312,13 @@ if sys.version_info >= (3, 12):
     return new Promise((resolve) => {
       const proc = spawn(venvPython, ['-m', 'ensurepip'], {
         cwd: this.autoBuildSourcePath!,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          PYTHONUTF8: '1',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONLEGACYWINDOWSSTDIO: 'utf-8'
+        }
       });
 
       let stderr = '';
@@ -366,7 +372,13 @@ if sys.version_info >= (3, 12):
       // Use python -m pip for better compatibility across Python versions
       const proc = spawn(venvPython, ['-m', 'pip', 'install', '-r', requirementsPath], {
         cwd: this.autoBuildSourcePath!,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          PYTHONUTF8: '1',
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONLEGACYWINDOWSSTDIO: 'utf-8'
+        }
       });
 
       let stdout = '';

@@ -41,6 +41,26 @@
     "skipDescription": "Generate roadmap without any competitor insights.",
     "cancel": "Cancel"
   },
+  "generation": {
+    "stop": "Stop",
+    "stopping": "Stopping...",
+    "analyzing": "Analyzing",
+    "discovering": "Discovering",
+    "generating": "Generating",
+    "complete": "Complete",
+    "error": "Error",
+    "progress": "Progress",
+    "analyzingDescription": "Analyzing project structure and codebase...",
+    "discoveringDescription": "Discovering target audience and user needs...",
+    "generatingDescription": "Generating feature roadmap...",
+    "completeDescription": "Roadmap generation complete!",
+    "errorDescription": "Generation failed",
+    "phaseAnalyze": "Analyze",
+    "phaseDiscover": "Discover",
+    "phaseGenerate": "Generate",
+    "generatingRoadmap": "Roadmap generation in progress...",
+    "inProgress": "In progress..."
+  },
   "competitorDialog": {
     "title": "Enable Competitor Analysis?",
     "description": "Enhance your roadmap with insights from competitor products",
