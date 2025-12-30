@@ -78,6 +78,11 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
 
   const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
 
+  // Get previousResult for follow-up review continuity
+  const previousReviewResult = selectedPRNumber
+    ? getReviewStateForPR(selectedPRNumber)?.previousResult ?? null
+    : null;
+
   // PR filtering
   const {
     filteredPRs,
@@ -212,6 +217,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
             <PRDetail
               pr={selectedPR}
               reviewResult={reviewResult}
+              previousReviewResult={previousReviewResult}
               reviewProgress={reviewProgress}
               isReviewing={isReviewing}
               onRunReview={handleRunReview}

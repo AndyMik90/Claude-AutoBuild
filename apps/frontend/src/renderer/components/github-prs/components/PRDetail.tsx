@@ -36,6 +36,7 @@ import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api
 interface PRDetailProps {
   pr: PRData;
   reviewResult: PRReviewResult | null;
+  previousReviewResult: PRReviewResult | null;
   reviewProgress: PRReviewProgress | null;
   isReviewing: boolean;
   onRunReview: () => void;
@@ -74,6 +75,7 @@ function ReviewStatusTree({
   status,
   isReviewing,
   reviewResult,
+  previousReviewResult,
   postedCount,
   onRunReview,
   onRunFollowupReview,
@@ -84,6 +86,7 @@ function ReviewStatusTree({
   status: 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain';
   isReviewing: boolean;
   reviewResult: PRReviewResult | null;
+  previousReviewResult: PRReviewResult | null;
   postedCount: number;
   onRunReview: () => void;
   onRunFollowupReview: () => void;
@@ -112,66 +115,108 @@ function ReviewStatusTree({
   // Determine steps for the tree
   const steps: { id: string; label: string; status: string; date?: string | null; action?: React.ReactNode }[] = [];
 
-  // Step 1: Start
-  steps.push({
-    id: 'start',
-    label: 'Review Started',
-    status: 'completed',
-    date: reviewResult?.reviewedAt || new Date().toISOString()
-  });
-
-  // Step 2: AI Analysis
-  if (isReviewing) {
+  // When follow-up is in progress AND we have previous review data, show continuation
+  if (isReviewing && previousReviewResult) {
+    // Show previous review as completed context
     steps.push({
-      id: 'analysis',
-      label: 'AI Analysis in Progress...',
+      id: 'prev_review',
+      label: `Previous Review (${previousReviewResult.findings.length} findings)`,
+      status: 'completed',
+      date: previousReviewResult.reviewedAt
+    });
+
+    // Show posted findings from previous review
+    const prevPostedCount = previousReviewResult.postedFindingIds?.length ?? 0;
+    if (previousReviewResult.hasPostedFindings || prevPostedCount > 0) {
+      steps.push({
+        id: 'prev_posted',
+        label: `${prevPostedCount || 'Findings'} Posted`,
+        status: 'completed',
+        date: previousReviewResult.postedAt
+      });
+    }
+
+    // Show new commits that triggered follow-up
+    if (newCommitsCheck?.hasNewCommits) {
+      steps.push({
+        id: 'new_commits',
+        label: `${newCommitsCheck.newCommitCount} New Commit${newCommitsCheck.newCommitCount !== 1 ? 's' : ''}`,
+        status: 'completed',
+        date: null
+      });
+    }
+
+    // Show follow-up in progress
+    steps.push({
+      id: 'followup_analysis',
+      label: 'Follow-up Analysis in Progress...',
       status: 'current',
       date: null
     });
-  } else if (reviewResult) {
-    steps.push({
-      id: 'analysis',
-      label: `Analysis Complete (${reviewResult.findings.length} findings)`,
-      status: 'completed',
-      date: reviewResult.reviewedAt
-    });
-  }
+  } else {
+    // Original logic for initial review or completed follow-up
 
-  // Step 3: Posting
-  if (postedCount > 0 || reviewResult?.hasPostedFindings) {
+    // Step 1: Start
     steps.push({
-      id: 'posted',
-      label: 'Findings Posted to GitHub',
+      id: 'start',
+      label: 'Review Started',
       status: 'completed',
-      date: reviewResult?.postedAt || (lastPostedAt ? new Date(lastPostedAt).toISOString() : null)
+      date: reviewResult?.reviewedAt || new Date().toISOString()
     });
-  } else if (reviewResult && reviewResult.findings.length > 0) {
-    steps.push({
-      id: 'posted',
-      label: 'Pending Post',
-      status: 'pending',
-      date: null
-    });
-  }
 
-  // Step 4: Follow-up
-  if (newCommitsCheck?.hasNewCommits) {
-    steps.push({
-      id: 'new_commits',
-      label: `${newCommitsCheck.newCommitCount} New Commits`,
-      status: 'alert',
-      date: null
-    });
-    steps.push({
-      id: 'followup',
-      label: 'Ready for Follow-up',
-      status: 'pending',
-      action: (
-        <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
-          Run Follow-up
-        </Button>
-      )
-    });
+    // Step 2: AI Analysis
+    if (isReviewing) {
+      steps.push({
+        id: 'analysis',
+        label: 'AI Analysis in Progress...',
+        status: 'current',
+        date: null
+      });
+    } else if (reviewResult) {
+      steps.push({
+        id: 'analysis',
+        label: `Analysis Complete (${reviewResult.findings.length} findings)`,
+        status: 'completed',
+        date: reviewResult.reviewedAt
+      });
+    }
+
+    // Step 3: Posting
+    if (postedCount > 0 || reviewResult?.hasPostedFindings) {
+      steps.push({
+        id: 'posted',
+        label: 'Findings Posted to GitHub',
+        status: 'completed',
+        date: reviewResult?.postedAt || (lastPostedAt ? new Date(lastPostedAt).toISOString() : null)
+      });
+    } else if (reviewResult && reviewResult.findings.length > 0) {
+      steps.push({
+        id: 'posted',
+        label: 'Pending Post',
+        status: 'pending',
+        date: null
+      });
+    }
+
+    // Step 4: Follow-up (only show when not currently reviewing)
+    if (!isReviewing && newCommitsCheck?.hasNewCommits) {
+      steps.push({
+        id: 'new_commits',
+        label: `${newCommitsCheck.newCommitCount} New Commits`,
+        status: 'alert',
+        date: null
+      });
+      steps.push({
+        id: 'followup',
+        label: 'Ready for Follow-up',
+        status: 'pending',
+        action: (
+          <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
+            Run Follow-up
+          </Button>
+        )
+      });
+    }
   }
 
   return (
@@ -320,6 +365,7 @@ function PRHeader({ pr }: { pr: PRData }) {
 export function PRDetail({
   pr,
   reviewResult,
+  previousReviewResult,
   reviewProgress,
   isReviewing,
   onRunReview,
@@ -391,6 +437,21 @@ export function PRDetail({
     if (!reviewResult || !reviewResult.success) return false;
     // Check if the summary contains "READY TO MERGE"
     return reviewResult.summary?.includes('READY TO MERGE') || reviewResult.overallStatus === 'approve';
+  }, [reviewResult]);
+
+  // Check if review is "clean" - only LOW severity findings (no MEDIUM, HIGH, or CRITICAL)
+  const isCleanReview = useMemo(() => {
+    if (!reviewResult || !reviewResult.success) return false;
+    // Only LOW findings allowed - no medium, high, or critical
+    return !reviewResult.findings.some(f =>
+      f.severity === 'critical' || f.severity === 'high' || f.severity === 'medium'
+    );
+  }, [reviewResult]);
+
+  // Get LOW severity findings for auto-posting
+  const lowSeverityFindings = useMemo(() => {
+    if (!reviewResult?.findings) return [];
+    return reviewResult.findings.filter(f => f.severity === 'low');
   }, [reviewResult]);
 
   // Compute the overall PR review status for visual display
@@ -573,6 +634,46 @@ export function PRDetail({
     }
   };
 
+  // Auto-approval for clean PRs - posts LOW findings as suggestions + approval comment
+  const handleAutoApprove = async () => {
+    if (!reviewResult) return;
+    setIsPosting(true);
+    try {
+      // Step 1: Post any LOW findings as non-blocking suggestions
+      const lowFindingIds = lowSeverityFindings.map(f => f.id);
+      if (lowFindingIds.length > 0) {
+        await onPostReview(lowFindingIds);
+        // Mark them as posted locally
+        setPostedFindingIds(prev => new Set([...prev, ...lowFindingIds]));
+      }
+
+      // Step 2: Post the approval comment
+      const findingsNote = lowFindingIds.length > 0
+        ? `- ${lowFindingIds.length} low-severity suggestion${lowFindingIds.length !== 1 ? 's' : ''} posted above`
+        : '- No issues found';
+
+      const approvalMessage = `## Auto Claude Review - APPROVED
+
+**Status:** Ready to Merge
+
+**Summary:** ${reviewResult.summary}
+
+---
+**Review Details:**
+${findingsNote}
+- Reviewed at: ${formatDate(reviewResult.reviewedAt)}
+${reviewResult.isFollowupReview ? `- Follow-up review: All previous blocking issues resolved` : ''}
+
+*This automated review found no blocking issues. The PR can be safely merged.*
+
+---
+*Generated by Auto Claude*`;
+      await onPostComment(approvalMessage);
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   const handleMerge = async () => {
     setIsMerging(true);
     try {
@@ -594,12 +695,13 @@ export function PRDetail({
           status={prStatus.status}
           isReviewing={isReviewing}
           reviewResult={reviewResult}
+          previousReviewResult={previousReviewResult}
           postedCount={postedFindingIds.size + (reviewResult?.postedFindingIds?.length ?? 0)}
           onRunReview={onRunReview}
           onRunFollowupReview={onRunFollowupReview}
           onCancelReview={onCancelReview}
           newCommitsCheck={newCommitsCheck}
-          lastPostedAt={postSuccess?.timestamp}
+          lastPostedAt={postSuccess?.timestamp || (reviewResult?.postedAt ? new Date(reviewResult.postedAt).getTime() : null)}
         />
 
         {/* Action Bar (Legacy Actions that fit under the tree context) */}
@@ -620,7 +722,34 @@ export function PRDetail({
                   )}
                 </Button>
              )}
-             
+
+             {/* Auto-approve for clean PRs (only LOW findings) */}
+             {isCleanReview && (
+                <Button
+                  onClick={handleAutoApprove}
+                  disabled={isPosting}
+                  variant="default"
+                  className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isPosting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Posting Approval...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="h-4 w-4 mr-2" />
+                      Auto-Approve PR
+                      {lowSeverityFindings.length > 0 && (
+                        <span className="ml-1 text-xs opacity-80">
+                          (+{lowSeverityFindings.length} suggestions)
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Button>
+             )}
+
              {isReadyToMerge && (
                 <>
                   <Button

@@ -1,4 +1,4 @@
-import { GitPullRequest, User, Clock, FileDiff, Loader2, CheckCircle2, AlertCircle, MessageSquare, RefreshCw, Send } from 'lucide-react';
+import { GitPullRequest, User, Clock, FileDiff } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
@@ -7,88 +7,142 @@ import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api
 import { useTranslation } from 'react-i18next';
 
 /**
- * Determine the secondary status label for a PR based on its review state
- * and cached new commits check from the store.
+ * Status Flow Dots Component
+ * Shows 3-dot progression with status label: ● ● ● Ready to Merge
  *
- * Status priority:
- * 1. "Ready for Follow-up" - new commits detected since last review (highest priority)
- * 2. "Changes Requested" - review posted with blocking issues
- * 3. "Ready to Merge" - review posted with no blocking issues
- *
- * Note: We only show "Changes Requested" or "Ready to Merge" AFTER the review
- * has been posted to GitHub (reviewId exists or hasPostedFindings is true).
- * Before posting, we just show "Reviewed" via the primary badge.
+ * States:
+ * - Not started: ○ ○ ○ (gray, no label)
+ * - Reviewing: ● ○ ○ Reviewing (amber, animated)
+ * - Reviewed (pending post): ● ● ○ Pending Post (blue)
+ * - Posted: ● ● ● [Status] (final status color + label)
  */
-function getSecondaryStatus(
-  reviewResult: PRReviewResult | null | undefined,
-  newCommitsCheck: NewCommitsCheck | null | undefined
-): {
-  type: 'changes_requested' | 'ready_to_merge' | 'ready_for_followup' | 'pending_post' | null;
-  label: string;
-  description?: string;
-} | null {
-  if (!reviewResult) return null;
+interface PRStatusFlowProps {
+  isReviewing: boolean;
+  hasResult: boolean;
+  hasPosted: boolean;
+  hasBlockingFindings: boolean;
+  hasNewCommits: boolean;
+  t: (key: string) => string;
+}
 
-  const hasFindings = reviewResult.findings && reviewResult.findings.length > 0;
-  const hasBlockingFindings = reviewResult.findings?.some(
-    f => f.severity === 'critical' || f.severity === 'high'
-  );
-  // Check if review has been posted to GitHub
-  const hasBeenPosted = Boolean(reviewResult.reviewId) || Boolean(reviewResult.hasPostedFindings);
+type FlowState = 'not_started' | 'reviewing' | 'reviewed' | 'posted';
+type FinalStatus = 'success' | 'warning' | 'followup';
 
-  // If we have cached new commits check and there are new commits - ready for follow-up
-  // Only show this if the review was previously posted
-  if (hasBeenPosted && newCommitsCheck?.hasNewCommits && hasFindings) {
-    return {
-      type: 'ready_for_followup',
-      label: 'Ready for Follow-up',
-      description: `${newCommitsCheck.newCommitCount} new commit(s)`
-    };
+function PRStatusFlow({
+  isReviewing,
+  hasResult,
+  hasPosted,
+  hasBlockingFindings,
+  hasNewCommits,
+  t,
+}: PRStatusFlowProps) {
+  // Determine flow state
+  let flowState: FlowState = 'not_started';
+  if (isReviewing) {
+    flowState = 'reviewing';
+  } else if (hasPosted) {
+    flowState = 'posted';
+  } else if (hasResult) {
+    flowState = 'reviewed';
   }
 
-  // Only show status badges AFTER the review has been posted to GitHub
-  if (!hasBeenPosted) {
-    // If there are findings but not yet posted, show "pending post" indicator
-    if (hasFindings) {
-      return {
-        type: 'pending_post',
-        label: 'Pending Post',
-        description: `${reviewResult.findings.length} finding(s) to post`
+  // Determine final status color for posted state
+  let finalStatus: FinalStatus = 'success';
+  if (hasNewCommits) {
+    finalStatus = 'followup';
+  } else if (hasBlockingFindings) {
+    finalStatus = 'warning';
+  }
+
+  // Dot styles based on state
+  const getDotStyle = (dotIndex: 0 | 1 | 2) => {
+    const baseClasses = 'h-2 w-2 rounded-full transition-all duration-300';
+
+    // Not started - all gray
+    if (flowState === 'not_started') {
+      return cn(baseClasses, 'bg-muted-foreground/30');
+    }
+
+    // Reviewing - first dot amber and animated
+    if (flowState === 'reviewing') {
+      if (dotIndex === 0) {
+        return cn(baseClasses, 'bg-amber-400 animate-pulse');
+      }
+      return cn(baseClasses, 'bg-muted-foreground/30');
+    }
+
+    // Reviewed - first two dots filled
+    if (flowState === 'reviewed') {
+      if (dotIndex === 0) {
+        return cn(baseClasses, 'bg-amber-400');
+      }
+      if (dotIndex === 1) {
+        return cn(baseClasses, 'bg-blue-400');
+      }
+      return cn(baseClasses, 'bg-muted-foreground/30');
+    }
+
+    // Posted - all dots filled with final status color
+    if (flowState === 'posted') {
+      const statusColors = {
+        success: 'bg-emerald-400',
+        warning: 'bg-red-400',
+        followup: 'bg-cyan-400',
       };
+      // First two dots stay with their process colors
+      if (dotIndex === 0) {
+        return cn(baseClasses, 'bg-amber-400');
+      }
+      if (dotIndex === 1) {
+        return cn(baseClasses, 'bg-blue-400');
+      }
+      // Third dot shows final status
+      return cn(baseClasses, statusColors[finalStatus]);
+    }
+
+    return cn(baseClasses, 'bg-muted-foreground/30');
+  };
+
+  // Get status label and styling
+  const getStatusDisplay = (): { label: string; textColor: string } | null => {
+    if (flowState === 'not_started') {
+      return null; // No label for not started
+    }
+    if (flowState === 'reviewing') {
+      return { label: t('prReview.reviewing'), textColor: 'text-amber-400' };
+    }
+    if (flowState === 'reviewed') {
+      return { label: t('prReview.pendingPost'), textColor: 'text-blue-400' };
+    }
+    if (flowState === 'posted') {
+      const statusConfig = {
+        success: { label: t('prReview.readyToMerge'), textColor: 'text-emerald-400' },
+        warning: { label: t('prReview.changesRequested'), textColor: 'text-red-400' },
+        followup: { label: t('prReview.readyForFollowup'), textColor: 'text-cyan-400' },
+      };
+      return statusConfig[finalStatus];
     }
     return null;
-  }
+  };
 
-  // Review has been posted - show appropriate status
+  const statusDisplay = getStatusDisplay();
 
-  // If there are blocking findings (critical/high) - show changes requested
-  if (hasFindings && hasBlockingFindings) {
-    const blockingCount = reviewResult.findings.filter(f => f.severity === 'critical' || f.severity === 'high').length;
-    return {
-      type: 'changes_requested',
-      label: 'Changes Requested',
-      description: `${blockingCount} blocking issue(s)`
-    };
-  }
-
-  // If only non-blocking findings - can merge with suggestions
-  if (hasFindings && !hasBlockingFindings) {
-    return {
-      type: 'ready_to_merge',
-      label: 'Ready to Merge',
-      description: `${reviewResult.findings.length} suggestion(s)`
-    };
-  }
-
-  // No findings - ready to merge
-  if (!hasFindings && reviewResult.success) {
-    return {
-      type: 'ready_to_merge',
-      label: 'Ready to Merge'
-    };
-  }
-
-  return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      {/* Dots */}
+      <div className="flex items-center gap-1">
+        <div className={getDotStyle(0)} />
+        <div className={getDotStyle(1)} />
+        <div className={getDotStyle(2)} />
+      </div>
+      {/* Label */}
+      {statusDisplay && (
+        <span className={cn('text-xs font-medium', statusDisplay.textColor)}>
+          {statusDisplay.label}
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface PRReviewInfo {
@@ -171,7 +225,6 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
           const reviewState = getReviewStateForPR(pr.number);
           const isReviewingPR = reviewState?.isReviewing ?? false;
           const hasReviewResult = reviewState?.result !== null && reviewState?.result !== undefined;
-          const secondaryStatus = hasReviewResult ? getSecondaryStatus(reviewState?.result, reviewState?.newCommitsCheck) : null;
 
           return (
             <button
@@ -190,73 +243,17 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
                     <Badge variant="outline" className="text-xs">
                       {pr.headRefName}
                     </Badge>
-                    {/* Review status indicator */}
-                    {isReviewingPR && (
-                      <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        {t('prReview.reviewing')}
-                      </Badge>
-                    )}
-                    {!isReviewingPR && hasReviewResult && reviewState?.result && (
-                      <>
-                        {/* Show "Reviewed" if AI review is complete but not yet posted to GitHub */}
-                        {!reviewState.result.reviewId && !reviewState.result.hasPostedFindings && (
-                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-blue-500 border-blue-500/50">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {t('prReview.reviewed')}
-                          </Badge>
-                        )}
-                        {/* Show "Posted" when findings posted to GitHub but no full review ID */}
-                        {!reviewState.result.reviewId && reviewState.result.hasPostedFindings && (
-                          <Badge variant="purple" className="text-xs flex items-center gap-1">
-                            <Send className="h-3 w-3" />
-                            {t('prReview.posted')}
-                          </Badge>
-                        )}
-                        {/* Show actual status only after posted to GitHub (has reviewId) */}
-                        {reviewState.result.reviewId && reviewState.result.overallStatus === 'approve' && (
-                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-success border-success/50">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {t('prReview.approved')}
-                          </Badge>
-                        )}
-                        {reviewState.result.reviewId && reviewState.result.overallStatus === 'request_changes' && (
-                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-destructive border-destructive/50">
-                            <AlertCircle className="h-3 w-3" />
-                            {t('prReview.changesRequested')}
-                          </Badge>
-                        )}
-                        {reviewState.result.reviewId && reviewState.result.overallStatus === 'comment' && (
-                          <Badge variant="outline" className="text-xs flex items-center gap-1 text-blue-500 border-blue-500/50">
-                            <MessageSquare className="h-3 w-3" />
-                            {t('prReview.commented')}
-                          </Badge>
-                        )}
-                      </>
-                    )}
-                    {/* Secondary status badge - shows action needed */}
-                    {!isReviewingPR && secondaryStatus && (
-                      <>
-                        {secondaryStatus.type === 'ready_for_followup' && (
-                          <Badge className="text-xs flex items-center gap-1 bg-info/20 text-info border-info/50">
-                            <RefreshCw className="h-3 w-3" />
-                            {t('prReview.readyForFollowup')}
-                          </Badge>
-                        )}
-                        {secondaryStatus.type === 'pending_post' && (
-                          <Badge className="text-xs flex items-center gap-1 bg-muted/50 text-muted-foreground border-muted-foreground/50">
-                            <Clock className="h-3 w-3" />
-                            {t('prReview.pendingPost')}
-                          </Badge>
-                        )}
-                        {secondaryStatus.type === 'ready_to_merge' && (
-                          <Badge className="text-xs flex items-center gap-1 bg-success/20 text-success border-success/50">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {t('prReview.readyToMerge')}
-                          </Badge>
-                        )}
-                      </>
-                    )}
+                    {/* Review status flow dots + label */}
+                    <PRStatusFlow
+                      isReviewing={isReviewingPR}
+                      hasResult={hasReviewResult}
+                      hasPosted={Boolean(reviewState?.result?.reviewId) || Boolean(reviewState?.result?.hasPostedFindings)}
+                      hasBlockingFindings={Boolean(reviewState?.result?.findings?.some(
+                        f => f.severity === 'critical' || f.severity === 'high'
+                      ))}
+                      hasNewCommits={Boolean(reviewState?.newCommitsCheck?.hasNewCommits)}
+                      t={t}
+                    />
                   </div>
                   <h3 className="font-medium text-sm truncate">{pr.title}</h3>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
