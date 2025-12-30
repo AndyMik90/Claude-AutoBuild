@@ -380,7 +380,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
       if (!mcpServerStates) return true; // No project config, show all
       switch (mcp) {
         case 'context7': return mcpServerStates.context7Enabled !== false;
-        case 'graphiti': return mcpServerStates.graphitiEnabled !== false;
+        case 'graphiti-memory': return mcpServerStates.graphitiEnabled !== false;
         case 'linear': return mcpServerStates.linearMcpEnabled !== false;
         case 'electron': return mcpServerStates.electronEnabled !== false;
         case 'puppeteer': return mcpServerStates.puppeteerEnabled !== false;
