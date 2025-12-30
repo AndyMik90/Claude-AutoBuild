@@ -11,6 +11,9 @@ EMBEDDING_DIMENSIONS = {
     "text-embedding-3-small": 1536,
     "text-embedding-3-large": 3072,
     "text-embedding-ada-002": 1536,
+    # Google AI
+    "gemini-embedding-001": 3072,  # Native dim, can reduce to 1536 or 768
+    "text-embedding-004": 768,  # Deprecated Jan 2026
     # Voyage AI
     "voyage-3": 1024,
     "voyage-3.5": 1024,
