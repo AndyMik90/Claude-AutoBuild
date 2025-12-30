@@ -376,7 +376,8 @@ export function registerFileHandlers(): void {
           const error = err as NodeJS.ErrnoException;
 
           // If file doesn't exist, try to create it
-          if (error.code === 'ENOENT') {
+          // Windows may throw EINVAL instead of ENOENT when O_TRUNC is used on non-existent file
+          if (error.code === 'ENOENT' || error.code === 'EINVAL') {
             try {
               // O_CREAT | O_EXCL ensures atomic creation (fails if exists)
               // O_NOFOLLOW prevents following symlinks (Unix only)
