@@ -1,8 +1,35 @@
 import { ipcMain } from 'electron';
-import { readdirSync } from 'fs';
+import { readdirSync, statSync } from 'fs';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, FileNode } from '../../shared/types';
+
+// Maximum file size to read (1MB)
+const MAX_FILE_SIZE = 1024 * 1024;
+
+/**
+ * Validates and normalizes a file path for safe reading.
+ * Returns the normalized path if valid, or an error message.
+ */
+function validatePath(filePath: string): { valid: true; path: string } | { valid: false; error: string } {
+  // Resolve to absolute path (handles .., ., etc.)
+  const resolvedPath = path.resolve(filePath);
+
+  // Must be absolute after resolution
+  if (!path.isAbsolute(resolvedPath)) {
+    return { valid: false, error: 'Path must be absolute' };
+  }
+
+  // After resolution, path should not contain .. segments
+  // This catches edge cases where resolve might not fully normalize
+  const segments = resolvedPath.split(path.sep);
+  if (segments.includes('..')) {
+    return { valid: false, error: 'Invalid path: contains parent directory references' };
+  }
+
+  return { valid: true, path: resolvedPath };
+}
 
 // Directories to ignore when listing
 const IGNORED_DIRS = new Set([
@@ -56,6 +83,35 @@ export function registerFileHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to list directory'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.FILE_EXPLORER_READ,
+    async (_, filePath: string): Promise<IPCResult<string>> => {
+      try {
+        // Validate and normalize path
+        const validation = validatePath(filePath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+        const safePath = validation.path;
+
+        // Check file size before reading
+        const stats = statSync(safePath);
+        if (stats.size > MAX_FILE_SIZE) {
+          return { success: false, error: 'File too large (max 1MB)' };
+        }
+
+        // Use async file read to avoid blocking
+        const content = await readFile(safePath, 'utf-8');
+        return { success: true, data: content };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to read file'
         };
       }
     }

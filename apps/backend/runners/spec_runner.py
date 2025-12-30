@@ -192,6 +192,12 @@ Examples:
         action="store_true",
         help="Skip human review checkpoint and automatically approve spec for building",
     )
+    parser.add_argument(
+        "--base-branch",
+        type=str,
+        default=None,
+        help="Base branch for creating worktrees (default: auto-detect or current branch)",
+    )
 
     args = parser.parse_args()
 
@@ -317,6 +323,10 @@ Examples:
                 str(orchestrator.project_dir),
                 "--auto-continue",  # Non-interactive mode for chained execution
             ]
+
+            # Pass base branch if specified (for worktree creation)
+            if args.base_branch:
+                run_cmd.extend(["--base-branch", args.base_branch])
 
             # Note: Model configuration for subsequent phases (planning, coding, qa)
             # is read from task_metadata.json by run.py, so we don't pass it here.

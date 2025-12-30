@@ -189,15 +189,31 @@
     },
     "linear": {
       "title": "Linear",
-      "description": "Intégration Linear"
+      "description": "Intégration Linear",
+      "integrationTitle": "Intégration Linear",
+      "integrationDescription": "Se connecter à Linear pour le suivi des issues et l'import de tâches",
+      "syncDescription": "Synchroniser avec Linear pour le suivi des issues"
     },
     "github": {
       "title": "GitHub",
-      "description": "Synchronisation issues GitHub"
+      "description": "Synchronisation issues GitHub",
+      "integrationTitle": "Intégration GitHub",
+      "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
+      "syncDescription": "Synchroniser avec GitHub Issues"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Synchronisation issues GitLab",
+      "integrationTitle": "Intégration GitLab",
+      "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
+      "syncDescription": "Synchroniser avec GitLab Issues"
     },
     "memory": {
       "title": "Mémoire",
-      "description": "Backend mémoire Graphiti"
+      "description": "Backend mémoire Graphiti",
+      "integrationTitle": "Mémoire",
+      "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
+      "syncDescription": "Configurer la mémoire persistante"
     }
   },
   "agentProfile": {

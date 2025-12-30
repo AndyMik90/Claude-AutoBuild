@@ -182,6 +182,7 @@ def create_client(
     # Note: Using both relative paths ("./**") and absolute paths to handle
     # cases where Claude uses absolute paths for file operations
     project_path_str = str(project_dir.resolve())
+    spec_path_str = str(spec_dir.resolve())
     security_settings = {
         "sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True},
         "permissions": {
@@ -200,6 +201,10 @@ def create_client(
                 f"Edit({project_path_str}/**)",
                 f"Glob({project_path_str}/**)",
                 f"Grep({project_path_str}/**)",
+                # Allow spec directory explicitly (needed when spec is in worktree)
+                f"Read({spec_path_str}/**)",
+                f"Write({spec_path_str}/**)",
+                f"Edit({spec_path_str}/**)",
                 # Bash permission granted here, but actual commands are validated
                 # by the bash_security_hook (see security.py for allowed commands)
                 "Bash(*)",

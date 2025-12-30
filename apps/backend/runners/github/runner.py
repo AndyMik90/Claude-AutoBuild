@@ -46,6 +46,13 @@ import os
 import sys
 from pathlib import Path
 
+# Fix Windows console encoding for Unicode output (emojis, special chars)
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -79,34 +86,70 @@ def print_progress(callback: ProgressCallback) -> None:
 
 def get_config(args) -> GitHubRunnerConfig:
     """Build config from CLI args and environment."""
+    import shutil
+    import subprocess
+
     token = args.token or os.environ.get("GITHUB_TOKEN", "")
     bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
     repo = args.repo or os.environ.get("GITHUB_REPO", "")
 
-    if not token:
+    # Find gh CLI - use shutil.which for cross-platform support
+    gh_path = shutil.which("gh")
+    if not gh_path and sys.platform == "win32":
+        # Fallback: check common Windows installation paths
+        common_paths = [
+            r"C:\Program Files\GitHub CLI\gh.exe",
+            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                gh_path = path
+                break
+
+    if os.environ.get("DEBUG"):
+        print(f"[DEBUG] gh CLI path: {gh_path}", flush=True)
+        print(
+            f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...",
+            flush=True,
+        )
+
+    if not token and gh_path:
         # Try to get from gh CLI
-        import subprocess
+        try:
+            result = subprocess.run(
+                [gh_path, "auth", "token"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                token = result.stdout.strip()
+        except FileNotFoundError:
+            pass  # gh not installed or not in PATH
 
-        result = subprocess.run(
-            ["gh", "auth", "token"],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            token = result.stdout.strip()
-
-    if not repo:
+    if not repo and gh_path:
         # Try to detect from git remote
-        import subprocess
-
-        result = subprocess.run(
-            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-            cwd=args.project,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            repo = result.stdout.strip()
+        try:
+            result = subprocess.run(
+                [
+                    gh_path,
+                    "repo",
+                    "view",
+                    "--json",
+                    "nameWithOwner",
+                    "-q",
+                    ".nameWithOwner",
+                ],
+                cwd=args.project,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                repo = result.stdout.strip()
+            elif os.environ.get("DEBUG"):
+                print(f"[DEBUG] gh repo view failed: {result.stderr}", flush=True)
+        except FileNotFoundError:
+            pass  # gh not installed or not in PATH
 
     if not token:
         print("Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'")
@@ -133,27 +176,42 @@ async def cmd_review_pr(args) -> int:
     import sys
 
     # Force unbuffered output so Electron sees it in real-time
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True)
 
-    print(f"[DEBUG] Starting PR review for PR #{args.pr_number}", flush=True)
-    print(f"[DEBUG] Project directory: {args.project}", flush=True)
+    debug = os.environ.get("DEBUG")
+    if debug:
+        print(f"[DEBUG] Starting PR review for PR #{args.pr_number}", flush=True)
+        print(f"[DEBUG] Project directory: {args.project}", flush=True)
+        print("[DEBUG] Building config...", flush=True)
 
-    print("[DEBUG] Building config...", flush=True)
     config = get_config(args)
-    print(f"[DEBUG] Config built: repo={config.repo}, model={config.model}", flush=True)
 
-    print("[DEBUG] Creating orchestrator...", flush=True)
+    if debug:
+        print(
+            f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
+            flush=True,
+        )
+        print("[DEBUG] Creating orchestrator...", flush=True)
+
     orchestrator = GitHubOrchestrator(
         project_dir=args.project,
         config=config,
         progress_callback=print_progress,
     )
-    print("[DEBUG] Orchestrator created", flush=True)
 
-    print(f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True)
+    if debug:
+        print("[DEBUG] Orchestrator created", flush=True)
+        print(
+            f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True
+        )
+
     result = await orchestrator.review_pr(args.pr_number)
-    print(f"[DEBUG] review_pr returned, success={result.success}", flush=True)
+
+    if debug:
+        print(f"[DEBUG] review_pr returned, success={result.success}", flush=True)
 
     if result.success:
         print(f"\n{'=' * 60}")
@@ -182,28 +240,38 @@ async def cmd_followup_review_pr(args) -> int:
     import sys
 
     # Force unbuffered output so Electron sees it in real-time
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True)
 
-    print(f"[DEBUG] Starting follow-up review for PR #{args.pr_number}", flush=True)
-    print(f"[DEBUG] Project directory: {args.project}", flush=True)
+    debug = os.environ.get("DEBUG")
+    if debug:
+        print(f"[DEBUG] Starting follow-up review for PR #{args.pr_number}", flush=True)
+        print(f"[DEBUG] Project directory: {args.project}", flush=True)
+        print("[DEBUG] Building config...", flush=True)
 
-    print("[DEBUG] Building config...", flush=True)
     config = get_config(args)
-    print(f"[DEBUG] Config built: repo={config.repo}, model={config.model}", flush=True)
 
-    print("[DEBUG] Creating orchestrator...", flush=True)
+    if debug:
+        print(
+            f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
+            flush=True,
+        )
+        print("[DEBUG] Creating orchestrator...", flush=True)
+
     orchestrator = GitHubOrchestrator(
         project_dir=args.project,
         config=config,
         progress_callback=print_progress,
     )
-    print("[DEBUG] Orchestrator created", flush=True)
 
-    print(
-        f"[DEBUG] Calling orchestrator.followup_review_pr({args.pr_number})...",
-        flush=True,
-    )
+    if debug:
+        print("[DEBUG] Orchestrator created", flush=True)
+        print(
+            f"[DEBUG] Calling orchestrator.followup_review_pr({args.pr_number})...",
+            flush=True,
+        )
 
     try:
         result = await orchestrator.followup_review_pr(args.pr_number)
@@ -211,7 +279,10 @@ async def cmd_followup_review_pr(args) -> int:
         print(f"\nFollow-up review failed: {e}")
         return 1
 
-    print(f"[DEBUG] followup_review_pr returned, success={result.success}", flush=True)
+    if debug:
+        print(
+            f"[DEBUG] followup_review_pr returned, success={result.success}", flush=True
+        )
 
     if result.success:
         print(f"\n{'=' * 60}")

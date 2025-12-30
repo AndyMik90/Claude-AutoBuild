@@ -1,10 +1,12 @@
-import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus } from '../../../../shared/types';
+import { useTranslation } from 'react-i18next';
+import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { EnvironmentSettings } from '../../project-settings/EnvironmentSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
+import { GitLabIntegration } from '../integrations/GitLabIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
@@ -30,6 +32,10 @@ interface SectionRouterProps {
   setShowGitHubToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
+  showGitLabToken: boolean;
+  setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
+  gitLabConnectionStatus: GitLabSyncStatus | null;
+  isCheckingGitLab: boolean;
   isCheckingClaudeAuth: boolean;
   claudeAuthStatus: 'checking' | 'authenticated' | 'not_authenticated' | 'error';
   linearConnectionStatus: LinearSyncStatus | null;
@@ -65,6 +71,10 @@ export function SectionRouter({
   setShowGitHubToken,
   gitHubConnectionStatus,
   isCheckingGitHub,
+  showGitLabToken,
+  setShowGitLabToken,
+  gitLabConnectionStatus,
+  isCheckingGitLab,
   isCheckingClaudeAuth,
   claudeAuthStatus,
   linearConnectionStatus,
@@ -73,6 +83,8 @@ export function SectionRouter({
   handleClaudeSetup,
   onOpenLinearImport
 }: SectionRouterProps) {
+  const { t } = useTranslation('settings');
+
   switch (activeSection) {
     case 'general':
       return (
@@ -123,13 +135,13 @@ export function SectionRouter({
     case 'linear':
       return (
         <SettingsSection
-          title="Linear Integration"
-          description="Connect to Linear for issue tracking and task import"
+          title={t('projectSections.linear.integrationTitle')}
+          description={t('projectSections.linear.integrationDescription')}
         >
           <InitializationGuard
             initialized={!!project.autoBuildPath}
-            title="Linear Integration"
-            description="Sync with Linear for issue tracking"
+            title={t('projectSections.linear.integrationTitle')}
+            description={t('projectSections.linear.syncDescription')}
           >
             <LinearIntegration
               envConfig={envConfig}
@@ -147,13 +159,13 @@ export function SectionRouter({
     case 'github':
       return (
         <SettingsSection
-          title="GitHub Integration"
-          description="Connect to GitHub for issue tracking"
+          title={t('projectSections.github.integrationTitle')}
+          description={t('projectSections.github.integrationDescription')}
         >
           <InitializationGuard
             initialized={!!project.autoBuildPath}
-            title="GitHub Integration"
-            description="Sync with GitHub Issues"
+            title={t('projectSections.github.integrationTitle')}
+            description={t('projectSections.github.syncDescription')}
           >
             <GitHubIntegration
               envConfig={envConfig}
@@ -168,16 +180,40 @@ export function SectionRouter({
         </SettingsSection>
       );
 
-    case 'memory':
+    case 'gitlab':
       return (
         <SettingsSection
-          title="Memory"
-          description="Configure persistent cross-session memory for agents"
+          title={t('projectSections.gitlab.integrationTitle')}
+          description={t('projectSections.gitlab.integrationDescription')}
         >
           <InitializationGuard
             initialized={!!project.autoBuildPath}
-            title="Memory"
-            description="Configure persistent memory"
+            title={t('projectSections.gitlab.integrationTitle')}
+            description={t('projectSections.gitlab.syncDescription')}
+          >
+            <GitLabIntegration
+              envConfig={envConfig}
+              updateEnvConfig={updateEnvConfig}
+              showGitLabToken={showGitLabToken}
+              setShowGitLabToken={setShowGitLabToken}
+              gitLabConnectionStatus={gitLabConnectionStatus}
+              isCheckingGitLab={isCheckingGitLab}
+              projectPath={project.path}
+            />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'memory':
+      return (
+        <SettingsSection
+          title={t('projectSections.memory.integrationTitle')}
+          description={t('projectSections.memory.integrationDescription')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.memory.integrationTitle')}
+            description={t('projectSections.memory.syncDescription')}
           >
             <SecuritySettings
               envConfig={envConfig}

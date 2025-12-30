@@ -136,7 +136,7 @@ async def spawn_security_review(
             / "pr_security_agent.md"
         )
         if prompt_file.exists():
-            base_prompt = prompt_file.read_text()
+            base_prompt = prompt_file.read_text(encoding="utf-8")
         else:
             logger.warning("Security agent prompt not found, using fallback")
             base_prompt = _get_fallback_security_prompt()
@@ -222,7 +222,7 @@ async def spawn_quality_review(
             / "pr_quality_agent.md"
         )
         if prompt_file.exists():
-            base_prompt = prompt_file.read_text()
+            base_prompt = prompt_file.read_text(encoding="utf-8")
         else:
             logger.warning("Quality agent prompt not found, using fallback")
             base_prompt = _get_fallback_quality_prompt()
@@ -504,7 +504,7 @@ async def get_file_content(
     try:
         full_path = project_dir / file_path
         if full_path.exists():
-            return full_path.read_text()
+            return full_path.read_text(encoding="utf-8")
         return ""
     except Exception as e:
         logger.error(f"[Orchestrator] Failed to read {file_path}: {e}")

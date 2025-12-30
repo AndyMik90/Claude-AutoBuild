@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -37,6 +38,7 @@ import { TaskMetadata } from './TaskMetadata';
 import { TaskWarnings } from './TaskWarnings';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
+import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
 import type { Task } from '../../../shared/types';
 
@@ -65,9 +67,17 @@ export function TaskDetailModal({ open, task, onOpenChange, onSwitchToTerminals,
   );
 }
 
+// Feature flag for Files tab (enabled by default, can be disabled via localStorage)
+const isFilesTabEnabled = () => {
+  const flag = localStorage.getItem('use_files_tab');
+  return flag === null || flag === 'true'; // Enabled by default
+};
+
 // Separate component to use hooks only when task exists
 function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void; onSwitchToTerminals?: () => void; onOpenInbuiltTerminal?: (id: string, cwd: string) => void }) {
+  const { t } = useTranslation(['tasks']);
   const state = useTaskDetail({ task });
+  const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = task.subtasks.length;
@@ -370,6 +380,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                   >
                     Logs
                   </TabsTrigger>
+                  {showFilesTab && (
+                    <TabsTrigger
+                      value="files"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+                    >
+                      {t('tasks:files.tab')}
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -440,6 +458,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     onTogglePhase={state.togglePhase}
                   />
                 </TabsContent>
+
+                {/* Files Tab */}
+                {showFilesTab && (
+                  <TabsContent value="files" className="flex-1 min-h-0 overflow-hidden mt-0">
+                    <TaskFiles task={task} />
+                  </TabsContent>
+                )}
               </Tabs>
             </div>
 

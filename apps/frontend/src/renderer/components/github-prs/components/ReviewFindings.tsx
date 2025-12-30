@@ -16,6 +16,7 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import type { PRReviewFinding } from '../hooks/useGitHubPRs';
@@ -39,6 +40,8 @@ export function ReviewFindings({
   postedIds = new Set(),
   onSelectionChange,
 }: ReviewFindingsProps) {
+  const { t } = useTranslation('common');
+
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Set<SeverityGroup>>(
     new Set<SeverityGroup>(['critical', 'high']) // Critical and High expanded by default
@@ -118,7 +121,7 @@ export function ReviewFindings({
           disabled={counts.important === 0}
         >
           <AlertTriangle className="h-3 w-3 mr-1" />
-          Select Critical/High ({counts.important})
+          {t('prReview.selectCriticalHigh', { count: counts.important })}
         </Button>
         <Button
           variant="outline"
@@ -127,7 +130,7 @@ export function ReviewFindings({
           className="text-xs"
         >
           <CheckSquare className="h-3 w-3 mr-1" />
-          Select All
+          {t('prReview.selectAll')}
         </Button>
         <Button
           variant="outline"
@@ -137,7 +140,7 @@ export function ReviewFindings({
           disabled={selectedIds.size === 0}
         >
           <Square className="h-3 w-3 mr-1" />
-          Clear
+          {t('prReview.clear')}
         </Button>
       </div>
 
@@ -195,7 +198,7 @@ export function ReviewFindings({
       {findings.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
           <CheckCircle className="h-8 w-8 mx-auto mb-2 text-success" />
-          <p className="text-sm">No issues found! The code looks good.</p>
+          <p className="text-sm">{t('prReview.noIssuesFound')}</p>
         </div>
       )}
     </div>

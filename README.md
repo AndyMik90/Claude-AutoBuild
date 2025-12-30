@@ -83,6 +83,8 @@
 | **Self-Validating QA** | Built-in quality assurance loop catches issues before you review |
 | **AI-Powered Merge** | Automatic conflict resolution when integrating back to main |
 | **Memory Layer** | Agents retain insights across sessions for smarter builds |
+| **GitHub/GitLab Integration** | Import issues, investigate with AI, create merge requests |
+| **Linear Integration** | Sync tasks with Linear for team progress tracking |
 | **Cross-Platform** | Native desktop apps for Windows, macOS, and Linux |
 | **Auto-Updates** | App updates automatically when new versions are released |
 
@@ -159,6 +161,9 @@ cp apps/backend/.env.example apps/backend/.env
 | `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token from `claude setup-token` |
 | `GRAPHITI_ENABLED` | No | Enable Memory Layer for cross-session context |
 | `AUTO_BUILD_MODEL` | No | Override the default Claude model |
+| `GITLAB_TOKEN` | No | GitLab Personal Access Token for GitLab integration |
+| `GITLAB_INSTANCE_URL` | No | GitLab instance URL (defaults to gitlab.com) |
+| `LINEAR_API_KEY` | No | Linear API key for task sync |
 
 ---
 
@@ -185,6 +190,47 @@ npm start
 - Node.js 24+
 - Python 3.12+
 - npm 10+
+
+**Installing dependencies by platform:**
+
+<details>
+<summary><b>Windows</b></summary>
+
+```bash
+winget install Python.Python.3.12
+winget install OpenJS.NodeJS.LTS
+```
+
+</details>
+
+<details>
+<summary><b>macOS</b></summary>
+
+```bash
+brew install python@3.12 node@24
+```
+
+</details>
+
+<details>
+<summary><b>Linux (Ubuntu/Debian)</b></summary>
+
+```bash
+sudo apt install python3.12 python3.12-venv
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+</details>
+
+<details>
+<summary><b>Linux (Fedora)</b></summary>
+
+```bash
+sudo dnf install python3.12 nodejs npm
+```
+
+</details>
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup.
 

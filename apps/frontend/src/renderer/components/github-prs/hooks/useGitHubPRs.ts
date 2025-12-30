@@ -33,7 +33,7 @@ interface UseGitHubPRsResult {
   postComment: (prNumber: number, body: string) => Promise<boolean>;
   mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
-  getReviewStateForPR: (prNumber: number) => { isReviewing: boolean; progress: PRReviewProgress | null; result: PRReviewResult | null; error: string | null } | null;
+  getReviewStateForPR: (prNumber: number) => { isReviewing: boolean; progress: PRReviewProgress | null; result: PRReviewResult | null; previousResult: PRReviewResult | null; error: string | null; newCommitsCheck?: NewCommitsCheck | null } | null;
 }
 
 export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
@@ -75,6 +75,7 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
       isReviewing: state.isReviewing,
       progress: state.progress,
       result: state.result,
+      previousResult: state.previousResult,
       error: state.error,
       newCommitsCheck: state.newCommitsCheck
     };
@@ -210,7 +211,15 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     if (!projectId) return false;
 
     try {
-      return await window.electronAPI.github.postPRReview(projectId, prNumber, selectedFindingIds);
+      const success = await window.electronAPI.github.postPRReview(projectId, prNumber, selectedFindingIds);
+      if (success) {
+        // Reload review result to get updated postedAt and finding status
+        const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
+        if (result) {
+          usePRReviewStore.getState().setPRReviewResult(projectId, result);
+        }
+      }
+      return success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to post review');
       return false;

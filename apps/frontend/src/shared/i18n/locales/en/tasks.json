@@ -82,5 +82,18 @@
       "code": "Code",
       "qa": "QA"
     }
+  },
+  "files": {
+    "title": "Files",
+    "tab": "Files",
+    "noSpecPath": "No spec files available",
+    "noFiles": "No files found",
+    "loading": "Loading files...",
+    "loadingContent": "Loading content...",
+    "errorLoading": "Failed to load files",
+    "errorLoadingContent": "Failed to load file content",
+    "retry": "Retry",
+    "selectFile": "Select a file to view its contents",
+    "openInIDE": "Open in IDE"
   }
 }

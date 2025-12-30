@@ -276,8 +276,9 @@ def main() -> None:
     project_dir = get_project_dir(args.project_dir)
     debug("run.py", f"Using project directory: {project_dir}")
 
-    # Get model (with env var fallback)
-    model = args.model or os.environ.get("AUTO_BUILD_MODEL", DEFAULT_MODEL)
+    # Get model from CLI arg or env var (None if not explicitly set)
+    # This allows get_phase_model() to fall back to task_metadata.json
+    model = args.model or os.environ.get("AUTO_BUILD_MODEL")
 
     # Handle --list command
     if args.list:

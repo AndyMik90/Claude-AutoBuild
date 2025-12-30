@@ -325,6 +325,7 @@ export interface PRReviewResult {
   // Track if findings have been posted to GitHub (enables follow-up review)
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
+  postedAt?: string;
 }
 
 /**
