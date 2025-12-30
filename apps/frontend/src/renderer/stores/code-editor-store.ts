@@ -47,6 +47,13 @@ interface CodeEditorState {
   clearProject: (projectId: string) => void;
 }
 
+// Stable default values to avoid creating new objects on every call
+const EMPTY_TABS: EditorTab[] = [];
+const DEFAULT_FOLDER_STATE: FolderState = {
+  expanded: new Set<string>(),
+  childrenByDir: new Map()
+};
+
 const getDefaultProjectState = (): ProjectEditorState => ({
   tabs: [],
   activeTabId: null,
@@ -61,7 +68,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
 
   getTabs: (projectId: string) => {
     const projectState = get().projectStates.get(projectId);
-    return projectState?.tabs ?? [];
+    return projectState?.tabs ?? EMPTY_TABS;
   },
 
   getActiveTabId: (projectId: string) => {
@@ -71,7 +78,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
 
   getFolderState: (projectId: string) => {
     const projectState = get().projectStates.get(projectId);
-    return projectState?.folderState ?? getDefaultProjectState().folderState;
+    return projectState?.folderState ?? DEFAULT_FOLDER_STATE;
   },
 
   setTabs: (projectId: string, tabs: EditorTab[]) => {

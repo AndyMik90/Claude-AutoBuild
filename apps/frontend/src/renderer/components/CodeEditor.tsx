@@ -41,9 +41,10 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const workspaceRoot = selectedProject?.path;
 
   // Code Editor store (persisted per project)
-  const tabs = useCodeEditorStore((state) => state.getTabs(projectId));
-  const activeTabId = useCodeEditorStore((state) => state.getActiveTabId(projectId));
-  const folderState = useCodeEditorStore((state) => state.getFolderState(projectId));
+  // Wrap selectors in useCallback to maintain stable references
+  const tabs = useCodeEditorStore(useCallback((state) => state.getTabs(projectId), [projectId]));
+  const activeTabId = useCodeEditorStore(useCallback((state) => state.getActiveTabId(projectId), [projectId]));
+  const folderState = useCodeEditorStore(useCallback((state) => state.getFolderState(projectId), [projectId]));
   const setTabs = useCallback((updater: EditorTab[] | ((prev: EditorTab[]) => EditorTab[])) => {
     const newTabs = typeof updater === 'function' ? updater(useCodeEditorStore.getState().getTabs(projectId)) : updater;
     useCodeEditorStore.getState().setTabs(projectId, newTabs);
