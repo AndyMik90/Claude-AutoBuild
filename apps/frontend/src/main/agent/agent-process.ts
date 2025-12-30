@@ -374,42 +374,8 @@ export class AgentProcessManager {
       return {};
     }
 
-    const envPath = path.join(projectPath, project.autoBuildPath, '.env');
-    if (!existsSync(envPath)) {
-      return {};
-    }
-
-    try {
-      const envContent = readFileSync(envPath, 'utf-8');
-      const envVars: Record<string, string> = {};
-
-      // Handle both Unix (\n) and Windows (\r\n) line endings
-      for (const line of envContent.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        // Skip comments and empty lines
-        if (!trimmed || trimmed.startsWith('#')) {
-          continue;
-        }
-
-        const eqIndex = trimmed.indexOf('=');
-        if (eqIndex > 0) {
-          const key = trimmed.substring(0, eqIndex).trim();
-          let value = trimmed.substring(eqIndex + 1).trim();
-
-          // Remove quotes if present
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-              (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-
-          envVars[key] = value;
-        }
-      }
-
-      return envVars;
-    } catch {
-      return {};
-    }
+    const envPath = path.join(projectPath, project.autoBuildPath, ".env");
+    return this.loadEnvFile(envPath);
   }
 
   /**
