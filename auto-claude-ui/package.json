@@ -58,6 +58,7 @@
     "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
     "ioredis": "^5.8.2",
+    "js-yaml": "^4.1.0",
     "lucide-react": "^0.560.0",
     "motion": "^12.23.26",
     "react": "^19.2.3",
