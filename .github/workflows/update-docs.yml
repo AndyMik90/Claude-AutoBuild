@@ -23,20 +23,34 @@ jobs:
         with:
           fetch-depth: 10  # Fetch recent commits for analysis
 
-      - name: Get recent commits
+      - name: Get commits since last doc update
         id: commits
         run: |
-          # Get commits from the last push
-          COMMITS=$(git log --oneline -10 --no-merges)
+          # Extract last updated date from docs/README.md (format: > Last updated: YYYY-MM-DD)
+          LAST_UPDATE=$(grep -oP '(?<=Last updated: )\d{4}-\d{2}-\d{2}' docs/README.md || echo "")
+          echo "last_update=$LAST_UPDATE" >> $GITHUB_OUTPUT
+
+          if [ -n "$LAST_UPDATE" ]; then
+            echo "Documentation was last updated on: $LAST_UPDATE"
+            # Get commits since the last documentation update
+            COMMITS=$(git log --oneline --since="$LAST_UPDATE" --no-merges -- 'apps/backend/**/*.py' 'apps/frontend/src/**/*.ts' 'apps/frontend/src/**/*.tsx')
+            CHANGED_FILES=$(git diff --name-only $(git rev-list -1 --before="$LAST_UPDATE" HEAD) HEAD -- 'apps/backend/**/*.py' 'apps/frontend/src/**/*.ts' 'apps/frontend/src/**/*.tsx' 2>/dev/null || echo "")
+          else
+            echo "No last update date found, using recent commits"
+            COMMITS=$(git log --oneline -10 --no-merges)
+            CHANGED_FILES=$(git diff --name-only HEAD~5 HEAD 2>/dev/null || git diff --name-only HEAD)
+          fi
+
           echo "commits<<EOF" >> $GITHUB_OUTPUT
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          # Get changed files
-          CHANGED_FILES=$(git diff --name-only HEAD~5 HEAD 2>/dev/null || git diff --name-only HEAD)
           echo "changed_files<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+          # Store today's date for updating README
+          echo "today=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -60,10 +74,15 @@ jobs:
 
             **Only update documentation when changes affect the fundamental understanding of how the system works.** Most code changes (bug fixes, refactors, minor features) do NOT require documentation updates.
 
-            ## Recent Commits
+            ## Documentation Last Updated
+            The documentation home page (`docs/README.md`) contains a "Last updated" date at the top.
+            Last update: ${{ steps.commits.outputs.last_update }}
+
+            ## Commits Since Last Documentation Update
+            These are the source code commits since the documentation was last updated:
             ${{ steps.commits.outputs.commits }}
 
-            ## Changed Files
+            ## Changed Files Since Last Update
             ${{ steps.commits.outputs.changed_files }}
 
             ## Instructions
@@ -136,17 +155,22 @@ jobs:
 
             Please analyze the changes and provide any necessary documentation updates.
 
-      - name: Commit documentation changes
+      - name: Update documentation date and commit
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+          # Always update the "Last updated" date in README.md
+          TODAY="${{ steps.commits.outputs.today }}"
+          sed -i "s/> Last updated: [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}/> Last updated: $TODAY/" docs/README.md
+
           git add docs/
           if git diff --staged --quiet; then
             echo "No documentation changes to commit"
           else
             git commit -m "docs: Auto-update technical documentation
 
-            Based on recent commits to develop branch.
+            Based on commits since ${{ steps.commits.outputs.last_update }}.
 
             🤖 Generated with GitHub Copilot"
             git push

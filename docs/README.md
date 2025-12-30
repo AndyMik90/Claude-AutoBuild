@@ -2,7 +2,7 @@
 
 **Comprehensive technical documentation for developers working with the Auto-Claude codebase.**
 
-> Last updated: 2025-06-29
+> Last updated: 2025-12-30
 
 ---
 
