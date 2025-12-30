@@ -83,7 +83,6 @@ export function PRDetail({
   const [isMerging, setIsMerging] = useState(false);
   // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
-  const [isCheckingNewCommits, setIsCheckingNewCommits] = useState(false);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
   // Ref to track checking state without causing callback recreation
@@ -134,7 +133,6 @@ export function PRDetail({
     // Only check for new commits if we have a review AND findings have been posted
     if (reviewResult?.success && reviewResult.reviewedCommitSha && hasPostedFindings) {
       isCheckingNewCommitsRef.current = true;
-      setIsCheckingNewCommits(true);
       try {
         const result = await onCheckNewCommits();
         // Only update state if not aborted
@@ -144,7 +142,6 @@ export function PRDetail({
       } finally {
         if (!checkNewCommitsAbortRef.current?.signal.aborted) {
           isCheckingNewCommitsRef.current = false;
-          setIsCheckingNewCommits(false);
         }
       }
     } else {
