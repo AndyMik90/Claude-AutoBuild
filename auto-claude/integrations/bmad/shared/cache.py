@@ -18,7 +18,6 @@ import hashlib
 import hmac
 import json
 import os
-import pickle
 import sys
 import threading
 import time
