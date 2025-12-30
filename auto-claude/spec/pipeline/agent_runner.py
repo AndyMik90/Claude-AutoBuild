@@ -7,7 +7,6 @@ Integrates BMAD agents for enhanced spec creation.
 """
 
 from pathlib import Path
-from typing import Optional
 
 # Configure safe encoding before any output (fixes Windows encoding errors)
 from ui.capabilities import configure_safe_encoding
@@ -31,7 +30,7 @@ except ImportError:
     BMADAgentLoader = None
 
 # Global BMAD loader instance (lazy initialized)
-_bmad_loader: Optional["BMADAgentLoader"] = None
+_bmad_loader: "BMADAgentLoader | None" = None
 
 # Mapping of prompt files to BMAD agents
 PROMPT_TO_BMAD_AGENT = {
@@ -47,7 +46,7 @@ PROMPT_TO_BMAD_AGENT = {
 }
 
 
-def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+def get_bmad_loader() -> "BMADAgentLoader | None":
     """Get or create the BMAD agent loader singleton."""
     global _bmad_loader
     if not BMAD_AVAILABLE:
@@ -59,7 +58,7 @@ def get_bmad_loader() -> Optional["BMADAgentLoader"]:
     return _bmad_loader
 
 
-def get_bmad_agent_for_prompt(prompt_file: str) -> Optional[str]:
+def get_bmad_agent_for_prompt(prompt_file: str) -> str | None:
     """Get the appropriate BMAD agent for a prompt file."""
     return PROMPT_TO_BMAD_AGENT.get(prompt_file)
 

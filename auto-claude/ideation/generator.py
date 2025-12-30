@@ -15,7 +15,7 @@ BMAD Integration:
 
 import sys
 from pathlib import Path
-from typing import Optional
+
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -33,10 +33,10 @@ except ImportError:
     BMADAgentLoader = None
 
 # Global BMAD loader instance (lazy initialized)
-_bmad_loader: Optional["BMADAgentLoader"] = None
+_bmad_loader: "BMADAgentLoader | None" = None
 
 
-def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+def get_bmad_loader() -> "BMADAgentLoader | None":
     """Get or create the BMAD agent loader singleton."""
     global _bmad_loader
     if not BMAD_AVAILABLE:

@@ -13,7 +13,7 @@ BMAD Integration:
 import json
 import re
 from pathlib import Path
-from typing import Optional
+
 
 from .project_context import (
     detect_project_capabilities,
@@ -30,10 +30,10 @@ except ImportError:
     BMADAgentLoader = None
 
 # Global BMAD loader instance (lazy initialized)
-_bmad_loader: Optional["BMADAgentLoader"] = None
+_bmad_loader: "BMADAgentLoader | None" = None
 
 
-def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+def get_bmad_loader() -> "BMADAgentLoader | None":
     """Get or create the BMAD agent loader singleton."""
     global _bmad_loader
     if not BMAD_AVAILABLE:
