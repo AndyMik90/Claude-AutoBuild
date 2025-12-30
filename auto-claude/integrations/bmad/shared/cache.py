@@ -118,7 +118,7 @@ class LRUCache(Generic[T]):
         with self._lock:
             # Estimate size using json (safer than pickle for untrusted objects)
             try:
-                size_bytes = len(json.dumps(_serialize_value(value)).encode('utf-8'))
+                size_bytes = len(json.dumps(_serialize_value(value)).encode("utf-8"))
             except (TypeError, ValueError):
                 # Fallback to sys.getsizeof for non-JSON-serializable objects
                 size_bytes = sys.getsizeof(value)
@@ -235,7 +235,11 @@ class DiskLRUCache(Generic[T]):
         import platform
 
         # Cross-platform user ID: os.getuid() on POSIX, USERNAME on Windows
-        user_id = os.getuid() if hasattr(os, 'getuid') else os.environ.get('USERNAME', 'default')
+        user_id = (
+            os.getuid()
+            if hasattr(os, "getuid")
+            else os.environ.get("USERNAME", "default")
+        )
         machine_id = f"{platform.node()}-{user_id}"
         return hashlib.sha256(machine_id.encode()).hexdigest()[:32]
 
