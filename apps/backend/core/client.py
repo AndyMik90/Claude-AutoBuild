@@ -13,8 +13,11 @@ single source of truth for phase-aware tool and MCP server configuration.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from agents.tools_pkg import (
     CONTEXT7_TOOLS,
@@ -81,8 +84,8 @@ def load_project_mcp_config(project_dir: Path) -> dict:
                     # Include per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
                     elif key.startswith("AGENT_MCP_"):
                         config[key] = value
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
 
     return config
 

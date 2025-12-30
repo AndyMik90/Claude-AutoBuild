@@ -356,24 +356,38 @@ interface AgentCardProps {
   modelLabel: string;
   thinkingLabel: string;
   overrides: AgentMcpOverride | undefined;
+  mcpServerStates: ProjectEnvConfig['mcpServers'];
   onAddMcp: (agentId: string, mcpId: string) => void;
   onRemoveMcp: (agentId: string, mcpId: string) => void;
 }
 
-function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, onAddMcp, onRemoveMcp }: AgentCardProps) {
+function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServerStates, onAddMcp, onRemoveMcp }: AgentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { t } = useTranslation(['settings']);
   const category = CATEGORIES[config.category as keyof typeof CATEGORIES];
   const CategoryIcon = category.icon;
 
-  // Calculate effective MCPs: defaults + adds - removes
+  // Calculate effective MCPs: defaults + adds - removes, then filter by project-level MCP states
   const effectiveMcps = useMemo(() => {
     const defaultMcps = [...config.mcp_servers, ...(config.mcp_optional || [])];
     const added = overrides?.add || [];
     const removed = overrides?.remove || [];
-    return [...new Set([...defaultMcps, ...added])].filter(mcp => !removed.includes(mcp));
-  }, [config, overrides]);
+    const combinedMcps = [...new Set([...defaultMcps, ...added])].filter(mcp => !removed.includes(mcp));
+
+    // Filter out MCPs that are disabled at project level
+    return combinedMcps.filter(mcp => {
+      if (!mcpServerStates) return true; // No project config, show all
+      switch (mcp) {
+        case 'context7': return mcpServerStates.context7Enabled !== false;
+        case 'graphiti': return mcpServerStates.graphitiEnabled !== false;
+        case 'linear': return mcpServerStates.linearMcpEnabled !== false;
+        case 'electron': return mcpServerStates.electronEnabled !== false;
+        case 'puppeteer': return mcpServerStates.puppeteerEnabled !== false;
+        default: return true;
+      }
+    });
+  }, [config, overrides, mcpServerStates]);
 
   // Check if an MCP is a custom addition (not in defaults)
   const isCustomAdd = (mcpId: string) => {
@@ -1067,6 +1081,7 @@ export function AgentTools() {
                           modelLabel={getModelLabel(model)}
                           thinkingLabel={getThinkingLabel(thinking)}
                           overrides={envConfig?.agentMcpOverrides?.[id]}
+                          mcpServerStates={envConfig?.mcpServers}
                           onAddMcp={handleAddMcp}
                           onRemoveMcp={handleRemoveMcp}
                         />

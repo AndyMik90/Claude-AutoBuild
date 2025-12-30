@@ -213,9 +213,13 @@ async def _call_claude(prompt: str) -> str:
     default_model = "claude-haiku-4-5-20251001"
     model = os.environ.get("UTILITY_MODEL_ID", default_model)
     thinking_budget_str = os.environ.get("UTILITY_THINKING_BUDGET", "")
-    thinking_budget = (
-        int(thinking_budget_str) if thinking_budget_str else 1024
-    )  # Default low thinking
+    try:
+        thinking_budget = int(thinking_budget_str) if thinking_budget_str else 1024
+    except ValueError:
+        logger.warning(
+            f"Invalid UTILITY_THINKING_BUDGET value '{thinking_budget_str}', using default 1024"
+        )
+        thinking_budget = 1024
 
     logger.info(
         f"Commit message using model={model}, thinking_budget={thinking_budget}"

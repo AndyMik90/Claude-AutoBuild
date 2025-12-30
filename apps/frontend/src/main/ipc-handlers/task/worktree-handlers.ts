@@ -38,8 +38,9 @@ function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: 
         thinkingBudget: THINKING_BUDGET_MAP[thinkingLevel] ?? THINKING_BUDGET_MAP.low
       };
     }
-  } catch {
-    // Fall through to defaults
+  } catch (error) {
+    // Log parse errors to help diagnose corrupted settings
+    console.warn('[getUtilitySettings] Failed to parse settings.json:', error);
   }
 
   // Return defaults if settings file doesn't exist or fails to parse
@@ -1494,7 +1495,7 @@ export function registerWorktreeHandlers(
               // Utility feature settings for merge resolver
               UTILITY_MODEL: utilitySettings.model,
               UTILITY_MODEL_ID: utilitySettings.modelId,
-              UTILITY_THINKING_BUDGET: utilitySettings.thinkingBudget?.toString() || ''
+              UTILITY_THINKING_BUDGET: utilitySettings.thinkingBudget === null ? '0' : (utilitySettings.thinkingBudget?.toString() || '')
             },
             stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
           });

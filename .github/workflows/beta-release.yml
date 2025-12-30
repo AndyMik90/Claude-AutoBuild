@@ -308,8 +308,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
-          flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
+          flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 || exit 1
+          flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08 || exit 1
 
       - name: Cache bundled Python
         uses: actions/cache@v4

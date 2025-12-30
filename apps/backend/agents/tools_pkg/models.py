@@ -347,6 +347,8 @@ def _map_mcp_server_name(name: str) -> str | None:
     Returns:
         Internal server identifier or None if not recognized
     """
+    if not name:
+        return None
     mappings = {
         "context7": "context7",
         "graphiti-memory": "graphiti",
@@ -441,7 +443,9 @@ def get_required_mcp_servers(
 
     # Process additions
     if add_key in mcp_config:
-        additions = [s.strip() for s in mcp_config[add_key].split(",") if s.strip()]
+        additions = [
+            s.strip() for s in str(mcp_config[add_key]).split(",") if s.strip()
+        ]
         for server in additions:
             mapped = _map_mcp_server_name(server)
             if mapped and mapped not in servers:
@@ -449,7 +453,9 @@ def get_required_mcp_servers(
 
     # Process removals (but never remove auto-claude)
     if remove_key in mcp_config:
-        removals = [s.strip() for s in mcp_config[remove_key].split(",") if s.strip()]
+        removals = [
+            s.strip() for s in str(mcp_config[remove_key]).split(",") if s.strip()
+        ]
         for server in removals:
             mapped = _map_mcp_server_name(server)
             if mapped and mapped != "auto-claude":  # auto-claude cannot be removed
