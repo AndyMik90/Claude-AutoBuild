@@ -1,0 +1,127 @@
+blueprint:
+  components:
+  - acceptance_criteria:
+    - description: Logo displays correctly on the left side
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Search bar is functional and centered
+      notes: null
+      verified: false
+      verified_at: null
+    - description: User menu opens on click and shows options
+      notes: null
+      verified: false
+      verified_at: null
+    attempts: 1
+    completed_at: null
+    dependencies: []
+    description: Top navigation bar with logo, search, and user menu
+    files:
+    - src/components/Header/index.tsx
+    - src/components/Header/Header.module.css
+    id: comp-001
+    implementation_notes: null
+    key_decisions: []
+    name: Header Navigation
+    notes:
+    - '[2025-12-24T13:46:28.043173] Started build'
+    - '[2025-12-24T13:46:29.286978] Running verification'
+    - '[2025-12-24T13:46:29.289915] Verification failed: Missing files: src/components/Header/index.tsx,
+      src/components/Header/Header.module.css'
+    started_at: '2025-12-24T13:46:28.043171'
+    status: failed
+  - acceptance_criteria:
+    - description: Sidebar collapses and expands smoothly
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Navigation items are highlighted when active
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Icons render correctly for each menu item
+      notes: null
+      verified: false
+      verified_at: null
+    attempts: 0
+    completed_at: null
+    dependencies: []
+    description: Left sidebar with navigation links and icons
+    files:
+    - src/components/Sidebar/index.tsx
+    - src/components/Sidebar/Sidebar.module.css
+    - src/components/Sidebar/NavItem.tsx
+    id: comp-002
+    implementation_notes: null
+    key_decisions: []
+    name: Sidebar Menu
+    notes: []
+    started_at: null
+    status: pending
+  - acceptance_criteria:
+    - description: Cards display statistics with proper formatting
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Cards are responsive and stack on mobile
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Loading states show skeleton placeholders
+      notes: null
+      verified: false
+      verified_at: null
+    attempts: 0
+    completed_at: null
+    dependencies:
+    - comp-001
+    - comp-002
+    description: Main content area with statistics cards
+    files:
+    - src/components/Dashboard/StatsCard.tsx
+    - src/components/Dashboard/index.tsx
+    id: comp-003
+    implementation_notes: null
+    key_decisions: []
+    name: Dashboard Cards
+    notes: []
+    started_at: null
+    status: pending
+  - acceptance_criteria:
+    - description: Table headers are sortable
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Pagination works correctly
+      notes: null
+      verified: false
+      verified_at: null
+    - description: Rows are selectable with checkboxes
+      notes: null
+      verified: false
+      verified_at: null
+    attempts: 0
+    completed_at: null
+    dependencies:
+    - comp-003
+    description: Table component for displaying tabular data
+    files:
+    - src/components/DataTable/index.tsx
+    - src/components/DataTable/TableHeader.tsx
+    - src/components/DataTable/TableRow.tsx
+    id: comp-004
+    implementation_notes: null
+    key_decisions: []
+    name: Data Table
+    notes: []
+    started_at: null
+    status: pending
+  created_at: '2024-01-01T00:00:00Z'
+  created_by: PM Agent
+  description: A sample dashboard with header, sidebar, and main content area
+  name: Sample Dashboard UI
+  project_path: /path/to/your/project
+  spec_id: 001-sample-dashboard
+  strictness: strict
+  version: 1.0.0
