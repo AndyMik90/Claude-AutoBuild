@@ -91,12 +91,13 @@ export function registerAgenteventsHandlers(
             
             // Fallback: Ensure status is updated even if COMPLETE phase event was missed
             // This prevents tasks from getting stuck in ai_review status
+            // Uses inverted logic to also handle tasks with no subtasks (treats them as complete)
             const isActiveStatus = task.status === 'in_progress' || task.status === 'ai_review';
-            const allSubtasksCompleted = task.subtasks && task.subtasks.length > 0 && 
-              task.subtasks.every((s) => s.status === 'completed');
+            const hasIncompleteSubtasks = task.subtasks && task.subtasks.length > 0 && 
+              task.subtasks.some((s) => s.status !== 'completed');
             
-            if (isActiveStatus && allSubtasksCompleted) {
-              console.log(`[Task ${taskId}] Fallback: Moving to human_review (all subtasks completed)`);
+            if (isActiveStatus && !hasIncompleteSubtasks) {
+              console.log(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully)`);
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_STATUS_CHANGE,
                 taskId,
