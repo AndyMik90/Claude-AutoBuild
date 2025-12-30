@@ -349,25 +349,19 @@ export function registerFileHandlers(): void {
         // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
 
-        // Construct absolute path (but don't validate yet to avoid TOCTOU)
+        // Construct absolute path
+        // NOTE: We do NOT validate the path here to avoid TOCTOU race conditions.
+        // Instead, we:
+        // 1. Open with O_NOFOLLOW to prevent symlink following
+        // 2. Use fstat() on the opened fd to verify it's a regular file
+        // 3. Validate parent directory resolves within workspace AFTER opening
         const absPath = path.resolve(workspaceRootResolved, relPath);
 
-        // Normalize paths for comparison on case-insensitive file systems
+        // Normalize paths for comparison (used after opening file)
         const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
         const workspaceRootForCompare = isCaseInsensitiveFs
           ? workspaceRootResolved.toLowerCase()
           : workspaceRootResolved;
-        const absPathForCompare = isCaseInsensitiveFs
-          ? absPath.toLowerCase()
-          : absPath;
-
-        // Basic directory traversal check (string-based, before opening)
-        if (
-          !absPathForCompare.startsWith(workspaceRootForCompare + path.sep) &&
-          absPathForCompare !== workspaceRootForCompare
-        ) {
-          return { success: false, error: 'Path escapes workspace root' };
-        }
 
         // Try to open file atomically without following symlinks
         // Note: O_NOFOLLOW is not supported on Windows, so we conditionally use it
