@@ -8,10 +8,14 @@ Uses Claude agents to generate ideas of different types:
 - Security hardening
 - Performance optimizations
 - Code quality
+
+BMAD Integration:
+- Uses BMAD Analyst agent for idea generation
 """
 
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add auto-claude to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -19,6 +23,40 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from client import create_client
 from phase_config import get_thinking_budget
 from ui import print_status
+
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if not _bmad_loader.is_available():
+            _bmad_loader = None
+    return _bmad_loader
+
+
+# Ideation type to BMAD agent mapping
+IDEATION_TO_BMAD_AGENT = {
+    "code_improvements": "developer",
+    "ui_ux_improvements": "ux",
+    "documentation_gaps": "tech_writer",
+    "security_hardening": "qa",  # TEA handles security aspects
+    "performance_optimizations": "architect",
+    "code_quality": "developer",
+}
 
 # Ideation types
 IDEATION_TYPES = [
@@ -81,6 +119,21 @@ class IdeationGenerator:
 
         # Load prompt
         prompt = prompt_path.read_text()
+
+        # BMAD Enhancement: Inject appropriate agent expertise based on ideation type
+        bmad = get_bmad_loader()
+        if bmad:
+            # Reverse-map prompt file to ideation type to get right agent
+            ideation_type = None
+            for itype, pfile in IDEATION_TYPE_PROMPTS.items():
+                if pfile == prompt_file:
+                    ideation_type = itype
+                    break
+
+            if ideation_type and ideation_type in IDEATION_TO_BMAD_AGENT:
+                agent_type = IDEATION_TO_BMAD_AGENT[ideation_type]
+                prompt = bmad.enhance_prompt(prompt, agent_type)
+                print(f"[BMAD] Using {agent_type.upper()} agent for {ideation_type}")
 
         # Add context
         prompt += f"\n\n---\n\n**Output Directory**: {self.output_dir}\n"

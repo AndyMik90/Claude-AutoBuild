@@ -120,6 +120,15 @@ export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: Gl
 }
 
 /**
+ * Check if Ollama is configured as the embedding provider
+ * Ollama is local and doesn't require an API key
+ */
+export function hasOllamaEmbedding(projectEnvVars: EnvironmentVars): boolean {
+  const provider = projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] || process.env.GRAPHITI_EMBEDDER_PROVIDER;
+  return provider?.toLowerCase() === 'ollama';
+}
+
+/**
  * Get Graphiti database details (LadybugDB - embedded database)
  */
 export interface GraphitiDatabaseDetails {

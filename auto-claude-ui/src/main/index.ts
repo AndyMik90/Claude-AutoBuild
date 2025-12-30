@@ -8,6 +8,7 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater } from './app-updater';
+import { initBlueprintService } from './blueprint-service';
 
 // Get icon path based on platform
 function getIconPath(): string {
@@ -125,6 +126,9 @@ app.whenReady().then(() => {
 
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
+
+  // Initialize blueprint service for BMAD integration
+  initBlueprintService();
 
   // Create window
   createWindow();

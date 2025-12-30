@@ -108,7 +108,14 @@ const browserMockAPI: ElectronAPI = {
   ...insightsMock,
 
   // Infrastructure & Docker Operations
-  ...infrastructureMock
+  ...infrastructureMock,
+
+  // Blueprint Operations (BMAD integration)
+  loadBlueprint: async () => ({ success: false, error: 'Browser mock - blueprint not available' }),
+  startBlueprintBuild: async () => ({ success: false, error: 'Browser mock - build not available' }),
+  fixComponent: async () => ({ success: false, error: 'Browser mock - fix not available' }),
+  updateComponentStatus: async () => ({ success: false, error: 'Browser mock - status update not available' }),
+  createBlueprint: async () => ({ success: false, error: 'Browser mock - create not available' })
 };
 
 /**

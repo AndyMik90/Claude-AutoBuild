@@ -61,8 +61,8 @@ export function ProjectTabBar({
         return;
       }
 
-      // Cmd/Ctrl + W: Close current tab (only if more than one tab)
-      if (e.key === 'w' && activeProjectId && projects.length > 1) {
+      // Cmd/Ctrl + W: Close current tab
+      if (e.key === 'w' && activeProjectId) {
         e.preventDefault();
         onProjectClose(activeProjectId);
       }
@@ -88,10 +88,11 @@ export function ProjectTabBar({
             key={project.id}
             project={project}
             isActive={activeProjectId === project.id}
-            canClose={projects.length > 1}
+            canClose={true}
             tabIndex={index}
             onSelect={() => onProjectSelect(project.id)}
             onClose={(e) => {
+              console.log('[ProjectTabBar] onClose called for project:', project.id);
               e.stopPropagation();
               onProjectClose(project.id);
             }}

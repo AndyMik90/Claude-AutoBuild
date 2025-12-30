@@ -42,6 +42,8 @@ import { Insights } from './components/Insights';
 import { GitHubIssues } from './components/GitHubIssues';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
+import { AgentProfiles } from './components/AgentProfiles';
+import { BlueprintView } from './components/BlueprintView';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -84,6 +86,13 @@ export function App() {
   const [settingsInitialSection, setSettingsInitialSection] = useState<AppSection | undefined>(undefined);
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
+
+  // Debug: log activeView changes
+  useEffect(() => {
+    console.log('[App] activeView changed to:', activeView);
+    console.log('[App] activeProjectId:', activeProjectId);
+    console.log('[App] selectedProjectId:', selectedProjectId);
+  }, [activeView, activeProjectId, selectedProjectId]);
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
 
   // Initialize dialog state
@@ -110,6 +119,9 @@ export function App() {
   // Track dragging state for overlay
   const [activeDragProject, setActiveDragProject] = useState<Project | null>(null);
 
+  // Track if initial tab restore has been done (to avoid re-opening tabs user closed)
+  const [initialTabRestoreDone, setInitialTabRestoreDone] = useState(false);
+
   // Get tabs and selected project
   const projectTabs = getProjectTabs();
   const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
@@ -120,8 +132,15 @@ export function App() {
     loadSettings();
   }, []);
 
-  // Restore tab state and open tabs for loaded projects
+  // Restore tab state ONLY on initial load (not when user closes tabs)
+  // IMPORTANT: We NEVER auto-open projects. If openProjectIds is empty, user has no tabs - respect that.
+  // The sidebar shows all projects and user can click to open. This is robust for all scenarios.
   useEffect(() => {
+    // Skip if we've already done the initial restore
+    if (initialTabRestoreDone) {
+      return;
+    }
+
     console.log('[App] Tab restore useEffect triggered:', {
       projectsCount: projects.length,
       openProjectIds,
@@ -132,24 +151,16 @@ export function App() {
     });
 
     if (projects.length > 0) {
-      // Check openProjectIds (persisted state) instead of projectTabs (computed)
-      // to avoid race condition where projectTabs is empty before projects load
+      // Mark initial restore as done
+      setInitialTabRestoreDone(true);
+
+      // If no tabs are open, respect that - don't auto-open anything
+      // User can click on a project in the sidebar to open it
       if (openProjectIds.length === 0) {
-        // No tabs persisted at all, open the first available project
-        const projectToOpen = activeProjectId || selectedProjectId || projects[0].id;
-        console.log('[App] No tabs persisted, opening project:', projectToOpen);
-        // Verify the project exists before opening
-        if (projects.some(p => p.id === projectToOpen)) {
-          openProjectTab(projectToOpen);
-          setActiveProject(projectToOpen);
-        } else {
-          // Fallback to first project if stored IDs are invalid
-          console.log('[App] Project not found, falling back to first project:', projects[0].id);
-          openProjectTab(projects[0].id);
-          setActiveProject(projects[0].id);
-        }
+        console.log('[App] No tabs open - respecting user state, not auto-opening');
         return;
       }
+
       console.log('[App] Tabs already persisted, checking active project');
       // If there's an active project but no tabs open for it, open a tab
       if (activeProjectId && !projectTabs.some(tab => tab.id === activeProjectId)) {
@@ -165,7 +176,7 @@ export function App() {
         console.log('[App] Tab state is valid, no action needed');
       }
     }
-  }, [projects, activeProjectId, selectedProjectId, openProjectIds, projectTabs, openProjectTab, setActiveProject]);
+  }, [projects, activeProjectId, selectedProjectId, openProjectIds, projectTabs, openProjectTab, setActiveProject, initialTabRestoreDone]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
@@ -405,7 +416,9 @@ export function App() {
   };
 
   const handleProjectTabClose = (projectId: string) => {
+    console.log('[App] handleProjectTabClose called for project:', projectId);
     closeProjectTab(projectId);
+    console.log('[App] closeProjectTab completed');
   };
 
   // Handle drag start - set the active dragged project
@@ -662,6 +675,12 @@ export function App() {
                 )}
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
                   <Worktrees projectId={activeProjectId || selectedProjectId!} />
+                )}
+                {activeView === 'blueprint' && (activeProjectId || selectedProjectId) && (
+                  <BlueprintView />
+                )}
+                {activeView === 'agent-profiles' && (
+                  <AgentProfiles />
                 )}
                 {activeView === 'agent-tools' && (
                   <div className="flex h-full items-center justify-center">

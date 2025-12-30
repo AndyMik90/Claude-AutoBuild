@@ -15,7 +15,9 @@ import {
   FileText,
   Sparkles,
   GitBranch,
-  HelpCircle
+  HelpCircle,
+  UserCog,
+  Layers
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -48,7 +50,7 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'agent-profiles' | 'blueprint';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -66,6 +68,7 @@ interface NavItem {
 
 const projectNavItems: NavItem[] = [
   { id: 'kanban', label: 'Kanban Board', icon: LayoutGrid, shortcut: 'K' },
+  { id: 'blueprint', label: 'Blueprint', icon: Layers, shortcut: 'B' },
   { id: 'terminals', label: 'Agent Terminals', icon: Terminal, shortcut: 'A' },
   { id: 'insights', label: 'Insights', icon: Sparkles, shortcut: 'N' },
   { id: 'roadmap', label: 'Roadmap', icon: Map, shortcut: 'D' },
@@ -87,8 +90,12 @@ export function Sidebar({
 }: SidebarProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
   const settings = useSettingsStore((state) => state.settings);
+
+  // Use either state for backwards compatibility with new tab system
+  const effectiveProjectId = activeProjectId || selectedProjectId;
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -99,7 +106,7 @@ export function Sidebar({
   const [_versionInfo, setVersionInfo] = useState<AutoBuildVersionInfo | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const selectedProject = projects.find((p) => p.id === effectiveProjectId);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -115,7 +122,7 @@ export function Sidebar({
       }
 
       // Only handle shortcuts when a project is selected
-      if (!selectedProjectId) return;
+      if (!effectiveProjectId) return;
 
       // Check for modifier keys - we want plain key presses only
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -134,13 +141,13 @@ export function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProjectId, onViewChange]);
+  }, [effectiveProjectId, onViewChange]);
 
   // Check for updates when project changes
   useEffect(() => {
     const checkUpdates = async () => {
-      if (selectedProjectId && settings.autoUpdateAutoBuild) {
-        const info = await checkProjectVersion(selectedProjectId);
+      if (effectiveProjectId && settings.autoUpdateAutoBuild) {
+        const info = await checkProjectVersion(effectiveProjectId);
         if (info?.updateAvailable) {
           setVersionInfo(info);
           setShowUpdateDialog(true);
@@ -148,7 +155,7 @@ export function Sidebar({
       }
     };
     checkUpdates();
-  }, [selectedProjectId, settings.autoUpdateAutoBuild]);
+  }, [effectiveProjectId, settings.autoUpdateAutoBuild]);
 
   // Check git status when project changes
   useEffect(() => {
@@ -208,11 +215,11 @@ export function Sidebar({
   };
 
   const _handleUpdate = async () => {
-    if (!selectedProjectId) return;
+    if (!effectiveProjectId) return;
 
     setIsInitializing(true);
     try {
-      const result = await updateProjectAutoBuild(selectedProjectId);
+      const result = await updateProjectAutoBuild(effectiveProjectId);
       if (result?.success) {
         setShowUpdateDialog(false);
         setVersionInfo(null);
@@ -249,6 +256,9 @@ export function Sidebar({
 
 
   const handleNavClick = (view: SidebarView) => {
+    console.log('[Sidebar] handleNavClick called with view:', view);
+    console.log('[Sidebar] effectiveProjectId:', effectiveProjectId);
+    console.log('[Sidebar] onViewChange defined:', !!onViewChange);
     onViewChange?.(view);
   };
 
@@ -260,7 +270,7 @@ export function Sidebar({
       <button
         key={item.id}
         onClick={() => handleNavClick(item.id)}
-        disabled={!selectedProjectId}
+        disabled={!effectiveProjectId}
         className={cn(
           'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
@@ -358,7 +368,7 @@ export function Sidebar({
           <Button
             className="w-full"
             onClick={onNewTaskClick}
-            disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+            disabled={!effectiveProjectId || !selectedProject?.autoBuildPath}
           >
             <Plus className="mr-2 h-4 w-4" />
             New Task

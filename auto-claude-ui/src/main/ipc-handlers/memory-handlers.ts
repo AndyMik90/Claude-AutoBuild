@@ -5,7 +5,7 @@
  * Uses LadybugDB (embedded Kuzu-based database) - no Docker required.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -78,11 +78,16 @@ async function executeOllamaDetector(
   }
 
   // Find the ollama_model_detector.py script
-  const possiblePaths = [
+  // For packaged apps, use process.resourcesPath (points to .app/Contents/Resources/)
+  const possiblePaths: string[] = [];
+  if (app.isPackaged) {
+    possiblePaths.push(path.join(process.resourcesPath, 'auto-claude', 'ollama_model_detector.py'));
+  }
+  possiblePaths.push(
     path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'ollama_model_detector.py'),
     path.resolve(process.cwd(), 'auto-claude', 'ollama_model_detector.py'),
     path.resolve(process.cwd(), '..', 'auto-claude', 'ollama_model_detector.py'),
-  ];
+  );
 
   let scriptPath: string | null = null;
   for (const p of possiblePaths) {
@@ -455,11 +460,16 @@ export function registerMemoryHandlers(): void {
         }
 
         // Find the ollama_model_detector.py script
-        const possiblePaths = [
+        // For packaged apps, use process.resourcesPath (points to .app/Contents/Resources/)
+        const possiblePaths: string[] = [];
+        if (app.isPackaged) {
+          possiblePaths.push(path.join(process.resourcesPath, 'auto-claude', 'ollama_model_detector.py'));
+        }
+        possiblePaths.push(
           path.resolve(__dirname, '..', '..', '..', 'auto-claude', 'ollama_model_detector.py'),
           path.resolve(process.cwd(), 'auto-claude', 'ollama_model_detector.py'),
           path.resolve(process.cwd(), '..', 'auto-claude', 'ollama_model_detector.py'),
-        ];
+        );
 
         let scriptPath: string | null = null;
         for (const p of possiblePaths) {

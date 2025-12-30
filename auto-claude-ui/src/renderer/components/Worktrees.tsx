@@ -134,15 +134,24 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const handleDelete = async () => {
     if (!worktreeToDelete) return;
 
-    const task = findTaskForWorktree(worktreeToDelete.specName);
-    if (!task) {
-      setError('Task not found for this worktree');
-      return;
-    }
-
     setIsDeleting(true);
     try {
-      const result = await window.electronAPI.discardWorktree(task.id);
+      // Try to find task first, but allow deletion even without it
+      const task = findTaskForWorktree(worktreeToDelete.specName);
+
+      let result;
+      if (task) {
+        // Use task-based deletion if task exists
+        result = await window.electronAPI.discardWorktree(task.id);
+      } else {
+        // Use direct worktree deletion by path for orphaned worktrees
+        result = await window.electronAPI.deleteWorktreeByPath(
+          projectId,
+          worktreeToDelete.path,
+          worktreeToDelete.branch
+        );
+      }
+
       if (result.success) {
         // Refresh worktrees after successful delete
         await loadWorktrees();
@@ -318,7 +327,6 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         size="sm"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => confirmDelete(worktree)}
-                        disabled={!task}
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                         Delete

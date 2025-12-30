@@ -3,9 +3,11 @@ Agent Runner
 ============
 
 Handles the execution of AI agents for the spec creation pipeline.
+Integrates BMAD agents for enhanced spec creation.
 """
 
 from pathlib import Path
+from typing import Optional
 
 # Configure safe encoding before any output (fixes Windows encoding errors)
 from ui.capabilities import configure_safe_encoding
@@ -19,6 +21,47 @@ from task_logger import (
     LogPhase,
     TaskLogger,
 )
+
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+# Mapping of prompt files to BMAD agents
+PROMPT_TO_BMAD_AGENT = {
+    "spec_gatherer.md": "pm",           # PM for requirements gathering
+    "spec_researcher.md": "analyst",    # Analyst for research
+    "spec_writer.md": "architect",      # Architect for spec writing
+    "spec_critic.md": "architect",      # Architect for critique
+    "complexity_assessor.md": "analyst", # Analyst for complexity
+    "discovery.md": "analyst",          # Analyst for discovery
+    "context.md": "analyst",            # Analyst for context
+    "requirements.md": "pm",            # PM for requirements
+    "planner.md": "architect",          # Architect for planning
+}
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if not _bmad_loader.is_available():
+            _bmad_loader = None
+    return _bmad_loader
+
+
+def get_bmad_agent_for_prompt(prompt_file: str) -> Optional[str]:
+    """Get the appropriate BMAD agent for a prompt file."""
+    return PROMPT_TO_BMAD_AGENT.get(prompt_file)
 
 
 class AgentRunner:
@@ -87,6 +130,14 @@ class AgentRunner:
             "Loaded prompt file",
             prompt_length=len(prompt),
         )
+
+        # BMAD Enhancement: Inject agent expertise based on prompt type
+        bmad = get_bmad_loader()
+        if bmad:
+            agent_type = get_bmad_agent_for_prompt(prompt_file)
+            if agent_type:
+                prompt = bmad.enhance_prompt(prompt, agent_type)
+                print(f"[BMAD] Using {agent_type.upper()} agent for {prompt_file}")
 
         # Add context
         prompt += f"\n\n---\n\n**Spec Directory**: {self.spec_dir}\n"
