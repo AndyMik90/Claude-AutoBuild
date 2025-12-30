@@ -11,8 +11,14 @@ import { usePRReviewStore, startPRReview as storeStartPRReview, startFollowupRev
 export type { PRData, PRReviewResult, PRReviewProgress };
 export type { PRReviewFinding } from '../../../../preload/api/modules/github-api';
 
+// PR status filter type
+export type PRStatusFilter = 'open' | 'closed';
+
 interface UseGitHubPRsResult {
   prs: PRData[];
+  closedPRs: PRData[];
+  openCount: number;
+  closedCount: number;
   isLoading: boolean;
   error: string | null;
   selectedPR: PRData | null;
@@ -34,10 +40,12 @@ interface UseGitHubPRsResult {
   mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
   assignPR: (prNumber: number, username: string) => Promise<boolean>;
   getReviewStateForPR: (prNumber: number) => { isReviewing: boolean; progress: PRReviewProgress | null; result: PRReviewResult | null; error: string | null } | null;
+  getPRsByStatus: (status: PRStatusFilter) => PRData[];
 }
 
 export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
   const [prs, setPrs] = useState<PRData[]>([]);
+  const [closedPRs, setClosedPRs] = useState<PRData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPRNumber, setSelectedPRNumber] = useState<number | null>(null);
@@ -82,7 +90,7 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
 
   const selectedPR = prs.find(pr => pr.number === selectedPRNumber) || null;
 
-  // Check connection and fetch PRs
+  // Check connection and fetch PRs (both open and closed)
   const fetchPRs = useCallback(async () => {
     if (!projectId) return;
 
@@ -97,13 +105,17 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
         setRepoFullName(connectionResult.data.repoFullName || null);
 
         if (connectionResult.data.connected) {
-          // Fetch PRs
-          const result = await window.electronAPI.github.listPRs(projectId);
-          if (result) {
-            setPrs(result);
+          // Fetch open and closed PRs in parallel
+          const [openPRs, closedPRsResult] = await Promise.all([
+            window.electronAPI.github.listPRs(projectId, 'open'),
+            window.electronAPI.github.listPRs(projectId, 'closed')
+          ]);
 
-            // Preload review results for all PRs
-            result.forEach(pr => {
+          if (openPRs) {
+            setPrs(openPRs);
+
+            // Preload review results for open PRs
+            openPRs.forEach(pr => {
               const existingState = getPRReviewState(projectId, pr.number);
               // Only fetch from disk if we don't have a result in the store
               if (!existingState?.result) {
@@ -115,6 +127,10 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
                 });
               }
             });
+          }
+
+          if (closedPRsResult) {
+            setClosedPRs(closedPRsResult);
           }
         }
       } else {
@@ -260,8 +276,20 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     }
   }, [projectId, fetchPRs]);
 
+  // Computed counts for open and closed PRs
+  const openCount = prs.length;
+  const closedCount = closedPRs.length;
+
+  // Helper to get PRs by status
+  const getPRsByStatus = useCallback((status: PRStatusFilter): PRData[] => {
+    return status === 'open' ? prs : closedPRs;
+  }, [prs, closedPRs]);
+
   return {
     prs,
+    closedPRs,
+    openCount,
+    closedCount,
     isLoading,
     error,
     selectedPR,
@@ -283,5 +311,6 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     mergePR,
     assignPR,
     getReviewStateForPR,
+    getPRsByStatus,
   };
 }

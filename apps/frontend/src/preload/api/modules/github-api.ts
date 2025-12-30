@@ -234,7 +234,7 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
 
   // PR operations
-  listPRs: (projectId: string) => Promise<PRData[]>;
+  listPRs: (projectId: string, state?: 'open' | 'closed' | 'all') => Promise<PRData[]>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
   postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[]) => Promise<boolean>;
@@ -529,8 +529,8 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR, callback),
 
   // PR operations
-  listPRs: (projectId: string): Promise<PRData[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
+  listPRs: (projectId: string, state?: 'open' | 'closed' | 'all'): Promise<PRData[]> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId, state),
 
   runPRReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_REVIEW, projectId, prNumber),

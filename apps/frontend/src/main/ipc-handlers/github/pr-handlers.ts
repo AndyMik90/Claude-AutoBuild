@@ -331,11 +331,11 @@ export function registerPRHandlers(
 ): void {
   debugLog('Registering PR handlers');
 
-  // List open PRs
+  // List PRs (supports open, closed, or all states)
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
-    async (_, projectId: string): Promise<PRData[]> => {
-      debugLog('listPRs handler called', { projectId });
+    async (_, projectId: string, state: 'open' | 'closed' | 'all' = 'open'): Promise<PRData[]> => {
+      debugLog('listPRs handler called', { projectId, state });
       const result = await withProjectOrNull(projectId, async (project) => {
         const config = getGitHubConfig(project);
         if (!config) {
@@ -346,7 +346,7 @@ export function registerPRHandlers(
         try {
           const prs = await githubFetch(
             config.token,
-            `/repos/${config.repo}/pulls?state=open&per_page=50`
+            `/repos/${config.repo}/pulls?state=${state}&per_page=50`
           ) as Array<{
             number: number;
             title: string;

@@ -107,6 +107,7 @@ interface PRListProps {
   activePRReviews: number[];
   getReviewStateForPR: (prNumber: number) => PRReviewInfo | null;
   onSelectPR: (prNumber: number) => void;
+  statusFilter?: 'open' | 'closed';
 }
 
 function formatDate(dateString: string): string {
@@ -129,7 +130,7 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReviews, getReviewStateForPR, onSelectPR }: PRListProps) {
+export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReviews, getReviewStateForPR, onSelectPR, statusFilter = 'open' }: PRListProps) {
   const { t } = useTranslation('common');
 
   if (isLoading && prs.length === 0) {
@@ -158,7 +159,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, activePRReview
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-muted-foreground">
           <GitPullRequest className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>No open pull requests</p>
+          <p>No {statusFilter} pull requests</p>
         </div>
       </div>
     );
