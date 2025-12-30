@@ -106,7 +106,19 @@ import type {
   GitHubSyncStatus,
   GitHubImportResult,
   GitHubInvestigationResult,
-  GitHubInvestigationStatus
+  GitHubInvestigationStatus,
+  GitLabProject,
+  GitLabIssue,
+  GitLabMergeRequest,
+  GitLabNote,
+  GitLabGroup,
+  GitLabSyncStatus,
+  GitLabImportResult,
+  GitLabInvestigationResult,
+  GitLabInvestigationStatus,
+  GitLabMRReviewResult,
+  GitLabMRReviewProgress,
+  GitLabNewCommitsCheck
 } from './integrations';
 
 // Electron API exposed via contextBridge
@@ -375,6 +387,102 @@ export interface ElectronAPI {
     callback: (projectId: string, result: GitHubInvestigationResult) => void
   ) => () => void;
   onGitHubInvestigationError: (
+    callback: (projectId: string, error: string) => void
+  ) => () => void;
+
+  // GitLab integration operations
+  getGitLabProjects: (projectId: string) => Promise<IPCResult<GitLabProject[]>>;
+  getGitLabIssues: (projectId: string, state?: 'opened' | 'closed' | 'all') => Promise<IPCResult<GitLabIssue[]>>;
+  getGitLabIssue: (projectId: string, issueIid: number) => Promise<IPCResult<GitLabIssue>>;
+  getGitLabIssueNotes: (projectId: string, issueIid: number) => Promise<IPCResult<GitLabNote[]>>;
+  checkGitLabConnection: (projectId: string) => Promise<IPCResult<GitLabSyncStatus>>;
+  investigateGitLabIssue: (projectId: string, issueIid: number, selectedNoteIds?: number[]) => void;
+  importGitLabIssues: (projectId: string, issueIids: number[]) => Promise<IPCResult<GitLabImportResult>>;
+  createGitLabRelease: (
+    projectId: string,
+    tagName: string,
+    releaseNotes: string,
+    options?: { ref?: string }
+  ) => Promise<IPCResult<{ url: string }>>;
+
+  // GitLab Merge Request operations
+  getGitLabMergeRequests: (projectId: string, state?: 'opened' | 'closed' | 'merged' | 'all') => Promise<IPCResult<GitLabMergeRequest[]>>;
+  getGitLabMergeRequest: (projectId: string, mrIid: number) => Promise<IPCResult<GitLabMergeRequest>>;
+  createGitLabMergeRequest: (
+    projectId: string,
+    options: {
+      title: string;
+      description?: string;
+      sourceBranch: string;
+      targetBranch: string;
+      labels?: string[];
+      assigneeIds?: number[];
+      removeSourceBranch?: boolean;
+      squash?: boolean;
+    }
+  ) => Promise<IPCResult<GitLabMergeRequest>>;
+  updateGitLabMergeRequest: (
+    projectId: string,
+    mrIid: number,
+    updates: { title?: string; description?: string; labels?: string[]; state_event?: 'close' | 'reopen' }
+  ) => Promise<IPCResult<GitLabMergeRequest>>;
+
+  // GitLab MR Review operations (AI-powered)
+  getGitLabMRReview: (projectId: string, mrIid: number) => Promise<GitLabMRReviewResult | null>;
+  runGitLabMRReview: (projectId: string, mrIid: number) => void;
+  runGitLabMRFollowupReview: (projectId: string, mrIid: number) => void;
+  postGitLabMRReview: (projectId: string, mrIid: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postGitLabMRNote: (projectId: string, mrIid: number, body: string) => Promise<boolean>;
+  mergeGitLabMR: (projectId: string, mrIid: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
+  assignGitLabMR: (projectId: string, mrIid: number, userIds: number[]) => Promise<boolean>;
+  approveGitLabMR: (projectId: string, mrIid: number) => Promise<boolean>;
+  cancelGitLabMRReview: (projectId: string, mrIid: number) => Promise<boolean>;
+  checkGitLabMRNewCommits: (projectId: string, mrIid: number) => Promise<GitLabNewCommitsCheck>;
+
+  // GitLab MR Review event listeners
+  onGitLabMRReviewProgress: (
+    callback: (projectId: string, progress: GitLabMRReviewProgress) => void
+  ) => () => void;
+  onGitLabMRReviewComplete: (
+    callback: (projectId: string, result: GitLabMRReviewResult) => void
+  ) => () => void;
+  onGitLabMRReviewError: (
+    callback: (projectId: string, data: { mrIid: number; error: string }) => void
+  ) => () => void;
+
+  // GitLab OAuth operations (glab CLI)
+  checkGitLabCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
+  checkGitLabAuth: (hostname?: string) => Promise<IPCResult<{ authenticated: boolean; username?: string }>>;
+  startGitLabAuth: (hostname?: string) => Promise<IPCResult<{
+    success: boolean;
+    message?: string;
+    browserOpened?: boolean;
+    fallbackUrl?: string;
+  }>>;
+  getGitLabToken: (hostname?: string) => Promise<IPCResult<{ token: string }>>;
+  getGitLabUser: (hostname?: string) => Promise<IPCResult<{ username: string; name?: string }>>;
+  listGitLabUserProjects: (hostname?: string) => Promise<IPCResult<{ projects: Array<{ pathWithNamespace: string; description: string | null; visibility: string }> }>>;
+  detectGitLabProject: (projectPath: string) => Promise<IPCResult<{ project: string; instanceUrl: string } | null>>;
+  getGitLabBranches: (projectPath: string, token: string, instanceUrl?: string) => Promise<IPCResult<string[]>>;
+  createGitLabProject: (
+    projectName: string,
+    options: { description?: string; visibility?: 'private' | 'internal' | 'public'; projectPath: string; namespaceId?: number; hostname?: string }
+  ) => Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>>;
+  addGitLabRemote: (
+    projectPath: string,
+    projectPathWithNamespace: string,
+    instanceUrl?: string
+  ) => Promise<IPCResult<{ remoteUrl: string }>>;
+  listGitLabGroups: (hostname?: string) => Promise<IPCResult<{ groups: GitLabGroup[] }>>;
+
+  // GitLab event listeners
+  onGitLabInvestigationProgress: (
+    callback: (projectId: string, status: GitLabInvestigationStatus) => void
+  ) => () => void;
+  onGitLabInvestigationComplete: (
+    callback: (projectId: string, result: GitLabInvestigationResult) => void
+  ) => () => void;
+  onGitLabInvestigationError: (
     callback: (projectId: string, error: string) => void
   ) => () => void;
 

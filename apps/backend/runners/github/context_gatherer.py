@@ -1138,5 +1138,5 @@ class FollowupContextGatherer:
             contributor_comments_since_review=contributor_comments
             + contributor_reviews,
             ai_bot_comments_since_review=ai_comments,
-            pr_reviews_since_review=ai_reviews,
+            pr_reviews_since_review=pr_reviews,
         )

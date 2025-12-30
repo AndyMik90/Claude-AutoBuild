@@ -13,7 +13,9 @@ import {
   Download,
   RefreshCw,
   Github,
+  GitlabIcon,
   GitPullRequest,
+  GitMerge,
   FileText,
   Sparkles,
   GitBranch,
@@ -49,7 +51,7 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'github-prs' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -77,7 +79,9 @@ const projectNavItems: NavItem[] = [
 
 const toolsNavItems: NavItem[] = [
   { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
+  { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
   { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' },
+  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' },
   { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
   { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' }
 ];

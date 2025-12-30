@@ -295,6 +295,13 @@ export interface ProjectEnvConfig {
   githubAutoSync?: boolean; // Auto-sync issues on project load
   githubAuthMethod?: 'oauth' | 'pat'; // How the token was obtained
 
+  // GitLab Integration
+  gitlabEnabled: boolean;
+  gitlabInstanceUrl?: string; // Default: https://gitlab.com, or self-hosted URL
+  gitlabToken?: string;
+  gitlabProject?: string; // Format: group/project or numeric ID
+  gitlabAutoSync?: boolean; // Auto-sync issues on project load
+
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 

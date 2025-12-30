@@ -10,6 +10,7 @@ export const integrationMock = {
       claudeAuthStatus: 'not_configured' as const,
       linearEnabled: false,
       githubEnabled: false,
+      gitlabEnabled: false,
       graphitiEnabled: false,
       enableFancyUi: true
     }
@@ -209,6 +210,175 @@ export const integrationMock = {
       ]
     }
   }),
+
+  // GitLab Integration Operations
+  getGitLabProjects: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getGitLabIssues: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getGitLabIssue: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  getGitLabIssueNotes: async () => ({
+    success: true,
+    data: []
+  }),
+
+  checkGitLabConnection: async () => ({
+    success: true,
+    data: {
+      connected: false,
+      error: 'Not available in browser mock'
+    }
+  }),
+
+  investigateGitLabIssue: () => {
+    console.warn('[Browser Mock] investigateGitLabIssue called');
+  },
+
+  importGitLabIssues: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  createGitLabRelease: async () => ({
+    success: true,
+    data: {
+      url: 'https://gitlab.com/example/repo/-/releases/v1.0.0'
+    }
+  }),
+
+  // GitLab Merge Request Operations
+  getGitLabMergeRequests: async () => ({
+    success: true,
+    data: []
+  }),
+
+  getGitLabMergeRequest: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  createGitLabMergeRequest: async (_projectId: string, _options: {
+    title: string;
+    description?: string;
+    sourceBranch: string;
+    targetBranch: string;
+    labels?: string[];
+    assigneeIds?: number[];
+    removeSourceBranch?: boolean;
+    squash?: boolean;
+  }) => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  updateGitLabMergeRequest: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  // GitLab MR Review Operations (AI-powered)
+  getGitLabMRReview: async () => null,
+  runGitLabMRReview: () => {},
+  runGitLabMRFollowupReview: () => {},
+  postGitLabMRReview: async () => false,
+  postGitLabMRNote: async () => false,
+  mergeGitLabMR: async () => false,
+  assignGitLabMR: async () => false,
+  approveGitLabMR: async () => false,
+  cancelGitLabMRReview: async () => false,
+  checkGitLabMRNewCommits: async () => ({ hasNewCommits: false }),
+
+  // GitLab MR Review Event Listeners
+  onGitLabMRReviewProgress: () => () => {},
+  onGitLabMRReviewComplete: () => () => {},
+  onGitLabMRReviewError: () => () => {},
+
+  // GitLab OAuth Operations (glab CLI)
+  checkGitLabCli: async () => ({
+    success: true,
+    data: {
+      installed: false,
+      version: undefined
+    }
+  }),
+
+  checkGitLabAuth: async () => ({
+    success: true,
+    data: {
+      authenticated: false,
+      username: undefined
+    }
+  }),
+
+  startGitLabAuth: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  getGitLabToken: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  getGitLabUser: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  listGitLabUserProjects: async () => ({
+    success: true,
+    data: {
+      projects: [
+        { pathWithNamespace: 'user/example-project', description: 'An example project', visibility: 'public' },
+        { pathWithNamespace: 'user/private-project', description: 'A private project', visibility: 'private' }
+      ]
+    }
+  }),
+
+  detectGitLabProject: async () => ({
+    success: true,
+    data: { project: 'user/example-project', instanceUrl: 'https://gitlab.com' }
+  }),
+
+  getGitLabBranches: async () => ({
+    success: true,
+    data: ['main', 'develop', 'feature/example']
+  }),
+
+  createGitLabProject: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  addGitLabRemote: async () => ({
+    success: false,
+    error: 'Not available in browser mock'
+  }),
+
+  listGitLabGroups: async () => ({
+    success: true,
+    data: {
+      groups: [
+        { id: 1, name: 'Example Group', path: 'example-group', fullPath: 'example-group', description: 'An example group' },
+        { id: 2, name: 'Another Group', path: 'another-group', fullPath: 'another-group', description: 'Another group' }
+      ]
+    }
+  }),
+
+  // GitLab Event Listeners
+  onGitLabInvestigationProgress: () => () => {},
+  onGitLabInvestigationComplete: () => () => {},
+  onGitLabInvestigationError: () => () => {},
 
   // OAuth device code event listener (for streaming device code during auth)
   onGitHubAuthDeviceCode: () => () => {}

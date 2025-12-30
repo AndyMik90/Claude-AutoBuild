@@ -248,16 +248,22 @@ export class ProjectStore {
     const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
 
-    // 1. Scan main project specs directory
+    // 1. Scan main project specs directory (source of truth for task existence)
     const mainSpecsDir = path.join(project.path, specsBaseDir);
+    const mainSpecIds = new Set<string>();
     console.warn('[ProjectStore] Main specsDir:', mainSpecsDir, 'exists:', existsSync(mainSpecsDir));
     if (existsSync(mainSpecsDir)) {
       const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
       allTasks.push(...mainTasks);
+      // Track which specs exist in main project
+      mainTasks.forEach(t => mainSpecIds.add(t.specId));
       console.warn('[ProjectStore] Loaded', mainTasks.length, 'tasks from main project');
     }
 
     // 2. Scan worktree specs directories
+    // NOTE FOR MAINTAINERS: Worktree tasks are only included if the spec also exists in main.
+    // This prevents deleted tasks from "coming back" when the worktree isn't cleaned up.
+    // Alternative behavior: include all worktree tasks (remove the mainSpecIds check below).
     const worktreesDir = path.join(project.path, '.worktrees');
     if (existsSync(worktreesDir)) {
       try {
@@ -274,8 +280,11 @@ export class ProjectStore {
               projectId,
               specsBaseDir
             );
-            allTasks.push(...worktreeTasks);
-            console.warn('[ProjectStore] Loaded', worktreeTasks.length, 'tasks from worktree:', worktree.name);
+            // Only include worktree tasks if the spec exists in main project
+            const validWorktreeTasks = worktreeTasks.filter(t => mainSpecIds.has(t.specId));
+            allTasks.push(...validWorktreeTasks);
+            const skipped = worktreeTasks.length - validWorktreeTasks.length;
+            console.debug('[ProjectStore] Loaded', validWorktreeTasks.length, 'tasks from worktree:', worktree.name, skipped > 0 ? `(skipped ${skipped} orphaned)` : '');
           }
         }
       } catch (error) {
