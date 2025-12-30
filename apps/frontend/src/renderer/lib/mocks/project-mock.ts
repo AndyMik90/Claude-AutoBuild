@@ -77,6 +77,11 @@ export const projectMock = {
     data: []
   }),
 
+  readFile: async () => ({
+    success: true,
+    data: ''
+  }),
+
   // Git operations
   getGitBranches: async () => ({
     success: true,

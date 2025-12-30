@@ -660,6 +660,7 @@ export interface ElectronAPI {
 
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
+  readFile: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;

@@ -429,6 +429,7 @@ export const IPC_CHANNELS = {
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
+  FILE_EXPLORER_READ: 'fileExplorer:read',
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
