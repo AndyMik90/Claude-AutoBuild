@@ -124,6 +124,8 @@ Valid categories: feature, bug_fix, refactoring, documentation, security, perfor
 Valid complexity: trivial, small, medium, large, complex
 Valid impact: low, medium, high, critical
 
+IMPORTANT: Always respond in the same language as the user's message. If they write in Hebrew, respond in Hebrew. If they write in English, respond in English. Maintain this language consistency throughout the entire conversation.
+
 Be conversational and helpful. Focus on providing actionable insights and clear explanations.
 Keep responses concise but informative."""
 
