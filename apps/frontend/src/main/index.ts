@@ -1,3 +1,9 @@
+// Fix PATH for macOS/Linux GUI apps BEFORE any other imports
+// GUI apps launched from Finder/Dock don't inherit shell PATH (.zshrc, .bashrc, etc.)
+// This ensures tools like `gh`, `git`, `node` are available to child processes
+import fixPath from 'fix-path';
+fixPath();
+
 import { app, BrowserWindow, shell, nativeImage } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync } from 'fs';
