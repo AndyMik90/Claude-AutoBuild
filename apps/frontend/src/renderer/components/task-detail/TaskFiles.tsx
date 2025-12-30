@@ -108,10 +108,12 @@ export function TaskFiles({ task }: TaskFilesProps) {
 
   // Auto-select first file (spec.md) when files are loaded
   useEffect(() => {
-    if (files.length > 0 && !selectedFile) {
+    if (files.length > 0 && selectedFile === null) {
       loadFileContent(files[0].path);
     }
-  }, [files, selectedFile, loadFileContent]);
+    // Only run when files change, not on selectedFile changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
 
   // Open spec directory in IDE
   const handleOpenInIDE = useCallback(async () => {
