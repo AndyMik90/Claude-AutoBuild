@@ -650,12 +650,12 @@ class FollowupReviewer:
 ### AI BOT COMMENTS SINCE LAST REVIEW:
 {ai_comments_text if ai_comments_text else "No AI bot comments."}
 
-### PR REVIEWS SINCE LAST REVIEW (Cursor, CodeRabbit, etc.):
+### PR REVIEWS SINCE LAST REVIEW (CodeRabbit, Gemini Code Assist, Cursor, etc.):
 {pr_reviews_text if pr_reviews_text else "No PR reviews since last review."}
 
 ---
 
-**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like Cursor, CodeRabbit, Greptile, etc. that may have identified issues in the recent changes. You should:
+**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc. that may have identified issues in the recent changes. You should:
 1. Consider their findings when evaluating the code
 2. Create new findings for valid issues they identified that haven't been addressed
 3. Note if the recent commits addressed concerns raised in these reviews

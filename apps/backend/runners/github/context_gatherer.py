@@ -121,6 +121,11 @@ AI_BOT_PATTERNS: dict[str, str] = {
     "codium-ai[bot]": "Qodo",
     "codiumai-agent": "Qodo",
     "qodo-merge-bot": "Qodo",
+    # === Google AI ===
+    "gemini-code-assist": "Gemini Code Assist",
+    "gemini-code-assist[bot]": "Gemini Code Assist",
+    "google-code-assist": "Gemini Code Assist",
+    "google-code-assist[bot]": "Gemini Code Assist",
     # === AI Coding Assistants ===
     "copilot": "GitHub Copilot",
     "copilot[bot]": "GitHub Copilot",
