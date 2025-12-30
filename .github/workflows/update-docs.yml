@@ -109,6 +109,13 @@ jobs:
 
             7. **If no documentation updates are needed**: Simply respond with "No documentation updates required" and briefly explain why.
 
+            8. **Double-check Mermaid diagrams for syntax errors**:
+               - Decision nodes (diamond shapes) use `{Label}` syntax - do NOT include `<br/>` inside curly braces
+               - Rectangular nodes use `[Label]` or `[Label<br/>Subtitle]` - `<br/>` is allowed here
+               - Keep decision node labels short (e.g., `{Valid?}` not `{Is the value<br/>valid?}`)
+               - Verify all node connections are valid (source and target nodes exist)
+               - Test complex diagrams by removing subgraphs if they cause rendering issues
+
             ## Mermaid Diagram Examples
 
             ```mermaid

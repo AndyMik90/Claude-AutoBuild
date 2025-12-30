@@ -221,8 +221,8 @@ classDiagram
 flowchart TB
     Start[Start Task]
     AuthCheck{Auth Valid?}
-    PathCheck{Auto-build<br/>Path Found?}
-    ScriptCheck{Script<br/>Exists?}
+    PathCheck{Path Found?}
+    ScriptCheck{Script Exists?}
     GetEnv[Get Combined Env]
     StoreContext[Store Task Context]
     SpawnProcess[Spawn Python Process]
@@ -237,7 +237,7 @@ flowchart TB
     subgraph ErrorHandling["Error Handling"]
         CheckRateLimit{Rate Limited?}
         CheckAuth{Auth Failed?}
-        AutoSwap{Auto-Swap<br/>Enabled?}
+        AutoSwap{Auto-Swap?}
         ManualModal[Show Manual Modal]
         SwapProfile[Swap Profile]
         RestartTask[Restart Task]
@@ -514,19 +514,15 @@ The `PythonEnvManager` manages the Python virtual environment required for runni
 
 ```mermaid
 flowchart TB
-    Start[initialize()]
-    CheckProgress{Already<br/>initializing?}
+    Start[initialize]
+    CheckProgress{Already initializing?}
     WaitExisting[Wait for existing]
-    CheckReady{Already<br/>ready?}
+    CheckReady{Already ready?}
     ReturnCached[Return cached status]
-
-    subgraph Setup["Environment Setup"]
-        CheckVenv{Venv exists?}
-        CreateVenv[Create venv]
-        CheckDeps{Deps installed?}
-        InstallDeps[Install requirements.txt]
-    end
-
+    CheckVenv{Venv exists?}
+    CreateVenv[Create venv]
+    CheckDeps{Deps installed?}
+    InstallDeps[Install requirements.txt]
     Ready[Ready]
     Error[Error]
 
@@ -535,35 +531,29 @@ flowchart TB
     CheckProgress -->|No| CheckReady
     CheckReady -->|Yes| ReturnCached
     CheckReady -->|No| CheckVenv
-
     CheckVenv -->|No| CreateVenv
     CheckVenv -->|Yes| CheckDeps
     CreateVenv -->|Success| CheckDeps
     CreateVenv -->|Fail| Error
-
     CheckDeps -->|No| InstallDeps
     CheckDeps -->|Yes| Ready
     InstallDeps -->|Success| Ready
     InstallDeps -->|Fail| Error
-
-    style Setup fill:#e8f5e9,stroke:#4caf50
 ```
 
 ### Python Path Resolution
 
 ```mermaid
 flowchart TB
-    subgraph Resolution["Python Path Resolution"]
-        VenvReady{Venv ready?}
-        VenvPath[Return venv Python]
-        FindPython[findPythonCommand()]
-        BundledExists{Bundled<br/>Python?}
-        BundledPath[Return bundled]
-        SystemPython[Find system Python]
-        ValidVersion{Python 3.10+?}
-        ReturnSystem[Return system Python]
-        Fallback[Return 'python']
-    end
+    VenvReady{Venv ready?}
+    VenvPath[Return venv Python]
+    FindPython[findPythonCommand]
+    BundledExists{Bundled Python?}
+    BundledPath[Return bundled]
+    SystemPython[Find system Python]
+    ValidVersion{Python 3.10+?}
+    ReturnSystem[Return system Python]
+    Fallback[Return python]
 
     VenvReady -->|Yes| VenvPath
     VenvReady -->|No| FindPython
@@ -573,8 +563,6 @@ flowchart TB
     SystemPython --> ValidVersion
     ValidVersion -->|Yes| ReturnSystem
     ValidVersion -->|No| Fallback
-
-    style Resolution fill:#e3f2fd,stroke:#1976d2
 ```
 
 ### Venv Location Strategy
@@ -639,9 +627,9 @@ flowchart TB
     end
 
     subgraph Response["Response Handling"]
-        AutoSwapEnabled{Auto-swap<br/>enabled?}
+        AutoSwapEnabled{Auto-swap?}
         FindProfile[Find best profile]
-        ProfileAvailable{Profile<br/>available?}
+        ProfileAvailable{Profile OK?}
         SwapProfile[Swap to new profile]
         RestartTask[Restart task]
         ShowModal[Show manual modal]
