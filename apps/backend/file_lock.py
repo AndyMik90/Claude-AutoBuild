@@ -126,29 +126,38 @@ class FileLock:
         self._lock_file = self._get_lock_file()
         self._lock_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Open lock file
-        self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
+        try:
+            # Open lock file
+            self._fd = os.open(str(self._lock_file), os.O_CREAT | os.O_RDWR)
 
-        # Try to acquire lock with timeout
-        start_time = time.time()
+            # Try to acquire lock with timeout
+            start_time = time.time()
 
-        while True:
-            try:
-                # Non-blocking lock attempt
-                _try_lock(self._fd, self.exclusive)
-                return  # Lock acquired
-            except (BlockingIOError, OSError):
-                # Lock held by another process
-                elapsed = time.time() - start_time
-                if elapsed >= self.timeout:
+            while True:
+                try:
+                    # Non-blocking lock attempt
+                    _try_lock(self._fd, self.exclusive)
+                    return  # Lock acquired
+                except (BlockingIOError, OSError) as e:
+                    # Lock held by another process
+                    elapsed = time.time() - start_time
+                    if elapsed >= self.timeout:
+                        raise FileLockTimeout(
+                            f"Failed to acquire lock on {self.filepath} within {self.timeout}s"
+                        ) from e
+
+                    # Wait a bit before retrying
+                    time.sleep(0.01)
+        except Exception:
+            # Ensure file descriptor is always closed on any failure during acquisition
+            if self._fd is not None:
+                try:
                     os.close(self._fd)
+                except Exception:
+                    pass
+                finally:
                     self._fd = None
-                    raise FileLockTimeout(
-                        f"Failed to acquire lock on {self.filepath} within {self.timeout}s"
-                    )
-
-                # Wait a bit before retrying
-                time.sleep(0.01)
+            raise
 
     def _release_lock(self) -> None:
         """Release the file lock."""
