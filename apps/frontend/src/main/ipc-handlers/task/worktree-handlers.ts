@@ -977,6 +977,20 @@ async function openInIDE(dirPath: string, ide: SupportedIDE, customPath?: string
       }
     }
 
+    // Special handling for Windows batch files (.cmd, .bat)
+    // execFile doesn't search PATH, so we need shell: true for batch files
+    if (platform === 'win32' && (command.endsWith('.cmd') || command.endsWith('.bat'))) {
+      return new Promise((resolve) => {
+        const child = spawn(command, [dirPath], {
+          shell: true,
+          detached: true,
+          stdio: 'ignore'
+        });
+        child.unref();
+        resolve({ success: true });
+      });
+    }
+
     // Use command line tool with execFileAsync
     await execFileAsync(command, [dirPath]);
     return { success: true };
