@@ -695,19 +695,19 @@ export function PRDetail({
                   {(reviewResult.resolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-success/10 text-success border-success/30 px-3 py-1">
                       <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                      {reviewResult.resolvedFindings?.length} resolved
+                      {t('prReview.resolved', { count: reviewResult.resolvedFindings?.length ?? 0 })}
                     </Badge>
                   )}
                   {(reviewResult.unresolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 px-3 py-1">
                       <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
-                      {reviewResult.unresolvedFindings?.length} still open
+                      {t('prReview.stillOpen', { count: reviewResult.unresolvedFindings?.length ?? 0 })}
                     </Badge>
                   )}
                   {(reviewResult.newFindingsSinceLastReview?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 px-3 py-1">
                       <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                      {reviewResult.newFindingsSinceLastReview?.length} new issue{reviewResult.newFindingsSinceLastReview?.length !== 1 ? 's' : ''}
+                      {t('prReview.newIssue', { count: reviewResult.newFindingsSinceLastReview?.length ?? 0 })}
                     </Badge>
                   )}
                 </div>
@@ -735,7 +735,7 @@ export function PRDetail({
               <div className="flex items-start gap-3 text-destructive">
                 <XCircle className="h-5 w-5 mt-0.5" />
                 <div className="space-y-1">
-                   <p className="font-semibold">Review Failed</p>
+                   <p className="font-semibold">{t('prReview.reviewFailed')}</p>
                    <p className="text-sm opacity-90">{reviewResult.error}</p>
                 </div>
               </div>
@@ -746,7 +746,7 @@ export function PRDetail({
         {/* Description */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Description</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('prReview.description')}</CardTitle>
           </CardHeader>
           <CardContent>
              <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/10">
@@ -755,7 +755,7 @@ export function PRDetail({
                   {pr.body}
                 </pre>
               ) : (
-                <p className="text-sm text-muted-foreground italic">No description provided.</p>
+                <p className="text-sm text-muted-foreground italic">{t('prReview.noDescription')}</p>
               )}
             </ScrollArea>
           </CardContent>

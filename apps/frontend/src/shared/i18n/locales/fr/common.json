@@ -140,7 +140,16 @@
     "approve": "Approuver",
     "merge": "Fusionner",
     "postedFindings": "{{count}} résultat publié",
-    "postedFindings_plural": "{{count}} résultats publiés"
+    "postedFindings_plural": "{{count}} résultats publiés",
+    "resolved": "{{count}} résolu",
+    "resolved_plural": "{{count}} résolus",
+    "stillOpen": "{{count}} encore ouvert",
+    "stillOpen_plural": "{{count}} encore ouverts",
+    "newIssue": "{{count}} nouveau problème",
+    "newIssue_plural": "{{count}} nouveaux problèmes",
+    "reviewFailed": "Révision échouée",
+    "description": "Description",
+    "noDescription": "Aucune description fournie."
   },
   "downloads": {
     "toggleExpand": "Afficher/masquer les détails",

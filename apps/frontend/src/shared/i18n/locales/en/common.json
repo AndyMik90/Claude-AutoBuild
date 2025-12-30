@@ -140,7 +140,16 @@
     "approve": "Approve",
     "merge": "Merge",
     "postedFindings": "Posted {{count}} finding",
-    "postedFindings_plural": "Posted {{count}} findings"
+    "postedFindings_plural": "Posted {{count}} findings",
+    "resolved": "{{count}} resolved",
+    "resolved_plural": "{{count}} resolved",
+    "stillOpen": "{{count}} still open",
+    "stillOpen_plural": "{{count}} still open",
+    "newIssue": "{{count}} new issue",
+    "newIssue_plural": "{{count}} new issues",
+    "reviewFailed": "Review Failed",
+    "description": "Description",
+    "noDescription": "No description provided."
   },
   "downloads": {
     "toggleExpand": "Toggle download details",
