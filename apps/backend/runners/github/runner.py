@@ -109,7 +109,10 @@ def get_config(args) -> GitHubRunnerConfig:
 
     if os.environ.get("DEBUG"):
         print(f"[DEBUG] gh CLI path: {gh_path}", flush=True)
-        print(f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...", flush=True)
+        print(
+            f"[DEBUG] PATH env: {os.environ.get('PATH', 'NOT SET')[:200]}...",
+            flush=True,
+        )
 
     if not token and gh_path:
         # Try to get from gh CLI
@@ -187,7 +190,10 @@ async def cmd_review_pr(args) -> int:
     config = get_config(args)
 
     if debug:
-        print(f"[DEBUG] Config built: repo={config.repo}, model={config.model}", flush=True)
+        print(
+            f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
+            flush=True,
+        )
         print("[DEBUG] Creating orchestrator...", flush=True)
 
     orchestrator = GitHubOrchestrator(
@@ -198,7 +204,9 @@ async def cmd_review_pr(args) -> int:
 
     if debug:
         print("[DEBUG] Orchestrator created", flush=True)
-        print(f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True)
+        print(
+            f"[DEBUG] Calling orchestrator.review_pr({args.pr_number})...", flush=True
+        )
 
     result = await orchestrator.review_pr(args.pr_number)
 
@@ -246,7 +254,10 @@ async def cmd_followup_review_pr(args) -> int:
     config = get_config(args)
 
     if debug:
-        print(f"[DEBUG] Config built: repo={config.repo}, model={config.model}", flush=True)
+        print(
+            f"[DEBUG] Config built: repo={config.repo}, model={config.model}",
+            flush=True,
+        )
         print("[DEBUG] Creating orchestrator...", flush=True)
 
     orchestrator = GitHubOrchestrator(
@@ -269,7 +280,9 @@ async def cmd_followup_review_pr(args) -> int:
         return 1
 
     if debug:
-        print(f"[DEBUG] followup_review_pr returned, success={result.success}", flush=True)
+        print(
+            f"[DEBUG] followup_review_pr returned, success={result.success}", flush=True
+        )
 
     if result.success:
         print(f"\n{'=' * 60}")
