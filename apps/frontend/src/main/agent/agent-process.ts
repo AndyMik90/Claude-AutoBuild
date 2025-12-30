@@ -271,7 +271,10 @@ export class AgentProcessManager {
     if (!app.isPackaged) {
       const autoBuildSource = this.getAutoBuildSourcePath();
       if (autoBuildSource) {
-        const venvPython = path.join(autoBuildSource, ".venv", "bin", "python");
+        const venvPython =
+          process.platform === "win32"
+            ? path.join(autoBuildSource, ".venv", "Scripts", "python.exe")
+            : path.join(autoBuildSource, ".venv", "bin", "python");
         const validation = validatePythonPath(venvPython);
         if (validation.valid) {
           return validation.sanitizedPath || venvPython;
