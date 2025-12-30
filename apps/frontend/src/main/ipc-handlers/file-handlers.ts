@@ -392,12 +392,17 @@ export function registerFileHandlers(): void {
             } catch (createErr) {
               const createError = createErr as NodeJS.ErrnoException;
               if (createError.code === 'EEXIST') {
-                return { success: false, error: 'File was created by another process' };
-              }
-              if (createError.code === 'ENOENT') {
+                // File exists - open it without O_EXCL
+                // This can happen on Windows when EINVAL was thrown for an existing file
+                const retryFlags = process.platform === 'win32'
+                  ? constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
+                  : constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW;
+                fd = openSync(absPath, retryFlags, fileMode);
+              } else if (createError.code === 'ENOENT') {
                 return { success: false, error: 'Parent directory does not exist' };
+              } else {
+                throw createErr;
               }
-              throw createErr;
             }
           } else if (error.code === 'EISDIR') {
             return { success: false, error: 'Not a file' };
