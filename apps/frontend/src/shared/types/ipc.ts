@@ -58,6 +58,16 @@ import type {
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult, AutoBuildSourceUpdateCheck, AutoBuildSourceUpdateProgress } from './settings';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
 import type {
+  CSharpLspStatusResponse,
+  CSharpLspCompletionList,
+  CSharpLspHover,
+  CSharpLspLocation,
+  CSharpLspTextEdit,
+  CSharpLspPublishDiagnosticsParams,
+  CSharpLspLogMessage,
+  CSharpLspProgressMessage
+} from './csharp-lsp';
+import type {
   ChangelogTask,
   TaskSpecContent,
   ChangelogGenerationRequest,
@@ -902,6 +912,24 @@ export interface ElectronAPI {
     }>;
   }>>;
   upmResolve: (projectId: string, editorPath: string) => Promise<IPCResult<void>>;
+
+  // C# Language Service (LSP) operations
+  csharpLspStart: (workspaceRoot: string) => Promise<IPCResult<{ ok: true }>>;
+  csharpLspStop: () => Promise<IPCResult<{ ok: true }>>;
+  csharpLspStatus: () => Promise<IPCResult<CSharpLspStatusResponse>>;
+  csharpLspDidOpen: (relPath: string, text: string) => Promise<IPCResult<void>>;
+  csharpLspDidChange: (relPath: string, text: string, version: number) => Promise<IPCResult<void>>;
+  csharpLspDidSave: (relPath: string, text?: string) => Promise<IPCResult<void>>;
+  csharpLspDidClose: (relPath: string) => Promise<IPCResult<void>>;
+  csharpLspCompletion: (relPath: string, line: number, column: number) => Promise<IPCResult<CSharpLspCompletionList>>;
+  csharpLspHover: (relPath: string, line: number, column: number) => Promise<IPCResult<CSharpLspHover | null>>;
+  csharpLspDefinition: (relPath: string, line: number, column: number) => Promise<IPCResult<CSharpLspLocation | null>>;
+  csharpLspFormatDocument: (relPath: string, text: string) => Promise<IPCResult<CSharpLspTextEdit[]>>;
+
+  // C# LSP event listeners
+  onCSharpLspPublishDiagnostics: (callback: (params: CSharpLspPublishDiagnosticsParams) => void) => () => void;
+  onCSharpLspLog: (callback: (message: CSharpLspLogMessage) => void) => () => void;
+  onCSharpLspProgress: (callback: (message: CSharpLspProgressMessage) => void) => () => void;
 }
 
 declare global {

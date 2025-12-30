@@ -58,6 +58,7 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { useIpcListeners } from './hooks/useIpc';
+import { isMonacoEditorFocused } from './lib/utils';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
@@ -255,12 +256,17 @@ export function App() {
   // Global keyboard shortcut: Cmd/Ctrl+T to add project (when not on terminals view)
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      // Skip if in input fields
+      // Skip if in input fields or editors
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
         (e.target as HTMLElement)?.isContentEditable
       ) {
+        return;
+      }
+
+      // Skip if focus is in Monaco Editor
+      if (isMonacoEditorFocused(e.target as HTMLElement)) {
         return;
       }
 

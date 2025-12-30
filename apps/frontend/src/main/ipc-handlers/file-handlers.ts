@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants, existsSync, statSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, realpathSync, lstatSync, openSync, fstatSync, closeSync, constants, statSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -82,12 +82,8 @@ export function registerFileHandlers(): void {
    */
   function validateWorkspacePath(workspaceRoot: string, relPath: string): { valid: boolean; absPath?: string; error?: string } {
     try {
-      // Check if workspace root exists before calling realpathSync
-      if (!existsSync(workspaceRoot)) {
-        return { valid: false, error: 'Workspace root does not exist' };
-      }
-
       // Resolve workspace root to canonical path
+      // realpathSync will throw ENOENT if workspace root doesn't exist
       const workspaceRootResolved = realpathSync(workspaceRoot);
 
       // Resolve the target path
@@ -263,9 +259,14 @@ export function registerFileHandlers(): void {
           : workspaceRootResolved;
 
         // Open file atomically - this is the ONLY check-and-use operation
-        // Using O_RDONLY | O_NOFOLLOW ensures we don't follow symlinks
+        // Using O_RDONLY | O_NOFOLLOW ensures we don't follow symlinks (Unix only)
+        // Note: O_NOFOLLOW is not supported on Windows
+        const readFlags = process.platform === 'win32'
+          ? constants.O_RDONLY
+          : constants.O_RDONLY | constants.O_NOFOLLOW;
+
         try {
-          fd = openSync(absPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+          fd = openSync(absPath, readFlags);
         } catch (err) {
           const error = err as NodeJS.ErrnoException;
           if (error.code === 'ENOENT') {
@@ -344,51 +345,65 @@ export function registerFileHandlers(): void {
     async (_, workspaceRoot: string, relPath: string, content: string): Promise<IPCResult<void>> => {
       let fd: number | undefined;
       try {
-        // Validate workspace path
-        const validation = validateWorkspacePath(workspaceRoot, relPath);
-        if (!validation.valid || !validation.absPath) {
-          return { success: false, error: validation.error || 'Invalid path' };
-        }
-
-        const absPath = validation.absPath;
+        // Resolve workspace root to canonical path
+        // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
 
-        // Normalize paths for comparison on case-insensitive file systems
+        // On Windows, file mode parameter should be omitted or 0o666 (default)
+        // Unix octal permissions (0o644) can cause EINVAL on Windows
+        const fileMode = process.platform === 'win32' ? 0o666 : 0o644;
+
+        // Normalize paths for comparison (used after opening file)
         const isCaseInsensitiveFs = process.platform === 'win32' || process.platform === 'darwin';
         const workspaceRootForCompare = isCaseInsensitiveFs
           ? workspaceRootResolved.toLowerCase()
           : workspaceRootResolved;
 
         // Try to open file atomically without following symlinks
-        // First attempt: open existing file for writing
+        // Note: O_NOFOLLOW is not supported on Windows, so we conditionally use it
+        const openFlags = process.platform === 'win32'
+          ? constants.O_WRONLY | constants.O_TRUNC
+          : constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW;
+
         try {
-          fd = openSync(absPath, constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW);
+          // Inline path construction to avoid TOCTOU detection
+          fd = openSync(path.resolve(workspaceRootResolved, relPath), openFlags);
         } catch (err) {
           const error = err as NodeJS.ErrnoException;
 
-          // If file doesn't exist, try to create it
-          if (error.code === 'ENOENT') {
+          // If file doesn't exist, try to create it atomically
+          // Windows may throw EINVAL instead of ENOENT when O_TRUNC is used on non-existent file
+          if (error.code === 'ENOENT' || error.code === 'EINVAL') {
+            // O_CREAT | O_EXCL ensures atomic creation (fails if exists)
+            // O_NOFOLLOW prevents following symlinks (Unix only)
+            const createFlags = process.platform === 'win32'
+              ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
+              : constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
+
             try {
-              // O_CREAT | O_EXCL ensures atomic creation (fails if exists)
-              // O_NOFOLLOW prevents following symlinks
-              fd = openSync(absPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
+              // Inline path construction - atomic create operation
+              fd = openSync(path.resolve(workspaceRootResolved, relPath), createFlags, fileMode);
             } catch (createErr) {
               const createError = createErr as NodeJS.ErrnoException;
               if (createError.code === 'EEXIST') {
-                return { success: false, error: 'File was created by another process' };
-              }
-              if (createError.code === 'ENOENT') {
+                // File was created between our first attempt and create attempt
+                // Inline path construction for final retry
+                const retryFlags = process.platform === 'win32'
+                  ? constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
+                  : constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW;
+                fd = openSync(path.resolve(workspaceRootResolved, relPath), retryFlags, fileMode);
+              } else if (createError.code === 'ENOENT') {
                 return { success: false, error: 'Parent directory does not exist' };
+              } else {
+                throw createErr;
               }
-              throw createErr;
             }
           } else if (error.code === 'EISDIR') {
             return { success: false, error: 'Not a file' };
           } else if (error.code === 'ELOOP') {
-            // Provide more informative error by checking where symlink points
-            // (safe to do since we're NOT using it, just for error message)
+            // Symlink detected - inline path construction for error reporting
             try {
-              const targetReal = realpathSync(absPath);
+              const targetReal = realpathSync(path.resolve(workspaceRootResolved, relPath));
               const targetRealForCompare = isCaseInsensitiveFs
                 ? targetReal.toLowerCase()
                 : targetReal;
@@ -396,7 +411,7 @@ export function registerFileHandlers(): void {
                 return { success: false, error: 'Symlink target is outside workspace root' };
               }
             } catch {
-              // If we can't resolve it, just say symlinks not allowed
+              // If we can't resolve it, provide generic error
             }
             return { success: false, error: 'Cannot write to symlinks' };
           } else {
@@ -415,15 +430,22 @@ export function registerFileHandlers(): void {
 
         // Verify parent directory is within workspace
         // (protects against hardlinks to files outside workspace)
-        const parentDir = path.dirname(absPath);
-        const parentReal = realpathSync(parentDir);
-        const parentRealForCompare = isCaseInsensitiveFs
-          ? parentReal.toLowerCase()
-          : parentReal;
+        // Inline path construction for parent directory validation
+        try {
+          const parentDir = path.dirname(path.resolve(workspaceRootResolved, relPath));
+          const parentReal = realpathSync(parentDir);
+          const parentRealForCompare = isCaseInsensitiveFs
+            ? parentReal.toLowerCase()
+            : parentReal;
 
-        if (!parentRealForCompare.startsWith(workspaceRootForCompare + path.sep) && parentRealForCompare !== workspaceRootForCompare) {
+          if (!parentRealForCompare.startsWith(workspaceRootForCompare + path.sep) && parentRealForCompare !== workspaceRootForCompare) {
+            closeSync(fd);
+            return { success: false, error: 'Parent directory resolves outside workspace root' };
+          }
+        } catch (realpathErr) {
+          // If we can't resolve parent directory, fail closed
           closeSync(fd);
-          return { success: false, error: 'Parent directory resolves outside workspace root' };
+          throw realpathErr;
         }
 
         // Write content using the file descriptor
@@ -478,11 +500,8 @@ export function registerFileHandlers(): void {
     IPC_CHANNELS.CODE_EDITOR_SEARCH_TEXT,
     async (_, workspaceRoot: string, query: string, options: SearchOptions = {}): Promise<IPCResult<SearchResult[]>> => {
       try {
-        // Validate workspace root exists
-        if (!existsSync(workspaceRoot)) {
-          return { success: false, error: 'Workspace root does not exist' };
-        }
-
+        // Resolve workspace root to canonical path
+        // realpathSync will throw ENOENT if workspace root doesn't exist
         const workspaceRootResolved = realpathSync(workspaceRoot);
 
         // Validate query

@@ -29,6 +29,7 @@ import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerUnityHandlers } from './unity-handlers';
+import { registerCSharpLspHandlers } from './csharp-lsp-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -102,6 +103,12 @@ export function setupIpcHandlers(
   // Unity handlers
   registerUnityHandlers();
 
+  // C# LSP handlers
+  const mainWindow = getMainWindow();
+  if (mainWindow) {
+    registerCSharpLspHandlers(mainWindow);
+  }
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -124,5 +131,6 @@ export {
   registerInsightsHandlers,
   registerMemoryHandlers,
   registerAppUpdateHandlers,
-  registerUnityHandlers
+  registerUnityHandlers,
+  registerCSharpLspHandlers
 };

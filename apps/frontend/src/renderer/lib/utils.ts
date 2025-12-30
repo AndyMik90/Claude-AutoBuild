@@ -86,3 +86,17 @@ export function sanitizeMarkdownForDisplay(text: string, maxLength: number = 200
 
   return sanitized;
 }
+
+/**
+ * Check if the given element is or is within a Monaco Editor
+ * @param target The HTML element to check
+ * @returns true if the element is in a Monaco editor, false otherwise
+ */
+export function isMonacoEditorFocused(target: HTMLElement): boolean {
+  return (
+    target?.closest('.monaco-editor') !== null ||
+    target?.classList?.contains('monaco-editor') ||
+    target?.closest('[data-mode-id]') !== null || // Monaco editor text area
+    target?.classList?.contains('inputarea') // Monaco input area
+  );
+}

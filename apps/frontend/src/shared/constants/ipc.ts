@@ -352,5 +352,23 @@ export const IPC_CHANNELS = {
 
   // Unity UPM operations
   UNITY_UPM_LIST_PACKAGES: 'unity:upmListPackages',
-  UNITY_UPM_RESOLVE: 'unity:upmResolve'
+  UNITY_UPM_RESOLVE: 'unity:upmResolve',
+
+  // C# Language Service (LSP) operations
+  CSHARP_LSP_START: 'csharpLsp:start',
+  CSHARP_LSP_STOP: 'csharpLsp:stop',
+  CSHARP_LSP_STATUS: 'csharpLsp:status',
+  CSHARP_LSP_DID_OPEN: 'csharpLsp:didOpen',
+  CSHARP_LSP_DID_CHANGE: 'csharpLsp:didChange',
+  CSHARP_LSP_DID_SAVE: 'csharpLsp:didSave',
+  CSHARP_LSP_DID_CLOSE: 'csharpLsp:didClose',
+  CSHARP_LSP_COMPLETION: 'csharpLsp:completion',
+  CSHARP_LSP_HOVER: 'csharpLsp:hover',
+  CSHARP_LSP_DEFINITION: 'csharpLsp:definition',
+  CSHARP_LSP_FORMAT_DOCUMENT: 'csharpLsp:formatDocument',
+
+  // C# LSP events (main -> renderer)
+  CSHARP_LSP_PUBLISH_DIAGNOSTICS: 'csharpLsp:publishDiagnostics',
+  CSHARP_LSP_LOG: 'csharpLsp:log',
+  CSHARP_LSP_PROGRESS: 'csharpLsp:progress'
 } as const;

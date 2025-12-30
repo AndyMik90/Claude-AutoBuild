@@ -17,32 +17,11 @@ import {
   AlertDialogTitle
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
+import { useCodeEditorStore, type EditorTab, type FileNode, type FolderState } from '../stores/code-editor-store';
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface CodeEditorProps {
   projectId: string;
-}
-
-interface FileNode {
-  name: string;
-  relPath: string;
-  isDir: boolean;
-}
-
-interface FolderState {
-  expanded: Set<string>;
-  childrenByDir: Map<string, FileNode[] | 'loading' | { error: string }>;
-}
-
-interface EditorTab {
-  id: string;
-  relPath: string;
-  fileName: string;
-  language: string;
-  originalContent: string;
-  content: string;
-  isDirty: boolean;
-  lastOpenedAt: number;
 }
 
 interface SearchMatch {
@@ -61,22 +40,29 @@ export function CodeEditor({ projectId }: CodeEditorProps) {
   const selectedProject = projects.find((p) => p.id === projectId);
   const workspaceRoot = selectedProject?.path;
 
-  // Tabs state
-  const [tabs, setTabs] = useState<EditorTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  // Code Editor store (persisted per project)
+  // Wrap selectors in useCallback to maintain stable references
+  const tabs = useCodeEditorStore(useCallback((state) => state.getTabs(projectId), [projectId]));
+  const activeTabId = useCodeEditorStore(useCallback((state) => state.getActiveTabId(projectId), [projectId]));
+  const folderState = useCodeEditorStore(useCallback((state) => state.getFolderState(projectId), [projectId]));
+  const setTabs = useCallback((updater: EditorTab[] | ((prev: EditorTab[]) => EditorTab[])) => {
+    const newTabs = typeof updater === 'function' ? updater(useCodeEditorStore.getState().getTabs(projectId)) : updater;
+    useCodeEditorStore.getState().setTabs(projectId, newTabs);
+  }, [projectId]);
+  const setActiveTabId = useCallback((tabId: string | null) => {
+    useCodeEditorStore.getState().setActiveTabId(projectId, tabId);
+  }, [projectId]);
+  const setFolderState = useCallback((updater: FolderState | ((prev: FolderState) => FolderState)) => {
+    const newState = typeof updater === 'function' ? updater(useCodeEditorStore.getState().getFolderState(projectId)) : updater;
+    useCodeEditorStore.getState().setFolderState(projectId, newState);
+  }, [projectId]);
 
-  // UI state
+  // UI state (ephemeral - doesn't need to persist)
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'searching' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [pendingFilePath, setPendingFilePath] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [tabToClose, setTabToClose] = useState<string | null>(null);
-
-  // File explorer state
-  const [folderState, setFolderState] = useState<FolderState>({
-    expanded: new Set<string>(),
-    childrenByDir: new Map()
-  });
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');

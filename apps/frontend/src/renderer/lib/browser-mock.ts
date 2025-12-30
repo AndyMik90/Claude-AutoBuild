@@ -20,7 +20,8 @@ import {
   infrastructureMock,
   settingsMock,
   unityMock,
-  fileMock
+  fileMock,
+  csharpLspMock
 } from './mocks';
 
 // Check if we're in a browser (not Electron)
@@ -116,7 +117,10 @@ const browserMockAPI: ElectronAPI = {
   ...unityMock,
 
   // File Operations
-  ...fileMock
+  ...fileMock,
+
+  // C# LSP Operations
+  ...csharpLspMock
 };
 
 /**
