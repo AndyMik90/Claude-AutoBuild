@@ -6,6 +6,7 @@ import { cn } from '../../../lib/utils';
 import { CollapsibleCard } from './CollapsibleCard';
 import type { PRReviewResult } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
+import { formatDate } from '../utils/formatDate';
 
 export type ReviewStatus =
   | 'not_reviewed'
@@ -27,19 +28,6 @@ export interface ReviewStatusTreeProps {
   onCancelReview: () => void;
   newCommitsCheck: NewCommitsCheck | null;
   lastPostedAt?: number | null;
-}
-
-// Helper function for formatting dates with validation and locale support
-function formatDate(dateString: string, locale: string = 'en-US'): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /**

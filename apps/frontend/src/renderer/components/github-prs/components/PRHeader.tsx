@@ -4,19 +4,7 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
 import type { PRData } from '../hooks/useGitHubPRs';
-
-// Helper function for formatting dates with validation and locale support
-function formatDate(dateString: string, locale: string = 'en-US'): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { formatDate } from '../utils/formatDate';
 
 export interface PRHeaderProps {
   pr: PRData;
@@ -42,7 +30,7 @@ export function PRHeader({ pr }: PRHeaderProps) {
                 : ""
             )}
           >
-            {pr.state}
+            {t(`prReview.state.${pr.state.toLowerCase()}`)}
           </Badge>
           <span className="text-muted-foreground text-sm font-mono">#{pr.number}</span>
         </div>

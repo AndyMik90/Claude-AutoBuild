@@ -18,19 +18,7 @@ import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Progress } from '../../ui/progress';
-
-// Helper function for formatting dates with validation and locale support
-function formatDate(dateString: string, locale: string = 'en-US'): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { formatDate } from '../utils/formatDate';
 
 // Local components
 import { CollapsibleCard } from './CollapsibleCard';
@@ -98,6 +86,8 @@ export function PRDetail({
   const [isCheckingNewCommits, setIsCheckingNewCommits] = useState(false);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
+  // Ref to track checking state without causing callback recreation
+  const isCheckingNewCommitsRef = useRef(false);
 
   // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs)
   useEffect(() => {
@@ -130,8 +120,8 @@ export function PRDetail({
   const hasPostedFindings = postedFindingIds.size > 0 || reviewResult?.hasPostedFindings;
 
   const checkForNewCommits = useCallback(async () => {
-    // Prevent duplicate concurrent calls
-    if (isCheckingNewCommits) {
+    // Prevent duplicate concurrent calls using ref (avoids callback recreation)
+    if (isCheckingNewCommitsRef.current) {
       return;
     }
 
@@ -143,6 +133,7 @@ export function PRDetail({
 
     // Only check for new commits if we have a review AND findings have been posted
     if (reviewResult?.success && reviewResult.reviewedCommitSha && hasPostedFindings) {
+      isCheckingNewCommitsRef.current = true;
       setIsCheckingNewCommits(true);
       try {
         const result = await onCheckNewCommits();
@@ -152,6 +143,7 @@ export function PRDetail({
         }
       } finally {
         if (!checkNewCommitsAbortRef.current?.signal.aborted) {
+          isCheckingNewCommitsRef.current = false;
           setIsCheckingNewCommits(false);
         }
       }
@@ -159,7 +151,7 @@ export function PRDetail({
       // Clear any existing new commits check if we haven't posted yet
       setNewCommitsCheck(null);
     }
-  }, [reviewResult, onCheckNewCommits, hasPostedFindings, isCheckingNewCommits]);
+  }, [reviewResult, onCheckNewCommits, hasPostedFindings]);
 
   useEffect(() => {
     checkForNewCommits();
@@ -394,6 +386,9 @@ export function PRDetail({
   };
 
   // Auto-approval for clean PRs - posts LOW findings as suggestions + approval comment
+  // NOTE: GitHub PR comments are intentionally in English as it's the lingua franca
+  // for code reviews and GitHub's international developer community. The comment
+  // content is meant to be read by contributors who may have different locales.
   const handleAutoApprove = async () => {
     if (!reviewResult) return;
     setIsPosting(true);

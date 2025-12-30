@@ -180,6 +180,11 @@
       "testing": "Tests",
       "other": "Autre"
     },
+    "state": {
+      "open": "Ouvert",
+      "closed": "Fermé",
+      "merged": "Fusionné"
+    },
     "selectCriticalHigh": "Sélectionner Critique/Élevée ({{count}})",
     "selectAll": "Tout sélectionner",
     "clear": "Effacer",

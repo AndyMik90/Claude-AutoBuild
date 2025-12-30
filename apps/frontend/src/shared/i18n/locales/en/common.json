@@ -180,6 +180,11 @@
       "testing": "Testing",
       "other": "Other"
     },
+    "state": {
+      "open": "Open",
+      "closed": "Closed",
+      "merged": "Merged"
+    },
     "selectCriticalHigh": "Select Critical/High ({{count}})",
     "selectAll": "Select All",
     "clear": "Clear",
