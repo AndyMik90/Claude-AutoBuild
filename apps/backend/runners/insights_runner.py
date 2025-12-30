@@ -32,7 +32,6 @@ except ImportError:
     ClaudeSDKClient = None
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
-from phase_config import resolve_model_id
 from debug import (
     debug,
     debug_detailed,
@@ -40,6 +39,7 @@ from debug import (
     debug_section,
     debug_success,
 )
+from phase_config import resolve_model_id
 
 
 def load_project_context(project_dir: str) -> str:

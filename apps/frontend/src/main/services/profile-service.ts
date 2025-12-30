@@ -338,7 +338,7 @@ export async function testConnection(
     }
 
     // Check for suspicious domain patterns (common typos)
-    const domainMatch = url.match(/:\/\/([^\/]+)/);
+    const domainMatch = url.match(/:\/\/([^/]+)/);
     if (domainMatch) {
       const domain = domainMatch[1];
       // Check for common typos like anthropiic, ap, etc.

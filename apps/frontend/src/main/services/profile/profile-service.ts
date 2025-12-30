@@ -355,7 +355,7 @@ export async function testConnection(
       suggestions.push('Remove trailing slashes from URL');
     }
 
-    const domainMatch = url.match(/:\/\/([^\/]+)/);
+    const domainMatch = url.match(/:\/\/([^/]+)/);
     if (domainMatch) {
       const domain = domainMatch[1];
       if (domain.includes('anthropiic') || domain.includes('anthhropic') ||

@@ -118,7 +118,7 @@ def resolve_model_id(model: str) -> str:
             env_value = os.environ.get(env_var)
             if env_value:
                 return env_value
-        
+
         # Fall back to hardcoded mapping
         return MODEL_ID_MAP[model]
 
