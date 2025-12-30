@@ -176,7 +176,7 @@ export function PRDetail({
     }
   }, [postSuccess]);
 
-  // Load logs when logs section is expanded
+  // Load logs when logs section is expanded or when reviewing (for live logs)
   useEffect(() => {
     if (logsExpanded && !logsLoadedRef.current && !isLoadingLogs) {
       logsLoadedRef.current = true;
@@ -187,6 +187,24 @@ export function PRDetail({
         .finally(() => setIsLoadingLogs(false));
     }
   }, [logsExpanded, onGetLogs, isLoadingLogs]);
+
+  // Refresh logs periodically while reviewing
+  useEffect(() => {
+    if (!isReviewing || !logsExpanded) return;
+
+    const refreshLogs = async () => {
+      try {
+        const logs = await onGetLogs();
+        setPrLogs(logs);
+      } catch {
+        // Ignore errors during refresh
+      }
+    };
+
+    // Refresh logs every 2 seconds while reviewing
+    const interval = setInterval(refreshLogs, 2000);
+    return () => clearInterval(interval);
+  }, [isReviewing, logsExpanded, onGetLogs]);
 
   // Reset logs state when PR changes
   useEffect(() => {
@@ -649,13 +667,18 @@ ${reviewResult.isFollowupReview ? `- Follow-up review: All previous blocking iss
           </Card>
         )}
 
-        {/* Review Logs */}
-        {reviewResult && (
+        {/* Review Logs - show during review or after completion */}
+        {(reviewResult || isReviewing) && (
           <CollapsibleCard
             title={t('prReview.reviewLogs')}
             icon={<FileText className="h-4 w-4 text-muted-foreground" />}
             badge={
-              prLogs ? (
+              isReviewing ? (
+                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/30">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  {t('prReview.aiReviewInProgress')}
+                </Badge>
+              ) : prLogs ? (
                 <Badge variant="outline" className="text-xs">
                   {prLogs.is_followup ? t('prReview.followup') : t('prReview.initial')}
                 </Badge>
@@ -668,6 +691,7 @@ ${reviewResult.isFollowupReview ? `- Follow-up review: All previous blocking iss
               prNumber={pr.number}
               logs={prLogs}
               isLoading={isLoadingLogs}
+              isStreaming={isReviewing}
             />
           </CollapsibleCard>
         )}

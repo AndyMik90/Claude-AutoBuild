@@ -26,6 +26,7 @@ interface PRLogsProps {
   prNumber: number;
   logs: PRLogs | null;
   isLoading: boolean;
+  isStreaming?: boolean;
 }
 
 const PHASE_LABELS: Record<PRLogPhase, string> = {
@@ -58,7 +59,7 @@ const SOURCE_COLORS: Record<string, string> = {
   'default': 'bg-muted text-muted-foreground'
 };
 
-export function PRLogs({ prNumber, logs, isLoading }: PRLogsProps) {
+export function PRLogs({ prNumber, logs, isLoading, isStreaming = false }: PRLogsProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<PRLogPhase>>(new Set(['analysis']));
 
   const togglePhase = (phase: PRLogPhase) => {
@@ -76,7 +77,7 @@ export function PRLogs({ prNumber, logs, isLoading }: PRLogsProps) {
   return (
     <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
       <div className="p-4 space-y-2">
-        {isLoading ? (
+        {isLoading && !logs ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -84,8 +85,15 @@ export function PRLogs({ prNumber, logs, isLoading }: PRLogsProps) {
           <>
             {/* Logs header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="text-sm text-muted-foreground">
-                PR #{prNumber} {logs.is_followup && <Badge variant="outline" className="ml-2 text-xs">Follow-up</Badge>}
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                PR #{prNumber}
+                {logs.is_followup && <Badge variant="outline" className="text-xs">Follow-up</Badge>}
+                {isStreaming && (
+                  <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/30 flex items-center gap-1">
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    Live
+                  </Badge>
+                )}
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -101,9 +109,16 @@ export function PRLogs({ prNumber, logs, isLoading }: PRLogsProps) {
                 phaseLog={logs.phases[phase]}
                 isExpanded={expandedPhases.has(phase)}
                 onToggle={() => togglePhase(phase)}
+                isStreaming={isStreaming}
               />
             ))}
           </>
+        ) : isStreaming ? (
+          <div className="text-center text-sm text-muted-foreground py-8">
+            <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-500" />
+            <p>Waiting for logs...</p>
+            <p className="text-xs mt-1">Review is starting</p>
+          </div>
         ) : (
           <div className="text-center text-sm text-muted-foreground py-8">
             <Terminal className="mx-auto mb-2 h-8 w-8 opacity-50" />
@@ -122,22 +137,25 @@ interface PhaseLogSectionProps {
   phaseLog: PRPhaseLog | null;
   isExpanded: boolean;
   onToggle: () => void;
+  isStreaming?: boolean;
 }
 
-function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle }: PhaseLogSectionProps) {
+function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isStreaming = false }: PhaseLogSectionProps) {
   const Icon = PHASE_ICONS[phase];
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
   const getStatusBadge = () => {
+    // Show streaming indicator for active phase during streaming
+    if (status === 'active' || (isStreaming && status === 'pending')) {
+      return (
+        <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/30 flex items-center gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {isStreaming ? 'Streaming' : 'Running'}
+        </Badge>
+      );
+    }
     switch (status) {
-      case 'active':
-        return (
-          <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/30 flex items-center gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Running
-          </Badge>
-        );
       case 'completed':
         return (
           <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30 flex items-center gap-1">
