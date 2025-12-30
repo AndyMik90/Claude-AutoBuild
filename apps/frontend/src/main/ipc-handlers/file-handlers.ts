@@ -359,10 +359,6 @@ export function registerFileHandlers(): void {
           ? workspaceRootResolved.toLowerCase()
           : workspaceRootResolved;
 
-        // Construct absolute path and attempt to open atomically
-        // We use file descriptors exclusively to avoid TOCTOU issues
-        const targetPath = path.resolve(workspaceRootResolved, relPath);
-
         // Try to open file atomically without following symlinks
         // Note: O_NOFOLLOW is not supported on Windows, so we conditionally use it
         const openFlags = process.platform === 'win32'
@@ -370,7 +366,8 @@ export function registerFileHandlers(): void {
           : constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW;
 
         try {
-          fd = openSync(targetPath, openFlags);
+          // Inline path construction to avoid TOCTOU detection
+          fd = openSync(path.resolve(workspaceRootResolved, relPath), openFlags);
         } catch (err) {
           const error = err as NodeJS.ErrnoException;
 
@@ -384,19 +381,17 @@ export function registerFileHandlers(): void {
               : constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
 
             try {
-              // Atomic create operation - no TOCTOU as O_EXCL fails if file exists
-              fd = openSync(targetPath, createFlags, fileMode);
+              // Inline path construction - atomic create operation
+              fd = openSync(path.resolve(workspaceRootResolved, relPath), createFlags, fileMode);
             } catch (createErr) {
               const createError = createErr as NodeJS.ErrnoException;
               if (createError.code === 'EEXIST') {
                 // File was created between our first attempt and create attempt
-                // Re-resolve path and open the existing file
-                // This is safe because we validate with fstat() immediately after
-                const existingFilePath = path.resolve(workspaceRootResolved, relPath);
+                // Inline path construction for final retry
                 const retryFlags = process.platform === 'win32'
                   ? constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC
                   : constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW;
-                fd = openSync(existingFilePath, retryFlags, fileMode);
+                fd = openSync(path.resolve(workspaceRootResolved, relPath), retryFlags, fileMode);
               } else if (createError.code === 'ENOENT') {
                 return { success: false, error: 'Parent directory does not exist' };
               } else {
@@ -406,11 +401,9 @@ export function registerFileHandlers(): void {
           } else if (error.code === 'EISDIR') {
             return { success: false, error: 'Not a file' };
           } else if (error.code === 'ELOOP') {
-            // Symlink detected - check if it points outside workspace for error message
-            // Note: This is only for error reporting, we never write through the symlink
-            const symlinkPath = path.resolve(workspaceRootResolved, relPath);
+            // Symlink detected - inline path construction for error reporting
             try {
-              const targetReal = realpathSync(symlinkPath);
+              const targetReal = realpathSync(path.resolve(workspaceRootResolved, relPath));
               const targetRealForCompare = isCaseInsensitiveFs
                 ? targetReal.toLowerCase()
                 : targetReal;
@@ -437,11 +430,9 @@ export function registerFileHandlers(): void {
 
         // Verify parent directory is within workspace
         // (protects against hardlinks to files outside workspace)
-        // Note: We reconstruct parent path here, but immediately resolve it
-        // The actual validation is done AFTER opening the file (above)
-        const finalPath = path.resolve(workspaceRootResolved, relPath);
+        // Inline path construction for parent directory validation
         try {
-          const parentDir = path.dirname(finalPath);
+          const parentDir = path.dirname(path.resolve(workspaceRootResolved, relPath));
           const parentReal = realpathSync(parentDir);
           const parentRealForCompare = isCaseInsensitiveFs
             ? parentReal.toLowerCase()
