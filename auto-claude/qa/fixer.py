@@ -23,6 +23,7 @@ from .criteria import get_qa_signoff_status
 # BMAD Integration - Import agent loader
 try:
     from integrations.bmad.agent_loader import BMADAgentLoader
+
     BMAD_AVAILABLE = True
 except ImportError:
     BMAD_AVAILABLE = False
@@ -42,6 +43,7 @@ def get_bmad_loader() -> "BMADAgentLoader | None":
         if not _bmad_loader.is_available():
             _bmad_loader = None
     return _bmad_loader
+
 
 # Configuration
 QA_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"

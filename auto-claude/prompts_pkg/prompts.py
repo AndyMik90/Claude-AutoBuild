@@ -23,6 +23,7 @@ from .project_context import (
 # BMAD Integration - Import agent loader
 try:
     from integrations.bmad.agent_loader import BMADAgentLoader
+
     BMAD_AVAILABLE = True
 except ImportError:
     BMAD_AVAILABLE = False
@@ -42,6 +43,7 @@ def get_bmad_loader() -> "BMADAgentLoader | None":
         if not _bmad_loader.is_available():
             _bmad_loader = None
     return _bmad_loader
+
 
 # Directory containing prompt files
 # prompts/ is a sibling directory of prompts_pkg/, so go up one level first

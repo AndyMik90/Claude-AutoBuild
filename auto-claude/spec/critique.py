@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 # BMAD Integration - Import agent loader
 try:
     from integrations.bmad.agent_loader import BMADAgentLoader
+
     BMAD_AVAILABLE = True
 except ImportError:
     BMAD_AVAILABLE = False
@@ -191,7 +192,9 @@ Remember: The next session has no context. Quality issues you miss now will be h
     bmad = get_bmad_loader()
     if bmad:
         prompt = bmad.enhance_prompt(prompt, "qa")
-        print(f"[BMAD] Using TEST ARCHITECT (TEA) agent for self-critique of {subtask_id}")
+        print(
+            f"[BMAD] Using TEST ARCHITECT (TEA) agent for self-critique of {subtask_id}"
+        )
 
     return prompt
 

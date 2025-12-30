@@ -24,6 +24,7 @@ from pathlib import Path
 # BMAD Integration - Import agent loader
 try:
     from integrations.bmad.agent_loader import BMADAgentLoader
+
     BMAD_AVAILABLE = True
 except ImportError:
     BMAD_AVAILABLE = False
@@ -278,14 +279,26 @@ Before marking complete, verify:
         service_lower = service.lower() if service else ""
         description_lower = description.lower() if description else ""
 
-        if any(kw in service_lower or kw in description_lower for kw in ["test", "qa", "verify", "validate"]):
+        if any(
+            kw in service_lower or kw in description_lower
+            for kw in ["test", "qa", "verify", "validate"]
+        ):
             agent_type = "qa"
-        elif any(kw in service_lower or kw in description_lower for kw in ["design", "architecture", "schema"]):
+        elif any(
+            kw in service_lower or kw in description_lower
+            for kw in ["design", "architecture", "schema"]
+        ):
             agent_type = "architect"
-        elif any(kw in service_lower or kw in description_lower for kw in ["ui", "ux", "interface", "component"]):
+        elif any(
+            kw in service_lower or kw in description_lower
+            for kw in ["ui", "ux", "interface", "component"]
+        ):
             # Still use developer but could add UX context
             agent_type = "developer"
-        elif any(kw in service_lower or kw in description_lower for kw in ["doc", "readme", "documentation"]):
+        elif any(
+            kw in service_lower or kw in description_lower
+            for kw in ["doc", "readme", "documentation"]
+        ):
             agent_type = "tech_writer"
 
         prompt = bmad.enhance_prompt(prompt, agent_type)

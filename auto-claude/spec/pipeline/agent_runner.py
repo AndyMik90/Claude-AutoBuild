@@ -24,6 +24,7 @@ from task_logger import (
 # BMAD Integration - Import agent loader
 try:
     from integrations.bmad.agent_loader import BMADAgentLoader
+
     BMAD_AVAILABLE = True
 except ImportError:
     BMAD_AVAILABLE = False
@@ -34,15 +35,15 @@ _bmad_loader: "BMADAgentLoader | None" = None
 
 # Mapping of prompt files to BMAD agents
 PROMPT_TO_BMAD_AGENT = {
-    "spec_gatherer.md": "pm",           # PM for requirements gathering
-    "spec_researcher.md": "analyst",    # Analyst for research
-    "spec_writer.md": "architect",      # Architect for spec writing
-    "spec_critic.md": "architect",      # Architect for critique
-    "complexity_assessor.md": "analyst", # Analyst for complexity
-    "discovery.md": "analyst",          # Analyst for discovery
-    "context.md": "analyst",            # Analyst for context
-    "requirements.md": "pm",            # PM for requirements
-    "planner.md": "architect",          # Architect for planning
+    "spec_gatherer.md": "pm",  # PM for requirements gathering
+    "spec_researcher.md": "analyst",  # Analyst for research
+    "spec_writer.md": "architect",  # Architect for spec writing
+    "spec_critic.md": "architect",  # Architect for critique
+    "complexity_assessor.md": "analyst",  # Analyst for complexity
+    "discovery.md": "analyst",  # Analyst for discovery
+    "context.md": "analyst",  # Analyst for context
+    "requirements.md": "pm",  # PM for requirements
+    "planner.md": "architect",  # Architect for planning
 }
 
 
