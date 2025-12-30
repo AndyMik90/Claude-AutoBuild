@@ -255,6 +255,7 @@ export interface AppSettings {
   betaUpdates?: boolean;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
+  _migratedDefaultModelSync?: boolean;
   // Language preference for UI (i18n)
   language?: SupportedLanguage;
   // Developer tools preferences
