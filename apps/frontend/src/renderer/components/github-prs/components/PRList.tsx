@@ -249,7 +249,13 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
                     <PRStatusFlow
                       isReviewing={isReviewingPR}
                       hasResult={hasReviewResult}
-                      hasPosted={Boolean(reviewState?.result?.reviewId) || Boolean(reviewState?.result?.hasPostedFindings)}
+                      hasPosted={
+                        Boolean(reviewState?.result?.reviewId) ||
+                        Boolean(reviewState?.result?.hasPostedFindings) ||
+                        Boolean(reviewState?.result?.postedFindingIds?.length) ||
+                        // Follow-up review with no new findings to post is effectively "posted"
+                        (Boolean(reviewState?.result?.isFollowupReview) && reviewState?.result?.findings?.length === 0)
+                      }
                       hasBlockingFindings={Boolean(reviewState?.result?.findings?.some(
                         f => f.severity === 'critical' || f.severity === 'high'
                       ))}
