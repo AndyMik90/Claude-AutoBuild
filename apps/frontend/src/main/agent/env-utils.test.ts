@@ -15,8 +15,9 @@ describe('getOAuthModeClearVars', () => {
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
-        ANTHROPIC_DEFAULT_CHAT_MODEL: '',
-        ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL: ''
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: '',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
       });
     });
 
@@ -27,8 +28,9 @@ describe('getOAuthModeClearVars', () => {
       expect(result.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(result.ANTHROPIC_BASE_URL).toBe('');
       expect(result.ANTHROPIC_MODEL).toBe('');
-      expect(result.ANTHROPIC_DEFAULT_CHAT_MODEL).toBe('');
-      expect(result.ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL).toBe('');
+      expect(result.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('');
+      expect(result.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('');
+      expect(result.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('');
     });
   });
 
@@ -86,8 +88,9 @@ describe('getOAuthModeClearVars', () => {
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
-        ANTHROPIC_DEFAULT_CHAT_MODEL: '',
-        ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL: ''
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: '',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
       });
     });
 
@@ -101,8 +104,9 @@ describe('getOAuthModeClearVars', () => {
         'ANTHROPIC_AUTH_TOKEN',
         'ANTHROPIC_BASE_URL',
         'ANTHROPIC_MODEL',
-        'ANTHROPIC_DEFAULT_CHAT_MODEL',
-        'ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL'
+        'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+        'ANTHROPIC_DEFAULT_SONNET_MODEL',
+        'ANTHROPIC_DEFAULT_OPUS_MODEL'
       ];
       expect(Object.keys(result1).sort()).toEqual(expectedKeys.sort());
     });
@@ -116,8 +120,9 @@ describe('getOAuthModeClearVars', () => {
         ANTHROPIC_AUTH_TOKEN: '',
         ANTHROPIC_BASE_URL: '',
         ANTHROPIC_MODEL: '',
-        ANTHROPIC_DEFAULT_CHAT_MODEL: '',
-        ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL: ''
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: '',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: ''
       });
     });
   });

@@ -433,8 +433,9 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('');
       expect(envArg.ANTHROPIC_MODEL).toBe('');
-      expect(envArg.ANTHROPIC_DEFAULT_CHAT_MODEL).toBe('');
-      expect(envArg.ANTHROPIC_DEFAULT_AUTOCOMPLETE_MODEL).toBe('');
+      expect(envArg.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('');
+      expect(envArg.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('');
+      expect(envArg.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('');
     });
 
     it('should handle getAPIProfileEnv errors gracefully', async () => {
