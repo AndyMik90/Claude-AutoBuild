@@ -59,7 +59,9 @@ export function runPythonSubprocess<T = unknown>(
   // This is safe because: (1) user must explicitly enable via npm run dev:debug,
   // (2) it only enables our internal debug logging, not third-party framework debugging,
   // (3) no sensitive values are logged - only LLM reasoning and response text.
-  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG'];
+  // Include platform-specific vars needed for shell commands and CLI tools
+  // Windows: SYSTEMROOT, COMSPEC, PATHEXT, WINDIR for shell; USERPROFILE, APPDATA, LOCALAPPDATA for gh CLI auth
+  const safeEnvVars = ['PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'DEBUG', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH'];
   const filteredEnv: Record<string, string> = {};
   for (const key of safeEnvVars) {
     if (process.env[key]) {
