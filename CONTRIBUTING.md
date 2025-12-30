@@ -76,24 +76,54 @@ brew install python@3.12
 sudo apt install python3.12 python3.12-venv
 ```
 
+**Linux (Fedora):**
+```bash
+sudo dnf install python3.12
+```
+
+### Installing Node.js 24+
+
+**Windows:**
+```bash
+winget install OpenJS.NodeJS.LTS
+```
+
+**macOS:**
+```bash
+brew install node@24
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install nodejs npm
+```
+
 ### Installing CMake
 
 **Windows:**
-
 ```bash
 winget install Kitware.CMake
 ```
 
 **macOS:**
-
 ```bash
 brew install cmake
 ```
 
 **Linux (Ubuntu/Debian):**
-
 ```bash
 sudo apt install cmake
+```
+
+**Linux (Fedora):**
+```bash
+sudo dnf install cmake
 ```
 
 ## Quick Start
