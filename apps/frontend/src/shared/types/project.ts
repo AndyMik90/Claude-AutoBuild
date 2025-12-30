@@ -311,6 +311,20 @@ export interface ProjectEnvConfig {
 
   // UI Settings
   enableFancyUi: boolean;
+
+  // MCP Server Configuration (per-project overrides)
+  mcpServers?: {
+    /** Context7 documentation lookup - default: true */
+    context7Enabled?: boolean;
+    /** Graphiti knowledge graph - default: true (if graphitiProviderConfig set) */
+    graphitiEnabled?: boolean;
+    /** Linear MCP integration - default: follows linearEnabled */
+    linearMcpEnabled?: boolean;
+    /** Electron desktop automation (QA only) - default: false */
+    electronEnabled?: boolean;
+    /** Puppeteer browser automation (QA only) - default: false */
+    puppeteerEnabled?: boolean;
+  };
 }
 
 // Auto Claude Initialization Types

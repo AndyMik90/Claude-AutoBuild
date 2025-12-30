@@ -3,6 +3,7 @@
  *
  * Displays MCP server and tool configuration for each agent phase.
  * Helps users understand what tools are available during different execution phases.
+ * Now shows per-project MCP configuration with toggles to enable/disable servers.
  */
 
 import {
@@ -20,11 +21,16 @@ import {
   Monitor,
   Globe,
   ClipboardList,
-  ListChecks
+  ListChecks,
+  Info,
+  AlertCircle
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
+import { Switch } from './ui/switch';
 import { useSettingsStore } from '../stores/settings-store';
+import { useProjectStore } from '../stores/project-store';
+import type { ProjectEnvConfig } from '../../shared/types';
 import {
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
@@ -462,15 +468,106 @@ function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
 
 export function AgentTools() {
   const settings = useSettingsStore((state) => state.settings);
+  const projects = useProjectStore((state) => state.projects);
+  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['spec', 'build', 'qa'])
   );
+  const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load project env config when project changes
+  useEffect(() => {
+    if (selectedProjectId && selectedProject?.autoBuildPath) {
+      setIsLoading(true);
+      window.electronAPI.getProjectEnv(selectedProjectId)
+        .then((result) => {
+          if (result.success && result.data) {
+            setEnvConfig(result.data);
+          } else {
+            setEnvConfig(null);
+          }
+        })
+        .catch(() => {
+          setEnvConfig(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setEnvConfig(null);
+    }
+  }, [selectedProjectId, selectedProject?.autoBuildPath]);
+
+  // Update MCP server toggle
+  const updateMcpServer = useCallback(async (
+    key: keyof NonNullable<ProjectEnvConfig['mcpServers']>,
+    value: boolean
+  ) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const newMcpServers = {
+      ...envConfig.mcpServers,
+      [key]: value,
+    };
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, mcpServers: newMcpServers } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        mcpServers: newMcpServers,
+      });
+    } catch (error) {
+      // Revert on error
+      console.error('Failed to update MCP config:', error);
+      setEnvConfig((prev) => prev ? { ...prev, mcpServers: envConfig.mcpServers } : null);
+    }
+  }, [selectedProjectId, envConfig]);
 
   // Get phase and feature settings with defaults
   const phaseModels = settings.customPhaseModels || DEFAULT_PHASE_MODELS;
   const phaseThinking = settings.customPhaseThinking || DEFAULT_PHASE_THINKING;
   const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
   const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+  // Get MCP server status for display
+  const mcpServers = envConfig?.mcpServers || {};
+  const getServerStatus = (serverId: string): 'enabled' | 'disabled' | 'not_configured' => {
+    switch (serverId) {
+      case 'context7':
+        return mcpServers.context7Enabled !== false ? 'enabled' : 'disabled';
+      case 'graphiti-memory':
+        return mcpServers.graphitiEnabled && envConfig?.graphitiProviderConfig
+          ? 'enabled'
+          : 'not_configured';
+      case 'linear':
+        return mcpServers.linearMcpEnabled !== false && envConfig?.linearEnabled
+          ? 'enabled'
+          : envConfig?.linearEnabled ? 'disabled' : 'not_configured';
+      case 'electron':
+        return mcpServers.electronEnabled ? 'enabled' : 'disabled';
+      case 'puppeteer':
+        return mcpServers.puppeteerEnabled ? 'enabled' : 'disabled';
+      case 'auto-claude':
+        return 'enabled'; // Always enabled
+      default:
+        return 'enabled';
+    }
+  };
+
+  // Count enabled MCP servers
+  const enabledCount = [
+    mcpServers.context7Enabled !== false,
+    mcpServers.graphitiEnabled && envConfig?.graphitiProviderConfig,
+    mcpServers.linearMcpEnabled !== false && envConfig?.linearEnabled,
+    mcpServers.electronEnabled,
+    mcpServers.puppeteerEnabled,
+    true, // auto-claude always enabled
+  ].filter(Boolean).length;
 
   // Resolve model and thinking for an agent based on its settings source
   const resolveAgentSettings = useMemo(() => {
@@ -530,41 +627,175 @@ export function AgentTools() {
           <div className="p-2 rounded-lg bg-muted">
             <Server className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">MCP Server Overview</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground">MCP Server Overview</h1>
+              {selectedProject && (
+                <span className="text-sm text-muted-foreground">
+                  for {selectedProject.name}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
-              View which MCP servers and tools are available for each agent phase
+              {selectedProject
+                ? `Configure which MCP servers are available for agents in this project`
+                : 'Select a project to configure MCP servers'}
             </p>
           </div>
+          {envConfig && (
+            <div className="text-right">
+              <span className="text-sm font-medium text-foreground">{enabledCount}</span>
+              <span className="text-sm text-muted-foreground"> servers enabled</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {/* MCP Server Legend */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-medium text-foreground mb-3">Available MCP Servers</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(MCP_SERVERS).map(([id, server]) => {
-                const Icon = server.icon;
-                return (
-                  <div key={id} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm font-medium">{server.name}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground ml-6">{server.description}</p>
-                    {server.tools && (
-                      <div className="ml-6 text-xs text-muted-foreground">
-                        {server.tools.length} tools available
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          {/* No project selected message */}
+          {!selectedProject && (
+            <div className="rounded-lg border border-border bg-card p-6 text-center">
+              <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <h2 className="text-sm font-medium text-foreground mb-1">No Project Selected</h2>
+              <p className="text-sm text-muted-foreground">
+                Select a project from the dropdown to view and configure MCP servers.
+              </p>
             </div>
-          </div>
+          )}
+
+          {/* Project not initialized message */}
+          {selectedProject && !selectedProject.autoBuildPath && (
+            <div className="rounded-lg border border-border bg-card p-6 text-center">
+              <Info className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <h2 className="text-sm font-medium text-foreground mb-1">Project Not Initialized</h2>
+              <p className="text-sm text-muted-foreground">
+                Initialize Auto Claude for this project to configure MCP servers.
+              </p>
+            </div>
+          )}
+
+          {/* MCP Server Configuration */}
+          {envConfig && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-foreground">MCP Server Configuration</h2>
+                <span className="text-xs text-muted-foreground">
+                  Disabled servers reduce context usage and startup time
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Context7 */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">Context7</span>
+                      <p className="text-xs text-muted-foreground">Documentation lookup for libraries</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.context7Enabled !== false}
+                    onCheckedChange={(checked) => updateMcpServer('context7Enabled', checked)}
+                  />
+                </div>
+
+                {/* Graphiti Memory */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Brain className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">Graphiti Memory</span>
+                      <p className="text-xs text-muted-foreground">
+                        {envConfig.graphitiProviderConfig
+                          ? 'Knowledge graph for cross-session context'
+                          : 'Requires memory configuration (see Memory settings)'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.graphitiEnabled !== false && !!envConfig.graphitiProviderConfig}
+                    onCheckedChange={(checked) => updateMcpServer('graphitiEnabled', checked)}
+                    disabled={!envConfig.graphitiProviderConfig}
+                  />
+                </div>
+
+                {/* Linear */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">Linear</span>
+                      <p className="text-xs text-muted-foreground">
+                        {envConfig.linearEnabled
+                          ? 'Project management integration'
+                          : 'Requires Linear integration (see Linear settings)'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.linearMcpEnabled !== false && envConfig.linearEnabled}
+                    onCheckedChange={(checked) => updateMcpServer('linearMcpEnabled', checked)}
+                    disabled={!envConfig.linearEnabled}
+                  />
+                </div>
+
+                {/* Browser Automation Section */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                      Browser Automation (QA agents only)
+                    </span>
+                  </div>
+
+                  {/* Electron */}
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">Electron</span>
+                        <p className="text-xs text-muted-foreground">Desktop app automation via Chrome DevTools</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={mcpServers.electronEnabled === true}
+                      onCheckedChange={(checked) => updateMcpServer('electronEnabled', checked)}
+                    />
+                  </div>
+
+                  {/* Puppeteer */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-3">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">Puppeteer</span>
+                        <p className="text-xs text-muted-foreground">Web browser automation for testing</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={mcpServers.puppeteerEnabled === true}
+                      onCheckedChange={(checked) => updateMcpServer('puppeteerEnabled', checked)}
+                    />
+                  </div>
+                </div>
+
+                {/* Auto-Claude (always enabled) */}
+                <div className="flex items-center justify-between py-2 border-t border-border opacity-60">
+                  <div className="flex items-center gap-3">
+                    <ListChecks className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">Auto-Claude Tools</span>
+                      <p className="text-xs text-muted-foreground">Build progress tracking (always enabled)</p>
+                    </div>
+                  </div>
+                  <Switch checked={true} disabled />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Agent Categories */}
           {Object.entries(CATEGORIES).map(([categoryId, category]) => {

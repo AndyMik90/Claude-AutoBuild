@@ -35,6 +35,51 @@ from prompts_pkg.project_context import detect_project_capabilities, load_projec
 from security import bash_security_hook
 
 
+def load_project_mcp_config(project_dir: Path) -> dict:
+    """
+    Load MCP configuration from project's .auto-claude/.env file.
+
+    Returns a dict of MCP-related env vars:
+    - CONTEXT7_ENABLED (default: true)
+    - LINEAR_MCP_ENABLED (default: true)
+    - ELECTRON_MCP_ENABLED (default: false)
+    - PUPPETEER_MCP_ENABLED (default: false)
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Dict of MCP configuration values (string values)
+    """
+    env_path = project_dir / ".auto-claude" / ".env"
+    if not env_path.exists():
+        return {}
+
+    config = {}
+    mcp_keys = {
+        "CONTEXT7_ENABLED",
+        "LINEAR_MCP_ENABLED",
+        "ELECTRON_MCP_ENABLED",
+        "PUPPETEER_MCP_ENABLED",
+    }
+
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    if key in mcp_keys:
+                        config[key] = value.strip().strip("\"'")
+    except Exception:
+        pass
+
+    return config
+
+
 def is_graphiti_mcp_enabled() -> bool:
     """
     Check if Graphiti MCP server integration is enabled.
@@ -152,20 +197,27 @@ def create_client(
     project_index = load_project_index(project_dir)
     project_capabilities = detect_project_capabilities(project_index)
 
+    # Load per-project MCP configuration from .auto-claude/.env
+    mcp_config = load_project_mcp_config(project_dir)
+
     # Get allowed tools using phase-aware configuration
     # This respects AGENT_CONFIGS and only includes tools the agent needs
+    # Also respects per-project MCP configuration
     allowed_tools_list = get_allowed_tools(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Get required MCP servers for this agent type
     # This is the key optimization - only start servers the agent needs
+    # Now also respects per-project MCP configuration
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)

@@ -302,5 +302,48 @@
     "noRecentErrors": "Aucune erreur récente",
     "helpTitle": "Signaler des problèmes",
     "helpText": "Lors du signalement de bugs, cliquez sur \"Copier les infos de débogage\" pour obtenir les informations système et les erreurs récentes qui nous aident à diagnostiquer le problème."
+  },
+  "mcp": {
+    "title": "Aperçu des serveurs MCP",
+    "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",
+    "description": "Configurez quels serveurs MCP sont disponibles pour les agents dans ce projet",
+    "descriptionNoProject": "Sélectionnez un projet pour configurer les serveurs MCP",
+    "serversEnabled": "{{count}} serveurs activés",
+    "configuration": "Configuration des serveurs MCP",
+    "configurationHint": "Les serveurs désactivés réduisent l'utilisation du contexte et le temps de démarrage",
+    "noProjectSelected": "Aucun projet sélectionné",
+    "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
+    "projectNotInitialized": "Projet non initialisé",
+    "projectNotInitializedDescription": "Initialisez Auto Claude pour ce projet pour configurer les serveurs MCP.",
+    "browserAutomation": "Automatisation navigateur (agents QA uniquement)",
+    "alwaysEnabled": "toujours activé",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Recherche de documentation pour les bibliothèques"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Graphe de connaissances pour le contexte inter-sessions",
+        "notConfigured": "Nécessite la configuration mémoire (voir paramètres Mémoire)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Intégration gestion de projet",
+        "notConfigured": "Nécessite l'intégration Linear (voir paramètres Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatisation d'applications desktop via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatisation de navigateur web pour les tests"
+      },
+      "autoClaude": {
+        "name": "Outils Auto-Claude",
+        "description": "Suivi de la progression du build"
+      }
+    }
   }
 }

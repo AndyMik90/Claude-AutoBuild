@@ -109,6 +109,23 @@ export function registerEnvHandlers(
       existingVars['ENABLE_FANCY_UI'] = config.enableFancyUi ? 'true' : 'false';
     }
 
+    // MCP Server Configuration
+    if (config.mcpServers) {
+      if (config.mcpServers.context7Enabled !== undefined) {
+        existingVars['CONTEXT7_ENABLED'] = config.mcpServers.context7Enabled ? 'true' : 'false';
+      }
+      if (config.mcpServers.linearMcpEnabled !== undefined) {
+        existingVars['LINEAR_MCP_ENABLED'] = config.mcpServers.linearMcpEnabled ? 'true' : 'false';
+      }
+      if (config.mcpServers.electronEnabled !== undefined) {
+        existingVars['ELECTRON_MCP_ENABLED'] = config.mcpServers.electronEnabled ? 'true' : 'false';
+      }
+      if (config.mcpServers.puppeteerEnabled !== undefined) {
+        existingVars['PUPPETEER_MCP_ENABLED'] = config.mcpServers.puppeteerEnabled ? 'true' : 'false';
+      }
+      // Note: graphitiEnabled is already handled via GRAPHITI_ENABLED above
+    }
+
     // Generate content with sections
     const content = `# Auto Claude Framework Environment Variables
 # Managed by Auto Claude UI
@@ -145,6 +162,18 @@ ${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANC
 # UI SETTINGS (OPTIONAL)
 # =============================================================================
 ${existingVars['ENABLE_FANCY_UI'] !== undefined ? `ENABLE_FANCY_UI=${existingVars['ENABLE_FANCY_UI']}` : '# ENABLE_FANCY_UI=true'}
+
+# =============================================================================
+# MCP SERVER CONFIGURATION (per-project overrides)
+# =============================================================================
+# Context7 documentation lookup (default: enabled)
+${existingVars['CONTEXT7_ENABLED'] !== undefined ? `CONTEXT7_ENABLED=${existingVars['CONTEXT7_ENABLED']}` : '# CONTEXT7_ENABLED=true'}
+# Linear MCP integration (default: follows LINEAR_API_KEY)
+${existingVars['LINEAR_MCP_ENABLED'] !== undefined ? `LINEAR_MCP_ENABLED=${existingVars['LINEAR_MCP_ENABLED']}` : '# LINEAR_MCP_ENABLED=true'}
+# Electron desktop automation - QA agents only (default: disabled)
+${existingVars['ELECTRON_MCP_ENABLED'] !== undefined ? `ELECTRON_MCP_ENABLED=${existingVars['ELECTRON_MCP_ENABLED']}` : '# ELECTRON_MCP_ENABLED=false'}
+# Puppeteer browser automation - QA agents only (default: disabled)
+${existingVars['PUPPETEER_MCP_ENABLED'] !== undefined ? `PUPPETEER_MCP_ENABLED=${existingVars['PUPPETEER_MCP_ENABLED']}` : '# PUPPETEER_MCP_ENABLED=false'}
 
 # =============================================================================
 # MEMORY INTEGRATION
@@ -330,6 +359,16 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
           dbPath: vars['GRAPHITI_DB_PATH'],
         };
       }
+
+      // MCP Server Configuration (per-project overrides)
+      // Default: context7=true, linear=true (if API key set), electron/puppeteer=false
+      config.mcpServers = {
+        context7Enabled: vars['CONTEXT7_ENABLED']?.toLowerCase() !== 'false', // default true
+        graphitiEnabled: config.graphitiEnabled, // follows GRAPHITI_ENABLED
+        linearMcpEnabled: vars['LINEAR_MCP_ENABLED']?.toLowerCase() !== 'false', // default true
+        electronEnabled: vars['ELECTRON_MCP_ENABLED']?.toLowerCase() === 'true', // default false
+        puppeteerEnabled: vars['PUPPETEER_MCP_ENABLED']?.toLowerCase() === 'true', // default false
+      };
 
       return { success: true, data: config };
     }

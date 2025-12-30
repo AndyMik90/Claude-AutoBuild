@@ -302,5 +302,48 @@
     "noRecentErrors": "No recent errors",
     "helpTitle": "Reporting Issues",
     "helpText": "When reporting bugs, click \"Copy Debug Info\" to get system information and recent errors that help us diagnose the issue."
+  },
+  "mcp": {
+    "title": "MCP Server Overview",
+    "titleWithProject": "MCP Server Overview for {{projectName}}",
+    "description": "Configure which MCP servers are available for agents in this project",
+    "descriptionNoProject": "Select a project to configure MCP servers",
+    "serversEnabled": "{{count}} servers enabled",
+    "configuration": "MCP Server Configuration",
+    "configurationHint": "Disabled servers reduce context usage and startup time",
+    "noProjectSelected": "No Project Selected",
+    "noProjectSelectedDescription": "Select a project from the dropdown to view and configure MCP servers.",
+    "projectNotInitialized": "Project Not Initialized",
+    "projectNotInitializedDescription": "Initialize Auto Claude for this project to configure MCP servers.",
+    "browserAutomation": "Browser Automation (QA agents only)",
+    "alwaysEnabled": "always enabled",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Documentation lookup for libraries"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Knowledge graph for cross-session context",
+        "notConfigured": "Requires memory configuration (see Memory settings)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Project management integration",
+        "notConfigured": "Requires Linear integration (see Linear settings)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Desktop app automation via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Web browser automation for testing"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude Tools",
+        "description": "Build progress tracking"
+      }
+    }
   }
 }

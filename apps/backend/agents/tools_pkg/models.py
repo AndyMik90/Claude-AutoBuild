@@ -341,6 +341,7 @@ def get_required_mcp_servers(
     agent_type: str,
     project_capabilities: dict | None = None,
     linear_enabled: bool = False,
+    mcp_config: dict | None = None,
 ) -> list[str]:
     """
     Get MCP servers required for this agent type.
@@ -349,11 +350,15 @@ def get_required_mcp_servers(
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
     - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
+    - Respects per-project MCP config overrides from .auto-claude/.env
 
     Args:
         agent_type: The agent type identifier
         project_capabilities: Dict from detect_project_capabilities() or None
         linear_enabled: Whether Linear integration is enabled for this project
+        mcp_config: Per-project MCP server toggles from .auto-claude/.env
+                   Keys: CONTEXT7_ENABLED, LINEAR_MCP_ENABLED, ELECTRON_MCP_ENABLED,
+                         PUPPETEER_MCP_ENABLED (values: 'true'/'false' strings)
 
     Returns:
         List of MCP server names to start
@@ -361,22 +366,44 @@ def get_required_mcp_servers(
     config = get_agent_config(agent_type)
     servers = list(config.get("mcp_servers", []))
 
+    # Load per-project config (or use defaults)
+    if mcp_config is None:
+        mcp_config = {}
+
+    # Filter context7 if explicitly disabled by project config
+    if "context7" in servers:
+        context7_enabled = mcp_config.get("CONTEXT7_ENABLED", "true")
+        if str(context7_enabled).lower() == "false":
+            servers = [s for s in servers if s != "context7"]
+
     # Handle optional servers (e.g., Linear if project setting enabled)
     optional = config.get("mcp_servers_optional", [])
     if "linear" in optional and linear_enabled:
-        servers.append("linear")
+        # Also check per-project LINEAR_MCP_ENABLED override
+        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
+        if str(linear_mcp_enabled).lower() != "false":
+            servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type
+    # Handle dynamic "browser" → electron/puppeteer based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            if is_electron and is_electron_mcp_enabled():
+            # Check per-project overrides (default false for both)
+            electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
+            puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
+
+            # Electron: enabled by project config OR global env var
+            if is_electron and (
+                str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
+            ):
                 servers.append("electron")
+            # Puppeteer: enabled by project config (no global env var)
             elif is_web_frontend and not is_electron:
-                servers.append("puppeteer")
+                if str(puppeteer_enabled).lower() == "true":
+                    servers.append("puppeteer")
 
     # Filter graphiti if not enabled
     if "graphiti" in servers:
