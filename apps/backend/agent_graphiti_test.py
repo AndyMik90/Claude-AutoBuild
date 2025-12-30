@@ -22,7 +22,7 @@ async def main():
     mem = GraphitiMemory(spec_dir=spec_dir, project_dir=project_dir)
     print("is_enabled:", getattr(mem, "is_enabled", None))
 
-    # Write (Agent-Style) – mit Timeout, damit es nicht „ewig“ hängt
+    # Write (Agent-style) – with a timeout so it doesn't hang forever
     ok = await asyncio.wait_for(
         mem.save_session_insights(
             session_num=int(datetime.now(timezone.utc).timestamp()),
@@ -32,7 +32,7 @@ async def main():
     )
     print("write_ok:", ok)
 
-    # Read (Agent-Style)
+    # Read (Agent-style)
     hits = await asyncio.wait_for(mem.get_relevant_context(query=msg, num_results=20), timeout=60)
     print("hits:", len(hits) if hits else 0)
     if hits:
