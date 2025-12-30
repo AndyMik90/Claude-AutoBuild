@@ -129,7 +129,7 @@ export class CSharpLspServerManager {
       await this.sendRequest('shutdown', {});
       // Send exit notification
       this.sendNotification('exit', {});
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during shutdown
     }
 
@@ -414,7 +414,7 @@ export class CSharpLspServerManager {
    */
   private createFileUri(absPath: string): string {
     // Convert to forward slashes
-    let uriPath = absPath.replace(/\\/g, '/');
+    const uriPath = absPath.replace(/\\/g, '/');
     
     // For Windows, ensure proper file URI format: file:///C:/path
     if (process.platform === 'win32') {
