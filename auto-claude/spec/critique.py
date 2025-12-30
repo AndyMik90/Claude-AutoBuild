@@ -12,10 +12,37 @@ The critique system ensures:
 - Error handling is present
 - No debugging artifacts left behind
 - Implementation matches subtask requirements
+
+BMAD Integration:
+- Uses BMAD Test Architect (TEA) agent for quality critique
 """
 
 import re
 from dataclasses import dataclass, field
+from typing import Optional
+
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if not _bmad_loader.is_available():
+            _bmad_loader = None
+    return _bmad_loader
 
 
 @dataclass
@@ -160,6 +187,12 @@ If you identified issues in your critique, list what you fixed:
 
 Remember: The next session has no context. Quality issues you miss now will be harder to fix later.
 """
+
+    # BMAD Enhancement: Inject Test Architect (TEA) agent expertise for critique
+    bmad = get_bmad_loader()
+    if bmad:
+        prompt = bmad.enhance_prompt(prompt, "qa")
+        print(f"[BMAD] Using TEST ARCHITECT (TEA) agent for self-critique of {subtask_id}")
 
     return prompt
 

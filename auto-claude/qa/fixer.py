@@ -3,9 +3,13 @@ QA Fixer Agent Session
 =======================
 
 Runs QA fixer sessions to resolve issues identified by the reviewer.
+
+BMAD Integration:
+- Uses BMAD Developer agent for applying fixes
 """
 
 from pathlib import Path
+from typing import Optional
 
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
@@ -17,6 +21,29 @@ from task_logger import (
 
 from .criteria import get_qa_signoff_status
 
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if not _bmad_loader.is_available():
+            _bmad_loader = None
+    return _bmad_loader
+
 # Configuration
 QA_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
@@ -27,11 +54,20 @@ QA_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 def load_qa_fixer_prompt() -> str:
-    """Load the QA fixer agent prompt."""
+    """Load the QA fixer agent prompt with BMAD Developer enhancement."""
     prompt_file = QA_PROMPTS_DIR / "qa_fixer.md"
     if not prompt_file.exists():
         raise FileNotFoundError(f"QA fixer prompt not found: {prompt_file}")
-    return prompt_file.read_text()
+
+    prompt = prompt_file.read_text()
+
+    # BMAD Enhancement: Inject Developer agent expertise for fixing
+    bmad = get_bmad_loader()
+    if bmad:
+        prompt = bmad.enhance_prompt(prompt, "developer")
+        print("[BMAD] Using DEVELOPER agent for QA fixes")
+
+    return prompt
 
 
 # =============================================================================

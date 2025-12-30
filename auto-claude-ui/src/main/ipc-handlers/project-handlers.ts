@@ -27,6 +27,7 @@ import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
+import { configureBlueprintService } from '../blueprint-service';
 
 // ============================================
 // Git Helper Functions
@@ -116,6 +117,7 @@ const configureServicesWithPython = (
   changelogService.configure(pythonPath, autoBuildPath);
   insightsService.configure(pythonPath, autoBuildPath);
   titleGenerator.configure(pythonPath, autoBuildPath);
+  configureBlueprintService(autoBuildPath);
 };
 
 /**

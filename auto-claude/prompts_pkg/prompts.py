@@ -4,17 +4,45 @@ Prompt Loading Utilities
 
 Functions for loading agent prompts from markdown files.
 Supports dynamic prompt assembly based on project type for context optimization.
+
+BMAD Integration:
+- QA Reviewer uses BMAD Test Architect (TEA) agent
+- QA Fixer uses BMAD Developer agent for fixes
 """
 
 import json
 import re
 from pathlib import Path
+from typing import Optional
 
 from .project_context import (
     detect_project_capabilities,
     get_mcp_tools_for_project,
     load_project_index,
 )
+
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if not _bmad_loader.is_available():
+            _bmad_loader = None
+    return _bmad_loader
 
 # Directory containing prompt files
 # prompts/ is a sibling directory of prompts_pkg/, so go up one level first
@@ -62,7 +90,15 @@ The project root is the parent of auto-claude/. Implement code in the project ro
 ---
 
 """
-    return spec_context + prompt
+    result = spec_context + prompt
+
+    # BMAD Enhancement: Inject Architect agent expertise for planning
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "architect")
+        print("[BMAD] Using ARCHITECT agent for planning")
+
+    return result
 
 
 def get_coding_prompt(spec_dir: Path) -> str:
@@ -121,7 +157,15 @@ After addressing this input, you may delete or clear the HUMAN_INPUT.md file.
 
 """
 
-    return spec_context + prompt
+    result = spec_context + prompt
+
+    # BMAD Enhancement: Inject Developer agent expertise for coding
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "developer")
+        print("[BMAD] Using DEVELOPER agent for coding")
+
+    return result
 
 
 def _get_recovery_context(spec_dir: Path) -> str:
@@ -239,7 +283,15 @@ You are adding follow-up work to a **completed** spec.
 ---
 
 """
-    return spec_context + prompt
+    result = spec_context + prompt
+
+    # BMAD Enhancement: Inject Architect agent expertise for follow-up planning
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "architect")
+        print("[BMAD] Using ARCHITECT agent for follow-up planning")
+
+    return result
 
 
 def is_first_run(spec_dir: Path) -> bool:
@@ -392,7 +444,15 @@ The project root is: `{project_dir}`
         base_prompt += "\n\n---\n\n## PROJECT-SPECIFIC VALIDATION TOOLS\n\n"
         base_prompt += "\n\n---\n\n".join(mcp_sections)
 
-    return spec_context + base_prompt
+    result = spec_context + base_prompt
+
+    # BMAD Enhancement: Inject Test Architect (TEA) agent expertise
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "qa")
+        print("[BMAD] Using TEST ARCHITECT (TEA) agent for QA review")
+
+    return result
 
 
 def get_qa_fixer_prompt(spec_dir: Path, project_dir: Path) -> str:
@@ -421,4 +481,12 @@ The project root is: `{project_dir}`
 ---
 
 """
-    return spec_context + base_prompt
+    result = spec_context + base_prompt
+
+    # BMAD Enhancement: Inject Developer agent expertise for fixing
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "developer")
+        print("[BMAD] Using DEVELOPER agent for QA fixes")
+
+    return result

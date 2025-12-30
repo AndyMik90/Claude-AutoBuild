@@ -10,6 +10,7 @@ import {
   loadGlobalSettings,
   isGraphitiEnabled,
   hasOpenAIKey,
+  hasOllamaEmbedding,
   getGraphitiDatabaseDetails
 } from './utils';
 
@@ -77,6 +78,7 @@ export function buildMemoryStatus(
   // Check environment configuration
   const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
   const hasOpenAI = hasOpenAIKey(projectEnvVars, globalSettings);
+  const hasOllama = hasOllamaEmbedding(projectEnvVars);
 
   if (!graphitiEnabled) {
     return {
@@ -86,11 +88,12 @@ export function buildMemoryStatus(
     };
   }
 
-  if (!hasOpenAI) {
+  // Check if we have any embedding provider configured (OpenAI OR Ollama)
+  if (!hasOpenAI && !hasOllama) {
     return {
       enabled: true,
       available: false,
-      reason: 'OPENAI_API_KEY not set (required for Graphiti embeddings)'
+      reason: 'No embedding provider configured (set OpenAI API key or configure Ollama)'
     };
   }
 

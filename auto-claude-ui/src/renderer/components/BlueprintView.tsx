@@ -334,7 +334,9 @@ const ComponentDetailDialog = ({
 };
 
 export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
+  console.log('[BlueprintView] Component rendering');
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
+  console.log('[BlueprintView] selectedProject:', selectedProject?.name, selectedProject?.path);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -345,15 +347,33 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newBlueprint, setNewBlueprint] = useState({
-    name: '',
+    name: selectedProject?.name || '',
     description: '',
     components: [{ name: '', description: '', files: '', acceptance_criteria: '' }]
   });
 
+  // Update blueprint name when project changes
+  useEffect(() => {
+    if (selectedProject?.name) {
+      setNewBlueprint(prev => ({
+        ...prev,
+        name: prev.name || selectedProject.name,
+        components: prev.components[0]?.name ? prev.components : [
+          { name: 'Component 1', description: '', files: '', acceptance_criteria: '' }
+        ]
+      }));
+    }
+  }, [selectedProject?.name]);
+
   // Load blueprint
   useEffect(() => {
     const loadBlueprintData = async () => {
+      console.log('[BlueprintView] loadBlueprintData called');
+      console.log('[BlueprintView] selectedProject:', selectedProject?.name, selectedProject?.path);
+      console.log('[BlueprintView] blueprintPath prop:', blueprintPath);
+
       if (!selectedProject?.path) {
+        console.log('[BlueprintView] No project path, returning');
         setLoading(false);
         return;
       }
@@ -363,18 +383,24 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
         setError(null);
 
         // Try to load blueprint from project
+        console.log('[BlueprintView] Calling loadBlueprint IPC...');
         const result = await window.electronAPI.loadBlueprint(
           selectedProject.path,
           blueprintPath
         );
 
+        console.log('[BlueprintView] loadBlueprint result:', result);
+
         if (result.success && result.blueprint) {
+          console.log('[BlueprintView] Blueprint loaded:', result.blueprint.name);
+          console.log('[BlueprintView] Components:', result.blueprint.components?.length);
           setBlueprint(result.blueprint);
         } else {
+          console.log('[BlueprintView] No blueprint found or error:', result.error);
           setBlueprint(null);
         }
       } catch (err) {
-        console.error('Failed to load blueprint:', err);
+        console.error('[BlueprintView] Failed to load blueprint:', err);
         setError(err instanceof Error ? err.message : 'Failed to load blueprint');
       } finally {
         setLoading(false);
@@ -432,8 +458,19 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
 
   // Handle create blueprint
   const handleCreateBlueprint = async () => {
-    if (!selectedProject?.path) return;
-    if (!newBlueprint.name.trim()) return;
+    console.log('[BlueprintView] handleCreateBlueprint called');
+    console.log('[BlueprintView] selectedProject:', selectedProject);
+
+    if (!selectedProject?.path) {
+      console.error('[BlueprintView] No project selected or no path');
+      setError('No project selected. Please select a project first.');
+      return;
+    }
+    if (!newBlueprint.name.trim()) {
+      console.error('[BlueprintView] No blueprint name entered');
+      setError('Please enter a blueprint name.');
+      return;
+    }
 
     try {
       setCreating(true);
@@ -450,12 +487,21 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
             .map(ac => ({ description: ac, verified: false }))
         }));
 
+      console.log('[BlueprintView] Calling createBlueprint with:', {
+        path: selectedProject.path,
+        name: newBlueprint.name.trim(),
+        description: newBlueprint.description.trim(),
+        componentCount: components.length
+      });
+
       const result = await window.electronAPI.createBlueprint(
         selectedProject.path,
         newBlueprint.name.trim(),
         newBlueprint.description.trim(),
         components
       );
+
+      console.log('[BlueprintView] createBlueprint result:', result);
 
       if (result.success && result.blueprint) {
         setBlueprint(result.blueprint);
@@ -512,22 +558,177 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
     );
   }
 
-  // No blueprint state
+  // No blueprint state - render create dialog inline
   if (!blueprint) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-        <AlertCircle className="h-12 w-12 text-muted-foreground" />
-        <div className="text-center">
-          <h3 className="text-lg font-medium">No Blueprint Found</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Create a blueprint to enable sequential component building with verification gates.
-          </p>
+      <>
+        <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="text-lg font-medium">No Blueprint Found</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedProject ? (
+                <>Project: <strong>{selectedProject.name}</strong> - Create a blueprint to enable sequential component building.</>
+              ) : (
+                <span className="text-red-500">No project selected. Please select a project first.</span>
+              )}
+            </p>
+          </div>
+          {error && (
+            <div className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-md">
+              {error}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              console.log('[BlueprintView] Create Blueprint button clicked');
+              setCreateDialogOpen(true);
+            }}
+            disabled={!selectedProject}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Blueprint
+          </Button>
         </div>
-        <Button variant="outline" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Blueprint
-        </Button>
-      </div>
+
+        {/* Create blueprint dialog - must be included here for no-blueprint state */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Blueprint</DialogTitle>
+              <DialogDescription>
+                Define the components that make up your feature. Each component will be built and verified sequentially.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Blueprint name and description */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="blueprint-name">Blueprint Name</Label>
+                  <Input
+                    id="blueprint-name"
+                    placeholder="e.g., Dashboard UI, Authentication System"
+                    value={newBlueprint.name}
+                    onChange={(e) => setNewBlueprint(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="blueprint-description">Description</Label>
+                  <Textarea
+                    id="blueprint-description"
+                    placeholder="What does this feature do?"
+                    value={newBlueprint.description}
+                    onChange={(e) => setNewBlueprint(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Components */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Components</Label>
+                  <Button variant="outline" size="sm" onClick={addComponent}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Component
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {newBlueprint.components.map((component, index) => (
+                    <Card key={index}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Component {index + 1}
+                          </span>
+                          {newBlueprint.components.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => removeComponent(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>Component Name</Label>
+                          <Input
+                            placeholder="e.g., Header Navigation, User Profile Card"
+                            value={component.name}
+                            onChange={(e) => updateComponent(index, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Textarea
+                            placeholder="What does this component do?"
+                            value={component.description}
+                            onChange={(e) => updateComponent(index, 'description', e.target.value)}
+                            rows={2}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Files (comma-separated)</Label>
+                          <Input
+                            placeholder="e.g., src/components/Header.tsx, src/components/Header.css"
+                            value={component.files}
+                            onChange={(e) => updateComponent(index, 'files', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Acceptance Criteria (one per line)</Label>
+                          <Textarea
+                            placeholder="Logo displays correctly&#10;Search bar is functional&#10;User menu opens on click"
+                            value={component.acceptance_criteria}
+                            onChange={(e) => updateComponent(index, 'acceptance_criteria', e.target.value)}
+                            rows={3}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-md mb-4">
+                {error}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateBlueprint}
+                disabled={creating || !newBlueprint.name.trim() || !newBlueprint.components.some(c => c.name.trim())}
+              >
+                {creating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Blueprint
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -715,6 +916,12 @@ export function BlueprintView({ blueprintPath }: BlueprintViewProps) {
               </div>
             </div>
           </div>
+
+          {error && (
+            <div className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-md mb-4">
+              {error}
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>

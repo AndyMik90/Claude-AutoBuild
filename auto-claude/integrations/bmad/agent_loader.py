@@ -23,17 +23,51 @@ class BMADAgentLoader:
     """Load and convert BMAD agents for Auto-Claude use."""
 
     # Mapping of agent types to BMAD agent files
+    # BMAD has 9 agents: analyst, architect, dev, pm, quick-flow-solo-dev, sm, tea, tech-writer, ux-designer
     AGENT_MAPPING = {
+        # Product Manager - Requirements and Product
         "pm": "pm.agent.yaml",
         "product_manager": "pm.agent.yaml",
+
+        # Architect - System Design
         "architect": "architect.agent.yaml",
+        "system_architect": "architect.agent.yaml",
+
+        # Developer - Implementation
         "developer": "dev.agent.yaml",
         "dev": "dev.agent.yaml",
+        "coder": "dev.agent.yaml",
+
+        # UX Designer - User Experience
         "ux": "ux-designer.agent.yaml",
         "ux_designer": "ux-designer.agent.yaml",
+        "designer": "ux-designer.agent.yaml",
+
+        # Test Architect - QA and Testing
         "qa": "tea.agent.yaml",
         "test_architect": "tea.agent.yaml",
+        "tea": "tea.agent.yaml",
+        "tester": "tea.agent.yaml",
+
+        # Business Analyst - Analysis
         "analyst": "analyst.agent.yaml",
+        "business_analyst": "analyst.agent.yaml",
+
+        # Scrum Master - Sprint Management
+        "sm": "sm.agent.yaml",
+        "scrum_master": "sm.agent.yaml",
+        "sprint_manager": "sm.agent.yaml",
+
+        # Technical Writer - Documentation
+        "tech_writer": "tech-writer.agent.yaml",
+        "technical_writer": "tech-writer.agent.yaml",
+        "writer": "tech-writer.agent.yaml",
+        "docs": "tech-writer.agent.yaml",
+
+        # Quick Flow Solo Dev - Fast Implementation
+        "quick_flow": "quick-flow-solo-dev.agent.yaml",
+        "solo_dev": "quick-flow-solo-dev.agent.yaml",
+        "quick_dev": "quick-flow-solo-dev.agent.yaml",
     }
 
     def __init__(self, bmad_path: Optional[Path] = None):
@@ -140,23 +174,47 @@ class BMADAgentLoader:
 
         return self._convert_to_prompt(agent)
 
-    def _convert_to_prompt(self, agent: dict) -> str:
+    def _convert_to_prompt(self, agent_data: dict) -> str:
         """Convert BMAD agent YAML structure to prompt string."""
         parts = []
 
-        # Agent identity
-        name = agent.get('name', 'Assistant')
-        role = agent.get('role', '')
-        parts.append(f"# {name}")
+        # BMAD format uses nested 'agent' key
+        agent = agent_data.get('agent', agent_data)
+
+        # Get metadata (BMAD format: agent.metadata.name, agent.metadata.title)
+        metadata = agent.get('metadata', {})
+        name = metadata.get('name') or metadata.get('title') or 'Assistant'
+        title = metadata.get('title', '')
+
+        # Get persona (BMAD format: agent.persona.role, agent.persona.identity, etc.)
+        persona = agent.get('persona', {})
+        role = persona.get('role', '')
+        identity = persona.get('identity', '')
+        communication_style = persona.get('communication_style', '')
+        principles = persona.get('principles', '')
+
+        # Build prompt
+        if title:
+            parts.append(f"# {title}")
+        else:
+            parts.append(f"# {name}")
+
         if role:
             parts.append(f"\n**Role:** {role}\n")
 
-        # Description
-        description = agent.get('description', '')
-        if description:
-            parts.append(f"\n## Description\n{description}\n")
+        # Identity/Description
+        if identity:
+            parts.append(f"\n## Identity\n{identity}\n")
 
-        # Responsibilities
+        # Communication Style
+        if communication_style:
+            parts.append(f"\n## Communication Style\n{communication_style}\n")
+
+        # Principles/Guidelines
+        if principles:
+            parts.append(f"\n## Principles\n{principles}\n")
+
+        # Legacy format support - Responsibilities, Skills, Guidelines, Constraints
         responsibilities = agent.get('responsibilities', [])
         if responsibilities:
             parts.append("\n## Responsibilities")
@@ -164,7 +222,6 @@ class BMADAgentLoader:
                 parts.append(f"- {resp}")
             parts.append("")
 
-        # Skills
         skills = agent.get('skills', [])
         if skills:
             parts.append("\n## Skills")
@@ -172,7 +229,6 @@ class BMADAgentLoader:
                 parts.append(f"- {skill}")
             parts.append("")
 
-        # Guidelines
         guidelines = agent.get('guidelines', [])
         if guidelines:
             parts.append("\n## Guidelines")
@@ -180,12 +236,22 @@ class BMADAgentLoader:
                 parts.append(f"- {guide}")
             parts.append("")
 
-        # Constraints
         constraints = agent.get('constraints', [])
         if constraints:
             parts.append("\n## Constraints")
             for constraint in constraints:
                 parts.append(f"- {constraint}")
+            parts.append("")
+
+        # Menu commands (BMAD specific)
+        menu = agent.get('menu', [])
+        if menu:
+            parts.append("\n## Available Commands")
+            for item in menu:
+                trigger = item.get('trigger', '')
+                description = item.get('description', '')
+                if trigger and description:
+                    parts.append(f"- **{trigger}**: {description}")
             parts.append("")
 
         return "\n".join(parts)
@@ -222,18 +288,99 @@ class BMADAgentLoader:
             Agent type suitable for this phase
         """
         phase_mapping = {
+            # Discovery & Requirements
             'spec_creation': 'pm',
             'requirements': 'analyst',
             'discovery': 'analyst',
+            'analysis': 'analyst',
+            'prd': 'pm',
+            'product': 'pm',
+
+            # Architecture & Design
             'planning': 'architect',
             'design': 'architect',
+            'architecture': 'architect',
+            'tech_spec': 'architect',
+            'solutioning': 'architect',
+
+            # Implementation
             'implementation': 'developer',
             'coding': 'developer',
+            'development': 'developer',
+            'build': 'developer',
+            'quick_flow': 'quick_flow',
+
+            # Testing & QA
             'testing': 'qa',
             'qa': 'qa',
             'verification': 'qa',
+            'validation': 'qa',
+
+            # UX/UI
             'ux': 'ux',
             'ui': 'ux',
+            'user_experience': 'ux',
+            'ux_design': 'ux',
+
+            # Documentation
+            'documentation': 'tech_writer',
+            'docs': 'tech_writer',
+            'readme': 'tech_writer',
+            'diagrams': 'tech_writer',
+
+            # Sprint Management
+            'sprint': 'sm',
+            'story': 'sm',
+            'sprint_planning': 'sm',
+            'retrospective': 'sm',
         }
 
         return phase_mapping.get(phase.lower(), 'developer')
+
+    def get_all_agents(self) -> dict[str, str]:
+        """
+        Get all available BMAD agents with their prompts.
+
+        Returns:
+            Dictionary of agent_type -> prompt string
+        """
+        agents = {}
+        for agent_name in self.list_agents():
+            prompt = self.get_agent_prompt(agent_name)
+            if prompt:
+                agents[agent_name] = prompt
+        return agents
+
+    def get_agent_metadata(self, agent_type: str) -> dict:
+        """
+        Get agent metadata (name, title, icon, etc.)
+
+        Args:
+            agent_type: Type of agent
+
+        Returns:
+            Dictionary with metadata or empty dict if not found
+        """
+        agent = self.load_agent(agent_type)
+        if not agent:
+            return {}
+
+        agent_data = agent.get('agent', agent)
+        return agent_data.get('metadata', {})
+
+    def get_agent_menu(self, agent_type: str) -> list:
+        """
+        Get agent menu commands (BMAD workflows/actions)
+
+        Args:
+            agent_type: Type of agent
+
+        Returns:
+            List of menu items with triggers and descriptions
+        """
+        agent = self.load_agent(agent_type)
+        if not agent:
+            return []
+
+        agent_data = agent.get('agent', agent)
+        return agent_data.get('menu', [])

@@ -256,6 +256,9 @@ export function Sidebar({
 
 
   const handleNavClick = (view: SidebarView) => {
+    console.log('[Sidebar] handleNavClick called with view:', view);
+    console.log('[Sidebar] effectiveProjectId:', effectiveProjectId);
+    console.log('[Sidebar] onViewChange defined:', !!onViewChange);
     onViewChange?.(view);
   };
 

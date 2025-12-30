@@ -86,6 +86,13 @@ export function App() {
   const [settingsInitialSection, setSettingsInitialSection] = useState<AppSection | undefined>(undefined);
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
+
+  // Debug: log activeView changes
+  useEffect(() => {
+    console.log('[App] activeView changed to:', activeView);
+    console.log('[App] activeProjectId:', activeProjectId);
+    console.log('[App] selectedProjectId:', selectedProjectId);
+  }, [activeView, activeProjectId, selectedProjectId]);
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
 
   // Initialize dialog state

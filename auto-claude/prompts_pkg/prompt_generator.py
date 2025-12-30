@@ -10,10 +10,43 @@ This approach:
 - Reduces token usage by ~80%
 - Keeps the agent focused on ONE task
 - Moves bookkeeping to Python orchestration
+
+BMAD Integration:
+- Enhances prompts with BMAD agent expertise when available
+- Planning phase uses BMAD Architect agent
+- Coding phase uses BMAD Developer agent
+- QA phase uses BMAD Test Architect agent
 """
 
 import json
 from pathlib import Path
+from typing import Optional
+
+# BMAD Integration - Import agent loader
+try:
+    from integrations.bmad.agent_loader import BMADAgentLoader
+    BMAD_AVAILABLE = True
+except ImportError:
+    BMAD_AVAILABLE = False
+    BMADAgentLoader = None
+
+# Global BMAD loader instance (lazy initialized)
+_bmad_loader: Optional["BMADAgentLoader"] = None
+
+
+def get_bmad_loader() -> Optional["BMADAgentLoader"]:
+    """Get or create the BMAD agent loader singleton."""
+    global _bmad_loader
+    if not BMAD_AVAILABLE:
+        return None
+    if _bmad_loader is None:
+        _bmad_loader = BMADAgentLoader()
+        if _bmad_loader.is_available():
+            print(f"[BMAD] Agents available: {', '.join(_bmad_loader.list_agents())}")
+        else:
+            print("[BMAD] BMAD-METHOD not found at expected paths")
+            _bmad_loader = None
+    return _bmad_loader
 
 
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
@@ -233,7 +266,33 @@ Before marking complete, verify:
     # Note: Linear updates are now handled by Python orchestrator via linear_updater.py
     # Agents no longer need to call Linear MCP tools directly
 
-    return "\n".join(sections)
+    prompt = "\n".join(sections)
+
+    # BMAD Enhancement: Inject Developer agent expertise
+    bmad = get_bmad_loader()
+    if bmad:
+        # Determine which BMAD agent to use based on service/phase context
+        # Default to developer for coding tasks
+        agent_type = "developer"
+
+        # Check if this is a specific type of subtask
+        service_lower = service.lower() if service else ""
+        description_lower = description.lower() if description else ""
+
+        if any(kw in service_lower or kw in description_lower for kw in ["test", "qa", "verify", "validate"]):
+            agent_type = "qa"
+        elif any(kw in service_lower or kw in description_lower for kw in ["design", "architecture", "schema"]):
+            agent_type = "architect"
+        elif any(kw in service_lower or kw in description_lower for kw in ["ui", "ux", "interface", "component"]):
+            # Still use developer but could add UX context
+            agent_type = "developer"
+        elif any(kw in service_lower or kw in description_lower for kw in ["doc", "readme", "documentation"]):
+            agent_type = "tech_writer"
+
+        prompt = bmad.enhance_prompt(prompt, agent_type)
+        print(f"[BMAD] Using {agent_type.upper()} agent for subtask {subtask_id}")
+
+    return prompt
 
 
 def generate_planner_prompt(spec_dir: Path, project_dir: Path | None = None) -> str:
@@ -289,7 +348,15 @@ not in the spec directory.
     # Note: Linear task creation and updates are now handled by Python orchestrator
     # via linear_updater.py - agents no longer need Linear instructions in prompts
 
-    return header + prompt
+    result = header + prompt
+
+    # BMAD Enhancement: Inject Architect agent expertise for planning
+    bmad = get_bmad_loader()
+    if bmad:
+        result = bmad.enhance_prompt(result, "architect")
+        print("[BMAD] Using ARCHITECT agent for planning phase")
+
+    return result
 
 
 def load_subtask_context(

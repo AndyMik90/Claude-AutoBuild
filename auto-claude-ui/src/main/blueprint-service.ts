@@ -5,12 +5,51 @@
  * Loads blueprints, triggers builds, and manages component status.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../shared/constants';
+
+// Store the Auto-Claude source path (set during configuration)
+let autoBuildSourcePath: string | null = null;
+
+/**
+ * Configure the blueprint service with the Auto-Claude source path
+ */
+export function configureBlueprintService(sourcePath: string): void {
+  autoBuildSourcePath = sourcePath;
+  console.log('[BlueprintService] Configured with source path:', sourcePath);
+}
+
+/**
+ * Get the Auto-Claude source path
+ */
+function getAutoBuildSourcePath(): string {
+  if (autoBuildSourcePath) {
+    return autoBuildSourcePath;
+  }
+
+  // Fallback: try to find it relative to the app
+  const possiblePaths = [
+    // Development: running from source
+    path.join(process.cwd(), 'auto-claude'),
+    path.join(app.getAppPath(), '..', 'auto-claude'),
+    // Look for it in common locations
+    path.join(process.env.HOME || '', 'Desktop', 'Auto-Claude', 'auto-claude'),
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(path.join(p, 'integrations', 'bmad', 'blueprint_build.py'))) {
+      autoBuildSourcePath = p;
+      return p;
+    }
+  }
+
+  // Last resort: use current working directory
+  return path.join(process.cwd(), 'auto-claude');
+}
 
 interface Blueprint {
   name: string;
@@ -119,11 +158,13 @@ function saveBlueprint(blueprintPath: string, blueprint: Blueprint): boolean {
 /**
  * Get Python path for running Auto-Claude
  */
-function getPythonPath(projectPath: string): string {
+function getPythonPath(): string {
+  const sourcePath = getAutoBuildSourcePath();
+
   // Check for venv in auto-claude directory
   const venvPaths = [
-    path.join(projectPath, 'auto-claude', '.venv', 'bin', 'python'),
-    path.join(projectPath, '.venv', 'bin', 'python'),
+    path.join(sourcePath, '.venv', 'bin', 'python'),
+    path.join(sourcePath, '..', '.venv', 'bin', 'python'),
     'python3',
     'python',
   ];
@@ -135,6 +176,14 @@ function getPythonPath(projectPath: string): string {
   }
 
   return 'python3';
+}
+
+/**
+ * Get the blueprint_build.py script path
+ */
+function getBlueprintScriptPath(): string {
+  const sourcePath = getAutoBuildSourcePath();
+  return path.join(sourcePath, 'integrations', 'bmad', 'blueprint_build.py');
 }
 
 /**
@@ -174,14 +223,8 @@ export function initBlueprintService(): void {
         return { success: false, error: 'Blueprint not found' };
       }
 
-      const pythonPath = getPythonPath(projectPath);
-      const scriptPath = path.join(
-        projectPath,
-        'auto-claude',
-        'integrations',
-        'bmad',
-        'blueprint_build.py'
-      );
+      const pythonPath = getPythonPath();
+      const scriptPath = getBlueprintScriptPath();
 
       // Spawn the build process
       const buildProcess = spawn(pythonPath, [
@@ -189,7 +232,7 @@ export function initBlueprintService(): void {
         '--project', projectPath,
         '--blueprint', blueprintPath,
       ], {
-        cwd: projectPath,
+        cwd: getAutoBuildSourcePath(),
         stdio: 'inherit',
         detached: false,
       });
@@ -237,14 +280,8 @@ export function initBlueprintService(): void {
       saveBlueprint(blueprintPath, blueprint);
 
       // Start the build (it will pick up this component as next pending)
-      const pythonPath = getPythonPath(projectPath);
-      const scriptPath = path.join(
-        projectPath,
-        'auto-claude',
-        'integrations',
-        'bmad',
-        'blueprint_build.py'
-      );
+      const pythonPath = getPythonPath();
+      const scriptPath = getBlueprintScriptPath();
 
       const buildProcess = spawn(pythonPath, [
         scriptPath,
@@ -252,7 +289,7 @@ export function initBlueprintService(): void {
         '--blueprint', blueprintPath,
         '--max-iterations', '1',  // Just fix this one component
       ], {
-        cwd: projectPath,
+        cwd: getAutoBuildSourcePath(),
         stdio: 'inherit',
         detached: false,
       });
@@ -307,8 +344,16 @@ export function initBlueprintService(): void {
 
   // Create new blueprint
   ipcMain.handle(IPC_CHANNELS.BLUEPRINT_CREATE, async (_event, { projectPath, name, description, components }) => {
+    console.log('[BlueprintService] BLUEPRINT_CREATE called with:', {
+      projectPath,
+      name,
+      description,
+      componentCount: components?.length
+    });
+
     try {
       const blueprintPath = path.join(projectPath, '.auto-claude', 'blueprint.yaml');
+      console.log('[BlueprintService] Will create blueprint at:', blueprintPath);
 
       // Ensure directory exists
       const dir = path.dirname(blueprintPath);
@@ -342,9 +387,11 @@ export function initBlueprintService(): void {
       };
 
       saveBlueprint(blueprintPath, blueprint);
+      console.log('[BlueprintService] Blueprint created successfully at:', blueprintPath);
 
       return { success: true, blueprint, path: blueprintPath };
     } catch (error) {
+      console.error('[BlueprintService] Error creating blueprint:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

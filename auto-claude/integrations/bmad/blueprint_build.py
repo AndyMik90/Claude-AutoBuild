@@ -4,6 +4,7 @@ Blueprint Build Orchestrator
 
 This script is called by the Electron UI to orchestrate blueprint builds.
 It processes components sequentially with verification gates.
+Integrates BMAD agents for enhanced AI-powered development.
 
 Usage:
     python blueprint_build.py --project /path/to/project --blueprint /path/to/blueprint.yaml
@@ -13,6 +14,7 @@ Usage:
 import argparse
 import sys
 import asyncio
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -22,6 +24,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from integrations.bmad.blueprint import BlueprintManager, ComponentStatus
 from integrations.bmad.verification import VerificationGate
+from integrations.bmad.agent_loader import BMADAgentLoader
+from integrations.bmad.workflow_loader import BMADWorkflowLoader
 
 
 class BlueprintBuildOrchestrator:
@@ -38,6 +42,20 @@ class BlueprintBuildOrchestrator:
         self.max_iterations = max_iterations
         self.manager = BlueprintManager(blueprint_path)
         self.verification = VerificationGate(project_path)
+
+        # Initialize BMAD agent loader
+        self.bmad_loader = BMADAgentLoader()
+        if self.bmad_loader.is_available():
+            print(f"[BMAD] Agents available: {', '.join(self.bmad_loader.list_agents())}")
+        else:
+            print("[BMAD] BMAD-METHOD not found, using default prompts")
+
+        # Initialize BMAD workflow loader
+        self.workflow_loader = BMADWorkflowLoader()
+        if self.workflow_loader.is_available():
+            print(f"[BMAD] Workflow phases: {', '.join(self.workflow_loader.list_workflow_phases())}")
+        else:
+            print("[BMAD] No workflows available")
 
     async def run(self) -> bool:
         """
@@ -177,28 +195,56 @@ class BlueprintBuildOrchestrator:
         """
         Build a single component.
 
-        This method integrates with Auto-Claude's agent system to implement
-        the component based on its description and acceptance criteria.
+        This method integrates with Auto-Claude's agent system and BMAD agents
+        to implement the component based on its description and acceptance criteria.
         """
         try:
-            # Import the agent system
-            from agents.session import AgentSession
-            from agents.prompts import load_prompt
+            # Import the Auto-Claude agent system
+            from core.client import create_client
+            from agents.session import run_agent_session
+            from task_logger import LogPhase
 
-            # Prepare the build prompt
-            prompt = self._create_build_prompt(component)
+            # Create a spec directory for this component build
+            spec_dir = self.project_path / ".auto-claude" / "specs" / component.id
+            spec_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create and run the agent session
-            session = AgentSession(
-                project_path=self.project_path,
-                prompt=prompt,
-                mode="coder"
+            # Prepare the build prompt with BMAD developer agent enhancement
+            base_prompt = self._create_build_prompt(component)
+
+            if self.bmad_loader.is_available():
+                # Enhance with BMAD developer agent expertise
+                prompt = self.bmad_loader.enhance_prompt(base_prompt, "developer")
+                print("[BMAD] Using Developer agent for implementation")
+
+                # Add workflow context if available
+                if self.workflow_loader.is_available():
+                    workflow_context = self.workflow_loader.get_phase_context("implementation")
+                    if workflow_context:
+                        prompt = f"{workflow_context}\n\n---\n\n{prompt}"
+                        print("[BMAD] Added implementation workflow context")
+            else:
+                prompt = base_prompt
+
+            # Create the Claude SDK client
+            client = create_client(
+                project_dir=self.project_path,
+                spec_dir=spec_dir,
+                model="sonnet",  # Using Claude Sonnet for coding
+                agent_type="coder",
+                max_thinking_tokens=None  # No extended thinking for coding
             )
 
-            # Run the session
-            result = await session.run()
+            # Run the agent session
+            status, response = await run_agent_session(
+                client=client,
+                message=prompt,
+                spec_dir=spec_dir,
+                verbose=True,
+                phase=LogPhase.CODING
+            )
 
-            return result.success if hasattr(result, 'success') else True
+            # Check if session completed successfully
+            return status in ("complete", "continue")
 
         except ImportError as e:
             # Fallback if agent system not available
@@ -211,6 +257,8 @@ class BlueprintBuildOrchestrator:
 
         except Exception as e:
             print(f"[ERROR] Build failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _create_build_prompt(self, component) -> str:
