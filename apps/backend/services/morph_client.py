@@ -21,12 +21,14 @@ Environment Variables:
 - MORPH_TIMEOUT: Request timeout in seconds (default: 60)
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -111,7 +113,7 @@ class MorphConfig:
     health_cache_ttl: int = 60
 
     @classmethod
-    def from_env(cls) -> "MorphConfig":
+    def from_env(cls) -> MorphConfig:
         """Create configuration from environment variables."""
         return cls(
             api_key=os.environ.get("MORPH_API_KEY", ""),
@@ -144,7 +146,7 @@ class ApplyResult:
     processing_time_ms: int = 0
 
     @classmethod
-    def from_response(cls, data: dict[str, Any]) -> "ApplyResult":
+    def from_response(cls, data: dict[str, Any]) -> ApplyResult:
         """Create ApplyResult from API response data."""
         result = data.get("result", {})
         metadata = data.get("metadata", {})
@@ -177,7 +179,7 @@ class ValidationResult:
     permissions: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_response(cls, data: dict[str, Any]) -> "ValidationResult":
+    def from_response(cls, data: dict[str, Any]) -> ValidationResult:
         """Create ValidationResult from API response data."""
         account = data.get("account", {})
         rate_limit = account.get("rate_limit", {})
@@ -217,7 +219,7 @@ class MorphClient:
         Always call close() when done, or use as a context manager.
     """
 
-    def __init__(self, config: Optional["MorphConfig"] = None):
+    def __init__(self, config: MorphConfig | None = None):
         """
         Initialize the Morph client.
 
@@ -471,7 +473,7 @@ class MorphClient:
             self._client = None
         self._health_cache = None
 
-    def __enter__(self) -> "MorphClient":
+    def __enter__(self) -> MorphClient:
         """Context manager entry."""
         return self
 
@@ -500,7 +502,7 @@ def get_morph_api_key() -> str:
     return os.environ.get("MORPH_API_KEY", "")
 
 
-def create_morph_client() -> Optional["MorphClient"]:
+def create_morph_client() -> MorphClient | None:
     """
     Create a Morph client if enabled and configured.
 
