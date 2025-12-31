@@ -38,10 +38,17 @@ function findPython() {
         encoding: 'utf8',
         shell: true,
       });
-      // Accept Python 3.12, 3.13, or 3.14
-      if (result.status === 0 && (result.stdout.includes('3.12') || result.stdout.includes('3.13') || result.stdout.includes('3.14'))) {
-        console.log(`Found Python 3.12+: ${cmd} -> ${result.stdout.trim()}`);
-        return cmd;
+      // Accept Python 3.12+ using proper version parsing
+      if (result.status === 0) {
+        const versionMatch = result.stdout.match(/Python (\d+)\.(\d+)/);
+        if (versionMatch) {
+          const major = parseInt(versionMatch[1], 10);
+          const minor = parseInt(versionMatch[2], 10);
+          if (major === 3 && minor >= 12) {
+            console.log(`Found Python 3.12+: ${cmd} -> ${result.stdout.trim()}`);
+            return cmd;
+          }
+        }
       }
     } catch (e) {
       // Continue to next candidate
@@ -59,7 +66,7 @@ function getPipPath() {
 
 // Main installation
 async function main() {
-  // Check for Python 3.12
+  // Check for Python 3.12+
   const python = findPython();
   if (!python) {
     console.error('\nError: Python 3.12+ is required but not found.');
