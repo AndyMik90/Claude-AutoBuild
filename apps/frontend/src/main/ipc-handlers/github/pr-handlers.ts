@@ -292,9 +292,22 @@ function parseLogLine(line: string): { source: string; content: string; isError:
 
   // Match final summary lines (Status:, Summary:, Findings:, etc.)
   const summaryPatterns = [
-    /^(Status|Summary|Findings|Verdict):\s*(.*)$/,
-    /^PR #\d+ Review Complete$/,
+    /^(Status|Summary|Findings|Verdict|Is Follow-up|Resolved|Still Open|New Issues):\s*(.*)$/,
+    /^PR #\d+ (Follow-up )?Review Complete$/,
     /^={10,}$/,
+    /^-{10,}$/,
+    // Markdown headers (## Summary, ### Resolution Status, etc.)
+    /^#{1,4}\s+.+$/,
+    // Bullet points with content (- ✅ **Resolved**, - **Blocking Issues**, etc.)
+    /^[-*]\s+.+$/,
+    // Indented bullet points for findings (  - [MEDIUM] ..., . [LOW] ...)
+    /^\s+[-.*]\s+\[.+$/,
+    // Lines with bold text at start (**Why NEEDS_REVISION:**, **Recommended Actions:**)
+    /^\*\*.+\*\*:?\s*$/,
+    // Numbered list items (1. Add DANGEROUS_FLAGS...)
+    /^\d+\.\s+.+$/,
+    // File references (File: apps/backend/...)
+    /^\s+File:\s+.+$/,
   ];
   for (const pattern of summaryPatterns) {
     const match = line.match(pattern);
