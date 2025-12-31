@@ -392,11 +392,11 @@ export function App() {
       const updatedTask = tasks.find(
         (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
       );
-      if (updatedTask) {
+      if (updatedTask && updatedTask !== selectedTask) {
         setSelectedTask(updatedTask);
       }
     }
-  }, [tasks, selectedTask?.id, selectedTask?.specId, selectedTask]);
+  }, [tasks, selectedTask?.id, selectedTask?.specId]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
