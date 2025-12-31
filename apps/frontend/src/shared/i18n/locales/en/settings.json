@@ -339,7 +339,25 @@
     "apiKeyLabel": "Morph API Key",
     "apiKeyDescription": "Enter your Morph API key to enable the service",
     "apiKeyPlaceholder": "morph_...",
-    "noApiKeyWarning": "Morph is enabled but no API key is configured. The system will fall back to default apply tools until a valid API key is provided."
+    "noApiKeyWarning": "Morph is enabled but no API key is configured. The system will fall back to default apply tools until a valid API key is provided.",
+    "validateKey": "Validate",
+    "status": {
+      "valid": "API key is valid",
+      "invalid": "Invalid API key",
+      "serviceUnavailable": "Service unavailable",
+      "error": "Validation error",
+      "keyValidated": "Your Morph API key has been validated and is ready to use."
+    },
+    "errors": {
+      "emptyApiKey": "Please enter an API key before validating.",
+      "invalidApiKey": "The API key is invalid or has been revoked. Please check your key and try again.",
+      "serviceUnavailable": "The Morph service is currently unavailable. Your settings have been saved and will be used when the service becomes available.",
+      "networkError": "Could not connect to the Morph service. Please check your internet connection.",
+      "timeout": "The connection to Morph timed out. Please try again later.",
+      "couldNotVerify": "Could not verify the API key at this time. Your settings have been saved.",
+      "validationFailed": "Failed to validate the API key. Please try again.",
+      "fallbackActive": "The system will use default apply tools (Edit/Write) until the service is available."
+    }
   },
   "mcp": {
     "title": "MCP Server Overview",

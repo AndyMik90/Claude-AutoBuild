@@ -339,7 +339,25 @@
     "apiKeyLabel": "Clé API Morph",
     "apiKeyDescription": "Entrez votre clé API Morph pour activer le service",
     "apiKeyPlaceholder": "morph_...",
-    "noApiKeyWarning": "Morph est activé mais aucune clé API n'est configurée. Le système utilisera les outils d'application par défaut jusqu'à ce qu'une clé API valide soit fournie."
+    "noApiKeyWarning": "Morph est activé mais aucune clé API n'est configurée. Le système utilisera les outils d'application par défaut jusqu'à ce qu'une clé API valide soit fournie.",
+    "validateKey": "Valider",
+    "status": {
+      "valid": "Clé API valide",
+      "invalid": "Clé API invalide",
+      "serviceUnavailable": "Service indisponible",
+      "error": "Erreur de validation",
+      "keyValidated": "Votre clé API Morph a été validée et est prête à l'emploi."
+    },
+    "errors": {
+      "emptyApiKey": "Veuillez entrer une clé API avant de valider.",
+      "invalidApiKey": "La clé API est invalide ou a été révoquée. Veuillez vérifier votre clé et réessayer.",
+      "serviceUnavailable": "Le service Morph est actuellement indisponible. Vos paramètres ont été sauvegardés et seront utilisés quand le service sera disponible.",
+      "networkError": "Impossible de se connecter au service Morph. Veuillez vérifier votre connexion internet.",
+      "timeout": "La connexion à Morph a expiré. Veuillez réessayer plus tard.",
+      "couldNotVerify": "Impossible de vérifier la clé API pour le moment. Vos paramètres ont été sauvegardés.",
+      "validationFailed": "Échec de la validation de la clé API. Veuillez réessayer.",
+      "fallbackActive": "Le système utilisera les outils par défaut (Edit/Write) jusqu'à ce que le service soit disponible."
+    }
   },
   "mcp": {
     "title": "Aperçu des serveurs MCP",
