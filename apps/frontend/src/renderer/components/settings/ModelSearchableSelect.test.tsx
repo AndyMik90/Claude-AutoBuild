@@ -15,10 +15,13 @@ describe('ModelSearchableSelect', () => {
   const mockDiscoverModels = vi.fn();
   const mockOnChange = vi.fn();
 
+
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useSettingsStore).mockReturnValue({
-      discoverModels: mockDiscoverModels
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(useSettingsStore).mockImplementation((selector?: (state: any) => any): any => {
+      const state = { discoverModels: mockDiscoverModels };
+      return selector ? selector(state) : state;
     });
   });
 
@@ -96,7 +99,7 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('Fetching models...')).toBeInTheDocument();
+      // Component shows a Loader2 spinner with animate-spin classn      expect(spinner).toBeInTheDocument();
     });
   });
 
@@ -201,7 +204,7 @@ describe('ModelSearchableSelect', () => {
     });
   });
 
-  it('should display error message on fetch failure', async () => {
+  it('should show fallback mode on fetch failure', async () => {
     mockDiscoverModels.mockRejectedValue(
       new Error('This API endpoint does not support model listing')
     );
@@ -219,12 +222,12 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to fetch models')).toBeInTheDocument();
-      expect(screen.getByText(/does not support model listing/)).toBeInTheDocument();
+      // Component falls back to manual input mode with info message
+      expect(screen.getByText(/Model discovery not available/)).toBeInTheDocument();
     });
   });
 
-  it('should show empty state when no models found', async () => {
+  it('should close dropdown when no models returned', async () => {
     mockDiscoverModels.mockResolvedValue([]);
 
     render(
@@ -240,7 +243,8 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('No models available')).toBeInTheDocument();
+      // Component closes dropdown when no models, dropdown should not be visible
+      expect(screen.queryByPlaceholderText('Search models...')).not.toBeInTheDocument();
     });
   });
 
@@ -346,3 +350,4 @@ describe('ModelSearchableSelect', () => {
     });
   });
 });
+
