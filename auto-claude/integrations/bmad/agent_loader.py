@@ -146,7 +146,7 @@ class BMADAgentLoader:
         if not agent_path.exists():
             return None
 
-        with open(agent_path) as f:
+        with open(agent_path, encoding="utf-8") as f:
             return yaml.safe_load(f)
 
     def get_agent_prompt(self, agent_type: str) -> str:

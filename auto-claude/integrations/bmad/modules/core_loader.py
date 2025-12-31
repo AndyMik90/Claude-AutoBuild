@@ -18,6 +18,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 from ..shared.cache import DiskLRUCache
+from ..shared.schema_validator import SchemaType, validate_yaml
 from ..shared.token_budget import TokenBudget, TokenCategory, estimate_tokens
 
 
@@ -38,6 +39,26 @@ class AgentPersona:
     module: str = "core"
     source_path: Path | None = None
     token_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentPersona":
+        """Reconstruct AgentPersona from dict (e.g., from cache)."""
+        source = data.get("source_path")
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            title=data.get("title", ""),
+            role=data.get("role", ""),
+            identity=data.get("identity", ""),
+            communication_style=data.get("communication_style", ""),
+            principles=data.get("principles", []),
+            critical_actions=data.get("critical_actions", []),
+            menu=data.get("menu", []),
+            icon=data.get("icon", ""),
+            module=data.get("module", "core"),
+            source_path=Path(source) if source else None,
+            token_count=data.get("token_count", 0),
+        )
 
 
 @dataclass
@@ -141,6 +162,9 @@ class CoreModuleLoader:
         if self.cache:
             cached = self.cache.get(cache_key)
             if cached:
+                # Convert dict back to AgentPersona if needed
+                if isinstance(cached, dict):
+                    return AgentPersona.from_dict(cached)
                 return cached
 
         if not agent_path.exists():
@@ -162,6 +186,18 @@ class CoreModuleLoader:
         except yaml.YAMLError as e:
             logger.warning("Failed to parse YAML file %s: %s", agent_path, e)
             return None
+
+        # Validate schema before processing
+        validation = validate_yaml(data, SchemaType.AGENT)
+        if not validation.valid:
+            logger.warning(
+                "Agent file %s failed schema validation: %s",
+                agent_path,
+                validation.errors,
+            )
+            return None
+        if validation.warnings:
+            logger.info("Agent file %s has warnings: %s", agent_path, validation.warnings)
 
         if not isinstance(data, dict) or "agent" not in data:
             return None

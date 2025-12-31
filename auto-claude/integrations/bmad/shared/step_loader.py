@@ -11,6 +11,7 @@ Based on BMAD Full Integration Product Brief ADR-001.
 """
 
 import re
+from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
@@ -19,6 +20,22 @@ from typing import Any
 
 from .cache import DiskLRUCache
 from .token_budget import TokenBudget, TokenCategory, estimate_tokens
+
+
+class BoundedLRUDict(OrderedDict):
+    """OrderedDict with a maximum size that evicts oldest entries."""
+
+    def __init__(self, maxsize: int = 100, *args, **kwargs):
+        self.maxsize = maxsize
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        while len(self) > self.maxsize:
+            oldest = next(iter(self))
+            del self[oldest]
 
 
 class StepFormat(Enum):
@@ -93,16 +110,20 @@ class StepFileLoader:
         self.bmad_root = Path(bmad_root)
         self.cache = cache
         self.token_budget = token_budget
-        self._loaded_steps: dict[str, StepContent] = {}
+        # Bounded LRU dict to prevent unbounded memory growth
+        self._loaded_steps: BoundedLRUDict = BoundedLRUDict(maxsize=100)
 
     def resolve_path(self, path_ref: str, workflow_path: Path | None = None) -> Path:
         """
-        Resolve BMAD path references.
+        Resolve BMAD path references with security validation.
 
         Handles patterns like:
         - {project-root}/_bmad/...
         - {installed_path}/step-1.md
         - Relative paths from workflow location
+
+        Security: Validates resolved path is within allowed directories
+        to prevent path traversal attacks.
         """
         # Replace common BMAD placeholders
         path_str = path_ref
@@ -125,7 +146,30 @@ class StepFileLoader:
             else:
                 resolved = self.bmad_root / resolved
 
-        return resolved.resolve()
+        resolved = resolved.resolve()
+
+        # SECURITY: Validate resolved path is within allowed directories
+        # Prevent path traversal attacks via malicious workflow references
+        allowed_roots = [self.bmad_root.resolve()]
+        if workflow_path:
+            allowed_roots.append(workflow_path.parent.resolve())
+
+        is_safe = False
+        for allowed_root in allowed_roots:
+            try:
+                resolved.relative_to(allowed_root)
+                is_safe = True
+                break
+            except ValueError:
+                continue
+
+        if not is_safe:
+            raise ValueError(
+                f"Security: Path traversal blocked. Resolved path '{resolved}' "
+                f"is outside allowed directories."
+            )
+
+        return resolved
 
     def discover_steps(self, workflow_path: Path) -> list[StepReference]:
         """

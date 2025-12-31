@@ -47,7 +47,7 @@ def check_bmad():
     try:
         bmad = BMADIntegration(bmad_path=bmad_path)
         print("   ✅ BMADIntegration initialized")
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         print(f"   ❌ Init failed: {e}")
         issues.append(f"Init error: {e}")
         return issues
@@ -79,7 +79,7 @@ def check_bmad():
 
         if len(agents) < 23:
             issues.append(f"Only {len(agents)}/23 agents loaded")
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError) as e:
         print(f"   ❌ Error: {e}")
         issues.append(f"Agent error: {e}")
 
@@ -98,7 +98,7 @@ def check_bmad():
         for mod, count in sorted(by_module.items()):
             print(f"      • {mod}: {count} workflows")
 
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError) as e:
         print(f"   ❌ Error: {e}")
         issues.append(f"Workflow error: {e}")
 
@@ -116,7 +116,7 @@ def check_bmad():
         if pct > 80:
             print("   ⚠️  WARNING: High token usage!")
             issues.append("High token usage")
-    except Exception as e:
+    except (KeyError, TypeError, ValueError) as e:
         print(f"   ❌ Error: {e}")
         issues.append(f"Token error: {e}")
 
@@ -130,7 +130,7 @@ def check_bmad():
 
         print(f"   ✅ Memory cache: {mem_size} entries")
         print(f"   ✅ Disk cache: {disk_count} files ({disk_bytes / 1024:.1f} KB)")
-    except Exception as e:
+    except (KeyError, TypeError, ZeroDivisionError) as e:
         print(f"   ❌ Error: {e}")
 
     # 9. Test agent prompt loading
@@ -142,7 +142,7 @@ def check_bmad():
         else:
             print("   ⚠️  Developer agent prompt empty or short")
             issues.append("Agent prompts may not be loading")
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError, OSError) as e:
         print(f"   ❌ Error: {e}")
         issues.append(f"Prompt error: {e}")
 
@@ -166,7 +166,7 @@ def check_bmad():
         else:
             print("   ⚠️  Could not parse quick-dev workflow")
             issues.append("Workflow parsing issue")
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError, OSError) as e:
         print(f"   ❌ Error: {e}")
         issues.append(f"Parse error: {e}")
 

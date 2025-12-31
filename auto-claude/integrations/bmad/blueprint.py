@@ -212,7 +212,7 @@ class BlueprintManager:
         if not self.path.exists():
             raise FileNotFoundError(f"Blueprint not found: {self.path}")
 
-        with open(self.path) as f:
+        with open(self.path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         # Handle both wrapped and unwrapped formats
@@ -224,7 +224,7 @@ class BlueprintManager:
     def save(self) -> None:
         """Save blueprint to file."""
         data = {"blueprint": self.blueprint.to_dict()}
-        with open(self.path, "w") as f:
+        with open(self.path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 
     def get_next_pending(self) -> BlueprintComponent | None:

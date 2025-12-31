@@ -59,12 +59,39 @@ Based on BMAD Full Integration Product Brief (2025-12-28)
 """
 
 import asyncio
+import logging
 import os
+from collections import OrderedDict
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+class BoundedSessionDict(OrderedDict):
+    """OrderedDict with maximum size that evicts oldest sessions."""
+
+    MAX_SESSIONS = 50  # Maximum concurrent sessions
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        while len(self) > self.MAX_SESSIONS:
+            oldest_key = next(iter(self))
+            oldest_session = self[oldest_key]
+            logger.warning(
+                "Evicting oldest session %s to stay within limit of %d",
+                oldest_key,
+                self.MAX_SESSIONS,
+            )
+            del self[oldest_key]
 
 from .modules.bmb_loader import BMBAgent, BMBModuleLoader
 from .modules.bmgd_loader import BMGDAgent, BMGDAgentRole, BMGDModuleLoader, BMGDPhase
@@ -235,8 +262,8 @@ class BMADIntegration:
             bmad_root=self.bmad_path, cache=self.cache, token_budget=self.token_budget
         )
 
-        # Active sessions
-        self._sessions: dict[str, WorkflowSession] = {}
+        # Active sessions (bounded to prevent memory exhaustion)
+        self._sessions: BoundedSessionDict = BoundedSessionDict()
 
     def _init_loaders(self) -> None:
         """Initialize module loaders."""
@@ -573,6 +600,15 @@ class BMADIntegration:
         self._sessions[session_id] = session
 
         # Discover steps
+        if not workflow.source_path:
+            yield StepResult(
+                step_number=0,
+                goal="Discover steps",
+                status=ExecutionStatus.FAILED,
+                error="Workflow has no source path",
+            )
+            return
+
         step_refs = self.step_loader.discover_steps(workflow.source_path)
 
         if not step_refs:

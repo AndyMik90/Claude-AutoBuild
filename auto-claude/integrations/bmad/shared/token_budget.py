@@ -11,6 +11,7 @@ Based on BMAD Full Integration Product Brief ADR-001.
 """
 
 import threading
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -98,7 +99,8 @@ class TokenBudget:
     ):
         self.total_budget = total_budget
         self._lock = threading.Lock()
-        self._history: list[UsageSnapshot] = []
+        # Use deque with maxlen for efficient bounded history (no list recreation)
+        self._history: deque[UsageSnapshot] = deque(maxlen=100)
 
         # Initialize allocations
         if allocations:
@@ -225,11 +227,8 @@ class TokenBudget:
             total_budget=self.total_budget,
             by_category={cat: alloc.used for cat, alloc in self._allocations.items()},
         )
+        # deque with maxlen automatically discards oldest entries when full
         self._history.append(snapshot)
-
-        # Keep last 100 snapshots
-        if len(self._history) > 100:
-            self._history = self._history[-100:]
 
     def estimate_tokens(self, text: str) -> int:
         """

@@ -8,7 +8,7 @@ Two-tier caching strategy:
 Features:
 - TTL-based expiration (default 1 hour)
 - LRU eviction for memory cache
-- HMAC-based integrity verification
+- HMAC-based integrity verification with secure key storage
 - Automatic cache invalidation on source file changes
 
 Based on BMAD Full Integration Product Brief ADR-002.
@@ -17,7 +17,9 @@ Based on BMAD Full Integration Product Brief ADR-002.
 import hashlib
 import hmac
 import json
+import logging
 import os
+import secrets
 import sys
 import threading
 import time
@@ -25,6 +27,8 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_value(obj: Any) -> Any:
@@ -231,17 +235,45 @@ class DiskLRUCache(Generic[T]):
         self.default_ttl = default_ttl
 
     def _get_machine_key(self) -> str:
-        """Generate a machine-specific key for HMAC."""
-        import platform
+        """
+        Get or generate a secure key for HMAC.
 
-        # Cross-platform user ID: os.getuid() on POSIX, USERNAME on Windows
-        user_id = (
-            os.getuid()
-            if hasattr(os, "getuid")
-            else os.environ.get("USERNAME", "default")
-        )
-        machine_id = f"{platform.node()}-{user_id}"
-        return hashlib.sha256(machine_id.encode()).hexdigest()[:32]
+        Security: Uses a cryptographically random key stored in a protected file,
+        rather than deriving from predictable machine identifiers.
+        """
+        key_file = self.cache_dir / ".bmad_cache_key"
+
+        # Try to read existing key
+        if key_file.exists():
+            try:
+                key = key_file.read_text().strip()
+                if len(key) == 64:  # Valid hex key
+                    return key
+            except OSError:
+                pass
+
+        # Generate new cryptographically random key
+        key = secrets.token_hex(32)
+
+        # Store key with restricted permissions
+        try:
+            key_file.write_text(key)
+            # Set restrictive permissions (owner read/write only)
+            if hasattr(os, "chmod"):
+                os.chmod(key_file, 0o600)
+        except OSError as e:
+            logger.warning(f"Could not persist cache key: {e}")
+            # Fall back to machine-derived key if file write fails
+            import platform
+            user_id = (
+                os.getuid()
+                if hasattr(os, "getuid")
+                else os.environ.get("USERNAME", "default")
+            )
+            machine_id = f"{platform.node()}-{user_id}-{secrets.token_hex(8)}"
+            key = hashlib.sha256(machine_id.encode()).hexdigest()
+
+        return key
 
     def _compute_hmac(self, data: bytes) -> str:
         """Compute HMAC for data integrity."""
@@ -270,7 +302,7 @@ class DiskLRUCache(Generic[T]):
             return None
 
         try:
-            with open(cache_file) as f:
+            with open(cache_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Verify HMAC
@@ -315,7 +347,7 @@ class DiskLRUCache(Generic[T]):
             # Corrupted or invalid cache file
             try:
                 cache_file.unlink()
-            except Exception:
+            except OSError:
                 pass
             return None
 
@@ -361,10 +393,11 @@ class DiskLRUCache(Generic[T]):
         }
 
         try:
-            with open(cache_file, "w") as f:
+            with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(disk_data, f)
-        except (OSError, TypeError):
-            pass  # Disk write failed, memory cache still works
+        except (OSError, TypeError) as e:
+            # Log the failure but continue - memory cache still works
+            logger.warning(f"Cache disk write failed for key '{key}': {e}")
 
     def invalidate(self, key: str) -> bool:
         """Remove item from both caches."""
@@ -388,12 +421,12 @@ class DiskLRUCache(Generic[T]):
         # For disk, we need to scan files
         for cache_file in self.cache_dir.glob("*.cache"):
             try:
-                with open(cache_file) as f:
+                with open(cache_file, encoding="utf-8") as f:
                     data = json.load(f)
                 if data.get("key", "").startswith(prefix):
                     cache_file.unlink()
                     count += 1
-            except Exception:
+            except (json.JSONDecodeError, OSError, KeyError):
                 pass
 
         return count
@@ -436,18 +469,18 @@ class DiskLRUCache(Generic[T]):
 
         for cache_file in self.cache_dir.glob("*.cache"):
             try:
-                with open(cache_file) as f:
+                with open(cache_file, encoding="utf-8") as f:
                     data = json.load(f)
 
                 if now > data.get("expires_at", 0):
                     cache_file.unlink()
                     removed += 1
-            except Exception:
+            except (json.JSONDecodeError, OSError, KeyError):
                 # Invalid file, remove it
                 try:
                     cache_file.unlink()
                     removed += 1
-                except Exception:
+                except OSError:
                     pass
 
         return removed

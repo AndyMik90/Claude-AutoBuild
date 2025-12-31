@@ -279,7 +279,12 @@ class WorkflowParser:
         return workflow
 
     def _resolve_path(self, path_ref: str, workflow_path: Path) -> Path:
-        """Resolve BMAD path references."""
+        """
+        Resolve BMAD path references with security validation.
+
+        Security: Validates resolved path is within allowed directories
+        to prevent path traversal attacks.
+        """
         path_str = path_ref
 
         # Handle placeholders
@@ -290,7 +295,27 @@ class WorkflowParser:
         if not resolved.is_absolute():
             resolved = workflow_path.parent / resolved
 
-        return resolved.resolve()
+        resolved = resolved.resolve()
+
+        # SECURITY: Validate resolved path is within allowed directories
+        allowed_roots = [self.bmad_root.resolve(), workflow_path.parent.resolve()]
+
+        is_safe = False
+        for allowed_root in allowed_roots:
+            try:
+                resolved.relative_to(allowed_root)
+                is_safe = True
+                break
+            except ValueError:
+                continue
+
+        if not is_safe:
+            raise ValueError(
+                f"Security: Path traversal blocked. Resolved path '{resolved}' "
+                f"is outside allowed directories."
+            )
+
+        return resolved
 
     def _infer_module_phase(self, workflow: ParsedWorkflow, file_path: Path) -> None:
         """Infer module and phase from file path."""
@@ -361,17 +386,25 @@ class WorkflowParser:
         Find and parse a workflow by name.
 
         Searches all modules for matching workflow.
+        Optimized to check directory names first before parsing.
         """
         all_workflows = self.list_workflows()
+        name_lower = name.lower()
 
+        # First pass: check directory names (fast, no parsing needed)
         for wf_path in all_workflows:
-            # Check directory name
-            if wf_path.parent.name.lower() == name.lower():
+            if wf_path.parent.name.lower() == name_lower:
                 return self.parse(wf_path)
 
-            # Check parsed name
+        # Second pass: parse only if directory name didn't match
+        # This avoids parsing ALL workflows when searching by name
+        for wf_path in all_workflows:
+            # Skip if we already checked this path in first pass
+            if wf_path.parent.name.lower() == name_lower:
+                continue
+
             parsed = self.parse(wf_path)
-            if parsed and parsed.name.lower() == name.lower():
+            if parsed and parsed.name.lower() == name_lower:
                 return parsed
 
         return None

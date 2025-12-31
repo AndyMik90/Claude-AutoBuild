@@ -50,6 +50,24 @@ class BMBAgent:
     source_path: Path | None = None
     token_count: int = 0
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "BMBAgent":
+        """Reconstruct BMBAgent from dict (e.g., from cache)."""
+        source = data.get("source_path")
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            title=data.get("title", ""),
+            identity=data.get("identity", ""),
+            communication_style=data.get("communication_style", ""),
+            principles=data.get("principles", []),
+            critical_actions=data.get("critical_actions", []),
+            menu=data.get("menu", []),
+            icon=data.get("icon", ""),
+            source_path=Path(source) if source else None,
+            token_count=data.get("token_count", 0),
+        )
+
 
 @dataclass
 class BMBWorkflow:
@@ -166,6 +184,9 @@ class BMBModuleLoader:
         if self.cache:
             cached = self.cache.get(cache_key)
             if cached:
+                # Convert dict back to BMBAgent if needed
+                if isinstance(cached, dict):
+                    return BMBAgent.from_dict(cached)
                 return cached
 
         if not agent_path.exists():

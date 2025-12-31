@@ -62,6 +62,27 @@ class BMGDAgent:
     source_path: Path | None = None
     token_count: int = 0
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "BMGDAgent":
+        """Reconstruct BMGDAgent from dict (e.g., from cache)."""
+        source = data.get("source_path")
+        role_value = data.get("role", "game-designer")
+        role = role_value if isinstance(role_value, BMGDAgentRole) else BMGDAgentRole(role_value)
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            title=data.get("title", ""),
+            role=role,
+            identity=data.get("identity", ""),
+            communication_style=data.get("communication_style", ""),
+            principles=data.get("principles", []),
+            critical_actions=data.get("critical_actions", []),
+            menu=data.get("menu", []),
+            icon=data.get("icon", ""),
+            source_path=Path(source) if source else None,
+            token_count=data.get("token_count", 0),
+        )
+
 
 @dataclass
 class BMGDWorkflow:
@@ -174,6 +195,9 @@ class BMGDModuleLoader:
         if self.cache:
             cached = self.cache.get(cache_key)
             if cached:
+                # Convert dict back to BMGDAgent if needed
+                if isinstance(cached, dict):
+                    return BMGDAgent.from_dict(cached)
                 return cached
 
         if not agent_path.exists():

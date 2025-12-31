@@ -60,6 +60,27 @@ class CISAgent:
     source_path: Path | None = None
     token_count: int = 0
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "CISAgent":
+        """Reconstruct CISAgent from dict (e.g., from cache)."""
+        source = data.get("source_path")
+        role_value = data.get("role", "innovation-strategist")
+        role = role_value if isinstance(role_value, CISAgentRole) else CISAgentRole(role_value)
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            title=data.get("title", ""),
+            role=role,
+            identity=data.get("identity", ""),
+            communication_style=data.get("communication_style", ""),
+            principles=data.get("principles", []),
+            critical_actions=data.get("critical_actions", []),
+            menu=data.get("menu", []),
+            icon=data.get("icon", ""),
+            source_path=Path(source) if source else None,
+            token_count=data.get("token_count", 0),
+        )
+
 
 @dataclass
 class CISWorkflow:
@@ -170,6 +191,9 @@ class CISModuleLoader:
         if self.cache:
             cached = self.cache.get(cache_key)
             if cached:
+                # Convert dict back to CISAgent if needed
+                if isinstance(cached, dict):
+                    return CISAgent.from_dict(cached)
                 return cached
 
         if not agent_path.exists():

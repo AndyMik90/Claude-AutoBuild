@@ -160,7 +160,7 @@ class BlueprintBuildOrchestrator:
                     print(f"\n[FAILED] {component.name} failed verification")
                     print(f"Reason: {verification_result.message}")
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
                 self.manager.update_status(
                     component.id, ComponentStatus.FAILED, f"Exception: {str(e)}"
                 )
@@ -250,7 +250,7 @@ class BlueprintBuildOrchestrator:
             await asyncio.sleep(1)
             return True
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             print(f"[ERROR] Build failed: {e}")
             import traceback
 

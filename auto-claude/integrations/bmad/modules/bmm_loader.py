@@ -20,6 +20,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 from ..shared.cache import DiskLRUCache
+from ..shared.schema_validator import SchemaType, validate_yaml
 from ..shared.token_budget import TokenBudget, TokenCategory, estimate_tokens
 
 
@@ -69,6 +70,28 @@ class BMMAgent:
     source_path: Path | None = None
     token_count: int = 0
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "BMMAgent":
+        """Reconstruct BMMAgent from dict (e.g., from cache)."""
+        source = data.get("source_path")
+        role_value = data.get("role", "dev")
+        # Handle both string and enum role values
+        role = role_value if isinstance(role_value, BMMAgentRole) else BMMAgentRole(role_value)
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", ""),
+            title=data.get("title", ""),
+            role=role,
+            identity=data.get("identity", ""),
+            communication_style=data.get("communication_style", ""),
+            principles=data.get("principles", []),
+            critical_actions=data.get("critical_actions", []),
+            menu=data.get("menu", []),
+            icon=data.get("icon", ""),
+            source_path=Path(source) if source else None,
+            token_count=data.get("token_count", 0),
+        )
+
 
 @dataclass
 class BMMWorkflow:
@@ -88,6 +111,25 @@ class BMMTeam:
     name: str
     roles: list[BMMAgentRole]
     path: Path
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BMMTeam":
+        """Reconstruct BMMTeam from dict (e.g., from cache)."""
+        path = data.get("path")
+        roles = []
+        for role_val in data.get("roles", []):
+            if isinstance(role_val, BMMAgentRole):
+                roles.append(role_val)
+            else:
+                try:
+                    roles.append(BMMAgentRole(role_val))
+                except ValueError:
+                    pass
+        return cls(
+            name=data.get("name", ""),
+            roles=roles,
+            path=Path(path) if path else Path("."),
+        )
 
 
 @dataclass
@@ -212,6 +254,9 @@ class BMMModuleLoader:
         if self.cache:
             cached = self.cache.get(cache_key)
             if cached:
+                # Convert dict back to BMMAgent if needed
+                if isinstance(cached, dict):
+                    return BMMAgent.from_dict(cached)
                 return cached
 
         if not agent_path.exists():
@@ -232,6 +277,18 @@ class BMMModuleLoader:
         except yaml.YAMLError as e:
             logger.warning("Failed to parse YAML file %s: %s", agent_path, e)
             return None
+
+        # Validate schema before processing
+        validation = validate_yaml(data, SchemaType.AGENT)
+        if not validation.valid:
+            logger.warning(
+                "Agent file %s failed schema validation: %s",
+                agent_path,
+                validation.errors,
+            )
+            return None
+        if validation.warnings:
+            logger.info("Agent file %s has warnings: %s", agent_path, validation.warnings)
 
         if not isinstance(data, dict) or "agent" not in data:
             return None
@@ -281,7 +338,7 @@ class BMMModuleLoader:
                 roles=roles,
                 path=team_path,
             )
-        except Exception:
+        except (yaml.YAMLError, OSError, KeyError, TypeError):
             return None
 
     def get_agent(self, role: BMMAgentRole) -> BMMAgent | None:
