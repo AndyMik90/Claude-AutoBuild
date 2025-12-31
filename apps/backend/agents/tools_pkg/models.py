@@ -15,6 +15,7 @@ the Claude Agent SDK client. Tool lists are organized by category:
 
 import os
 from core.cdp_config import get_cdp_tools_for_agent
+from core.mcp_config import is_electron_mcp_enabled
 
 # =============================================================================
 # Base Tools (Built-in Claude Code tools)
@@ -235,17 +236,8 @@ ELECTRON_EXTENDED_TOOLS = (
 # Configuration
 # =============================================================================
 
-
-def is_electron_mcp_enabled() -> bool:
-    """
-    Check if Electron MCP server integration is enabled.
-
-    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
-    When enabled, QA agents can use Electron MCP tools to connect to Electron apps
-    via Chrome DevTools Protocol on the configured debug port.
-    """
-    return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
-
+# is_electron_mcp_enabled() is now imported from core.mcp_config
+# to eliminate duplication. This is the single source of truth.
 
 # =============================================================================
 # Agent Configuration Registry
@@ -429,6 +421,24 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "ultrathink",
     },
+    # ═══════════════════════════════════════════════════════════════════════
+    # DELEGATION SYSTEM AGENTS (Ad-hoc task coordination)
+    # ═══════════════════════════════════════════════════════════════════════
+    # Note: The coordinator is programmatic (delegation/coordinator.py), not an AI agent.
+    # These agent types are used by the delegation system when routing to specialists.
+    "coordinator": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "mcp_servers": [],  # Minimal - just analysis
+        "auto_claude_tools": [],
+        "thinking_default": "medium",  # Balanced for cost
+    },
+    # Documentation agent (future - for Phase 3)
+    "docs_agent": {
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
+        "mcp_servers": ["context7"],  # Needs docs lookup
+        "auto_claude_tools": [],
+        "thinking_default": "low",  # Docs don't need deep thinking
+    },
 }
 
 
@@ -468,6 +478,7 @@ def get_required_mcp_servers(
 
     Handles dynamic server selection:
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
+                 or chrome-devtools (if CDP_MCP_TYPE=chrome-devtools)
     - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
 
@@ -479,6 +490,8 @@ def get_required_mcp_servers(
     Returns:
         List of MCP server names to start
     """
+    from core.cdp_config import get_cdp_enabled_agents, get_cdp_mcp_server_name
+
     config = get_agent_config(agent_type)
     servers = list(config.get("mcp_servers", []))
 
@@ -487,17 +500,27 @@ def get_required_mcp_servers(
     if "linear" in optional and linear_enabled:
         servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type
+    # Handle dynamic "browser" → electron/chrome-devtools/puppeteer based on project type
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            if is_electron and is_electron_mcp_enabled():
-                servers.append("electron")
+            # Check if this agent has CDP enabled
+            cdp_enabled_agents = get_cdp_enabled_agents()
+            agent_has_cdp = agent_type in cdp_enabled_agents
+
+            if is_electron and is_electron_mcp_enabled() and agent_has_cdp:
+                # Use the CDP MCP server specified in environment
+                cdp_server = get_cdp_mcp_server_name()
+                servers.append(cdp_server)
             elif is_web_frontend and not is_electron:
-                servers.append("puppeteer")
+                # For web frontends, use Puppeteer or Chrome DevTools MCP
+                if agent_has_cdp and os.environ.get("CDP_MCP_TYPE") == "chrome-devtools":
+                    servers.append("chrome-devtools")
+                else:
+                    servers.append("puppeteer")
 
     # Filter graphiti if not enabled
     if "graphiti" in servers:
@@ -534,7 +557,7 @@ def get_allowed_tools(
 
     This function builds the complete tool list including:
     - Base tools from agent config
-    - Browser tools (Electron or Puppeteer) if applicable
+    - Browser tools (Electron, Chrome DevTools, or Puppeteer) if applicable
     - Dynamic CDP tools based on agent type and configuration
 
     Args:
@@ -545,6 +568,8 @@ def get_allowed_tools(
     Returns:
         List of allowed tool names for this agent
     """
+    from core.cdp_config import get_cdp_enabled_agents, get_cdp_mcp_type
+
     config = get_agent_config(agent_type)
     tools = list(config.get("tools", []))
 
@@ -553,9 +578,13 @@ def get_allowed_tools(
         is_electron = project_capabilities.get("is_electron", False)
 
         if is_electron and is_electron_mcp_enabled():
-            # Get CDP tools based on agent configuration
-            cdp_tools = get_cdp_tools_for_agent(agent_type)
-            if cdp_tools:
-                tools.extend(cdp_tools)
+            # Check if this agent has CDP enabled
+            cdp_enabled_agents = get_cdp_enabled_agents()
+            if agent_type in cdp_enabled_agents:
+                # Get CDP tools based on agent configuration and MCP type
+                mcp_type = get_cdp_mcp_type()
+                cdp_tools = get_cdp_tools_for_agent(agent_type, mcp_type=mcp_type)
+                if cdp_tools:
+                    tools.extend(cdp_tools)
 
     return tools

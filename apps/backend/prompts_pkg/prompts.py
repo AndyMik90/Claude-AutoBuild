@@ -422,3 +422,34 @@ The project root is: `{project_dir}`
 
 """
     return spec_context + base_prompt
+
+
+def get_coordinator_prompt(delegation_dir: Path, project_dir: Path) -> str:
+    """
+    Load the delegation coordinator prompt with paths injected.
+
+    Note: This is currently not used as the coordinator is programmatic.
+    Kept for potential future enhancement where coordinator becomes an AI agent.
+
+    Args:
+        delegation_dir: Directory containing the delegation files
+        project_dir: Root directory of the project
+
+    Returns:
+        The coordinator prompt content with paths injected
+    """
+    base_prompt = _load_prompt_file("coordinator.md")
+
+    context = f"""## DELEGATION LOCATION
+
+Delegation files are located at:
+- Task: `{delegation_dir}/task.md`
+- Metadata: `{delegation_dir}/delegation.json`
+- Summary: `{delegation_dir}/summary.md`
+
+The project root is: `{project_dir}`
+
+---
+
+"""
+    return context + base_prompt

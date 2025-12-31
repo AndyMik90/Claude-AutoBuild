@@ -35,6 +35,99 @@ CDPToolCategory = Literal[
 # Tool Name Definitions
 # =============================================================================
 
+# =============================================================================
+# Chrome DevTools MCP Tools (Google's Official Server)
+# =============================================================================
+# See: https://github.com/ChromeDevTools/chrome-devtools-mcp
+# These tools are provided by Google's official chrome-devtools-mcp npm package.
+# Tools are prefixed with mcp__chrome-devtools__ when used via MCP.
+
+# Input automation tools (8 tools)
+CHROME_DEVTOOLS_INPUT_TOOLS = [
+    "mcp__chrome-devtools__click",
+    "mcp__chrome-devtools__drag",
+    "mcp__chrome-devtools__fill",
+    "mcp__chrome-devtools__fill_form",
+    "mcp__chrome-devtools__handle_dialog",
+    "mcp__chrome-devtools__hover",
+    "mcp__chrome-devtools__press_key",
+    "mcp__chrome-devtools__upload_file",
+]
+
+# Navigation automation tools (6 tools)
+CHROME_DEVTOOLS_NAVIGATION_TOOLS = [
+    "mcp__chrome-devtools__close_page",
+    "mcp__chrome-devtools__list_pages",
+    "mcp__chrome-devtools__navigate_page",
+    "mcp__chrome-devtools__new_page",
+    "mcp__chrome-devtools__select_page",
+    "mcp__chrome-devtools__wait_for",
+]
+
+# Emulation tools (2 tools)
+CHROME_DEVTOOLS_EMULATION_TOOLS = [
+    "mcp__chrome-devtools__emulate",
+    "mcp__chrome-devtools__resize_page",
+]
+
+# Performance tools (3 tools)
+CHROME_DEVTOOLS_PERFORMANCE_TOOLS = [
+    "mcp__chrome-devtools__performance_analyze_insight",
+    "mcp__chrome-devtools__performance_start_trace",
+    "mcp__chrome-devtools__performance_stop_trace",
+]
+
+# Network tools (2 tools)
+CHROME_DEVTOOLS_NETWORK_TOOLS = [
+    "mcp__chrome-devtools__get_network_request",
+    "mcp__chrome-devtools__list_network_requests",
+]
+
+# Debugging tools (5 tools)
+CHROME_DEVTOOLS_DEBUGGING_TOOLS = [
+    "mcp__chrome-devtools__evaluate_script",
+    "mcp__chrome-devtools__get_console_message",
+    "mcp__chrome-devtools__list_console_messages",
+    "mcp__chrome-devtools__take_screenshot",
+    "mcp__chrome-devtools__take_snapshot",
+]
+
+# All Chrome DevTools MCP tools
+CHROME_DEVTOOLS_ALL_TOOLS = (
+    CHROME_DEVTOOLS_INPUT_TOOLS +
+    CHROME_DEVTOOLS_NAVIGATION_TOOLS +
+    CHROME_DEVTOOLS_EMULATION_TOOLS +
+    CHROME_DEVTOOLS_PERFORMANCE_TOOLS +
+    CHROME_DEVTOOLS_NETWORK_TOOLS +
+    CHROME_DEVTOOLS_DEBUGGING_TOOLS
+)
+
+# =============================================================================
+# Chrome DevTools MCP Tool Category Mapping
+# =============================================================================
+# Maps Chrome DevTools MCP tools to Auto Claude's CDP categories
+CHROME_DEVTOOLS_CATEGORY_MAP: dict[CDPToolCategory, list[str]] = {
+    "network": CHROME_DEVTOOLS_NETWORK_TOOLS,
+    "storage": [],  # Storage tools are part of debugging in Chrome DevTools MCP
+    "performance": CHROME_DEVTOOLS_PERFORMANCE_TOOLS,
+    "emulation": CHROME_DEVTOOLS_EMULATION_TOOLS,
+    "console": [
+        "mcp__chrome-devtools__evaluate_script",
+        "mcp__chrome-devtools__get_console_message",
+        "mcp__chrome-devtools__list_console_messages",
+    ],
+    "dom": (
+        CHROME_DEVTOOLS_INPUT_TOOLS +
+        CHROME_DEVTOOLS_NAVIGATION_TOOLS +
+        ["mcp__chrome-devtools__take_screenshot", "mcp__chrome-devtools__take_snapshot"]
+    ),
+}
+
+# =============================================================================
+# Electron MCP Tools (Existing - for Electron Desktop Apps)
+# =============================================================================
+# These tools are from the custom electron-mcp-server in providers/electron-mcp-server/
+
 # Base Electron tools (existing)
 ELECTRON_BASE_TOOLS = [
     "mcp__electron__get_electron_window_info",
@@ -231,16 +324,34 @@ def get_cdp_categories_for_agent(agent_type: str) -> list[CDPToolCategory]:
     return [cat for cat in default_permissions if cat in enabled_categories]
 
 
-def get_cdp_tools_for_agent(agent_type: str) -> list[str]:
+def get_cdp_mcp_type() -> str:
+    """
+    Get the type of CDP MCP server to use.
+
+    Reads from CDP_MCP_TYPE environment variable.
+    Valid values: electron, chrome-devtools
+
+    Returns:
+        CDP MCP server type (defaults to 'electron' for backward compatibility)
+    """
+    mcp_type = os.environ.get("CDP_MCP_TYPE", "electron").lower()
+    if mcp_type not in ("electron", "chrome-devtools"):
+        return "electron"
+    return mcp_type
+
+
+def get_cdp_tools_for_agent(agent_type: str, mcp_type: str | None = None) -> list[str]:
     """
     Get the complete list of CDP tools for a specific agent type.
 
     Includes:
-    - Base Electron tools (always included if agent has CDP enabled)
+    - Base tools (always included if agent has CDP enabled)
     - Category-specific tools based on agent permissions
 
     Args:
         agent_type: The agent type identifier
+        mcp_type: MCP server type ('electron' or 'chrome-devtools')
+                  If None, uses CDP_MCP_TYPE environment variable
 
     Returns:
         List of CDP tool names for this agent
@@ -251,14 +362,41 @@ def get_cdp_tools_for_agent(agent_type: str) -> list[str]:
         # No CDP categories enabled for this agent
         return []
 
+    # Determine MCP type
+    if mcp_type is None:
+        mcp_type = get_cdp_mcp_type()
+
+    # Select the appropriate tool set based on MCP type
+    if mcp_type == "chrome-devtools":
+        # Use Chrome DevTools MCP tools
+        base_tools = []  # Chrome DevTools MCP has no separate base tools
+        category_map = CHROME_DEVTOOLS_CATEGORY_MAP
+    else:
+        # Use Electron MCP tools (default for backward compatibility)
+        base_tools = ELECTRON_BASE_TOOLS
+        category_map = CDP_TOOL_CATEGORY_MAP
+
     # Start with base tools
-    tools = list(ELECTRON_BASE_TOOLS)
+    tools = list(base_tools)
 
     # Add category-specific tools
     for category in categories:
-        tools.extend(CDP_TOOL_CATEGORY_MAP.get(category, []))
+        tools.extend(category_map.get(category, []))
 
     return tools
+
+
+def get_cdp_mcp_server_name() -> str:
+    """
+    Get the MCP server name for CDP integration.
+
+    Returns:
+        MCP server name to use in client configuration
+    """
+    mcp_type = get_cdp_mcp_type()
+    if mcp_type == "chrome-devtools":
+        return "chrome-devtools"
+    return "electron"
 
 
 def is_cdp_enabled_for_agent(agent_type: str) -> bool:
@@ -284,8 +422,11 @@ def get_cdp_config_summary() -> dict:
     enabled_agents = get_cdp_enabled_agents()
     enabled_categories = get_cdp_enabled_categories()
     log_level = get_cdp_log_level()
+    mcp_type = get_cdp_mcp_type()
 
     return {
+        "mcp_type": mcp_type,
+        "mcp_server_name": get_cdp_mcp_server_name(),
         "enabled_agents": sorted(enabled_agents),
         "enabled_categories": sorted(enabled_categories),
         "log_level": log_level,

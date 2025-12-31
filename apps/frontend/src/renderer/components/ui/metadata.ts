@@ -404,6 +404,77 @@ export const COMPONENT_REGISTRY: Record<string, ComponentMetadata> = {
     appleHIGCompliant: true,
     status: 'stable',
   },
+<<<<<<< HEAD
+
+  // ===== 2025 New Primitive Components =====
+  spinner: {
+    name: 'Spinner',
+    description: 'Loading state indicator with Apple-style animations',
+    category: 'feedback',
+    dependencies: ['class-variance-authority'],
+    variants: ['xs', 'sm', 'md', 'lg', 'xl', '2xl', 'default', 'muted', 'success', 'warning', 'info', 'destructive', 'glass'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+  kbd: {
+    name: 'Kbd',
+    description: 'Keyboard shortcut display with macOS-style keys',
+    category: 'typography',
+    dependencies: ['class-variance-authority'],
+    variants: ['xs', 'sm', 'md', 'lg', 'default', 'outline', 'ghost', 'glass'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+  'button-group': {
+    name: 'ButtonGroup',
+    description: 'Grouped button actions with split button support',
+    category: 'forms',
+    dependencies: ['button'],
+    variants: ['horizontal', 'vertical', 'sm', 'default', 'lg', 'default', 'outline', 'ghost', 'glass'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+  field: {
+    name: 'Field',
+    description: 'Form field wrapper with labels, hints, and errors',
+    category: 'forms',
+    dependencies: ['label'],
+    variants: ['horizontal', 'vertical', 'default', 'glass'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+  item: {
+    name: 'Item',
+    description: 'Reusable list item with multiple layout options',
+    category: 'data-display',
+    dependencies: [],
+    variants: ['sm', 'default', 'lg', 'default', 'outline', 'ghost', 'active', 'disabled', 'glass'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+  empty: {
+    name: 'Empty',
+    description: 'Empty state placeholder with illustrations',
+    category: 'feedback',
+    dependencies: [],
+    variants: ['sm', 'default', 'lg', 'default', 'card', 'glass', 'muted', 'noData', 'noResults', 'error', 'loading', 'success'],
+    glassSupported: true,
+    appleHIGCompliant: true,
+    status: 'stable',
+    since: '2.9.0',
+  },
+=======
+>>>>>>> origin/develop
 };
 
 // Helper functions for querying the registry

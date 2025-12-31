@@ -1,0 +1,34 @@
+{
+  "name": "@auto-claude/cdp-bridge",
+  "version": "1.0.0",
+  "description": "CDP Bridge - Chrome DevTools Protocol MCP integration for continuous feedback loops",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cdp-bridge": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "cdp",
+    "chrome-devtools-protocol",
+    "feedback-loop",
+    "agentic",
+    "chrome-devtools"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

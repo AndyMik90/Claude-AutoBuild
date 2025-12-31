@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from core.provider_base import BaseProviderConfig, get_provider_config_by_name
+
 
 class ModelProvider(str, Enum):
     """Supported model providers for Auto Claude agents."""

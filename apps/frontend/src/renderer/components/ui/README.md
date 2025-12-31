@@ -87,6 +87,11 @@ import { InputGroup, InputLabel, Input, InputHint } from '@/components/ui/input-
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Button | Clickable action button | ✅ `glass-primary`, `glass-outline`, `glass-ghost` |
+<<<<<<< HEAD
+| ButtonGroup | Grouped button actions with split button | ✅ `glass` variant |
+| Field | Form field wrapper with label/hint/error | ✅ `glass` variant |
+=======
+>>>>>>> origin/develop
 | Input | Text input field | ✅ via `glass-surface` class |
 | InputGroup | Compound input with label/hint/error | ✅ via `glass-surface` class |
 | Textarea | Multi-line text input | ✅ via `glass-surface` class |
@@ -114,15 +119,171 @@ import { InputGroup, InputLabel, Input, InputHint } from '@/components/ui/input-
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Table | Data table with compound API | ❌ |
+<<<<<<< HEAD
+| Badge | Status indicator | ✅ variants |
+| Progress | Progress bar | ❌ |
+| Skeleton | Loading placeholder | ❌ |
+| Item | Reusable list item | ✅ `glass` variant |
+| Empty | Empty state placeholder | ✅ `glass` variant |
+
+### Feedback
+
+| Component | Description | Glass Support |
+|-----------|-------------|---------------|
+| Spinner | Loading state indicator | ✅ `glass` variant |
+| Alert | Dismissible alert | ✅ variants |
+| Toast | Non-intrusive notification | ✅ variants |
+
+### Typography
+
+| Component | Description | Glass Support |
+|-----------|-------------|---------------|
+| Kbd | Keyboard shortcut display | ✅ `glass` variant |
+=======
 | Badge | Status indicator | ❌ |
 | Progress | Progress bar | ❌ |
 | Skeleton | Loading placeholder | ❌ |
+>>>>>>> origin/develop
 
 ### Navigation
 
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Tabs | Tabbed interface | ❌ |
+<<<<<<< HEAD
+| ToggleGroup | Segmented control | ✅ `glass` variant |
+
+## New 2025 Components
+
+### Spinner
+
+Loading state indicator with Apple-style animations:
+
+```tsx
+import { Spinner, SpinnerDots, SpinnerBars } from '@/components/ui/spinner';
+
+<Spinner size="md" variant="default" />
+<SpinnerDots size="lg" variant="success" />
+<SpinnerBars size="sm" variant="muted" />
+<SpinnerGlass size="md" blur="xl" />
+```
+
+### Kbd (Keyboard)
+
+Display keyboard shortcuts with macOS-style keys:
+
+```tsx
+import { Kbd, KbdCombo, KbdPreset } from '@/components/ui/kbd';
+
+<Kbd>⌘</Kbd>
+<KbdCombo keys={['⌘', '⇧', '4']} />
+<KbdPreset preset="save" />
+```
+
+### ButtonGroup
+
+Grouped button actions with split button support:
+
+```tsx
+import { ButtonGroup, SplitButton, SegmentedControl } from '@/components/ui/button-group';
+
+<ButtonGroup>
+  <Button>Button 1</Button>
+  <Button>Button 2</Button>
+  <Button>Button 3</Button>
+</ButtonGroup>
+
+<SplitButton
+  label="Save"
+  onClick={() => {}}
+  items={[{ label: 'Save As', value: 'save-as', onClick: () => {} }]}
+/>
+
+<SegmentedControl
+  segments={[
+    { value: 'day', label: 'Day' },
+    { value: 'week', label: 'Week' },
+    { value: 'month', label: 'Month' },
+  ]}
+  value="day"
+  onChange={(v) => {}}
+/>
+```
+
+### Field
+
+Form field wrapper with labels, hints, and errors:
+
+```tsx
+import { Field, Fieldset, CheckboxField, SwitchField } from '@/components/ui/field';
+
+<Field
+  label="Email"
+  description="We'll never share your email."
+  error={error}
+  required
+>
+  <Input type="email" />
+</Field>
+
+<CheckboxField
+  label="Remember me"
+  description="Keep me signed in"
+  checked={remember}
+  onCheckedChange={setRemember}
+/>
+```
+
+### Item
+
+Reusable list item with multiple layout options:
+
+```tsx
+import { Item, ItemGroup, CheckboxItem, AvatarItem } from '@/components/ui/item';
+
+<Item
+  icon={<Avatar src="/avatar.png" />}
+  title="John Doe"
+  description="Software Engineer"
+  trailing={<Badge>Active</Badge>}
+/>
+
+<ItemGroup title="Team Members">
+  <Item title="Jane" description="Designer" />
+  <Item title="Bob" description="Developer" />
+</ItemGroup>
+
+<AvatarItem
+  src="/avatar.png"
+  title="John Doe"
+  description="Online"
+  online
+/>
+```
+
+### Empty
+
+Empty state placeholder with illustrations:
+
+```tsx
+import { Empty, EmptyPage, EmptyPreset } from '@/components/ui/empty';
+
+<Empty
+  state="noData"
+  title="No tasks yet"
+  description="Create your first task to get started."
+  action={<Button>Create Task</Button>}
+/>
+
+<EmptyPage preset="noSearchResults" />
+
+<EmptyPreset
+  preset="noTasks"
+  action={<Button>Create Task</Button>}
+/>
+```
+=======
+>>>>>>> origin/develop
 
 ## CLI Tool
 

@@ -17,6 +17,10 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
 import { SettingsSection } from './SettingsSection';
+<<<<<<< HEAD
+import { cn } from '../../lib/utils';
+=======
+>>>>>>> origin/develop
 import {
   Select,
   SelectContent,
@@ -251,6 +255,24 @@ export function CDPSettings({ section }: CDPSettingsProps) {
                 <button
                   key={category}
                   onClick={() => toggleCategory(category)}
+<<<<<<< HEAD
+                  className={cn(
+                    'flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left',
+                    isEnabled
+                      ? 'border-info bg-info/5'
+                      : 'border-border hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className={cn(
+                    'h-5 w-5 mt-0.5 shrink-0',
+                    isEnabled ? 'text-info' : 'text-muted-foreground'
+                  )} />
+                  <div className="space-y-1">
+                    <p className={cn(
+                      'font-medium',
+                      isEnabled ? 'text-info' : 'text-foreground'
+                    )}>{name}</p>
+=======
                   className={`
                     flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left
                     ${isEnabled
@@ -268,6 +290,7 @@ export function CDPSettings({ section }: CDPSettingsProps) {
                       font-medium
                       ${isEnabled ? 'text-info' : 'text-foreground'}
                     `}>{name}</p>
+>>>>>>> origin/develop
                     <p className="text-sm text-muted-foreground">{description}</p>
                   </div>
                   {isEnabled && (

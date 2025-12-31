@@ -22,6 +22,7 @@ from .batch_commands import (
     handle_batch_status_command,
 )
 from .build_commands import handle_build_command
+from .delegation_commands import handle_delegate_command, handle_delegate_list_command
 from .followup_commands import handle_followup_command
 from .qa_commands import (
     handle_qa_command,
@@ -183,6 +184,20 @@ Environment Variables:
         help="Skip automatic QA validation after build completes",
     )
 
+    # Delegation options
+    parser.add_argument(
+        "--delegate",
+        type=str,
+        default=None,
+        metavar="TASK",
+        help="Delegate an ad-hoc task to the intelligent coordination system (e.g., 'fix the login button bug')",
+    )
+    parser.add_argument(
+        "--delegate-list",
+        action="store_true",
+        help="List all delegations and their status",
+    )
+
     # Follow-up options
     parser.add_argument(
         "--followup",
@@ -307,6 +322,20 @@ def main() -> None:
 
     if args.batch_cleanup:
         handle_batch_cleanup_command(str(project_dir), dry_run=not args.no_dry_run)
+        return
+
+    # Handle delegation commands
+    if args.delegate_list:
+        handle_delegate_list_command(project_dir)
+        return
+
+    if args.delegate:
+        handle_delegate_command(
+            task=args.delegate,
+            project_dir=project_dir,
+            model=model,
+            verbose=args.verbose,
+        )
         return
 
     # Require --spec if not listing

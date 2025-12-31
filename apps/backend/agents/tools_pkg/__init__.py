@@ -41,6 +41,7 @@ from .models import (
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
+    PUPPETEER_EXTENDED_TOOLS,
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,
     TOOL_GET_SESSION_CONTEXT,
@@ -53,7 +54,6 @@ from .models import (
     get_agent_config,
     get_default_thinking_level,
     get_required_mcp_servers,
-    is_electron_mcp_enabled,
 )
 from .permissions import get_all_agent_types, get_allowed_tools
 from .registry import create_auto_claude_mcp_server, is_tools_available
@@ -79,6 +79,7 @@ __all__ = [
     "GRAPHITI_MCP_TOOLS",
     "ELECTRON_TOOLS",
     "PUPPETEER_TOOLS",
+    "PUPPETEER_EXTENDED_TOOLS",
     # Auto-Claude tool name constants
     "TOOL_UPDATE_SUBTASK_STATUS",
     "TOOL_GET_BUILD_PROGRESS",
@@ -86,6 +87,4 @@ __all__ = [
     "TOOL_RECORD_GOTCHA",
     "TOOL_GET_SESSION_CONTEXT",
     "TOOL_UPDATE_QA_STATUS",
-    # Config
-    "is_electron_mcp_enabled",
 ]

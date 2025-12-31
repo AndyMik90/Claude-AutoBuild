@@ -63,6 +63,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from core.provider_base import get_env_bool
+
 # Default configuration values
 DEFAULT_DATABASE = "auto_claude_memory"
 DEFAULT_DB_PATH = "~/.auto-claude/memories"
@@ -158,9 +160,8 @@ class GraphitiConfig:
     @classmethod
     def from_env(cls) -> "GraphitiConfig":
         """Create config from environment variables."""
-        # Check if Graphiti is explicitly enabled
-        enabled_str = os.environ.get("GRAPHITI_ENABLED", "").lower()
-        enabled = enabled_str in ("true", "1", "yes")
+        # Check if Graphiti is explicitly enabled (using centralized utility)
+        enabled = get_env_bool("GRAPHITI_ENABLED", default=False)
 
         # Provider selection
         llm_provider = os.environ.get("GRAPHITI_LLM_PROVIDER", "openai").lower()

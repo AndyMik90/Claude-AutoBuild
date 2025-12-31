@@ -36,6 +36,21 @@ from core.cdp_config import (
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import get_sdk_env_vars, require_auth_token
+from core.cdp_config import (
+    get_cdp_config_summary,
+    get_cdp_mcp_server_name,
+    get_cdp_mcp_type,
+    get_cdp_tools_for_agent,
+    validate_cdp_config,
+)
+from core.mcp_config import (
+    get_electron_debug_port,
+    get_graphiti_mcp_url,
+    is_electron_mcp_enabled,
+    is_graphiti_mcp_enabled,
+    should_use_claude_md,
+)
+from core.error_utils import safe_file_read
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from providers.config import (
@@ -45,42 +60,6 @@ from providers.config import (
     resolve_model_id,
 )
 from security import bash_security_hook
-
-
-def is_graphiti_mcp_enabled() -> bool:
-    """
-    Check if Graphiti MCP server integration is enabled.
-
-    Requires GRAPHITI_MCP_URL to be set (e.g., http://localhost:8000/mcp/)
-    This is separate from GRAPHITI_ENABLED which controls the Python library integration.
-    """
-    return bool(os.environ.get("GRAPHITI_MCP_URL"))
-
-
-def get_graphiti_mcp_url() -> str:
-    """Get the Graphiti MCP server URL."""
-    return os.environ.get("GRAPHITI_MCP_URL", "http://localhost:8000/mcp/")
-
-
-def is_electron_mcp_enabled() -> bool:
-    """
-    Check if Electron MCP server integration is enabled.
-
-    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
-    When enabled, QA agents can use Puppeteer MCP tools to connect to Electron apps
-    via Chrome DevTools Protocol on the configured debug port.
-    """
-    return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
-
-
-def get_electron_debug_port() -> int:
-    """Get the Electron remote debugging port (default: 9222)."""
-    return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
-
-
-def should_use_claude_md() -> bool:
-    """Check if CLAUDE.md instructions should be included in system prompt."""
-    return os.environ.get("USE_CLAUDE_MD", "").lower() == "true"
 
 
 def load_claude_md(project_dir: Path) -> str | None:
@@ -95,10 +74,8 @@ def load_claude_md(project_dir: Path) -> str | None:
     """
     claude_md_path = project_dir / "CLAUDE.md"
     if claude_md_path.exists():
-        try:
-            return claude_md_path.read_text(encoding="utf-8")
-        except Exception:
-            return None
+        content = safe_file_read(str(claude_md_path), default=None, log_errors=False)
+        return content if content else None
     return None
 
 
@@ -218,11 +195,16 @@ def create_client(
     graphiti_mcp_enabled = "graphiti" in required_servers
 
     # Determine browser tools for permissions (already in allowed_tools_list)
-    # Use dynamic CDP tool selection for Electron and Puppeteer agents
+    # Use dynamic CDP tool selection for Electron, Chrome DevTools, and Puppeteer agents
     browser_tools_permissions = []
-    if "electron" in required_servers:
-        # Get CDP tools based on agent type and configuration
-        browser_tools_permissions = get_cdp_tools_for_agent(agent_type)
+    cdp_mcp_type = get_cdp_mcp_type()
+
+    if "chrome-devtools" in required_servers:
+        # Get Chrome DevTools MCP tools based on agent type and configuration
+        browser_tools_permissions = get_cdp_tools_for_agent(agent_type, mcp_type="chrome-devtools")
+    elif "electron" in required_servers:
+        # Get Electron MCP tools based on agent type and configuration
+        browser_tools_permissions = get_cdp_tools_for_agent(agent_type, mcp_type="electron")
     elif "puppeteer" in required_servers:
         # Use extended Puppeteer tools for web frontend automation
         browser_tools_permissions = PUPPETEER_EXTENDED_TOOLS
@@ -300,6 +282,8 @@ def create_client(
     mcp_servers_list = []
     if "context7" in required_servers:
         mcp_servers_list.append("context7 (documentation)")
+    if "chrome-devtools" in required_servers:
+        mcp_servers_list.append("chrome-devtools (Google's official Chrome DevTools MCP)")
     if "electron" in required_servers:
         mcp_servers_list.append(
             f"electron (desktop automation, port {get_electron_debug_port()})"
@@ -326,12 +310,14 @@ def create_client(
         ]
         print(f"   - Project capabilities: {', '.join(caps)}")
 
-    # Show CDP configuration for agents with Electron tools
-    if "electron" in required_servers and browser_tools_permissions:
+    # Show CDP configuration for agents with Electron or Chrome DevTools tools
+    if ("electron" in required_servers or "chrome-devtools" in required_servers) and browser_tools_permissions:
         from core.cdp_config import get_cdp_categories_for_agent
 
         cdp_categories = get_cdp_categories_for_agent(agent_type)
         if cdp_categories:
+            cdp_server_name = get_cdp_mcp_server_name()
+            print(f"   - CDP server: {cdp_server_name}")
             print(f"   - CDP categories: {', '.join(cdp_categories)}")
             print(f"   - CDP tools: {len(browser_tools_permissions)} tools enabled")
     print()
@@ -361,6 +347,38 @@ def create_client(
         mcp_servers["electron"] = {
             "command": "node",
             "args": [str(Path(__file__).parent.parent / "providers" / "electron-mcp-server" / "dist" / "index.js")],
+        }
+
+    if "chrome-devtools" in required_servers:
+        # Google's official Chrome DevTools MCP server
+        # See: https://github.com/ChromeDevTools/chrome-devtools-mcp
+        # This provides 26 tools across 6 categories: input, navigation, emulation,
+        # performance, network, and debugging
+        chrome_devtools_args = ["-y", "chrome-devtools-mcp@latest"]
+
+        # Add connection-specific arguments from environment
+        if os.environ.get("CDP_BROWSER_URL"):
+            chrome_devtools_args.append(f"--browser-url={os.environ['CDP_BROWSER_URL']}")
+        if os.environ.get("CDP_WS_ENDPOINT"):
+            chrome_devtools_args.append(f"--ws-endpoint={os.environ['CDP_WS_ENDPOINT']}")
+        if os.environ.get("CDP_AUTO_CONNECT", "").lower() == "true":
+            chrome_devtools_args.append("--auto-connect")
+        if os.environ.get("CDP_HEADLESS", "").lower() == "true":
+            chrome_devtools_args.append("--headless=true")
+        if os.environ.get("CDP_VIEWPORT"):
+            chrome_devtools_args.append(f"--viewport={os.environ['CDP_VIEWPORT']}")
+
+        # Add category filters (default: all enabled)
+        if os.environ.get("CDP_CATEGORY_EMULATION", "true").lower() == "false":
+            chrome_devtools_args.append("--category-emulation=false")
+        if os.environ.get("CDP_CATEGORY_PERFORMANCE", "true").lower() == "false":
+            chrome_devtools_args.append("--category-performance=false")
+        if os.environ.get("CDP_CATEGORY_NETWORK", "true").lower() == "false":
+            chrome_devtools_args.append("--category-network=false")
+
+        mcp_servers["chrome-devtools"] = {
+            "command": "npx",
+            "args": chrome_devtools_args,
         }
 
     if "puppeteer" in required_servers:
