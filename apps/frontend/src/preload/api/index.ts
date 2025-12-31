@@ -10,6 +10,7 @@ import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
 import { GitLabAPI, createGitLabAPI } from './modules/gitlab-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
+import { EnvironmentAPI, createEnvironmentAPI } from './modules/environment-api';
 
 export interface ElectronAPI extends
   ProjectAPI,
@@ -22,7 +23,8 @@ export interface ElectronAPI extends
   InsightsAPI,
   AppUpdateAPI,
   GitLabAPI,
-  DebugAPI {
+  DebugAPI,
+  EnvironmentAPI {
   github: GitHubAPI;
 }
 
@@ -38,6 +40,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createAppUpdateAPI(),
   ...createGitLabAPI(),
   ...createDebugAPI(),
+  ...createEnvironmentAPI(),
   github: createGitHubAPI()
 });
 
@@ -54,7 +57,8 @@ export {
   createAppUpdateAPI,
   createGitHubAPI,
   createGitLabAPI,
-  createDebugAPI
+  createDebugAPI,
+  createEnvironmentAPI
 };
 
 export type {
@@ -69,5 +73,6 @@ export type {
   AppUpdateAPI,
   GitHubAPI,
   GitLabAPI,
-  DebugAPI
+  DebugAPI,
+  EnvironmentAPI
 };
