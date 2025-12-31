@@ -43,11 +43,14 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Install Rust toolchain (for building native Python packages)
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
           path: apps/frontend/python-runtime
-          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          key: python-bundle-${{ runner.os }}-x64-3.12.8-rust
           restore-keys: |
             python-bundle-${{ runner.os }}-x64-
 
