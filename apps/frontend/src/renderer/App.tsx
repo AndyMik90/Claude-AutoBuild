@@ -392,11 +392,12 @@ export function App() {
       const updatedTask = tasks.find(
         (t) => t.id === selectedTask.id || t.specId === selectedTask.specId
       );
-      if (updatedTask) {
+      if (updatedTask && updatedTask !== selectedTask) {
         setSelectedTask(updatedTask);
       }
     }
-  }, [tasks, selectedTask?.id, selectedTask?.specId, selectedTask]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit selectedTask object to prevent infinite re-render loop
+  }, [tasks, selectedTask?.id, selectedTask?.specId]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
