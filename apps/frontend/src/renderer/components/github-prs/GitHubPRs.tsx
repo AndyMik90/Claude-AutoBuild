@@ -150,6 +150,13 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     }
   }, [selectedPRNumber, assignPR]);
 
+  const handleGetLogs = useCallback(async () => {
+    if (selectedProjectId && selectedPRNumber) {
+      return await window.electronAPI.github.getPRLogs(selectedProjectId, selectedPRNumber);
+    }
+    return null;
+  }, [selectedProjectId, selectedPRNumber]);
+
   // Not connected state
   if (!isConnected) {
     return <NotConnectedState error={error} onOpenSettings={onOpenSettings} t={t} />;
@@ -233,6 +240,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               onPostComment={handlePostComment}
               onMergePR={handleMergePR}
               onAssignPR={handleAssignPR}
+              onGetLogs={handleGetLogs}
             />
           ) : (
             <EmptyState message={t('prReview.selectPRToView')} />

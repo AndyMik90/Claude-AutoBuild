@@ -103,14 +103,16 @@ For important unaddressed comments, create a finding:
 
 ### Phase 4: Merge Readiness Assessment
 
-Determine the verdict based on:
+Determine the verdict based on (Strict Quality Gates - MEDIUM also blocks):
 
 | Verdict | Criteria |
 |---------|----------|
-| **READY_TO_MERGE** | All previous findings resolved, no new critical/high issues, tests pass |
-| **MERGE_WITH_CHANGES** | Previous findings resolved, only new medium/low issues remain |
-| **NEEDS_REVISION** | Some high-severity issues unresolved or new high issues found |
-| **BLOCKED** | Critical issues unresolved or new critical issues introduced |
+| **READY_TO_MERGE** | All previous findings resolved, no new issues, tests pass |
+| **MERGE_WITH_CHANGES** | Previous findings resolved, only new LOW severity suggestions remain |
+| **NEEDS_REVISION** | HIGH or MEDIUM severity issues unresolved, or new HIGH/MEDIUM issues found |
+| **BLOCKED** | CRITICAL issues unresolved or new CRITICAL issues introduced |
+
+Note: Both HIGH and MEDIUM block merge - AI fixes quickly, so be strict about quality.
 
 ## Output Format
 

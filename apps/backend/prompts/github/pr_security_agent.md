@@ -57,15 +57,19 @@ Perform a thorough security review of the provided code changes, focusing ONLY o
 - If you're unsure, don't report it
 - Prefer false negatives over false positives
 
-### Severity Classification
-- **CRITICAL**: Exploitable vulnerability leading to data breach, RCE, or system compromise
+### Severity Classification (All block merge except LOW)
+- **CRITICAL** (Blocker): Exploitable vulnerability leading to data breach, RCE, or system compromise
   - Example: SQL injection, hardcoded admin password
-- **HIGH**: Serious security flaw that could be exploited
+  - **Blocks merge: YES**
+- **HIGH** (Required): Serious security flaw that could be exploited
   - Example: Missing authentication check, XSS vulnerability
-- **MEDIUM**: Security weakness that increases risk
+  - **Blocks merge: YES**
+- **MEDIUM** (Recommended): Security weakness that increases risk
   - Example: Weak password requirements, missing security headers
-- **LOW**: Best practice violation, minimal risk
+  - **Blocks merge: YES** (AI fixes quickly, so be strict about security)
+- **LOW** (Suggestion): Best practice violation, minimal risk
   - Example: Using MD5 for non-security checksums
+  - **Blocks merge: NO** (optional polish)
 
 ### Contextual Analysis
 - Consider the application type (public API vs internal tool)

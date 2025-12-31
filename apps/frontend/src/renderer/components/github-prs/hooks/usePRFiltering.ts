@@ -51,13 +51,17 @@ function getPRComputedStatus(
 
   const result = reviewInfo.result;
   const hasPosted = Boolean(result.reviewId) || Boolean(result.hasPostedFindings);
-  const hasBlockingFindings = result.findings?.some(
-    f => f.severity === 'critical' || f.severity === 'high'
-  );
+  // Use overallStatus from review result as source of truth, fallback to severity check
+  const hasBlockingFindings =
+    result.overallStatus === 'request_changes' ||
+    result.findings?.some(f => f.severity === 'critical' || f.severity === 'high');
   const hasNewCommits = reviewInfo.newCommitsCheck?.hasNewCommits;
+  // Only count commits that happened AFTER findings were posted for follow-up status
+  const hasCommitsAfterPosting = reviewInfo.newCommitsCheck?.hasCommitsAfterPosting;
 
   // Check for ready for follow-up first (highest priority after posting)
-  if (hasPosted && hasNewCommits) {
+  // Must have new commits that happened AFTER findings were posted
+  if (hasPosted && hasNewCommits && hasCommitsAfterPosting) {
     return 'ready_for_followup';
   }
 

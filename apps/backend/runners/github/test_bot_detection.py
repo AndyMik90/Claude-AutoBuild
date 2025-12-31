@@ -6,11 +6,18 @@ Tests the BotDetector class to ensure it correctly prevents infinite loops.
 """
 
 import json
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# Use direct file import to avoid package import issues
+_github_dir = Path(__file__).parent
+if str(_github_dir) not in sys.path:
+    sys.path.insert(0, str(_github_dir))
+
 from bot_detection import BotDetectionState, BotDetector
 
 
@@ -125,13 +132,15 @@ class TestBotDetection:
 
     def test_get_last_commit_sha(self, mock_bot_detector):
         """Test extracting last commit SHA."""
+        # GitHub API returns commits in chronological order (oldest first, newest last)
+        # So commits[-1] is the LATEST commit
         commits = [
-            {"oid": "abc123"},
-            {"oid": "def456"},
+            {"oid": "abc123"},  # Oldest commit
+            {"oid": "def456"},  # Latest commit
         ]
 
         sha = mock_bot_detector.get_last_commit_sha(commits)
-        assert sha == "abc123"
+        assert sha == "def456"  # Should return the LAST (latest) commit
 
         # Test with sha field instead of oid
         commits_with_sha = [{"sha": "xyz789"}]
@@ -143,13 +152,16 @@ class TestBotDetection:
 
 
 class TestCoolingOff:
-    """Test cooling off period."""
+    """Test cooling off period.
+
+    Note: COOLING_OFF_MINUTES is currently set to 1 minute for testing large PRs.
+    """
 
     def test_within_cooling_off(self, mock_bot_detector):
         """Test PR within cooling off period."""
-        # Set last review to 5 minutes ago
-        five_min_ago = datetime.now() - timedelta(minutes=5)
-        mock_bot_detector.state.last_review_times["123"] = five_min_ago.isoformat()
+        # Set last review to 30 seconds ago (within 1 minute cooling off)
+        half_min_ago = datetime.now() - timedelta(seconds=30)
+        mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
 
@@ -158,9 +170,9 @@ class TestCoolingOff:
 
     def test_outside_cooling_off(self, mock_bot_detector):
         """Test PR outside cooling off period."""
-        # Set last review to 15 minutes ago
-        fifteen_min_ago = datetime.now() - timedelta(minutes=15)
-        mock_bot_detector.state.last_review_times["123"] = fifteen_min_ago.isoformat()
+        # Set last review to 2 minutes ago (outside 1 minute cooling off)
+        two_min_ago = datetime.now() - timedelta(minutes=2)
+        mock_bot_detector.state.last_review_times["123"] = two_min_ago.isoformat()
 
         is_cooling, reason = mock_bot_detector.is_within_cooling_off(123)
 
@@ -229,11 +241,16 @@ class TestShouldSkipReview:
         assert "bot user" in reason
 
     def test_skip_bot_commit(self, mock_bot_detector):
-        """Test skipping PR with bot commit."""
+        """Test skipping PR with bot commit as the latest commit."""
         pr_data = {"author": {"login": "alice"}}
+        # GitHub API returns commits in chronological order (oldest first, newest last)
+        # So commits[-1] is the LATEST commit - which is the bot commit
         commits = [
-            {"author": {"login": "test-bot"}, "oid": "abc123"},  # Latest is bot
-            {"author": {"login": "alice"}, "oid": "def456"},
+            {"author": {"login": "alice"}, "oid": "abc123"},  # Oldest commit (by alice)
+            {
+                "author": {"login": "test-bot"},
+                "oid": "def456",
+            },  # Latest commit (by bot)
         ]
 
         should_skip, reason = mock_bot_detector.should_skip_pr_review(
@@ -247,9 +264,9 @@ class TestShouldSkipReview:
 
     def test_skip_cooling_off(self, mock_bot_detector):
         """Test skipping during cooling off period."""
-        # Set last review to 5 minutes ago
-        five_min_ago = datetime.now() - timedelta(minutes=5)
-        mock_bot_detector.state.last_review_times["123"] = five_min_ago.isoformat()
+        # Set last review to 30 seconds ago (within 1 minute cooling off)
+        half_min_ago = datetime.now() - timedelta(seconds=30)
+        mock_bot_detector.state.last_review_times["123"] = half_min_ago.isoformat()
 
         pr_data = {"author": {"login": "alice"}}
         commits = [{"author": {"login": "alice"}, "oid": "abc123"}]
@@ -349,7 +366,7 @@ class TestStateManagement:
         assert stats["review_own_prs"] is False
         assert stats["total_prs_tracked"] == 2
         assert stats["total_reviews_performed"] == 3
-        assert stats["cooling_off_minutes"] == 10
+        assert stats["cooling_off_minutes"] == 1  # Currently set to 1 for testing
 
 
 class TestEdgeCases:

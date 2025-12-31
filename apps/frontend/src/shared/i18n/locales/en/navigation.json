@@ -29,5 +29,22 @@
   },
   "messages": {
     "initializeToCreateTasks": "Initialize Auto Claude to create tasks"
+  },
+  "claudeCode": {
+    "checking": "Checking Claude Code...",
+    "upToDate": "Claude Code is up to date",
+    "updateAvailable": "Claude Code update available",
+    "notInstalled": "Claude Code not installed",
+    "error": "Error checking Claude Code",
+    "installed": "Installed",
+    "outdated": "Update available",
+    "missing": "Not installed",
+    "current": "Current",
+    "latest": "Latest",
+    "lastChecked": "Last checked",
+    "learnMore": "Learn more about Claude Code",
+    "updateWarningTitle": "Update Claude Code?",
+    "updateWarningDescription": "Updating will close all running Claude Code sessions. Any unsaved work in those sessions may be lost. Make sure to save your work before proceeding.",
+    "updateAnyway": "Update Anyway"
   }
 }

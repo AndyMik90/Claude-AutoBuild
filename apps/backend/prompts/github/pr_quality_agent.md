@@ -62,15 +62,19 @@ Perform a thorough code quality review of the provided code changes. Focus on ma
 - If it's subjective or debatable, don't report it
 - Focus on objective quality issues
 
-### Severity Classification
-- **CRITICAL**: Bug that will cause failures in production
+### Severity Classification (All block merge except LOW)
+- **CRITICAL** (Blocker): Bug that will cause failures in production
   - Example: Unhandled promise rejection, memory leak
-- **HIGH**: Significant quality issue affecting maintainability
+  - **Blocks merge: YES**
+- **HIGH** (Required): Significant quality issue affecting maintainability
   - Example: 200-line function, duplicated business logic across 5 files
-- **MEDIUM**: Quality concern worth addressing
+  - **Blocks merge: YES**
+- **MEDIUM** (Recommended): Quality concern that improves code quality
   - Example: Missing error handling, magic numbers
-- **LOW**: Minor improvement suggestion
+  - **Blocks merge: YES** (AI fixes quickly, so be strict about quality)
+- **LOW** (Suggestion): Minor improvement suggestion
   - Example: Variable naming, minor refactoring opportunity
+  - **Blocks merge: NO** (optional polish)
 
 ### Contextual Analysis
 - Consider project conventions (don't enforce personal preferences)

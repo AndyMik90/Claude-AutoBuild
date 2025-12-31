@@ -64,9 +64,36 @@
   "steps": {
     "welcome": "Welcome",
     "auth": "Auth",
+    "claudeCode": "CLI",
     "devtools": "Dev Tools",
     "memory": "Memory",
     "done": "Done"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Install or update the Claude Code CLI to enable AI-powered features",
+    "detecting": "Checking Claude Code installation...",
+    "info": {
+      "title": "What is Claude Code?",
+      "description": "Claude Code is Anthropic's official CLI that powers Auto Claude's AI features. It provides secure authentication and direct access to Claude models."
+    },
+    "status": {
+      "installed": "Installed",
+      "outdated": "Update Available",
+      "notFound": "Not Installed"
+    },
+    "version": {
+      "current": "Current Version",
+      "latest": "Latest Version"
+    },
+    "install": {
+      "button": "Install Claude Code",
+      "updating": "Update Claude Code",
+      "inProgress": "Installing...",
+      "success": "Installation command sent to terminal. Please complete the installation there.",
+      "instructions": "The installer will open in your terminal. Follow the prompts to complete installation."
+    },
+    "learnMore": "Learn more about Claude Code"
   },
   "devtools": {
     "title": "Developer Tools",

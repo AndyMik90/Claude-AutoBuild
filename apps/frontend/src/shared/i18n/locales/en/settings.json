@@ -318,5 +318,104 @@
     "noRecentErrors": "No recent errors",
     "helpTitle": "Reporting Issues",
     "helpText": "When reporting bugs, click \"Copy Debug Info\" to get system information and recent errors that help us diagnose the issue."
+  },
+  "mcp": {
+    "title": "MCP Server Overview",
+    "titleWithProject": "MCP Server Overview for {{projectName}}",
+    "description": "Configure which MCP servers are available for agents in this project",
+    "descriptionNoProject": "Select a project to configure MCP servers",
+    "serversEnabled": "{{count}} servers enabled",
+    "configuration": "MCP Server Configuration",
+    "configurationHint": "Disabled servers reduce context usage and startup time",
+    "noProjectSelected": "No Project Selected",
+    "noProjectSelectedDescription": "Select a project from the dropdown to view and configure MCP servers.",
+    "projectNotInitialized": "Project Not Initialized",
+    "projectNotInitializedDescription": "Initialize Auto Claude for this project to configure MCP servers.",
+    "browserAutomation": "Browser Automation (QA agents only)",
+    "alwaysEnabled": "always enabled",
+    "addServer": "Add Server",
+    "addMcpTo": "Add MCP Server to {{agent}}",
+    "addMcpDescription": "Select an MCP server to add to this agent",
+    "allMcpsAdded": "All available MCP servers are already added",
+    "added": "added",
+    "removed": "removed",
+    "remove": "Remove",
+    "restore": "Restore",
+    "noMcpServers": "No MCP servers",
+    "cannotRemove": "Cannot remove (required)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Documentation lookup for libraries"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Knowledge graph for cross-session context",
+        "notConfigured": "Requires memory configuration (see Memory settings)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Project management integration",
+        "notConfigured": "Requires Linear integration (see Linear settings)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Desktop app automation via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Web browser automation for testing"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude Tools",
+        "description": "Build progress tracking"
+      }
+    },
+    "customServers": "Custom Servers",
+    "addCustomServer": "Add Custom Server",
+    "editCustomServer": "Edit Custom Server",
+    "customServerDescription": "Add a command-based or HTTP-based MCP server",
+    "serverType": "Server Type",
+    "typeCommand": "Command (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Name",
+    "serverNamePlaceholder": "My MCP Server",
+    "serverDescription": "Description",
+    "serverDescriptionPlaceholder": "What this server does",
+    "command": "Command",
+    "args": "Arguments",
+    "argsHint": "Space-separated arguments",
+    "url": "URL",
+    "headers": "Headers",
+    "headerName": "Header Name",
+    "headerValue": "Header Value",
+    "noCustomServers": "No custom servers configured. Add one to use with your agents.",
+    "errorNameRequired": "Server name is required",
+    "errorIdExists": "A server with this ID already exists",
+    "errorCommandRequired": "Command is required for command-based servers",
+    "errorUrlRequired": "URL is required for HTTP-based servers",
+    "testConnection": "Test",
+    "testing": "Testing...",
+    "authToken": "Authentication Token",
+    "authTokenPlaceholder": "Paste your API token or PAT here",
+    "authTokenHint": "Used as Bearer token in the Authorization header",
+    "advancedHeaders": "Additional Headers",
+    "status": {
+      "healthy": "Server is responding",
+      "unhealthy": "Server is not responding",
+      "needsAuth": "Authentication required",
+      "checking": "Checking...",
+      "unknown": "Status unknown"
+    },
+    "hints": {
+      "github": "This looks like a GitHub MCP server. You'll need a Personal Access Token with appropriate scopes.",
+      "createGithubPat": "Create GitHub PAT",
+      "google": "This looks like a Google API. You'll need an OAuth token or API key.",
+      "createGoogleToken": "Create Google Credentials",
+      "anthropic": "This looks like an Anthropic API. You'll need an API key.",
+      "createAnthropicKey": "Create Anthropic API Key",
+      "openai": "This looks like an OpenAI API. You'll need an API key.",
+      "createOpenaiKey": "Create OpenAI API Key"
+    }
   }
 }

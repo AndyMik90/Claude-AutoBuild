@@ -149,6 +149,7 @@ export interface GitLabAPI {
 
   // OAuth operations (glab CLI)
   checkGitLabCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
+  installGitLabCli: () => Promise<IPCResult<{ command: string }>>;
   checkGitLabAuth: (instanceUrl?: string) => Promise<IPCResult<{ authenticated: boolean; username?: string }>>;
   startGitLabAuth: (instanceUrl?: string) => Promise<IPCResult<{ deviceCode: string; verificationUrl: string; userCode: string }>>;
   getGitLabToken: (instanceUrl?: string) => Promise<IPCResult<{ token: string }>>;
@@ -396,6 +397,9 @@ export const createGitLabAPI = (): GitLabAPI => ({
   // OAuth operations (glab CLI)
   checkGitLabCli: (): Promise<IPCResult<{ installed: boolean; version?: string }>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_CHECK_CLI),
+
+  installGitLabCli: (): Promise<IPCResult<{ command: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITLAB_INSTALL_CLI),
 
   checkGitLabAuth: (instanceUrl?: string): Promise<IPCResult<{ authenticated: boolean; username?: string }>> =>
     invokeIpc(IPC_CHANNELS.GITLAB_CHECK_AUTH, instanceUrl),

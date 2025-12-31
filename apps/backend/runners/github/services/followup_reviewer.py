@@ -33,6 +33,7 @@ try:
         ReviewCategory,
         ReviewSeverity,
     )
+    from .category_utils import map_category
     from .prompt_manager import PromptManager
     from .pydantic_models import FollowupReviewResponse
 except (ImportError, ValueError, SystemError):
@@ -43,40 +44,11 @@ except (ImportError, ValueError, SystemError):
         ReviewCategory,
         ReviewSeverity,
     )
+    from services.category_utils import map_category
     from services.prompt_manager import PromptManager
     from services.pydantic_models import FollowupReviewResponse
 
 logger = logging.getLogger(__name__)
-
-# Category mapping for AI responses
-_CATEGORY_MAPPING = {
-    # Direct matches (already valid)
-    "security": ReviewCategory.SECURITY,
-    "quality": ReviewCategory.QUALITY,
-    "style": ReviewCategory.STYLE,
-    "test": ReviewCategory.TEST,
-    "docs": ReviewCategory.DOCS,
-    "pattern": ReviewCategory.PATTERN,
-    "performance": ReviewCategory.PERFORMANCE,
-    "verification_failed": ReviewCategory.VERIFICATION_FAILED,
-    "redundancy": ReviewCategory.REDUNDANCY,
-    # AI-generated alternatives that need mapping
-    "correctness": ReviewCategory.QUALITY,  # Logic/code correctness → quality
-    "consistency": ReviewCategory.PATTERN,  # Code consistency → pattern adherence
-    "testing": ReviewCategory.TEST,  # Testing → test
-    "documentation": ReviewCategory.DOCS,  # Documentation → docs
-    "bug": ReviewCategory.QUALITY,  # Bug → quality
-    "logic": ReviewCategory.QUALITY,  # Logic error → quality
-    "error_handling": ReviewCategory.QUALITY,  # Error handling → quality
-    "maintainability": ReviewCategory.QUALITY,  # Maintainability → quality
-    "readability": ReviewCategory.STYLE,  # Readability → style
-    "best_practices": ReviewCategory.PATTERN,  # Best practices → pattern
-    "best-practices": ReviewCategory.PATTERN,  # With hyphen
-    "architecture": ReviewCategory.PATTERN,  # Architecture → pattern
-    "complexity": ReviewCategory.QUALITY,  # Complexity → quality
-    "dead_code": ReviewCategory.REDUNDANCY,  # Dead code → redundancy
-    "unused": ReviewCategory.REDUNDANCY,  # Unused → redundancy
-}
 
 # Severity mapping for AI responses
 _SEVERITY_MAPPING = {
@@ -305,9 +277,9 @@ class FollowupReviewer:
                 resolved.append(finding)
             else:
                 # File was modified but the specific line wasn't clearly changed
-                # Consider it potentially resolved (benefit of the doubt)
-                # Could be more sophisticated with AST analysis
-                resolved.append(finding)
+                # Mark as unresolved - the contributor needs to address the actual issue
+                # "Benefit of the doubt" was wrong - if the line wasn't changed, the issue persists
+                unresolved.append(finding)
 
         return resolved, unresolved
 
@@ -470,11 +442,20 @@ class FollowupReviewer:
         high_unresolved = sum(
             1 for f in unresolved_findings if f.severity == ReviewSeverity.HIGH
         )
+        medium_unresolved = sum(
+            1 for f in unresolved_findings if f.severity == ReviewSeverity.MEDIUM
+        )
+        low_unresolved = sum(
+            1 for f in unresolved_findings if f.severity == ReviewSeverity.LOW
+        )
         critical_new = sum(
             1 for f in new_findings if f.severity == ReviewSeverity.CRITICAL
         )
         high_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.HIGH)
+        medium_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.MEDIUM)
+        low_new = sum(1 for f in new_findings if f.severity == ReviewSeverity.LOW)
 
+        # Critical and High are always blockers
         for f in unresolved_findings:
             if f.severity in [ReviewSeverity.CRITICAL, ReviewSeverity.HIGH]:
                 blockers.append(f"Unresolved: {f.title} ({f.file}:{f.line})")
@@ -490,17 +471,25 @@ class FollowupReviewer:
                 f"Still blocked by {critical_unresolved + critical_new} critical issues "
                 f"({critical_unresolved} unresolved, {critical_new} new)"
             )
-        elif high_unresolved > 0 or high_new > 0:
+        elif (
+            high_unresolved > 0
+            or high_new > 0
+            or medium_unresolved > 0
+            or medium_new > 0
+        ):
+            # High and Medium severity findings block merge
             verdict = MergeVerdict.NEEDS_REVISION
+            total_blocking = high_unresolved + high_new + medium_unresolved + medium_new
             reasoning = (
-                f"{high_unresolved + high_new} high-priority issues "
-                f"({high_unresolved} unresolved, {high_new} new)"
+                f"{total_blocking} issue(s) must be addressed "
+                f"({high_unresolved + medium_unresolved} unresolved, {high_new + medium_new} new)"
             )
-        elif len(unresolved_findings) > 0 or len(new_findings) > 0:
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
+        elif low_unresolved > 0 or low_new > 0:
+            # Only Low severity suggestions remaining - safe to merge (non-blocking)
+            verdict = MergeVerdict.READY_TO_MERGE
             reasoning = (
                 f"{resolved_count} issues resolved. "
-                f"{len(unresolved_findings)} remaining, {len(new_findings)} new minor issues."
+                f"{low_unresolved + low_new} non-blocking suggestion(s) to consider."
             )
         else:
             verdict = MergeVerdict.READY_TO_MERGE
@@ -650,12 +639,12 @@ class FollowupReviewer:
 ### AI BOT COMMENTS SINCE LAST REVIEW:
 {ai_comments_text if ai_comments_text else "No AI bot comments."}
 
-### PR REVIEWS SINCE LAST REVIEW (Cursor, CodeRabbit, etc.):
+### PR REVIEWS SINCE LAST REVIEW (CodeRabbit, Gemini Code Assist, Cursor, etc.):
 {pr_reviews_text if pr_reviews_text else "No PR reviews since last review."}
 
 ---
 
-**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like Cursor, CodeRabbit, Greptile, etc. that may have identified issues in the recent changes. You should:
+**IMPORTANT**: Pay special attention to the PR REVIEWS section above. These are formal code reviews from AI tools like CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc. that may have identified issues in the recent changes. You should:
 1. Consider their findings when evaluating the code
 2. Create new findings for valid issues they identified that haven't been addressed
 3. Note if the recent commits addressed concerns raised in these reviews
@@ -777,7 +766,7 @@ Analyze this follow-up review context and provide your structured response.
                 PRReviewFinding(
                     id=f.id,
                     severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.MEDIUM),
-                    category=_CATEGORY_MAPPING.get(f.category, ReviewCategory.QUALITY),
+                    category=map_category(f.category),
                     title=f.title,
                     description=f.description,
                     file=f.file,
@@ -794,7 +783,7 @@ Analyze this follow-up review context and provide your structured response.
                 PRReviewFinding(
                     id=f.id,
                     severity=_SEVERITY_MAPPING.get(f.severity, ReviewSeverity.LOW),
-                    category=_CATEGORY_MAPPING.get(f.category, ReviewCategory.QUALITY),
+                    category=map_category(f.category),
                     title=f.title,
                     description=f.description,
                     file=f.file,

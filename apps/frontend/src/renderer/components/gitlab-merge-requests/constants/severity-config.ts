@@ -19,39 +19,39 @@ export type SeverityGroup = 'critical' | 'high' | 'medium' | 'low';
 export const SEVERITY_ORDER: SeverityGroup[] = ['critical', 'high', 'medium', 'low'];
 
 export const SEVERITY_CONFIG: Record<SeverityGroup, {
-  label: string;
+  labelKey: string;
   color: string;
   bgColor: string;
   icon: typeof XCircle;
-  description: string;
+  descriptionKey: string;
 }> = {
   critical: {
-    label: 'Critical',
+    labelKey: 'mrReview.severity.critical',
     color: 'text-red-500',
     bgColor: 'bg-red-500/10 border-red-500/30',
     icon: XCircle,
-    description: 'Must fix before merge',
+    descriptionKey: 'mrReview.severity.criticalDesc',
   },
   high: {
-    label: 'High',
+    labelKey: 'mrReview.severity.high',
     color: 'text-orange-500',
     bgColor: 'bg-orange-500/10 border-orange-500/30',
     icon: AlertTriangle,
-    description: 'Should fix before merge',
+    descriptionKey: 'mrReview.severity.highDesc',
   },
   medium: {
-    label: 'Medium',
+    labelKey: 'mrReview.severity.medium',
     color: 'text-yellow-500',
     bgColor: 'bg-yellow-500/10 border-yellow-500/30',
     icon: AlertCircle,
-    description: 'Consider fixing',
+    descriptionKey: 'mrReview.severity.mediumDesc',
   },
   low: {
-    label: 'Low',
+    labelKey: 'mrReview.severity.low',
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10 border-blue-500/30',
     icon: CheckCircle,
-    description: 'Nice to have',
+    descriptionKey: 'mrReview.severity.lowDesc',
   },
 };
 
