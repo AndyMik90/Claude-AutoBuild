@@ -11,7 +11,12 @@ Key Features:
 - Attempt history tracking across sessions
 - Smart retry with different approaches
 - Escalation to human when stuck
+
+NOTE: Uses `from __future__ import annotations` for Python 3.9 compatibility
+with type hints like `str | None`.
 """
+
+from __future__ import annotations
 
 import json
 import subprocess

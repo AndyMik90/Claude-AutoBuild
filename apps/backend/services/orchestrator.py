@@ -18,7 +18,12 @@ Usage:
         orchestrator.start_services()
         # run tests
         orchestrator.stop_services()
+
+NOTE: Uses `from __future__ import annotations` for Python 3.9 compatibility
+with type hints like `str | None` and `int | None`.
 """
+
+from __future__ import annotations
 
 import json
 import shlex
@@ -538,7 +543,7 @@ class ServiceContext:
         self.timeout = timeout
         self.result: OrchestrationResult | None = None
 
-    def __enter__(self) -> "ServiceContext":
+    def __enter__(self) -> ServiceContext:
         """Start services on context entry."""
         if self.orchestrator.is_multi_service():
             self.result = self.orchestrator.start_services(self.timeout)

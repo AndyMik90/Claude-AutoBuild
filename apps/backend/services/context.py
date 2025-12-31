@@ -16,7 +16,12 @@ Usage:
 
     # Generate with custom project index
     python auto-claude/service_context.py --service frontend --index auto-claude/project_index.json
+
+NOTE: Uses `from __future__ import annotations` for Python 3.9 compatibility
+with type hints like `dict | None` and `Path | None`.
 """
+
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
