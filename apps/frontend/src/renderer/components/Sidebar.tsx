@@ -291,7 +291,7 @@ export function Sidebar({
         {/* Header with drag area - extra top padding for macOS traffic lights */}
         <div className="electron-drag flex h-16 items-center px-5 pt-7">
           <span className="electron-no-drag text-lg font-semibold text-foreground tracking-tight">
-            Auto Claude
+            Maestro
           </span>
         </div>
 
@@ -394,7 +394,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Initialize Auto Claude Dialog */}
+      {/* Initialize Maestro Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
         // Only allow closing if user manually closes (not during initialization)
         if (!open && !isInitializing) {

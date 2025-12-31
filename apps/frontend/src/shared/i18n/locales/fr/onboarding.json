@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "Assistant de configuration",
-    "description": "Configurez votre environnement Auto Claude en quelques étapes simples",
+    "description": "Configurez votre environnement Maestro en quelques étapes simples",
     "helpText": "Cet assistant vous aidera à configurer votre environnement en quelques étapes. Vous pouvez configurer votre token OAuth Claude, activer les fonctionnalités de mémoire et créer votre première tâche."
   },
   "welcome": {
-    "title": "Bienvenue sur Auto Claude",
+    "title": "Bienvenue sur Maestro",
     "subtitle": "Construisez des logiciels de manière autonome avec des agents IA",
     "getStarted": "Commencer",
     "skip": "Passer la configuration",
@@ -16,7 +16,7 @@
       },
       "specDriven": {
         "title": "Workflow basé sur les specs",
-        "description": "Définissez des tâches avec des spécifications claires et laissez Auto Claude gérer l'implémentation"
+        "description": "Définissez des tâches avec des spécifications claires et laissez Maestro gérer l'implémentation"
       },
       "memory": {
         "title": "Mémoire & Contexte",
@@ -36,17 +36,17 @@
   },
   "memory": {
     "title": "Mémoire",
-    "description": "La mémoire Auto Claude aide à retenir le contexte entre vos sessions de code"
+    "description": "La mémoire Maestro aide à retenir le contexte entre vos sessions de code"
   },
   "completion": {
     "title": "Vous êtes prêt !",
-    "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",
+    "subtitle": "Maestro est prêt à vous aider à construire des logiciels incroyables",
     "setupComplete": "Configuration terminée",
     "setupCompleteDescription": "Votre environnement est configuré et prêt. Vous pouvez commencer à créer des tâches immédiatement ou explorer l'application à votre rythme.",
     "whatsNext": "Et maintenant ?",
     "createTask": {
       "title": "Créer une tâche",
-      "description": "Commencez par créer votre première tâche pour voir Auto Claude en action.",
+      "description": "Commencez par créer votre première tâche pour voir Maestro en action.",
       "action": "Ouvrir le créateur de tâches"
     },
     "customizeSettings": {
@@ -70,19 +70,19 @@
   },
   "devtools": {
     "title": "Outils de développement",
-    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Auto Claude",
+    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Maestro",
     "detecting": "Détection des outils installés...",
     "detectAgain": "Détecter à nouveau",
     "whyConfigure": "Pourquoi configurer ceci ?",
-    "whyConfigureDescription": "Quand Auto Claude construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
+    "whyConfigureDescription": "Quand Maestro construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
     "ide": {
       "label": "IDE préféré",
-      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "description": "Maestro ouvrira les worktrees dans cet éditeur",
       "customPath": "Chemin IDE personnalisé"
     },
     "terminal": {
       "label": "Terminal préféré",
-      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "description": "Maestro ouvrira les sessions terminal ici",
       "customPath": "Chemin terminal personnalisé"
     },
     "detectedSummary": "Détecté sur votre système :",

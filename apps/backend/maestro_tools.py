@@ -1,5 +1,5 @@
 """
-Auto Claude tools module facade.
+Maestro tools module facade.
 
 Provides MCP tools for agent operations.
 Re-exports from agents.tools_pkg for clean imports.
@@ -17,12 +17,12 @@ from agents.tools_pkg.models import (  # noqa: F401
 )
 from agents.tools_pkg.permissions import get_allowed_tools  # noqa: F401
 from agents.tools_pkg.registry import (  # noqa: F401
-    create_auto_claude_mcp_server,
+    create_maestro_mcp_server,
     is_tools_available,
 )
 
 __all__ = [
-    "create_auto_claude_mcp_server",
+    "create_maestro_mcp_server",
     "get_allowed_tools",
     "is_tools_available",
     "TOOL_UPDATE_SUBTASK_STATUS",

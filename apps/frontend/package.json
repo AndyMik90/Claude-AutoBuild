@@ -1,16 +1,16 @@
 {
-  "name": "auto-claude-ui",
-  "version": "2.7.2-beta.10",
+  "name": "maestro",
+  "version": "3.0.0",
   "type": "module",
-  "description": "Desktop UI for Auto Claude autonomous coding framework",
-  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "description": "Desktop UI for Maestro autonomous orchestration framework",
+  "homepage": "https://github.com/YOUR_ORG/maestro",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+    "url": "https://github.com/YOUR_ORG/maestro.git"
   },
   "main": "./out/main/index.js",
   "author": {
-    "name": "Auto Claude Team",
+    "name": "Maestro Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
   },
   "license": "AGPL-3.0",
@@ -39,9 +39,9 @@
     "package:win": "npm run python:download && electron-vite build && electron-builder --win --publish never",
     "package:linux": "npm run python:download && electron-vite build && electron-builder --linux --publish never",
     "package:flatpak": "npm run python:download && electron-vite build && electron-builder --linux flatpak --publish never",
-    "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
-    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
-    "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
+    "start:packaged:mac": "open dist/mac-arm64/Maestro.app || open dist/mac/Maestro.app",
+    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Maestro.exe\"",
+    "start:packaged:linux": "./dist/linux-unpacked/maestro",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -133,14 +133,14 @@
     "dmg-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.autoclaude.ui",
-    "productName": "Auto-Claude",
+    "appId": "com.maestro.app",
+    "productName": "Maestro",
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
-        "owner": "AndyMik90",
-        "repo": "Auto-Claude"
+        "owner": "YOUR_ORG",
+        "repo": "maestro"
       }
     ],
     "directories": {

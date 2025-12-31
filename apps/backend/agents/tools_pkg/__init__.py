@@ -1,9 +1,9 @@
 """
-Custom MCP Tools for Auto-Claude Agents
-========================================
+Custom MCP Tools for Maestro Agents
+====================================
 
 This module provides custom MCP tools that agents can use for reliable
-operations on auto-claude data structures. These tools replace prompt-based
+operations on maestro data structures. These tools replace prompt-based
 JSON manipulation with guaranteed-correct operations.
 
 Benefits:
@@ -13,17 +13,17 @@ Benefits:
 - Each agent only sees tools relevant to their role via allowed_tools
 
 Usage:
-    from auto_claude_tools import create_auto_claude_mcp_server, get_allowed_tools
+    from maestro_tools import create_maestro_mcp_server, get_allowed_tools
 
     # Create the MCP server
-    mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
+    mcp_server = create_maestro_mcp_server(spec_dir, project_dir)
 
     # Get allowed tools for a specific agent type
     allowed_tools = get_allowed_tools("coder")
 
     # Use in ClaudeAgentOptions
     options = ClaudeAgentOptions(
-        mcp_servers={"auto-claude": mcp_server},
+        mcp_servers={"maestro": mcp_server},
         allowed_tools=allowed_tools,
         ...
     )
@@ -42,7 +42,7 @@ from .models import (
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     PUPPETEER_EXTENDED_TOOLS,
-    # Auto-Claude tool names
+    # Maestro tool names
     TOOL_GET_BUILD_PROGRESS,
     TOOL_GET_SESSION_CONTEXT,
     TOOL_RECORD_DISCOVERY,
@@ -56,11 +56,11 @@ from .models import (
     get_required_mcp_servers,
 )
 from .permissions import get_all_agent_types, get_allowed_tools
-from .registry import create_auto_claude_mcp_server, is_tools_available
+from .registry import create_maestro_mcp_server, is_tools_available
 
 __all__ = [
     # Main API
-    "create_auto_claude_mcp_server",
+    "create_maestro_mcp_server",
     "get_allowed_tools",
     "is_tools_available",
     # Agent configuration registry
@@ -80,7 +80,7 @@ __all__ = [
     "ELECTRON_TOOLS",
     "PUPPETEER_TOOLS",
     "PUPPETEER_EXTENDED_TOOLS",
-    # Auto-Claude tool name constants
+    # Maestro tool name constants
     "TOOL_UPDATE_SUBTASK_STATUS",
     "TOOL_GET_BUILD_PROGRESS",
     "TOOL_RECORD_DISCOVERY",

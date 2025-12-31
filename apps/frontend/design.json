@@ -1,7 +1,7 @@
 {
   "$schema": "Design System Guidelines v2.0",
   "meta": {
-    "name": "Auto-Build UI Design System",
+    "name": "Maestro UI Design System",
     "description": "A modern, professional design system inspired by Fey/Oscura aesthetics. Features deep dark mode with warm yellow accents, muted semantic colors, and clean typography.",
     "designPhilosophy": "Minimal, data-focused interfaces optimized for dark mode. Near-black backgrounds with warm yellow accents create visual hierarchy. Color is reserved primarily for semantic meaning (success/error) while neutral grays handle most UI elements.",
     "defaultTheme": "Oscura Midnight - deep dark with saturated yellow accent"

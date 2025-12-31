@@ -1,6 +1,6 @@
 """
 Claude SDK Client Configuration
-===============================
+================================
 
 Functions for creating and configuring the Claude Agent SDK client.
 
@@ -23,7 +23,7 @@ from agents.tools_pkg import (
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     PUPPETEER_EXTENDED_TOOLS,
-    create_auto_claude_mcp_server,
+    create_maestro_mcp_server,
     get_allowed_tools,
     get_required_mcp_servers,
     is_tools_available,
@@ -167,8 +167,8 @@ def create_client(
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
 
-    # Check if custom auto-claude tools are available
-    auto_claude_tools_enabled = is_tools_available()
+    # Check if custom maestro tools are available
+    maestro_tools_enabled = is_tools_available()
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
@@ -294,8 +294,8 @@ def create_client(
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
-    if "auto-claude" in required_servers and auto_claude_tools_enabled:
-        mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
+    if "maestro" in required_servers and maestro_tools_enabled:
+        mcp_servers_list.append(f"maestro ({agent_type} tools)")
     if mcp_servers_list:
         print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
     else:
@@ -403,11 +403,11 @@ def create_client(
             "url": get_graphiti_mcp_url(),
         }
 
-    # Add custom auto-claude MCP server if required and available
-    if "auto-claude" in required_servers and auto_claude_tools_enabled:
-        auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
-        if auto_claude_mcp_server:
-            mcp_servers["auto-claude"] = auto_claude_mcp_server
+    # Add custom maestro MCP server if required and available
+    if "maestro" in required_servers and maestro_tools_enabled:
+        maestro_mcp_server = create_maestro_mcp_server(spec_dir, project_dir)
+        if maestro_mcp_server:
+            mcp_servers["maestro"] = maestro_mcp_server
 
     # Build system prompt
     base_prompt = (

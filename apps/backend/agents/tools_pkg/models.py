@@ -254,49 +254,49 @@ AGENT_CONFIGS = {
     "spec_gatherer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],  # No MCP needed - just reads project
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_researcher": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],  # Needs docs lookup
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_writer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
         "mcp_servers": [],  # Just writes spec.md
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_critic": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],  # Self-critique, no external tools
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_context": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_validation": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "spec_compaction": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -307,7 +307,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],  # Only if project setting enabled
-        "auto_claude_tools": [
+        "maestro_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
             TOOL_RECORD_DISCOVERY,
@@ -318,7 +318,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],
-        "auto_claude_tools": [
+        "maestro_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
             TOOL_RECORD_DISCOVERY,
@@ -335,7 +335,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + ["Bash"] + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
         "mcp_servers_optional": ["linear"],  # For updating issue status
-        "auto_claude_tools": [
+        "maestro_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
             TOOL_GET_SESSION_CONTEXT,
@@ -346,7 +346,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
         "mcp_servers_optional": ["linear"],
-        "auto_claude_tools": [
+        "maestro_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
@@ -360,25 +360,25 @@ AGENT_CONFIGS = {
     "insights": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "merge_resolver": {
         "tools": [],  # Text-only analysis
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "commit_message": {
         "tools": [],
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "pr_reviewer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -387,19 +387,19 @@ AGENT_CONFIGS = {
     "analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "batch_analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "batch_validation": {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -408,19 +408,19 @@ AGENT_CONFIGS = {
     "roadmap_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "competitor_analysis": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],  # WebSearch for competitor research
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     "ideation": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "ultrathink",
     },
     # ═══════════════════════════════════════════════════════════════════════
@@ -431,14 +431,14 @@ AGENT_CONFIGS = {
     "coordinator": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],  # Minimal - just analysis
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "medium",  # Balanced for cost
     },
     # Documentation agent (future - for Phase 3)
     "docs_agent": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],  # Needs docs lookup
-        "auto_claude_tools": [],
+        "maestro_tools": [],
         "thinking_default": "low",  # Docs don't need deep thinking
     },
 }

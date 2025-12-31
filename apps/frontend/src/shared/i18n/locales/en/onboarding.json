@@ -1,12 +1,12 @@
 {
   "wizard": {
     "title": "Setup Wizard",
-    "description": "Configure your Auto Claude environment in a few simple steps",
+    "description": "Configure your Maestro environment in a few simple steps",
     "helpText": "This wizard will help you set up your environment in just a few steps. You can configure your Claude OAuth token, set up memory features, and create your first task."
   },
   "welcome": {
-    "title": "Welcome to Auto Claude",
-    "subtitle": "Build software autonomously with AI-powered agents",
+    "title": "Welcome to Maestro",
+    "subtitle": "Orchestrate software development with AI-powered agents",
     "getStarted": "Get Started",
     "skip": "Skip Setup",
     "features": {
@@ -16,7 +16,7 @@
       },
       "specDriven": {
         "title": "Spec-Driven Workflow",
-        "description": "Define tasks with clear specifications and let Auto Claude handle the implementation"
+        "description": "Define tasks with clear specifications and let Maestro handle the implementation"
       },
       "memory": {
         "title": "Memory & Context",
@@ -36,17 +36,17 @@
   },
   "memory": {
     "title": "Memory",
-    "description": "Auto Claude Memory helps remember context across your coding sessions"
+    "description": "Maestro Memory helps remember context across your coding sessions"
   },
   "completion": {
     "title": "You're All Set!",
-    "subtitle": "Auto Claude is ready to help you build amazing software",
+    "subtitle": "Maestro is ready to help you build amazing software",
     "setupComplete": "Setup Complete",
     "setupCompleteDescription": "Your environment is configured and ready. You can start creating tasks immediately or explore the application at your own pace.",
     "whatsNext": "What's Next?",
     "createTask": {
       "title": "Create a Task",
-      "description": "Start by creating your first task to see Auto Claude in action.",
+      "description": "Start by creating your first task to see Maestro in action.",
       "action": "Open Task Creator"
     },
     "customizeSettings": {
@@ -70,19 +70,19 @@
   },
   "devtools": {
     "title": "Developer Tools",
-    "description": "Choose your preferred IDE and terminal for working with Auto Claude worktrees",
+    "description": "Choose your preferred IDE and terminal for working with Maestro worktrees",
     "detecting": "Detecting installed tools...",
     "detectAgain": "Detect Again",
     "whyConfigure": "Why configure these?",
-    "whyConfigureDescription": "When Auto Claude builds features in isolated worktrees, you can open them directly in your preferred IDE or terminal to test and review changes.",
+    "whyConfigureDescription": "When Maestro builds features in isolated worktrees, you can open them directly in your preferred IDE or terminal to test and review changes.",
     "ide": {
       "label": "Preferred IDE",
-      "description": "Auto Claude will open worktrees in this editor",
+      "description": "Maestro will open worktrees in this editor",
       "customPath": "Custom IDE Path"
     },
     "terminal": {
       "label": "Preferred Terminal",
-      "description": "Auto Claude will open terminal sessions here",
+      "description": "Maestro will open terminal sessions here",
       "customPath": "Custom Terminal Path"
     },
     "detectedSummary": "Detected on your system:",

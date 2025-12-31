@@ -66,10 +66,10 @@ def get_allowed_tools(
         linear_enabled,
     )
 
-    # Add auto-claude tools ONLY if the MCP server is available
+    # Add maestro tools ONLY if the MCP server is available
     # This prevents allowing tools that won't work because the server isn't running
-    if "auto-claude" in required_servers and is_tools_available():
-        tools.extend(config.get("auto_claude_tools", []))
+    if "maestro" in required_servers and is_tools_available():
+        tools.extend(config.get("maestro_tools", []))
 
     # Add MCP tool names based on required servers
     tools.extend(_get_mcp_tools_for_servers(required_servers))
@@ -102,7 +102,7 @@ def _get_mcp_tools_for_servers(servers: list[str]) -> list[str]:
             tools.extend(ELECTRON_TOOLS)
         elif server == "puppeteer":
             tools.extend(PUPPETEER_TOOLS)
-        # auto-claude tools are already added via config["auto_claude_tools"]
+        # maestro tools are already added via config["maestro_tools"]
 
     return tools
 

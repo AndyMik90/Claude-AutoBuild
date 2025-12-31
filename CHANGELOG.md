@@ -1,3 +1,39 @@
+## 3.0.0 - Maestro Rebrand
+
+### ✨ Major Changes
+
+- Complete rebrand from "Auto Claude" to **"Maestro"** - positioning as "the conductor of AI agents"
+- New visual identity with conductor/orchestration theme
+- New **Maestro theme** with conductor's gold (#C4A962) and deep navy (#1E3A5F) color palette
+- Directory migration: `.auto-claude` → `.maestro`
+- Automatic migration utilities for existing users
+- Package renamed from `auto-claude` to `maestro`
+- Electron app renamed: `com.autoclaude.ui` → `com.maestro.app`
+- Product name changed from "Auto-Claude" to "Maestro"
+
+### 🛠️ Improvements
+
+- Complete i18n updates for English and French translations
+- Updated all documentation with Maestro branding
+- Enhanced visual design system with conductor-inspired aesthetics
+- Baton symbolism directionality for orchestration theme
+
+### 🔧 Technical Changes
+
+- Python module renamed: `auto_claude_tools.py` → `maestro_tools.py`
+- Core constants updated: `agentFramework: 'maestro'`, `.maestro/` paths
+- MCP server renamed to "maestro"
+- Migration utilities for backward compatibility
+- All download filenames updated to "Maestro-*"
+
+### 📚 Documentation
+
+- README.md updated with Maestro branding and orchestration theme
+- CLAUDE.md updated with new paths and terminology
+- Complete review of all user-facing text
+
+---
+
 ## 2.7.1 - Build Pipeline Enhancements
 
 ### 🛠️ Improvements

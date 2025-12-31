@@ -52,12 +52,12 @@ lerna-debug.log*
 .worktrees/
 
 # ===========================
-# Auto Claude Generated
+# Maestro Generated
 # ===========================
-.auto-claude/
+.maestro/
 .auto-build-security.json
-.auto-claude-security.json
-.auto-claude-status
+.maestro-security.json
+.maestro-status
 .claude_settings.json
 .update-metadata.json
 

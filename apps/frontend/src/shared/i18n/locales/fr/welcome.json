@@ -1,7 +1,7 @@
 {
   "hero": {
-    "title": "Bienvenue sur Auto Claude",
-    "subtitle": "Construisez des logiciels de manière autonome avec des agents IA"
+    "title": "Bienvenue sur Maestro",
+    "subtitle": "Orchestrez le développement logiciel avec des agents IA"
   },
   "actions": {
     "newProject": "Nouveau projet",

@@ -530,6 +530,61 @@
 }
 
 /* ============================================
+   MAESTRO THEME (Light)
+   Conductor's gold with deep navy
+   ============================================ */
+[data-theme="maestro"] {
+  --color-background-primary: #FAF8F5;
+  --color-background-secondary: #F0EDE8;
+  --color-background-neutral: #F5F2ED;
+
+  --color-surface-card: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+
+  --color-text-primary: #1A1626;
+  --color-text-secondary: #5C5A6A;
+  --color-text-tertiary: #8A8892;
+
+  /* Conductor's gold */
+  --color-accent-primary: #C4A962;
+  --color-accent-primary-hover: #A8924E;
+  --color-accent-primary-light: #F4F1E8;
+
+  /* Deep navy */
+  --color-semantic-info: #1E3A5F;
+  --color-semantic-info-light: #E8EDF5;
+
+  --color-border-default: #E0DED8;
+  --color-border-focus: #C4A962;
+
+  --shadow-focus: 0 0 0 3px rgba(196, 169, 98, 0.2);
+}
+
+/* Maestro Dark - Tuxedo elegance */
+[data-theme="maestro"].dark {
+  --color-background-primary: #0D0E12;
+  --color-background-secondary: #15161C;
+  --color-background-neutral: #111218;
+
+  --color-surface-card: #1A1B22;
+  --color-surface-elevated: #22232C;
+
+  --color-text-primary: #F4F1E8;
+  --color-text-secondary: #9A98A0;
+  --color-text-tertiary: #6A6870;
+
+  /* Gold accents on dark */
+  --color-accent-primary: #D4BE76;
+  --color-accent-primary-hover: #E5D190;
+  --color-accent-primary-light: #2A261F;
+
+  --color-border-default: #282830;
+  --color-border-focus: #E5D190;
+
+  --shadow-focus: 0 0 0 2px rgba(229, 209, 144, 0.25);
+}
+
+/* ============================================
    BASE STYLES
    ============================================ */
 body {

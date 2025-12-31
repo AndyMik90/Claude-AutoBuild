@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Auto Claude is a multi-agent autonomous coding framework that builds software through coordinated AI agent sessions. It uses the Claude Agent SDK to run agents in isolated workspaces with security controls.
+Maestro is a multi-agent autonomous orchestration framework - "the conductor of AI agents" - that builds software through coordinated AI agent sessions. It uses the Claude Agent SDK to run agents in isolated workspaces with security controls.
 
 **CRITICAL: All AI interactions use the Claude Agent SDK (`claude-agent-sdk` package), NOT the Anthropic API directly.**
 
@@ -190,7 +190,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 **Workspace & Security:**
 - **cli/worktree.py** - Git worktree isolation for safe feature development
 - **context/project_analyzer.py** - Project stack detection for dynamic tooling
-- **auto_claude_tools.py** - Custom MCP tools integration
+- **maestro_tools.py** - Custom MCP tools integration
 
 **Integrations:**
 - **linear_updater.py** - Optional Linear integration for progress tracking
@@ -217,7 +217,7 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
 
 ### Spec Directory Structure
 
-Each spec in `.auto-claude/specs/XXX-name/` contains:
+Each spec in `.maestro/specs/XXX-name/` contains:
 - `spec.md` - Feature specification
 - `requirements.json` - Structured user requirements
 - `context.json` - Discovered codebase context
@@ -227,15 +227,15 @@ Each spec in `.auto-claude/specs/XXX-name/` contains:
 
 ### Branching & Worktree Strategy
 
-Auto Claude uses git worktrees for isolated builds. All branches stay LOCAL until user explicitly pushes:
+Maestro uses git worktrees for isolated builds. All branches stay LOCAL until user explicitly pushes:
 
 ```
 main (user's branch)
-└── auto-claude/{spec-name}  ← spec branch (isolated worktree)
+└── maestro/{spec-name}  ← spec branch (isolated worktree)
 ```
 
 **Key principles:**
-- ONE branch per spec (`auto-claude/{spec-name}`)
+- ONE branch per spec (`maestro/{spec-name}`)
 - Parallel work uses subagents (agent decides when to spawn)
 - NO automatic pushes to GitHub - user controls when to push
 - User reviews in spec worktree (`.worktrees/{spec-name}/`)
@@ -272,11 +272,11 @@ Three-layer defense:
 2. **Filesystem Permissions** - Operations restricted to project directory
 3. **Command Allowlist** - Dynamic allowlist from project analysis (security.py + project_analyzer.py)
 
-Security profile cached in `.auto-claude-security.json`.
+Security profile cached in `.maestro-security.json`.
 
 ### Claude Agent SDK Integration
 
-**CRITICAL: Auto Claude uses the Claude Agent SDK for ALL AI interactions. Never use the Anthropic API directly.**
+**CRITICAL: Maestro uses the Claude Agent SDK for ALL AI interactions. Never use the Anthropic API directly.**
 
 **Client Location:** `apps/backend/core/client.py`
 
@@ -324,7 +324,7 @@ response = client.create_agent_session(
 
 **Graphiti Memory (Mandatory)** - `integrations/graphiti/`
 
-Auto Claude uses Graphiti as its primary memory system with embedded LadybugDB (no Docker required):
+Maestro uses Graphiti as its primary memory system with embedded LadybugDB (no Docker required):
 
 - **Graph database with semantic search** - Knowledge graph for cross-session context
 - **Session insights** - Patterns, gotchas, discoveries automatically extracted
@@ -341,7 +341,7 @@ Auto Claude uses Graphiti as its primary memory system with embedded LadybugDB (
 **Configuration:**
 - Set provider credentials in `apps/backend/.env` (see `.env.example`)
 - Required env vars: `GRAPHITI_ENABLED=true`, `ANTHROPIC_API_KEY` or other provider keys
-- Memory data stored in `.auto-claude/specs/XXX/graphiti/`
+- Memory data stored in `.maestro/specs/XXX/graphiti/`
 
 **Usage in agents:**
 ```python
@@ -495,4 +495,4 @@ npm run dev      # Run in development mode (includes --remote-debugging-port=922
 4. QA agents will automatically interact with the running app for testing
 
 **Project data storage:**
-- `.auto-claude/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored
+- `.maestro/specs/` - Per-project data (specs, plans, QA reports, memory) - gitignored

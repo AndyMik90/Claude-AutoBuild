@@ -1,9 +1,9 @@
 {
-  "name": "auto-claude",
-  "version": "2.7.2-beta.10",
-  "description": "Autonomous multi-agent coding framework powered by Claude AI",
+  "name": "maestro",
+  "version": "3.0.0",
+  "description": "Autonomous multi-agent orchestration framework - the conductor of AI agents",
   "license": "AGPL-3.0",
-  "author": "Auto Claude Team",
+  "author": "Maestro Team",
   "scripts": {
     "install:backend": "node scripts/install-backend.js",
     "install:frontend": "cd apps/frontend && npm install",
@@ -27,13 +27,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+    "url": "https://github.com/YOUR_ORG/maestro.git"
   },
   "keywords": [
     "ai",
-    "claude",
-    "autonomous",
-    "coding",
+    "orchestration",
+    "maestro",
+    "conductor",
     "agents",
     "electron"
   ],

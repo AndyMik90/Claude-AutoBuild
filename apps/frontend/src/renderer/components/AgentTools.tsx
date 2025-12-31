@@ -262,17 +262,17 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
       'mcp__graphiti-memory__get_entity_edge',
     ],
   },
-  'auto-claude': {
-    name: 'Auto-Claude Tools',
+  'maestro': {
+    name: 'Maestro Tools',
     description: 'Build progress tracking, session context, discoveries & gotchas recording',
     icon: ListChecks,
     tools: [
-      'mcp__auto-claude__update_subtask_status',
-      'mcp__auto-claude__get_build_progress',
-      'mcp__auto-claude__record_discovery',
-      'mcp__auto-claude__record_gotcha',
-      'mcp__auto-claude__get_session_context',
-      'mcp__auto-claude__update_qa_status',
+      'mcp__maestro__update_subtask_status',
+      'mcp__maestro__get_build_progress',
+      'mcp__maestro__record_discovery',
+      'mcp__maestro__record_gotcha',
+      'mcp__maestro__get_session_context',
+      'mcp__maestro__update_qa_status',
     ],
   },
   linear: {

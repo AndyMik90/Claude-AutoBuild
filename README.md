@@ -1,8 +1,8 @@
-# Auto Claude
+# Maestro
 
-**Autonomous multi-agent coding framework that plans, builds, and validates software for you.**
+**Autonomous multi-agent orchestration framework - the conductor of AI agents.**
 
-![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
+![Maestro Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
 <!-- TOP_VERSION_BADGE -->
 [![Version](https://img.shields.io/badge/version-2.7.1-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.1)
@@ -24,11 +24,11 @@
 <!-- STABLE_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.1-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.1-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.1-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.1-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.1-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-amd64.deb) |
+| **Windows** | [Maestro-2.7.1-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Maestro-2.7.1-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Maestro-2.7.1-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-x64.dmg) |
+| **Linux** | [Maestro-2.7.1-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Maestro-2.7.1-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-amd64.deb) |
 <!-- STABLE_DOWNLOADS_END -->
 
 ### Beta Release
@@ -42,12 +42,12 @@
 <!-- BETA_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.2-beta.10-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-amd64.deb) |
-| **Linux (Flatpak)** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak) |
+| **Windows** | [Maestro-2.7.2-beta.10-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Maestro-2.7.2-beta.10-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Maestro-2.7.2-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-x64.dmg) |
+| **Linux** | [Maestro-2.7.2-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Maestro-2.7.2-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-amd64.deb) |
+| **Linux (Flatpak)** | [Maestro-2.7.2-beta.10-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak) |
 <!-- BETA_DOWNLOADS_END -->
 
 > All releases include SHA256 checksums and VirusTotal scan results for security verification.
@@ -115,7 +115,7 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 ## Project Structure
 
 ```
-Auto-Claude/
+Maestro/
 ├── apps/
 │   ├── backend/     # Python agents, specs, QA pipeline
 │   └── frontend/    # Electron desktop application
@@ -260,7 +260,7 @@ The Flatpak will be created in `apps/frontend/dist/`.
 
 ## Security
 
-Auto Claude uses a three-layer security model:
+Maestro uses a three-layer security model:
 
 1. **OS Sandbox** - Bash commands run in isolation
 2. **Filesystem Restrictions** - Operations limited to project directory
@@ -313,6 +313,6 @@ We welcome contributions! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 **AGPL-3.0** - GNU Affero General Public License v3.0
 
-Auto Claude is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
+Maestro is free to use. If you modify and distribute it, or run it as a service, your code must also be open source under AGPL-3.0.
 
 Commercial licensing available for closed-source use cases.

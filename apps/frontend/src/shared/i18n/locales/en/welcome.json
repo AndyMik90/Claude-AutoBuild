@@ -1,7 +1,7 @@
 {
   "hero": {
-    "title": "Welcome to Auto Claude",
-    "subtitle": "Build software autonomously with AI-powered agents"
+    "title": "Welcome to Maestro",
+    "subtitle": "Orchestrate software development with AI-powered agents"
   },
   "actions": {
     "newProject": "New Project",

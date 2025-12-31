@@ -29,6 +29,6 @@
     "help": "Aide & Feedback"
   },
   "messages": {
-    "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+    "initializeToCreateTasks": "Initialisez Maestro pour créer des tâches"
   }
 }

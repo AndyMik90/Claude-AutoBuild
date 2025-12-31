@@ -109,16 +109,16 @@ function createWindow(): void {
 }
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
-app.setName('Auto Claude');
+app.setName('Maestro');
 if (process.platform === 'darwin') {
   // Force the name to appear in dock on macOS
-  app.name = 'Auto Claude';
+  app.name = 'Maestro';
 }
 
 // Initialize the application
 app.whenReady().then(() => {
   // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.autoclaude.ui');
+  electronApp.setAppUserModelId('com.maestro.app');
 
   // Set dock icon on macOS
   if (process.platform === 'darwin') {
