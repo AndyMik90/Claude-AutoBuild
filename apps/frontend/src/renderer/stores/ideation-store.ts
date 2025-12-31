@@ -33,6 +33,7 @@ interface IdeationState {
   typeStates: Record<IdeationType, IdeationTypeState>;
   selectedIds: Set<string>;
   isGenerating: boolean;
+  currentProjectId: string | null;  // Track active project to prevent cross-project contamination
 
   // Actions
   setSession: (session: IdeationSession | null) => void;
@@ -58,6 +59,8 @@ interface IdeationState {
   setTypeState: (type: IdeationType, state: IdeationTypeState) => void;
   addIdeasForType: (ideationType: string, ideas: Idea[]) => void;
   resetGeneratingTypes: (toState: IdeationTypeState) => void;
+  // Project scope tracking
+  setCurrentProjectId: (projectId: string | null) => void;
 }
 
 const initialGenerationStatus: IdeationGenerationStatus = {
@@ -93,6 +96,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
   typeStates: { ...initialTypeStates },
   selectedIds: new Set<string>(),
   isGenerating: false,
+  currentProjectId: null,
 
   // Actions
   setSession: (session) => set({ session }),
@@ -345,25 +349,42 @@ export const useIdeationStore = create<IdeationState>((set) => ({
         }
       });
       return { typeStates: newTypeStates };
-    })
+    }),
+
+  setCurrentProjectId: (projectId) => set({ currentProjectId: projectId })
 }));
 
 export async function loadIdeation(projectId: string): Promise<void> {
-  if (useIdeationStore.getState().isGenerating) {
+  const store = useIdeationStore.getState();
+
+  if (store.isGenerating) {
     return;
+  }
+
+  // Clear session when switching to a different project to prevent stale data display
+  if (store.currentProjectId !== projectId) {
+    store.clearSession();
+    store.setCurrentProjectId(projectId);
   }
 
   const result = await window.electronAPI.getIdeation(projectId);
 
   // Check again after async operation to handle race condition
-  if (useIdeationStore.getState().isGenerating) {
+  const currentState = useIdeationStore.getState();
+  if (currentState.isGenerating) {
+    return;
+  }
+
+  // Validate that the response is for the current project (prevents cross-project contamination)
+  if (currentState.currentProjectId !== projectId) {
+    console.debug('[Ideation] Ignoring stale response for different project:', projectId);
     return;
   }
 
   if (result.success && result.data) {
-    useIdeationStore.getState().setSession(result.data);
+    currentState.setSession(result.data);
   } else {
-    useIdeationStore.getState().setSession(null);
+    currentState.setSession(null);
   }
 }
 
