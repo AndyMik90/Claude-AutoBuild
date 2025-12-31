@@ -438,6 +438,64 @@ def get_cdp_config_summary() -> dict:
     }
 
 
+def get_cdp_electron_mcp_config() -> dict:
+    """
+    Get Electron MCP configuration summary.
+
+    This provides detailed information about the Electron MCP server setup,
+    including configuration values and tool availability for agents.
+
+    Returns:
+        Dictionary containing Electron MCP configuration details
+    """
+    # Import from mcp_config to avoid circular dependency
+    from core.mcp_config import is_electron_mcp_enabled, get_electron_debug_port
+
+    enabled_agents = get_cdp_enabled_agents()
+    enabled_categories = get_cdp_enabled_categories()
+    log_level = get_cdp_log_level()
+
+    return {
+        "enabled": is_electron_mcp_enabled(),
+        "debug_port": get_electron_debug_port(),
+        "enabled_agents": sorted(enabled_agents),
+        "enabled_categories": sorted(enabled_categories),
+        "log_level": log_level,
+        "base_tools": ELECTRON_BASE_TOOLS,
+        "available_tool_categories": {
+            "network": {
+                "tools": ELECTRON_NETWORK_TOOLS,
+                "count": len(ELECTRON_NETWORK_TOOLS),
+            },
+            "storage": {
+                "tools": ELECTRON_STORAGE_TOOLS,
+                "count": len(ELECTRON_STORAGE_TOOLS),
+            },
+            "performance": {
+                "tools": ELECTRON_PERFORMANCE_TOOLS,
+                "count": len(ELECTRON_PERFORMANCE_TOOLS),
+            },
+            "emulation": {
+                "tools": ELECTRON_EMULATION_TOOLS,
+                "count": len(ELECTRON_EMULATION_TOOLS),
+            },
+            "console": {
+                "tools": ELECTRON_CONSOLE_TOOLS,
+                "count": len(ELECTRON_CONSOLE_TOOLS),
+            },
+            "dom": {
+                "tools": ELECTRON_DOM_TOOLS,
+                "count": len(ELECTRON_DOM_TOOLS),
+            },
+        },
+        "agent_permissions": {
+            agent: get_cdp_categories_for_agent(agent)
+            for agent in CDP_AGENT_DEFAULT_PERMISSIONS.keys()
+            if is_cdp_enabled_for_agent(agent)
+        },
+    }
+
+
 # =============================================================================
 # Configuration Validation
 # =============================================================================

@@ -45,7 +45,7 @@ export function WelcomeScreen({
       <div className="w-full max-w-2xl">
         {/* Hero Section */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+          <h1 className="text-3xl font-semibold text-foreground tracking-tight">
             {t('welcome:hero.title')}
           </h1>
           <p className="mt-3 text-muted-foreground">

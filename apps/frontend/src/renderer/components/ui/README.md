@@ -87,11 +87,8 @@ import { InputGroup, InputLabel, Input, InputHint } from '@/components/ui/input-
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Button | Clickable action button | ✅ `glass-primary`, `glass-outline`, `glass-ghost` |
-<<<<<<< HEAD
 | ButtonGroup | Grouped button actions with split button | ✅ `glass` variant |
 | Field | Form field wrapper with label/hint/error | ✅ `glass` variant |
-=======
->>>>>>> origin/develop
 | Input | Text input field | ✅ via `glass-surface` class |
 | InputGroup | Compound input with label/hint/error | ✅ via `glass-surface` class |
 | Textarea | Multi-line text input | ✅ via `glass-surface` class |
@@ -119,7 +116,6 @@ import { InputGroup, InputLabel, Input, InputHint } from '@/components/ui/input-
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Table | Data table with compound API | ❌ |
-<<<<<<< HEAD
 | Badge | Status indicator | ✅ variants |
 | Progress | Progress bar | ❌ |
 | Skeleton | Loading placeholder | ❌ |
@@ -139,18 +135,12 @@ import { InputGroup, InputLabel, Input, InputHint } from '@/components/ui/input-
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Kbd | Keyboard shortcut display | ✅ `glass` variant |
-=======
-| Badge | Status indicator | ❌ |
-| Progress | Progress bar | ❌ |
-| Skeleton | Loading placeholder | ❌ |
->>>>>>> origin/develop
 
 ### Navigation
 
 | Component | Description | Glass Support |
 |-----------|-------------|---------------|
 | Tabs | Tabbed interface | ❌ |
-<<<<<<< HEAD
 | ToggleGroup | Segmented control | ✅ `glass` variant |
 
 ## New 2025 Components
@@ -282,8 +272,6 @@ import { Empty, EmptyPage, EmptyPreset } from '@/components/ui/empty';
   action={<Button>Create Task</Button>}
 />
 ```
-=======
->>>>>>> origin/develop
 
 ## CLI Tool
 

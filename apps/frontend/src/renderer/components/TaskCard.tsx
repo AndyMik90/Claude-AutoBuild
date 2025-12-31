@@ -202,7 +202,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         {/* Header - improved visual hierarchy */}
         <div className="flex items-start justify-between gap-3">
           <h3
-            className="font-medium text-sm text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
+            className="text-base font-semibold text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
             title={task.title}
           >
             {task.title}
@@ -274,7 +274,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
         {/* Description - sanitized to handle markdown content */}
         {task.description && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="mt-2 text-sm font-normal text-muted-foreground line-clamp-2 leading-relaxed">
             {sanitizeMarkdownForDisplay(task.description, 150)}
           </p>
         )}

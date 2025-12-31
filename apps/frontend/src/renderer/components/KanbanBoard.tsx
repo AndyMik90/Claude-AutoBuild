@@ -139,7 +139,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
       {/* Column header - Apple-style */}
       <div className="flex items-center justify-between p-5 border-b border-border/50">
         <div className="flex items-center gap-2.5">
-          <h2 className="font-semibold text-sm text-foreground tracking-tight">
+          <h2 className="text-base font-semibold text-foreground tracking-tight">
             {TASK_STATUS_LABELS[status]}
           </h2>
           <span className="column-count-badge">

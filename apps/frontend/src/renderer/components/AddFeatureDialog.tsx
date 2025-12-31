@@ -190,7 +190,7 @@ export function AddFeatureDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="rounded-xl sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-foreground">{t('addFeature.title')}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-foreground">{t('addFeature.title')}</DialogTitle>
           <DialogDescription>
             {t('addFeature.description')}
           </DialogDescription>

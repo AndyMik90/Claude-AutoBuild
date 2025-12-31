@@ -646,7 +646,7 @@ export function App() {
             }}
           />
         ) : (
-        <div className="flex h-screen bg-background">
+        <div className="safe-area flex h-screen bg-background">
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}

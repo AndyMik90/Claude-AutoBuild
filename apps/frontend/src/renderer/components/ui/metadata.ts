@@ -404,7 +404,6 @@ export const COMPONENT_REGISTRY: Record<string, ComponentMetadata> = {
     appleHIGCompliant: true,
     status: 'stable',
   },
-<<<<<<< HEAD
 
   // ===== 2025 New Primitive Components =====
   spinner: {
@@ -473,8 +472,6 @@ export const COMPONENT_REGISTRY: Record<string, ComponentMetadata> = {
     status: 'stable',
     since: '2.9.0',
   },
-=======
->>>>>>> origin/develop
 };
 
 // Helper functions for querying the registry

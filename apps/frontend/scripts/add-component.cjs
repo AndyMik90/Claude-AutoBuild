@@ -169,8 +169,8 @@ function updateIndexFile(name) {
       const lines = content.split('\n');
       lines.push(exportLine);
       lines.sort((a, b) => {
-        const aMatch = a.match(/from '\\.\\/([^']+)'/);
-        const bMatch = b.match(/from '\\.\\/([^']+)'/);
+        const aMatch = a.match(/from '\\\.\/([^']+)'/);
+        const bMatch = b.match(/from '\\\.\/([^']+)'/);
         if (!aMatch || !bMatch) return 0;
         return aMatch[1].localeCompare(bMatch[1]);
       });

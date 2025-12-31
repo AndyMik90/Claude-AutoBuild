@@ -14,6 +14,7 @@ the Claude Agent SDK client. Tool lists are organized by category:
 """
 
 import os
+
 from core.cdp_config import get_cdp_tools_for_agent
 from core.mcp_config import is_electron_mcp_enabled
 
