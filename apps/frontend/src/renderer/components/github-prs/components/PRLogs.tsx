@@ -59,6 +59,15 @@ const SOURCE_COLORS: Record<string, string> = {
   'Progress': 'bg-green-500/20 text-green-400',
   'PR Review Engine': 'bg-indigo-500/20 text-indigo-400',
   'Summary': 'bg-emerald-500/20 text-emerald-400',
+  // Specialist agents (from parallel orchestrator)
+  'Agent:logic-reviewer': 'bg-blue-600/20 text-blue-400',
+  'Agent:quality-reviewer': 'bg-indigo-600/20 text-indigo-400',
+  'Agent:security-reviewer': 'bg-red-600/20 text-red-400',
+  'Agent:ai-triage-reviewer': 'bg-slate-500/20 text-slate-400',
+  // Specialist agents (from parallel followup reviewer)
+  'Agent:resolution-verifier': 'bg-teal-600/20 text-teal-400',
+  'Agent:new-code-reviewer': 'bg-cyan-600/20 text-cyan-400',
+  'Agent:comment-analyzer': 'bg-gray-500/20 text-gray-400',
   'default': 'bg-muted text-muted-foreground'
 };
 

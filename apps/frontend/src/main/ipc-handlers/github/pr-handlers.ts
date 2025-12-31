@@ -234,6 +234,16 @@ function parseLogLine(line: string): { source: string; content: string; isError:
     /^\[ERROR\s+(\w+)\]\s*(.*)$/,
   ];
 
+  // Check for specialist agent logs first (Agent:agent-name format)
+  const agentMatch = line.match(/^\[Agent:([\w-]+)\]\s*(.*)$/);
+  if (agentMatch) {
+    return {
+      source: `Agent:${agentMatch[1]}`,
+      content: agentMatch[2],
+      isError: false,
+    };
+  }
+
   for (const pattern of patterns) {
     const match = line.match(pattern);
     if (match) {
@@ -308,6 +318,8 @@ function getPhaseFromSource(source: string): PRLogPhase {
 
   if (contextSources.includes(source)) return 'context';
   if (analysisSources.includes(source)) return 'analysis';
+  // Specialist agents (Agent:xxx) are part of analysis phase
+  if (source.startsWith('Agent:')) return 'analysis';
   if (synthesisSources.includes(source)) return 'synthesis';
   return 'synthesis'; // Default to synthesis for unknown sources
 }
@@ -414,7 +426,18 @@ class PRLogCollector {
     if (!parsed) return;
 
     const phase = getPhaseFromSource(parsed.source);
-    this.currentPhase = phase;
+
+    // Track phase transitions - mark previous phases as complete
+    if (phase !== this.currentPhase) {
+      // When moving to a new phase, mark the previous phase as complete
+      if (this.currentPhase === 'context' && (phase === 'analysis' || phase === 'synthesis')) {
+        this.markPhaseComplete('context', true);
+      }
+      if (this.currentPhase === 'analysis' && phase === 'synthesis') {
+        this.markPhaseComplete('analysis', true);
+      }
+      this.currentPhase = phase;
+    }
 
     const entry: PRLogEntry = {
       timestamp: new Date().toISOString(),
@@ -437,6 +460,8 @@ class PRLogCollector {
     const phaseLog = this.logs.phases[phase];
     phaseLog.status = success ? 'completed' : 'failed';
     phaseLog.completed_at = new Date().toISOString();
+    // Save immediately so frontend sees the status change
+    this.save();
   }
 
   save(): void {

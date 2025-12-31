@@ -370,6 +370,8 @@ The SDK will run invoked agents in parallel automatically.
             structured_output = None
             agents_invoked = []
             msg_count = 0
+            # Track subagent tool IDs to log their results
+            subagent_tool_ids: dict[str, str] = {}  # tool_id -> agent_name
 
             async with client:
                 await client.query(prompt)
@@ -433,7 +435,10 @@ The SDK will run invoked agents in parallel automatically.
                             # Extract which agent was invoked
                             tool_input = getattr(msg, "input", {})
                             agent_name = tool_input.get("subagent_type", "unknown")
+                            tool_id = getattr(msg, "id", "unknown")
                             agents_invoked.append(agent_name)
+                            # Track this tool ID to log its result later
+                            subagent_tool_ids[tool_id] = agent_name
                             print(
                                 f"[ParallelOrchestrator] Invoked agent: {agent_name}",
                                 flush=True,
@@ -457,18 +462,63 @@ The SDK will run invoked agents in parallel automatically.
                     if msg_type == "ToolResultBlock" or (
                         hasattr(msg, "type") and msg.type == "tool_result"
                     ):
-                        if DEBUG_MODE:
-                            tool_id = getattr(msg, "tool_use_id", "unknown")
-                            is_error = getattr(msg, "is_error", False)
+                        tool_id = getattr(msg, "tool_use_id", "unknown")
+                        is_error = getattr(msg, "is_error", False)
+
+                        # Check if this is a subagent result
+                        if tool_id in subagent_tool_ids:
+                            agent_name = subagent_tool_ids[tool_id]
+                            status = "ERROR" if is_error else "complete"
+                            # Get the result content
+                            result_content = getattr(msg, "content", "")
+                            if isinstance(result_content, list):
+                                # Handle list of content blocks
+                                result_content = " ".join(
+                                    str(getattr(c, "text", c)) for c in result_content
+                                )
+                            result_preview = (
+                                str(result_content)[:600].replace("\n", " ").strip()
+                            )
+                            print(
+                                f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}",
+                                flush=True,
+                            )
+                        elif DEBUG_MODE:
                             status = "ERROR" if is_error else "OK"
                             print(
                                 f"[DEBUG ParallelOrchestrator] Tool result: {tool_id} [{status}]",
                                 flush=True,
                             )
 
-                    # Collect text output
+                    # Collect text output and check for tool uses in content blocks
                     if msg_type == "AssistantMessage" and hasattr(msg, "content"):
                         for block in msg.content:
+                            block_type = type(block).__name__
+
+                            # Check for tool use blocks within content
+                            if (
+                                block_type == "ToolUseBlock"
+                                or getattr(block, "type", "") == "tool_use"
+                            ):
+                                tool_name = getattr(block, "name", "")
+                                if tool_name == "Task":
+                                    tool_input = getattr(block, "input", {})
+                                    agent_name = tool_input.get(
+                                        "subagent_type", "unknown"
+                                    )
+                                    tool_id = getattr(block, "id", "unknown")
+                                    if agent_name not in agents_invoked:
+                                        agents_invoked.append(agent_name)
+                                        subagent_tool_ids[tool_id] = agent_name
+                                        print(
+                                            f"[ParallelOrchestrator] Invoking agent: {agent_name}",
+                                            flush=True,
+                                        )
+                                elif tool_name == "StructuredOutput":
+                                    structured_data = getattr(block, "input", None)
+                                    if structured_data:
+                                        structured_output = structured_data
+
                             if hasattr(block, "text"):
                                 result_text += block.text
                                 # Always print text content preview (not just in DEBUG_MODE)
@@ -480,7 +530,7 @@ The SDK will run invoked agents in parallel automatically.
                                         f"[ParallelOrchestrator] AI response: {text_preview}{'...' if len(block.text) > 500 else ''}",
                                         flush=True,
                                     )
-                            # Check for StructuredOutput in content
+                            # Check for StructuredOutput in content (legacy check)
                             if getattr(block, "name", "") == "StructuredOutput":
                                 structured_data = getattr(block, "input", None)
                                 if structured_data:
@@ -489,6 +539,39 @@ The SDK will run invoked agents in parallel automatically.
                     # Check for structured_output attribute
                     if hasattr(msg, "structured_output") and msg.structured_output:
                         structured_output = msg.structured_output
+
+                    # Check for tool results in UserMessage (subagent results come back here)
+                    if msg_type == "UserMessage" and hasattr(msg, "content"):
+                        for block in msg.content:
+                            block_type = type(block).__name__
+                            # Check for tool result blocks
+                            if (
+                                block_type == "ToolResultBlock"
+                                or getattr(block, "type", "") == "tool_result"
+                            ):
+                                tool_id = getattr(block, "tool_use_id", "unknown")
+                                is_error = getattr(block, "is_error", False)
+
+                                # Check if this is a subagent result
+                                if tool_id in subagent_tool_ids:
+                                    agent_name = subagent_tool_ids[tool_id]
+                                    status = "ERROR" if is_error else "complete"
+                                    # Get the result content
+                                    result_content = getattr(block, "content", "")
+                                    if isinstance(result_content, list):
+                                        result_content = " ".join(
+                                            str(getattr(c, "text", c))
+                                            for c in result_content
+                                        )
+                                    result_preview = (
+                                        str(result_content)[:600]
+                                        .replace("\n", " ")
+                                        .strip()
+                                    )
+                                    print(
+                                        f"[Agent:{agent_name}] {status}: {result_preview}{'...' if len(str(result_content)) > 600 else ''}",
+                                        flush=True,
+                                    )
 
             if DEBUG_MODE:
                 print(
