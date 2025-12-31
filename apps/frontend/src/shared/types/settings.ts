@@ -187,6 +187,7 @@ export interface FeatureModelConfig {
   roadmap: ModelTypeShort;     // Roadmap generation
   githubIssues: ModelTypeShort; // GitHub Issues automation
   githubPrs: ModelTypeShort;    // GitHub PR review automation
+  utility: ModelTypeShort;      // Utility agents (commit message, merge resolver)
 }
 
 // Feature-specific thinking level configuration
@@ -196,6 +197,7 @@ export interface FeatureThinkingConfig {
   roadmap: ThinkingLevel;
   githubIssues: ThinkingLevel;
   githubPrs: ThinkingLevel;
+  utility: ThinkingLevel;
 }
 
 // Agent profile for preset model/thinking configurations

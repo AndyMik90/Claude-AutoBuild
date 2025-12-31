@@ -69,13 +69,14 @@ export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingCo
 // Feature Settings (Non-Pipeline Features)
 // ============================================
 
-// Default feature model configuration (for insights, ideation, roadmap, github)
+// Default feature model configuration (for insights, ideation, roadmap, github, utility)
 export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
   insights: 'sonnet',     // Fast, responsive chat
   ideation: 'opus',       // Creative ideation benefits from Opus
   roadmap: 'opus',        // Strategic planning benefits from Opus
   githubIssues: 'opus',   // Issue triage and analysis benefits from Opus
-  githubPrs: 'opus'       // PR review benefits from thorough Opus analysis
+  githubPrs: 'opus',      // PR review benefits from thorough Opus analysis
+  utility: 'haiku'        // Fast utility operations (commit messages, merge resolution)
 };
 
 // Default feature thinking configuration
@@ -84,7 +85,8 @@ export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
   ideation: 'high',       // Deep thinking for creative ideas
   roadmap: 'high',        // Strategic thinking for roadmap
   githubIssues: 'medium', // Moderate thinking for issue analysis
-  githubPrs: 'medium'     // Moderate thinking for PR review
+  githubPrs: 'medium',    // Moderate thinking for PR review
+  utility: 'low'          // Fast thinking for utility operations
 };
 
 // Feature labels for UI display
@@ -93,7 +95,8 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
   ideation: { label: 'Ideation', description: 'Generate feature ideas and improvements' },
   roadmap: { label: 'Roadmap', description: 'Create strategic feature roadmaps' },
   githubIssues: { label: 'GitHub Issues', description: 'Automated issue triage and labeling' },
-  githubPrs: { label: 'GitHub PR Review', description: 'AI-powered pull request reviews' }
+  githubPrs: { label: 'GitHub PR Review', description: 'AI-powered pull request reviews' },
+  utility: { label: 'Utility', description: 'Commit messages and merge conflict resolution' }
 };
 
 // Default agent profiles for preset model/thinking configurations

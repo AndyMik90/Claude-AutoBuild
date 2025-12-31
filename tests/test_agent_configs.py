@@ -161,15 +161,30 @@ class TestGetRequiredMcpServers:
             os.environ.pop("ELECTRON_MCP_ENABLED", None)
 
     def test_browser_resolved_to_puppeteer_for_web_frontend(self):
-        """Browser should resolve to 'puppeteer' for web frontend projects."""
+        """Browser should resolve to 'puppeteer' for web frontend projects when enabled."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
+        # Puppeteer requires explicit opt-in via project config
         servers = get_required_mcp_servers(
-            "qa_reviewer", project_capabilities={"is_web_frontend": True, "is_electron": False}
+            "qa_reviewer",
+            project_capabilities={"is_web_frontend": True, "is_electron": False},
+            mcp_config={"PUPPETEER_MCP_ENABLED": "true"},
         )
         assert "puppeteer" in servers
         assert "browser" not in servers
         assert "electron" not in servers
+
+    def test_puppeteer_not_included_when_disabled(self):
+        """Puppeteer should NOT be included when not explicitly enabled (default)."""
+        from agents.tools_pkg.models import get_required_mcp_servers
+
+        # Default behavior: puppeteer is NOT auto-enabled for web frontends
+        servers = get_required_mcp_servers(
+            "qa_reviewer",
+            project_capabilities={"is_web_frontend": True, "is_electron": False},
+        )
+        assert "puppeteer" not in servers
+        assert "browser" not in servers
 
 
 class TestGetDefaultThinkingLevel:

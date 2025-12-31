@@ -231,6 +231,7 @@ export const IPC_CHANNELS = {
 
   // GitLab OAuth (glab CLI authentication)
   GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_INSTALL_CLI: 'gitlab:installCli',
   GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
   GITLAB_START_AUTH: 'gitlab:startAuth',
   GITLAB_GET_TOKEN: 'gitlab:getToken',
@@ -350,6 +351,9 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
 
+  // GitHub PR Logs (for viewing AI review logs)
+  GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',
   GITHUB_TRIAGE_GET_RESULTS: 'github:triage:getResults',
@@ -464,5 +468,13 @@ export const IPC_CHANNELS = {
   DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
   DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
   DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
-  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles'
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
+
+  // Claude Code CLI operations
+  CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
+  CLAUDE_CODE_INSTALL: 'claudeCode:install',
+
+  // MCP Server health checks
+  MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
 } as const;

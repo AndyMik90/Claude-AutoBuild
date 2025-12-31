@@ -1,6 +1,6 @@
-import { ipcMain, BrowserWindow, shell } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal } from '../../../shared/types';
+import { ipcMain, BrowserWindow, shell, app } from 'electron';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP } from '../../../shared/constants';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
@@ -12,6 +12,45 @@ import { findTaskAndProject } from './shared';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
+
+/**
+ * Read utility feature settings (for commit message, merge resolver) from settings file
+ */
+function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: string; thinkingBudget: number | null } {
+  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+
+  try {
+    if (existsSync(settingsPath)) {
+      const content = readFileSync(settingsPath, 'utf-8');
+      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
+
+      // Get utility-specific settings
+      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
+      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+      const model = featureModels.utility || DEFAULT_FEATURE_MODELS.utility;
+      const thinkingLevel = featureThinking.utility || DEFAULT_FEATURE_THINKING.utility;
+
+      return {
+        model,
+        modelId: MODEL_ID_MAP[model] || MODEL_ID_MAP.haiku,
+        thinkingLevel,
+        thinkingBudget: thinkingLevel in THINKING_BUDGET_MAP ? THINKING_BUDGET_MAP[thinkingLevel] : THINKING_BUDGET_MAP.low
+      };
+    }
+  } catch (error) {
+    // Log parse errors to help diagnose corrupted settings
+    console.warn('[getUtilitySettings] Failed to parse settings.json:', error);
+  }
+
+  // Return defaults if settings file doesn't exist or fails to parse
+  return {
+    model: DEFAULT_FEATURE_MODELS.utility,
+    modelId: MODEL_ID_MAP[DEFAULT_FEATURE_MODELS.utility],
+    thinkingLevel: DEFAULT_FEATURE_THINKING.utility,
+    thinkingBudget: THINKING_BUDGET_MAP[DEFAULT_FEATURE_THINKING.utility]
+  };
+}
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -1453,6 +1492,10 @@ export function registerWorktreeHandlers(
           // Get Python environment for bundled packages
           const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
+          // Get utility settings for merge resolver
+          const utilitySettings = getUtilitySettings();
+          debug('Utility settings for merge:', utilitySettings);
+
           // Parse Python command to handle space-separated commands like "py -3"
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const mergeProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
@@ -1462,7 +1505,11 @@ export function registerWorktreeHandlers(
               ...pythonEnv, // Include bundled packages PYTHONPATH
               ...profileEnv, // Include active Claude profile OAuth token
               PYTHONUNBUFFERED: '1',
-              PYTHONUTF8: '1'
+              PYTHONUTF8: '1',
+              // Utility feature settings for merge resolver
+              UTILITY_MODEL: utilitySettings.model,
+              UTILITY_MODEL_ID: utilitySettings.modelId,
+              UTILITY_THINKING_BUDGET: utilitySettings.thinkingBudget === null ? '' : (utilitySettings.thinkingBudget?.toString() || '')
             },
             stdio: ['ignore', 'pipe', 'pipe'] // Don't connect stdin to avoid blocking
           });
@@ -1577,8 +1624,9 @@ export function registerWorktreeHandlers(
                     try {
                       // Check if current branch contains all commits from spec branch
                       // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
-                      execSync(
-                        `git merge-base --is-ancestor ${specBranch} HEAD`,
+                      execFileSync(
+                        'git',
+                        ['merge-base', '--is-ancestor', specBranch, 'HEAD'],
                         { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
                       );
                       // If we reach here, the command succeeded (exit code 0) - branch is merged

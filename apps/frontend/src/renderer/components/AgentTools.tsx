@@ -3,6 +3,7 @@
  *
  * Displays MCP server and tool configuration for each agent phase.
  * Helps users understand what tools are available during different execution phases.
+ * Now shows per-project MCP configuration with toggles to enable/disable servers.
  */
 
 import {
@@ -20,11 +21,36 @@ import {
   Monitor,
   Globe,
   ClipboardList,
-  ListChecks
+  ListChecks,
+  Info,
+  AlertCircle,
+  Plus,
+  X,
+  RotateCcw,
+  Pencil,
+  Trash2,
+  Terminal,
+  Loader2,
+  RefreshCw,
+  AlertTriangle,
+  Lock
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
+import { Switch } from './ui/switch';
+import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from './ui/dialog';
 import { useSettingsStore } from '../stores/settings-store';
+import { useProjectStore } from '../stores/project-store';
+import type { ProjectEnvConfig, AgentMcpOverrides, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, McpHealthStatus } from '../../shared/types';
+import { CustomMcpDialog } from './CustomMcpDialog';
+import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
@@ -50,7 +76,7 @@ interface AgentConfig {
     phase: 'spec' | 'planning' | 'coding' | 'qa';
   } | {
     type: 'feature';
-    feature: 'insights' | 'ideation' | 'roadmap' | 'githubIssues' | 'githubPrs';
+    feature: 'insights' | 'ideation' | 'roadmap' | 'githubIssues' | 'githubPrs' | 'utility';
   } | {
     type: 'fixed';  // For agents not yet configurable
     model: ModelTypeShort;
@@ -184,8 +210,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     category: 'utility',
     tools: [],
     mcp_servers: [],
-    // Commit message uses Haiku for speed - not yet user-configurable
-    settingsSource: { type: 'fixed', model: 'haiku', thinking: 'low' },
+    settingsSource: { type: 'feature', feature: 'utility' },
   },
   merge_resolver: {
     label: 'Merge Resolver',
@@ -193,8 +218,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     category: 'utility',
     tools: [],
     mcp_servers: [],
-    // Merge resolver uses Haiku - not yet user-configurable
-    settingsSource: { type: 'fixed', model: 'haiku', thinking: 'low' },
+    settingsSource: { type: 'feature', feature: 'utility' },
   },
   insights: {
     label: 'Insights',
@@ -316,6 +340,16 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
   },
 };
 
+// All available MCP servers that can be added to agents
+const ALL_MCP_SERVERS = [
+  'context7',
+  'graphiti-memory',
+  'linear',
+  'electron',
+  'puppeteer',
+  'auto-claude'
+] as const;
+
 // Category metadata - neutral styling per design.json
 const CATEGORIES = {
   spec: { label: 'Spec Creation', icon: FileCheck },
@@ -330,17 +364,80 @@ interface AgentCardProps {
   config: typeof AGENT_CONFIGS[keyof typeof AGENT_CONFIGS];
   modelLabel: string;
   thinkingLabel: string;
+  overrides: AgentMcpOverride | undefined;
+  mcpServerStates: ProjectEnvConfig['mcpServers'];
+  customServers: CustomMcpServer[];
+  onAddMcp: (agentId: string, mcpId: string) => void;
+  onRemoveMcp: (agentId: string, mcpId: string) => void;
 }
 
-function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
+function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServerStates, customServers, onAddMcp, onRemoveMcp }: AgentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const { t } = useTranslation(['settings']);
   const category = CATEGORIES[config.category as keyof typeof CATEGORIES];
   const CategoryIcon = category.icon;
+
+  // Build combined MCP server info including custom servers
+  const allMcpServers = useMemo(() => {
+    const servers = { ...MCP_SERVERS };
+    for (const custom of customServers) {
+      servers[custom.id] = {
+        name: custom.name,
+        description: custom.description || (custom.type === 'command' ? `${custom.command} ${custom.args?.join(' ') || ''}` : custom.url || ''),
+        icon: custom.type === 'command' ? Terminal : Globe,
+      };
+    }
+    return servers;
+  }, [customServers]);
+
+  // Calculate effective MCPs: defaults + adds - removes, then filter by project-level MCP states
+  const effectiveMcps = useMemo(() => {
+    const defaultMcps = [...config.mcp_servers, ...(config.mcp_optional || [])];
+    const added = overrides?.add || [];
+    const removed = overrides?.remove || [];
+    const combinedMcps = [...new Set([...defaultMcps, ...added])].filter(mcp => !removed.includes(mcp));
+
+    // Filter out MCPs that are disabled at project level (custom servers are always enabled)
+    return combinedMcps.filter(mcp => {
+      if (!mcpServerStates) return true; // No project config, show all
+      // Custom servers are always available if they exist
+      if (customServers.some(s => s.id === mcp)) return true;
+      switch (mcp) {
+        case 'context7': return mcpServerStates.context7Enabled !== false;
+        case 'graphiti-memory': return mcpServerStates.graphitiEnabled !== false;
+        case 'linear': return mcpServerStates.linearMcpEnabled !== false;
+        case 'electron': return mcpServerStates.electronEnabled !== false;
+        case 'puppeteer': return mcpServerStates.puppeteerEnabled !== false;
+        default: return true;
+      }
+    });
+  }, [config, overrides, mcpServerStates, customServers]);
+
+  // Check if an MCP is a custom addition (not in defaults)
+  const isCustomAdd = (mcpId: string) => {
+    const defaults = [...config.mcp_servers, ...(config.mcp_optional || [])];
+    return !defaults.includes(mcpId) && (overrides?.add || []).includes(mcpId);
+  };
+
+  // Get removed MCPs (from defaults)
+  const removedMcps = useMemo(() => {
+    const defaults = [...config.mcp_servers, ...(config.mcp_optional || [])];
+    return defaults.filter(mcp => (overrides?.remove || []).includes(mcp));
+  }, [config, overrides]);
+
+  // Get MCPs that can be added (not already in effective list) - includes custom servers
+  const customServerIds = customServers.map(s => s.id);
+  const allAvailableMcpIds = [...ALL_MCP_SERVERS, ...customServerIds];
+  const availableMcps = allAvailableMcpIds.filter(
+    mcp => !effectiveMcps.includes(mcp) && !removedMcps.includes(mcp) && mcp !== 'auto-claude'
+  );
 
   return (
     <div className="border border-border rounded-lg bg-card overflow-hidden">
       {/* Header - clickable to expand */}
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
       >
@@ -361,7 +458,7 @@ function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="text-xs">
-            {config.mcp_servers.length + (config.mcp_optional?.length || 0)} MCP
+            {effectiveMcps.length} MCP
           </span>
           {isExpanded ? (
             <ChevronDown className="h-4 w-4" />
@@ -376,61 +473,85 @@ function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
         <div className="border-t border-border p-4 space-y-4 bg-muted/30">
           {/* MCP Servers */}
           <div>
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              MCP Servers
-            </h4>
-            {config.mcp_servers.length > 0 || (config.mcp_optional && config.mcp_optional.length > 0) ? (
-              <div className="space-y-3">
-                {config.mcp_servers.map((server) => {
-                  const serverInfo = MCP_SERVERS[server];
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                MCP Servers
+              </h4>
+              {availableMcps.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowAddDialog(true); }}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  {t('mcp.addServer')}
+                </button>
+              )}
+            </div>
+            {effectiveMcps.length > 0 || removedMcps.length > 0 ? (
+              <div className="space-y-2">
+                {/* Active MCPs */}
+                {effectiveMcps.map((server) => {
+                  const serverInfo = allMcpServers[server];
                   const ServerIcon = serverInfo?.icon || Server;
+                  const isAdded = isCustomAdd(server);
+                  const canRemove = server !== 'auto-claude';
+
                   return (
-                    <div key={server} className="space-y-1">
+                    <div key={server} className="flex items-center justify-between group">
                       <div className="flex items-center gap-2 text-sm">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                         <ServerIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-medium">{serverInfo?.name || server}</span>
+                        {isAdded && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">
+                            {t('mcp.added')}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground ml-6">
-                        {serverInfo?.description}
-                      </p>
-                      {serverInfo?.tools && (
-                        <div className="ml-6 flex flex-wrap gap-1">
-                          {serverInfo.tools.slice(0, 3).map((tool) => (
-                            <span key={tool} className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {tool.replace('mcp__', '').replace(/__/g, ':')}
-                            </span>
-                          ))}
-                          {serverInfo.tools.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              +{serverInfo.tools.length - 3} more
-                            </span>
-                          )}
-                        </div>
+                      {canRemove && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onRemoveMcp(id, server); }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
+                          title={t('mcp.remove')}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       )}
                     </div>
                   );
                 })}
-                {config.mcp_optional?.map((server) => {
-                  const serverInfo = MCP_SERVERS[server];
+
+                {/* Removed MCPs (grayed out with restore option) */}
+                {removedMcps.map((server) => {
+                  const serverInfo = allMcpServers[server];
                   const ServerIcon = serverInfo?.icon || Server;
+
                   return (
-                    <div key={server} className="space-y-1 opacity-60">
-                      <div className="flex items-center gap-2 text-sm">
+                    <div key={server} className="flex items-center justify-between group opacity-50">
+                      <div className="flex items-center gap-2 text-sm line-through">
                         <Circle className="h-3.5 w-3.5 text-muted-foreground" />
                         <ServerIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-medium">{serverInfo?.name || server}</span>
-                        <span className="text-[10px] text-muted-foreground">(conditional)</span>
+                        <span className="text-[10px] text-muted-foreground no-underline">
+                          ({t('mcp.removed')})
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground ml-6">
-                        {serverInfo?.description}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onAddMcp(id, server); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-all"
+                        title={t('mcp.restore')}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No MCP servers required</p>
+              <p className="text-sm text-muted-foreground">{t('mcp.noMcpServers')}</p>
             )}
           </div>
 
@@ -456,21 +577,418 @@ function AgentCard({ config, modelLabel, thinkingLabel }: AgentCardProps) {
           </div>
         </div>
       )}
+
+      {/* Add MCP Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('mcp.addMcpTo', { agent: config.label })}</DialogTitle>
+            <DialogDescription>{t('mcp.addMcpDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {availableMcps.length > 0 ? (
+              availableMcps.map((mcpId) => {
+                const server = allMcpServers[mcpId];
+                const ServerIcon = server?.icon || Server;
+                return (
+                  <button
+                    type="button"
+                    key={mcpId}
+                    onClick={() => { onAddMcp(id, mcpId); setShowAddDialog(false); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <ServerIcon className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium text-sm">{server?.name || mcpId}</div>
+                      <div className="text-xs text-muted-foreground">{server?.description}</div>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {t('mcp.allMcpsAdded')}
+              </p>
+            )}
+            {/* Also show removed MCPs that can be restored */}
+            {removedMcps.length > 0 && (
+              <>
+                <div className="border-t border-border my-2 pt-2">
+                  <p className="text-xs text-muted-foreground mb-2">{t('mcp.restore')}:</p>
+                </div>
+                {removedMcps.map((mcpId) => {
+                  const server = allMcpServers[mcpId];
+                  const ServerIcon = server?.icon || Server;
+                  return (
+                    <button
+                      type="button"
+                      key={mcpId}
+                      onClick={() => { onAddMcp(id, mcpId); setShowAddDialog(false); }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left opacity-60"
+                    >
+                      <ServerIcon className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="font-medium text-sm">{server?.name || mcpId}</div>
+                        <div className="text-xs text-muted-foreground">{server?.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 export function AgentTools() {
+  const { t } = useTranslation(['settings']);
   const settings = useSettingsStore((state) => state.settings);
+  const projects = useProjectStore((state) => state.projects);
+  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['spec', 'build', 'qa'])
   );
+  const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
+  const [, setIsLoading] = useState(false);
+
+  // Custom MCP server dialog state
+  const [showCustomMcpDialog, setShowCustomMcpDialog] = useState(false);
+  const [editingCustomServer, setEditingCustomServer] = useState<CustomMcpServer | null>(null);
+
+  // Health status tracking for custom servers
+  const [serverHealthStatus, setServerHealthStatus] = useState<Record<string, McpHealthCheckResult>>({});
+  const [testingServers, setTestingServers] = useState<Set<string>>(new Set());
+
+  // Load project env config when project changes
+  useEffect(() => {
+    if (selectedProjectId && selectedProject?.autoBuildPath) {
+      setIsLoading(true);
+      window.electronAPI.getProjectEnv(selectedProjectId)
+        .then((result) => {
+          if (result.success && result.data) {
+            setEnvConfig(result.data);
+          } else {
+            setEnvConfig(null);
+          }
+        })
+        .catch(() => {
+          setEnvConfig(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setEnvConfig(null);
+    }
+  }, [selectedProjectId, selectedProject?.autoBuildPath]);
+
+  // Update MCP server toggle
+  const updateMcpServer = useCallback(async (
+    key: keyof NonNullable<ProjectEnvConfig['mcpServers']>,
+    value: boolean
+  ) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const newMcpServers = {
+      ...envConfig.mcpServers,
+      [key]: value,
+    };
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, mcpServers: newMcpServers } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        mcpServers: newMcpServers,
+      });
+    } catch (error) {
+      // Revert on error
+      console.error('Failed to update MCP config:', error);
+      setEnvConfig((prev) => prev ? { ...prev, mcpServers: envConfig.mcpServers } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Handle adding an MCP to an agent
+  const handleAddMcp = useCallback(async (agentId: string, mcpId: string) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const currentOverrides = envConfig.agentMcpOverrides || {};
+    const agentOverride = currentOverrides[agentId] || {};
+
+    // If it's in the remove list, take it out (restore)
+    // Otherwise, add it to the add list
+    let newOverride: AgentMcpOverride;
+    if (agentOverride.remove?.includes(mcpId)) {
+      newOverride = {
+        ...agentOverride,
+        remove: agentOverride.remove.filter(m => m !== mcpId),
+      };
+    } else {
+      newOverride = {
+        ...agentOverride,
+        add: [...(agentOverride.add || []), mcpId].filter((v, i, a) => a.indexOf(v) === i),
+      };
+    }
+
+    // Clean up empty arrays
+    if (newOverride.add?.length === 0) delete newOverride.add;
+    if (newOverride.remove?.length === 0) delete newOverride.remove;
+
+    const newOverrides = { ...currentOverrides };
+    if (Object.keys(newOverride).length === 0) {
+      delete newOverrides[agentId];
+    } else {
+      newOverrides[agentId] = newOverride;
+    }
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, agentMcpOverrides: newOverrides } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        agentMcpOverrides: newOverrides,
+      });
+    } catch (error) {
+      console.error('Failed to update agent MCP config:', error);
+      setEnvConfig((prev) => prev ? { ...prev, agentMcpOverrides: currentOverrides } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Handle removing an MCP from an agent
+  const handleRemoveMcp = useCallback(async (agentId: string, mcpId: string) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const agentConfig = AGENT_CONFIGS[agentId];
+    const defaults = [...(agentConfig?.mcp_servers || []), ...(agentConfig?.mcp_optional || [])];
+    const isDefault = defaults.includes(mcpId);
+
+    const currentOverrides = envConfig.agentMcpOverrides || {};
+    const agentOverride = currentOverrides[agentId] || {};
+
+    let newOverride: AgentMcpOverride;
+    if (isDefault) {
+      // It's a default MCP - add to remove list
+      newOverride = {
+        ...agentOverride,
+        remove: [...(agentOverride.remove || []), mcpId].filter((v, i, a) => a.indexOf(v) === i),
+      };
+    } else {
+      // It's a custom addition - remove from add list
+      newOverride = {
+        ...agentOverride,
+        add: (agentOverride.add || []).filter(m => m !== mcpId),
+      };
+    }
+
+    // Clean up empty arrays
+    if (newOverride.add?.length === 0) delete newOverride.add;
+    if (newOverride.remove?.length === 0) delete newOverride.remove;
+
+    const newOverrides = { ...currentOverrides };
+    if (Object.keys(newOverride).length === 0) {
+      delete newOverrides[agentId];
+    } else {
+      newOverrides[agentId] = newOverride;
+    }
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, agentMcpOverrides: newOverrides } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        agentMcpOverrides: newOverrides,
+      });
+    } catch (error) {
+      console.error('Failed to update agent MCP config:', error);
+      setEnvConfig((prev) => prev ? { ...prev, agentMcpOverrides: currentOverrides } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Handle saving a custom MCP server
+  const handleSaveCustomServer = useCallback(async (server: CustomMcpServer) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const currentServers = envConfig.customMcpServers || [];
+    const existingIndex = currentServers.findIndex(s => s.id === server.id);
+
+    let newServers: CustomMcpServer[];
+    if (existingIndex >= 0) {
+      // Update existing
+      newServers = [...currentServers];
+      newServers[existingIndex] = server;
+    } else {
+      // Add new
+      newServers = [...currentServers, server];
+    }
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, customMcpServers: newServers } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        customMcpServers: newServers,
+      });
+    } catch (error) {
+      console.error('Failed to save custom MCP server:', error);
+      setEnvConfig((prev) => prev ? { ...prev, customMcpServers: currentServers } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Handle deleting a custom MCP server
+  const handleDeleteCustomServer = useCallback(async (serverId: string) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const currentServers = envConfig.customMcpServers || [];
+    const newServers = currentServers.filter(s => s.id !== serverId);
+
+    // Also remove from any agent overrides that reference it
+    const currentOverrides = envConfig.agentMcpOverrides || {};
+    const newOverrides = { ...currentOverrides };
+    for (const agentId of Object.keys(newOverrides)) {
+      const override = newOverrides[agentId];
+      if (override.add?.includes(serverId)) {
+        newOverrides[agentId] = {
+          ...override,
+          add: override.add.filter(m => m !== serverId),
+        };
+        if (newOverrides[agentId].add?.length === 0) {
+          delete newOverrides[agentId].add;
+        }
+        if (Object.keys(newOverrides[agentId]).length === 0) {
+          delete newOverrides[agentId];
+        }
+      }
+    }
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? {
+      ...prev,
+      customMcpServers: newServers,
+      agentMcpOverrides: newOverrides,
+    } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        customMcpServers: newServers,
+        agentMcpOverrides: newOverrides,
+      });
+    } catch (error) {
+      console.error('Failed to delete custom MCP server:', error);
+      setEnvConfig((prev) => prev ? { ...prev, customMcpServers: currentServers, agentMcpOverrides: currentOverrides } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Check health of all custom MCP servers
+  const checkAllServersHealth = useCallback(async () => {
+    const servers = envConfig?.customMcpServers || [];
+    if (servers.length === 0) return;
+
+    for (const server of servers) {
+      // Set checking status
+      setServerHealthStatus(prev => ({
+        ...prev,
+        [server.id]: {
+          serverId: server.id,
+          status: 'checking',
+          checkedAt: new Date().toISOString(),
+        }
+      }));
+
+      try {
+        const result = await window.electronAPI.checkMcpHealth(server);
+        if (result.success && result.data) {
+          setServerHealthStatus(prev => ({
+            ...prev,
+            [server.id]: result.data!,
+          }));
+        }
+      } catch (error) {
+        setServerHealthStatus(prev => ({
+          ...prev,
+          [server.id]: {
+            serverId: server.id,
+            status: 'unknown',
+            message: 'Health check failed',
+            checkedAt: new Date().toISOString(),
+          }
+        }));
+      }
+    }
+  }, [envConfig?.customMcpServers]);
+
+  // Check health when custom servers change
+  useEffect(() => {
+    if (envConfig?.customMcpServers && envConfig.customMcpServers.length > 0) {
+      checkAllServersHealth();
+    }
+  }, [envConfig?.customMcpServers, checkAllServersHealth]);
+
+  // Test a single server connection (full test)
+  const handleTestConnection = useCallback(async (server: CustomMcpServer) => {
+    setTestingServers(prev => new Set(prev).add(server.id));
+
+    try {
+      const result = await window.electronAPI.testMcpConnection(server);
+      if (result.success && result.data) {
+        // Update health status based on test result
+        setServerHealthStatus(prev => ({
+          ...prev,
+          [server.id]: {
+            serverId: server.id,
+            status: result.data!.success ? 'healthy' : 'unhealthy',
+            message: result.data!.message,
+            responseTime: result.data!.responseTime,
+            checkedAt: new Date().toISOString(),
+          }
+        }));
+      }
+    } catch (error) {
+      setServerHealthStatus(prev => ({
+        ...prev,
+        [server.id]: {
+          serverId: server.id,
+          status: 'unhealthy',
+          message: 'Connection test failed',
+          checkedAt: new Date().toISOString(),
+        }
+      }));
+    } finally {
+      setTestingServers(prev => {
+        const next = new Set(prev);
+        next.delete(server.id);
+        return next;
+      });
+    }
+  }, []);
 
   // Get phase and feature settings with defaults
   const phaseModels = settings.customPhaseModels || DEFAULT_PHASE_MODELS;
   const phaseThinking = settings.customPhaseThinking || DEFAULT_PHASE_THINKING;
   const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
   const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+
+  // Get MCP server states for display
+  const mcpServers = envConfig?.mcpServers || {};
+
+  // Count enabled MCP servers
+  const enabledCount = [
+    mcpServers.context7Enabled !== false,
+    mcpServers.graphitiEnabled && envConfig?.graphitiProviderConfig,
+    mcpServers.linearMcpEnabled !== false && envConfig?.linearEnabled,
+    mcpServers.electronEnabled,
+    mcpServers.puppeteerEnabled,
+    true, // auto-claude always enabled
+  ].filter(Boolean).length;
 
   // Resolve model and thinking for an agent based on its settings source
   const resolveAgentSettings = useMemo(() => {
@@ -530,41 +1048,294 @@ export function AgentTools() {
           <div className="p-2 rounded-lg bg-muted">
             <Server className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">MCP Server Overview</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground">MCP Server Overview</h1>
+              {selectedProject && (
+                <span className="text-sm text-muted-foreground">
+                  for {selectedProject.name}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
-              View which MCP servers and tools are available for each agent phase
+              {selectedProject
+                ? t('settings:mcp.description')
+                : t('settings:mcp.descriptionNoProject')}
             </p>
           </div>
+          {envConfig && (
+            <div className="text-right">
+              <span className="text-sm text-muted-foreground">{t('settings:mcp.serversEnabled', { count: enabledCount })}</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {/* MCP Server Legend */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-medium text-foreground mb-3">Available MCP Servers</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(MCP_SERVERS).map(([id, server]) => {
-                const Icon = server.icon;
-                return (
-                  <div key={id} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm font-medium">{server.name}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground ml-6">{server.description}</p>
-                    {server.tools && (
-                      <div className="ml-6 text-xs text-muted-foreground">
-                        {server.tools.length} tools available
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          {/* No project selected message */}
+          {!selectedProject && (
+            <div className="rounded-lg border border-border bg-card p-6 text-center">
+              <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <h2 className="text-sm font-medium text-foreground mb-1">{t('settings:mcp.noProjectSelected')}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t('settings:mcp.noProjectSelectedDescription')}
+              </p>
             </div>
-          </div>
+          )}
+
+          {/* Project not initialized message */}
+          {selectedProject && !selectedProject.autoBuildPath && (
+            <div className="rounded-lg border border-border bg-card p-6 text-center">
+              <Info className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <h2 className="text-sm font-medium text-foreground mb-1">{t('settings:mcp.projectNotInitialized')}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t('settings:mcp.projectNotInitializedDescription')}
+              </p>
+            </div>
+          )}
+
+          {/* MCP Server Configuration */}
+          {envConfig && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-foreground">{t('settings:mcp.configuration')}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {t('settings:mcp.configurationHint')}
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Context7 */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">{t('settings:mcp.servers.context7.name')}</span>
+                      <p className="text-xs text-muted-foreground">{t('settings:mcp.servers.context7.description')}</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.context7Enabled !== false}
+                    onCheckedChange={(checked) => updateMcpServer('context7Enabled', checked)}
+                  />
+                </div>
+
+                {/* Graphiti Memory */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Brain className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">{t('settings:mcp.servers.graphiti.name')}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {envConfig.graphitiProviderConfig
+                          ? t('settings:mcp.servers.graphiti.description')
+                          : t('settings:mcp.servers.graphiti.notConfigured')}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.graphitiEnabled !== false && !!envConfig.graphitiProviderConfig}
+                    onCheckedChange={(checked) => updateMcpServer('graphitiEnabled', checked)}
+                    disabled={!envConfig.graphitiProviderConfig}
+                  />
+                </div>
+
+                {/* Linear */}
+                <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div className="flex items-center gap-3">
+                    <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">{t('settings:mcp.servers.linear.name')}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {envConfig.linearEnabled
+                          ? t('settings:mcp.servers.linear.description')
+                          : t('settings:mcp.servers.linear.notConfigured')}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={mcpServers.linearMcpEnabled !== false && envConfig.linearEnabled}
+                    onCheckedChange={(checked) => updateMcpServer('linearMcpEnabled', checked)}
+                    disabled={!envConfig.linearEnabled}
+                  />
+                </div>
+
+                {/* Browser Automation Section */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                      {t('settings:mcp.browserAutomation')}
+                    </span>
+                  </div>
+
+                  {/* Electron */}
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">{t('settings:mcp.servers.electron.name')}</span>
+                        <p className="text-xs text-muted-foreground">{t('settings:mcp.servers.electron.description')}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={mcpServers.electronEnabled === true}
+                      onCheckedChange={(checked) => updateMcpServer('electronEnabled', checked)}
+                    />
+                  </div>
+
+                  {/* Puppeteer */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-3">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">{t('settings:mcp.servers.puppeteer.name')}</span>
+                        <p className="text-xs text-muted-foreground">{t('settings:mcp.servers.puppeteer.description')}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={mcpServers.puppeteerEnabled === true}
+                      onCheckedChange={(checked) => updateMcpServer('puppeteerEnabled', checked)}
+                    />
+                  </div>
+                </div>
+
+                {/* Auto-Claude (always enabled) */}
+                <div className="flex items-center justify-between py-2 border-t border-border opacity-60">
+                  <div className="flex items-center gap-3">
+                    <ListChecks className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">{t('settings:mcp.servers.autoClaude.name')}</span>
+                      <p className="text-xs text-muted-foreground">{t('settings:mcp.servers.autoClaude.description')} ({t('settings:mcp.alwaysEnabled')})</p>
+                    </div>
+                  </div>
+                  <Switch checked={true} disabled />
+                </div>
+
+                {/* Custom MCP Servers Section */}
+                <div className="pt-4 border-t border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                        {t('settings:mcp.customServers')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingCustomServer(null); setShowCustomMcpDialog(true); }}
+                      className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {t('settings:mcp.addCustomServer')}
+                    </button>
+                  </div>
+
+                  {(envConfig.customMcpServers?.length ?? 0) > 0 ? (
+                    <div className="space-y-2">
+                      {envConfig.customMcpServers?.map((server) => {
+                        const health = serverHealthStatus[server.id];
+                        const isTesting = testingServers.has(server.id);
+                        const isChecking = health?.status === 'checking';
+
+                        // Status indicator component
+                        const StatusIndicator = () => {
+                          if (isTesting || isChecking) {
+                            return <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />;
+                          }
+                          switch (health?.status) {
+                            case 'healthy':
+                              return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
+                            case 'needs_auth':
+                              return <Lock className="h-3.5 w-3.5 text-amber-500" />;
+                            case 'unhealthy':
+                              return <AlertCircle className="h-3.5 w-3.5 text-destructive" />;
+                            default:
+                              return <Circle className="h-3.5 w-3.5 text-muted-foreground" />;
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={server.id}
+                            className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg group"
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Status indicator */}
+                              <StatusIndicator />
+                              {server.type === 'command' ? (
+                                <Terminal className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Globe className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{server.name}</span>
+                                  {health?.responseTime && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {health.responseTime}ms
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {health?.message || (server.type === 'command'
+                                    ? `${server.command} ${server.args?.join(' ') || ''}`
+                                    : server.url)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {/* Test button - always visible */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleTestConnection(server)}
+                                disabled={isTesting}
+                                className="h-7 px-2 text-xs"
+                                title="Test Connection"
+                              >
+                                {isTesting ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                                <span className="ml-1">Test</span>
+                              </Button>
+                              {/* Edit/Delete - show on hover */}
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingCustomServer(server); setShowCustomMcpDialog(true); }}
+                                  className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomServer(server.id)}
+                                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-3">
+                      {t('settings:mcp.noCustomServers')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Agent Categories */}
           {Object.entries(CATEGORIES).map(([categoryId, category]) => {
@@ -578,6 +1349,7 @@ export function AgentTools() {
               <div key={categoryId} className="space-y-3">
                 {/* Category Header */}
                 <button
+                  type="button"
                   onClick={() => toggleCategory(categoryId)}
                   className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
                 >
@@ -607,6 +1379,11 @@ export function AgentTools() {
                           config={config}
                           modelLabel={getModelLabel(model)}
                           thinkingLabel={getThinkingLabel(thinking)}
+                          overrides={envConfig?.agentMcpOverrides?.[id]}
+                          mcpServerStates={envConfig?.mcpServers}
+                          customServers={envConfig?.customMcpServers || []}
+                          onAddMcp={handleAddMcp}
+                          onRemoveMcp={handleRemoveMcp}
                         />
                       );
                     })}
@@ -617,6 +1394,15 @@ export function AgentTools() {
           })}
         </div>
       </ScrollArea>
+
+      {/* Custom MCP Server Dialog */}
+      <CustomMcpDialog
+        open={showCustomMcpDialog}
+        onOpenChange={setShowCustomMcpDialog}
+        server={editingCustomServer}
+        existingIds={(envConfig?.customMcpServers || []).map(s => s.id)}
+        onSave={handleSaveCustomServer}
+      />
     </div>
   );
 }

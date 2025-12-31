@@ -156,6 +156,7 @@ const browserMockAPI: ElectronAPI = {
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     runFollowupReview: () => {},
+    getPRLogs: async () => null,
     onPRReviewProgress: () => () => {},
     onPRReviewComplete: () => () => {},
     onPRReviewError: () => () => {},
@@ -171,6 +172,47 @@ const browserMockAPI: ElectronAPI = {
     onAnalyzePreviewComplete: () => () => {},
     onAnalyzePreviewError: () => () => {}
   },
+
+  // Claude Code Operations
+  checkClaudeCodeVersion: async () => ({
+    success: true,
+    data: {
+      installed: '1.0.0',
+      latest: '1.0.0',
+      isOutdated: false,
+      path: '/usr/local/bin/claude',
+      detectionResult: {
+        found: true,
+        version: '1.0.0',
+        path: '/usr/local/bin/claude',
+        source: 'system-path' as const,
+        message: 'Claude Code CLI found'
+      }
+    }
+  }),
+  installClaudeCode: async () => ({
+    success: true,
+    data: { command: 'npm install -g @anthropic-ai/claude-code' }
+  }),
+
+  // MCP Server Health Check Operations
+  checkMcpHealth: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      status: 'unknown' as const,
+      message: 'Health check not available in browser mode',
+      checkedAt: new Date().toISOString()
+    }
+  }),
+  testMcpConnection: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      success: false,
+      message: 'Connection test not available in browser mode'
+    }
+  }),
 
   // Debug Operations
   getDebugInfo: async () => ({

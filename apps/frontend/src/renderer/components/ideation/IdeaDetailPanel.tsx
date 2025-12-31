@@ -96,7 +96,10 @@ export function IdeaDetailPanel({ idea, onClose, onConvert, onGoToTask, onDismis
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => onDismiss(idea)}
+            onClick={() => {
+              onDismiss(idea);
+              onClose();
+            }}
           >
             <X className="h-4 w-4 mr-2" />
             Dismiss Idea

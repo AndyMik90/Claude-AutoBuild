@@ -13,8 +13,11 @@ single source of truth for phase-aware tool and MCP server configuration.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from agents.tools_pkg import (
     CONTEXT7_TOOLS,
@@ -33,6 +36,245 @@ from core.auth import get_sdk_env_vars, require_auth_token
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
+
+
+def _validate_custom_mcp_server(server: dict) -> bool:
+    """
+    Validate a custom MCP server configuration for security.
+
+    Ensures only expected fields with valid types are present.
+    Rejects configurations that could lead to command injection.
+
+    Args:
+        server: Dict representing a custom MCP server configuration
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not isinstance(server, dict):
+        return False
+
+    # Required fields
+    required_fields = {"id", "name", "type"}
+    if not all(field in server for field in required_fields):
+        logger.warning(
+            f"Custom MCP server missing required fields: {required_fields - server.keys()}"
+        )
+        return False
+
+    # Validate field types
+    if not isinstance(server.get("id"), str) or not server["id"]:
+        return False
+    if not isinstance(server.get("name"), str) or not server["name"]:
+        return False
+    # FIX: Changed from ('command', 'url') to ('command', 'http') to match actual usage
+    if server.get("type") not in ("command", "http"):
+        logger.warning(f"Invalid MCP server type: {server.get('type')}")
+        return False
+
+    # Allowlist of safe executable commands for MCP servers
+    # Only allow known package managers and interpreters - NO shell commands
+    SAFE_COMMANDS = {
+        "npx",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "uv",
+        "uvx",
+    }
+
+    # Blocklist of dangerous shell commands that should never be allowed
+    DANGEROUS_COMMANDS = {
+        "bash",
+        "sh",
+        "cmd",
+        "powershell",
+        "pwsh",  # PowerShell Core
+        "/bin/bash",
+        "/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "zsh",
+        "fish",
+    }
+
+    # Dangerous interpreter flags that allow arbitrary code execution
+    # Covers Python (-e, -c, -m, -p), Node.js (--eval, --print, loaders), and general
+    DANGEROUS_FLAGS = {
+        "--eval",
+        "-e",
+        "-c",
+        "--exec",
+        "-m",  # Python module execution
+        "-p",  # Python eval+print
+        "--print",  # Node.js print
+        "--input-type=module",  # Node.js ES module mode
+        "--experimental-loader",  # Node.js custom loaders
+        "--require",  # Node.js require injection
+        "-r",  # Node.js require shorthand
+    }
+
+    # Type-specific validation
+    if server["type"] == "command":
+        if not isinstance(server.get("command"), str) or not server["command"]:
+            logger.warning("Command-type MCP server missing 'command' field")
+            return False
+
+        # SECURITY FIX: Validate command is in safe list and not in dangerous list
+        command = server.get("command", "")
+
+        # Reject paths - commands must be bare names only (no / or \)
+        # This prevents path traversal like '/custom/malicious' or './evil'
+        if "/" in command or "\\" in command:
+            logger.warning(
+                f"Rejected command with path in MCP server: {command}. "
+                f"Commands must be bare names without path separators."
+            )
+            return False
+
+        if command in DANGEROUS_COMMANDS:
+            logger.warning(
+                f"Rejected dangerous command in MCP server: {command}. "
+                f"Shell commands are not allowed for security reasons."
+            )
+            return False
+
+        if command not in SAFE_COMMANDS:
+            logger.warning(
+                f"Rejected unknown command in MCP server: {command}. "
+                f"Only allowed commands: {', '.join(sorted(SAFE_COMMANDS))}"
+            )
+            return False
+
+        # Validate args is a list of strings if present
+        if "args" in server:
+            if not isinstance(server["args"], list):
+                return False
+            if not all(isinstance(arg, str) for arg in server["args"]):
+                return False
+            # Check for dangerous interpreter flags that allow code execution
+            for arg in server["args"]:
+                if arg in DANGEROUS_FLAGS:
+                    logger.warning(
+                        f"Rejected dangerous flag '{arg}' in MCP server args. "
+                        f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
+    elif server["type"] == "http":
+        if not isinstance(server.get("url"), str) or not server["url"]:
+            logger.warning("HTTP-type MCP server missing 'url' field")
+            return False
+        # Validate headers is a dict of strings if present
+        if "headers" in server:
+            if not isinstance(server["headers"], dict):
+                return False
+            if not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in server["headers"].items()
+            ):
+                return False
+
+    # Optional description must be string if present
+    if "description" in server and not isinstance(server.get("description"), str):
+        return False
+
+    # Reject any unexpected fields that could be exploited
+    allowed_fields = {
+        "id",
+        "name",
+        "type",
+        "command",
+        "args",
+        "url",
+        "headers",
+        "description",
+    }
+    unexpected_fields = set(server.keys()) - allowed_fields
+    if unexpected_fields:
+        logger.warning(f"Custom MCP server has unexpected fields: {unexpected_fields}")
+        return False
+
+    return True
+
+
+def load_project_mcp_config(project_dir: Path) -> dict:
+    """
+    Load MCP configuration from project's .auto-claude/.env file.
+
+    Returns a dict of MCP-related env vars:
+    - CONTEXT7_ENABLED (default: true)
+    - LINEAR_MCP_ENABLED (default: true)
+    - ELECTRON_MCP_ENABLED (default: false)
+    - PUPPETEER_MCP_ENABLED (default: false)
+    - AGENT_MCP_<agent>_ADD (per-agent MCP additions)
+    - AGENT_MCP_<agent>_REMOVE (per-agent MCP removals)
+    - CUSTOM_MCP_SERVERS (JSON array of custom server configs)
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Dict of MCP configuration values (string values, except CUSTOM_MCP_SERVERS which is parsed JSON)
+    """
+    env_path = project_dir / ".auto-claude" / ".env"
+    if not env_path.exists():
+        return {}
+
+    config = {}
+    mcp_keys = {
+        "CONTEXT7_ENABLED",
+        "LINEAR_MCP_ENABLED",
+        "ELECTRON_MCP_ENABLED",
+        "PUPPETEER_MCP_ENABLED",
+    }
+
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip("\"'")
+                    # Include global MCP toggles
+                    if key in mcp_keys:
+                        config[key] = value
+                    # Include per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
+                    elif key.startswith("AGENT_MCP_"):
+                        config[key] = value
+                    # Include custom MCP servers (parse JSON with schema validation)
+                    elif key == "CUSTOM_MCP_SERVERS":
+                        try:
+                            parsed = json.loads(value)
+                            if not isinstance(parsed, list):
+                                logger.warning(
+                                    "CUSTOM_MCP_SERVERS must be a JSON array"
+                                )
+                                config["CUSTOM_MCP_SERVERS"] = []
+                            else:
+                                # Validate each server and filter out invalid ones
+                                valid_servers = []
+                                for i, server in enumerate(parsed):
+                                    if _validate_custom_mcp_server(server):
+                                        valid_servers.append(server)
+                                    else:
+                                        logger.warning(
+                                            f"Skipping invalid custom MCP server at index {i}"
+                                        )
+                                config["CUSTOM_MCP_SERVERS"] = valid_servers
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                f"Failed to parse CUSTOM_MCP_SERVERS JSON: {value}"
+                            )
+                            config["CUSTOM_MCP_SERVERS"] = []
+    except Exception as e:
+        logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
+
+    return config
 
 
 def is_graphiti_mcp_enabled() -> bool:
@@ -97,6 +339,7 @@ def create_client(
     agent_type: str = "coder",
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
+    agents: dict | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -119,6 +362,10 @@ def create_client(
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+        agents: Optional dict of subagent definitions for SDK parallel execution.
+               Format: {"agent-name": {"description": "...", "prompt": "...",
+                        "tools": [...], "model": "inherit"}}
+               See: https://platform.claude.com/docs/en/agent-sdk/subagents
 
     Returns:
         Configured ClaudeSDKClient
@@ -152,20 +399,27 @@ def create_client(
     project_index = load_project_index(project_dir)
     project_capabilities = detect_project_capabilities(project_index)
 
+    # Load per-project MCP configuration from .auto-claude/.env
+    mcp_config = load_project_mcp_config(project_dir)
+
     # Get allowed tools using phase-aware configuration
     # This respects AGENT_CONFIGS and only includes tools the agent needs
+    # Also respects per-project MCP configuration
     allowed_tools_list = get_allowed_tools(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Get required MCP servers for this agent type
     # This is the key optimization - only start servers the agent needs
+    # Now also respects per-project MCP configuration
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
@@ -323,6 +577,30 @@ def create_client(
         if auto_claude_mcp_server:
             mcp_servers["auto-claude"] = auto_claude_mcp_server
 
+    # Add custom MCP servers from project config
+    custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
+    for custom in custom_servers:
+        server_id = custom.get("id")
+        if not server_id:
+            continue
+        # Only include if agent has it in their effective server list
+        if server_id not in required_servers:
+            continue
+        server_type = custom.get("type", "command")
+        if server_type == "command":
+            mcp_servers[server_id] = {
+                "command": custom.get("command", "npx"),
+                "args": custom.get("args", []),
+            }
+        elif server_type == "http":
+            server_config = {
+                "type": "http",
+                "url": custom.get("url", ""),
+            }
+            if custom.get("headers"):
+                server_config["headers"] = custom["headers"]
+            mcp_servers[server_id] = server_config
+
     # Build system prompt
     base_prompt = (
         f"You are an expert full-stack developer building production-quality software. "
@@ -369,5 +647,10 @@ def create_client(
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:
         options_kwargs["output_format"] = output_format
+
+    # Add subagent definitions if specified
+    # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+    if agents:
+        options_kwargs["agents"] = agents
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

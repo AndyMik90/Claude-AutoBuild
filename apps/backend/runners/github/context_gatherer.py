@@ -121,6 +121,11 @@ AI_BOT_PATTERNS: dict[str, str] = {
     "codium-ai[bot]": "Qodo",
     "codiumai-agent": "Qodo",
     "qodo-merge-bot": "Qodo",
+    # === Google AI ===
+    "gemini-code-assist": "Gemini Code Assist",
+    "gemini-code-assist[bot]": "Gemini Code Assist",
+    "google-code-assist": "Gemini Code Assist",
+    "google-code-assist[bot]": "Gemini Code Assist",
     # === AI Coding Assistants ===
     "copilot": "GitHub Copilot",
     "copilot[bot]": "GitHub Copilot",
@@ -352,7 +357,7 @@ class PRContextGatherer:
 
             if proc.returncode == 0:
                 print(
-                    f"[Context] Fetched PR refs: {head_sha[:8]}...{base_sha[:8]}",
+                    f"[Context] Fetched PR refs: base={base_sha[:8]} → head={head_sha[:8]}",
                     flush=True,
                 )
                 return True
@@ -870,8 +875,9 @@ class PRContextGatherer:
         # Start from the directory containing the source file
         base_dir = source_path.parent
 
-        # Resolve relative path
-        resolved = (base_dir / import_path).resolve()
+        # Resolve relative path - MUST prepend project_dir to resolve correctly
+        # when CWD is different from project root (e.g., running from apps/backend/)
+        resolved = (self.project_dir / base_dir / import_path).resolve()
 
         # Try common extensions if no extension provided
         if not resolved.suffix:
@@ -1035,6 +1041,7 @@ class FollowupContextGatherer:
                 previous_review=self.previous_review,
                 previous_commit_sha=previous_sha,
                 current_commit_sha=current_sha,
+                error=f"Failed to compare commits: {e}",
             )
 
         # Extract data from comparison

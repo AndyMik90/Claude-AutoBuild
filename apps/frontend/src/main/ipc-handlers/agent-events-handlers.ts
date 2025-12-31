@@ -61,6 +61,13 @@ export function registerAgenteventsHandlers(
   agentManager.on('exit', (taskId: string, code: number | null, processType: ProcessType) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
+      // Send final plan state to renderer BEFORE unwatching
+      // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
+      const finalPlan = fileWatcher.getCurrentPlan(taskId);
+      if (finalPlan) {
+        mainWindow.webContents.send(IPC_CHANNELS.TASK_PROGRESS, taskId, finalPlan);
+      }
+
       fileWatcher.unwatch(taskId);
 
       if (processType === 'spec-creation') {

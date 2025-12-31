@@ -264,11 +264,11 @@ Return a JSON array with this structure:
 ### Required Fields
 
 - **id**: Unique identifier (e.g., "finding-1", "finding-2")
-- **severity**: `critical` | `high` | `medium` | `low`
-  - **critical**: Must fix before merge (security vulnerabilities, data loss risks)
-  - **high**: Should fix before merge (significant bugs, major quality issues)
-  - **medium**: Recommended to fix (code quality, maintainability concerns)
-  - **low**: Suggestions for improvement (minor enhancements)
+- **severity**: `critical` | `high` | `medium` | `low` (Strict Quality Gates - all block merge except LOW)
+  - **critical** (Blocker): Must fix before merge (security vulnerabilities, data loss risks) - **Blocks merge: YES**
+  - **high** (Required): Should fix before merge (significant bugs, major quality issues) - **Blocks merge: YES**
+  - **medium** (Recommended): Improve code quality (maintainability concerns) - **Blocks merge: YES** (AI fixes quickly)
+  - **low** (Suggestion): Suggestions for improvement (minor enhancements) - **Blocks merge: NO**
 - **category**: `security` | `quality` | `logic` | `test` | `docs` | `pattern` | `performance`
 - **confidence**: Float 0.0-1.0 representing your confidence this is a genuine issue (must be ≥0.80)
 - **title**: Short, specific summary (max 80 chars)

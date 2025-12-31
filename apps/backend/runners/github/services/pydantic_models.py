@@ -342,3 +342,279 @@ class OrchestratorReviewResponse(BaseModel):
         default_factory=list, description="Issues found during review"
     )
     summary: str = Field(description="Brief summary of the review")
+
+
+# =============================================================================
+# Parallel Orchestrator Review Response (SDK Subagents)
+# =============================================================================
+
+
+class LogicFinding(BaseFinding):
+    """A logic/correctness finding from the logic review agent."""
+
+    category: Literal["logic"] = Field(
+        default="logic", description="Always 'logic' for logic findings"
+    )
+    confidence: float = Field(
+        0.85, ge=0.0, le=1.0, description="Confidence in this finding (0.0-1.0)"
+    )
+    example_input: str | None = Field(
+        None, description="Concrete input that triggers the bug"
+    )
+    actual_output: str | None = Field(None, description="What the buggy code produces")
+    expected_output: str | None = Field(
+        None, description="What the code should produce"
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class CodebaseFitFinding(BaseFinding):
+    """A codebase fit finding from the codebase fit review agent."""
+
+    category: Literal["codebase_fit"] = Field(
+        default="codebase_fit", description="Always 'codebase_fit' for fit findings"
+    )
+    confidence: float = Field(
+        0.85, ge=0.0, le=1.0, description="Confidence in this finding (0.0-1.0)"
+    )
+    existing_code: str | None = Field(
+        None, description="Reference to existing code that should be used instead"
+    )
+    codebase_pattern: str | None = Field(
+        None, description="Description of the established pattern being violated"
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class ParallelOrchestratorFinding(BaseModel):
+    """A finding from the parallel orchestrator with source agent tracking."""
+
+    id: str = Field(description="Unique identifier for this finding")
+    file: str = Field(description="File path where issue was found")
+    line: int = Field(0, description="Line number of the issue")
+    end_line: int | None = Field(None, description="End line for multi-line issues")
+    title: str = Field(description="Brief issue title (max 80 chars)")
+    description: str = Field(description="Detailed explanation of the issue")
+    category: Literal[
+        "security",
+        "quality",
+        "logic",
+        "codebase_fit",
+        "test",
+        "docs",
+        "redundancy",
+        "pattern",
+        "performance",
+    ] = Field(description="Issue category")
+    severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Issue severity level"
+    )
+    confidence: float = Field(
+        0.85, ge=0.0, le=1.0, description="Confidence in this finding (0.0-1.0)"
+    )
+    suggested_fix: str | None = Field(None, description="How to fix this issue")
+    fixable: bool = Field(False, description="Whether this can be auto-fixed")
+    source_agents: list[str] = Field(
+        default_factory=list,
+        description="Which agents reported this finding",
+    )
+    cross_validated: bool = Field(
+        False, description="Whether multiple agents agreed on this finding"
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class AgentAgreement(BaseModel):
+    """Tracks agreement between agents on findings."""
+
+    agreed_findings: list[str] = Field(
+        default_factory=list,
+        description="Finding IDs that multiple agents agreed on",
+    )
+    conflicting_findings: list[str] = Field(
+        default_factory=list,
+        description="Finding IDs where agents disagreed",
+    )
+    resolution_notes: str | None = Field(
+        None, description="Notes on how conflicts were resolved"
+    )
+
+
+class ParallelOrchestratorResponse(BaseModel):
+    """Complete response schema for parallel orchestrator PR review."""
+
+    analysis_summary: str = Field(
+        description="Brief summary of what was analyzed and why agents were chosen"
+    )
+    agents_invoked: list[str] = Field(
+        default_factory=list,
+        description="List of agent names that were invoked",
+    )
+    findings: list[ParallelOrchestratorFinding] = Field(
+        default_factory=list, description="All findings from synthesis"
+    )
+    agent_agreement: AgentAgreement = Field(
+        default_factory=AgentAgreement,
+        description="Information about agent agreement on findings",
+    )
+    verdict: Literal["APPROVE", "COMMENT", "NEEDS_REVISION", "BLOCKED"] = Field(
+        description="Overall PR verdict"
+    )
+    verdict_reasoning: str = Field(description="Explanation for the verdict")
+
+
+# =============================================================================
+# Parallel Follow-up Review Response (SDK Subagents for Follow-up)
+# =============================================================================
+
+
+class ResolutionVerification(BaseModel):
+    """AI-verified resolution status for a previous finding."""
+
+    finding_id: str = Field(description="ID of the previous finding")
+    status: Literal["resolved", "partially_resolved", "unresolved", "cant_verify"] = (
+        Field(description="Resolution status after AI verification")
+    )
+    confidence: float = Field(
+        0.85, ge=0.0, le=1.0, description="Confidence in the resolution status"
+    )
+    evidence: str = Field(description="What evidence supports this resolution status")
+    resolution_notes: str | None = Field(
+        None, description="Detailed notes on how the issue was addressed"
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class ParallelFollowupFinding(BaseModel):
+    """A finding from parallel follow-up review with source agent tracking."""
+
+    id: str = Field(description="Unique identifier for this finding")
+    file: str = Field(description="File path where issue was found")
+    line: int = Field(0, description="Line number of the issue")
+    end_line: int | None = Field(None, description="End line for multi-line issues")
+    title: str = Field(description="Brief issue title (max 80 chars)")
+    description: str = Field(description="Detailed explanation of the issue")
+    category: Literal[
+        "security",
+        "quality",
+        "logic",
+        "test",
+        "docs",
+        "regression",
+        "incomplete_fix",
+    ] = Field(description="Issue category")
+    severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Issue severity level"
+    )
+    confidence: float = Field(
+        0.85, ge=0.0, le=1.0, description="Confidence in this finding (0.0-1.0)"
+    )
+    suggested_fix: str | None = Field(None, description="How to fix this issue")
+    fixable: bool = Field(False, description="Whether this can be auto-fixed")
+    source_agent: str = Field(
+        description="Which agent reported this finding (resolution/newcode/comment)"
+    )
+    related_to_previous: str | None = Field(
+        None, description="ID of related previous finding if this is a regression"
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class CommentAnalysis(BaseModel):
+    """Analysis of a contributor or AI comment."""
+
+    comment_id: str = Field(description="Identifier for the comment")
+    author: str = Field(description="Comment author")
+    is_ai_bot: bool = Field(description="Whether this is from an AI tool")
+    requires_response: bool = Field(description="Whether this comment needs a response")
+    sentiment: Literal["question", "concern", "suggestion", "praise", "neutral"] = (
+        Field(description="Comment sentiment/type")
+    )
+    summary: str = Field(description="Brief summary of the comment")
+    action_needed: str | None = Field(None, description="What action is needed if any")
+
+
+class ParallelFollowupResponse(BaseModel):
+    """Complete response schema for parallel follow-up PR review."""
+
+    # Analysis metadata
+    analysis_summary: str = Field(
+        description="Brief summary of what was analyzed in this follow-up"
+    )
+    agents_invoked: list[str] = Field(
+        default_factory=list,
+        description="List of agent names that were invoked",
+    )
+    commits_analyzed: int = Field(0, description="Number of new commits analyzed")
+    files_changed: int = Field(
+        0, description="Number of files changed since last review"
+    )
+
+    # Resolution verification (from resolution-verifier agent)
+    resolution_verifications: list[ResolutionVerification] = Field(
+        default_factory=list,
+        description="AI-verified resolution status for each previous finding",
+    )
+
+    # New findings (from new-code-reviewer agent)
+    new_findings: list[ParallelFollowupFinding] = Field(
+        default_factory=list,
+        description="New issues found in changes since last review",
+    )
+
+    # Comment analysis (from comment-analyzer agent)
+    comment_analyses: list[CommentAnalysis] = Field(
+        default_factory=list,
+        description="Analysis of contributor and AI comments",
+    )
+    comment_findings: list[ParallelFollowupFinding] = Field(
+        default_factory=list,
+        description="Issues identified from comment analysis",
+    )
+
+    # Agent agreement tracking
+    agent_agreement: AgentAgreement = Field(
+        default_factory=AgentAgreement,
+        description="Information about agent agreement on findings",
+    )
+
+    # Verdict
+    verdict: Literal[
+        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
+    ] = Field(description="Overall merge verdict")
+    verdict_reasoning: str = Field(description="Explanation for the verdict")

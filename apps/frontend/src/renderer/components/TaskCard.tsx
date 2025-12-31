@@ -192,7 +192,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           >
             {task.title}
           </h3>
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[160px]">
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[180px]">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge

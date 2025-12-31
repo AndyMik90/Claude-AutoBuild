@@ -318,5 +318,104 @@
     "noRecentErrors": "Aucune erreur récente",
     "helpTitle": "Signaler des problèmes",
     "helpText": "Lors du signalement de bugs, cliquez sur \"Copier les infos de débogage\" pour obtenir les informations système et les erreurs récentes qui nous aident à diagnostiquer le problème."
+  },
+  "mcp": {
+    "title": "Aperçu des serveurs MCP",
+    "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",
+    "description": "Configurez quels serveurs MCP sont disponibles pour les agents dans ce projet",
+    "descriptionNoProject": "Sélectionnez un projet pour configurer les serveurs MCP",
+    "serversEnabled": "{{count}} serveurs activés",
+    "configuration": "Configuration des serveurs MCP",
+    "configurationHint": "Les serveurs désactivés réduisent l'utilisation du contexte et le temps de démarrage",
+    "noProjectSelected": "Aucun projet sélectionné",
+    "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
+    "projectNotInitialized": "Projet non initialisé",
+    "projectNotInitializedDescription": "Initialisez Auto Claude pour ce projet pour configurer les serveurs MCP.",
+    "browserAutomation": "Automatisation du navigateur (agents QA uniquement)",
+    "alwaysEnabled": "toujours activé",
+    "addServer": "Ajouter un serveur",
+    "addMcpTo": "Ajouter un serveur MCP à {{agent}}",
+    "addMcpDescription": "Sélectionnez un serveur MCP à ajouter à cet agent",
+    "allMcpsAdded": "Tous les serveurs MCP disponibles sont déjà ajoutés",
+    "added": "ajouté",
+    "removed": "supprimé",
+    "remove": "Supprimer",
+    "restore": "Restaurer",
+    "noMcpServers": "Aucun serveur MCP",
+    "cannotRemove": "Impossible à supprimer (requis)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Recherche de documentation pour les bibliothèques"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Graphe de connaissances pour le contexte inter-sessions",
+        "notConfigured": "Nécessite la configuration mémoire (voir paramètres Mémoire)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Intégration gestion de projet",
+        "notConfigured": "Nécessite l'intégration Linear (voir paramètres Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatisation d'applications desktop via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatisation du navigateur web pour les tests"
+      },
+      "autoClaude": {
+        "name": "Outils Auto-Claude",
+        "description": "Suivi de la progression du build"
+      }
+    },
+    "customServers": "Serveurs personnalisés",
+    "addCustomServer": "Ajouter un serveur personnalisé",
+    "editCustomServer": "Modifier le serveur personnalisé",
+    "customServerDescription": "Ajouter un serveur MCP basé sur une commande ou HTTP",
+    "serverType": "Type de serveur",
+    "typeCommand": "Commande (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Nom",
+    "serverNamePlaceholder": "Mon serveur MCP",
+    "serverDescription": "Description",
+    "serverDescriptionPlaceholder": "Ce que fait ce serveur",
+    "command": "Commande",
+    "args": "Arguments",
+    "argsHint": "Arguments séparés par des espaces",
+    "url": "URL",
+    "headers": "En-têtes",
+    "headerName": "Nom de l'en-tête",
+    "headerValue": "Valeur de l'en-tête",
+    "noCustomServers": "Aucun serveur personnalisé configuré. Ajoutez-en un pour l'utiliser avec vos agents.",
+    "errorNameRequired": "Le nom du serveur est requis",
+    "errorIdExists": "Un serveur avec cet ID existe déjà",
+    "errorCommandRequired": "La commande est requise pour les serveurs basés sur commande",
+    "errorUrlRequired": "L'URL est requise pour les serveurs basés sur HTTP",
+    "testConnection": "Test",
+    "testing": "Test en cours...",
+    "authToken": "Jeton d'authentification",
+    "authTokenPlaceholder": "Collez votre jeton API ou PAT ici",
+    "authTokenHint": "Utilisé comme jeton Bearer dans l'en-tête Authorization",
+    "advancedHeaders": "En-têtes supplémentaires",
+    "status": {
+      "healthy": "Le serveur répond",
+      "unhealthy": "Le serveur ne répond pas",
+      "needsAuth": "Authentification requise",
+      "checking": "Vérification...",
+      "unknown": "Statut inconnu"
+    },
+    "hints": {
+      "github": "Ceci ressemble à un serveur MCP GitHub. Vous aurez besoin d'un Personal Access Token avec les scopes appropriés.",
+      "createGithubPat": "Créer un PAT GitHub",
+      "google": "Ceci ressemble à une API Google. Vous aurez besoin d'un jeton OAuth ou d'une clé API.",
+      "createGoogleToken": "Créer des identifiants Google",
+      "anthropic": "Ceci ressemble à une API Anthropic. Vous aurez besoin d'une clé API.",
+      "createAnthropicKey": "Créer une clé API Anthropic",
+      "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
+      "createOpenaiKey": "Créer une clé API OpenAI"
+    }
   }
 }

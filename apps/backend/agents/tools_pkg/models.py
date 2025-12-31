@@ -266,6 +266,19 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
+    "pr_orchestrator_parallel": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only for parallel PR orchestrator
+        "mcp_servers": ["context7"],
+        "auto_claude_tools": [],
+        "thinking_default": "high",
+    },
+    "pr_followup_parallel": {
+        "tools": BASE_READ_TOOLS
+        + WEB_TOOLS,  # Read-only for parallel followup reviewer
+        "mcp_servers": ["context7"],
+        "auto_claude_tools": [],
+        "thinking_default": "high",
+    },
     # ═══════════════════════════════════════════════════════════════════════
     # ANALYSIS PHASES
     # ═══════════════════════════════════════════════════════════════════════
@@ -337,10 +350,46 @@ def get_agent_config(agent_type: str) -> dict:
     return AGENT_CONFIGS[agent_type]
 
 
+def _map_mcp_server_name(
+    name: str, custom_server_ids: list[str] | None = None
+) -> str | None:
+    """
+    Map user-friendly MCP server names to internal identifiers.
+    Also accepts custom server IDs directly.
+
+    Args:
+        name: User-provided MCP server name
+        custom_server_ids: List of custom server IDs to accept as-is
+
+    Returns:
+        Internal server identifier or None if not recognized
+    """
+    if not name:
+        return None
+    mappings = {
+        "context7": "context7",
+        "graphiti-memory": "graphiti",
+        "graphiti": "graphiti",
+        "linear": "linear",
+        "electron": "electron",
+        "puppeteer": "puppeteer",
+        "auto-claude": "auto-claude",
+    }
+    # Check if it's a known mapping
+    mapped = mappings.get(name.lower().strip())
+    if mapped:
+        return mapped
+    # Check if it's a custom server ID (accept as-is)
+    if custom_server_ids and name in custom_server_ids:
+        return name
+    return None
+
+
 def get_required_mcp_servers(
     agent_type: str,
     project_capabilities: dict | None = None,
     linear_enabled: bool = False,
+    mcp_config: dict | None = None,
 ) -> list[str]:
     """
     Get MCP servers required for this agent type.
@@ -349,11 +398,16 @@ def get_required_mcp_servers(
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
     - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
+    - Respects per-project MCP config overrides from .auto-claude/.env
+    - Applies per-agent ADD/REMOVE overrides from AGENT_MCP_<agent>_ADD/REMOVE
 
     Args:
         agent_type: The agent type identifier
         project_capabilities: Dict from detect_project_capabilities() or None
         linear_enabled: Whether Linear integration is enabled for this project
+        mcp_config: Per-project MCP server toggles from .auto-claude/.env
+                   Keys: CONTEXT7_ENABLED, LINEAR_MCP_ENABLED, ELECTRON_MCP_ENABLED,
+                         PUPPETEER_MCP_ENABLED, AGENT_MCP_<agent>_ADD/REMOVE
 
     Returns:
         List of MCP server names to start
@@ -361,27 +415,79 @@ def get_required_mcp_servers(
     config = get_agent_config(agent_type)
     servers = list(config.get("mcp_servers", []))
 
+    # Load per-project config (or use defaults)
+    if mcp_config is None:
+        mcp_config = {}
+
+    # Filter context7 if explicitly disabled by project config
+    if "context7" in servers:
+        context7_enabled = mcp_config.get("CONTEXT7_ENABLED", "true")
+        if str(context7_enabled).lower() == "false":
+            servers = [s for s in servers if s != "context7"]
+
     # Handle optional servers (e.g., Linear if project setting enabled)
     optional = config.get("mcp_servers_optional", [])
     if "linear" in optional and linear_enabled:
-        servers.append("linear")
+        # Also check per-project LINEAR_MCP_ENABLED override
+        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
+        if str(linear_mcp_enabled).lower() != "false":
+            servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type
+    # Handle dynamic "browser" → electron/puppeteer based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            if is_electron and is_electron_mcp_enabled():
+            # Check per-project overrides (default false for both)
+            electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
+            puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
+
+            # Electron: enabled by project config OR global env var
+            if is_electron and (
+                str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
+            ):
                 servers.append("electron")
+            # Puppeteer: enabled by project config (no global env var)
             elif is_web_frontend and not is_electron:
-                servers.append("puppeteer")
+                if str(puppeteer_enabled).lower() == "true":
+                    servers.append("puppeteer")
 
     # Filter graphiti if not enabled
     if "graphiti" in servers:
         if not os.environ.get("GRAPHITI_MCP_URL"):
             servers = [s for s in servers if s != "graphiti"]
+
+    # ========== Apply per-agent MCP overrides ==========
+    # Format: AGENT_MCP_<agent_type>_ADD=server1,server2
+    #         AGENT_MCP_<agent_type>_REMOVE=server1,server2
+    add_key = f"AGENT_MCP_{agent_type}_ADD"
+    remove_key = f"AGENT_MCP_{agent_type}_REMOVE"
+
+    # Extract custom server IDs for mapping (allows custom servers to be recognized)
+    custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
+    custom_server_ids = [s.get("id") for s in custom_servers if s.get("id")]
+
+    # Process additions
+    if add_key in mcp_config:
+        additions = [
+            s.strip() for s in str(mcp_config[add_key]).split(",") if s.strip()
+        ]
+        for server in additions:
+            mapped = _map_mcp_server_name(server, custom_server_ids)
+            if mapped and mapped not in servers:
+                servers.append(mapped)
+
+    # Process removals (but never remove auto-claude)
+    if remove_key in mcp_config:
+        removals = [
+            s.strip() for s in str(mcp_config[remove_key]).split(",") if s.strip()
+        ]
+        for server in removals:
+            mapped = _map_mcp_server_name(server, custom_server_ids)
+            if mapped and mapped != "auto-claude":  # auto-claude cannot be removed
+                servers = [s for s in servers if s != mapped]
 
     return servers
 

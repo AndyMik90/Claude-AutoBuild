@@ -66,6 +66,7 @@ const COMMON_BIN_PATHS: Record<string, string[]> = {
     '/usr/local/bin',         // Intel Homebrew / system
     '/opt/homebrew/sbin',     // Apple Silicon Homebrew sbin
     '/usr/local/sbin',        // Intel Homebrew sbin
+    '~/.local/bin',           // User-local binaries (Claude CLI)
   ],
   linux: [
     '/usr/local/bin',

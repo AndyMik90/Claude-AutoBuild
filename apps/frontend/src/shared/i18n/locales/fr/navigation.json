@@ -29,5 +29,22 @@
   },
   "messages": {
     "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+  },
+  "claudeCode": {
+    "checking": "Vérification de Claude Code...",
+    "upToDate": "Claude Code est à jour",
+    "updateAvailable": "Mise à jour Claude Code disponible",
+    "notInstalled": "Claude Code non installé",
+    "error": "Erreur de vérification de Claude Code",
+    "installed": "Installé",
+    "outdated": "Mise à jour disponible",
+    "missing": "Non installé",
+    "current": "Actuelle",
+    "latest": "Dernière",
+    "lastChecked": "Dernière vérification",
+    "learnMore": "En savoir plus sur Claude Code",
+    "updateWarningTitle": "Mettre à jour Claude Code ?",
+    "updateWarningDescription": "La mise à jour fermera toutes les sessions Claude Code en cours. Tout travail non sauvegardé dans ces sessions pourrait être perdu. Assurez-vous de sauvegarder votre travail avant de continuer.",
+    "updateAnyway": "Mettre à jour quand même"
   }
 }
