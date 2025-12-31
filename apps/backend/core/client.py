@@ -67,24 +67,69 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         return False
     if not isinstance(server.get("name"), str) or not server["name"]:
         return False
-    if server.get("type") not in ("command", "url"):
+    # FIX: Changed from ('command', 'url') to ('command', 'http') to match actual usage
+    if server.get("type") not in ("command", "http"):
         logger.warning(f"Invalid MCP server type: {server.get('type')}")
         return False
+
+    # Allowlist of safe executable commands for MCP servers
+    # Only allow known package managers and interpreters - NO shell commands
+    SAFE_COMMANDS = {
+        "npx",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "uv",
+        "uvx",
+    }
+
+    # Blocklist of dangerous shell commands that should never be allowed
+    DANGEROUS_COMMANDS = {
+        "bash",
+        "sh",
+        "cmd",
+        "powershell",
+        "/bin/bash",
+        "/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "zsh",
+        "fish",
+    }
 
     # Type-specific validation
     if server["type"] == "command":
         if not isinstance(server.get("command"), str) or not server["command"]:
             logger.warning("Command-type MCP server missing 'command' field")
             return False
+
+        # SECURITY FIX: Validate command is in safe list and not in dangerous list
+        command = server.get("command", "")
+        if command in DANGEROUS_COMMANDS:
+            logger.warning(
+                f"Rejected dangerous command in MCP server: {command}. "
+                f"Shell commands are not allowed for security reasons."
+            )
+            return False
+
+        if command not in SAFE_COMMANDS:
+            logger.warning(
+                f"Rejected unknown command in MCP server: {command}. "
+                f"Only allowed commands: {', '.join(sorted(SAFE_COMMANDS))}"
+            )
+            return False
+
         # Validate args is a list of strings if present
         if "args" in server:
             if not isinstance(server["args"], list):
                 return False
             if not all(isinstance(arg, str) for arg in server["args"]):
                 return False
-    elif server["type"] == "url":
+    elif server["type"] == "http":
         if not isinstance(server.get("url"), str) or not server["url"]:
-            logger.warning("URL-type MCP server missing 'url' field")
+            logger.warning("HTTP-type MCP server missing 'url' field")
             return False
         # Validate headers is a dict of strings if present
         if "headers" in server:

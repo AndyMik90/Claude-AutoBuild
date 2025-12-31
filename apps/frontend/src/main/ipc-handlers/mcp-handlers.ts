@@ -124,7 +124,6 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
   return new Promise((resolve) => {
     const command = process.platform === 'win32' ? 'where' : 'which';
     const proc = spawn(command, [server.command!], {
-      shell: true,
       timeout: 5000,
     });
 
@@ -331,7 +330,6 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
   return new Promise((resolve) => {
     const args = server.args || [];
     const proc = spawn(server.command!, args, {
-      shell: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

@@ -208,7 +208,7 @@ export function PRDetail({
     if (wasReviewing && !isReviewing) {
       onGetLogs()
         .then(logs => setPrLogs(logs))
-        .catch(() => {});
+        .catch(err => console.error('Failed to fetch final logs:', err));
       return;
     }
 

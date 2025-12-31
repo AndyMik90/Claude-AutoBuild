@@ -41,7 +41,15 @@ def get_utility_model_config(
         thinking_budget = None
     else:
         try:
-            thinking_budget = int(thinking_budget_str)
+            parsed_budget = int(thinking_budget_str)
+            # Validate non-negative values
+            if parsed_budget < 0:
+                logger.warning(
+                    f"Negative UTILITY_THINKING_BUDGET value '{thinking_budget_str}' not allowed, using default 1024"
+                )
+                thinking_budget = 1024
+            else:
+                thinking_budget = parsed_budget
         except ValueError:
             logger.warning(
                 f"Invalid UTILITY_THINKING_BUDGET value '{thinking_budget_str}', using default 1024"
