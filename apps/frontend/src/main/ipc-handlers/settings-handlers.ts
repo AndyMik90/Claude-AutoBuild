@@ -150,6 +150,15 @@ export function registerSettingsHandlers(
         claudePath: settings.claudePath,
       });
 
+      // Apply Morph settings to process environment on startup
+      // This ensures saved settings are available to spawned Python processes
+      if (settings.morphEnabled !== undefined) {
+        process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
+      }
+      if (settings.morphApiKey) {
+        process.env.MORPH_API_KEY = settings.morphApiKey;
+      }
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -197,6 +206,20 @@ export function registerSettingsHandlers(
         if (settings.betaUpdates !== undefined) {
           const channel = settings.betaUpdates ? 'beta' : 'latest';
           setUpdateChannel(channel);
+        }
+
+        // Apply Morph settings to process environment so spawned agents can access them
+        // The Python backend reads these via os.getenv() in morph_client.py
+        if (settings.morphEnabled !== undefined) {
+          process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
+        }
+        if (settings.morphApiKey !== undefined) {
+          if (settings.morphApiKey) {
+            process.env.MORPH_API_KEY = settings.morphApiKey;
+          } else {
+            // Remove from env if API key is cleared
+            delete process.env.MORPH_API_KEY;
+          }
         }
 
         return { success: true };
