@@ -454,6 +454,15 @@ The SDK will run invoked agents in parallel automatically.
                     context_name="ParallelOrchestrator",
                 )
 
+                # Check for stream processing errors
+                if stream_result.get("error"):
+                    logger.error(
+                        f"[ParallelOrchestrator] SDK stream failed: {stream_result['error']}"
+                    )
+                    raise RuntimeError(
+                        f"SDK stream processing failed: {stream_result['error']}"
+                    )
+
                 result_text = stream_result["result_text"]
                 structured_output = stream_result["structured_output"]
                 agents_invoked = stream_result["agents_invoked"]

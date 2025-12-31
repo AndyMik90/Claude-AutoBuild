@@ -18,6 +18,17 @@ import { appLog } from '../app-logger';
 const SAFE_COMMANDS = new Set(['npx', 'npm', 'node', 'python', 'python3', 'uv', 'uvx']);
 
 /**
+ * Defense-in-depth: Dangerous interpreter flags that allow code execution
+ * Mirrors backend DANGEROUS_FLAGS to prevent args-based code injection
+ */
+const DANGEROUS_FLAGS = new Set([
+  '--eval', '-e', '-c', '--exec',
+  '-m', '-p', '--print',
+  '--input-type=module', '--experimental-loader',
+  '--require', '-r'
+]);
+
+/**
  * Validate that a command is in the safe allowlist
  */
 function isCommandSafe(command: string | undefined): boolean {
@@ -25,6 +36,14 @@ function isCommandSafe(command: string | undefined): boolean {
   // Reject commands with paths (defense against path traversal)
   if (command.includes('/') || command.includes('\\')) return false;
   return SAFE_COMMANDS.has(command);
+}
+
+/**
+ * Validate that args don't contain dangerous interpreter flags
+ */
+function areArgsSafe(args: string[] | undefined): boolean {
+  if (!args || args.length === 0) return true;
+  return !args.some(arg => DANGEROUS_FLAGS.has(arg));
 }
 
 /**
@@ -139,12 +158,20 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
   }
 
   return new Promise((resolve) => {
-    // Defense-in-depth: Validate command before spawn
+    // Defense-in-depth: Validate command and args before spawn
     if (!isCommandSafe(server.command)) {
       return resolve({
         serverId: server.id,
         status: 'unhealthy',
         message: `Invalid command '${server.command}' - not in allowlist`,
+        checkedAt: new Date().toISOString(),
+      });
+    }
+    if (!areArgsSafe(server.args)) {
+      return resolve({
+        serverId: server.id,
+        status: 'unhealthy',
+        message: 'Args contain dangerous interpreter flags',
         checkedAt: new Date().toISOString(),
       });
     }
@@ -355,12 +382,19 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
   }
 
   return new Promise((resolve) => {
-    // Defense-in-depth: Validate command before spawn
+    // Defense-in-depth: Validate command and args before spawn
     if (!isCommandSafe(server.command)) {
       return resolve({
         serverId: server.id,
         success: false,
         message: `Invalid command '${server.command}' - not in allowlist`,
+      });
+    }
+    if (!areArgsSafe(server.args)) {
+      return resolve({
+        serverId: server.id,
+        success: false,
+        message: 'Args contain dangerous interpreter flags',
       });
     }
 

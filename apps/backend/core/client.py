@@ -101,7 +101,20 @@ def _validate_custom_mcp_server(server: dict) -> bool:
     }
 
     # Dangerous interpreter flags that allow arbitrary code execution
-    DANGEROUS_FLAGS = {"--eval", "-e", "-c", "--exec"}
+    # Covers Python (-e, -c, -m, -p), Node.js (--eval, --print, loaders), and general
+    DANGEROUS_FLAGS = {
+        "--eval",
+        "-e",
+        "-c",
+        "--exec",
+        "-m",  # Python module execution
+        "-p",  # Python eval+print
+        "--print",  # Node.js print
+        "--input-type=module",  # Node.js ES module mode
+        "--experimental-loader",  # Node.js custom loaders
+        "--require",  # Node.js require injection
+        "-r",  # Node.js require shorthand
+    }
 
     # Type-specific validation
     if server["type"] == "command":
