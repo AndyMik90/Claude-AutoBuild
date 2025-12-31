@@ -696,6 +696,260 @@ class TestModuleLevelHelperFunctions:
             manager.close()
 
 
+class TestFallbackToDefaultWhenMorphDisabled:
+    """
+    Test suite for verifying fallback to default apply tools when Morph is disabled.
+
+    These tests verify the E2E flow when Morph is explicitly disabled:
+    1. Disable Morph in settings UI
+    2. Trigger apply operation via agent
+    3. Verify backend ApplyToolManager selects default Edit/Write tools
+    4. Verify apply operation completes successfully using default tools
+
+    This is the critical test for subtask-4-3 - ensuring existing functionality
+    is not broken when Morph is disabled.
+    """
+
+    def test_selects_default_tools_when_morph_disabled_via_settings(self):
+        """Test that default tools are selected when morphEnabled=False in settings."""
+        # Create manager with Morph explicitly disabled (simulates UI toggle off)
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=False,
+            morph_api_key="",
+        )
+
+        # Select apply tools
+        selection = manager.select_apply_tools()
+
+        # Verify default tools are selected
+        assert selection.method == ApplyMethod.DEFAULT
+        assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+        assert set(selection.tools) == {"Edit", "Write", "Bash"}
+        assert selection.morph_available is False
+        assert selection.fallback_reason == FallbackReason.MORPH_DISABLED
+        assert "disabled" in selection.message.lower()
+
+        manager.close()
+
+    def test_selects_default_tools_when_morph_disabled_with_api_key(self):
+        """Test default tools are selected even if API key is present but Morph disabled."""
+        # User has API key configured but has toggled Morph off
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=False,
+            morph_api_key="test_api_key_12345",  # Key present but disabled
+        )
+
+        selection = manager.select_apply_tools()
+
+        # Should still use default tools since Morph is disabled
+        assert selection.method == ApplyMethod.DEFAULT
+        assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+        assert selection.fallback_reason == FallbackReason.MORPH_DISABLED
+
+        manager.close()
+
+    def test_selects_default_tools_when_no_api_key(self, morph_disabled_env):
+        """Test default tools are selected when no API key is configured."""
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=True,  # Enabled but no API key
+            morph_api_key="",
+        )
+
+        selection = manager.select_apply_tools()
+
+        # Should fall back due to missing API key
+        assert selection.method == ApplyMethod.DEFAULT
+        assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+        assert selection.fallback_reason == FallbackReason.NO_API_KEY
+
+        manager.close()
+
+    def test_get_apply_tools_returns_defaults_when_disabled(self):
+        """Test get_apply_tools convenience method returns default tools when disabled."""
+        tools = get_apply_tools(
+            morph_enabled=False,
+            morph_api_key="",
+        )
+
+        assert tools == list(DEFAULT_APPLY_TOOLS)
+        assert "Edit" in tools
+        assert "Write" in tools
+        assert "Bash" in tools
+
+    def test_get_apply_tools_returns_defaults_when_no_api_key(self):
+        """Test get_apply_tools returns default tools when no API key even if enabled."""
+        tools = get_apply_tools(
+            morph_enabled=True,
+            morph_api_key="",  # No API key
+        )
+
+        # Should return default tools without attempting Morph API call
+        assert tools == list(DEFAULT_APPLY_TOOLS)
+
+    def test_select_apply_method_returns_default_selection_when_disabled(self):
+        """Test select_apply_method returns default selection when Morph disabled."""
+        selection = select_apply_method(
+            morph_enabled=False,
+            morph_api_key="",
+        )
+
+        assert selection.method == ApplyMethod.DEFAULT
+        assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+        assert selection.morph_available is False
+        assert selection.fallback_reason == FallbackReason.MORPH_DISABLED
+
+    def test_is_morph_available_returns_false_when_disabled(self):
+        """Test is_morph_available returns False when Morph is disabled."""
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=False,
+            morph_api_key="test_key",
+        )
+
+        assert manager.is_morph_available() is False
+
+        manager.close()
+
+    def test_apply_with_fallback_returns_default_when_disabled(self):
+        """Test apply_with_fallback indicates default method when disabled."""
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=False,
+            morph_api_key="",
+        )
+
+        result, method = manager.apply_with_fallback(
+            file_path="test.py",
+            content="x = 1",
+            instruction="Add type hint",
+        )
+
+        # Should indicate to use default tools
+        assert method == ApplyMethod.DEFAULT
+        assert result is None  # No Morph result, caller should use default tools
+
+        manager.close()
+
+    def test_no_morph_api_calls_when_disabled(self):
+        """Verify no Morph API calls are made when Morph is disabled."""
+        with patch.object(MorphClient, "_make_request") as mock_request:
+            manager = ApplyToolManager.from_settings(
+                morph_enabled=False,
+                morph_api_key="test_key",
+            )
+
+            # Select tools and check availability
+            manager.select_apply_tools()
+            manager.is_morph_available()
+
+            # No API calls should have been made
+            mock_request.assert_not_called()
+
+            manager.close()
+
+    def test_force_default_overrides_morph_selection(
+        self,
+        test_api_key,
+        mock_morph_validation_response,
+        mock_morph_healthy_response,
+    ):
+        """Test that force_default=True overrides Morph even if available."""
+        with patch.object(MorphClient, "_make_request") as mock_request:
+            mock_request.side_effect = [
+                mock_morph_validation_response,
+            ]
+
+            manager = ApplyToolManager.from_settings(
+                morph_enabled=True,
+                morph_api_key=test_api_key,
+            )
+
+            # Force default tools
+            selection = manager.select_apply_tools(force_default=True)
+
+            assert selection.method == ApplyMethod.DEFAULT
+            assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+            assert selection.fallback_reason == FallbackReason.EXPLICIT_OVERRIDE
+
+            manager.close()
+
+    def test_runtime_disable_switches_to_default(
+        self,
+        test_api_key,
+        mock_morph_validation_response,
+        mock_morph_healthy_response,
+    ):
+        """Test that disabling Morph at runtime switches to default tools."""
+        with patch.object(MorphClient, "_make_request") as mock_request:
+            mock_request.side_effect = [
+                mock_morph_validation_response,
+                mock_morph_healthy_response,
+            ]
+
+            # Start with Morph enabled
+            manager = ApplyToolManager.from_settings(
+                morph_enabled=True,
+                morph_api_key=test_api_key,
+            )
+
+            # Verify Morph is initially selected
+            selection = manager.select_apply_tools()
+            assert selection.method == ApplyMethod.MORPH
+
+            # Disable Morph at runtime (simulates UI toggle off)
+            manager.update_config(morph_enabled=False)
+
+            # Verify now selects default tools
+            selection = manager.select_apply_tools()
+            assert selection.method == ApplyMethod.DEFAULT
+            assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+            assert selection.fallback_reason == FallbackReason.MORPH_DISABLED
+
+            manager.close()
+
+    def test_create_apply_manager_from_env_when_disabled(self, morph_disabled_env):
+        """Test create_apply_manager from environment when Morph is disabled."""
+        # Environment has Morph disabled (morph_disabled_env fixture)
+        manager = create_apply_manager()
+
+        selection = manager.select_apply_tools()
+
+        assert selection.method == ApplyMethod.DEFAULT
+        assert selection.tools == list(DEFAULT_APPLY_TOOLS)
+
+        manager.close()
+
+    def test_config_from_env_when_disabled(self, morph_disabled_env):
+        """Test ApplyManagerConfig.from_env when environment has Morph disabled."""
+        config = ApplyManagerConfig.from_env()
+
+        assert config.morph_enabled is False
+        assert config.morph_api_key == ""
+
+    def test_default_tools_list_is_correct(self):
+        """Verify DEFAULT_APPLY_TOOLS contains the expected tools."""
+        assert DEFAULT_APPLY_TOOLS == ["Edit", "Write", "Bash"]
+
+    def test_last_selection_tracking_with_disabled_morph(self):
+        """Test that last_selection is correctly tracked when Morph disabled."""
+        manager = ApplyToolManager.from_settings(
+            morph_enabled=False,
+            morph_api_key="",
+        )
+
+        # Initially no selection
+        assert manager.get_last_selection() is None
+
+        # Make selection
+        selection = manager.select_apply_tools()
+
+        # Verify last selection is tracked
+        last = manager.get_last_selection()
+        assert last is not None
+        assert last.method == ApplyMethod.DEFAULT
+        assert last == selection
+
+        manager.close()
+
+
 class TestEndToEndFlow:
     """
     End-to-end integration tests simulating the full flow from
