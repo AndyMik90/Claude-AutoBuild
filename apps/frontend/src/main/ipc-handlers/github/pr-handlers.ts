@@ -120,6 +120,8 @@ export interface NewCommitsCheck {
   newCommitCount: number;
   lastReviewedCommit?: string;
   currentHeadCommit?: string;
+  /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
+  hasCommitsAfterPosting?: boolean;
 }
 
 /**
@@ -1335,6 +1337,7 @@ export function registerPRHandlers(
               newCommitCount: 0,
               lastReviewedCommit: reviewedCommitSha,
               currentHeadCommit: currentHeadSha,
+              hasCommitsAfterPosting: false,
             };
           }
 
@@ -1342,13 +1345,36 @@ export function registerPRHandlers(
           const comparison = (await githubFetch(
             config.token,
             `/repos/${config.repo}/compare/${reviewedCommitSha}...${currentHeadSha}`
-          )) as { ahead_by?: number; total_commits?: number };
+          )) as { ahead_by?: number; total_commits?: number; commits?: Array<{ commit: { committer: { date: string } } }> };
+
+          // Check if findings have been posted and if new commits are after the posting date
+          const postedAt = review.postedAt || (review as any).posted_at;
+          let hasCommitsAfterPosting = true; // Default to true if we can't determine
+
+          if (postedAt && comparison.commits && comparison.commits.length > 0) {
+            const postedAtDate = new Date(postedAt);
+            // Check if any commit is newer than when findings were posted
+            hasCommitsAfterPosting = comparison.commits.some(c => {
+              const commitDate = new Date(c.commit.committer.date);
+              return commitDate > postedAtDate;
+            });
+            debugLog('Comparing commit dates with posted_at', {
+              prNumber,
+              postedAt,
+              latestCommitDate: comparison.commits[comparison.commits.length - 1]?.commit.committer.date,
+              hasCommitsAfterPosting,
+            });
+          } else if (!postedAt) {
+            // If findings haven't been posted yet, any new commits should trigger follow-up
+            hasCommitsAfterPosting = true;
+          }
 
           return {
             hasNewCommits: true,
             newCommitCount: comparison.ahead_by || comparison.total_commits || 1,
             lastReviewedCommit: reviewedCommitSha,
             currentHeadCommit: currentHeadSha,
+            hasCommitsAfterPosting,
           };
         } catch (error) {
           debugLog('Error checking new commits', { prNumber, error: error instanceof Error ? error.message : error });

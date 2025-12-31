@@ -22,6 +22,8 @@ interface PRStatusFlowProps {
   hasPosted: boolean;
   hasBlockingFindings: boolean;
   hasNewCommits: boolean;
+  /** Whether commits happened AFTER findings were posted - for "Ready for Follow-up" status */
+  hasCommitsAfterPosting: boolean;
   t: (key: string) => string;
 }
 
@@ -34,6 +36,7 @@ function PRStatusFlow({
   hasPosted,
   hasBlockingFindings,
   hasNewCommits,
+  hasCommitsAfterPosting,
   t,
 }: PRStatusFlowProps) {
   // Determine flow state - prioritize more advanced states first
@@ -51,10 +54,10 @@ function PRStatusFlow({
 
   // Determine final status color for posted state
   let finalStatus: FinalStatus = 'success';
-  // ALWAYS show "Ready for Follow-up" if there are new commits since the last review
-  // This applies regardless of whether the last review was successful or not
-  // New commits = new code that needs to be reviewed, period
-  if (hasNewCommits) {
+  // Only show "Ready for Follow-up" if there are commits AFTER findings were posted
+  // This prevents showing follow-up status for commits that happened during/before the review
+  // hasNewCommits tells us the commits are different, hasCommitsAfterPosting tells us if they're newer
+  if (hasNewCommits && hasCommitsAfterPosting) {
     finalStatus = 'followup';
   } else if (hasBlockingFindings) {
     finalStatus = 'warning';
@@ -263,6 +266,7 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
                         f => f.severity === 'critical' || f.severity === 'high'
                       ))}
                       hasNewCommits={Boolean(reviewState?.newCommitsCheck?.hasNewCommits)}
+                      hasCommitsAfterPosting={reviewState?.newCommitsCheck?.hasCommitsAfterPosting ?? false}
                       t={t}
                     />
                   </div>

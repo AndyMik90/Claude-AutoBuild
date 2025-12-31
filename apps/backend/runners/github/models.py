@@ -791,8 +791,12 @@ class GitHubRunnerConfig:
     auto_post_reviews: bool = False
     allow_fix_commits: bool = True
     review_own_prs: bool = False  # Whether bot can review its own PRs
-    use_orchestrator_review: bool = True  # Use new Opus 4.5 orchestrating agent
-    use_parallel_orchestrator: bool = True  # Use SDK subagent parallel orchestrator
+    use_orchestrator_review: bool = (
+        True  # DEPRECATED: No longer used, kept for config compatibility
+    )
+    use_parallel_orchestrator: bool = (
+        True  # Use SDK subagent parallel orchestrator (default)
+    )
 
     # Model settings
     model: str = "claude-sonnet-4-20250514"

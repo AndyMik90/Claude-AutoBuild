@@ -314,46 +314,6 @@ class PRReviewEngine:
 
             return (result.findings, [], [], quick_scan_summary)
 
-        # Fall back to single orchestrating agent if enabled
-        if self.config.use_orchestrator_review:
-            print("[AI] Using orchestrating PR review agent (Opus 4.5)...", flush=True)
-            self._report_progress(
-                "orchestrating",
-                10,
-                "Starting orchestrating review...",
-                pr_number=context.pr_number,
-            )
-
-            from .orchestrator_reviewer import OrchestratorReviewer
-
-            orchestrator = OrchestratorReviewer(
-                project_dir=self.project_dir,
-                github_dir=self.github_dir,
-                config=self.config,
-                progress_callback=self.progress_callback,
-            )
-
-            result = await orchestrator.review(context)
-
-            print(
-                f"[PR Review Engine] Orchestrator returned {len(result.findings)} findings",
-                flush=True,
-            )
-
-            # Convert PRReviewResult to expected format
-            # Orchestrator doesn't use structural_issues or ai_triages
-            quick_scan_summary = {
-                "verdict": result.verdict.value if result.verdict else "unknown",
-                "findings_count": len(result.findings),
-                "strategy": "orchestrating_agent",
-            }
-
-            print(
-                f"[PR Review Engine] Returning tuple with {len(result.findings)} findings",
-                flush=True,
-            )
-            return (result.findings, [], [], quick_scan_summary)
-
         # Fall back to multi-pass review
         all_findings = []
         structural_issues = []

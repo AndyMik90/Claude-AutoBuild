@@ -276,6 +276,8 @@ export function PRDetail({
     const hasUnpostedBlockers = unpostedFindings.some(f => f.severity === 'critical' || f.severity === 'high');
     const hasNewCommits = newCommitsCheck?.hasNewCommits ?? false;
     const newCommitCount = newCommitsCheck?.newCommitCount ?? 0;
+    // Only consider commits that happened AFTER findings were posted for "Ready for Follow-up"
+    const hasCommitsAfterPosting = newCommitsCheck?.hasCommitsAfterPosting ?? false;
 
     // Follow-up review specific statuses
     if (reviewResult.isFollowupReview) {
@@ -288,8 +290,8 @@ export function PRDetail({
         f => (f.severity === 'critical' || f.severity === 'high')
       );
 
-      // Check if ready for another follow-up (new commits after this follow-up)
-      if (hasNewCommits) {
+      // Check if ready for another follow-up (new commits AFTER this follow-up was posted)
+      if (hasNewCommits && hasCommitsAfterPosting) {
         return {
           status: 'ready_for_followup',
           label: t('prReview.readyForFollowup'),
@@ -334,8 +336,8 @@ export function PRDetail({
 
     // Initial review statuses (non-follow-up)
 
-    // Priority 1: Ready for follow-up review (posted findings + new commits)
-    if (hasPosted && hasNewCommits) {
+    // Priority 1: Ready for follow-up review (posted findings + new commits AFTER posting)
+    if (hasPosted && hasNewCommits && hasCommitsAfterPosting) {
       return {
         status: 'ready_for_followup',
         label: t('prReview.readyForFollowup'),

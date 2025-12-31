@@ -875,6 +875,8 @@ The SDK will run invoked agents in parallel automatically.
             verdict = MergeVerdict.NEEDS_REVISION
             total = len(high) + len(medium)
             reasoning = f"{total} issue(s) must be addressed ({len(high)} required, {len(medium)} recommended)"
+            if low:
+                reasoning += f", {len(low)} suggestions"
         elif low:
             # Only Low severity suggestions - can merge but consider addressing
             verdict = MergeVerdict.MERGE_WITH_CHANGES

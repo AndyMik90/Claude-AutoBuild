@@ -339,6 +339,8 @@ export interface NewCommitsCheck {
   newCommitCount: number;
   lastReviewedCommit?: string;
   currentHeadCommit?: string;
+  /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
+  hasCommitsAfterPosting?: boolean;
 }
 
 /**
