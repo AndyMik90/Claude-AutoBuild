@@ -531,11 +531,8 @@ The SDK will run invoked agents in parallel automatically.
                     flush=True,
                 )
 
-            logger.info(
-                f"[ParallelFollowup] Session complete. Agents invoked: {agents_invoked}"
-            )
             print(
-                f"[ParallelFollowup] Complete. Agents invoked: {agents_invoked}",
+                f"[ParallelFollowup] Session ended. Total messages: {msg_count}",
                 flush=True,
             )
 
@@ -560,6 +557,17 @@ The SDK will run invoked agents in parallel automatically.
             verdict = result_data.get("verdict", MergeVerdict.NEEDS_REVISION)
             verdict_reasoning = result_data.get("verdict_reasoning", "")
 
+            # Use agents from structured output (more reliable than streaming detection)
+            agents_from_result = result_data.get("agents_invoked", [])
+            final_agents = agents_from_result if agents_from_result else agents_invoked
+            logger.info(
+                f"[ParallelFollowup] Session complete. Agents invoked: {final_agents}"
+            )
+            print(
+                f"[ParallelFollowup] Complete. Agents invoked: {final_agents}",
+                flush=True,
+            )
+
             # Deduplicate findings
             unique_findings = self._deduplicate_findings(findings)
 
@@ -575,7 +583,7 @@ The SDK will run invoked agents in parallel automatically.
                 resolved_count=len(resolved_ids),
                 unresolved_count=len(unresolved_ids),
                 new_count=len(new_finding_ids),
-                agents_invoked=agents_invoked,
+                agents_invoked=final_agents,
             )
 
             # Map verdict to overall_status
@@ -652,6 +660,16 @@ The SDK will run invoked agents in parallel automatically.
         try:
             # Validate with Pydantic
             response = ParallelFollowupResponse.model_validate(data)
+
+            # Log agents from structured output
+            agents_from_output = response.agents_invoked or []
+            if agents_from_output:
+                print(
+                    f"[ParallelFollowup] Specialist agents invoked: {', '.join(agents_from_output)}",
+                    flush=True,
+                )
+                for agent in agents_from_output:
+                    print(f"[Agent:{agent}] Analysis complete", flush=True)
 
             findings = []
             resolved_ids = []
@@ -740,6 +758,21 @@ The SDK will run invoked agents in parallel automatically.
             }
             verdict = verdict_map.get(response.verdict, MergeVerdict.NEEDS_REVISION)
 
+            # Log findings summary for verification
+            print(
+                f"[ParallelFollowup] Parsed {len(findings)} findings, "
+                f"{len(resolved_ids)} resolved, {len(unresolved_ids)} unresolved, "
+                f"{len(new_finding_ids)} new",
+                flush=True,
+            )
+            if findings:
+                print("[ParallelFollowup] Findings summary:", flush=True)
+                for i, f in enumerate(findings, 1):
+                    print(
+                        f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line})",
+                        flush=True,
+                    )
+
             return {
                 "findings": findings,
                 "resolved_ids": resolved_ids,
@@ -747,6 +780,7 @@ The SDK will run invoked agents in parallel automatically.
                 "new_finding_ids": new_finding_ids,
                 "verdict": verdict,
                 "verdict_reasoning": response.verdict_reasoning,
+                "agents_invoked": agents_from_output,
             }
 
         except Exception as e:

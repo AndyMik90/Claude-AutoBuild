@@ -496,11 +496,8 @@ The SDK will run invoked agents in parallel automatically.
                     flush=True,
                 )
 
-            logger.info(
-                f"[ParallelOrchestrator] Session complete. Agents invoked: {agents_invoked}"
-            )
             print(
-                f"[ParallelOrchestrator] Complete. Agents invoked: {agents_invoked}",
+                f"[ParallelOrchestrator] Session ended. Total messages: {msg_count}",
                 flush=True,
             )
 
@@ -511,15 +508,30 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
             )
 
-            # Parse findings from output
+            # Parse findings from output (structured output also returns agents)
+            agents_from_structured: list[str] = []
             if structured_output:
-                findings = self._parse_structured_output(structured_output)
+                findings, agents_from_structured = self._parse_structured_output(
+                    structured_output
+                )
                 if findings is None and result_text:
                     findings = self._parse_text_output(result_text)
                 elif findings is None:
                     findings = []
             else:
                 findings = self._parse_text_output(result_text)
+
+            # Use agents from structured output (more reliable than streaming detection)
+            final_agents = (
+                agents_from_structured if agents_from_structured else agents_invoked
+            )
+            logger.info(
+                f"[ParallelOrchestrator] Session complete. Agents invoked: {final_agents}"
+            )
+            print(
+                f"[ParallelOrchestrator] Complete. Agents invoked: {final_agents}",
+                flush=True,
+            )
 
             # Deduplicate findings
             unique_findings = self._deduplicate_findings(findings)
@@ -539,7 +551,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
                 findings=unique_findings,
-                agents_invoked=agents_invoked,
+                agents_invoked=final_agents,
             )
 
             # Map verdict to overall_status
@@ -591,17 +603,32 @@ The SDK will run invoked agents in parallel automatically.
 
     def _parse_structured_output(
         self, structured_output: dict[str, Any]
-    ) -> list[PRReviewFinding] | None:
-        """Parse findings from SDK structured output."""
+    ) -> tuple[list[PRReviewFinding] | None, list[str]]:
+        """Parse findings and agents from SDK structured output.
+
+        Returns:
+            Tuple of (findings list or None if parsing failed, agents list)
+        """
         findings = []
+        agents_from_output: list[str] = []
 
         try:
             result = ParallelOrchestratorResponse.model_validate(structured_output)
+            agents_from_output = result.agents_invoked or []
 
             logger.info(
                 f"[ParallelOrchestrator] Structured output: verdict={result.verdict}, "
-                f"{len(result.findings)} findings, agents={result.agents_invoked}"
+                f"{len(result.findings)} findings, agents={agents_from_output}"
             )
+
+            # Log agents invoked with clear formatting
+            if agents_from_output:
+                print(
+                    f"[ParallelOrchestrator] Specialist agents invoked: {', '.join(agents_from_output)}",
+                    flush=True,
+                )
+                for agent in agents_from_output:
+                    print(f"[Agent:{agent}] Analysis complete", flush=True)
 
             for f in result.findings:
                 finding_id = hashlib.md5(
@@ -634,13 +661,22 @@ The SDK will run invoked agents in parallel automatically.
                 flush=True,
             )
 
+            # Log findings summary for verification
+            if findings:
+                print("[ParallelOrchestrator] Findings summary:", flush=True)
+                for i, f in enumerate(findings, 1):
+                    print(
+                        f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line})",
+                        flush=True,
+                    )
+
         except Exception as e:
             logger.error(
                 f"[ParallelOrchestrator] Structured output parsing failed: {e}"
             )
-            return None
+            return None, agents_from_output
 
-        return findings
+        return findings, agents_from_output
 
     def _parse_text_output(self, output: str) -> list[PRReviewFinding]:
         """Parse findings from text output (fallback)."""
