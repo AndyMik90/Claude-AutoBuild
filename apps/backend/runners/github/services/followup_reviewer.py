@@ -485,11 +485,11 @@ class FollowupReviewer:
                 f"({high_unresolved + medium_unresolved} unresolved, {high_new + medium_new} new)"
             )
         elif low_unresolved > 0 or low_new > 0:
-            # Only Low severity suggestions remaining - can merge but consider addressing
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
+            # Only Low severity suggestions remaining - safe to merge (non-blocking)
+            verdict = MergeVerdict.READY_TO_MERGE
             reasoning = (
                 f"{resolved_count} issues resolved. "
-                f"{low_unresolved + low_new} suggestion(s) to consider."
+                f"{low_unresolved + low_new} non-blocking suggestion(s) to consider."
             )
         else:
             verdict = MergeVerdict.READY_TO_MERGE

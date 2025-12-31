@@ -799,9 +799,11 @@ class GitHubOrchestrator:
             if low:
                 reasoning += f", {len(low)} suggestions"
         elif low:
-            # Only Low severity suggestions - can merge but consider addressing
-            verdict = MergeVerdict.MERGE_WITH_CHANGES
-            reasoning = f"{len(low)} suggestion(s) to consider"
+            # Only Low severity suggestions - safe to merge (non-blocking)
+            verdict = MergeVerdict.READY_TO_MERGE
+            reasoning = (
+                f"No blocking issues. {len(low)} non-blocking suggestion(s) to consider"
+            )
         else:
             verdict = MergeVerdict.READY_TO_MERGE
             reasoning = "No blocking issues found"
