@@ -195,44 +195,29 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     });
   }, []);
 
-  // Clear merge preview cache when task changes to ensure fresh data is fetched
-  // This invalidates any stale cached data (e.g., old uncommitted changes status)
+  // Track if we've already loaded preview for this task to prevent infinite loops
+  const hasLoadedPreviewRef = useRef<string | null>(null);
+
+  // Clear merge preview state when switching to a different task
   useEffect(() => {
-    const storageKey = `mergePreview-${task.id}`;
-    // Clear any existing cached preview - we want fresh data when opening a task
-    sessionStorage.removeItem(storageKey);
-    setMergePreview(null);
-    console.warn('[useTaskDetail] Cleared merge preview cache for task:', task.id);
+    if (hasLoadedPreviewRef.current !== task.id) {
+      setMergePreview(null);
+      hasLoadedPreviewRef.current = null;
+    }
   }, [task.id]);
 
   // Load merge preview (conflict detection)
   const loadMergePreview = useCallback(async () => {
-    console.warn('%c[useTaskDetail] loadMergePreview called for task:', 'color: cyan; font-weight: bold;', task.id);
     setIsLoadingPreview(true);
     try {
-      console.warn('[useTaskDetail] Calling mergeWorktreePreview...');
       const result = await window.electronAPI.mergeWorktreePreview(task.id);
-      console.warn('%c[useTaskDetail] mergeWorktreePreview result:', 'color: lime; font-weight: bold;', JSON.stringify(result, null, 2));
       if (result.success && result.data?.preview) {
-        const previewData = result.data.preview;
-        console.warn('%c[useTaskDetail] Setting merge preview:', 'color: lime; font-weight: bold;', previewData);
-        console.warn('  - files:', previewData.files);
-        console.warn('  - conflicts:', previewData.conflicts);
-        console.warn('  - summary:', previewData.summary);
-        setMergePreview(previewData);
-        // Persist to sessionStorage to survive HMR reloads
-        sessionStorage.setItem(`mergePreview-${task.id}`, JSON.stringify(previewData));
-        // Don't auto-popup conflict dialog - let user click to see details if curious
-      } else {
-        console.warn('%c[useTaskDetail] Preview not successful or no preview data:', 'color: orange;', result);
-        console.warn('  - success:', result.success);
-        console.warn('  - data:', result.data);
-        console.warn('  - error:', result.error);
+        setMergePreview(result.data.preview);
       }
     } catch (err) {
-      console.error('%c[useTaskDetail] Failed to load merge preview:', 'color: red; font-weight: bold;', err);
+      console.error('[useTaskDetail] Failed to load merge preview:', err);
     } finally {
-      console.warn('[useTaskDetail] Setting isLoadingPreview to false');
+      hasLoadedPreviewRef.current = task.id;
       setIsLoadingPreview(false);
     }
   }, [task.id]);
@@ -243,13 +228,13 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     // Only auto-load if:
     // 1. Task needs review
     // 2. Worktree exists
-    // 3. We haven't already loaded the preview
+    // 3. We haven't already loaded the preview for this task
     // 4. We're not currently loading
-    if (needsReview && worktreeStatus?.exists && !mergePreview && !isLoadingPreview) {
-      console.warn('[useTaskDetail] Auto-loading merge preview for task:', task.id);
+    const alreadyLoaded = hasLoadedPreviewRef.current === task.id;
+    if (needsReview && worktreeStatus?.exists && !alreadyLoaded && !isLoadingPreview) {
       loadMergePreview();
     }
-  }, [needsReview, worktreeStatus?.exists, mergePreview, isLoadingPreview, task.id, loadMergePreview]);
+  }, [needsReview, worktreeStatus?.exists, isLoadingPreview, task.id, loadMergePreview]);
 
   return {
     // State
