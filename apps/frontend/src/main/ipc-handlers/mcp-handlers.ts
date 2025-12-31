@@ -11,6 +11,23 @@ import { spawn } from 'child_process';
 import { appLog } from '../app-logger';
 
 /**
+ * Defense-in-depth: Frontend-side command validation
+ * Mirrors the backend SAFE_COMMANDS allowlist to prevent arbitrary command execution
+ * even if malicious configs somehow bypass backend validation
+ */
+const SAFE_COMMANDS = new Set(['npx', 'npm', 'node', 'python', 'python3', 'uv', 'uvx']);
+
+/**
+ * Validate that a command is in the safe allowlist
+ */
+function isCommandSafe(command: string | undefined): boolean {
+  if (!command) return false;
+  // Reject commands with paths (defense against path traversal)
+  if (command.includes('/') || command.includes('\\')) return false;
+  return SAFE_COMMANDS.has(command);
+}
+
+/**
  * Quick health check for a custom MCP server.
  * For HTTP servers: makes a HEAD/GET request to check connectivity.
  * For command servers: checks if the command exists.
@@ -122,6 +139,16 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
   }
 
   return new Promise((resolve) => {
+    // Defense-in-depth: Validate command before spawn
+    if (!isCommandSafe(server.command)) {
+      return resolve({
+        serverId: server.id,
+        status: 'unhealthy',
+        message: `Invalid command '${server.command}' - not in allowlist`,
+        checkedAt: new Date().toISOString(),
+      });
+    }
+
     const command = process.platform === 'win32' ? 'where' : 'which';
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
@@ -328,9 +355,19 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
   }
 
   return new Promise((resolve) => {
+    // Defense-in-depth: Validate command before spawn
+    if (!isCommandSafe(server.command)) {
+      return resolve({
+        serverId: server.id,
+        success: false,
+        message: `Invalid command '${server.command}' - not in allowlist`,
+      });
+    }
+
     const args = server.args || [];
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 15000, // OS-level timeout for reliable process termination
     });
 
     let stdout = '';
@@ -349,7 +386,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
           responseTime,
         });
       }
-    }, 15000); // 15 second timeout
+    }, 15000); // 15 second timeout (matches spawn timeout)
 
     // Send MCP initialize request
     const initRequest = JSON.stringify({

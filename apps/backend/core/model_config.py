@@ -35,6 +35,7 @@ def get_utility_model_config(
     thinking_budget_str = os.environ.get("UTILITY_THINKING_BUDGET", "")
 
     # Parse thinking budget: empty string = disabled (None), number = budget tokens
+    # Note: 0 is treated as "disable thinking" (same as None) since 0 tokens is meaningless
     thinking_budget: int | None
     if not thinking_budget_str:
         # Empty string means "none" level - disable extended thinking
@@ -42,12 +43,17 @@ def get_utility_model_config(
     else:
         try:
             parsed_budget = int(thinking_budget_str)
-            # Validate non-negative values
-            if parsed_budget < 0:
-                logger.warning(
-                    f"Negative UTILITY_THINKING_BUDGET value '{thinking_budget_str}' not allowed, using default 1024"
-                )
-                thinking_budget = 1024
+            # Validate positive values - 0 or negative are invalid
+            # 0 would mean "thinking enabled but 0 tokens" which is meaningless
+            if parsed_budget <= 0:
+                if parsed_budget == 0:
+                    # Zero means disable thinking (same as empty string)
+                    thinking_budget = None
+                else:
+                    logger.warning(
+                        f"Negative UTILITY_THINKING_BUDGET value '{thinking_budget_str}' not allowed, using default 1024"
+                    )
+                    thinking_budget = 1024
             else:
                 thinking_budget = parsed_budget
         except ValueError:

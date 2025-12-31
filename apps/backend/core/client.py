@@ -90,6 +90,7 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "sh",
         "cmd",
         "powershell",
+        "pwsh",  # PowerShell Core
         "/bin/bash",
         "/bin/sh",
         "/bin/zsh",
@@ -99,6 +100,9 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "fish",
     }
 
+    # Dangerous interpreter flags that allow arbitrary code execution
+    DANGEROUS_FLAGS = {"--eval", "-e", "-c", "--exec"}
+
     # Type-specific validation
     if server["type"] == "command":
         if not isinstance(server.get("command"), str) or not server["command"]:
@@ -107,6 +111,16 @@ def _validate_custom_mcp_server(server: dict) -> bool:
 
         # SECURITY FIX: Validate command is in safe list and not in dangerous list
         command = server.get("command", "")
+
+        # Reject paths - commands must be bare names only (no / or \)
+        # This prevents path traversal like '/custom/malicious' or './evil'
+        if "/" in command or "\\" in command:
+            logger.warning(
+                f"Rejected command with path in MCP server: {command}. "
+                f"Commands must be bare names without path separators."
+            )
+            return False
+
         if command in DANGEROUS_COMMANDS:
             logger.warning(
                 f"Rejected dangerous command in MCP server: {command}. "
@@ -127,6 +141,14 @@ def _validate_custom_mcp_server(server: dict) -> bool:
                 return False
             if not all(isinstance(arg, str) for arg in server["args"]):
                 return False
+            # Check for dangerous interpreter flags that allow code execution
+            for arg in server["args"]:
+                if arg in DANGEROUS_FLAGS:
+                    logger.warning(
+                        f"Rejected dangerous flag '{arg}' in MCP server args. "
+                        f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
     elif server["type"] == "http":
         if not isinstance(server.get("url"), str) or not server["url"]:
             logger.warning("HTTP-type MCP server missing 'url' field")

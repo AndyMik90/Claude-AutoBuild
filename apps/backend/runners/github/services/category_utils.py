@@ -39,8 +39,7 @@ CATEGORY_MAPPING: dict[str, ReviewCategory] = {
     "error_handling": ReviewCategory.QUALITY,  # Error handling → quality
     "maintainability": ReviewCategory.QUALITY,  # Maintainability → quality
     "readability": ReviewCategory.STYLE,  # Readability → style
-    "best_practices": ReviewCategory.PATTERN,  # Best practices → pattern
-    "best-practices": ReviewCategory.PATTERN,  # Best practices (with hyphen)
+    "best_practices": ReviewCategory.PATTERN,  # Best practices → pattern (hyphen normalized to underscore)
     "architecture": ReviewCategory.PATTERN,  # Architecture → pattern
     "complexity": ReviewCategory.QUALITY,  # Complexity → quality
     "dead_code": ReviewCategory.REDUNDANCY,  # Dead code → redundancy
