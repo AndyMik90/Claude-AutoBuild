@@ -231,6 +231,7 @@ export const IPC_CHANNELS = {
 
   // GitLab OAuth (glab CLI authentication)
   GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_INSTALL_CLI: 'gitlab:installCli',
   GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
   GITLAB_START_AUTH: 'gitlab:startAuth',
   GITLAB_GET_TOKEN: 'gitlab:getToken',
@@ -471,5 +472,9 @@ export const IPC_CHANNELS = {
 
   // Claude Code CLI operations
   CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
-  CLAUDE_CODE_INSTALL: 'claudeCode:install'
+  CLAUDE_CODE_INSTALL: 'claudeCode:install',
+
+  // MCP Server health checks
+  MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
 } as const;

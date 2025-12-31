@@ -370,6 +370,52 @@
         "name": "Auto-Claude Tools",
         "description": "Build progress tracking"
       }
+    },
+    "customServers": "Custom Servers",
+    "addCustomServer": "Add Custom Server",
+    "editCustomServer": "Edit Custom Server",
+    "customServerDescription": "Add a command-based or HTTP-based MCP server",
+    "serverType": "Server Type",
+    "typeCommand": "Command (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Name",
+    "serverNamePlaceholder": "My MCP Server",
+    "serverDescription": "Description",
+    "serverDescriptionPlaceholder": "What this server does",
+    "command": "Command",
+    "args": "Arguments",
+    "argsHint": "Space-separated arguments",
+    "url": "URL",
+    "headers": "Headers",
+    "headerName": "Header Name",
+    "headerValue": "Header Value",
+    "noCustomServers": "No custom servers configured. Add one to use with your agents.",
+    "errorNameRequired": "Server name is required",
+    "errorIdExists": "A server with this ID already exists",
+    "errorCommandRequired": "Command is required for command-based servers",
+    "errorUrlRequired": "URL is required for HTTP-based servers",
+    "testConnection": "Test",
+    "testing": "Testing...",
+    "authToken": "Authentication Token",
+    "authTokenPlaceholder": "Paste your API token or PAT here",
+    "authTokenHint": "Used as Bearer token in the Authorization header",
+    "advancedHeaders": "Additional Headers",
+    "status": {
+      "healthy": "Server is responding",
+      "unhealthy": "Server is not responding",
+      "needsAuth": "Authentication required",
+      "checking": "Checking...",
+      "unknown": "Status unknown"
+    },
+    "hints": {
+      "github": "This looks like a GitHub MCP server. You'll need a Personal Access Token with appropriate scopes.",
+      "createGithubPat": "Create GitHub PAT",
+      "google": "This looks like a Google API. You'll need an OAuth token or API key.",
+      "createGoogleToken": "Create Google Credentials",
+      "anthropic": "This looks like an Anthropic API. You'll need an API key.",
+      "createAnthropicKey": "Create Anthropic API Key",
+      "openai": "This looks like an OpenAI API. You'll need an API key.",
+      "createOpenaiKey": "Create OpenAI API Key"
     }
   }
 }

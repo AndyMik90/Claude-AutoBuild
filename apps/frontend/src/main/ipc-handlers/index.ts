@@ -31,6 +31,7 @@ import { registerMemoryHandlers } from './memory-handlers';
 import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
+import { registerMcpHandlers } from './mcp-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -110,6 +111,9 @@ export function setupIpcHandlers(
   // Claude Code CLI handlers (version checking, installation)
   registerClaudeCodeHandlers();
 
+  // MCP server health check handlers
+  registerMcpHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -134,5 +138,6 @@ export {
   registerMemoryHandlers,
   registerAppUpdateHandlers,
   registerDebugHandlers,
-  registerClaudeCodeHandlers
+  registerClaudeCodeHandlers,
+  registerMcpHandlers
 };

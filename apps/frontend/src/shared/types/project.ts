@@ -335,6 +335,9 @@ export interface ProjectEnvConfig {
 
   // Per-agent MCP overrides (add/remove MCPs from specific agents)
   agentMcpOverrides?: AgentMcpOverrides;
+
+  // Custom MCP servers defined by the user
+  customMcpServers?: CustomMcpServer[];
 }
 
 /**
@@ -354,6 +357,70 @@ export interface AgentMcpOverride {
  */
 export interface AgentMcpOverrides {
   [agentType: string]: AgentMcpOverride;
+}
+
+/**
+ * Custom MCP server configuration.
+ * Users can add command-based (npx/npm) or HTTP-based servers.
+ */
+export interface CustomMcpServer {
+  /** Unique identifier (used for agent overrides: AGENT_MCP_<agent>_ADD=myserver) */
+  id: string;
+  /** Display name shown in UI */
+  name: string;
+  /** Server type */
+  type: 'command' | 'http';
+  /** Command to execute (for type: 'command'). e.g., 'npx', 'npm', 'node' */
+  command?: string;
+  /** Arguments for the command (for type: 'command'). e.g., ['-y', 'my-mcp-server'] */
+  args?: string[];
+  /** HTTP URL (for type: 'http'). e.g., 'https://mcp.example.com/mcp' */
+  url?: string;
+  /** HTTP headers (for type: 'http'). e.g., { "Authorization": "Bearer ..." } */
+  headers?: Record<string, string>;
+  /** Optional description shown in UI */
+  description?: string;
+}
+
+/**
+ * MCP server health check status.
+ */
+export type McpHealthStatus = 'healthy' | 'unhealthy' | 'needs_auth' | 'unknown' | 'checking';
+
+/**
+ * Result of a quick health check for a custom MCP server.
+ */
+export interface McpHealthCheckResult {
+  /** Server ID */
+  serverId: string;
+  /** Health status */
+  status: McpHealthStatus;
+  /** HTTP status code (for HTTP servers) */
+  statusCode?: number;
+  /** Human-readable message */
+  message?: string;
+  /** Response time in milliseconds */
+  responseTime?: number;
+  /** Timestamp of the check */
+  checkedAt: string;
+}
+
+/**
+ * Result of a full MCP connection test.
+ */
+export interface McpTestConnectionResult {
+  /** Server ID */
+  serverId: string;
+  /** Whether the connection was successful */
+  success: boolean;
+  /** Human-readable message */
+  message: string;
+  /** Detailed error if any */
+  error?: string;
+  /** List of tools discovered (for successful connections) */
+  tools?: string[];
+  /** Response time in milliseconds */
+  responseTime?: number;
 }
 
 // Auto Claude Initialization Types

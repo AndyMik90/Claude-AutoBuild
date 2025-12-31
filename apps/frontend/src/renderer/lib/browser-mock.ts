@@ -195,6 +195,25 @@ const browserMockAPI: ElectronAPI = {
     data: { command: 'npm install -g @anthropic-ai/claude-code' }
   }),
 
+  // MCP Server Health Check Operations
+  checkMcpHealth: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      status: 'unknown' as const,
+      message: 'Health check not available in browser mode',
+      checkedAt: new Date().toISOString()
+    }
+  }),
+  testMcpConnection: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      success: false,
+      message: 'Connection test not available in browser mode'
+    }
+  }),
+
   // Debug Operations
   getDebugInfo: async () => ({
     systemInfo: {
