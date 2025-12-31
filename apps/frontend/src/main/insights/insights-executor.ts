@@ -130,6 +130,7 @@ export class InsightsExecutor extends EventEmitter {
       let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
       const toolsUsed: InsightsToolUsage[] = [];
       let allInsightsOutput = '';
+      let stderrOutput = '';
 
       proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
@@ -161,6 +162,8 @@ export class InsightsExecutor extends EventEmitter {
         const text = data.toString();
         // Collect stderr for rate limit detection too
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
+        // Collect stderr separately for error messages (keep last 5KB)
+        stderrOutput = (stderrOutput + text).slice(-5000);
         console.error('[Insights]', text);
       });
 
@@ -196,7 +199,11 @@ export class InsightsExecutor extends EventEmitter {
             toolsUsed
           });
         } else {
-          const error = `Process exited with code ${code}`;
+          // Build error message with stderr details if available
+          const stderrTrimmed = stderrOutput.trim();
+          const error = stderrTrimmed
+            ? `Process exited with code ${code}: ${stderrTrimmed}`
+            : `Process exited with code ${code}`;
           this.emit('stream-chunk', projectId, {
             type: 'error',
             error
