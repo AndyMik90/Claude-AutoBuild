@@ -17,6 +17,23 @@ import type { AppSettings } from '../shared/types';
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
 
+// Suppress known DevTools protocol errors that don't affect functionality
+// See: https://github.com/joelfuller2016/Auto-Claude/issues/92
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  const message = args.join(' ');
+
+  // Ignore Autofill.enable DevTools protocol errors (Electron limitation)
+  // These errors are harmless - DevTools tries to enable unavailable protocol domains
+  if (message.includes('Autofill.enable') ||
+      message.includes("wasn't found") && message.includes('devtools://devtools')) {
+    return; // Suppress this specific error
+  }
+
+  // Pass through all other errors unchanged
+  originalConsoleError.apply(console, args);
+};
+
 /**
  * Load app settings synchronously (for use during startup).
  * This is a simple merge with defaults - no migrations or auto-detection.

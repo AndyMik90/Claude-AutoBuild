@@ -20,7 +20,23 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts')
         },
         // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['@lydell/node-pty']
+        external: ['@lydell/node-pty'],
+        // Suppress known upstream warnings that don't affect functionality
+        // See: https://github.com/joelfuller2016/Auto-Claude/issues/95
+        onwarn(warning, warn) {
+          // Ignore chokidar Stats import warning (upstream issue in chokidar type definitions)
+          // This is harmless - the import exists but isn't re-exported
+          if (
+            warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+            warning.exporter?.includes('chokidar') &&
+            warning.names?.includes('Stats')
+          ) {
+            return; // Suppress this specific warning
+          }
+
+          // Pass through all other warnings unchanged
+          warn(warning);
+        }
       }
     }
   },

@@ -40,6 +40,7 @@ export class PythonEnvManager extends EventEmitter {
   private initializationPromise: Promise<PythonEnvStatus> | null = null;
   private activeProcesses: Set<ChildProcess> = new Set();
   private static readonly VENV_CREATION_TIMEOUT_MS = 120000; // 2 minutes timeout for venv creation
+  private static readonly DEPS_MARKER_FILE = '.deps-installed'; // Marker file to track successful dependency installation
 
   /**
    * Get the path where the venv should be created.
@@ -150,6 +151,20 @@ export class PythonEnvManager extends EventEmitter {
     const venvPython = this.getVenvPythonPath();
     if (!venvPython || !existsSync(venvPython)) return false;
 
+    // FAST PATH: Check marker file first (avoids slow import verification)
+    // This eliminates 1-2 minute delay on every startup
+    // See: https://github.com/joelfuller2016/Auto-Claude/issues/90
+    const venvBase = this.getVenvBasePath();
+    if (venvBase) {
+      const markerPath = path.join(venvBase, PythonEnvManager.DEPS_MARKER_FILE);
+      if (existsSync(markerPath)) {
+        console.log('[PythonEnvManager] ✓ Deps marker file exists, skipping import check');
+        return true;
+      }
+    }
+
+    // SLOW PATH: Verify by importing packages (only runs if marker missing)
+    console.log('[PythonEnvManager] Marker file not found, verifying dependencies by import...');
     try {
       // Check all dependencies - if any fail, we need to reinstall
       // This prevents issues where partial installs leave some packages missing
@@ -174,8 +189,18 @@ if sys.version_info >= (3, 12):
         stdio: 'pipe',
         timeout: 15000
       });
+      console.log('[PythonEnvManager] ✓ Dependency imports succeeded');
       return true;
-    } catch {
+    } catch (err) {
+      // Log detailed error information to help debug import failures
+      const error = err as Error & { stderr?: Buffer; stdout?: Buffer };
+      console.error('[PythonEnvManager] ✗ Dependency check failed:', error.message || err);
+      if (error.stderr) {
+        console.error('[PythonEnvManager] stderr:', error.stderr.toString());
+      }
+      if (error.stdout) {
+        console.error('[PythonEnvManager] stdout:', error.stdout.toString());
+      }
       return false;
     }
   }
@@ -525,6 +550,21 @@ if sys.version_info >= (3, 12):
             usingBundledPackages: false,
             error: 'Failed to install dependencies'
           };
+        }
+
+        // Create marker file to skip import check on next startup
+        // This eliminates 1-2 minute delay by using fast path
+        // See: https://github.com/joelfuller2016/Auto-Claude/issues/90
+        const venvBase = this.getVenvBasePath();
+        if (venvBase) {
+          const markerPath = path.join(venvBase, PythonEnvManager.DEPS_MARKER_FILE);
+          try {
+            const fs = require('fs');
+            fs.writeFileSync(markerPath, `Dependency installation marker\nCreated: ${new Date().toISOString()}\n`);
+            console.log('[PythonEnvManager] ✓ Created deps marker file:', markerPath);
+          } catch (err) {
+            console.warn('[PythonEnvManager] Failed to create marker file (non-fatal):', err);
+          }
         }
       } else {
         console.warn('[PythonEnvManager] Dependencies already installed');
