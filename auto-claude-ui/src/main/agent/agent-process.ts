@@ -10,6 +10,7 @@ import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailu
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { findPythonCommand, parsePythonCommand } from '../python-detector';
+import { getEnhancedPath } from '../node-detector';
 
 /**
  * Process spawning and lifecycle management
@@ -171,6 +172,9 @@ export class AgentProcessManager {
         ...process.env,
         ...extraEnv,
         ...profileEnv, // Include active Claude profile config
+        // Enhance PATH to include Node.js bin directory for MCP servers using npx/npm
+        // This fixes "npx not found" errors when Electron doesn't inherit shell PATH
+        PATH: getEnhancedPath(),
         PYTHONUNBUFFERED: '1', // Ensure real-time output
         PYTHONIOENCODING: 'utf-8', // Ensure UTF-8 encoding on Windows
         PYTHONUTF8: '1' // Force Python UTF-8 mode on Windows (Python 3.7+)
