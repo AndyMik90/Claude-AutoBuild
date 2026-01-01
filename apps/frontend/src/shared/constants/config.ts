@@ -60,6 +60,8 @@ export const DEFAULT_APP_SETTINGS = {
   betaUpdates: false,
   // Language preference (default to English)
   language: 'en' as const,
+  // Fullscreen mode (default to true for immersive experience)
+  fullscreenByDefault: true,
   // ============================================
   // Zen Mode Settings (NEW)
   // ============================================

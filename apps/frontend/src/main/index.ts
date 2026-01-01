@@ -56,7 +56,7 @@ let terminalManager: TerminalManager | null = null;
 function createWindow(): void {
   // Load settings to check if fullscreen is enabled
   const settings = loadSettingsSync();
-  const fullscreen = settings.fullscreenByDefault ?? false;
+  const fullscreen = settings.fullscreenByDefault ?? true;
 
   // Create the browser window
   mainWindow = new BrowserWindow({
@@ -65,10 +65,9 @@ function createWindow(): void {
     minWidth: 1000,
     minHeight: 700,
     show: false,
-    fullscreen,
+    fullscreen: true,
     autoHideMenuBar: true,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 10 },
+    titleBarStyle: 'hidden', // Fully hides title bar including traffic lights
     icon: getIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -97,8 +96,8 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
-  // Open DevTools in development
-  if (is.dev) {
+  // Open DevTools in development only if DEBUG is set
+  if (is.dev && process.env['DEBUG'] === 'true') {
     mainWindow.webContents.openDevTools({ mode: 'right' });
   }
 
