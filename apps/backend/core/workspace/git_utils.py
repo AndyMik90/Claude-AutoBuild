@@ -22,6 +22,7 @@ LOCK_FILES = {
     "pnpm-lock.yaml",
     "yarn.lock",
     "bun.lockb",
+    "bun.lock",
     "Pipfile.lock",
     "poetry.lock",
     "uv.lock",

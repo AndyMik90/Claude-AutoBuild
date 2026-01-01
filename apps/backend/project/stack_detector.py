@@ -126,7 +126,7 @@ class StackDetector:
             self.stack.package_managers.append("yarn")
         if self.parser.file_exists("pnpm-lock.yaml"):
             self.stack.package_managers.append("pnpm")
-        if self.parser.file_exists("bun.lockb"):
+        if self.parser.file_exists("bun.lockb", "bun.lock"):
             self.stack.package_managers.append("bun")
         if self.parser.file_exists("deno.json", "deno.jsonc"):
             self.stack.package_managers.append("deno")
