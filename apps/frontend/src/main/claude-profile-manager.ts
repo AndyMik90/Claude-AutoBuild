@@ -340,6 +340,7 @@ export class ClaudeProfileManager {
   /**
    * Get environment variables for spawning processes with the active profile.
    * Returns { CLAUDE_CODE_OAUTH_TOKEN: token } if token is available (decrypted).
+   * Also includes any profile-specific environment variables.
    */
   getActiveProfileEnv(): Record<string, string> {
     const profile = this.getActiveProfile();
@@ -358,6 +359,14 @@ export class ClaudeProfileManager {
       // Fallback to configDir for backward compatibility
       env.CLAUDE_CONFIG_DIR = profile.configDir;
       console.warn('[ClaudeProfileManager] Using configDir for profile:', profile.name);
+    }
+
+    // Include profile-specific environment variables
+    if (profile?.envVariables && profile.envVariables.length > 0) {
+      for (const envVar of profile.envVariables) {
+        env[envVar.key] = envVar.value;
+      }
+      console.warn('[ClaudeProfileManager] Loaded', profile.envVariables.length, 'environment variables for profile:', profile.name);
     }
 
     return env;
@@ -481,6 +490,7 @@ export class ClaudeProfileManager {
 
   /**
    * Get environment variables for invoking Claude with a specific profile
+   * Includes both profile-specific env variables and OAuth token if available
    */
   getProfileEnv(profileId: string): Record<string, string> {
     const profile = this.getProfile(profileId);
@@ -488,19 +498,27 @@ export class ClaudeProfileManager {
       return {};
     }
 
-    // Only set CLAUDE_CONFIG_DIR if not using default
-    if (profile.isDefault) {
-      return {};
+    const env: Record<string, string> = {};
+
+    // Include profile-specific environment variables
+    if (profile.envVariables && profile.envVariables.length > 0) {
+      for (const envVar of profile.envVariables) {
+        env[envVar.key] = envVar.value;
+      }
     }
 
-    // Only set CLAUDE_CONFIG_DIR if configDir is defined
-    if (!profile.configDir) {
-      return {};
+    // Include OAuth token if available (for backward compatibility)
+    if (profile.oauthToken) {
+      const decryptedToken = decryptToken(profile.oauthToken);
+      if (decryptedToken) {
+        env.CLAUDE_CODE_OAUTH_TOKEN = decryptedToken;
+      }
+    } else if (!profile.isDefault && profile.configDir) {
+      // Fallback to configDir for backward compatibility
+      env.CLAUDE_CONFIG_DIR = profile.configDir;
     }
 
-    return {
-      CLAUDE_CONFIG_DIR: profile.configDir
-    };
+    return env;
   }
 
   /**
