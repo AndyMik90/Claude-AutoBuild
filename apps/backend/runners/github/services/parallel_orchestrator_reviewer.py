@@ -138,17 +138,20 @@ class ParallelOrchestratorReviewer:
         worktree_name = f"pr-{pr_number}-{uuid.uuid4().hex[:8]}"
         worktree_dir = self.project_dir / PR_WORKTREE_DIR
 
-        print(f"[PRReview] DEBUG: project_dir={self.project_dir}", flush=True)
-        print(f"[PRReview] DEBUG: worktree_dir={worktree_dir}", flush=True)
-        print(f"[PRReview] DEBUG: head_sha={head_sha}", flush=True)
+        if DEBUG_MODE:
+            print(f"[PRReview] DEBUG: project_dir={self.project_dir}", flush=True)
+            print(f"[PRReview] DEBUG: worktree_dir={worktree_dir}", flush=True)
+            print(f"[PRReview] DEBUG: head_sha={head_sha}", flush=True)
 
         worktree_dir.mkdir(parents=True, exist_ok=True)
         worktree_path = worktree_dir / worktree_name
 
-        print(f"[PRReview] DEBUG: worktree_path={worktree_path}", flush=True)
-        print(
-            f"[PRReview] DEBUG: worktree_dir exists={worktree_dir.exists()}", flush=True
-        )
+        if DEBUG_MODE:
+            print(f"[PRReview] DEBUG: worktree_path={worktree_path}", flush=True)
+            print(
+                f"[PRReview] DEBUG: worktree_dir exists={worktree_dir.exists()}",
+                flush=True,
+            )
 
         # Fetch the commit if not available locally (handles fork PRs)
         fetch_result = subprocess.run(
@@ -158,14 +161,16 @@ class ParallelOrchestratorReviewer:
             text=True,
             timeout=60,
         )
-        print(
-            f"[PRReview] DEBUG: fetch returncode={fetch_result.returncode}", flush=True
-        )
-        if fetch_result.stderr:
+        if DEBUG_MODE:
             print(
-                f"[PRReview] DEBUG: fetch stderr={fetch_result.stderr[:200]}",
+                f"[PRReview] DEBUG: fetch returncode={fetch_result.returncode}",
                 flush=True,
             )
+            if fetch_result.stderr:
+                print(
+                    f"[PRReview] DEBUG: fetch stderr={fetch_result.stderr[:200]}",
+                    flush=True,
+                )
 
         # Create detached worktree at the PR commit
         result = subprocess.run(
@@ -175,29 +180,31 @@ class ParallelOrchestratorReviewer:
             text=True,
         )
 
-        print(
-            f"[PRReview] DEBUG: worktree add returncode={result.returncode}", flush=True
-        )
-        if result.stderr:
+        if DEBUG_MODE:
             print(
-                f"[PRReview] DEBUG: worktree add stderr={result.stderr[:200]}",
+                f"[PRReview] DEBUG: worktree add returncode={result.returncode}",
                 flush=True,
             )
-        if result.stdout:
-            print(
-                f"[PRReview] DEBUG: worktree add stdout={result.stdout[:200]}",
-                flush=True,
-            )
+            if result.stderr:
+                print(
+                    f"[PRReview] DEBUG: worktree add stderr={result.stderr[:200]}",
+                    flush=True,
+                )
+            if result.stdout:
+                print(
+                    f"[PRReview] DEBUG: worktree add stdout={result.stdout[:200]}",
+                    flush=True,
+                )
 
         if result.returncode != 0:
             raise RuntimeError(f"Failed to create worktree: {result.stderr}")
 
-        print(
-            f"[PRReview] DEBUG: worktree created, exists={worktree_path.exists()}",
-            flush=True,
-        )
+        if DEBUG_MODE:
+            print(
+                f"[PRReview] DEBUG: worktree created, exists={worktree_path.exists()}",
+                flush=True,
+            )
         logger.info(f"[PRReview] Created worktree at {worktree_path}")
-        print(f"[PRReview] Created worktree at {worktree_path}", flush=True)
         return worktree_path
 
     def _cleanup_pr_worktree(self, worktree_path: Path) -> None:
@@ -206,22 +213,25 @@ class ParallelOrchestratorReviewer:
         Args:
             worktree_path: Path to the worktree to remove
         """
-        print(
-            f"[PRReview] DEBUG: _cleanup_pr_worktree called with {worktree_path}",
-            flush=True,
-        )
-
-        if not worktree_path or not worktree_path.exists():
+        if DEBUG_MODE:
             print(
-                "[PRReview] DEBUG: worktree path doesn't exist, skipping cleanup",
+                f"[PRReview] DEBUG: _cleanup_pr_worktree called with {worktree_path}",
                 flush=True,
             )
+
+        if not worktree_path or not worktree_path.exists():
+            if DEBUG_MODE:
+                print(
+                    "[PRReview] DEBUG: worktree path doesn't exist, skipping cleanup",
+                    flush=True,
+                )
             return
 
-        print(
-            f"[PRReview] DEBUG: Attempting to remove worktree at {worktree_path}",
-            flush=True,
-        )
+        if DEBUG_MODE:
+            print(
+                f"[PRReview] DEBUG: Attempting to remove worktree at {worktree_path}",
+                flush=True,
+            )
 
         # Try 1: git worktree remove
         result = subprocess.run(
@@ -231,14 +241,14 @@ class ParallelOrchestratorReviewer:
             text=True,
         )
 
-        print(
-            f"[PRReview] DEBUG: worktree remove returncode={result.returncode}",
-            flush=True,
-        )
+        if DEBUG_MODE:
+            print(
+                f"[PRReview] DEBUG: worktree remove returncode={result.returncode}",
+                flush=True,
+            )
 
         if result.returncode == 0:
             logger.info(f"[PRReview] Cleaned up worktree: {worktree_path.name}")
-            print(f"[PRReview] Cleaned up worktree: {worktree_path.name}", flush=True)
             return
 
         # Try 2: shutil.rmtree fallback
@@ -286,7 +296,11 @@ class ParallelOrchestratorReviewer:
                 cwd=self.project_dir,
                 capture_output=True,
             )
-            print(f"[PRReview] Cleaned up {stale_count} stale worktree(s)", flush=True)
+            if DEBUG_MODE:
+                print(
+                    f"[PRReview] DEBUG: Cleaned up {stale_count} stale worktree(s)",
+                    flush=True,
+                )
 
     def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
         """
@@ -593,17 +607,20 @@ The SDK will run invoked agents in parallel automatically.
             # This ensures agents read from the correct PR state, not the current checkout
             head_sha = context.head_sha or context.head_branch
 
-            print(
-                f"[PRReview] DEBUG: context.head_sha='{context.head_sha}'", flush=True
-            )
-            print(
-                f"[PRReview] DEBUG: context.head_branch='{context.head_branch}'",
-                flush=True,
-            )
-            print(f"[PRReview] DEBUG: resolved head_sha='{head_sha}'", flush=True)
+            if DEBUG_MODE:
+                print(
+                    f"[PRReview] DEBUG: context.head_sha='{context.head_sha}'",
+                    flush=True,
+                )
+                print(
+                    f"[PRReview] DEBUG: context.head_branch='{context.head_branch}'",
+                    flush=True,
+                )
+                print(f"[PRReview] DEBUG: resolved head_sha='{head_sha}'", flush=True)
 
             if not head_sha:
-                print("[PRReview] DEBUG: No head_sha - using fallback", flush=True)
+                if DEBUG_MODE:
+                    print("[PRReview] DEBUG: No head_sha - using fallback", flush=True)
                 logger.warning(
                     "[ParallelOrchestrator] No head_sha available, using current checkout"
                 )
@@ -614,23 +631,28 @@ The SDK will run invoked agents in parallel automatically.
                     else self.project_dir
                 )
             else:
-                print(
-                    f"[PRReview] DEBUG: Creating worktree for head_sha={head_sha}",
-                    flush=True,
-                )
+                if DEBUG_MODE:
+                    print(
+                        f"[PRReview] DEBUG: Creating worktree for head_sha={head_sha}",
+                        flush=True,
+                    )
                 try:
                     worktree_path = self._create_pr_worktree(
                         head_sha, context.pr_number
                     )
                     project_root = worktree_path
-                    print(
-                        f"[PRReview] DEBUG: Using worktree as project_root={project_root}",
-                        flush=True,
-                    )
+                    if DEBUG_MODE:
+                        print(
+                            f"[PRReview] DEBUG: Using worktree as "
+                            f"project_root={project_root}",
+                            flush=True,
+                        )
                 except RuntimeError as e:
-                    print(
-                        f"[PRReview] DEBUG: Worktree creation FAILED: {e}", flush=True
-                    )
+                    if DEBUG_MODE:
+                        print(
+                            f"[PRReview] DEBUG: Worktree creation FAILED: {e}",
+                            flush=True,
+                        )
                     logger.warning(
                         f"[ParallelOrchestrator] Worktree creation failed, "
                         f"using current checkout: {e}"
