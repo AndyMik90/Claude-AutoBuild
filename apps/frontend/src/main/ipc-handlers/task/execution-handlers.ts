@@ -169,6 +169,26 @@ export function registerTaskExecutionHandlers(
         );
       }
 
+      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
+      // When getTasks() is called (on refresh), it reads status from the plan file.
+      // Without persisting here, the old status (e.g., 'human_review') would override
+      // the in-memory 'in_progress' status, causing the task to flip back and forth.
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      try {
+        if (existsSync(planPath)) {
+          const planContent = readFileSync(planPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+          plan.status = needsSpecCreation ? 'planning' : 'in_progress';
+          plan.planStatus = needsSpecCreation ? 'planning' : 'in_progress';
+          plan.updated_at = new Date().toISOString();
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          console.warn('[TASK_START] Updated plan status to:', plan.status);
+        }
+      } catch (err) {
+        // Plan file may not exist yet for new tasks - that's fine
+        console.warn('[TASK_START] Could not update plan status:', err);
+      }
+
       // Notify status change
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
@@ -184,6 +204,30 @@ export function registerTaskExecutionHandlers(
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
+
+    // Find task and project to update the plan file
+    const { task, project } = findTaskAndProject(taskId);
+    
+    if (task && project) {
+      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(project.path, specsBaseDir, task.specId);
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      
+      try {
+        if (existsSync(planPath)) {
+          const planContent = readFileSync(planPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+          plan.status = 'backlog';
+          plan.planStatus = 'pending';
+          plan.updated_at = new Date().toISOString();
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          console.warn('[TASK_STOP] Updated plan status to backlog');
+        }
+      } catch (err) {
+        console.warn('[TASK_STOP] Could not update plan status:', err);
+      }
+    }
 
     const mainWindow = getMainWindow();
     if (mainWindow) {
