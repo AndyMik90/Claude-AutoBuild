@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import type { ClaudeProfile, ClaudeAutoSwitchSettings } from '../../shared/types';
 
-export const STORE_VERSION = 3;  // Bumped for encrypted token storage
+export const STORE_VERSION = 4;  // Bumped for environment variables support
 
 /**
  * Default auto-switch settings
