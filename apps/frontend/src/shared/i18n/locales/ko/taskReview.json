@@ -1,0 +1,7 @@
+{
+  "terminal": {
+    "openTerminal": "터미널(Terminal) 열기",
+    "openInbuilt": "내장 터미널에서 열기",
+    "openExternal": "외부 터미널에서 열기"
+  }
+}

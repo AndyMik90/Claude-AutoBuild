@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "Auto Claude에 오신 것을 환영합니다",
+    "subtitle": "AI 기반 에이전트(Agent)로 소프트웨어를 자율적으로 빌드하세요"
+  },
+  "actions": {
+    "newProject": "새 프로젝트",
+    "openProject": "프로젝트 열기"
+  },
+  "recentProjects": {
+    "title": "최근 프로젝트",
+    "empty": "아직 프로젝트가 없습니다",
+    "emptyDescription": "새 프로젝트를 생성하거나 기존 프로젝트를 열어 시작하세요",
+    "openFolder": "폴더 열기"
+  }
+}

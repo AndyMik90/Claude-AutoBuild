@@ -1,0 +1,99 @@
+{
+  "status": {
+    "backlog": "백로그(Backlog)",
+    "todo": "할 일",
+    "in_progress": "진행 중",
+    "review": "리뷰",
+    "complete": "완료",
+    "archived": "보관됨"
+  },
+  "actions": {
+    "start": "시작",
+    "stop": "중지",
+    "recover": "복구",
+    "resume": "재개",
+    "archive": "보관",
+    "delete": "삭제",
+    "view": "세부 정보 보기"
+  },
+  "labels": {
+    "running": "실행 중",
+    "aiReview": "AI 리뷰",
+    "needsReview": "리뷰 필요",
+    "pending": "대기 중",
+    "stuck": "중단됨",
+    "incomplete": "미완료",
+    "recovering": "복구 중...",
+    "needsRecovery": "복구 필요",
+    "needsResume": "재개 필요"
+  },
+  "reviewReason": {
+    "completed": "완료됨",
+    "hasErrors": "오류 있음",
+    "qaIssues": "QA 이슈",
+    "approvePlan": "계획 승인"
+  },
+  "tooltips": {
+    "archiveTask": "작업(Task) 보관",
+    "archiveAllDone": "완료된 모든 작업 보관"
+  },
+  "creation": {
+    "title": "새 작업(Task) 생성",
+    "description": "만들고 싶은 것을 설명하세요",
+    "placeholder": "작업을 설명하세요..."
+  },
+  "empty": {
+    "title": "아직 작업이 없습니다",
+    "description": "첫 번째 작업을 생성하여 시작하세요"
+  },
+  "kanban": {
+    "emptyBacklog": "계획된 작업 없음",
+    "emptyBacklogHint": "작업을 추가하여 시작하세요",
+    "emptyInProgress": "실행 중인 작업 없음",
+    "emptyInProgressHint": "백로그에서 작업을 시작하세요",
+    "emptyAiReview": "리뷰 중인 작업 없음",
+    "emptyAiReviewHint": "AI가 완료된 작업을 리뷰합니다",
+    "emptyHumanReview": "리뷰할 작업 없음",
+    "emptyHumanReviewHint": "승인 대기 중인 작업이 여기에 표시됩니다",
+    "emptyDone": "완료된 작업 없음",
+    "emptyDoneHint": "승인된 작업이 여기에 표시됩니다",
+    "emptyDefault": "작업 없음",
+    "dropHere": "여기에 드롭",
+    "showArchived": "보관됨 표시"
+  },
+  "execution": {
+    "phases": {
+      "idle": "대기",
+      "planning": "계획 중",
+      "coding": "코딩 중",
+      "reviewing": "리뷰 중",
+      "fixing": "수정 중",
+      "complete": "완료",
+      "failed": "실패"
+    },
+    "labels": {
+      "interrupted": "중단됨",
+      "progress": "진행률",
+      "entry": "항목",
+      "entries": "항목"
+    },
+    "shortPhases": {
+      "plan": "계획",
+      "code": "코드",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "파일",
+    "tab": "파일",
+    "noSpecPath": "사용 가능한 스펙(Spec) 파일 없음",
+    "noFiles": "파일을 찾을 수 없음",
+    "loading": "파일 로딩 중...",
+    "loadingContent": "콘텐츠 로딩 중...",
+    "errorLoading": "파일 로드 실패",
+    "errorLoadingContent": "파일 콘텐츠 로드 실패",
+    "retry": "재시도",
+    "selectFile": "파일을 선택하여 내용을 확인하세요",
+    "openInIDE": "IDE에서 열기"
+  }
+}

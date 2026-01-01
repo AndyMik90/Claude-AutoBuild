@@ -1,0 +1,138 @@
+{
+  "wizard": {
+    "title": "설정 마법사",
+    "description": "몇 가지 간단한 단계로 Auto Claude 환경을 구성하세요",
+    "helpText": "이 마법사는 몇 단계만으로 환경을 설정하는 데 도움을 줍니다. Claude OAuth 토큰을 구성하고, 메모리(Memory) 기능을 설정하고, 첫 번째 작업(Task)을 생성할 수 있습니다."
+  },
+  "welcome": {
+    "title": "Auto Claude에 오신 것을 환영합니다",
+    "subtitle": "AI 기반 에이전트(Agent)로 소프트웨어를 자율적으로 빌드하세요",
+    "getStarted": "시작하기",
+    "skip": "설정 건너뛰기",
+    "features": {
+      "aiPowered": {
+        "title": "AI 기반 개발",
+        "description": "Claude Code 에이전트를 사용하여 코드를 생성하고 기능을 빌드하세요"
+      },
+      "specDriven": {
+        "title": "스펙(Spec) 중심 워크플로우",
+        "description": "명확한 스펙으로 작업을 정의하고 Auto Claude가 구현을 처리하도록 하세요"
+      },
+      "memory": {
+        "title": "메모리(Memory) 및 컨텍스트(Context)",
+        "description": "Graphiti를 사용한 세션 간 지속적인 메모리"
+      },
+      "parallel": {
+        "title": "병렬 실행",
+        "description": "더 빠른 개발 주기를 위해 여러 에이전트를 병렬로 실행하세요"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude 인증",
+    "description": "AI 기능을 활성화하려면 Claude 계정을 연결하세요",
+    "keychainTitle": "보안 저장소",
+    "keychainDescription": "토큰은 시스템 키체인(Keychain)을 사용하여 암호화됩니다. macOS에서 비밀번호 프롬프트가 표시될 수 있습니다 — 다시 표시되지 않도록 하려면 \"항상 허용\"을 클릭하세요."
+  },
+  "memory": {
+    "title": "메모리(Memory)",
+    "description": "Auto Claude 메모리는 코딩 세션 간의 컨텍스트를 기억하는 데 도움을 줍니다"
+  },
+  "completion": {
+    "title": "모두 준비되었습니다!",
+    "subtitle": "Auto Claude가 놀라운 소프트웨어를 빌드하는 데 도움을 줄 준비가 되었습니다",
+    "setupComplete": "설정 완료",
+    "setupCompleteDescription": "환경이 구성되었으며 준비되었습니다. 즉시 작업(Task)을 생성하거나 애플리케이션을 자유롭게 탐색할 수 있습니다.",
+    "whatsNext": "다음 단계는?",
+    "createTask": {
+      "title": "작업(Task) 생성",
+      "description": "첫 번째 작업을 생성하여 Auto Claude를 실제로 확인하세요.",
+      "action": "작업 생성기 열기"
+    },
+    "customizeSettings": {
+      "title": "설정 사용자 지정",
+      "description": "기본 설정을 미세 조정하거나 통합을 구성하거나 이 마법사를 다시 실행하세요.",
+      "action": "설정 열기"
+    },
+    "exploreDocs": {
+      "title": "문서 탐색",
+      "description": "고급 기능, 모범 사례 및 문제 해결에 대해 자세히 알아보세요."
+    },
+    "finish": "완료 및 빌드 시작",
+    "rerunHint": "설정 → 애플리케이션에서 이 마법사를 언제든지 다시 실행할 수 있습니다"
+  },
+  "steps": {
+    "welcome": "환영",
+    "auth": "인증",
+    "claudeCode": "CLI",
+    "devtools": "개발 도구",
+    "memory": "메모리",
+    "done": "완료"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "AI 기반 기능을 활성화하려면 Claude Code CLI를 설치하거나 업데이트하세요",
+    "detecting": "Claude Code 설치 확인 중...",
+    "info": {
+      "title": "Claude Code란 무엇인가요?",
+      "description": "Claude Code는 Auto Claude의 AI 기능을 지원하는 Anthropic의 공식 CLI입니다. 안전한 인증과 Claude 모델에 대한 직접 액세스를 제공합니다."
+    },
+    "status": {
+      "installed": "설치됨",
+      "outdated": "업데이트 가능",
+      "notFound": "설치 안 됨"
+    },
+    "version": {
+      "current": "현재 버전",
+      "latest": "최신 버전"
+    },
+    "install": {
+      "button": "Claude Code 설치",
+      "updating": "Claude Code 업데이트",
+      "inProgress": "설치 중...",
+      "success": "설치 명령이 터미널로 전송되었습니다. 터미널에서 설치를 완료하세요.",
+      "instructions": "설치 프로그램이 터미널에서 열립니다. 프롬프트에 따라 설치를 완료하세요."
+    },
+    "learnMore": "Claude Code에 대해 자세히 알아보기"
+  },
+  "devtools": {
+    "title": "개발 도구",
+    "description": "Auto Claude 작업 트리(Worktrees)로 작업하기 위해 선호하는 IDE 및 터미널을 선택하세요",
+    "detecting": "설치된 도구 감지 중...",
+    "detectAgain": "다시 감지",
+    "whyConfigure": "왜 구성해야 하나요?",
+    "whyConfigureDescription": "Auto Claude가 격리된 작업 트리에서 기능을 빌드할 때, 선호하는 IDE 또는 터미널에서 직접 열어 변경 사항을 테스트하고 검토할 수 있습니다.",
+    "ide": {
+      "label": "선호하는 IDE",
+      "description": "Auto Claude가 이 편집기에서 작업 트리를 엽니다",
+      "customPath": "사용자 정의 IDE 경로"
+    },
+    "terminal": {
+      "label": "선호하는 터미널(Terminal)",
+      "description": "Auto Claude가 여기에서 터미널 세션을 엽니다",
+      "customPath": "사용자 정의 터미널 경로"
+    },
+    "detectedSummary": "시스템에서 감지됨:",
+    "noToolsDetected": "추가 도구가 감지되지 않음 (VS Code 및 시스템 터미널이 사용됩니다)",
+    "custom": "사용자 정의...",
+    "saveAndContinue": "저장 및 계속"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama가 설치되지 않음",
+      "description": "Ollama는 의미 검색(Semantic Search)을 위한 무료 로컬 임베딩 모델을 제공합니다. 한 번의 클릭으로 설치하여 이 기능을 활성화하세요.",
+      "installSuccess": "설치가 터미널에서 시작되었습니다. 터미널에서 설치를 완료한 후 재시도를 클릭하세요.",
+      "installButton": "Ollama 설치",
+      "installing": "설치 중...",
+      "retry": "재시도",
+      "learnMore": "자세히 알아보기",
+      "fallbackNote": "Ollama 없이도 메모리는 키워드 검색으로 작동합니다."
+    },
+    "notRunning": {
+      "title": "Ollama가 실행되지 않음",
+      "description": "Ollama가 설치되어 있지만 실행되지 않습니다. 로컬 임베딩 모델을 사용하려면 Ollama를 시작하세요.",
+      "retry": "재시도",
+      "fallbackNote": "임베딩 없이도 메모리는 키워드 검색으로 작동합니다."
+    }
+  }
+}
