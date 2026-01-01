@@ -1,0 +1,28 @@
+name: 🛠️ OpenHands Fix Issues
+
+# Integration with OpenHands AI agent for automated issue resolution
+# Source: job-applier-csharp (adapted for Auto-Claude)
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled]
+
+jobs:
+  call-openhands-resolver:
+    name: 🤖 OpenHands Resolver
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@openhands-agent')) ||
+      (github.event_name == 'issues' && github.event.label.name == 'fix-me')
+    uses: OpenHands/OpenHands/.github/workflows/openhands-resolver.yml@main
+    with:
+      macro: '@openhands-agent'
+      max_iterations: 100
+      target_branch: 'develop'
+      LLM_MODEL: 'openrouter/deepseek/deepseek-r1'
+    secrets:
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      PAT_USERNAME: ${{ secrets.PAT_USERNAME }}
+      LLM_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
