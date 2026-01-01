@@ -48,7 +48,9 @@ export const DEFAULT_APP_SETTINGS = {
   // Beta updates opt-in (receive pre-release versions)
   betaUpdates: false,
   // Language preference (default to English)
-  language: 'en' as const
+  language: 'en' as const,
+  // Filesystem watcher for external changes (off by default - opt-in feature)
+  watchFilesystemForExternalChanges: false
 };
 
 // ============================================

@@ -163,6 +163,23 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                 />
               </div>
             </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between max-w-md">
+                <div className="space-y-1">
+                  <Label htmlFor="watchFilesystem" className="text-sm font-medium text-foreground">
+                    {t('general.watchFilesystem')}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('general.watchFilesystemDescription')}
+                  </p>
+                </div>
+                <Switch
+                  id="watchFilesystem"
+                  checked={settings.watchFilesystemForExternalChanges ?? false}
+                  onCheckedChange={(checked) => onSettingsChange({ ...settings, watchFilesystemForExternalChanges: checked })}
+                />
+              </div>
+            </div>
 
             {/* Feature Model Configuration */}
             <div className="space-y-4 pt-4 border-t border-border">

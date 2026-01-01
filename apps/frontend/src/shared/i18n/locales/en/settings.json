@@ -99,7 +99,9 @@
     "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
     "autoClaudePathPlaceholder": "auto-claude (default)",
     "autoNameTerminals": "Automatically name terminals",
-    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
+    "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity",
+    "watchFilesystem": "Auto-Sync External Changes",
+    "watchFilesystemDescription": "Automatically update task views when tasks are created or modified outside the app (e.g., via CLI or AI agents)"
   },
   "theme": {
     "title": "Appearance",

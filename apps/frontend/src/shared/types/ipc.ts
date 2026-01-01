@@ -147,6 +147,7 @@ export interface ElectronAPI {
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
+  getTask: (projectId: string, specId: string) => Promise<IPCResult<Task | null>>;
   createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
   deleteTask: (taskId: string) => Promise<IPCResult>;
   updateTask: (taskId: string, updates: { title?: string; description?: string }) => Promise<IPCResult<Task>>;
@@ -660,6 +661,17 @@ export interface ElectronAPI {
   ) => () => void;
   onTaskLogsStream: (
     callback: (specId: string, chunk: TaskLogStreamChunk) => void
+  ) => () => void;
+
+  // Specs directory event listeners (for CLI-created/modified specs)
+  onSpecAdded: (
+    callback: (projectId: string, specId: string, specPath: string) => void
+  ) => () => void;
+  onSpecRemoved: (
+    callback: (projectId: string, specId: string) => void
+  ) => () => void;
+  onSpecUpdated: (
+    callback: (projectId: string, specId: string) => void
   ) => () => void;
 
   // File explorer operations

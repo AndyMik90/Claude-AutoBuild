@@ -200,4 +200,32 @@ export function registerAgenteventsHandlers(
       mainWindow.webContents.send(IPC_CHANNELS.TASK_ERROR, taskId, error);
     }
   });
+
+  // ============================================
+  // Specs Directory Watcher Events → Renderer
+  // ============================================
+
+  fileWatcher.on('spec-added', (projectId: string, specId: string, specPath: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      console.log(`[IPC] Forwarding spec-added event: ${specId} in project ${projectId}`);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_SPEC_ADDED, projectId, specId, specPath);
+    }
+  });
+
+  fileWatcher.on('spec-removed', (projectId: string, specId: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      console.log(`[IPC] Forwarding spec-removed event: ${specId} in project ${projectId}`);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_SPEC_REMOVED, projectId, specId);
+    }
+  });
+
+  fileWatcher.on('spec-updated', (projectId: string, specId: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      console.log(`[IPC] Forwarding spec-updated event: ${specId} in project ${projectId}`);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_SPEC_UPDATED, projectId, specId);
+    }
+  });
 }

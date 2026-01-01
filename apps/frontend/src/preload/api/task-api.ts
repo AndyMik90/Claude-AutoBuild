@@ -17,6 +17,7 @@ import type {
 export interface TaskAPI {
   // Task Operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
+  getTask: (projectId: string, specId: string) => Promise<IPCResult<Task | null>>;
   createTask: (
     projectId: string,
     title: string,
@@ -73,12 +74,20 @@ export interface TaskAPI {
   unwatchTaskLogs: (specId: string) => Promise<IPCResult>;
   onTaskLogsChanged: (callback: (specId: string, logs: TaskLogs) => void) => () => void;
   onTaskLogsStream: (callback: (specId: string, chunk: TaskLogStreamChunk) => void) => () => void;
+
+  // Specs Directory Events
+  onSpecAdded: (callback: (projectId: string, specId: string, specPath: string) => void) => () => void;
+  onSpecRemoved: (callback: (projectId: string, specId: string) => void) => () => void;
+  onSpecUpdated: (callback: (projectId: string, specId: string) => void) => () => void;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
   // Task Operations
   getTasks: (projectId: string): Promise<IPCResult<Task[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_LIST, projectId),
+
+  getTask: (projectId: string, specId: string): Promise<IPCResult<Task | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_GET, projectId, specId),
 
   createTask: (
     projectId: string,
@@ -279,6 +288,56 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
+    };
+  },
+
+  // Specs Directory Events
+  onSpecAdded: (
+    callback: (projectId: string, specId: string, specPath: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      specId: string,
+      specPath: string
+    ): void => {
+      callback(projectId, specId, specPath);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SPEC_ADDED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SPEC_ADDED, handler);
+    };
+  },
+
+  onSpecRemoved: (
+    callback: (projectId: string, specId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      specId: string
+    ): void => {
+      callback(projectId, specId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SPEC_REMOVED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SPEC_REMOVED, handler);
+    };
+  },
+
+  onSpecUpdated: (
+    callback: (projectId: string, specId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      specId: string
+    ): void => {
+      callback(projectId, specId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_SPEC_UPDATED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_SPEC_UPDATED, handler);
     };
   }
 });

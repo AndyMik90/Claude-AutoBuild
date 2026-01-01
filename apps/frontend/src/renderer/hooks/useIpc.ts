@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useTaskStore } from '../stores/task-store';
+import { useTaskStore, handleSpecAdded, handleSpecRemoved, handleSpecUpdated } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
@@ -166,6 +166,28 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Specs directory event listeners (for CLI-created specs)
+    const cleanupSpecAdded = window.electronAPI.onSpecAdded(
+      (projectId: string, specId: string, _specPath: string) => {
+        console.log(`[useIpc] Spec added event received: ${specId} in project ${projectId}`);
+        handleSpecAdded(projectId, specId);
+      }
+    );
+
+    const cleanupSpecRemoved = window.electronAPI.onSpecRemoved(
+      (projectId: string, specId: string) => {
+        console.log(`[useIpc] Spec removed event received: ${specId} in project ${projectId}`);
+        handleSpecRemoved(projectId, specId);
+      }
+    );
+
+    const cleanupSpecUpdated = window.electronAPI.onSpecUpdated(
+      (projectId: string, specId: string) => {
+        console.log(`[useIpc] Spec updated event received: ${specId} in project ${projectId}`);
+        handleSpecUpdated(projectId, specId);
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       cleanupProgress();
@@ -179,6 +201,9 @@ export function useIpcListeners(): void {
       cleanupRoadmapStopped();
       cleanupRateLimit();
       cleanupSDKRateLimit();
+      cleanupSpecAdded();
+      cleanupSpecRemoved();
+      cleanupSpecUpdated();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, setError]);
 }
