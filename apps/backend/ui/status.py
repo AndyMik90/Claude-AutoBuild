@@ -6,6 +6,7 @@ Build status tracking and status file management for ccstatusline integration.
 """
 
 import json
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -104,10 +105,15 @@ class BuildStatus:
 class StatusManager:
     """Manages the .auto-claude-status file for ccstatusline integration."""
 
+    # Class-level debounce delay (ms) for batched writes
+    _WRITE_DEBOUNCE_MS = 50
+
     def __init__(self, project_dir: Path):
         self.project_dir = Path(project_dir)
         self.status_file = self.project_dir / ".auto-claude-status"
         self._status = BuildStatus()
+        self._write_pending = False
+        self._write_timer: threading.Timer | None = None
 
     def read(self) -> BuildStatus:
         """Read current status from file."""
@@ -122,17 +128,80 @@ class StatusManager:
         except (OSError, json.JSONDecodeError):
             return BuildStatus()
 
-    def write(self, status: BuildStatus = None) -> None:
-        """Write status to file."""
-        if status:
-            self._status = status
+    def _do_write(self) -> None:
+        """Perform the actual file write."""
+        import os
+        import time
+
+        debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+        write_start = time.time()
+
+        self._write_pending = False
+        self._write_timer = None
         self._status.last_update = datetime.now().isoformat()
 
         try:
             with open(self.status_file, "w") as f:
                 json.dump(self._status.to_dict(), f, indent=2)
+
+            if debug:
+                write_duration = (time.time() - write_start) * 1000
+                print(
+                    f"[StatusManager] Batched write completed in {write_duration:.2f}ms"
+                )
         except OSError as e:
             print(warning(f"Could not write status file: {e}"))
+
+    def _schedule_write(self) -> None:
+        """Schedule a debounced write to batch multiple updates."""
+        import os
+        import threading
+
+        debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+        if self._write_timer is not None:
+            self._write_timer.cancel()
+            if debug:
+                print(
+                    "[StatusManager] Cancelled pending write, batching with new update"
+                )
+
+        self._write_pending = True
+        self._write_timer = threading.Timer(
+            self._WRITE_DEBOUNCE_MS / 1000.0, self._do_write
+        )
+        self._write_timer.start()
+
+        if debug:
+            print(
+                f"[StatusManager] Scheduled batched write in {self._WRITE_DEBOUNCE_MS}ms"
+            )
+
+    def write(self, status: BuildStatus = None, immediate: bool = False) -> None:
+        """Write status to file.
+
+        Args:
+            status: Optional status to set before writing
+            immediate: If True, write immediately without debouncing
+        """
+        if status:
+            self._status = status
+
+        if immediate:
+            # Cancel any pending debounced write
+            if self._write_timer is not None:
+                self._write_timer.cancel()
+                self._write_timer = None
+            self._do_write()
+        else:
+            self._schedule_write()
+
+    def flush(self) -> None:
+        """Force any pending writes to complete immediately."""
+        if self._write_pending:
+            if self._write_timer is not None:
+                self._write_timer.cancel()
+            self._do_write()
 
     def update(self, **kwargs) -> None:
         """Update specific status fields."""
@@ -142,18 +211,18 @@ class StatusManager:
         self.write()
 
     def set_active(self, spec: str, state: BuildState) -> None:
-        """Mark build as active."""
+        """Mark build as active. Writes immediately for visibility."""
         self._status.active = True
         self._status.spec = spec
         self._status.state = state
         self._status.session_started = datetime.now().isoformat()
-        self.write()
+        self.write(immediate=True)
 
     def set_inactive(self) -> None:
-        """Mark build as inactive."""
+        """Mark build as inactive. Writes immediately for visibility."""
         self._status.active = False
         self._status.state = BuildState.IDLE
-        self.write()
+        self.write(immediate=True)
 
     def update_subtasks(
         self,
@@ -194,6 +263,12 @@ class StatusManager:
 
     def clear(self) -> None:
         """Remove status file."""
+        # Cancel any pending writes
+        if self._write_timer is not None:
+            self._write_timer.cancel()
+            self._write_timer = None
+        self._write_pending = False
+
         if self.status_file.exists():
             try:
                 self.status_file.unlink()

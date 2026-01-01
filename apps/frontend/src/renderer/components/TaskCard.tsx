@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -39,10 +39,58 @@ interface TaskCardProps {
   onClick: () => void;
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+// Custom comparator for React.memo - only re-render when relevant task data changes
+function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProps): boolean {
+  const prevTask = prevProps.task;
+  const nextTask = nextProps.task;
+
+  // Fast path: same reference
+  if (prevTask === nextTask && prevProps.onClick === nextProps.onClick) {
+    return true;
+  }
+
+  // Compare only the fields that affect rendering
+  const isEqual = (
+    prevTask.id === nextTask.id &&
+    prevTask.status === nextTask.status &&
+    prevTask.title === nextTask.title &&
+    prevTask.description === nextTask.description &&
+    prevTask.updatedAt === nextTask.updatedAt &&
+    prevTask.reviewReason === nextTask.reviewReason &&
+    prevTask.executionProgress?.phase === nextTask.executionProgress?.phase &&
+    prevTask.executionProgress?.phaseProgress === nextTask.executionProgress?.phaseProgress &&
+    prevTask.subtasks.length === nextTask.subtasks.length &&
+    prevTask.metadata?.category === nextTask.metadata?.category &&
+    prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
+    prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
+    // Check if subtask statuses changed (quick check on first few)
+    prevTask.subtasks.slice(0, 5).every((s, i) => s.status === nextTask.subtasks[i]?.status)
+  );
+
+  // Only log when actually re-rendering (reduces noise significantly)
+  if (window.DEBUG && !isEqual) {
+    const changes: string[] = [];
+    if (prevTask.status !== nextTask.status) changes.push(`status: ${prevTask.status} -> ${nextTask.status}`);
+    if (prevTask.executionProgress?.phase !== nextTask.executionProgress?.phase) {
+      changes.push(`phase: ${prevTask.executionProgress?.phase} -> ${nextTask.executionProgress?.phase}`);
+    }
+    if (prevTask.subtasks.length !== nextTask.subtasks.length) {
+      changes.push(`subtasks: ${prevTask.subtasks.length} -> ${nextTask.subtasks.length}`);
+    }
+    console.log(`[TaskCard] Re-render: ${prevTask.id} | ${changes.join(', ') || 'other fields'}`);
+  }
+
+  return isEqual;
+}
+
+export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps) {
   const { t } = useTranslation('tasks');
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
+    timeout: null,
+    interval: null
+  });
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
@@ -51,49 +99,85 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   // Check if task is in human_review but has no completed subtasks (crashed/incomplete)
   const isIncomplete = isIncompleteHumanReview(task);
 
+  // Memoize expensive computations to avoid running on every render
+  const sanitizedDescription = useMemo(
+    () => task.description ? sanitizeMarkdownForDisplay(task.description, 150) : null,
+    [task.description]
+  );
+
+  // Memoize relative time (recalculates only when updatedAt changes)
+  const relativeTime = useMemo(
+    () => formatRelativeTime(task.updatedAt),
+    [task.updatedAt]
+  );
+
+  // Memoized stuck check function to avoid recreating on every render
+  const performStuckCheck = useCallback(() => {
+    // Use requestIdleCallback for non-blocking check when available
+    const doCheck = () => {
+      checkTaskRunning(task.id).then((actuallyRunning) => {
+        setIsStuck(!actuallyRunning);
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(doCheck);
+    } else {
+      doCheck();
+    }
+  }, [task.id]);
+
   // Check if task is stuck (status says in_progress but no actual process)
-  // Add a grace period to avoid false positives during process spawn
+  // Add a longer grace period to avoid false positives during process spawn
   useEffect(() => {
     if (!isRunning) {
       setIsStuck(false);
+      // Clear any pending checks
+      if (stuckCheckRef.current.timeout) {
+        clearTimeout(stuckCheckRef.current.timeout);
+        stuckCheckRef.current.timeout = null;
+      }
+      if (stuckCheckRef.current.interval) {
+        clearInterval(stuckCheckRef.current.interval);
+        stuckCheckRef.current.interval = null;
+      }
       return;
     }
 
-    // Initial check after 2s grace period
-    const initialTimeout = setTimeout(() => {
-      checkTaskRunning(task.id).then((actuallyRunning) => {
-        setIsStuck(!actuallyRunning);
-      });
-    }, 2000);
+    // Initial check after 5s grace period (increased from 2s)
+    stuckCheckRef.current.timeout = setTimeout(performStuckCheck, 5000);
 
-    // Periodic re-check every 15 seconds
-    const recheckInterval = setInterval(() => {
-      checkTaskRunning(task.id).then((actuallyRunning) => {
-        setIsStuck(!actuallyRunning);
-      });
-    }, 15000);
+    // Periodic re-check every 30 seconds (reduced frequency from 15s)
+    stuckCheckRef.current.interval = setInterval(performStuckCheck, 30000);
 
     return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(recheckInterval);
+      if (stuckCheckRef.current.timeout) {
+        clearTimeout(stuckCheckRef.current.timeout);
+      }
+      if (stuckCheckRef.current.interval) {
+        clearInterval(stuckCheckRef.current.interval);
+      }
     };
-  }, [task.id, isRunning]);
+  }, [task.id, isRunning, performStuckCheck]);
 
-  // Add visibility change handler to re-validate on focus
+  // Add visibility change handler to re-validate on focus (debounced)
   useEffect(() => {
+    let debounceTimeout: NodeJS.Timeout | null = null;
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isRunning) {
-        checkTaskRunning(task.id).then((actuallyRunning) => {
-          setIsStuck(!actuallyRunning);
-        });
+        // Debounce visibility checks to avoid rapid re-checks
+        if (debounceTimeout) clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(performStuckCheck, 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
     };
-  }, [task.id, isRunning]);
+  }, [isRunning, performStuckCheck]);
 
   const handleStartStop = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -257,10 +341,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           </div>
         </div>
 
-        {/* Description - sanitized to handle markdown content */}
-        {task.description && (
+        {/* Description - sanitized to handle markdown content (memoized) */}
+        {sanitizedDescription && (
           <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {sanitizeMarkdownForDisplay(task.description, 150)}
+            {sanitizedDescription}
           </p>
         )}
 
@@ -337,7 +421,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{formatRelativeTime(task.updatedAt)}</span>
+            <span>{relativeTime}</span>
           </div>
 
           {/* Action buttons */}
@@ -406,4 +490,4 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       </CardContent>
     </Card>
   );
-}
+}, taskCardPropsAreEqual);

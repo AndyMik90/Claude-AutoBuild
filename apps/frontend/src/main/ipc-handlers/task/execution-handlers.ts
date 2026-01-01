@@ -175,24 +175,44 @@ export function registerTaskExecutionHandlers(
         );
       }
 
-      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
-      // When getTasks() is called (on refresh), it reads status from the plan file.
-      // Without persisting here, the old status (e.g., 'human_review') would override
-      // the in-memory 'in_progress' status, causing the task to flip back and forth.
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      const persisted = persistPlanStatusSync(planPath, 'in_progress');
-      if (persisted) {
-        console.warn('[TASK_START] Updated plan status to: in_progress');
-      }
-      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatusSync handles ENOENT)
-
-      // Notify status change
+      // Notify status change IMMEDIATELY (don't wait for file write)
+      // This provides instant UI feedback while file persistence happens in background
+      const ipcSentAt = Date.now();
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
         taskId,
         'in_progress'
       );
+
+      const DEBUG = process.env.DEBUG === 'true';
+      if (DEBUG) {
+        console.log(`[TASK_START] IPC sent immediately for task ${taskId}, deferring file persistence`);
+      }
+
+      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
+      // When getTasks() is called (on refresh), it reads status from the plan file.
+      // Without persisting here, the old status (e.g., 'human_review') would override
+      // the in-memory 'in_progress' status, causing the task to flip back and forth.
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      // NOTE: This is now async and non-blocking for better UI responsiveness
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      setImmediate(async () => {
+        const persistStart = Date.now();
+        try {
+          const persisted = await persistPlanStatus(planPath, 'in_progress');
+          if (persisted) {
+            console.warn('[TASK_START] Updated plan status to: in_progress');
+          }
+          if (DEBUG) {
+            const delay = persistStart - ipcSentAt;
+            const duration = Date.now() - persistStart;
+            console.log(`[TASK_START] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
+          }
+        } catch (err) {
+          console.error('[TASK_START] Failed to persist plan status:', err);
+        }
+      });
+      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatus handles ENOENT)
     }
   );
 
@@ -200,23 +220,13 @@ export function registerTaskExecutionHandlers(
    * Stop a task
    */
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
+    const DEBUG = process.env.DEBUG === 'true';
+
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
-    // Find task and project to update the plan file
-    const { task, project } = findTaskAndProject(taskId);
-    
-    if (task && project) {
-      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      const planPath = getPlanPath(project, task);
-      const persisted = persistPlanStatusSync(planPath, 'backlog');
-      if (persisted) {
-        console.warn('[TASK_STOP] Updated plan status to backlog');
-      }
-      // Note: File not found is expected for tasks without a plan file (persistPlanStatusSync handles ENOENT)
-    }
-
+    // Notify status change IMMEDIATELY for instant UI feedback
+    const ipcSentAt = Date.now();
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(
@@ -224,6 +234,37 @@ export function registerTaskExecutionHandlers(
         taskId,
         'backlog'
       );
+    }
+
+    if (DEBUG) {
+      console.log(`[TASK_STOP] IPC sent immediately for task ${taskId}, deferring file persistence`);
+    }
+
+    // Find task and project to update the plan file (async, non-blocking)
+    const { task, project } = findTaskAndProject(taskId);
+
+    if (task && project) {
+      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      // NOTE: This is now async and non-blocking for better UI responsiveness
+      const planPath = getPlanPath(project, task);
+      setImmediate(async () => {
+        const persistStart = Date.now();
+        try {
+          const persisted = await persistPlanStatus(planPath, 'backlog');
+          if (persisted) {
+            console.warn('[TASK_STOP] Updated plan status to backlog');
+          }
+          if (DEBUG) {
+            const delay = persistStart - ipcSentAt;
+            const duration = Date.now() - persistStart;
+            console.log(`[TASK_STOP] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
+          }
+        } catch (err) {
+          console.error('[TASK_STOP] Failed to persist plan status:', err);
+        }
+      });
+      // Note: File not found is expected for tasks without a plan file (persistPlanStatus handles ENOENT)
     }
   });
 

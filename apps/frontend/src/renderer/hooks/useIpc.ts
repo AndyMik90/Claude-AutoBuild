@@ -1,8 +1,96 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { unstable_batchedUpdates } from 'react-dom';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo } from '../../shared/types';
+
+/**
+ * Batched update queue for IPC events.
+ * Collects updates within a 16ms window (one frame) and flushes them together.
+ * This prevents multiple sequential re-renders when multiple IPC events arrive.
+ */
+interface BatchedUpdate {
+  status?: TaskStatus;
+  progress?: ExecutionProgress;
+  plan?: ImplementationPlan;
+  logs?: string[]; // Batched log lines
+  queuedAt?: number; // For debug timing
+}
+
+// Module-level batch state (shared across all hook instances)
+const batchQueue = new Map<string, BatchedUpdate>();
+let batchTimeout: NodeJS.Timeout | null = null;
+let storeActions: {
+  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateExecutionProgress: (taskId: string, progress: ExecutionProgress) => void;
+  updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
+  batchAppendLogs: (taskId: string, logs: string[]) => void;
+} | null = null;
+
+function flushBatch(): void {
+  if (batchQueue.size === 0 || !storeActions) return;
+
+  const flushStart = performance.now();
+  const updateCount = batchQueue.size;
+  let totalUpdates = 0;
+  let totalLogs = 0;
+
+  // Batch all React updates together
+  unstable_batchedUpdates(() => {
+    batchQueue.forEach((updates, taskId) => {
+      // Apply updates in order: plan first (has most data), then status, then progress, then logs
+      if (updates.plan) {
+        storeActions!.updateTaskFromPlan(taskId, updates.plan);
+        totalUpdates++;
+      }
+      if (updates.status) {
+        storeActions!.updateTaskStatus(taskId, updates.status);
+        totalUpdates++;
+      }
+      if (updates.progress) {
+        storeActions!.updateExecutionProgress(taskId, updates.progress);
+        totalUpdates++;
+      }
+      // Batch append all logs at once (instead of one state update per log line)
+      if (updates.logs && updates.logs.length > 0) {
+        storeActions!.batchAppendLogs(taskId, updates.logs);
+        totalLogs += updates.logs.length;
+        totalUpdates++;
+      }
+    });
+  });
+
+  if (window.DEBUG) {
+    const flushDuration = performance.now() - flushStart;
+    console.log(`[IPC Batch] Flushed ${totalUpdates} updates (${totalLogs} logs) for ${updateCount} tasks in ${flushDuration.toFixed(2)}ms`);
+  }
+
+  batchQueue.clear();
+  batchTimeout = null;
+}
+
+function queueUpdate(taskId: string, update: BatchedUpdate): void {
+  const existing = batchQueue.get(taskId) || {};
+
+  // For logs, accumulate rather than replace
+  let mergedLogs = existing.logs;
+  if (update.logs) {
+    mergedLogs = [...(existing.logs || []), ...update.logs];
+  }
+
+  batchQueue.set(taskId, {
+    ...existing,
+    ...update,
+    logs: mergedLogs,
+    queuedAt: existing.queuedAt || performance.now()
+  });
+
+  // Schedule flush after 16ms (one frame at 60fps)
+  if (!batchTimeout) {
+    batchTimeout = setTimeout(flushBatch, 16);
+  }
+}
 
 /**
  * Hook to set up IPC event listeners for task updates
@@ -12,18 +100,23 @@ export function useIpcListeners(): void {
   const updateTaskStatus = useTaskStore((state) => state.updateTaskStatus);
   const updateExecutionProgress = useTaskStore((state) => state.updateExecutionProgress);
   const appendLog = useTaskStore((state) => state.appendLog);
+  const batchAppendLogs = useTaskStore((state) => state.batchAppendLogs);
   const setError = useTaskStore((state) => state.setError);
 
+  // Store actions reference for batch flushing
+  storeActions = { updateTaskStatus, updateExecutionProgress, updateTaskFromPlan, batchAppendLogs };
+
   useEffect(() => {
-    // Set up listeners
+    // Set up listeners with batched updates
     const cleanupProgress = window.electronAPI.onTaskProgress(
       (taskId: string, plan: ImplementationPlan) => {
-        updateTaskFromPlan(taskId, plan);
+        queueUpdate(taskId, { plan });
       }
     );
 
     const cleanupError = window.electronAPI.onTaskError(
       (taskId: string, error: string) => {
+        // Errors are not batched - show immediately
         setError(`Task ${taskId}: ${error}`);
         appendLog(taskId, `[ERROR] ${error}`);
       }
@@ -31,19 +124,20 @@ export function useIpcListeners(): void {
 
     const cleanupLog = window.electronAPI.onTaskLog(
       (taskId: string, log: string) => {
-        appendLog(taskId, log);
+        // Logs are now batched to reduce state updates (was causing 100+ updates/sec)
+        queueUpdate(taskId, { logs: [log] });
       }
     );
 
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
       (taskId: string, status: TaskStatus) => {
-        updateTaskStatus(taskId, status);
+        queueUpdate(taskId, { status });
       }
     );
 
     const cleanupExecutionProgress = window.electronAPI.onTaskExecutionProgress(
       (taskId: string, progress: ExecutionProgress) => {
-        updateExecutionProgress(taskId, progress);
+        queueUpdate(taskId, { progress });
       }
     );
 
@@ -180,7 +274,7 @@ export function useIpcListeners(): void {
       cleanupRateLimit();
       cleanupSDKRateLimit();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, setError]);
+  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }
 
 /**
