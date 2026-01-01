@@ -208,54 +208,60 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
     const terminalId = preferredTerminal?.toLowerCase() || 'powershell';
 
     console.log('[Claude Code] Using terminal:', terminalId);
+    console.log('[Claude Code] Command to run:', command);
 
-    if (terminalId === 'windowsterminal') {
-      // Windows Terminal
-      spawn('wt.exe', ['powershell.exe', '-NoExit', '-Command', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'cmd') {
-      // Command Prompt
-      spawn('cmd.exe', ['/K', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'conemu') {
-      // ConEmu
-      spawn('ConEmu64.exe', ['-run', 'powershell.exe', '-NoExit', '-Command', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'cmder') {
-      // Cmder (ConEmu-based)
-      spawn('cmder.exe', ['/TASK', 'powershell', '/CMD', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'gitbash') {
-      // Git Bash
-      spawn('C:\\Program Files\\Git\\git-bash.exe', ['-c', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'hyper') {
-      // Hyper
-      spawn('hyper.exe', [], { detached: true, stdio: 'ignore', shell: false }).unref();
-      // Note: Hyper doesn't support direct command execution, user needs to paste
-    } else if (terminalId === 'tabby') {
-      // Tabby
-      spawn('tabby.exe', [], { detached: true, stdio: 'ignore', shell: false }).unref();
-    } else if (terminalId === 'alacritty') {
-      // Alacritty on Windows
-      spawn('alacritty.exe', ['-e', 'powershell.exe', '-NoExit', '-Command', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else if (terminalId === 'wezterm') {
-      // WezTerm on Windows
-      spawn('wezterm.exe', ['start', '--', 'powershell.exe', '-NoExit', '-Command', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
-    } else {
-      // Default: PowerShell (handles 'powershell', 'system', or any unknown value)
-      spawn('powershell.exe', ['-NoExit', '-Command', command], {
-        detached: true, stdio: 'ignore', shell: false,
-      }).unref();
+    // For Windows, use exec with a properly formed command string
+    // This is more reliable than spawn for complex PowerShell commands with pipes
+    const { exec } = require('child_process');
+
+    const runWindowsCommand = (cmdString: string): Promise<void> => {
+      return new Promise((resolve) => {
+        console.log(`[Claude Code] Executing: ${cmdString}`);
+        // Fire and forget - don't wait for the terminal to close
+        // The -NoExit flag keeps the terminal open, so we can't wait for exec to complete
+        const child = exec(cmdString, { windowsHide: false });
+
+        // Detach from the child process so we don't wait for it
+        child.unref?.();
+
+        // Resolve immediately after starting the process
+        // Give it a brief moment to ensure the window opens
+        setTimeout(() => resolve(), 300);
+      });
+    };
+
+    try {
+      if (terminalId === 'windowsterminal') {
+        // Windows Terminal - open new tab with PowerShell
+        await runWindowsCommand(`wt new-tab powershell -NoExit -Command "${command}"`);
+      } else if (terminalId === 'gitbash') {
+        // Git Bash - use curl-based install for Unix-like environment
+        const bashCommand = 'curl -fsSL https://ollama.com/install.sh | sh';
+        const gitBashPaths = [
+          'C:\\Program Files\\Git\\git-bash.exe',
+          'C:\\Program Files (x86)\\Git\\git-bash.exe',
+        ];
+        let gitBashPath = gitBashPaths.find(p => existsSync(p));
+        if (gitBashPath) {
+          await runWindowsCommand(`"${gitBashPath}" -c "${bashCommand}"`);
+        } else {
+          throw new Error('Git Bash not found');
+        }
+      } else if (terminalId === 'alacritty') {
+        // Alacritty
+        await runWindowsCommand(`start alacritty -e powershell -NoExit -Command "${command}"`);
+      } else if (terminalId === 'wezterm') {
+        // WezTerm
+        await runWindowsCommand(`start wezterm start -- powershell -NoExit -Command "${command}"`);
+      } else {
+        // Default: PowerShell (handles 'powershell', 'system', 'cmd', 'conemu', 'cmder', 'hyper', 'tabby', or any unknown value)
+        // Use 'start' command to open a new PowerShell window
+        // The command is wrapped in double quotes and passed via -Command
+        await runWindowsCommand(`start powershell -NoExit -Command "${command}"`);
+      }
+    } catch (err) {
+      console.error('[Claude Code] Terminal execution failed:', err);
+      throw new Error(`Failed to open terminal: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   } else {
     // Linux: Use preferred terminal or try common emulators

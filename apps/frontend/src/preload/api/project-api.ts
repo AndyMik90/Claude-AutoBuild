@@ -105,6 +105,12 @@ export interface ProjectAPI {
     version?: string;
     message?: string;
   }>>;
+  checkOllamaInstalled: () => Promise<IPCResult<{
+    installed: boolean;
+    path?: string;
+    version?: string;
+  }>>;
+  installOllama: () => Promise<IPCResult<{ command: string }>>;
   listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
     models: Array<{
       name: string;
@@ -274,6 +280,12 @@ export const createProjectAPI = (): ProjectAPI => ({
   // Ollama Model Detection
   checkOllamaStatus: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_CHECK_STATUS, baseUrl),
+
+  checkOllamaInstalled: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_CHECK_INSTALLED),
+
+  installOllama: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_INSTALL),
 
   listOllamaModels: (baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_MODELS, baseUrl),

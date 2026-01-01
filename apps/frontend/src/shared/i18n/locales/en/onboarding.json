@@ -116,5 +116,23 @@
     "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)",
     "custom": "Custom...",
     "saveAndContinue": "Save & Continue"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama not installed",
+      "description": "Ollama provides free, local embedding models for semantic search. Install it with one click to enable this feature.",
+      "installSuccess": "Installation started in your terminal. Complete the installation there, then click Retry.",
+      "installButton": "Install Ollama",
+      "installing": "Installing...",
+      "retry": "Retry",
+      "learnMore": "Learn more",
+      "fallbackNote": "Memory will still work with keyword search even without Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama not running",
+      "description": "Ollama is installed but not running. Start Ollama to use local embedding models.",
+      "retry": "Retry",
+      "fallbackNote": "Memory will still work with keyword search even without embeddings."
+    }
   }
 }

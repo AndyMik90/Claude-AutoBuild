@@ -680,6 +680,12 @@ export interface ElectronAPI {
     version?: string;
     message?: string;
   }>>;
+  checkOllamaInstalled: () => Promise<IPCResult<{
+    installed: boolean;
+    path?: string;
+    version?: string;
+  }>>;
+  installOllama: () => Promise<IPCResult<{ command: string }>>;
   listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
     models: Array<{
       name: string;
