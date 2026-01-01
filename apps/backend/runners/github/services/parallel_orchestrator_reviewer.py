@@ -20,6 +20,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shutil
+import subprocess
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +62,9 @@ logger = logging.getLogger(__name__)
 
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
+
+# Directory for PR review worktrees (project-local, same filesystem)
+PR_WORKTREE_DIR = ".auto-claude/pr-review-worktrees"
 
 
 class ParallelOrchestratorReviewer:
@@ -115,6 +121,115 @@ class ParallelOrchestratorReviewer:
             return prompt_file.read_text(encoding="utf-8")
         logger.warning(f"Prompt file not found: {prompt_file}")
         return ""
+
+    def _create_pr_worktree(self, head_sha: str, pr_number: int) -> Path:
+        """Create a temporary worktree at the PR head commit.
+
+        Args:
+            head_sha: The commit SHA of the PR head
+            pr_number: The PR number for naming
+
+        Returns:
+            Path to the created worktree
+
+        Raises:
+            RuntimeError: If worktree creation fails
+        """
+        worktree_name = f"pr-{pr_number}-{uuid.uuid4().hex[:8]}"
+        worktree_dir = self.project_dir / PR_WORKTREE_DIR
+        worktree_dir.mkdir(parents=True, exist_ok=True)
+        worktree_path = worktree_dir / worktree_name
+
+        # Fetch the commit if not available locally (handles fork PRs)
+        subprocess.run(
+            ["git", "fetch", "origin", head_sha],
+            cwd=self.project_dir,
+            capture_output=True,
+            timeout=60,
+        )
+
+        # Create detached worktree at the PR commit
+        result = subprocess.run(
+            ["git", "worktree", "add", "--detach", str(worktree_path), head_sha],
+            cwd=self.project_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to create worktree: {result.stderr}")
+
+        logger.info(f"[PRReview] Created worktree at {worktree_path}")
+        print(f"[PRReview] Created worktree at {worktree_path.name}", flush=True)
+        return worktree_path
+
+    def _cleanup_pr_worktree(self, worktree_path: Path) -> None:
+        """Remove a temporary PR review worktree with fallback chain.
+
+        Args:
+            worktree_path: Path to the worktree to remove
+        """
+        if not worktree_path or not worktree_path.exists():
+            return
+
+        # Try 1: git worktree remove
+        result = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(worktree_path)],
+            cwd=self.project_dir,
+            capture_output=True,
+        )
+
+        if result.returncode == 0:
+            logger.info(f"[PRReview] Cleaned up worktree: {worktree_path.name}")
+            print(f"[PRReview] Cleaned up worktree: {worktree_path.name}", flush=True)
+            return
+
+        # Try 2: shutil.rmtree fallback
+        try:
+            shutil.rmtree(worktree_path, ignore_errors=True)
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=self.project_dir,
+                capture_output=True,
+            )
+            logger.warning(f"[PRReview] Used shutil fallback for: {worktree_path.name}")
+        except Exception as e:
+            logger.error(f"[PRReview] Failed to cleanup worktree {worktree_path}: {e}")
+
+    def _cleanup_stale_pr_worktrees(self) -> None:
+        """Clean up orphaned PR review worktrees on startup."""
+        worktree_dir = self.project_dir / PR_WORKTREE_DIR
+        if not worktree_dir.exists():
+            return
+
+        # Get registered worktrees from git
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=self.project_dir,
+            capture_output=True,
+            text=True,
+        )
+        registered = {
+            Path(line.split(" ", 1)[1])
+            for line in result.stdout.split("\n")
+            if line.startswith("worktree ")
+        }
+
+        # Remove unregistered directories
+        stale_count = 0
+        for item in worktree_dir.iterdir():
+            if item.is_dir() and item not in registered:
+                logger.info(f"[PRReview] Removing stale worktree: {item.name}")
+                shutil.rmtree(item, ignore_errors=True)
+                stale_count += 1
+
+        if stale_count > 0:
+            subprocess.run(
+                ["git", "worktree", "prune"],
+                cwd=self.project_dir,
+                capture_output=True,
+            )
+            print(f"[PRReview] Cleaned up {stale_count} stale worktree(s)", flush=True)
 
     def _define_specialist_agents(self) -> dict[str, AgentDefinition]:
         """
@@ -400,6 +515,12 @@ The SDK will run invoked agents in parallel automatically.
             f"[ParallelOrchestrator] Starting review for PR #{context.pr_number}"
         )
 
+        # Clean up any stale worktrees from previous runs
+        self._cleanup_stale_pr_worktrees()
+
+        # Track worktree for cleanup
+        worktree_path: Path | None = None
+
         try:
             self._report_progress(
                 "orchestrating",
@@ -411,12 +532,36 @@ The SDK will run invoked agents in parallel automatically.
             # Build orchestrator prompt
             prompt = self._build_orchestrator_prompt(context)
 
-            # Get project root
-            project_root = (
-                self.project_dir.parent.parent
-                if self.project_dir.name == "backend"
-                else self.project_dir
-            )
+            # Create temporary worktree at PR head commit for isolated review
+            # This ensures agents read from the correct PR state, not the current checkout
+            head_sha = context.head_sha or context.head_branch
+            if not head_sha:
+                logger.warning(
+                    "[ParallelOrchestrator] No head_sha available, using current checkout"
+                )
+                # Fallback to original behavior if no SHA available
+                project_root = (
+                    self.project_dir.parent.parent
+                    if self.project_dir.name == "backend"
+                    else self.project_dir
+                )
+            else:
+                try:
+                    worktree_path = self._create_pr_worktree(
+                        head_sha, context.pr_number
+                    )
+                    project_root = worktree_path
+                except RuntimeError as e:
+                    logger.warning(
+                        f"[ParallelOrchestrator] Worktree creation failed, "
+                        f"using current checkout: {e}"
+                    )
+                    # Fallback to original behavior if worktree creation fails
+                    project_root = (
+                        self.project_dir.parent.parent
+                        if self.project_dir.name == "backend"
+                        else self.project_dir
+                    )
 
             # Use model and thinking level from config (user settings)
             model = self.config.model or "claude-sonnet-4-5-20250929"
@@ -559,6 +704,10 @@ The SDK will run invoked agents in parallel automatically.
                 success=False,
                 error=str(e),
             )
+        finally:
+            # Always cleanup worktree, even on error
+            if worktree_path:
+                self._cleanup_pr_worktree(worktree_path)
 
     def _parse_structured_output(
         self, structured_output: dict[str, Any]
