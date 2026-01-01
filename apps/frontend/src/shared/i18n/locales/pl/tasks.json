@@ -1,0 +1,99 @@
+{
+  "status": {
+    "backlog": "Backlog",
+    "todo": "Do Zrobienia",
+    "in_progress": "W Trakcie",
+    "review": "Przegląd",
+    "complete": "Ukończone",
+    "archived": "Zarchiwizowane"
+  },
+  "actions": {
+    "start": "Start",
+    "stop": "Stop",
+    "recover": "Odzyskaj",
+    "resume": "Wznów",
+    "archive": "Archiwizuj",
+    "delete": "Usuń",
+    "view": "Zobacz Szczegóły"
+  },
+  "labels": {
+    "running": "Działa",
+    "aiReview": "Przegląd AI",
+    "needsReview": "Wymaga Przeglądu",
+    "pending": "Oczekujące",
+    "stuck": "Zablokowane",
+    "incomplete": "Niekompletne",
+    "recovering": "Odzyskiwanie...",
+    "needsRecovery": "Wymaga Odzyskania",
+    "needsResume": "Wymaga Wznowienia"
+  },
+  "reviewReason": {
+    "completed": "Ukończone",
+    "hasErrors": "Ma Błędy",
+    "qaIssues": "Problemy QA",
+    "approvePlan": "Zatwierdź Plan"
+  },
+  "tooltips": {
+    "archiveTask": "Archiwizuj zadanie",
+    "archiveAllDone": "Archiwizuj wszystkie ukończone zadania"
+  },
+  "creation": {
+    "title": "Utwórz Nowe Zadanie",
+    "description": "Opisz co chcesz zbudować",
+    "placeholder": "Opisz swoje zadanie..."
+  },
+  "empty": {
+    "title": "Brak zadań",
+    "description": "Utwórz swoje pierwsze zadanie, aby rozpocząć"
+  },
+  "kanban": {
+    "emptyBacklog": "Brak zaplanowanych zadań",
+    "emptyBacklogHint": "Dodaj zadanie, aby rozpocząć",
+    "emptyInProgress": "Nic nie działa",
+    "emptyInProgressHint": "Uruchom zadanie z Backlogu",
+    "emptyAiReview": "Brak zadań w przeglądzie",
+    "emptyAiReviewHint": "AI przejrzy ukończone zadania",
+    "emptyHumanReview": "Nic do przeglądu",
+    "emptyHumanReviewHint": "Zadania czekające na Twoją akceptację pojawią się tutaj",
+    "emptyDone": "Brak ukończonych zadań",
+    "emptyDoneHint": "Zatwierdzone zadania pojawią się tutaj",
+    "emptyDefault": "Brak zadań",
+    "dropHere": "Upuść tutaj",
+    "showArchived": "Pokaż zarchiwizowane"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Bezczynny",
+      "planning": "Planowanie",
+      "coding": "Kodowanie",
+      "reviewing": "Przegląd",
+      "fixing": "Naprawianie",
+      "complete": "Ukończone",
+      "failed": "Niepowodzenie"
+    },
+    "labels": {
+      "interrupted": "Przerwane",
+      "progress": "Postęp",
+      "entry": "wpis",
+      "entries": "wpisy"
+    },
+    "shortPhases": {
+      "plan": "Plan",
+      "code": "Kod",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Pliki",
+    "tab": "Pliki",
+    "noSpecPath": "Brak dostępnych plików spec",
+    "noFiles": "Nie znaleziono plików",
+    "loading": "Ładowanie plików...",
+    "loadingContent": "Ładowanie zawartości...",
+    "errorLoading": "Nie udało się załadować plików",
+    "errorLoadingContent": "Nie udało się załadować zawartości pliku",
+    "retry": "Spróbuj ponownie",
+    "selectFile": "Wybierz plik, aby zobaczyć jego zawartość",
+    "openInIDE": "Otwórz w IDE"
+  }
+}
