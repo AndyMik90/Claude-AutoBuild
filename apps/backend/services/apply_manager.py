@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -46,6 +46,75 @@ from .morph_client import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Usage Metrics
+# =============================================================================
+
+
+@dataclass
+class ApplyUsageMetrics:
+    """
+    Metrics for tracking Morph vs default tool usage.
+
+    Provides insights into how often Morph is used vs fallback to default tools,
+    helping with debugging and optimization.
+    """
+
+    morph_attempts: int = 0
+    morph_successes: int = 0
+    morph_failures: int = 0
+    default_selections: int = 0
+    fallback_reasons: dict[str, int] = field(default_factory=dict)
+
+    def record_morph_attempt(self, success: bool) -> None:
+        """Record a Morph apply attempt."""
+        self.morph_attempts += 1
+        if success:
+            self.morph_successes += 1
+        else:
+            self.morph_failures += 1
+
+    def record_default_selection(self, reason: str) -> None:
+        """Record selection of default tools with reason."""
+        self.default_selections += 1
+        self.fallback_reasons[reason] = self.fallback_reasons.get(reason, 0) + 1
+
+    @property
+    def morph_success_rate(self) -> float:
+        """Calculate Morph success rate (0-1)."""
+        if self.morph_attempts == 0:
+            return 0.0
+        return self.morph_successes / self.morph_attempts
+
+    @property
+    def morph_usage_rate(self) -> float:
+        """Calculate how often Morph is used vs default (0-1)."""
+        total = self.morph_attempts + self.default_selections
+        if total == 0:
+            return 0.0
+        return self.morph_attempts / total
+
+    def to_dict(self) -> dict[str, Any]:
+        """Export metrics as dictionary for logging/reporting."""
+        return {
+            "morph_attempts": self.morph_attempts,
+            "morph_successes": self.morph_successes,
+            "morph_failures": self.morph_failures,
+            "morph_success_rate": round(self.morph_success_rate, 3),
+            "default_selections": self.default_selections,
+            "morph_usage_rate": round(self.morph_usage_rate, 3),
+            "fallback_reasons": dict(self.fallback_reasons),
+        }
+
+    def reset(self) -> None:
+        """Reset all metrics."""
+        self.morph_attempts = 0
+        self.morph_successes = 0
+        self.morph_failures = 0
+        self.default_selections = 0
+        self.fallback_reasons.clear()
 
 
 # =============================================================================
@@ -218,6 +287,7 @@ class ApplyToolManager:
         self._morph_client: MorphClient | None = None
         self._api_key_validated: bool | None = None
         self._last_selection: ApplyToolSelection | None = None
+        self._metrics: ApplyUsageMetrics = ApplyUsageMetrics()
 
         # Initialize Morph client if enabled
         if self.config.morph_enabled and self.config.has_api_key():
@@ -392,6 +462,9 @@ class ApplyToolManager:
                 morph_available=False,
                 message=f"Using default apply tools ({message})",
             )
+            # Record metrics for default selection
+            if fallback_reason:
+                self._metrics.record_default_selection(fallback_reason.value)
 
         self._last_selection = selection
         logger.debug(f"Apply tool selection: {selection.message}")
@@ -459,13 +532,19 @@ class ApplyToolManager:
                 "Ensure Morph is enabled and API key is configured."
             )
 
-        return self._morph_client.apply(
-            file_path=file_path,
-            original_content=content,
-            instruction=instruction,
-            code_edit=code_edit,
-            language=language,
-        )
+        try:
+            result = self._morph_client.apply(
+                file_path=file_path,
+                original_content=content,
+                instruction=instruction,
+                code_edit=code_edit,
+                language=language,
+            )
+            self._metrics.record_morph_attempt(success=result.success)
+            return result
+        except (MorphAPIError, MorphConnectionError, MorphTimeoutError):
+            self._metrics.record_morph_attempt(success=False)
+            raise
 
     def apply_with_fallback(
         self,
@@ -521,6 +600,24 @@ class ApplyToolManager:
         """
         return self._last_selection
 
+    def get_metrics(self) -> ApplyUsageMetrics:
+        """
+        Get usage metrics for this manager instance.
+
+        Returns:
+            ApplyUsageMetrics with Morph vs default tool usage stats
+        """
+        return self._metrics
+
+    def get_metrics_summary(self) -> dict[str, int | float | dict[str, int]]:
+        """
+        Get metrics as a dictionary for logging/reporting.
+
+        Returns:
+            Dictionary containing usage statistics
+        """
+        return self._metrics.to_dict()
+
     def invalidate_cache(self) -> None:
         """
         Invalidate cached availability checks.
@@ -569,11 +666,16 @@ class ApplyToolManager:
 
     def close(self) -> None:
         """Close the manager and release resources."""
+        # Log metrics summary if there was any activity
+        if self._metrics.morph_attempts > 0 or self._metrics.default_selections > 0:
+            logger.info(f"Apply manager metrics: {self._metrics.to_dict()}")
+
         if self._morph_client:
             self._morph_client.close()
             self._morph_client = None
         self._api_key_validated = None
         self._last_selection = None
+        self._metrics.reset()
 
     def __enter__(self) -> ApplyToolManager:
         """Context manager entry."""

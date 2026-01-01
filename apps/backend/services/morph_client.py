@@ -172,7 +172,13 @@ class ValidationResult:
 
     @classmethod
     def from_response(cls, data: dict[str, Any]) -> ValidationResult:
-        """Create ValidationResult from API response data."""
+        """Create ValidationResult from API response data.
+
+        Note: This method is provided for future compatibility if Morph adds
+        a dedicated validation endpoint. Currently, API key validation is done
+        via a minimal apply() call since Morph doesn't have a /validate endpoint.
+        The validate_api_key() method constructs ValidationResult manually.
+        """
         account = data.get("account", {})
         rate_limit = account.get("rate_limit", {})
         return cls(

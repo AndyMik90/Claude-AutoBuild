@@ -42,9 +42,15 @@ MORPH_APPLY_DESCRIPTION = """Use this tool to make an edit to an existing file u
 
 This will be processed by Morph's fast apply model, which quickly applies the edit at 10,500+ tokens/second with 98% accuracy. You should make it clear what the edit is, while minimizing the unchanged code you write.
 
-When writing the code_edit, specify each edit in sequence using the special comment `// ... existing code ...` to represent unchanged code between edited sections.
+When writing the code_edit, specify each edit in sequence using the special marker `... existing code ...` to represent unchanged code between edited sections. Use the appropriate comment syntax for the file's language:
 
-Example format:
+- JavaScript/TypeScript/Java/C/C++/Go/Rust: `// ... existing code ...`
+- Python/Ruby/Shell/YAML: `# ... existing code ...`
+- HTML/XML: `<!-- ... existing code ... -->`
+- CSS/SCSS: `/* ... existing code ... */`
+- SQL: `-- ... existing code ...`
+
+Example format (JavaScript):
 ```
 // ... existing code ...
 FIRST_EDIT
@@ -53,11 +59,20 @@ SECOND_EDIT
 // ... existing code ...
 ```
 
+Example format (Python):
+```
+# ... existing code ...
+FIRST_EDIT
+# ... existing code ...
+SECOND_EDIT
+# ... existing code ...
+```
+
 Guidelines:
 - Bias towards repeating as few lines of the original file as possible
 - Each edit should contain sufficient context of unchanged lines to resolve ambiguity
-- DO NOT omit code without using `// ... existing code ...` or the model may delete those lines
-- To delete a section, provide context before and after (e.g., `// ... existing code ...\nBlock1\nBlock3\n// ... existing code ...` removes Block2)
+- DO NOT omit code without using the appropriate `... existing code ...` marker or the model may delete those lines
+- To delete a section, provide context before and after (e.g., `# ... existing code ...\nBlock1\nBlock3\n# ... existing code ...` removes Block2)
 - Make all edits to a file in a single call - the model handles multiple distinct edits well
 - Use first person in instructions (e.g., "I will add error handling")
 
