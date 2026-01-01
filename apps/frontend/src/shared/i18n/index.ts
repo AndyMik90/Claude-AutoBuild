@@ -23,6 +23,17 @@ import frDialogs from './locales/fr/dialogs.json';
 import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 
+// Import Polish translation resources
+import plCommon from './locales/pl/common.json';
+import plNavigation from './locales/pl/navigation.json';
+import plSettings from './locales/pl/settings.json';
+import plTasks from './locales/pl/tasks.json';
+import plWelcome from './locales/pl/welcome.json';
+import plOnboarding from './locales/pl/onboarding.json';
+import plDialogs from './locales/pl/dialogs.json';
+import plGitlab from './locales/pl/gitlab.json';
+import plTaskReview from './locales/pl/taskReview.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -47,6 +58,17 @@ export const resources = {
     dialogs: frDialogs,
     gitlab: frGitlab,
     taskReview: frTaskReview
+  },
+  pl: {
+    common: plCommon,
+    navigation: plNavigation,
+    settings: plSettings,
+    tasks: plTasks,
+    welcome: plWelcome,
+    onboarding: plOnboarding,
+    dialogs: plDialogs,
+    gitlab: plGitlab,
+    taskReview: plTaskReview
   }
 } as const;
 
