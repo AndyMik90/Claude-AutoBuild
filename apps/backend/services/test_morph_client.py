@@ -162,7 +162,7 @@ class TestMorphConfig:
         """Load configuration with default values when env vars missing."""
         config = MorphConfig.from_env()
         assert config.api_key == ""
-        assert config.base_url == "https://api.morphlabs.io/v1"
+        assert config.base_url == "https://api.morphllm.com/v1"
         assert config.timeout == 60.0
 
     def test_has_api_key_true(self, test_api_key):
@@ -189,22 +189,29 @@ class TestMorphConfig:
 class TestAPIKeyValidation:
     """Tests for API key validation functionality."""
 
-    def test_validate_api_key_success(self, test_config, mock_validation_response):
-        """Verify successful API key validation."""
+    def test_validate_api_key_success(self, test_config, mock_apply_response):
+        """Verify successful API key validation.
+
+        Note: Morph doesn't have a dedicated /auth/validate endpoint, so
+        validation is performed by attempting a minimal apply operation.
+        """
         with patch.object(MorphClient, "_make_request") as mock_request:
-            mock_request.return_value = mock_validation_response
+            mock_request.return_value = mock_apply_response
 
             client = MorphClient(test_config)
             result = client.validate_api_key()
 
             assert result.valid is True
-            assert result.account_id == "acc_test123"
-            assert result.plan == "pro"
-            assert result.rate_limit_rpm == 100
+            # Morph doesn't provide account info in apply responses
+            assert result.account_id == ""
+            assert result.plan == ""
+            assert result.rate_limit_rpm == 0
             assert "apply" in result.permissions
-            assert "validate" in result.permissions
 
-            mock_request.assert_called_once_with("GET", "/auth/validate")
+            # Validation uses apply() which calls /chat/completions
+            mock_request.assert_called_once_with(
+                "POST", "/chat/completions", json_data=mock_request.call_args[1]["json_data"]
+            )
             client.close()
 
     def test_validate_api_key_invalid_401(self, test_config):
