@@ -1,0 +1,99 @@
+name: AI OpenHands Review
+
+on:
+  pull_request_target:
+    types: [labeled, review_requested]
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ai-openhands-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  openhands-review:
+    name: OpenHands AI Review
+    # Only run if labeled with 'ai-review' or reviewer 'openhands-agent' is requested
+    if: |
+      github.event.label.name == 'ai-review' ||
+      github.event.requested_reviewer.login == 'openhands-agent'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Using Claude Sonnet 4.5 via litellm proxy
+      LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+      LLM_BASE_URL: https://llm-proxy.app.all-hands.dev
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install OpenHands SDK
+        run: |
+          uv pip install --system "openhands-sdk @ git+https://github.com/OpenHands/agent-sdk.git@main#subdirectory=openhands-sdk"
+          uv pip install --system "openhands-tools @ git+https://github.com/OpenHands/agent-sdk.git@main#subdirectory=openhands-tools"
+
+      - name: Run OpenHands PR Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_FULL_NAME: ${{ github.repository }}
+        run: |
+          python -c "
+          import os
+          import json
+          from openhands_sdk import OpenHandsAgent
+
+          # Initialize agent
+          agent = OpenHandsAgent(
+              model=os.environ['LLM_MODEL'],
+              api_key=os.environ['LLM_API_KEY'],
+              base_url=os.environ.get('LLM_BASE_URL')
+          )
+
+          # Review PR
+          pr_number = os.environ['PR_NUMBER']
+          repo = os.environ['REPO_FULL_NAME']
+
+          print(f'Reviewing PR #{pr_number} in {repo}...')
+
+          # Get PR diff and files
+          result = agent.review_pull_request(
+              repo=repo,
+              pr_number=int(pr_number),
+              github_token=os.environ['GITHUB_TOKEN']
+          )
+
+          print(f'Review complete: {json.dumps(result, indent=2)}')
+          "
+
+      - name: Post review summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            // Create summary comment
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: prNumber,
+              body: `🤖 **OpenHands AI Review Completed**\n\nThe AI agent has analyzed this PR. Check the workflow logs for detailed findings.`
+            });

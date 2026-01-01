@@ -1,0 +1,39 @@
+name: AI CodeRabbit Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ai-coderabbit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  coderabbit-review:
+    name: CodeRabbit AI Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Don't run on fork PRs without proper token access
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'pull_request_target'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run CodeRabbit AI Review
+        uses: coderabbitai/ai-pr-reviewer@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODERABBIT_TOKEN: ${{ secrets.CODERABBIT_TOKEN }}
+        with:
+          # Enable auto-fix suggestions
+          auto_review: true
+          # Focus on code quality and best practices
+          review_level: detailed
+          # Comment on changed files only
+          review_scope: changed_files

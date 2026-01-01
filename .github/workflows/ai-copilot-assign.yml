@@ -1,0 +1,65 @@
+name: AI Copilot Auto-Assign
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  assign-to-copilot:
+    name: Assign Issue to Copilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Auto-assign to GitHub Copilot
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const issueNumber = context.issue.number;
+            const { owner, repo } = context.repo;
+
+            console.log(`::group::Assigning issue #${issueNumber} to Copilot`);
+
+            try {
+              // Assign issue to GitHub Copilot for automated processing
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                assignees: ['Copilot']
+              });
+
+              console.log(`✅ Successfully assigned issue #${issueNumber} to Copilot`);
+
+              // Add a comment explaining the auto-assignment
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body: '🤖 This issue has been automatically assigned to **GitHub Copilot** for automated analysis and potential resolution.\n\nCopilot will review the issue and may provide suggested fixes or implementation guidance.'
+              });
+
+              console.log(`✅ Added explanation comment to issue #${issueNumber}`);
+
+            } catch (error) {
+              console.error(`❌ Error assigning issue to Copilot: ${error.message}`);
+
+              // If Copilot user doesn't exist or assignment fails, log but don't fail the workflow
+              if (error.status === 404) {
+                core.warning('Copilot user account not found. Please ensure a user named "Copilot" exists or update the workflow to use a different assignee.');
+              } else {
+                core.warning(`Failed to assign issue: ${error.message}`);
+              }
+            }
+
+            console.log('::endgroup::');
+
+            // Create workflow summary
+            core.summary
+              .addHeading(`Issue #${issueNumber} Auto-Assignment`, 3)
+              .addRaw('Attempted to assign to **GitHub Copilot** for automated processing.')
+              .write();
