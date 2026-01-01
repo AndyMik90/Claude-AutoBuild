@@ -62,6 +62,16 @@ export interface ClaudeRateLimitEvent {
 }
 
 /**
+ * Environment variable configuration for a Claude profile
+ */
+export interface ProfileEnvVariable {
+  /** Name of the environment variable */
+  key: string;
+  /** Value of the environment variable */
+  value: string;
+}
+
+/**
  * A Claude Code subscription profile for multi-account support.
  * Profiles store OAuth tokens for instant switching without browser re-auth.
  */
@@ -95,6 +105,8 @@ export interface ClaudeProfile {
   usage?: ClaudeUsageData;
   /** Recent rate limit events for this profile */
   rateLimitEvents?: ClaudeRateLimitEvent[];
+  /** Environment variables for this profile */
+  envVariables?: ProfileEnvVariable[];
 }
 
 /**
