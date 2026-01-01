@@ -67,7 +67,8 @@ jobs:
           echo "::group::Running Bandit security scan"
           # Run Bandit; exit code 1 means issues found (expected), other codes are errors
           # Flags: -r=recursive, -ll=severity LOW+, -ii=confidence LOW+, -f=format, -o=output
-          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || BANDIT_EXIT=$?
+          # Scan both backend code and tests for security vulnerabilities
+          bandit -r apps/backend/ tests/ -ll -ii -f json -o bandit-report.json || BANDIT_EXIT=$?
           if [ "${BANDIT_EXIT:-0}" -gt 1 ]; then
             echo "::error::Bandit scan failed with exit code $BANDIT_EXIT"
             exit 1
