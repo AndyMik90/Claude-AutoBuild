@@ -295,7 +295,7 @@ See `DEEP_REVIEW_FINDINGS.md` for detailed issue list.
 **Features**:
 - Tab-based UI with 4 panels
 - Responsive grid layout
-- i18n support (⚠️ has violation on lines 17-19)
+- ✅ Full i18n support (fixed in commits 76198b8, 7c49742)
 - Uses shadcn/ui Card and Tabs components
 
 **Implementation**:
@@ -443,9 +443,9 @@ setOutput({
 }
 ```
 
-**Known Issues**:
-- ❌ DebugPage.tsx has hardcoded English text (lines 17-19)
-- ✅ All other components properly use i18n
+**i18n Status**:
+- ✅ DebugPage.tsx properly uses translation keys (fixed)
+- ✅ All debug components properly use i18n
 
 #### Navigation Integration
 Debug page is accessible via:
@@ -835,9 +835,18 @@ JSON:       ~200 lines   (i18n translations)
 
 ## 📋 CHANGELOG
 
-### 2026-01-01 - Comprehensive Review & Documentation
+### 2026-01-01 - Comprehensive Review, Fixes & Documentation
 - ✅ Completed deep review of all GitHub templates and workflows
 - ✅ Created 5 GitHub issues documenting CI/security improvements (#6-#10)
+- ✅ **FIXED all 5 workflow issues:**
+  - Issue #6: Python version alignment (commit 590a6d8)
+  - Issue #7: Cache key stability (commit 87008b0)
+  - Issue #8: Bandit security coverage (commit 47e28ec)
+  - Issue #9: Python/uv caching (commit b68e2ea)
+  - Issue #10: Rust toolchain pinning (commit a50948c)
+- ✅ **FIXED debug page i18n violation:**
+  - DebugPage.tsx translation keys (commit 76198b8)
+  - French translations added (commit 7c49742)
 - ✅ Verified perfect sync with upstream at commit 7210610
 - ✅ Enhanced fork documentation with GitHub Actions findings
 - ✅ Documented 16 workflows review (11 excellent, 5 issues found)
