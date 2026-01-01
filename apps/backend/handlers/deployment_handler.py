@@ -6,17 +6,18 @@ Includes security hardening, retry logic, and race condition prevention.
 """
 
 import asyncio
-import fcntl
+import json
+import logging
 import os
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-import logging
+from urllib.parse import urlparse
 
 from config.deployment import DeploymentConfig, DeploymentMode
-
+from runners.github.file_lock import FileLock, FileLockTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,8 @@ class DeploymentResult:
     """Result of a deployment operation."""
     success: bool
     message: str
-    commit_sha: Optional[str] = None
-    pr_url: Optional[str] = None
+    commit_sha: str | None = None
+    pr_url: str | None = None
 
 
 class DeploymentHandler:
@@ -41,7 +42,7 @@ class DeploymentHandler:
     """
 
     LOCK_FILE = ".auto-claude/.deployment.lock"
-    LOCK_TIMEOUT = 300
+    LOCK_TIMEOUT = 300.0
 
     def __init__(self, config: DeploymentConfig, project_root: Path):
         self.config = config
@@ -80,7 +81,7 @@ class DeploymentHandler:
                     return await self._push_to_origin(task_id)
                 elif self.config.mode == DeploymentMode.AUTO_PR:
                     return await self._create_pull_request(task_id, task_title, branch)
-        except TimeoutError:
+        except FileLockTimeout:
             return DeploymentResult(
                 success=False,
                 message="Could not acquire deployment lock (another push in progress)"
@@ -88,40 +89,11 @@ class DeploymentHandler:
 
         return DeploymentResult(success=False, message="Unknown deployment mode")
 
-    async def _acquire_lock(self):
+    async def _acquire_lock(self) -> FileLock:
         """Acquire file-based lock to prevent concurrent deployments."""
         lock_path = self.project_root / self.LOCK_FILE
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-
-        class AsyncFileLock:
-            def __init__(self, path: Path, timeout: int):
-                self.path = path
-                self.timeout = timeout
-                self.fd = None
-
-            async def __aenter__(self):
-                self.fd = open(self.path, "w")
-                start = asyncio.get_event_loop().time()
-                while True:
-                    try:
-                        fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        return self
-                    except BlockingIOError:
-                        elapsed = asyncio.get_event_loop().time() - start
-                        if elapsed > self.timeout:
-                            self.fd.close()
-                            raise TimeoutError("Could not acquire deployment lock")
-                        await asyncio.sleep(1)
-
-            async def __aexit__(self, *args):
-                if self.fd:
-                    try:
-                        fcntl.flock(self.fd, fcntl.LOCK_UN)
-                    except Exception:
-                        pass
-                    self.fd.close()
-
-        return AsyncFileLock(lock_path, self.LOCK_TIMEOUT)
+        return FileLock(str(lock_path), timeout=self.LOCK_TIMEOUT)
 
     async def _push_to_origin(self, task_id: str) -> DeploymentResult:
         """Push to origin with retry logic and security."""
@@ -136,7 +108,11 @@ class DeploymentHandler:
             logger.info(f"Task {task_id}: Push attempt {attempt}/{self.config.push_retries}")
 
             try:
-                result = await self._execute_push()
+                branch = self.config.target_branch
+                result = await self._git_push_with_auth(
+                    [branch, f"{branch}:{branch}"],
+                    timeout=self.config.push_timeout
+                )
 
                 if result.returncode == 0:
                     commit_sha = await self._get_head_sha()
@@ -174,8 +150,21 @@ class DeploymentHandler:
             message=f"Push failed after {self.config.push_retries} attempts"
         )
 
-    async def _execute_push(self) -> subprocess.CompletedProcess:
-        """Execute git push with secure token handling via GIT_ASKPASS."""
+    async def _git_push_with_auth(
+        self,
+        push_args: list[str],
+        timeout: int | None = None
+    ) -> subprocess.CompletedProcess:
+        """
+        Execute git push with secure token handling via GIT_ASKPASS.
+
+        Args:
+            push_args: Arguments to pass to git push after 'origin'
+            timeout: Optional timeout in seconds
+
+        Returns:
+            CompletedProcess with push result
+        """
         token = await self._get_github_token()
         env = os.environ.copy()
         askpass_path = None
@@ -184,27 +173,30 @@ class DeploymentHandler:
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".sh", delete=False
             ) as f:
-                f.write(f'#!/bin/bash\necho "{token}"')
+                # Escape single quotes in token for safe shell interpolation
+                escaped_token = token.replace("'", "'\\''")
+                f.write(f"#!/bin/bash\necho '{escaped_token}'")
                 askpass_path = f.name
 
             os.chmod(askpass_path, 0o700)
             env["GIT_ASKPASS"] = askpass_path
 
         try:
-            branch = self.config.target_branch
-            return await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: subprocess.run(
-                        ["git", "push", "origin", f"{branch}:{branch}"],
-                        cwd=self.project_root,
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                    )
-                ),
-                timeout=self.config.push_timeout
+            cmd = ["git", "push", "origin"] + push_args
+            loop = asyncio.get_running_loop()
+            coro = loop.run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    cmd,
+                    cwd=self.project_root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
             )
+            if timeout:
+                return await asyncio.wait_for(coro, timeout=timeout)
+            return await coro
         finally:
             if askpass_path and os.path.exists(askpass_path):
                 os.unlink(askpass_path)
@@ -213,7 +205,10 @@ class DeploymentHandler:
         self, task_id: str, task_title: str, branch: str
     ) -> DeploymentResult:
         """Create a pull request instead of direct push."""
-        push_result = await self._execute_branch_push(branch)
+        push_result = await self._git_push_with_auth(
+            ["-u", branch],
+            timeout=self.config.push_timeout
+        )
         if push_result.returncode != 0:
             return DeploymentResult(
                 success=False,
@@ -231,21 +226,32 @@ This PR was automatically created by Auto-Claude after task completion.
 *Auto-generated by Auto-Claude*
 """
 
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: subprocess.run(
-                [
-                    "gh", "pr", "create",
-                    "--title", f"[Auto-Claude] {task_title}",
-                    "--body", pr_body,
-                    "--base", self.config.target_branch,
-                    "--head", branch,
-                ],
-                cwd=self.project_root,
-                capture_output=True,
-                text=True,
+        try:
+            loop = asyncio.get_running_loop()
+            result = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(
+                        [
+                            "gh", "pr", "create",
+                            "--title", f"[Auto-Claude] {task_title}",
+                            "--body", pr_body,
+                            "--base", self.config.target_branch,
+                            "--head", branch,
+                        ],
+                        cwd=self.project_root,
+                        capture_output=True,
+                        text=True,
+                    )
+                ),
+                timeout=self.config.push_timeout
             )
-        )
+        except asyncio.TimeoutError:
+            logger.warning(f"Task {task_id}: PR creation timed out")
+            return DeploymentResult(
+                success=False,
+                message="PR creation timed out"
+            )
 
         if result.returncode == 0:
             pr_url = result.stdout.strip()
@@ -261,39 +267,10 @@ This PR was automatically created by Auto-Claude after task completion.
                 message=f"Failed to create PR: {result.stderr}"
             )
 
-    async def _execute_branch_push(self, branch: str) -> subprocess.CompletedProcess:
-        """Push a feature branch (for PR creation)."""
-        token = await self._get_github_token()
-        env = os.environ.copy()
-        askpass_path = None
-
-        if token:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".sh", delete=False
-            ) as f:
-                f.write(f'#!/bin/bash\necho "{token}"')
-                askpass_path = f.name
-            os.chmod(askpass_path, 0o700)
-            env["GIT_ASKPASS"] = askpass_path
-
-        try:
-            return await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    ["git", "push", "-u", "origin", branch],
-                    cwd=self.project_root,
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                )
-            )
-        finally:
-            if askpass_path and os.path.exists(askpass_path):
-                os.unlink(askpass_path)
-
-    async def _get_github_token(self) -> Optional[str]:
+    async def _get_github_token(self) -> str | None:
         """Get GitHub token from gh CLI or environment."""
-        result = await asyncio.get_event_loop().run_in_executor(
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
             None,
             lambda: subprocess.run(
                 ["gh", "auth", "token"],
@@ -308,7 +285,8 @@ This PR was automatically created by Auto-Claude after task completion.
 
     async def _get_remote_url(self) -> str:
         """Get the remote origin URL."""
-        result = await asyncio.get_event_loop().run_in_executor(
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
             None,
             lambda: subprocess.run(
                 ["git", "remote", "get-url", "origin"],
@@ -320,13 +298,30 @@ This PR was automatically created by Auto-Claude after task completion.
         return result.stdout.strip() if result.returncode == 0 else ""
 
     def _validate_remote(self, url: str) -> bool:
-        """Validate remote URL is a known git host."""
-        known_hosts = ["github.com", "gitlab.com", "bitbucket.org"]
-        return any(host in url for host in known_hosts)
+        """
+        Validate remote URL is a known git host.
+
+        Handles both HTTPS URLs and SSH URLs (git@host:user/repo.git).
+        """
+        known_hosts = {"github.com", "gitlab.com", "bitbucket.org"}
+
+        try:
+            # Handle SSH URLs like git@github.com:user/repo.git
+            if "@" in url and ":" in url and not url.startswith(("http://", "https://")):
+                host = url.split("@")[1].split(":")[0]
+                return host in known_hosts
+
+            # Handle HTTP/HTTPS URLs
+            parsed = urlparse(url)
+            return parsed.hostname in known_hosts
+        except Exception as e:
+            logger.warning(f"Failed to parse remote URL '{url}': {e}")
+            return False
 
     async def _get_head_sha(self) -> str:
         """Get current HEAD commit SHA."""
-        result = await asyncio.get_event_loop().run_in_executor(
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
             None,
             lambda: subprocess.run(
                 ["git", "rev-parse", "HEAD"],
@@ -349,20 +344,33 @@ This PR was automatically created by Auto-Claude after task completion.
             status_file = wt / ".auto-claude-status"
             if status_file.exists():
                 try:
-                    import json
                     with open(status_file) as f:
                         status = json.load(f)
                     if status.get("state") != "complete":
                         return False
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(
+                        f"Could not parse status file {status_file}: {e}. "
+                        "Assuming not complete."
+                    )
+                    return False
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error reading status file {status_file}: {e}. "
+                        "Assuming not complete."
+                    )
+                    return False
         return True
 
     async def _send_notification(self, message: str, success: bool) -> None:
-        """Send desktop notification."""
+        """Send desktop notification (macOS only, gracefully skips on other platforms)."""
+        if sys.platform != "darwin":
+            logger.debug(f"Skipping notification on {sys.platform}: {message}")
+            return
+
         try:
-            icon = "checkmark.circle" if success else "xmark.circle"
-            await asyncio.get_event_loop().run_in_executor(
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
                 None,
                 lambda: subprocess.run(
                     [
@@ -370,7 +378,8 @@ This PR was automatically created by Auto-Claude after task completion.
                         f'display notification "{message}" with title "Auto-Claude"'
                     ],
                     capture_output=True,
+                    check=False,
                 )
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to send notification: {e}")

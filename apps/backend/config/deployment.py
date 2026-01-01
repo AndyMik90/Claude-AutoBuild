@@ -7,12 +7,25 @@ Controls what happens after a task completes and merges to main:
 - auto_pr: Create a pull request instead of direct push
 """
 
+import json
+import logging
+import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
-import os
-import json
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_int(value: str | None, default: int) -> int:
+    """Safely parse int from string, returning default on failure."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid integer value '{value}', using default {default}")
+        return default
 
 
 class DeploymentMode(Enum):
@@ -42,15 +55,16 @@ class DeploymentConfig:
         try:
             mode = DeploymentMode(mode_str)
         except ValueError:
+            logger.warning(f"Invalid DEPLOYMENT_MODE '{mode_str}', using local_only")
             mode = DeploymentMode.LOCAL_ONLY
 
         return cls(
             mode=mode,
             target_branch=os.getenv("DEPLOYMENT_TARGET_BRANCH", "main"),
             wait_for_all_worktrees=os.getenv("DEPLOYMENT_WAIT_ALL", "false").lower() == "true",
-            push_retries=int(os.getenv("DEPLOYMENT_PUSH_RETRIES", "3")),
-            push_retry_delay=int(os.getenv("DEPLOYMENT_PUSH_RETRY_DELAY", "5")),
-            push_timeout=int(os.getenv("DEPLOYMENT_PUSH_TIMEOUT", "300")),
+            push_retries=_safe_int(os.getenv("DEPLOYMENT_PUSH_RETRIES"), 3),
+            push_retry_delay=_safe_int(os.getenv("DEPLOYMENT_PUSH_RETRY_DELAY"), 5),
+            push_timeout=_safe_int(os.getenv("DEPLOYMENT_PUSH_TIMEOUT"), 300),
             notify_on_push=os.getenv("DEPLOYMENT_NOTIFY_ON_PUSH", "true").lower() == "true",
             notify_on_failure=os.getenv("DEPLOYMENT_NOTIFY_ON_FAILURE", "true").lower() == "true",
         )
@@ -76,9 +90,19 @@ class DeploymentConfig:
                 if "target_branch" in deployment:
                     config.target_branch = deployment["target_branch"]
                 if "wait_for_all_worktrees" in deployment:
-                    config.wait_for_all_worktrees = deployment["wait_for_all_worktrees"]
-            except (json.JSONDecodeError, ValueError):
-                pass
+                    config.wait_for_all_worktrees = bool(deployment["wait_for_all_worktrees"])
+                if "push_retries" in deployment:
+                    config.push_retries = int(deployment["push_retries"])
+                if "push_retry_delay" in deployment:
+                    config.push_retry_delay = int(deployment["push_retry_delay"])
+                if "push_timeout" in deployment:
+                    config.push_timeout = int(deployment["push_timeout"])
+                if "notify_on_push" in deployment:
+                    config.notify_on_push = bool(deployment["notify_on_push"])
+                if "notify_on_failure" in deployment:
+                    config.notify_on_failure = bool(deployment["notify_on_failure"])
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse project config at {project_config_path}: {e}")
 
         return config
 
