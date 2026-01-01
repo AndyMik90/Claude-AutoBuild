@@ -19,6 +19,7 @@ interface TaskState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearTasks: () => void;
+  removeTaskBySpecId: (specId: string) => void;
 
   // Selectors
   getSelectedTask: () => Task | undefined;
@@ -162,6 +163,20 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   setError: (error) => set({ error }),
 
   clearTasks: () => set({ tasks: [], selectedTaskId: null }),
+
+  removeTaskBySpecId: (specId) =>
+    set((state) => {
+      const taskToRemove = state.tasks.find((t) => t.specId === specId);
+      if (!taskToRemove) return state;
+
+      // Clear selection if this task was selected
+      const newSelectedTaskId = state.selectedTaskId === taskToRemove.id ? null : state.selectedTaskId;
+
+      return {
+        tasks: state.tasks.filter((t) => t.specId !== specId),
+        selectedTaskId: newSelectedTaskId
+      };
+    }),
 
   getSelectedTask: () => {
     const state = get();
@@ -532,6 +547,81 @@ export function isDraftEmpty(draft: TaskDraft | null): boolean {
 export function getTaskByGitHubIssue(issueNumber: number): Task | undefined {
   const store = useTaskStore.getState();
   return store.tasks.find(t => t.metadata?.githubIssueNumber === issueNumber);
+}
+
+// ============================================
+// Spec Directory Event Handlers
+// ============================================
+
+/**
+ * Handle a new spec being added to the specs directory
+ * Fetches only the new task and adds it to the store (no full reload)
+ */
+export async function handleSpecAdded(projectId: string, specId: string): Promise<void> {
+  console.log(`[TaskStore] Handling spec-added event: ${specId} in project ${projectId}`);
+
+  const store = useTaskStore.getState();
+
+  try {
+    // Fetch only the new task (surgical update)
+    const result = await window.electronAPI.getTask(projectId, specId);
+    if (result.success && result.data) {
+      // Check if task already exists (avoid duplicates)
+      const existing = store.tasks.find(t => t.specId === specId);
+      if (!existing) {
+        store.addTask(result.data);
+        console.log(`[TaskStore] Added new task: ${result.data.title}`);
+      } else {
+        // Task already exists, update it instead
+        store.updateTask(specId, result.data);
+        console.log(`[TaskStore] Updated existing task: ${result.data.title}`);
+      }
+    }
+  } catch (error) {
+    console.error('[TaskStore] Error fetching new task:', error);
+    // Fallback to full reload if surgical update fails
+    await loadTasks(projectId);
+  }
+}
+
+/**
+ * Handle a spec being removed from the specs directory
+ * Removes the task from the store
+ */
+export function handleSpecRemoved(projectId: string, specId: string): void {
+  console.log(`[TaskStore] Handling spec-removed event: ${specId} in project ${projectId}`);
+
+  const store = useTaskStore.getState();
+  store.removeTaskBySpecId(specId);
+}
+
+/**
+ * Handle a spec being updated (implementation_plan.json or task_metadata.json changed)
+ * Fetches only the updated task and updates it in the store (surgical update)
+ */
+export async function handleSpecUpdated(projectId: string, specId: string): Promise<void> {
+  console.log(`[TaskStore] Handling spec-updated event: ${specId} in project ${projectId}`);
+
+  const store = useTaskStore.getState();
+
+  // Check if this task exists in our store
+  const existingTask = store.tasks.find(t => t.specId === specId);
+  if (!existingTask) {
+    console.log(`[TaskStore] Task not found in store, skipping update: ${specId}`);
+    return;
+  }
+
+  try {
+    // Fetch only the updated task (surgical update)
+    const result = await window.electronAPI.getTask(projectId, specId);
+    if (result.success && result.data) {
+      // Update the task in the store
+      store.updateTask(specId, result.data);
+      console.log(`[TaskStore] Updated task: ${result.data.title}`);
+    }
+  } catch (error) {
+    console.error('[TaskStore] Error fetching updated task:', error);
+  }
 }
 
 // ============================================

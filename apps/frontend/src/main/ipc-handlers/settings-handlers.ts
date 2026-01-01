@@ -3,7 +3,7 @@ import { existsSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES } from '../../shared/constants';
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, getSpecsDir } from '../../shared/constants';
 import type {
   AppSettings,
   IPCResult
@@ -14,6 +14,8 @@ import { getEffectiveVersion } from '../auto-claude-updater';
 import { setUpdateChannel } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo } from '../cli-tool-manager';
+import { fileWatcher } from '../file-watcher';
+import { projectStore } from '../project-store';
 
 const settingsPath = getSettingsPath();
 
@@ -197,6 +199,33 @@ export function registerSettingsHandlers(
         if (settings.betaUpdates !== undefined) {
           const channel = settings.betaUpdates ? 'beta' : 'latest';
           setUpdateChannel(channel);
+        }
+
+        // Handle filesystem watcher setting change
+        if (settings.watchFilesystemForExternalChanges !== undefined) {
+          const wasEnabled = currentSettings.watchFilesystemForExternalChanges ?? false;
+          const isNowEnabled = settings.watchFilesystemForExternalChanges;
+
+          if (!wasEnabled && isNowEnabled) {
+            // Setting was turned ON - start watching all active projects
+            console.log('[SETTINGS_SAVE] Filesystem watching enabled, starting watchers for all projects');
+            const projects = projectStore.getProjects();
+            for (const project of projects) {
+              if (!fileWatcher.isWatchingSpecs(project.id)) {
+                const specsBaseDir = getSpecsDir(project.autoBuildPath);
+                const specsPath = path.join(project.path, specsBaseDir);
+                fileWatcher.watchSpecsDirectory(project.id, specsPath).catch((err) => {
+                  console.error(`[SETTINGS_SAVE] Failed to start specs watcher for project ${project.id}:`, err);
+                });
+              }
+            }
+          } else if (wasEnabled && !isNowEnabled) {
+            // Setting was turned OFF - stop all watchers
+            console.log('[SETTINGS_SAVE] Filesystem watching disabled, stopping all watchers');
+            fileWatcher.unwatchAllSpecsDirectories().catch((err) => {
+              console.error('[SETTINGS_SAVE] Failed to stop specs watchers:', err);
+            });
+          }
         }
 
         return { success: true };

@@ -481,6 +481,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
             />
           </div>
         ))}
+
       </div>
     </SettingsSection>
   );

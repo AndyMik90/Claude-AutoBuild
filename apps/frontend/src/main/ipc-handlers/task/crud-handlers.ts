@@ -1,12 +1,23 @@
 import { ipcMain } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, DEFAULT_APP_SETTINGS } from '../../../shared/constants';
+import type { IPCResult, Task, TaskMetadata, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
 import { findTaskAndProject } from './shared';
+import { fileWatcher } from '../../file-watcher';
+import { readSettingsFile } from '../../settings-utils';
+
+/**
+ * Check if filesystem watching is enabled in settings
+ */
+function isFilesystemWatchingEnabled(): boolean {
+  const savedSettings = readSettingsFile() as Partial<AppSettings> | undefined;
+  const settings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+  return settings.watchFilesystemForExternalChanges ?? false;
+}
 
 /**
  * Register task CRUD (Create, Read, Update, Delete) handlers
@@ -21,7 +32,46 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       console.warn('[IPC] TASK_LIST called with projectId:', projectId);
       const tasks = projectStore.getTasks(projectId);
       console.warn('[IPC] TASK_LIST returning', tasks.length, 'tasks');
+
+      // Start watching the specs directory for this project (if enabled in settings)
+      const project = projectStore.getProject(projectId);
+      if (project && isFilesystemWatchingEnabled()) {
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specsPath = path.join(project.path, specsBaseDir);
+
+        // Only start watching if not already watching
+        if (!fileWatcher.isWatchingSpecs(projectId)) {
+          console.log(`[IPC] TASK_LIST starting specs watcher for project ${projectId}`);
+          fileWatcher.watchSpecsDirectory(projectId, specsPath).catch((err) => {
+            console.error(`[IPC] Failed to start specs watcher for project ${projectId}:`, err);
+          });
+        }
+      }
+
       return { success: true, data: tasks };
+    }
+  );
+
+  /**
+   * Get a single task by specId
+   * Used for surgical updates when a spec file changes
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_GET,
+    async (_, projectId: string, specId: string): Promise<IPCResult<Task | null>> => {
+      console.log(`[IPC] TASK_GET called with projectId: ${projectId}, specId: ${specId}`);
+
+      // Get all tasks and filter to find the one we want
+      const tasks = projectStore.getTasks(projectId);
+      const task = tasks.find(t => t.specId === specId);
+
+      if (task) {
+        console.log(`[IPC] TASK_GET found task: ${task.title}`);
+        return { success: true, data: task };
+      }
+
+      console.log(`[IPC] TASK_GET task not found for specId: ${specId}`);
+      return { success: true, data: null };
     }
   );
 

@@ -265,6 +265,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Filesystem watcher for external changes (CLI, etc.)
+  watchFilesystemForExternalChanges?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
