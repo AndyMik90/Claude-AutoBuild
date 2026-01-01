@@ -105,7 +105,9 @@ export function escapePowerShellCommand(str: string): string {
     .replace(/\(/g, '`(')     // Escape opening parentheses
     .replace(/\)/g, '`)')     // Escape closing parentheses
     .replace(/;/g, '`;')      // Escape semicolons (statement separator)
-    .replace(/&/g, '`&');     // Escape ampersands (call operator)
+    .replace(/&/g, '`&')      // Escape ampersands (call operator)
+    .replace(/\r/g, '`r')     // Escape carriage returns
+    .replace(/\n/g, '`n');    // Escape newlines
 }
 
 /**

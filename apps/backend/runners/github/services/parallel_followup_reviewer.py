@@ -150,6 +150,7 @@ class ParallelFollowupReviewer:
         resolution_prompt = self._load_prompt("pr_followup_resolution_agent.md")
         newcode_prompt = self._load_prompt("pr_followup_newcode_agent.md")
         comment_prompt = self._load_prompt("pr_followup_comment_agent.md")
+        validator_prompt = self._load_prompt("pr_finding_validator.md")
 
         return {
             "resolution-verifier": AgentDefinition(
@@ -183,6 +184,20 @@ class ParallelFollowupReviewer:
                     "Invoke when: There are comments or formal reviews since last review."
                 ),
                 prompt=comment_prompt or "You analyze comments and feedback.",
+                tools=["Read", "Grep", "Glob"],
+                model="inherit",
+            ),
+            "finding-validator": AgentDefinition(
+                description=(
+                    "Finding re-investigation specialist. Re-investigates unresolved findings "
+                    "to validate they are actually real issues, not false positives. "
+                    "Actively reads the code at the finding location with fresh eyes. "
+                    "Can confirm findings as valid OR dismiss them as false positives. "
+                    "CRITICAL: Invoke for ALL unresolved findings after resolution-verifier runs. "
+                    "Invoke when: There are findings marked as unresolved that need validation."
+                ),
+                prompt=validator_prompt
+                or "You validate whether unresolved findings are real issues.",
                 tools=["Read", "Grep", "Glob"],
                 model="inherit",
             ),
@@ -444,6 +459,11 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(resolved_ids)} resolved, {len(unresolved_ids)} unresolved"
             )
 
+            # Extract validation counts
+            dismissed_count = len(result_data.get("dismissed_false_positive_ids", []))
+            confirmed_count = result_data.get("confirmed_valid_count", 0)
+            needs_human_count = result_data.get("needs_human_review_count", 0)
+
             # Generate summary
             summary = self._generate_summary(
                 verdict=verdict,
@@ -452,6 +472,9 @@ The SDK will run invoked agents in parallel automatically.
                 unresolved_count=len(unresolved_ids),
                 new_count=len(new_finding_ids),
                 agents_invoked=final_agents,
+                dismissed_false_positive_count=dismissed_count,
+                confirmed_valid_count=confirmed_count,
+                needs_human_review_count=needs_human_count,
             )
 
             # Map verdict to overall_status
@@ -545,10 +568,34 @@ The SDK will run invoked agents in parallel automatically.
             new_finding_ids = []
 
             # Process resolution verifications
+            # First, build a map of finding validations (from finding-validator agent)
+            validation_map = {}
+            dismissed_ids = []
+            for fv in response.finding_validations:
+                validation_map[fv.finding_id] = fv
+                if fv.validation_status == "dismissed_false_positive":
+                    dismissed_ids.append(fv.finding_id)
+                    print(
+                        f"[ParallelFollowup] Finding {fv.finding_id} DISMISSED as false positive: {fv.explanation[:100]}",
+                        flush=True,
+                    )
+
             for rv in response.resolution_verifications:
                 if rv.status == "resolved":
                     resolved_ids.append(rv.finding_id)
                 elif rv.status in ("unresolved", "partially_resolved", "cant_verify"):
+                    # Check if finding was validated and dismissed as false positive
+                    if rv.finding_id in dismissed_ids:
+                        # Finding-validator determined this was a false positive - skip it
+                        print(
+                            f"[ParallelFollowup] Skipping {rv.finding_id} - dismissed as false positive by finding-validator",
+                            flush=True,
+                        )
+                        resolved_ids.append(
+                            rv.finding_id
+                        )  # Count as resolved (false positive)
+                        continue
+
                     # Include "cant_verify" as unresolved - if we can't verify, assume not fixed
                     unresolved_ids.append(rv.finding_id)
                     # Add unresolved as a finding
@@ -563,6 +610,19 @@ The SDK will run invoked agents in parallel automatically.
                             None,
                         )
                         if original:
+                            # Check if we have validation evidence
+                            validation = validation_map.get(rv.finding_id)
+                            validation_status = None
+                            validation_evidence = None
+                            validation_confidence = None
+                            validation_explanation = None
+
+                            if validation:
+                                validation_status = validation.validation_status
+                                validation_evidence = validation.code_evidence
+                                validation_confidence = validation.confidence
+                                validation_explanation = validation.explanation
+
                             findings.append(
                                 PRReviewFinding(
                                     id=rv.finding_id,
@@ -574,6 +634,10 @@ The SDK will run invoked agents in parallel automatically.
                                     line=original.line,
                                     suggested_fix=original.suggested_fix,
                                     fixable=original.fixable,
+                                    validation_status=validation_status,
+                                    validation_evidence=validation_evidence,
+                                    validation_confidence=validation_confidence,
+                                    validation_explanation=validation_explanation,
                                 )
                             )
 
@@ -626,6 +690,18 @@ The SDK will run invoked agents in parallel automatically.
             }
             verdict = verdict_map.get(response.verdict, MergeVerdict.NEEDS_REVISION)
 
+            # Count validation results
+            confirmed_valid_count = sum(
+                1
+                for fv in response.finding_validations
+                if fv.validation_status == "confirmed_valid"
+            )
+            needs_human_count = sum(
+                1
+                for fv in response.finding_validations
+                if fv.validation_status == "needs_human_review"
+            )
+
             # Log findings summary for verification
             print(
                 f"[ParallelFollowup] Parsed {len(findings)} findings, "
@@ -633,11 +709,22 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(new_finding_ids)} new",
                 flush=True,
             )
+            if dismissed_ids:
+                print(
+                    f"[ParallelFollowup] Validation: {len(dismissed_ids)} findings dismissed as false positives, "
+                    f"{confirmed_valid_count} confirmed valid, {needs_human_count} need human review",
+                    flush=True,
+                )
             if findings:
                 print("[ParallelFollowup] Findings summary:", flush=True)
                 for i, f in enumerate(findings, 1):
+                    validation_note = ""
+                    if f.validation_status == "confirmed_valid":
+                        validation_note = " [VALIDATED]"
+                    elif f.validation_status == "needs_human_review":
+                        validation_note = " [NEEDS HUMAN REVIEW]"
                     print(
-                        f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line})",
+                        f"  [{f.severity.value.upper()}] {i}. {f.title} ({f.file}:{f.line}){validation_note}",
                         flush=True,
                     )
 
@@ -646,6 +733,9 @@ The SDK will run invoked agents in parallel automatically.
                 "resolved_ids": resolved_ids,
                 "unresolved_ids": unresolved_ids,
                 "new_finding_ids": new_finding_ids,
+                "dismissed_false_positive_ids": dismissed_ids,
+                "confirmed_valid_count": confirmed_valid_count,
+                "needs_human_review_count": needs_human_count,
                 "verdict": verdict,
                 "verdict_reasoning": response.verdict_reasoning,
                 "agents_invoked": agents_from_output,
@@ -719,6 +809,9 @@ The SDK will run invoked agents in parallel automatically.
         unresolved_count: int,
         new_count: int,
         agents_invoked: list[str],
+        dismissed_false_positive_count: int = 0,
+        confirmed_valid_count: int = 0,
+        needs_human_review_count: int = 0,
     ) -> str:
         """Generate a human-readable summary of the follow-up review."""
         status_emoji = {
@@ -733,13 +826,27 @@ The SDK will run invoked agents in parallel automatically.
             ", ".join(agents_invoked) if agents_invoked else "orchestrator only"
         )
 
+        # Build validation section if there are validation results
+        validation_section = ""
+        if (
+            dismissed_false_positive_count > 0
+            or confirmed_valid_count > 0
+            or needs_human_review_count > 0
+        ):
+            validation_section = f"""
+### Finding Validation
+- 🔍 **Dismissed as False Positives**: {dismissed_false_positive_count} findings were re-investigated and found to be incorrect
+- ✓ **Confirmed Valid**: {confirmed_valid_count} findings verified as genuine issues
+- 👤 **Needs Human Review**: {needs_human_review_count} findings require manual verification
+"""
+
         summary = f"""## {emoji} Follow-up Review: {verdict.value.replace("_", " ").title()}
 
 ### Resolution Status
 - ✅ **Resolved**: {resolved_count} previous findings addressed
 - ❌ **Unresolved**: {unresolved_count} previous findings remain
 - 🆕 **New Issues**: {new_count} new findings in recent changes
-
+{validation_section}
 ### Verdict
 {verdict_reasoning}
 
@@ -747,6 +854,6 @@ The SDK will run invoked agents in parallel automatically.
 Agents invoked: {agents_str}
 
 ---
-*This is an AI-generated follow-up review using parallel specialist analysis.*
+*This is an AI-generated follow-up review using parallel specialist analysis with finding validation.*
 """
         return summary

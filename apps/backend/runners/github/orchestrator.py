@@ -389,9 +389,17 @@ class GitHubOrchestrator:
                 pr_number=pr_number,
             )
 
-            # Generate verdict
+            # Check CI status
+            ci_status = await self.gh_client.get_pr_checks(pr_number)
+            print(
+                f"[DEBUG orchestrator] CI status: {ci_status.get('passing', 0)} passing, "
+                f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending",
+                flush=True,
+            )
+
+            # Generate verdict (now includes CI status)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                findings, structural_issues, ai_triages
+                findings, structural_issues, ai_triages, ci_status
             )
             print(
                 f"[DEBUG orchestrator] Verdict: {verdict.value} - {verdict_reasoning}",
@@ -661,6 +669,37 @@ class GitHubOrchestrator:
                 )
                 result = await reviewer.review_followup(followup_context)
 
+            # Check CI status and override verdict if failing
+            ci_status = await self.gh_client.get_pr_checks(pr_number)
+            failed_checks = ci_status.get("failed_checks", [])
+            if failed_checks:
+                print(
+                    f"[Followup] CI checks failing: {failed_checks}",
+                    flush=True,
+                )
+                # Override verdict if CI is failing
+                if result.verdict in (
+                    MergeVerdict.READY_TO_MERGE,
+                    MergeVerdict.MERGE_WITH_CHANGES,
+                ):
+                    result.verdict = MergeVerdict.BLOCKED
+                    result.verdict_reasoning = (
+                        f"Blocked: {len(failed_checks)} CI check(s) failing. "
+                        "Fix CI before merge."
+                    )
+                    result.overall_status = "request_changes"
+                # Add CI failures to blockers
+                for check_name in failed_checks:
+                    if f"CI Failed: {check_name}" not in result.blockers:
+                        result.blockers.append(f"CI Failed: {check_name}")
+                # Update summary to reflect CI status
+                ci_warning = (
+                    f"\n\n**⚠️ CI Status:** {len(failed_checks)} check(s) failing: "
+                    f"{', '.join(failed_checks)}"
+                )
+                if ci_warning not in result.summary:
+                    result.summary += ci_warning
+
             # Save result
             await result.save(self.github_dir)
 
@@ -690,13 +729,16 @@ class GitHubOrchestrator:
         findings: list[PRReviewFinding],
         structural_issues: list[StructuralIssue],
         ai_triages: list[AICommentTriage],
+        ci_status: dict | None = None,
     ) -> tuple[MergeVerdict, str, list[str]]:
         """
-        Generate merge verdict based on all findings.
+        Generate merge verdict based on all findings and CI status.
 
-        NEW: Strengthened to block on verification failures and redundancy issues.
+        NEW: Strengthened to block on verification failures, redundancy issues,
+        and failing CI checks.
         """
         blockers = []
+        ci_status = ci_status or {}
 
         # Count by severity
         critical = [f for f in findings if f.severity == ReviewSeverity.CRITICAL]
@@ -733,6 +775,11 @@ class GitHubOrchestrator:
         ai_critical = [t for t in ai_triages if t.verdict == AICommentVerdict.CRITICAL]
 
         # Build blockers list with NEW categories first
+        # CI failures block merging
+        failed_checks = ci_status.get("failed_checks", [])
+        for check_name in failed_checks:
+            blockers.append(f"CI Failed: {check_name}")
+
         # NEW: Verification failures block merging
         for f in verification_failures:
             note = f" - {f.verification_note}" if f.verification_note else ""
@@ -765,10 +812,17 @@ class GitHubOrchestrator:
             )
             blockers.append(f"{t.tool_name}: {summary}")
 
-        # Determine verdict with NEW verification and redundancy checks
+        # Determine verdict with CI, verification and redundancy checks
         if blockers:
+            # CI failures are always blockers
+            if failed_checks:
+                verdict = MergeVerdict.BLOCKED
+                reasoning = (
+                    f"Blocked: {len(failed_checks)} CI check(s) failing. "
+                    "Fix CI before merge."
+                )
             # NEW: Prioritize verification failures
-            if verification_failures:
+            elif verification_failures:
                 verdict = MergeVerdict.BLOCKED
                 reasoning = (
                     f"Blocked: Cannot verify {len(verification_failures)} claim(s) in PR. "

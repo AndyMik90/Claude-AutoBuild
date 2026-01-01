@@ -48,6 +48,7 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
   const prReviews = usePRReviewStore((state) => state.prReviews);
   const getPRReviewState = usePRReviewStore((state) => state.getPRReviewState);
   const getActivePRReviews = usePRReviewStore((state) => state.getActivePRReviews);
+  const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
 
   // Get review state for the selected PR from the store
   const selectedPRReviewState = useMemo(() => {
@@ -137,7 +138,8 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
                 prsWithReviews.map(async ({ prNumber }) => {
                   try {
                     const newCommitsResult = await window.electronAPI.github.checkNewCommits(projectId, prNumber);
-                    usePRReviewStore.getState().setNewCommitsCheck(projectId, prNumber, newCommitsResult);
+                    // Use the action from the hook subscription to ensure proper React re-renders
+                    setNewCommitsCheckAction(projectId, prNumber, newCommitsResult);
                   } catch (err) {
                     // Silently fail for individual PR checks - don't block the list
                     console.warn(`Failed to check new commits for PR #${prNumber}:`, err);
@@ -158,7 +160,7 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, getPRReviewState]);
+  }, [projectId, getPRReviewState, setNewCommitsCheckAction]);
 
   useEffect(() => {
     fetchPRs();
@@ -212,13 +214,14 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
     try {
       const result = await window.electronAPI.github.checkNewCommits(projectId, prNumber);
       // Cache the result in the store so the list view can use it
-      usePRReviewStore.getState().setNewCommitsCheck(projectId, prNumber, result);
+      // Use the action from the hook subscription to ensure proper React re-renders
+      setNewCommitsCheckAction(projectId, prNumber, result);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check for new commits');
       return { hasNewCommits: false, newCommitCount: 0 };
     }
-  }, [projectId]);
+  }, [projectId, setNewCommitsCheckAction]);
 
   const cancelReview = useCallback(async (prNumber: number): Promise<boolean> => {
     if (!projectId) return false;

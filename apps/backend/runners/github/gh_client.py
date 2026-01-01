@@ -810,3 +810,65 @@ class GHClient:
             # Last commit is the HEAD
             return commits[-1].get("oid")
         return None
+
+    async def get_pr_checks(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get CI check runs status for a PR.
+
+        Uses `gh pr checks` to get the status of all check runs.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with:
+            - checks: List of check runs with name, status, conclusion
+            - passing: Number of passing checks
+            - failing: Number of failing checks
+            - pending: Number of pending checks
+            - failed_checks: List of failed check names
+        """
+        try:
+            args = ["pr", "checks", str(pr_number), "--json", "name,state,conclusion"]
+            args = self._add_repo_flag(args)
+
+            result = await self.run(args, timeout=30.0)
+            checks = json.loads(result.stdout) if result.stdout.strip() else []
+
+            passing = 0
+            failing = 0
+            pending = 0
+            failed_checks = []
+
+            for check in checks:
+                state = check.get("state", "").upper()
+                conclusion = check.get("conclusion", "").upper()
+                name = check.get("name", "Unknown")
+
+                if state == "COMPLETED":
+                    if conclusion in ("SUCCESS", "NEUTRAL", "SKIPPED"):
+                        passing += 1
+                    elif conclusion in ("FAILURE", "TIMED_OUT", "CANCELLED"):
+                        failing += 1
+                        failed_checks.append(name)
+                else:
+                    # PENDING, QUEUED, IN_PROGRESS, etc.
+                    pending += 1
+
+            return {
+                "checks": checks,
+                "passing": passing,
+                "failing": failing,
+                "pending": pending,
+                "failed_checks": failed_checks,
+            }
+        except (GHCommandError, GHTimeoutError, json.JSONDecodeError) as e:
+            logger.warning(f"Failed to get PR checks for #{pr_number}: {e}")
+            return {
+                "checks": [],
+                "passing": 0,
+                "failing": 0,
+                "pending": 0,
+                "failed_checks": [],
+                "error": str(e),
+            }

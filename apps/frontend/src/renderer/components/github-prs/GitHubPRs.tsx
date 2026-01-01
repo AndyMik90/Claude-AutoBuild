@@ -9,6 +9,7 @@ import { ResizablePanels } from '../ui/resizable-panels';
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
+  isActive?: boolean;
 }
 
 function NotConnectedState({
@@ -50,7 +51,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
+export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) {
   const { t } = useTranslation('common');
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -232,6 +233,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               reviewProgress={reviewProgress}
               isReviewing={isReviewing}
               initialNewCommitsCheck={storedNewCommitsCheck}
+              isActive={isActive}
               onRunReview={handleRunReview}
               onRunFollowupReview={handleRunFollowupReview}
               onCheckNewCommits={handleCheckNewCommits}

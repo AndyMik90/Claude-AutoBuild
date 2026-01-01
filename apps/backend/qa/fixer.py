@@ -9,6 +9,7 @@ from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
+from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
     LogPhase,
@@ -128,34 +129,35 @@ async def run_qa_fixer_session(
                             )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
-                        tool_input = None
+                        tool_input_display = None
                         tool_count += 1
 
-                        if hasattr(block, "input") and block.input:
-                            inp = block.input
-                            if isinstance(inp, dict):
-                                if "file_path" in inp:
-                                    fp = inp["file_path"]
-                                    if len(fp) > 50:
-                                        fp = "..." + fp[-47:]
-                                    tool_input = fp
-                                elif "command" in inp:
-                                    cmd = inp["command"]
-                                    if len(cmd) > 50:
-                                        cmd = cmd[:47] + "..."
-                                    tool_input = cmd
+                        # Safely extract tool input (handles None, non-dict, etc.)
+                        inp = get_safe_tool_input(block)
+
+                        if inp:
+                            if "file_path" in inp:
+                                fp = inp["file_path"]
+                                if len(fp) > 50:
+                                    fp = "..." + fp[-47:]
+                                tool_input_display = fp
+                            elif "command" in inp:
+                                cmd = inp["command"]
+                                if len(cmd) > 50:
+                                    cmd = cmd[:47] + "..."
+                                tool_input_display = cmd
 
                         debug(
                             "qa_fixer",
                             f"Tool call #{tool_count}: {tool_name}",
-                            tool_input=tool_input,
+                            tool_input=tool_input_display,
                         )
 
                         # Log tool start (handles printing)
                         if task_logger:
                             task_logger.tool_start(
                                 tool_name,
-                                tool_input,
+                                tool_input_display,
                                 LogPhase.VALIDATION,
                                 print_to_console=True,
                             )

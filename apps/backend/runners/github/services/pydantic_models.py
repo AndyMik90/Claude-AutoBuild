@@ -591,6 +591,15 @@ class ParallelFollowupResponse(BaseModel):
         description="AI-verified resolution status for each previous finding",
     )
 
+    # Finding validations (from finding-validator agent)
+    finding_validations: list[FindingValidationResult] = Field(
+        default_factory=list,
+        description=(
+            "Re-investigation results for unresolved findings. "
+            "Validates whether findings are real issues or false positives."
+        ),
+    )
+
     # New findings (from new-code-reviewer agent)
     new_findings: list[ParallelFollowupFinding] = Field(
         default_factory=list,
@@ -618,3 +627,77 @@ class ParallelFollowupResponse(BaseModel):
         "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
     ] = Field(description="Overall merge verdict")
     verdict_reasoning: str = Field(description="Explanation for the verdict")
+
+
+# =============================================================================
+# Finding Validation Response (Re-investigation of unresolved findings)
+# =============================================================================
+
+
+class FindingValidationResult(BaseModel):
+    """
+    Result of re-investigating an unresolved finding to validate it's actually real.
+
+    The finding-validator agent uses this to report whether a previous finding
+    is a genuine issue or a false positive that should be dismissed.
+    """
+
+    finding_id: str = Field(description="ID of the finding being validated")
+    validation_status: Literal[
+        "confirmed_valid", "dismissed_false_positive", "needs_human_review"
+    ] = Field(
+        description=(
+            "Validation result: "
+            "confirmed_valid = issue IS real, keep as unresolved; "
+            "dismissed_false_positive = original finding was incorrect, remove; "
+            "needs_human_review = cannot determine with confidence"
+        )
+    )
+    code_evidence: str = Field(
+        min_length=1,
+        description=(
+            "REQUIRED: Exact code snippet examined from the file. "
+            "Must be actual code, not a description."
+        ),
+    )
+    line_range: tuple[int, int] = Field(
+        description="Start and end line numbers of the examined code"
+    )
+    explanation: str = Field(
+        min_length=20,
+        description=(
+            "Detailed explanation of why the finding is valid/invalid. "
+            "Must reference specific code and explain the reasoning."
+        ),
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Confidence in the validation result (0.0-1.0). "
+            "Must be >= 0.80 to dismiss as false positive, >= 0.70 to confirm valid."
+        ),
+    )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, v: int | float) -> float:
+        """Normalize confidence to 0.0-1.0 range (accepts 0-100 or 0.0-1.0)."""
+        if v > 1:
+            return v / 100.0
+        return float(v)
+
+
+class FindingValidationResponse(BaseModel):
+    """Complete response from the finding-validator agent."""
+
+    validations: list[FindingValidationResult] = Field(
+        default_factory=list,
+        description="Validation results for each finding investigated",
+    )
+    summary: str = Field(
+        description=(
+            "Brief summary of validation results: how many confirmed, "
+            "how many dismissed, how many need human review"
+        )
+    )

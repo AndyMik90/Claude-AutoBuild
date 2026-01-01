@@ -25,14 +25,41 @@ repos:
               # Sync to apps/backend/__init__.py
               sed -i.bak "s/__version__ = \"[^\"]*\"/__version__ = \"$VERSION\"/" apps/backend/__init__.py && rm -f apps/backend/__init__.py.bak
 
-              # Sync to README.md - shields.io version badge (text and URL)
+              # Sync to README.md - section-aware updates (stable vs beta)
               ESCAPED_VERSION=$(echo "$VERSION" | sed 's/-/--/g')
-              sed -i.bak -e "s/version-[0-9]*\.[0-9]*\.[0-9]*\(-\{1,2\}[a-z]*\.[0-9]*\)*-blue/version-$ESCAPED_VERSION-blue/g" -e "s|releases/tag/v[0-9.a-z-]*)|releases/tag/v$VERSION)|g" README.md
 
-              # Sync to README.md - download links with correct filenames and URLs
-              for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb"; do
-                sed -i.bak "s|Auto-Claude-[0-9.a-z-]*-${SUFFIX}](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-${SUFFIX})|Auto-Claude-${VERSION}-${SUFFIX}](https://github.com/AndyMik90/Auto-Claude/releases/download/v${VERSION}/Auto-Claude-${VERSION}-${SUFFIX})|g" README.md
-              done
+              # Detect if this is a prerelease (contains - after base version)
+              if echo "$VERSION" | grep -q '-'; then
+                # PRERELEASE: Update only beta sections
+                echo "  Detected PRERELEASE version: $VERSION"
+
+                # Update beta version badge (orange)
+                sed -i.bak "s/beta-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-orange/beta-$ESCAPED_VERSION-orange/g" README.md
+
+                # Update beta version badge link
+                sed -i.bak '/<!-- BETA_VERSION_BADGE -->/,/<!-- BETA_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+                # Update beta download links (within BETA_DOWNLOADS section only)
+                for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb" "linux-x86_64.flatpak"; do
+                  sed -i.bak '/<!-- BETA_DOWNLOADS -->/,/<!-- BETA_DOWNLOADS_END -->/{s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"')|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g}' README.md
+                done
+              else
+                # STABLE: Update stable sections and top badge
+                echo "  Detected STABLE version: $VERSION"
+
+                # Update top version badge (blue)
+                sed -i.bak '/<!-- TOP_VERSION_BADGE -->/,/<!-- TOP_VERSION_BADGE_END -->/s/version-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-blue/version-'"$ESCAPED_VERSION"'-blue/g' README.md
+                sed -i.bak '/<!-- TOP_VERSION_BADGE -->/,/<!-- TOP_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+                # Update stable version badge (blue)
+                sed -i.bak '/<!-- STABLE_VERSION_BADGE -->/,/<!-- STABLE_VERSION_BADGE_END -->/s/stable-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-blue/stable-'"$ESCAPED_VERSION"'-blue/g' README.md
+                sed -i.bak '/<!-- STABLE_VERSION_BADGE -->/,/<!-- STABLE_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+                # Update stable download links (within STABLE_DOWNLOADS section only)
+                for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb"; do
+                  sed -i.bak '/<!-- STABLE_DOWNLOADS -->/,/<!-- STABLE_DOWNLOADS_END -->/{s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"')|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g}' README.md
+                done
+              fi
               rm -f README.md.bak
 
               # Stage changes

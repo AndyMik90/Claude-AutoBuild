@@ -36,14 +36,44 @@ if git diff --cached --name-only | grep -q "^package.json$"; then
       echo "  Updated apps/backend/__init__.py to $VERSION"
     fi
 
-    # Sync to README.md
+    # Sync to README.md - section-aware updates (stable vs beta)
     if [ -f "README.md" ]; then
       # Escape hyphens for shields.io badge format (shields.io uses -- for literal hyphens)
       ESCAPED_VERSION=$(echo "$VERSION" | sed 's/-/--/g')
-      # Update version badge - match both stable (X.Y.Z) and prerelease (X.Y.Z-prerelease.N or X.Y.Z--prerelease.N)
-      sed -i.bak "s/version-[0-9]*\.[0-9]*\.[0-9]*\(-\{1,2\}[a-z]*\.[0-9]*\)*-blue/version-$ESCAPED_VERSION-blue/g" README.md
-      # Update download links - match both stable and prerelease versions
-      sed -i.bak "s/Auto-Claude-[0-9]*\.[0-9]*\.[0-9]*\(-[a-z]*\.[0-9]*\)*/Auto-Claude-$VERSION/g" README.md
+
+      # Detect if this is a prerelease (contains - after base version, e.g., 2.7.2-beta.10)
+      if echo "$VERSION" | grep -q '-'; then
+        # PRERELEASE: Update only beta sections
+        echo "  Detected PRERELEASE version: $VERSION"
+
+        # Update beta version badge (orange)
+        sed -i.bak "s/beta-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-orange/beta-$ESCAPED_VERSION-orange/g" README.md
+
+        # Update beta version badge link (within BETA_VERSION_BADGE section)
+        sed -i.bak '/<!-- BETA_VERSION_BADGE -->/,/<!-- BETA_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+        # Update beta download links (within BETA_DOWNLOADS section only)
+        for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb" "linux-x86_64.flatpak"; do
+          sed -i.bak '/<!-- BETA_DOWNLOADS -->/,/<!-- BETA_DOWNLOADS_END -->/{s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"')|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g}' README.md
+        done
+      else
+        # STABLE: Update stable sections and top badge
+        echo "  Detected STABLE version: $VERSION"
+
+        # Update top version badge (blue) - within TOP_VERSION_BADGE section
+        sed -i.bak '/<!-- TOP_VERSION_BADGE -->/,/<!-- TOP_VERSION_BADGE_END -->/s/version-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-blue/version-'"$ESCAPED_VERSION"'-blue/g' README.md
+        sed -i.bak '/<!-- TOP_VERSION_BADGE -->/,/<!-- TOP_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+        # Update stable version badge (blue) - within STABLE_VERSION_BADGE section
+        sed -i.bak '/<!-- STABLE_VERSION_BADGE -->/,/<!-- STABLE_VERSION_BADGE_END -->/s/stable-[0-9]*\.[0-9]*\.[0-9]*\(--[a-z]*\.[0-9]*\)*-blue/stable-'"$ESCAPED_VERSION"'-blue/g' README.md
+        sed -i.bak '/<!-- STABLE_VERSION_BADGE -->/,/<!-- STABLE_VERSION_BADGE_END -->/s|releases/tag/v[0-9.a-z-]*)|releases/tag/v'"$VERSION"')|g' README.md
+
+        # Update stable download links (within STABLE_DOWNLOADS section only)
+        for SUFFIX in "win32-x64.exe" "darwin-arm64.dmg" "darwin-x64.dmg" "linux-x86_64.AppImage" "linux-amd64.deb"; do
+          sed -i.bak '/<!-- STABLE_DOWNLOADS -->/,/<!-- STABLE_DOWNLOADS_END -->/{s|Auto-Claude-[0-9.a-z-]*-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v[^/]*/Auto-Claude-[^)]*-'"$SUFFIX"')|Auto-Claude-'"$VERSION"'-'"$SUFFIX"'](https://github.com/AndyMik90/Auto-Claude/releases/download/v'"$VERSION"'/Auto-Claude-'"$VERSION"'-'"$SUFFIX"')|g}' README.md
+        done
+      fi
+
       rm -f README.md.bak
       git add README.md
       echo "  Updated README.md to $VERSION"
@@ -72,20 +102,25 @@ if git diff --cached --name-only | grep -q "^apps/backend/.*\.py$"; then
   fi
 
   if [ -n "$RUFF" ]; then
-    # Run ruff linting (auto-fix)
-    echo "Running ruff lint..."
-    $RUFF check apps/backend/ --fix
-    if [ $? -ne 0 ]; then
-      echo "Ruff lint failed. Please fix Python linting errors before committing."
-      exit 1
+    # Get only staged Python files in apps/backend (process only what's being committed)
+    STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep "^apps/backend/.*\.py$" || true)
+
+    if [ -n "$STAGED_PY_FILES" ]; then
+      # Run ruff linting (auto-fix) only on staged files
+      echo "Running ruff lint on staged files..."
+      echo "$STAGED_PY_FILES" | xargs $RUFF check --fix
+      if [ $? -ne 0 ]; then
+        echo "Ruff lint failed. Please fix Python linting errors before committing."
+        exit 1
+      fi
+
+      # Run ruff format (auto-fix) only on staged files
+      echo "Running ruff format on staged files..."
+      echo "$STAGED_PY_FILES" | xargs $RUFF format
+
+      # Re-stage only the files that were originally staged (in case ruff modified them)
+      echo "$STAGED_PY_FILES" | xargs git add
     fi
-
-    # Run ruff format (auto-fix)
-    echo "Running ruff format..."
-    $RUFF format apps/backend/
-
-    # Stage any files that were auto-fixed by ruff (POSIX-compliant)
-    find apps/backend -name "*.py" -type f -exec git add {} + 2>/dev/null || true
   else
     echo "Warning: ruff not found, skipping Python linting. Install with: uv pip install ruff"
   fi

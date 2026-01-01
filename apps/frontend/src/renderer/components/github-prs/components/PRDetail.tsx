@@ -38,6 +38,7 @@ interface PRDetailProps {
   reviewProgress: PRReviewProgress | null;
   isReviewing: boolean;
   initialNewCommitsCheck?: NewCommitsCheck | null;
+  isActive?: boolean;
   onRunReview: () => void;
   onRunFollowupReview: () => void;
   onCheckNewCommits: () => Promise<NewCommitsCheck>;
@@ -67,6 +68,7 @@ export function PRDetail({
   reviewProgress,
   isReviewing,
   initialNewCommitsCheck,
+  isActive = false,
   onRunReview,
   onRunFollowupReview,
   onCheckNewCommits,

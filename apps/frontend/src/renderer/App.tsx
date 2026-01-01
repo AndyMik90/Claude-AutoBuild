@@ -755,13 +755,17 @@ export function App() {
                     onNavigateToTask={handleGoToTask}
                   />
                 )}
-                {activeView === 'github-prs' && (activeProjectId || selectedProjectId) && (
-                  <GitHubPRs
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('github');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                  />
+                {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
+                    <GitHubPRs
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('github');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                      isActive={activeView === 'github-prs'}
+                    />
+                  </div>
                 )}
                 {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
                   <GitLabMergeRequests

@@ -11,6 +11,7 @@ from pathlib import Path
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from prompts_pkg import get_qa_reviewer_prompt
+from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
     LogPhase,
@@ -195,32 +196,33 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                             )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
-                        tool_input = None
+                        tool_input_display = None
                         tool_count += 1
 
+                        # Safely extract tool input (handles None, non-dict, etc.)
+                        inp = get_safe_tool_input(block)
+
                         # Extract tool input for display
-                        if hasattr(block, "input") and block.input:
-                            inp = block.input
-                            if isinstance(inp, dict):
-                                if "file_path" in inp:
-                                    fp = inp["file_path"]
-                                    if len(fp) > 50:
-                                        fp = "..." + fp[-47:]
-                                    tool_input = fp
-                                elif "pattern" in inp:
-                                    tool_input = f"pattern: {inp['pattern']}"
+                        if inp:
+                            if "file_path" in inp:
+                                fp = inp["file_path"]
+                                if len(fp) > 50:
+                                    fp = "..." + fp[-47:]
+                                tool_input_display = fp
+                            elif "pattern" in inp:
+                                tool_input_display = f"pattern: {inp['pattern']}"
 
                         debug(
                             "qa_reviewer",
                             f"Tool call #{tool_count}: {tool_name}",
-                            tool_input=tool_input,
+                            tool_input=tool_input_display,
                         )
 
                         # Log tool start (handles printing)
                         if task_logger:
                             task_logger.tool_start(
                                 tool_name,
-                                tool_input,
+                                tool_input_display,
                                 LogPhase.VALIDATION,
                                 print_to_console=True,
                             )

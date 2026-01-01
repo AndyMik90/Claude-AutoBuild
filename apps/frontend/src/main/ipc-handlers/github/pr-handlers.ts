@@ -405,17 +405,21 @@ function savePRLogs(project: Project, logs: PRLogs): void {
 
 /**
  * Add a log entry to PR logs
+ * Returns true if the phase status changed (for triggering immediate save)
  */
-function addLogEntry(logs: PRLogs, entry: PRLogEntry): void {
+function addLogEntry(logs: PRLogs, entry: PRLogEntry): boolean {
   const phase = logs.phases[entry.phase];
+  let statusChanged = false;
 
-  // Update phase status if needed
+  // Start the phase if it was pending
   if (phase.status === 'pending') {
     phase.status = 'active';
     phase.started_at = entry.timestamp;
+    statusChanged = true;
   }
 
   phase.entries.push(entry);
+  return statusChanged;
 }
 
 /**
@@ -442,14 +446,20 @@ class PRLogCollector {
 
     const phase = getPhaseFromSource(parsed.source);
 
-    // Track phase transitions - mark previous phases as complete
+    // Track phase transitions - mark previous phases as complete (only if they were active)
     if (phase !== this.currentPhase) {
       // When moving to a new phase, mark the previous phase as complete
+      // Only mark complete if the phase was actually active (received log entries)
+      // This prevents marking phases as "completed" if they were skipped
       if (this.currentPhase === 'context' && (phase === 'analysis' || phase === 'synthesis')) {
-        this.markPhaseComplete('context', true);
+        if (this.logs.phases.context.status === 'active') {
+          this.markPhaseComplete('context', true);
+        }
       }
       if (this.currentPhase === 'analysis' && phase === 'synthesis') {
-        this.markPhaseComplete('analysis', true);
+        if (this.logs.phases.analysis.status === 'active') {
+          this.markPhaseComplete('analysis', true);
+        }
       }
       this.currentPhase = phase;
     }
@@ -462,11 +472,12 @@ class PRLogCollector {
       source: parsed.source,
     };
 
-    addLogEntry(this.logs, entry);
+    const phaseStatusChanged = addLogEntry(this.logs, entry);
     this.entryCount++;
 
-    // Save periodically for real-time streaming (every N entries)
-    if (this.entryCount % this.saveInterval === 0) {
+    // Save immediately if phase status changed (so frontend sees phase activation)
+    // OR save periodically for real-time streaming (every N entries)
+    if (phaseStatusChanged || this.entryCount % this.saveInterval === 0) {
       this.save();
     }
   }
@@ -484,20 +495,15 @@ class PRLogCollector {
   }
 
   finalize(success: boolean): void {
-    // Mark all phases as completed based on success status
-    // For phases with entries: mark based on success
-    // For phases without entries (pending): mark as completed if previous phases completed
-    let previousCompleted = true;
+    // Mark active phases as completed based on success status
+    // Pending phases with no entries should stay pending (they never ran)
     for (const phase of ['context', 'analysis', 'synthesis'] as PRLogPhase[]) {
       const phaseLog = this.logs.phases[phase];
       if (phaseLog.status === 'active') {
         this.markPhaseComplete(phase, success);
-        previousCompleted = success;
-      } else if (phaseLog.status === 'pending' && previousCompleted && success) {
-        // If review succeeded, mark pending phases as completed (they just had no logs)
-        phaseLog.status = 'completed';
-        phaseLog.completed_at = new Date().toISOString();
       }
+      // Note: Pending phases stay pending - they never received any log entries
+      // This is correct behavior for follow-up reviews where some phases may be skipped
     }
     this.save();
   }

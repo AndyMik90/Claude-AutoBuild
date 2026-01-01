@@ -167,6 +167,17 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isStreaming = 
         </Badge>
       );
     }
+
+    // Defensive check: During streaming, if a phase shows "completed" but has no entries,
+    // treat it as pending (this catches edge cases where phases are marked complete incorrectly)
+    if (isStreaming && status === 'completed' && !hasEntries) {
+      return (
+        <Badge variant="secondary" className="text-xs text-muted-foreground">
+          Pending
+        </Badge>
+      );
+    }
+
     switch (status) {
       case 'completed':
         return (

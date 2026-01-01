@@ -26,10 +26,11 @@ async def bash_security_hook(
     Pre-tool-use hook that validates bash commands using dynamic allowlist.
 
     This is the main security enforcement point. It:
-    1. Extracts command names from the command string
-    2. Checks each command against the project's security profile
-    3. Runs additional validation for sensitive commands
-    4. Blocks disallowed commands with clear error messages
+    1. Validates tool_input structure (must be dict with 'command' key)
+    2. Extracts command names from the command string
+    3. Checks each command against the project's security profile
+    4. Runs additional validation for sensitive commands
+    5. Blocks disallowed commands with clear error messages
 
     Args:
         input_data: Dict containing tool_name and tool_input
@@ -42,7 +43,25 @@ async def bash_security_hook(
     if input_data.get("tool_name") != "Bash":
         return {}
 
-    command = input_data.get("tool_input", {}).get("command", "")
+    # Validate tool_input structure before accessing
+    tool_input = input_data.get("tool_input")
+
+    # Check if tool_input is None (malformed tool call)
+    if tool_input is None:
+        return {
+            "decision": "block",
+            "reason": "Bash tool_input is None - malformed tool call from SDK",
+        }
+
+    # Check if tool_input is a dict
+    if not isinstance(tool_input, dict):
+        return {
+            "decision": "block",
+            "reason": f"Bash tool_input must be dict, got {type(tool_input).__name__}",
+        }
+
+    # Now safe to access command
+    command = tool_input.get("command", "")
     if not command:
         return {}
 
