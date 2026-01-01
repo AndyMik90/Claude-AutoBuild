@@ -1,0 +1,152 @@
+name: 🔍 Issue Status Checker (15-minute monitoring)
+
+# Monitors all open issues and ensures automation pipeline progression
+# Runs every 15 minutes to check for stuck issues and trigger escalations
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:
+
+env:
+  STALE_HOURS: 4
+  MAX_ISSUES_PER_RUN: 50
+
+jobs:
+  analyze-issues:
+    name: 📊 Analyze Issue States
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    outputs:
+      unplanned: ${{ steps.categorize.outputs.unplanned }}
+      planned_no_copilot: ${{ steps.categorize.outputs.planned_no_copilot }}
+      copilot_stale: ${{ steps.categorize.outputs.copilot_stale }}
+    steps:
+      - name: Categorize issues
+        id: categorize
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: process.env.MAX_ISSUES_PER_RUN
+            });
+            
+            const now = Date.now();
+            const STALE_MS = parseInt(process.env.STALE_HOURS) * 60 * 60 * 1000;
+            
+            const categorized = {
+              unplanned: [],
+              planned_no_copilot: [],
+              copilot_stale: []
+            };
+            
+            for (const issue of issues) {
+              const labels = issue.labels.map(l => l.name);
+              const elapsed = now - new Date(issue.updated_at).getTime();
+              
+              // Skip automation-disabled issues
+              if (labels.includes('skip-automation')) continue;
+              
+              // Unplanned: no needs-plan or plan-ready label
+              if (!labels.includes('needs-plan') && !labels.includes('plan-ready') && !labels.includes('copilot-assigned')) {
+                categorized.unplanned.push(issue.number);
+              }
+              // Planned but no Copilot
+              else if (labels.includes('plan-ready') && !labels.includes('copilot-assigned')) {
+                categorized.planned_no_copilot.push(issue.number);
+              }
+              // Copilot assigned but stale (no activity in STALE_HOURS)
+              else if (labels.includes('copilot-assigned') && elapsed > STALE_MS && !labels.includes('escalated-to-openhands')) {
+                categorized.copilot_stale.push(issue.number);
+              }
+            }
+            
+            core.setOutput('unplanned', JSON.stringify(categorized.unplanned));
+            core.setOutput('planned_no_copilot', JSON.stringify(categorized.planned_no_copilot));
+            core.setOutput('copilot_stale', JSON.stringify(categorized.copilot_stale));
+            
+            console.log(`Categorized: ${JSON.stringify(categorized)}`);
+
+  process-unplanned:
+    name: 📋 Request Plans (Unplanned Issues)
+    needs: analyze-issues
+    if: needs.analyze-issues.outputs.unplanned != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = JSON.parse('${{ needs.analyze-issues.outputs.unplanned }}');
+            
+            for (const issueNum of issues) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNum,
+                labels: ['needs-plan']
+              });
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNum,
+                body: '@coderabbitai Please create a 5-part implementation plan'
+              });
+            }
+
+  assign-copilot:
+    name: 🚀 Assign Copilot (Plan Ready)
+    needs: analyze-issues
+    if: needs.analyze-issues.outputs.planned_no_copilot != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Batch assign
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUES='${{ needs.analyze-issues.outputs.planned_no_copilot }}'
+          for ISSUE_NUM in $(echo $ISSUES | jq -r '.[]'); do
+            echo "Assigning Copilot to issue #$ISSUE_NUM..."
+            gh api repos/${{ github.repository }}/issues/$ISSUE_NUM/assignees \
+              -X POST -f 'assignees[]=copilot-swe-agent' || true
+            
+            gh api repos/${{ github.repository }}/issues/$ISSUE_NUM/labels \
+              -X POST -f 'labels[]=copilot-assigned' -f 'labels[]=in-progress' || true
+          done
+
+  escalate-stale:
+    name: 🆘 Escalate Stale (Copilot Timeout)
+    needs: analyze-issues
+    if: needs.analyze-issues.outputs.copilot_stale != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = JSON.parse('${{ needs.analyze-issues.outputs.copilot_stale }}');
+            
+            for (const issueNum of issues) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNum,
+                labels: ['fix-me', 'escalated-to-openhands']
+              });
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNum,
+                body: `## 🆘 Escalation: Copilot Timeout\n\nNo activity for ${{ env.STALE_HOURS }} hours.\n\n@openhands-agent Please take over implementation.`
+              });
+            }
