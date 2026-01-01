@@ -1,0 +1,138 @@
+{
+  "wizard": {
+    "title": "Kreator Konfiguracji",
+    "description": "Skonfiguruj swoje środowisko Auto Claude w kilku prostych krokach",
+    "helpText": "Ten kreator pomoże Ci skonfigurować środowisko w zaledwie kilku krokach. Możesz skonfigurować token OAuth Claude, włączyć funkcje pamięci i utworzyć swoje pierwsze zadanie."
+  },
+  "welcome": {
+    "title": "Witaj w Auto Claude",
+    "subtitle": "Buduj oprogramowanie autonomicznie dzięki agentom opartym na AI",
+    "getStarted": "Rozpocznij",
+    "skip": "Pomiń Konfigurację",
+    "features": {
+      "aiPowered": {
+        "title": "Rozwój Oparty na AI",
+        "description": "Generuj kod i buduj funkcje używając agentów Claude Code"
+      },
+      "specDriven": {
+        "title": "Workflow Oparty na Specyfikacjach",
+        "description": "Definiuj zadania z jasnymi specyfikacjami i pozwól Auto Claude obsłużyć implementację"
+      },
+      "memory": {
+        "title": "Pamięć i Kontekst",
+        "description": "Trwała pamięć między sesjami dzięki Graphiti"
+      },
+      "parallel": {
+        "title": "Równoległe Wykonywanie",
+        "description": "Uruchamiaj wielu agentów równolegle dla szybszych cykli rozwoju"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Uwierzytelnienie Claude",
+    "description": "Połącz swoje konto Claude, aby włączyć funkcje AI",
+    "keychainTitle": "Bezpieczne Przechowywanie",
+    "keychainDescription": "Twoje tokeny są szyfrowane przy użyciu pęku kluczy systemowych. Możesz zobaczyć monit o hasło z macOS — kliknij \"Zawsze Zezwalaj\", aby nie widzieć go ponownie."
+  },
+  "memory": {
+    "title": "Pamięć",
+    "description": "Pamięć Auto Claude pomaga zapamiętywać kontekst między sesjami kodowania"
+  },
+  "completion": {
+    "title": "Wszystko Gotowe!",
+    "subtitle": "Auto Claude jest gotowy, aby pomóc Ci budować niesamowite oprogramowanie",
+    "setupComplete": "Konfiguracja Zakończona",
+    "setupCompleteDescription": "Twoje środowisko jest skonfigurowane i gotowe. Możesz od razu rozpocząć tworzenie zadań lub eksplorować aplikację we własnym tempie.",
+    "whatsNext": "Co Dalej?",
+    "createTask": {
+      "title": "Utwórz Zadanie",
+      "description": "Zacznij od utworzenia swojego pierwszego zadania, aby zobaczyć Auto Claude w akcji.",
+      "action": "Otwórz Kreator Zadań"
+    },
+    "customizeSettings": {
+      "title": "Dostosuj Ustawienia",
+      "description": "Dostrajaj swoje preferencje, konfiguruj integracje lub uruchom ponownie ten kreator.",
+      "action": "Otwórz Ustawienia"
+    },
+    "exploreDocs": {
+      "title": "Przejrzyj Dokumentację",
+      "description": "Dowiedz się więcej o zaawansowanych funkcjach, najlepszych praktykach i rozwiązywaniu problemów."
+    },
+    "finish": "Zakończ i Rozpocznij Budowanie",
+    "rerunHint": "Możesz zawsze ponownie uruchomić ten kreator z Ustawienia → Aplikacja"
+  },
+  "steps": {
+    "welcome": "Witamy",
+    "auth": "Uwierzytelnienie",
+    "claudeCode": "CLI",
+    "devtools": "Narzędzia Dev",
+    "memory": "Pamięć",
+    "done": "Gotowe"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Zainstaluj lub zaktualizuj Claude Code CLI, aby włączyć funkcje oparte na AI",
+    "detecting": "Sprawdzanie instalacji Claude Code...",
+    "info": {
+      "title": "Czym jest Claude Code?",
+      "description": "Claude Code to oficjalne CLI Anthropic, które zasila funkcje AI Auto Claude. Zapewnia bezpieczne uwierzytelnienie i bezpośredni dostęp do modeli Claude."
+    },
+    "status": {
+      "installed": "Zainstalowany",
+      "outdated": "Dostępna Aktualizacja",
+      "notFound": "Nie Zainstalowany"
+    },
+    "version": {
+      "current": "Aktualna Wersja",
+      "latest": "Najnowsza Wersja"
+    },
+    "install": {
+      "button": "Zainstaluj Claude Code",
+      "updating": "Zaktualizuj Claude Code",
+      "inProgress": "Instalowanie...",
+      "success": "Komenda instalacji wysłana do terminala. Proszę dokończyć instalację tam.",
+      "instructions": "Instalator otworzy się w Twoim terminalu. Postępuj zgodnie z instrukcjami, aby dokończyć instalację."
+    },
+    "learnMore": "Dowiedz się więcej o Claude Code"
+  },
+  "devtools": {
+    "title": "Narzędzia Deweloperskie",
+    "description": "Wybierz preferowane IDE i terminal do pracy z worktrees Auto Claude",
+    "detecting": "Wykrywanie zainstalowanych narzędzi...",
+    "detectAgain": "Wykryj Ponownie",
+    "whyConfigure": "Dlaczego to konfigurować?",
+    "whyConfigureDescription": "Gdy Auto Claude buduje funkcje w izolowanych worktrees, możesz otworzyć je bezpośrednio w preferowanym IDE lub terminalu, aby testować i przeglądać zmiany.",
+    "ide": {
+      "label": "Preferowane IDE",
+      "description": "Auto Claude otworzy worktrees w tym edytorze",
+      "customPath": "Niestandardowa Ścieżka IDE"
+    },
+    "terminal": {
+      "label": "Preferowany Terminal",
+      "description": "Auto Claude otworzy sesje terminala tutaj",
+      "customPath": "Niestandardowa Ścieżka Terminala"
+    },
+    "detectedSummary": "Wykryte w Twoim systemie:",
+    "noToolsDetected": "Nie wykryto dodatkowych narzędzi (będzie używany VS Code i terminal systemowy)",
+    "custom": "Niestandardowe...",
+    "saveAndContinue": "Zapisz i Kontynuuj"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama nie zainstalowany",
+      "description": "Ollama zapewnia darmowe, lokalne modele osadzania do wyszukiwania semantycznego. Zainstaluj go jednym kliknięciem, aby włączyć tę funkcję.",
+      "installSuccess": "Instalacja rozpoczęta w Twoim terminalu. Dokończ instalację tam, a następnie kliknij Spróbuj ponownie.",
+      "installButton": "Zainstaluj Ollama",
+      "installing": "Instalowanie...",
+      "retry": "Spróbuj ponownie",
+      "learnMore": "Dowiedz się więcej",
+      "fallbackNote": "Pamięć będzie nadal działać z wyszukiwaniem słów kluczowych nawet bez Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama nie działa",
+      "description": "Ollama jest zainstalowany, ale nie działa. Uruchom Ollama, aby używać lokalnych modeli osadzania.",
+      "retry": "Spróbuj ponownie",
+      "fallbackNote": "Pamięć będzie nadal działać z wyszukiwaniem słów kluczowych nawet bez osadzania."
+    }
+  }
+}

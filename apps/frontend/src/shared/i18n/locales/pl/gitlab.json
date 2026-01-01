@@ -1,0 +1,208 @@
+{
+  "title": "GitLab Issues",
+  "states": {
+    "opened": "Otwarte",
+    "closed": "Zamknięte"
+  },
+  "complexity": {
+    "simple": "Proste",
+    "standard": "Standardowe",
+    "complex": "Złożone"
+  },
+  "header": {
+    "open": "otwarte",
+    "searchPlaceholder": "Szukaj issues..."
+  },
+  "filters": {
+    "opened": "Otwarte",
+    "closed": "Zamknięte",
+    "all": "Wszystkie"
+  },
+  "empty": {
+    "noMatch": "Żadne issues nie pasują do wyszukiwania",
+    "selectIssue": "Wybierz issue, aby zobaczyć szczegóły"
+  },
+  "notConnected": {
+    "title": "GitLab Nie Podłączony",
+    "description": "Skonfiguruj swój token GitLab i projekt w ustawieniach projektu, aby synchronizować issues.",
+    "openSettings": "Otwórz Ustawienia"
+  },
+  "detail": {
+    "notes": "notatki",
+    "viewTask": "Zobacz Zadanie",
+    "createTask": "Utwórz Zadanie",
+    "taskLinked": "Zadanie Powiązane",
+    "taskId": "ID Zadania",
+    "description": "Opis",
+    "noDescription": "Brak opisu.",
+    "assignees": "Przypisani",
+    "milestone": "Milestone"
+  },
+  "investigation": {
+    "title": "Utwórz Zadanie z Issue",
+    "issuePrefix": "Issue",
+    "description": "Utwórz zadanie z tego GitLab issue. Zadanie zostanie dodane do Twojej tablicy Kanban w kolumnie Backlog.",
+    "selectNotes": "Wybierz Notatki do Uwzględnienia",
+    "deselectAll": "Odznacz Wszystko",
+    "selectAll": "Wybierz Wszystko",
+    "willInclude": "Zadanie będzie zawierać:",
+    "includeTitle": "Tytuł i opis issue",
+    "includeLink": "Link z powrotem do GitLab issue",
+    "includeLabels": "Etykiety i metadane z issue",
+    "noNotes": "Brak notatek (ten issue nie ma notatek)",
+    "failedToLoadNotes": "Nie udało się załadować notatek",
+    "taskCreated": "Zadanie utworzone! Zobacz je na swojej tablicy Kanban.",
+    "creating": "Tworzenie...",
+    "cancel": "Anuluj",
+    "done": "Gotowe",
+    "close": "Zamknij"
+  },
+  "settings": {
+    "enableIssues": "Włącz GitLab Issues",
+    "enableIssuesDescription": "Synchronizuj issues z GitLab i twórz zadania automatycznie",
+    "instance": "Instancja GitLab",
+    "instanceDescription": "Użyj https://gitlab.com lub URL Twojej self-hosted instancji",
+    "connectedVia": "Połączony przez GitLab CLI",
+    "authenticatedAs": "Uwierzytelniony jako",
+    "useDifferentToken": "Użyj Innego Tokena",
+    "authentication": "Uwierzytelnienie GitLab",
+    "useManualToken": "Użyj Tokena Ręcznego",
+    "authenticating": "Uwierzytelnianie z glab CLI...",
+    "browserWindow": "Powinna otworzyć się okno przeglądarki, aby się zalogować.",
+    "personalAccessToken": "Osobisty Token Dostępu",
+    "useOAuth": "Użyj OAuth Zamiast",
+    "tokenScope": "Utwórz token z",
+    "scopeApi": "api",
+    "scopeFrom": "zakresem z",
+    "gitlabSettings": "Ustawienia GitLab",
+    "project": "Projekt",
+    "enterManually": "Wprowadź Ręcznie",
+    "loadingProjects": "Ładowanie projektów...",
+    "selectProject": "Wybierz projekt...",
+    "searchProjects": "Szukaj projektów...",
+    "noMatchingProjects": "Brak pasujących projektów",
+    "noProjectsFound": "Nie znaleziono projektów",
+    "selected": "Wybrany",
+    "projectFormat": "Format:",
+    "projectFormatExample": "(np. gitlab-org/gitlab)",
+    "connectionStatus": "Status Połączenia",
+    "checking": "Sprawdzanie...",
+    "connectedTo": "Połączony z",
+    "notConnected": "Nie połączony",
+    "issuesAvailable": "Dostępne Issues",
+    "issuesAvailableDescription": "Uzyskaj dostęp do GitLab Issues z paska bocznego, aby przeglądać, badać i tworzyć zadania z issues.",
+    "defaultBranch": "Domyślna Gałąź",
+    "defaultBranchDescription": "Bazowa gałąź do tworzenia worktrees zadań",
+    "loadingBranches": "Ładowanie gałęzi...",
+    "autoDetect": "Auto-wykryj (main/master)",
+    "searchBranches": "Szukaj gałęzi...",
+    "noMatchingBranches": "Brak pasujących gałęzi",
+    "noBranchesFound": "Nie znaleziono gałęzi",
+    "branchFromNote": "Wszystkie nowe zadania będą rozgałęziane z",
+    "autoSyncOnLoad": "Auto-Sync przy Ładowaniu",
+    "autoSyncDescription": "Automatycznie pobieraj issues gdy projekt się ładuje",
+    "cli": {
+      "required": "Wymagany GitLab CLI",
+      "notInstalled": "GitLab CLI (glab) jest wymagany do uwierzytelnienia OAuth. Zainstaluj go, aby używać opcji 'Użyj OAuth'.",
+      "installButton": "Zainstaluj glab",
+      "installing": "Instalowanie...",
+      "installSuccess": "Instalacja rozpoczęta w Twoim terminalu. Dokończ ją i kliknij Odśwież.",
+      "refresh": "Odśwież",
+      "learnMore": "Dowiedz się więcej",
+      "installed": "GitLab CLI zainstalowany:"
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab Merge Requesty",
+    "newMR": "Nowy Merge Request",
+    "selectMR": "Wybierz merge request, aby zobaczyć szczegóły",
+    "states": {
+      "opened": "Otwarte",
+      "closed": "Zamknięte",
+      "merged": "Scalone",
+      "locked": "Zablokowane"
+    },
+    "filters": {
+      "opened": "Otwarte",
+      "closed": "Zamknięte",
+      "merged": "Scalone",
+      "all": "Wszystkie"
+    }
+  },
+  "mrReview": {
+    "runReview": "Uruchom Przegląd AI",
+    "reviewing": "Przeglądanie...",
+    "followupReview": "Dalszy Przegląd",
+    "newCommits": "nowy commit",
+    "newCommitsPlural": "nowe commity",
+    "cancel": "Anuluj",
+    "postFindings": "Opublikuj Znaleziska",
+    "posting": "Publikowanie...",
+    "postedTo": "Opublikowane na GitLab",
+    "approve": "Zatwierdź",
+    "approving": "Zatwierdzanie...",
+    "merge": "Scal MR",
+    "merging": "Scalanie...",
+    "aiReviewResult": "Wynik Przeglądu AI",
+    "followupReviewResult": "Dalszy Przegląd",
+    "description": "Opis",
+    "noDescription": "Brak opisu.",
+    "labels": "Etykiety",
+    "status": {
+      "notReviewed": "Nie Przejrzane",
+      "notReviewedDesc": "Uruchom przegląd AI, aby przeanalizować ten MR",
+      "reviewComplete": "Przegląd Zakończony",
+      "reviewCompleteDesc": "znalezisko/znalezisk znalezionych. Wybierz i opublikuj na GitLab.",
+      "waitingForChanges": "Oczekiwanie na Zmiany",
+      "waitingForChangesDesc": "znalezisko/znalezisk opublikowanych. Oczekiwanie na współtwórcę, aby rozwiązał problemy.",
+      "readyToMerge": "Gotowe do Scalenia",
+      "readyToMergeDesc": "Brak blokujących problemów. Ten MR może zostać scalony.",
+      "needsAttention": "Wymaga Uwagi",
+      "needsAttentionDesc": "znalezisko/znalezisk wymaga opublikowania na GitLab.",
+      "readyForFollowup": "Gotowe do Dalszego Przeglądu",
+      "readyForFollowupDesc": "od przeglądu. Uruchom dalszy przegląd, aby sprawdzić czy problemy zostały rozwiązane.",
+      "blockingIssues": "Blokujące Problemy",
+      "blockingIssuesDesc": "blokujący/blokujące problem/problemy nadal otwarte."
+    },
+    "overallStatus": {
+      "approve": "Zatwierdź",
+      "requestChanges": "Wymagane Zmiany",
+      "comment": "Komentarz"
+    },
+    "resolution": {
+      "resolved": "rozwiązane",
+      "stillOpen": "nadal otwarte",
+      "newIssue": "nowy problem",
+      "newIssues": "nowe problemy"
+    }
+  },
+  "findings": {
+    "summary": "wybrano",
+    "selectCriticalHigh": "Wybierz Blokujące/Wymagane",
+    "selectAll": "Wybierz Wszystko",
+    "clear": "Wyczyść",
+    "noIssues": "Nie znaleziono problemów! Kod wygląda dobrze.",
+    "suggestedFix": "Sugerowana poprawka:",
+    "posted": "Opublikowane",
+    "severity": {
+      "critical": "Blokujące",
+      "criticalDesc": "Musi zostać naprawione",
+      "high": "Wymagane",
+      "highDesc": "Powinno zostać naprawione",
+      "medium": "Zalecane",
+      "mediumDesc": "Popraw jakość",
+      "low": "Sugestia",
+      "lowDesc": "Rozważ"
+    },
+    "category": {
+      "security": "Bezpieczeństwo",
+      "quality": "Jakość",
+      "style": "Styl",
+      "test": "Test",
+      "docs": "Dokumentacja",
+      "pattern": "Wzorzec",
+      "performance": "Wydajność",
+      "logic": "Logika"
+    }
+  }
+}

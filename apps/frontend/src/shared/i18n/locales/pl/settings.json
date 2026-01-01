@@ -1,0 +1,427 @@
+{
+  "title": "Ustawienia",
+  "tabs": {
+    "app": "Ustawienia aplikacji",
+    "project": "Ustawienia projektu"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Wygląd",
+      "description": "Dostosuj wygląd Auto Claude"
+    },
+    "display": {
+      "title": "Wyświetlanie",
+      "description": "Dostosuj rozmiar elementów interfejsu"
+    },
+    "language": {
+      "title": "Język",
+      "description": "Wybierz preferowany język"
+    },
+    "devtools": {
+      "title": "Narzędzia deweloperskie",
+      "description": "Preferencje IDE i terminala"
+    },
+    "agent": {
+      "title": "Ustawienia Agent",
+      "description": "Domyślny model i framework"
+    },
+    "paths": {
+      "title": "Ścieżki",
+      "description": "Ścieżki narzędzi CLI i frameworków"
+    },
+    "integrations": {
+      "title": "Integracje",
+      "description": "Klucze API i konta Claude"
+    },
+    "updates": {
+      "title": "Aktualizacje",
+      "description": "Aktualizacje Auto Claude"
+    },
+    "notifications": {
+      "title": "Powiadomienia",
+      "description": "Preferencje alertów"
+    },
+    "debug": {
+      "title": "Debugowanie i logi",
+      "description": "Narzędzia do rozwiązywania problemów"
+    }
+  },
+  "language": {
+    "label": "Język interfejsu",
+    "description": "Wybierz język dla interfejsu aplikacji"
+  },
+  "scale": {
+    "presets": "Predefiniowane skale",
+    "presetsDescription": "Szybkie opcje skali dla popularnych preferencji",
+    "fineTune": "Dostosuj skalę",
+    "fineTuneDescription": "Dostosuj od 75% do 200% w krokach 5%",
+    "default": "Domyślnie",
+    "comfortable": "Komfortowo",
+    "large": "Duże"
+  },
+  "general": {
+    "otherAgentSettings": "Inne ustawienia Agent",
+    "otherAgentSettingsDescription": "Dodatkowe opcje konfiguracji Agent",
+    "agentFramework": "Framework Agent",
+    "agentFrameworkDescription": "Framework kodowania używany do autonomicznych zadań",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "Nazewnictwo AI terminala",
+    "aiTerminalNamingDescription": "Automatycznie nadawaj nazwy terminalom na podstawie poleceń (korzysta z Haiku)",
+    "featureModelSettings": "Ustawienia modelu Feature",
+    "featureModelSettingsDescription": "Model i poziom myślenia dla Insights, Ideation i Roadmap",
+    "model": "Model",
+    "thinkingLevel": "Poziom myślenia",
+    "paths": "Ścieżki",
+    "pathsDescription": "Skonfiguruj ścieżki plików wykonywalnych i frameworków",
+    "pythonPath": "Ścieżka Python",
+    "pythonPathDescription": "Ścieżka do pliku wykonywalnego Python (pozostaw puste, aby automatycznie wykryć)",
+    "pythonPathPlaceholder": "python3 (domyślnie)",
+    "gitPath": "Ścieżka Git",
+    "gitPathDescription": "Ścieżka do pliku wykonywalnego Git (pozostaw puste, aby automatycznie wykryć)",
+    "gitPathPlaceholder": "git (domyślnie)",
+    "githubCLIPath": "Ścieżka GitHub CLI",
+    "githubCLIPathDescription": "Ścieżka do pliku wykonywalnego GitHub CLI (gh) (pozostaw puste, aby automatycznie wykryć)",
+    "githubCLIPathPlaceholder": "gh (domyślnie)",
+    "claudePath": "Ścieżka Claude CLI",
+    "claudePathDescription": "Ścieżka do pliku wykonywalnego Claude CLI (pozostaw puste, aby automatycznie wykryć)",
+    "claudePathPlaceholder": "claude (domyślnie)",
+    "detectedPath": "Automatycznie wykryte",
+    "detectedVersion": "Wersja",
+    "detectedSource": "Źródło",
+    "sourceUserConfig": "Konfiguracja użytkownika",
+    "sourceVenv": "Wirtualne środowisko",
+    "sourceHomebrew": "Homebrew",
+    "sourceSystemPath": "System PATH",
+    "sourceBundled": "Wbudowane",
+    "sourceFallback": "Rezerwowe",
+    "notDetected": "Nie wykryto",
+    "autoClaudePath": "Ścieżka Auto Claude",
+    "autoClaudePathDescription": "Względna ścieżka do katalogu auto-claude w projektach",
+    "autoClaudePathPlaceholder": "auto-claude (domyślnie)",
+    "autoNameTerminals": "Automatycznie nadawaj nazwy terminalom",
+    "autoNameTerminalsDescription": "Użyj AI do generowania opisowych nazw dla kart terminala na podstawie ich aktywności"
+  },
+  "theme": {
+    "title": "Wygląd",
+    "description": "Dostosuj wygląd Auto Claude",
+    "mode": "Tryb",
+    "modeDescription": "Wybierz między jasnym i ciemnym motywem",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "System",
+    "colorTheme": "Motyw kolorów",
+    "colorThemeDescription": "Wybierz preferowaną paletę kolorów"
+  },
+  "devtools": {
+    "title": "Narzędzia deweloperskie",
+    "description": "Skonfiguruj preferowane IDE i terminal do pracy z worktrees",
+    "detecting": "Wykrywanie zainstalowanych narzędzi...",
+    "detectAgain": "Wykryj ponownie",
+    "ide": {
+      "label": "Preferowane IDE",
+      "description": "Auto Claude otworzy worktrees w tym edytorze",
+      "placeholder": "Wybierz IDE...",
+      "customPath": "Ścieżka niestandardowego IDE",
+      "customPathPlaceholder": "/ścieżka/do/twojego/ide"
+    },
+    "terminal": {
+      "label": "Preferowany terminal",
+      "description": "Auto Claude otworzy sesje terminala tutaj",
+      "placeholder": "Wybierz terminal...",
+      "customPath": "Ścieżka niestandardowego terminala",
+      "customPathPlaceholder": "/ścieżka/do/twojego/terminala"
+    },
+    "detected": "Wykryto",
+    "notInstalled": "Nie zainstalowano",
+    "detectedSummary": "Wykryto w Twoim systemie:",
+    "noToolsDetected": "Nie wykryto dodatkowych narzędzi (będzie używany VS Code i systemowy terminal)"
+  },
+  "updates": {
+    "title": "Aktualizacje",
+    "description": "Zarządzaj aktualizacjami Auto Claude",
+    "appUpdateReady": "Aktualizacja aplikacji gotowa",
+    "newVersion": "Nowa wersja",
+    "released": "Wydano",
+    "downloading": "Pobieranie...",
+    "updateDownloaded": "Aktualizacja pobrana! Kliknij Zainstaluj, aby uruchomić ponownie i zastosować aktualizację.",
+    "installAndRestart": "Zainstaluj i uruchom ponownie",
+    "downloadUpdate": "Pobierz aktualizację",
+    "version": "Wersja",
+    "loading": "Ładowanie...",
+    "checkingForUpdates": "Sprawdzanie aktualizacji...",
+    "newVersionAvailable": "Dostępna nowa wersja:",
+    "latestVersion": "Używasz najnowszej wersji.",
+    "viewRelease": "Wyświetl pełne wydanie na GitHub",
+    "unableToCheck": "Nie można sprawdzić aktualizacje",
+    "checkForUpdates": "Sprawdź aktualizacje",
+    "autoUpdateProjects": "Auto-Update projektów",
+    "autoUpdateProjectsDescription": "Automatycznie aktualizuj Auto Claude w projektach, gdy dostępna jest nowa wersja",
+    "betaUpdates": "Aktualizacje Beta",
+    "betaUpdatesDescription": "Otrzymuj wersje beta przed wydaniem z nowymi funkcjami (mogą być mniej stabilne)"
+  },
+  "notifications": {
+    "title": "Powiadomienia",
+    "description": "Skonfiguruj domyślne preferencje powiadomień",
+    "onTaskComplete": "Po ukończeniu Zadania",
+    "onTaskCompleteDescription": "Powiadom, gdy Zadanie zakończy się pomyślnie",
+    "onTaskFailed": "Na Zadanie nie powiodło się",
+    "onTaskFailedDescription": "Powiadom, gdy Zadanie napotyka błąd",
+    "onReviewNeeded": "Wymagany przegląd",
+    "onReviewNeededDescription": "Powiadom, gdy QA wymaga Twojego przeglądu",
+    "sound": "Dźwięk",
+    "soundDescription": "Odtwórz dźwięk z powiadomieniami"
+  },
+  "actions": {
+    "save": "Zapisz ustawienia",
+    "rerunWizard": "Uruchom ponownie kreatora",
+    "rerunWizardDescription": "Ponownie uruchom kreatora konfiguracji"
+  },
+  "projectSections": {
+    "general": {
+      "title": "Ogólne",
+      "description": "Auto-Build i konfiguracja Agent",
+      "useClaudeMd": "Użyj CLAUDE.md",
+      "useClaudeMdDescription": "Dołącz instrukcje CLAUDE.md w kontekście Agent"
+    },
+    "claude": {
+      "title": "Uwierzytelnianie Claude",
+      "description": "Uwierzytelnianie Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Integracja Linear",
+      "integrationTitle": "Integracja Linear",
+      "integrationDescription": "Połącz się z Linear do śledzenia problemów i importu zadań",
+      "syncDescription": "Synchronizuj z Linear do śledzenia problemów"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Synchronizacja problemów GitHub",
+      "integrationTitle": "Integracja GitHub",
+      "integrationDescription": "Połącz się z GitHub do śledzenia problemów",
+      "syncDescription": "Synchronizuj z GitHub Issues"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Synchronizacja problemów GitLab",
+      "integrationTitle": "Integracja GitLab",
+      "integrationDescription": "Połącz się z GitLab do śledzenia problemów",
+      "syncDescription": "Synchronizuj z GitLab Issues"
+    },
+    "memory": {
+      "title": "Pamięć",
+      "description": "Graphiti backend pamięci",
+      "integrationTitle": "Pamięć",
+      "integrationDescription": "Skonfiguruj trwałą pamięć między sesjami dla Agent",
+      "syncDescription": "Skonfiguruj trwałą pamięć"
+    }
+  },
+  "agentProfile": {
+    "label": "Profil Agent",
+    "title": "Domyślny profil Agent",
+    "sectionDescription": "Wybierz wstępnie skonfigurowaną konfigurację dla modelu i poziomu myślenia",
+    "profilesInfo": "Profile Agent zapewniają wstępnie skonfigurowane konfiguracje dla modelu Claude i poziomu myślenia. Podczas tworzenia nowego Zadania te ustawienia będą używane jako domyślne. Zawsze możesz je zmienić w kreatorze tworzenia Zadania.",
+    "custom": "Niestandardowe",
+    "customConfiguration": "Konfiguracja niestandardowa",
+    "customDescription": "Wybierz model i poziom myślenia",
+    "phaseConfiguration": "Konfiguracja fazy",
+    "phaseConfigurationDescription": "Dostosuj model i poziom myślenia dla każdej fazy",
+    "clickToCustomize": "Kliknij, aby dostosować",
+    "model": "Model",
+    "thinking": "Myślenie",
+    "thinkingLevel": "Poziom myślenia",
+    "selectModel": "Wybierz model",
+    "selectThinkingLevel": "Wybierz poziom myślenia",
+    "perPhaseOptimization": "(optymalizacja dla każdej fazy)",
+    "resetToDefaults": "Przywróć domyślne",
+    "phaseConfigNote": "Te ustawienia będą używane jako domyślne podczas tworzenia nowych Zadań z profilem Auto. Możesz je zmienić dla każdego Zadania w kreatorze tworzenia Zadania.",
+    "phases": {
+      "spec": {
+        "label": "Tworzenie Spec",
+        "description": "Odkrywanie, wymagania, gromadzenie kontekstu"
+      },
+      "planning": {
+        "label": "Planowanie",
+        "description": "Planowanie implementacji i architektura"
+      },
+      "coding": {
+        "label": "Kodowanie",
+        "description": "Rzeczywista implementacja kodu"
+      },
+      "qa": {
+        "label": "Przegląd QA",
+        "description": "Zapewnianie jakości i walidacja"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "mobile": "Mobile",
+      "shared": "Współdzielone",
+      "apiGateway": "API Gateway",
+      "worker": "Worker",
+      "other": "Inne"
+    }
+  },
+  "integrations": {
+    "title": "Integracje",
+    "description": "Zarządzaj kontami Claude i kluczami API",
+    "claudeAccounts": "Konta Claude",
+    "claudeAccountsDescription": "Dodaj wiele subskrypcji Claude, aby automatycznie przełączać się między nimi, gdy osiągniesz limity szybkości.",
+    "noAccountsYet": "Żadne konta nie są jeszcze skonfigurowane",
+    "default": "Domyślnie",
+    "active": "Aktywne",
+    "authenticated": "Uwierzytelnione",
+    "needsAuth": "Wymaga uwierzytelnienia",
+    "authenticate": "Uwierzytelnij",
+    "setActive": "Ustaw jako aktywne",
+    "manualTokenEntry": "Ręczne wprowadzenie tokenu",
+    "runSetupToken": "Uruchom claude setup-token, aby uzyskać token",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "Email (opcjonalnie, do wyświetlenia)",
+    "saveToken": "Zapisz token",
+    "accountNamePlaceholder": "Nazwa konta (np. Praca, Osobiste)",
+    "autoSwitching": "Automatyczne przełączanie konta",
+    "autoSwitchingDescription": "Automatycznie przełączaj między kontami Claude, aby uniknąć przerwań. Skonfiguruj proaktywne monitorowanie, aby przełączyć się przed osiągnięciem limitów.",
+    "enableAutoSwitching": "Włącz automatyczne przełączanie",
+    "masterSwitch": "Główny przełącznik dla wszystkich funkcji auto-swap",
+    "proactiveMonitoring": "Monitorowanie proaktywne",
+    "proactiveDescription": "Regularnie sprawdzaj użycie i zmień przed osiągnięciem limitów",
+    "checkUsageEvery": "Sprawdzaj użycie co",
+    "seconds15": "15 sekund",
+    "seconds30": "30 sekund (zalecane)",
+    "minute1": "1 minuta",
+    "disabled": "Wyłączone",
+    "sessionThreshold": "Próg użycia sesji",
+    "sessionThresholdDescription": "Przełącz, gdy użycie sesji osiągnie ten poziom (zalecane: 95%)",
+    "weeklyThreshold": "Tygodniowy próg użycia",
+    "weeklyThresholdDescription": "Przełącz, gdy tygodniowe użycie osiągnie ten poziom (zalecane: 99%)",
+    "reactiveRecovery": "Reaktywne odzyskanie",
+    "reactiveDescription": "Auto-swap, gdy nieoczekiwany limit szybkości zostanie osiągnięty",
+    "apiKeys": "Klucze API",
+    "apiKeysInfo": "Klucze ustawione tutaj są używane jako domyślne. Poszczególne projekty mogą je zmienić w ustawieniach projektu.",
+    "openaiKey": "Klucz OpenAI API",
+    "openaiKeyDescription": "Wymagane dla backendu pamięci Graphiti (embeddings)"
+  },
+  "debug": {
+    "title": "Debugowanie i logi",
+    "description": "Uzyskaj dostęp do logów i informacji debugowania do rozwiązywania problemów",
+    "openLogsFolder": "Otwórz folder dzienników",
+    "copyDebugInfo": "Skopiuj informacje debugowania",
+    "copied": "Skopiowano!",
+    "loadInfo": "Załaduj informacje debugowania",
+    "systemInfo": "Informacje systemowe",
+    "logsLocation": "Lokalizacja dzienników",
+    "recentErrors": "Ostatnie błędy",
+    "noRecentErrors": "Brak ostatnich błędów",
+    "helpTitle": "Zgłaszanie problemów",
+    "helpText": "Zgłaszając błędy, kliknij \"Skopiuj informacje debugowania\", aby uzyskać informacje o systemie i ostatnie błędy, które pomogą nam zdiagnozować problem."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Brak wybranego projektu",
+      "description": "Wybierz projekt z paska bocznego, aby skonfigurować jego ustawienia."
+    }
+  },
+  "mcp": {
+    "title": "Przegląd serwera MCP",
+    "titleWithProject": "Przegląd serwera MCP dla {{projectName}}",
+    "description": "Skonfiguruj, które serwery MCP są dostępne dla Agent w tym projekcie",
+    "descriptionNoProject": "Wybierz projekt, aby skonfigurować serwery MCP",
+    "serversEnabled": "{{count}} serwerów włączonych",
+    "configuration": "Konfiguracja serwera MCP",
+    "configurationHint": "Wyłączone serwery zmniejszają użycie kontekstu i czas uruchamiania",
+    "noProjectSelected": "Brak wybranego projektu",
+    "noProjectSelectedDescription": "Wybierz projekt z listy rozwijanej, aby wyświetlić i skonfigurować serwery MCP.",
+    "projectNotInitialized": "Projekt nie zainicjalizowany",
+    "projectNotInitializedDescription": "Zainicjalizuj Auto Claude dla tego projektu, aby skonfigurować serwery MCP.",
+    "browserAutomation": "Automatyzacja przeglądarki (tylko Agent QA)",
+    "alwaysEnabled": "zawsze włączone",
+    "addServer": "Dodaj serwer",
+    "addMcpTo": "Dodaj serwer MCP do {{agent}}",
+    "addMcpDescription": "Wybierz serwer MCP, aby dodać do tego Agent",
+    "allMcpsAdded": "Wszystkie dostępne serwery MCP są już dodane",
+    "added": "dodano",
+    "removed": "usunięto",
+    "remove": "Usuń",
+    "restore": "Przywróć",
+    "noMcpServers": "Brak serwerów MCP",
+    "cannotRemove": "Nie można usunąć (wymagane)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Wyszukiwanie dokumentacji dla bibliotek"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Graf wiedzy do kontekstu między sesjami",
+        "notConfigured": "Wymaga konfiguracji pamięci (zobacz ustawienia Memory)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Integracja zarządzania projektami",
+        "notConfigured": "Wymaga integracji Linear (zobacz ustawienia Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatyzacja aplikacji pulpitu poprzez Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatyzacja przeglądarki internetowej do testowania"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude Tools",
+        "description": "Śledzenie postępu Build"
+      }
+    },
+    "customServers": "Serwery niestandardowe",
+    "addCustomServer": "Dodaj niestandardowy serwer",
+    "editCustomServer": "Edytuj niestandardowy serwer",
+    "customServerDescription": "Dodaj serwer MCP oparty na poleceniu lub HTTP",
+    "serverType": "Typ serwera",
+    "typeCommand": "Polecenie (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Nazwa",
+    "serverNamePlaceholder": "Mój serwer MCP",
+    "serverDescription": "Opis",
+    "serverDescriptionPlaceholder": "Co robi ten serwer",
+    "command": "Polecenie",
+    "args": "Argumenty",
+    "argsHint": "Argumenty oddzielone spacją",
+    "url": "URL",
+    "headers": "Nagłówki",
+    "headerName": "Nazwa nagłówka",
+    "headerValue": "Wartość nagłówka",
+    "noCustomServers": "Brak skonfigurowanych serwerów niestandardowych. Dodaj jeden, aby używać go z Agent.",
+    "errorNameRequired": "Nazwa serwera jest wymagana",
+    "errorIdExists": "Serwer o tym identyfikatorze już istnieje",
+    "errorCommandRequired": "Polecenie jest wymagane dla serwerów opartych na poleceniu",
+    "errorUrlRequired": "URL jest wymagany dla serwerów opartych na HTTP",
+    "testConnection": "Test",
+    "testing": "Testowanie...",
+    "authToken": "Token uwierzytelniania",
+    "authTokenPlaceholder": "Wklej tutaj token API lub PAT",
+    "authTokenHint": "Używany jako Bearer token w nagłówku Authorization",
+    "advancedHeaders": "Dodatkowe nagłówki",
+    "status": {
+      "healthy": "Serwer odpowiada",
+      "unhealthy": "Serwer nie odpowiada",
+      "needsAuth": "Wymagane uwierzytelnianie",
+      "checking": "Sprawdzanie...",
+      "unknown": "Status nieznany"
+    },
+    "hints": {
+      "github": "Wygląda na serwer GitHub MCP. Będziesz potrzebować Personal Access Token z odpowiednimi zakresami.",
+      "createGithubPat": "Utwórz GitHub PAT",
+      "google": "Wygląda na Google API. Będziesz potrzebować tokenu OAuth lub klucza API.",
+      "createGoogleToken": "Utwórz poświadczenia Google",
+      "anthropic": "Wygląda na Anthropic API. Będziesz potrzebować klucza API.",
+      "createAnthropicKey": "Utwórz klucz Anthropic API",
+      "openai": "Wygląda na OpenAI API. Będziesz potrzebować klucza API.",
+      "createOpenaiKey": "Utwórz klucz OpenAI API"
+    }
+  }
+}
