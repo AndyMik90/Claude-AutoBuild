@@ -143,6 +143,7 @@ export function App() {
 
   // Remove project confirmation state
   const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
+  const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
   const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
 
   // Setup drag sensors
@@ -497,6 +498,8 @@ export function App() {
   const handleConfirmRemoveProject = () => {
     if (projectToRemove) {
       try {
+        // Clear any previous error
+        setRemoveProjectError(null);
         // Remove the project from the app (files are preserved on disk for re-adding later)
         removeProject(projectToRemove.id);
         // Only clear dialog state on success
@@ -505,12 +508,10 @@ export function App() {
       } catch (err) {
         // Log error and keep dialog open so user can retry or cancel
         console.error('[App] Failed to remove project:', err);
-        // Show error toast to user
-        toast({
-          title: t('removeProject.error', { ns: 'dialogs' }),
-          description: err instanceof Error ? err.message : t('common:errors.unknownError'),
-          variant: 'destructive',
-        });
+        // Show error in dialog
+        setRemoveProjectError(
+          err instanceof Error ? err.message : t('common:errors.unknownError')
+        );
       }
     }
   };
@@ -518,6 +519,7 @@ export function App() {
   const handleCancelRemoveProject = () => {
     setShowRemoveProjectDialog(false);
     setProjectToRemove(null);
+    setRemoveProjectError(null);
   };
 
   // Handle drag start - set the active dragged project
@@ -939,6 +941,12 @@ export function App() {
                 {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
               </DialogDescription>
             </DialogHeader>
+            {removeProjectError && (
+              <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{removeProjectError}</span>
+              </div>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={handleCancelRemoveProject}>
                 {t('removeProject.cancel')}
