@@ -30,6 +30,7 @@ def _safe_int(value: str | None, default: int) -> int:
 
 class DeploymentMode(Enum):
     """Deployment behavior after task completion."""
+
     LOCAL_ONLY = "local_only"
     AUTO_PUSH = "auto_push"
     AUTO_PR = "auto_pr"
@@ -61,12 +62,15 @@ class DeploymentConfig:
         return cls(
             mode=mode,
             target_branch=os.getenv("DEPLOYMENT_TARGET_BRANCH", "main"),
-            wait_for_all_worktrees=os.getenv("DEPLOYMENT_WAIT_ALL", "false").lower() == "true",
+            wait_for_all_worktrees=os.getenv("DEPLOYMENT_WAIT_ALL", "false").lower()
+            == "true",
             push_retries=_safe_int(os.getenv("DEPLOYMENT_PUSH_RETRIES"), 3),
             push_retry_delay=_safe_int(os.getenv("DEPLOYMENT_PUSH_RETRY_DELAY"), 5),
             push_timeout=_safe_int(os.getenv("DEPLOYMENT_PUSH_TIMEOUT"), 300),
-            notify_on_push=os.getenv("DEPLOYMENT_NOTIFY_ON_PUSH", "true").lower() == "true",
-            notify_on_failure=os.getenv("DEPLOYMENT_NOTIFY_ON_FAILURE", "true").lower() == "true",
+            notify_on_push=os.getenv("DEPLOYMENT_NOTIFY_ON_PUSH", "true").lower()
+            == "true",
+            notify_on_failure=os.getenv("DEPLOYMENT_NOTIFY_ON_FAILURE", "true").lower()
+            == "true",
         )
 
     @classmethod
@@ -81,7 +85,7 @@ class DeploymentConfig:
         project_config_path = project_root / ".auto-claude" / "config.json"
         if project_config_path.exists():
             try:
-                with open(project_config_path) as f:
+                with open(project_config_path, encoding="utf-8") as f:
                     project_config = json.load(f)
 
                 deployment = project_config.get("deployment", {})
@@ -90,19 +94,29 @@ class DeploymentConfig:
                 if "target_branch" in deployment:
                     config.target_branch = deployment["target_branch"]
                 if "wait_for_all_worktrees" in deployment:
-                    config.wait_for_all_worktrees = bool(deployment["wait_for_all_worktrees"])
+                    config.wait_for_all_worktrees = bool(
+                        deployment["wait_for_all_worktrees"]
+                    )
                 if "push_retries" in deployment:
-                    config.push_retries = int(deployment["push_retries"])
+                    config.push_retries = _safe_int(
+                        str(deployment["push_retries"]), config.push_retries
+                    )
                 if "push_retry_delay" in deployment:
-                    config.push_retry_delay = int(deployment["push_retry_delay"])
+                    config.push_retry_delay = _safe_int(
+                        str(deployment["push_retry_delay"]), config.push_retry_delay
+                    )
                 if "push_timeout" in deployment:
-                    config.push_timeout = int(deployment["push_timeout"])
+                    config.push_timeout = _safe_int(
+                        str(deployment["push_timeout"]), config.push_timeout
+                    )
                 if "notify_on_push" in deployment:
                     config.notify_on_push = bool(deployment["notify_on_push"])
                 if "notify_on_failure" in deployment:
                     config.notify_on_failure = bool(deployment["notify_on_failure"])
             except (json.JSONDecodeError, ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse project config at {project_config_path}: {e}")
+                logger.warning(
+                    f"Failed to parse project config at {project_config_path}: {e}"
+                )
 
         return config
 

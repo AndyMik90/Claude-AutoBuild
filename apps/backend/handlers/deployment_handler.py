@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DeploymentResult:
     """Result of a deployment operation."""
+
     success: bool
     message: str
     commit_sha: str | None = None
@@ -48,7 +49,9 @@ class DeploymentHandler:
         self.config = config
         self.project_root = project_root
 
-    async def deploy(self, task_id: str, task_title: str, branch: str) -> DeploymentResult:
+    async def deploy(
+        self, task_id: str, task_title: str, branch: str
+    ) -> DeploymentResult:
         """
         Main deployment entry point.
 
@@ -63,20 +66,18 @@ class DeploymentHandler:
         if self.config.mode == DeploymentMode.LOCAL_ONLY:
             logger.info(f"Task {task_id}: Local only mode, skipping push")
             return DeploymentResult(
-                success=True,
-                message="Local only mode - merge complete, no push"
+                success=True, message="Local only mode - merge complete, no push"
             )
 
         if self.config.wait_for_all_worktrees:
             if not await self._all_worktrees_complete():
                 logger.info(f"Task {task_id}: Waiting for other worktrees")
                 return DeploymentResult(
-                    success=True,
-                    message="Waiting for other worktrees to complete"
+                    success=True, message="Waiting for other worktrees to complete"
                 )
 
         try:
-            async with self._acquire_lock():
+            async with self._create_lock():
                 if self.config.mode == DeploymentMode.AUTO_PUSH:
                     return await self._push_to_origin(task_id)
                 elif self.config.mode == DeploymentMode.AUTO_PR:
@@ -84,13 +85,13 @@ class DeploymentHandler:
         except FileLockTimeout:
             return DeploymentResult(
                 success=False,
-                message="Could not acquire deployment lock (another push in progress)"
+                message="Could not acquire deployment lock (another push in progress)",
             )
 
         return DeploymentResult(success=False, message="Unknown deployment mode")
 
-    async def _acquire_lock(self) -> FileLock:
-        """Acquire file-based lock to prevent concurrent deployments."""
+    def _create_lock(self) -> FileLock:
+        """Create file-based lock to prevent concurrent deployments."""
         lock_path = self.project_root / self.LOCK_FILE
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         return FileLock(str(lock_path), timeout=self.LOCK_TIMEOUT)
@@ -100,18 +101,18 @@ class DeploymentHandler:
         remote_url = await self._get_remote_url()
         if not self._validate_remote(remote_url):
             return DeploymentResult(
-                success=False,
-                message=f"Remote validation failed: {remote_url}"
+                success=False, message=f"Remote validation failed: {remote_url}"
             )
 
         for attempt in range(1, self.config.push_retries + 1):
-            logger.info(f"Task {task_id}: Push attempt {attempt}/{self.config.push_retries}")
+            logger.info(
+                f"Task {task_id}: Push attempt {attempt}/{self.config.push_retries}"
+            )
 
             try:
                 branch = self.config.target_branch
                 result = await self._git_push_with_auth(
-                    [branch, f"{branch}:{branch}"],
-                    timeout=self.config.push_timeout
+                    [branch, f"{branch}:{branch}"], timeout=self.config.push_timeout
                 )
 
                 if result.returncode == 0:
@@ -121,13 +122,13 @@ class DeploymentHandler:
                     if self.config.notify_on_push:
                         await self._send_notification(
                             f"Pushed to origin/{self.config.target_branch}",
-                            success=True
+                            success=True,
                         )
 
                     return DeploymentResult(
                         success=True,
                         message=f"Pushed to origin/{self.config.target_branch}",
-                        commit_sha=commit_sha
+                        commit_sha=commit_sha,
                     )
 
                 logger.warning(f"Task {task_id}: Push failed: {result.stderr}")
@@ -143,17 +144,17 @@ class DeploymentHandler:
                 await asyncio.sleep(delay)
 
         if self.config.notify_on_failure:
-            await self._send_notification("Push failed after all retries", success=False)
+            await self._send_notification(
+                "Push failed after all retries", success=False
+            )
 
         return DeploymentResult(
             success=False,
-            message=f"Push failed after {self.config.push_retries} attempts"
+            message=f"Push failed after {self.config.push_retries} attempts",
         )
 
     async def _git_push_with_auth(
-        self,
-        push_args: list[str],
-        timeout: int | None = None
+        self, push_args: list[str], timeout: int | None = None
     ) -> subprocess.CompletedProcess:
         """
         Execute git push with secure token handling via GIT_ASKPASS.
@@ -170,9 +171,7 @@ class DeploymentHandler:
         askpass_path = None
 
         if token:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".sh", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
                 # Escape single quotes in token for safe shell interpolation
                 escaped_token = token.replace("'", "'\\''")
                 f.write(f"#!/bin/bash\necho '{escaped_token}'")
@@ -192,7 +191,7 @@ class DeploymentHandler:
                     env=env,
                     capture_output=True,
                     text=True,
-                )
+                ),
             )
             if timeout:
                 return await asyncio.wait_for(coro, timeout=timeout)
@@ -206,13 +205,11 @@ class DeploymentHandler:
     ) -> DeploymentResult:
         """Create a pull request instead of direct push."""
         push_result = await self._git_push_with_auth(
-            ["-u", branch],
-            timeout=self.config.push_timeout
+            ["-u", branch], timeout=self.config.push_timeout
         )
         if push_result.returncode != 0:
             return DeploymentResult(
-                success=False,
-                message=f"Failed to push branch: {push_result.stderr}"
+                success=False, message=f"Failed to push branch: {push_result.stderr}"
             )
 
         pr_body = f"""## Auto-Claude Task Completion
@@ -233,38 +230,38 @@ This PR was automatically created by Auto-Claude after task completion.
                     None,
                     lambda: subprocess.run(
                         [
-                            "gh", "pr", "create",
-                            "--title", f"[Auto-Claude] {task_title}",
-                            "--body", pr_body,
-                            "--base", self.config.target_branch,
-                            "--head", branch,
+                            "gh",
+                            "pr",
+                            "create",
+                            "--title",
+                            f"[Auto-Claude] {task_title}",
+                            "--body",
+                            pr_body,
+                            "--base",
+                            self.config.target_branch,
+                            "--head",
+                            branch,
                         ],
                         cwd=self.project_root,
                         capture_output=True,
                         text=True,
-                    )
+                    ),
                 ),
-                timeout=self.config.push_timeout
+                timeout=self.config.push_timeout,
             )
         except asyncio.TimeoutError:
             logger.warning(f"Task {task_id}: PR creation timed out")
-            return DeploymentResult(
-                success=False,
-                message="PR creation timed out"
-            )
+            return DeploymentResult(success=False, message="PR creation timed out")
 
         if result.returncode == 0:
             pr_url = result.stdout.strip()
             logger.info(f"Task {task_id}: Created PR {pr_url}")
             return DeploymentResult(
-                success=True,
-                message=f"Created PR: {pr_url}",
-                pr_url=pr_url
+                success=True, message=f"Created PR: {pr_url}", pr_url=pr_url
             )
         else:
             return DeploymentResult(
-                success=False,
-                message=f"Failed to create PR: {result.stderr}"
+                success=False, message=f"Failed to create PR: {result.stderr}"
             )
 
     async def _get_github_token(self) -> str | None:
@@ -276,7 +273,7 @@ This PR was automatically created by Auto-Claude after task completion.
                 ["gh", "auth", "token"],
                 capture_output=True,
                 text=True,
-            )
+            ),
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
@@ -293,7 +290,7 @@ This PR was automatically created by Auto-Claude after task completion.
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-            )
+            ),
         )
         return result.stdout.strip() if result.returncode == 0 else ""
 
@@ -302,12 +299,21 @@ This PR was automatically created by Auto-Claude after task completion.
         Validate remote URL is a known git host.
 
         Handles both HTTPS URLs and SSH URLs (git@host:user/repo.git).
+        Custom hosts can be added via DEPLOYMENT_ALLOWED_HOSTS env var
+        (comma-separated list).
         """
         known_hosts = {"github.com", "gitlab.com", "bitbucket.org"}
+        custom_hosts = os.getenv("DEPLOYMENT_ALLOWED_HOSTS", "")
+        if custom_hosts:
+            known_hosts.update(h.strip() for h in custom_hosts.split(",") if h.strip())
 
         try:
             # Handle SSH URLs like git@github.com:user/repo.git
-            if "@" in url and ":" in url and not url.startswith(("http://", "https://")):
+            if (
+                "@" in url
+                and ":" in url
+                and not url.startswith(("http://", "https://"))
+            ):
                 host = url.split("@")[1].split(":")[0]
                 return host in known_hosts
 
@@ -328,7 +334,7 @@ This PR was automatically created by Auto-Claude after task completion.
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-            )
+            ),
         )
         return result.stdout.strip() if result.returncode == 0 else ""
 
@@ -344,7 +350,7 @@ This PR was automatically created by Auto-Claude after task completion.
             status_file = wt / ".auto-claude-status"
             if status_file.exists():
                 try:
-                    with open(status_file) as f:
+                    with open(status_file, encoding="utf-8") as f:
                         status = json.load(f)
                     if status.get("state") != "complete":
                         return False
@@ -374,12 +380,13 @@ This PR was automatically created by Auto-Claude after task completion.
                 None,
                 lambda: subprocess.run(
                     [
-                        "osascript", "-e",
-                        f'display notification "{message}" with title "Auto-Claude"'
+                        "osascript",
+                        "-e",
+                        f'display notification "{message}" with title "Auto-Claude"',
                     ],
                     capture_output=True,
                     check=False,
-                )
+                ),
             )
         except Exception as e:
             logger.warning(f"Failed to send notification: {e}")
