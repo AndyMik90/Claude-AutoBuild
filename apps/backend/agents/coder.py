@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
+from implementation_plan.plan import ImplementationPlan
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -37,6 +38,7 @@ from prompt_generator import (
 )
 from prompts import is_first_run
 from recovery import RecoveryManager
+from review.state import ReviewState
 from task_logger import (
     LogPhase,
     get_task_logger,
@@ -164,6 +166,24 @@ async def run_autonomous_agent(
     else:
         print(f"Continuing build: {highlight(spec_dir.name)}")
         print_progress_summary(spec_dir)
+
+        # Transition from approval to execution if needed
+        # Fix for: https://github.com/AndyMik90/Auto-Claude/issues/XXX
+        plan_file = spec_dir / "implementation_plan.json"
+        if plan_file.exists():
+            plan = ImplementationPlan.load(plan_file)
+            if plan.status == "human_review" and plan.planStatus == "review":
+                # Check if already approved
+                review_state = ReviewState.load(spec_dir)
+                if review_state.is_approval_valid(spec_dir):
+                    # Transition to in_progress now that execution begins
+                    logger.info(
+                        "Transitioning plan from approval to execution: "
+                        "human_review/review -> in_progress/in_progress"
+                    )
+                    plan.status = "in_progress"
+                    plan.planStatus = "in_progress"
+                    plan.save(plan_file)
 
         # Check if already complete
         if is_build_complete(spec_dir):
