@@ -135,6 +135,8 @@ function checkOllamaInstalled(): OllamaInstallStatus {
   }
 
   // Check each path
+  // SECURITY NOTE: ollamaPath values come from the hardcoded pathsToCheck array above,
+  // not from user input or environment variables. These are known system installation paths.
   for (const ollamaPath of pathsToCheck) {
     if (fs.existsSync(ollamaPath)) {
       // Try to get version

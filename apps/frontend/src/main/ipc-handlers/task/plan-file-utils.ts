@@ -177,7 +177,8 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       const plan = JSON.parse(planContent) as T;
 
       const updatedPlan = updater(plan);
-      updatedPlan.updated_at = new Date().toISOString();
+      // Add updated_at timestamp - use type assertion since T extends Record<string, unknown>
+      (updatedPlan as Record<string, unknown>).updated_at = new Date().toISOString();
 
       writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2));
       return updatedPlan;
