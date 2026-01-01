@@ -107,58 +107,85 @@ Accept: application/json
 
 ### 4.3 Endpoints
 
-#### 4.3.1 Apply Code Changes
+#### 4.3.1 Apply Code Changes (Chat Completions)
 
-**Primary endpoint for applying code transformations.**
+**Primary endpoint for applying code transformations using OpenAI-compatible format.**
 
 | Property | Value |
 |----------|-------|
-| **Endpoint** | `POST /v1/apply` |
+| **Endpoint** | `POST /v1/chat/completions` |
 | **Purpose** | Apply AI-generated code changes to file content |
-| **Auth Required** | Yes |
+| **Auth Required** | Yes (Bearer token) |
 
-**Request Body:**
+**Request Body (OpenAI-compatible):**
 ```json
 {
-  "file_path": "string",
-  "original_content": "string",
-  "instruction": "string",
-  "language": "string",
-  "context": {
-    "surrounding_files": ["string"],
-    "project_type": "string"
-  }
+  "model": "auto",
+  "messages": [
+    {
+      "role": "user",
+      "content": "<instruction>Description of changes</instruction>\n<code>Original file content</code>\n<update>Code edit with lazy markers</update>"
+    }
+  ]
 }
 ```
 
-**Request Fields:**
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file_path` | string | Yes | Path to the file being edited (for context) |
-| `original_content` | string | Yes | Current content of the file |
-| `instruction` | string | Yes | The edit instruction or diff to apply |
-| `language` | string | No | Programming language hint (e.g., "python", "typescript") |
-| `context` | object | No | Additional context for better edit accuracy |
+**Available Models:**
+| Model | Speed | Accuracy | Best For |
+|-------|-------|----------|----------|
+| `morph-v3-fast` | 10,500+ tok/sec | 96% | Real-time applications, quick edits |
+| `morph-v3-large` | 5,000+ tok/sec | 98% | Complex changes, highest accuracy |
+| `auto` | 5,000-10,500 tok/sec | ~98% | **Recommended** - automatically selects optimal model |
+
+**XML Message Format:**
+
+The message content uses XML tags to structure the edit request:
+
+| Tag | Required | Description |
+|-----|----------|-------------|
+| `<instruction>` | Recommended | Brief description of changes (use first person, e.g., "I will add error handling") |
+| `<code>` | Yes | The complete original file content |
+| `<update>` | Yes | Code snippet showing changes with `// ... existing code ...` markers |
+
+**Lazy Marker Format:**
+
+The `<update>` section uses lazy markers to minimize token usage:
+
+```
+// ... existing code ...
+FIRST_EDIT
+// ... existing code ...
+SECOND_EDIT
+// ... existing code ...
+```
+
+**Guidelines for lazy markers:**
+- Use `// ... existing code ...` to represent unchanged sections
+- Provide sufficient context around edits to resolve ambiguity
+- DO NOT omit code without markers or the model may delete those lines
+- To delete a section: provide context before and after (omit the section between markers)
+- Make all edits to a file in a single call - the model handles multiple distinct edits well
 
 **Response (Success - 200 OK):**
 ```json
 {
-  "success": true,
-  "result": {
-    "new_content": "string",
-    "changes_applied": [
-      {
-        "type": "insert|delete|replace",
-        "line_start": 10,
-        "line_end": 15,
-        "description": "Added error handling"
-      }
-    ],
-    "confidence": 0.95
-  },
-  "metadata": {
-    "processing_time_ms": 150,
-    "model_version": "morph-1.0"
+  "id": "chatcmpl-xxx",
+  "object": "chat.completion",
+  "model": "morph-v3-fast",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "def add(a: int, b: int) -> int:\n    return a + b"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 20,
+    "total_tokens": 70
   }
 }
 ```
@@ -166,44 +193,62 @@ Accept: application/json
 **Response Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `success` | boolean | Whether the operation succeeded |
-| `result.new_content` | string | The file content after applying changes |
-| `result.changes_applied` | array | List of changes that were made |
-| `result.confidence` | number | Confidence score (0-1) for the changes |
-| `metadata.processing_time_ms` | number | Time taken to process the request |
+| `choices[0].message.content` | string | The merged file content with edits applied |
+| `model` | string | The model that processed the request |
+| `usage` | object | Token usage statistics |
 
 **Example Request:**
 ```bash
-curl -X POST https://api.morphllm.com/v1/apply \
-  -H "Authorization: Bearer mk_live_xxxx" \
+curl -X POST https://api.morphllm.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "file_path": "src/utils.py",
-    "original_content": "def add(a, b):\n    return a + b",
-    "instruction": "Add type hints to the function",
-    "language": "python"
+    "model": "auto",
+    "messages": [
+      {
+        "role": "user",
+        "content": "<instruction>I will add type hints to the function</instruction>\n<code>def add(a, b):\n    return a + b</code>\n<update>def add(a: int, b: int) -> int:\n    return a + b</update>"
+      }
+    ]
+  }'
+```
+
+**Example with Lazy Markers:**
+```bash
+curl -X POST https://api.morphllm.com/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {
+        "role": "user",
+        "content": "<instruction>I will add error handling to the divide function</instruction>\n<code>def add(a, b):\n    return a + b\n\ndef divide(a, b):\n    return a / b\n\ndef multiply(a, b):\n    return a * b</code>\n<update>// ... existing code ...\ndef divide(a, b):\n    if b == 0:\n        raise ValueError(\"Cannot divide by zero\")\n    return a / b\n// ... existing code ...</update>"
+      }
+    ]
   }'
 ```
 
 **Example Response:**
 ```json
 {
-  "success": true,
-  "result": {
-    "new_content": "def add(a: int, b: int) -> int:\n    return a + b",
-    "changes_applied": [
-      {
-        "type": "replace",
-        "line_start": 1,
-        "line_end": 1,
-        "description": "Added type hints: int parameters and int return type"
-      }
-    ],
-    "confidence": 0.98
-  },
-  "metadata": {
-    "processing_time_ms": 120,
-    "model_version": "morph-1.0"
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "model": "morph-v3-fast",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "def add(a, b):\n    return a + b\n\ndef divide(a, b):\n    if b == 0:\n        raise ValueError(\"Cannot divide by zero\")\n    return a / b\n\ndef multiply(a, b):\n    return a * b"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 85,
+    "completion_tokens": 45,
+    "total_tokens": 130
   }
 }
 ```
@@ -415,6 +460,16 @@ class MorphConfig:
     max_retries: int = 3
 
 
+@dataclass
+class ApplyResult:
+    """Result from a Morph apply operation."""
+    success: bool
+    new_content: str = ""
+    changes_applied: list = None
+    confidence: float = 1.0
+    processing_time_ms: int = 0
+
+
 class MorphClient:
     """Client for interacting with Morph Fast Apply API."""
 
@@ -451,35 +506,52 @@ class MorphClient:
         file_path: str,
         original_content: str,
         instruction: str,
+        code_edit: Optional[str] = None,
         language: Optional[str] = None,
-    ) -> dict:
+    ) -> ApplyResult:
         """
         Apply code changes using Morph Fast Apply.
 
+        Uses OpenAI-compatible chat completions API with XML-structured messages:
+        <instruction> + <code> (original) + <update> (code_edit with lazy markers)
+
         Args:
-            file_path: Path to the file being edited
+            file_path: Path to the file being edited (for logging)
             original_content: Current content of the file
-            instruction: The edit instruction to apply
-            language: Optional language hint
+            instruction: The edit instruction (use first person, e.g., "I will add...")
+            code_edit: The code changes with `// ... existing code ...` markers.
+                      If None, uses original_content (full file rewrite mode)
+            language: Optional language hint for better accuracy
 
         Returns:
-            dict with 'success', 'new_content', and 'changes_applied'
+            ApplyResult with success status and new_content
 
         Raises:
             MorphAPIError: If the API request fails
         """
-        payload = {
-            "file_path": file_path,
-            "original_content": original_content,
-            "instruction": instruction,
-        }
-        if language:
-            payload["language"] = language
+        # If code_edit not provided, use original_content (full file rewrite mode)
+        if code_edit is None:
+            code_edit = original_content
 
-        response = self._client.post("/apply", json=payload)
+        # Format message in XML format as per Morph API spec
+        message_content = (
+            f"<instruction>{instruction}</instruction>\n"
+            f"<code>{original_content}</code>\n"
+            f"<update>{code_edit}</update>"
+        )
+
+        # Use OpenAI-compatible chat completions format
+        payload = {
+            "model": "auto",  # auto selects optimal model
+            "messages": [{"role": "user", "content": message_content}],
+        }
+
+        response = self._client.post("/chat/completions", json=payload)
 
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            merged_content = data["choices"][0]["message"]["content"]
+            return ApplyResult(success=True, new_content=merged_content)
         else:
             error_data = response.json().get("error", {})
             raise MorphAPIError(
@@ -845,17 +917,19 @@ Write(
 ### 8.3 Morph Fast Apply
 
 **How it works:**
-- Sends original content + natural language instruction to Morph API
-- AI model interprets the instruction and generates transformed content
-- Returns new file content with applied changes
-- Provides confidence score and change descriptions
+- Uses OpenAI-compatible chat completions API (`POST /v1/chat/completions`)
+- Message format: `<instruction>` + `<code>` (original) + `<update>` (code edit with lazy markers)
+- Lazy markers (`// ... existing code ...`) allow efficient partial edits
+- AI model merges the code edit into the original content
+- Returns the complete merged file content
 
 **Strengths:**
 - **Semantic Understanding:** Can interpret high-level instructions ("add error handling", "make this function async")
 - **Context-Aware:** Understands code structure, not just text patterns
+- **Efficient Partial Edits:** Lazy markers minimize token usage for large files
 - **Single Request:** Complex multi-location edits in one API call
 - **Language-Aware:** Optimized for specific programming languages
-- **Confidence Scoring:** Provides confidence level for applied changes
+- **High Speed:** 10,500+ tokens/second with 98% accuracy
 
 **Limitations:**
 - **External Dependency:** Requires network access and API availability
@@ -864,16 +938,46 @@ Write(
 - **Latency:** Network round-trip adds latency vs local operations
 - **Non-Deterministic:** AI-based changes may vary between calls
 
-**Example:**
+**Example (Full file rewrite):**
 ```python
-# Morph Fast Apply - natural language instruction
+# Morph Fast Apply - full file with instruction
 morph_client.apply(
     file_path="src/utils.py",
     original_content="def add(a, b):\n    return a + b",
-    instruction="Add type hints to the function",
+    instruction="I will add type hints to the function",
+    code_edit="def add(a: int, b: int) -> int:\n    return a + b",
     language="python"
 )
-# Returns transformed content with type hints applied
+# Returns: "def add(a: int, b: int) -> int:\n    return a + b"
+```
+
+**Example (Lazy markers for partial edit):**
+```python
+# Morph Fast Apply - efficient partial edit with lazy markers
+original = """
+def add(a, b):
+    return a + b
+
+def divide(a, b):
+    return a / b
+
+def multiply(a, b):
+    return a * b
+"""
+
+morph_client.apply(
+    file_path="src/utils.py",
+    original_content=original,
+    instruction="I will add error handling to the divide function",
+    code_edit="""// ... existing code ...
+def divide(a, b):
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+// ... existing code ...""",
+    language="python"
+)
+# Returns merged content with only divide() modified
 ```
 
 ---
@@ -883,7 +987,7 @@ morph_client.apply(
 | Feature | Edit | Write | Bash | Morph Fast Apply |
 |---------|------|-------|------|------------------|
 | **Operation Type** | String replacement | Full file write | Shell commands | AI transformation |
-| **Input Required** | Exact old/new strings | Full file content | Shell command | Instruction + content |
+| **Input Required** | Exact old/new strings | Full file content | Shell command | Instruction + code_edit (with lazy markers) |
 | **Matching** | Exact string match | N/A | Pattern-based | Semantic understanding |
 | **Offline Support** | Yes | Yes | Yes | No |
 | **External API** | No | No | No | Yes (Morph API) |
