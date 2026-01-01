@@ -1,6 +1,6 @@
 """
 Claude SDK Client Configuration
-================================
+===============================
 
 Functions for creating and configuring the Claude Agent SDK client.
 
@@ -13,47 +13,304 @@ single source of truth for phase-aware tool and MCP server configuration.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from agents.tools_pkg import (
     CONTEXT7_TOOLS,
+    ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
-    PUPPETEER_EXTENDED_TOOLS,
-    create_maestro_mcp_server,
+    create_auto_claude_mcp_server,
     get_allowed_tools,
     get_required_mcp_servers,
     is_tools_available,
 )
-from core.cdp_config import (
-    get_cdp_config_summary,
-    get_cdp_mcp_server_name,
-    get_cdp_mcp_type,
-    get_cdp_tools_for_agent,
-    validate_cdp_config,
-)
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import get_sdk_env_vars, require_auth_token
-from core.mcp_config import (
-    get_electron_debug_port,
-    get_graphiti_mcp_url,
-    is_electron_mcp_enabled,
-    is_graphiti_mcp_enabled,
-    should_use_claude_md,
-)
-from core.error_utils import safe_file_read
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
-from providers.config import (
-    get_provider_config,
-    get_provider_for_model,
-    infer_provider_from_url,
-    resolve_model_id,
-)
 from security import bash_security_hook
+
+
+def _validate_custom_mcp_server(server: dict) -> bool:
+    """
+    Validate a custom MCP server configuration for security.
+
+    Ensures only expected fields with valid types are present.
+    Rejects configurations that could lead to command injection.
+
+    Args:
+        server: Dict representing a custom MCP server configuration
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not isinstance(server, dict):
+        return False
+
+    # Required fields
+    required_fields = {"id", "name", "type"}
+    if not all(field in server for field in required_fields):
+        logger.warning(
+            f"Custom MCP server missing required fields: {required_fields - server.keys()}"
+        )
+        return False
+
+    # Validate field types
+    if not isinstance(server.get("id"), str) or not server["id"]:
+        return False
+    if not isinstance(server.get("name"), str) or not server["name"]:
+        return False
+    # FIX: Changed from ('command', 'url') to ('command', 'http') to match actual usage
+    if server.get("type") not in ("command", "http"):
+        logger.warning(f"Invalid MCP server type: {server.get('type')}")
+        return False
+
+    # Allowlist of safe executable commands for MCP servers
+    # Only allow known package managers and interpreters - NO shell commands
+    SAFE_COMMANDS = {
+        "npx",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "uv",
+        "uvx",
+    }
+
+    # Blocklist of dangerous shell commands that should never be allowed
+    DANGEROUS_COMMANDS = {
+        "bash",
+        "sh",
+        "cmd",
+        "powershell",
+        "pwsh",  # PowerShell Core
+        "/bin/bash",
+        "/bin/sh",
+        "/bin/zsh",
+        "/usr/bin/bash",
+        "/usr/bin/sh",
+        "zsh",
+        "fish",
+    }
+
+    # Dangerous interpreter flags that allow arbitrary code execution
+    # Covers Python (-e, -c, -m, -p), Node.js (--eval, --print, loaders), and general
+    DANGEROUS_FLAGS = {
+        "--eval",
+        "-e",
+        "-c",
+        "--exec",
+        "-m",  # Python module execution
+        "-p",  # Python eval+print
+        "--print",  # Node.js print
+        "--input-type=module",  # Node.js ES module mode
+        "--experimental-loader",  # Node.js custom loaders
+        "--require",  # Node.js require injection
+        "-r",  # Node.js require shorthand
+    }
+
+    # Type-specific validation
+    if server["type"] == "command":
+        if not isinstance(server.get("command"), str) or not server["command"]:
+            logger.warning("Command-type MCP server missing 'command' field")
+            return False
+
+        # SECURITY FIX: Validate command is in safe list and not in dangerous list
+        command = server.get("command", "")
+
+        # Reject paths - commands must be bare names only (no / or \)
+        # This prevents path traversal like '/custom/malicious' or './evil'
+        if "/" in command or "\\" in command:
+            logger.warning(
+                f"Rejected command with path in MCP server: {command}. "
+                f"Commands must be bare names without path separators."
+            )
+            return False
+
+        if command in DANGEROUS_COMMANDS:
+            logger.warning(
+                f"Rejected dangerous command in MCP server: {command}. "
+                f"Shell commands are not allowed for security reasons."
+            )
+            return False
+
+        if command not in SAFE_COMMANDS:
+            logger.warning(
+                f"Rejected unknown command in MCP server: {command}. "
+                f"Only allowed commands: {', '.join(sorted(SAFE_COMMANDS))}"
+            )
+            return False
+
+        # Validate args is a list of strings if present
+        if "args" in server:
+            if not isinstance(server["args"], list):
+                return False
+            if not all(isinstance(arg, str) for arg in server["args"]):
+                return False
+            # Check for dangerous interpreter flags that allow code execution
+            for arg in server["args"]:
+                if arg in DANGEROUS_FLAGS:
+                    logger.warning(
+                        f"Rejected dangerous flag '{arg}' in MCP server args. "
+                        f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
+    elif server["type"] == "http":
+        if not isinstance(server.get("url"), str) or not server["url"]:
+            logger.warning("HTTP-type MCP server missing 'url' field")
+            return False
+        # Validate headers is a dict of strings if present
+        if "headers" in server:
+            if not isinstance(server["headers"], dict):
+                return False
+            if not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in server["headers"].items()
+            ):
+                return False
+
+    # Optional description must be string if present
+    if "description" in server and not isinstance(server.get("description"), str):
+        return False
+
+    # Reject any unexpected fields that could be exploited
+    allowed_fields = {
+        "id",
+        "name",
+        "type",
+        "command",
+        "args",
+        "url",
+        "headers",
+        "description",
+    }
+    unexpected_fields = set(server.keys()) - allowed_fields
+    if unexpected_fields:
+        logger.warning(f"Custom MCP server has unexpected fields: {unexpected_fields}")
+        return False
+
+    return True
+
+
+def load_project_mcp_config(project_dir: Path) -> dict:
+    """
+    Load MCP configuration from project's .auto-claude/.env file.
+
+    Returns a dict of MCP-related env vars:
+    - CONTEXT7_ENABLED (default: true)
+    - LINEAR_MCP_ENABLED (default: true)
+    - ELECTRON_MCP_ENABLED (default: false)
+    - PUPPETEER_MCP_ENABLED (default: false)
+    - AGENT_MCP_<agent>_ADD (per-agent MCP additions)
+    - AGENT_MCP_<agent>_REMOVE (per-agent MCP removals)
+    - CUSTOM_MCP_SERVERS (JSON array of custom server configs)
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Dict of MCP configuration values (string values, except CUSTOM_MCP_SERVERS which is parsed JSON)
+    """
+    env_path = project_dir / ".auto-claude" / ".env"
+    if not env_path.exists():
+        return {}
+
+    config = {}
+    mcp_keys = {
+        "CONTEXT7_ENABLED",
+        "LINEAR_MCP_ENABLED",
+        "ELECTRON_MCP_ENABLED",
+        "PUPPETEER_MCP_ENABLED",
+    }
+
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip("\"'")
+                    # Include global MCP toggles
+                    if key in mcp_keys:
+                        config[key] = value
+                    # Include per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
+                    elif key.startswith("AGENT_MCP_"):
+                        config[key] = value
+                    # Include custom MCP servers (parse JSON with schema validation)
+                    elif key == "CUSTOM_MCP_SERVERS":
+                        try:
+                            parsed = json.loads(value)
+                            if not isinstance(parsed, list):
+                                logger.warning(
+                                    "CUSTOM_MCP_SERVERS must be a JSON array"
+                                )
+                                config["CUSTOM_MCP_SERVERS"] = []
+                            else:
+                                # Validate each server and filter out invalid ones
+                                valid_servers = []
+                                for i, server in enumerate(parsed):
+                                    if _validate_custom_mcp_server(server):
+                                        valid_servers.append(server)
+                                    else:
+                                        logger.warning(
+                                            f"Skipping invalid custom MCP server at index {i}"
+                                        )
+                                config["CUSTOM_MCP_SERVERS"] = valid_servers
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                f"Failed to parse CUSTOM_MCP_SERVERS JSON: {value}"
+                            )
+                            config["CUSTOM_MCP_SERVERS"] = []
+    except Exception as e:
+        logger.debug(f"Failed to load project MCP config from {env_path}: {e}")
+
+    return config
+
+
+def is_graphiti_mcp_enabled() -> bool:
+    """
+    Check if Graphiti MCP server integration is enabled.
+
+    Requires GRAPHITI_MCP_URL to be set (e.g., http://localhost:8000/mcp/)
+    This is separate from GRAPHITI_ENABLED which controls the Python library integration.
+    """
+    return bool(os.environ.get("GRAPHITI_MCP_URL"))
+
+
+def get_graphiti_mcp_url() -> str:
+    """Get the Graphiti MCP server URL."""
+    return os.environ.get("GRAPHITI_MCP_URL", "http://localhost:8000/mcp/")
+
+
+def is_electron_mcp_enabled() -> bool:
+    """
+    Check if Electron MCP server integration is enabled.
+
+    Requires ELECTRON_MCP_ENABLED to be set to 'true'.
+    When enabled, QA agents can use Puppeteer MCP tools to connect to Electron apps
+    via Chrome DevTools Protocol on the configured debug port.
+    """
+    return os.environ.get("ELECTRON_MCP_ENABLED", "").lower() == "true"
+
+
+def get_electron_debug_port() -> int:
+    """Get the Electron remote debugging port (default: 9222)."""
+    return int(os.environ.get("ELECTRON_DEBUG_PORT", "9222"))
+
+
+def should_use_claude_md() -> bool:
+    """Check if CLAUDE.md instructions should be included in system prompt."""
+    return os.environ.get("USE_CLAUDE_MD", "").lower() == "true"
 
 
 def load_claude_md(project_dir: Path) -> str | None:
@@ -68,8 +325,10 @@ def load_claude_md(project_dir: Path) -> str | None:
     """
     claude_md_path = project_dir / "CLAUDE.md"
     if claude_md_path.exists():
-        content = safe_file_read(str(claude_md_path), default=None, log_errors=False)
-        return content if content else None
+        try:
+            return claude_md_path.read_text(encoding="utf-8")
+        except Exception:
+            return None
     return None
 
 
@@ -80,6 +339,7 @@ def create_client(
     agent_type: str = "coder",
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
+    agents: dict | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -102,6 +362,10 @@ def create_client(
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+        agents: Optional dict of subagent definitions for SDK parallel execution.
+               Format: {"agent-name": {"description": "...", "prompt": "...",
+                        "tools": [...], "model": "inherit"}}
+               See: https://platform.claude.com/docs/en/agent-sdk/subagents
 
     Returns:
         Configured ClaudeSDKClient
@@ -123,85 +387,50 @@ def create_client(
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
 
-    # ============================================
-    # Provider Detection and Model Resolution
-    # ============================================
-
-    # Detect provider from model ID or environment
-    provider = get_provider_for_model(model)
-
-    # Resolve to full model ID based on provider
-    resolved_model = resolve_model_id(model, provider)
-
-    # Get provider configuration
-    provider_config = get_provider_config(provider)
-
-    # Check if provider supports extended thinking
-    if max_thinking_tokens and not provider_config.supports_extended_thinking:
-        print(f"   - Warning: {provider.value} does not support extended thinking. Disabling.")
-        max_thinking_tokens = None
-
-    # Set up custom base URL if configured
-    # Priority: ANTHROPIC_BASE_URL env var > provider default
-    base_url = sdk_env.get("ANTHROPIC_BASE_URL")
-
-    # If ANTHROPIC_BASE_URL is set, infer provider from URL
-    if base_url:
-        provider = infer_provider_from_url(base_url)
-        provider_config = get_provider_config(provider)
-
-    # Add provider-specific base URL to SDK env
-    if base_url:
-        sdk_env["ANTHROPIC_BASE_URL"] = base_url
-    elif provider != "anthropic":
-        # Use provider's default base URL
-        sdk_env["ANTHROPIC_BASE_URL"] = provider_config.base_url
-
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
     linear_api_key = os.environ.get("LINEAR_API_KEY", "")
 
-    # Check if custom maestro tools are available
-    maestro_tools_enabled = is_tools_available()
+    # Check if custom auto-claude tools are available
+    auto_claude_tools_enabled = is_tools_available()
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
     project_index = load_project_index(project_dir)
     project_capabilities = detect_project_capabilities(project_index)
 
+    # Load per-project MCP configuration from .auto-claude/.env
+    mcp_config = load_project_mcp_config(project_dir)
+
     # Get allowed tools using phase-aware configuration
     # This respects AGENT_CONFIGS and only includes tools the agent needs
+    # Also respects per-project MCP configuration
     allowed_tools_list = get_allowed_tools(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Get required MCP servers for this agent type
     # This is the key optimization - only start servers the agent needs
+    # Now also respects per-project MCP configuration
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
         linear_enabled,
+        mcp_config,
     )
 
     # Check if Graphiti MCP is enabled (already filtered by get_required_mcp_servers)
     graphiti_mcp_enabled = "graphiti" in required_servers
 
     # Determine browser tools for permissions (already in allowed_tools_list)
-    # Use dynamic CDP tool selection for Electron, Chrome DevTools, and Puppeteer agents
     browser_tools_permissions = []
-    cdp_mcp_type = get_cdp_mcp_type()
-
-    if "chrome-devtools" in required_servers:
-        # Get Chrome DevTools MCP tools based on agent type and configuration
-        browser_tools_permissions = get_cdp_tools_for_agent(agent_type, mcp_type="chrome-devtools")
-    elif "electron" in required_servers:
-        # Get Electron MCP tools based on agent type and configuration
-        browser_tools_permissions = get_cdp_tools_for_agent(agent_type, mcp_type="electron")
+    if "electron" in required_servers:
+        browser_tools_permissions = ELECTRON_TOOLS
     elif "puppeteer" in required_servers:
-        # Use extended Puppeteer tools for web frontend automation
-        browser_tools_permissions = PUPPETEER_EXTENDED_TOOLS
+        browser_tools_permissions = PUPPETEER_TOOLS
 
     # Create comprehensive security settings
     # Note: Using both relative paths ("./**") and absolute paths to handle
@@ -276,8 +505,6 @@ def create_client(
     mcp_servers_list = []
     if "context7" in required_servers:
         mcp_servers_list.append("context7 (documentation)")
-    if "chrome-devtools" in required_servers:
-        mcp_servers_list.append("chrome-devtools (Google's official Chrome DevTools MCP)")
     if "electron" in required_servers:
         mcp_servers_list.append(
             f"electron (desktop automation, port {get_electron_debug_port()})"
@@ -288,8 +515,8 @@ def create_client(
         mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
-    if "maestro" in required_servers and maestro_tools_enabled:
-        mcp_servers_list.append(f"maestro ({agent_type} tools)")
+    if "auto-claude" in required_servers and auto_claude_tools_enabled:
+        mcp_servers_list.append(f"auto-claude ({agent_type} tools)")
     if mcp_servers_list:
         print(f"   - MCP servers: {', '.join(mcp_servers_list)}")
     else:
@@ -303,26 +530,7 @@ def create_client(
             if v
         ]
         print(f"   - Project capabilities: {', '.join(caps)}")
-
-    # Show CDP configuration for agents with Electron or Chrome DevTools tools
-    if ("electron" in required_servers or "chrome-devtools" in required_servers) and browser_tools_permissions:
-        from core.cdp_config import get_cdp_categories_for_agent
-
-        cdp_categories = get_cdp_categories_for_agent(agent_type)
-        if cdp_categories:
-            cdp_server_name = get_cdp_mcp_server_name()
-            print(f"   - CDP server: {cdp_server_name}")
-            print(f"   - CDP categories: {', '.join(cdp_categories)}")
-            print(f"   - CDP tools: {len(browser_tools_permissions)} tools enabled")
     print()
-
-    # Validate CDP configuration and show warnings
-    cdp_warnings = validate_cdp_config()
-    if cdp_warnings:
-        print("   - CDP Configuration Warnings:")
-        for warning in cdp_warnings:
-            print(f"     - {warning}")
-        print()
 
     # Configure MCP servers - ONLY start servers that are required
     # This is the key optimization to reduce context bloat and startup latency
@@ -336,51 +544,17 @@ def create_client(
 
     if "electron" in required_servers:
         # Electron MCP for desktop apps
-        # Use the local extended MCP server with enhanced CDP tools
         # Electron app must be started with --remote-debugging-port=<port>
         mcp_servers["electron"] = {
-            "command": "node",
-            "args": [str(Path(__file__).parent.parent / "providers" / "electron-mcp-server" / "dist" / "index.js")],
-        }
-
-    if "chrome-devtools" in required_servers:
-        # Google's official Chrome DevTools MCP server
-        # See: https://github.com/ChromeDevTools/chrome-devtools-mcp
-        # This provides 26 tools across 6 categories: input, navigation, emulation,
-        # performance, network, and debugging
-        chrome_devtools_args = ["-y", "chrome-devtools-mcp@latest"]
-
-        # Add connection-specific arguments from environment
-        if os.environ.get("CDP_BROWSER_URL"):
-            chrome_devtools_args.append(f"--browser-url={os.environ['CDP_BROWSER_URL']}")
-        if os.environ.get("CDP_WS_ENDPOINT"):
-            chrome_devtools_args.append(f"--ws-endpoint={os.environ['CDP_WS_ENDPOINT']}")
-        if os.environ.get("CDP_AUTO_CONNECT", "").lower() == "true":
-            chrome_devtools_args.append("--auto-connect")
-        if os.environ.get("CDP_HEADLESS", "").lower() == "true":
-            chrome_devtools_args.append("--headless=true")
-        if os.environ.get("CDP_VIEWPORT"):
-            chrome_devtools_args.append(f"--viewport={os.environ['CDP_VIEWPORT']}")
-
-        # Add category filters (default: all enabled)
-        if os.environ.get("CDP_CATEGORY_EMULATION", "true").lower() == "false":
-            chrome_devtools_args.append("--category-emulation=false")
-        if os.environ.get("CDP_CATEGORY_PERFORMANCE", "true").lower() == "false":
-            chrome_devtools_args.append("--category-performance=false")
-        if os.environ.get("CDP_CATEGORY_NETWORK", "true").lower() == "false":
-            chrome_devtools_args.append("--category-network=false")
-
-        mcp_servers["chrome-devtools"] = {
-            "command": "npx",
-            "args": chrome_devtools_args,
+            "command": "npm",
+            "args": ["exec", "electron-mcp-server"],
         }
 
     if "puppeteer" in required_servers:
         # Puppeteer for web frontends (not Electron)
-        # Use the local extended MCP server with enhanced browser tools
         mcp_servers["puppeteer"] = {
-            "command": "node",
-            "args": [str(Path(__file__).parent.parent / "providers" / "puppeteer-mcp-server" / "dist" / "index.js")],
+            "command": "npx",
+            "args": ["puppeteer-mcp-server"],
         }
 
     if "linear" in required_servers:
@@ -397,11 +571,35 @@ def create_client(
             "url": get_graphiti_mcp_url(),
         }
 
-    # Add custom maestro MCP server if required and available
-    if "maestro" in required_servers and maestro_tools_enabled:
-        maestro_mcp_server = create_maestro_mcp_server(spec_dir, project_dir)
-        if maestro_mcp_server:
-            mcp_servers["maestro"] = maestro_mcp_server
+    # Add custom auto-claude MCP server if required and available
+    if "auto-claude" in required_servers and auto_claude_tools_enabled:
+        auto_claude_mcp_server = create_auto_claude_mcp_server(spec_dir, project_dir)
+        if auto_claude_mcp_server:
+            mcp_servers["auto-claude"] = auto_claude_mcp_server
+
+    # Add custom MCP servers from project config
+    custom_servers = mcp_config.get("CUSTOM_MCP_SERVERS", [])
+    for custom in custom_servers:
+        server_id = custom.get("id")
+        if not server_id:
+            continue
+        # Only include if agent has it in their effective server list
+        if server_id not in required_servers:
+            continue
+        server_type = custom.get("type", "command")
+        if server_type == "command":
+            mcp_servers[server_id] = {
+                "command": custom.get("command", "npx"),
+                "args": custom.get("args", []),
+            }
+        elif server_type == "http":
+            server_config = {
+                "type": "http",
+                "url": custom.get("url", ""),
+            }
+            if custom.get("headers"):
+                server_config["headers"] = custom["headers"]
+            mcp_servers[server_id] = server_config
 
     # Build system prompt
     base_prompt = (
@@ -429,7 +627,7 @@ def create_client(
 
     # Build options dict, conditionally including output_format
     options_kwargs = {
-        "model": resolved_model,  # Use provider-resolved model ID
+        "model": model,
         "system_prompt": base_prompt,
         "allowed_tools": allowed_tools_list,
         "mcp_servers": mcp_servers,
@@ -449,5 +647,10 @@ def create_client(
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:
         options_kwargs["output_format"] = output_format
+
+    # Add subagent definitions if specified
+    # See: https://platform.claude.com/docs/en/agent-sdk/subagents
+    if agents:
+        options_kwargs["agents"] = agents
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

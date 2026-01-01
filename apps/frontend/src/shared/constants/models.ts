@@ -1,136 +1,12 @@
 /**
  * Model and agent profile constants
  * Claude models, thinking levels, memory backends, and agent profiles
- * EXTENDED: Added multi-provider support for GLM models
  */
 
-import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig, ModelProvider, ModelProviderConfig, ModelTier } from '../types/settings';
+import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
 
 // ============================================
-// Model Providers (NEW)
-// ============================================
-
-/**
- * Available model providers
- */
-export const MODEL_PROVIDERS = [
-  {
-    value: 'anthropic' as const,
-    label: 'Anthropic (Claude)',
-    description: 'Official Claude models from Anthropic',
-    icon: 'Cpu',
-    baseUrl: 'https://api.anthropic.com'
-  },
-  {
-    value: 'openrouter' as const,
-    label: 'OpenRouter',
-    description: 'Multi-provider aggregator with free GLM tier',
-    icon: 'Zap',
-    baseUrl: 'https://openrouter.ai/api/v1'
-  },
-  {
-    value: 'zai' as const,
-    label: 'Z.AI',
-    description: 'Direct GLM API access',
-    icon: 'Sparkles',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4/'
-  }
-] as const;
-
-/**
- * Default provider configurations
- */
-export const DEFAULT_PROVIDER_CONFIGS: Record<ModelProvider, ModelProviderConfig> = {
-  anthropic: {
-    provider: 'anthropic',
-    supportsExtendedThinking: true,
-    maxThinkingTokens: 200000
-  },
-  openrouter: {
-    provider: 'openrouter',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    supportsExtendedThinking: false,
-    modelMapping: {
-      opus: 'anthropic/claude-opus-4-5-20251101',
-      sonnet: 'anthropic/claude-sonnet-4-5-20250929',
-      haiku: 'anthropic/claude-haiku-4-5-20251001'
-      // GLM models available but not in default mapping
-    }
-  },
-  zai: {
-    provider: 'zai',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4/',
-    supportsExtendedThinking: false,
-    modelMapping: {
-      opus: 'glm-4.7',
-      sonnet: 'glm-4.7',
-      haiku: 'glm-4.5-air'
-    }
-  }
-};
-
-/**
- * Available models by provider
- */
-export const PROVIDER_MODELS: Record<ModelProvider, Array<{value: string; label: string; tier?: ModelTier}>> = {
-  anthropic: [
-    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5', tier: 'opus' },
-    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', tier: 'sonnet' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', tier: 'haiku' }
-  ],
-  openrouter: [
-    // Claude models via OpenRouter
-    { value: 'anthropic/claude-opus-4-5-20251101', label: 'Claude Opus 4.5', tier: 'opus' },
-    { value: 'anthropic/claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', tier: 'sonnet' },
-    { value: 'anthropic/claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', tier: 'haiku' },
-    // GLM models via OpenRouter
-    { value: 'glm/glm-4-plus', label: 'GLM-4 Plus', tier: 'opus' },
-    { value: 'glm/glm-4-0520', label: 'GLM-4 (0520)', tier: 'sonnet' },
-    { value: 'glm/glm-4-air', label: 'GLM-4 Air', tier: 'haiku' },
-    { value: 'glm/glm-4-flash', label: 'GLM-4 Flash', tier: 'haiku' },
-    // Other OpenRouter models
-    { value: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
-    { value: 'google/gemini-pro-1.5', label: 'Gemini Pro 1.5' }
-  ],
-  zai: [
-    { value: 'glm-4.7', label: 'GLM-4.7', tier: 'opus' },
-    { value: 'glm-4-plus', label: 'GLM-4 Plus', tier: 'opus' },
-    { value: 'glm-4-0520', label: 'GLM-4 (0520)', tier: 'sonnet' },
-    { value: 'glm-4-air', label: 'GLM-4 Air', tier: 'haiku' },
-    { value: 'glm-4-flash', label: 'GLM-4 Flash', tier: 'haiku' }
-  ]
-};
-
-/**
- * Resolve model ID with provider support
- * Handles both shorthand (opus, sonnet, haiku) and provider-qualified IDs
- */
-export function resolveModelId(model: string, provider: ModelProvider = 'anthropic'): string {
-  // Check if it's a provider-qualified ID (e.g., "openrouter/glm-4-plus")
-  if (model.includes('/')) {
-    return model; // Already fully qualified
-  }
-
-  // Check if it's a shorthand
-  if (model in MODEL_ID_MAP) {
-    const tier = model as ModelTier;
-    const providerConfig = DEFAULT_PROVIDER_CONFIGS[provider];
-
-    // Use provider's model mapping if available
-    if (providerConfig.modelMapping?.[tier]) {
-      return providerConfig.modelMapping[tier]!;
-    }
-
-    // Fall back to default Anthropic IDs
-    return MODEL_ID_MAP[model];
-  }
-
-  // Already a full model ID
-  return model;
-}
-
-// ============================================
-// Available Models (LEGACY - Backward Compatible)
+// Available Models
 // ============================================
 
 export const AVAILABLE_MODELS = [
@@ -184,31 +60,33 @@ export const DEFAULT_PHASE_MODELS: PhaseModelConfig = {
 // Default phase thinking configuration for Auto profile
 export const DEFAULT_PHASE_THINKING: import('../types/settings').PhaseThinkingConfig = {
   spec: 'ultrathink',   // Deep thinking for comprehensive spec creation
-  planning: 'ultrathink',     // High thinking for planning complex features
-  coding: 'ultrathink',        // Faster coding iterations
-  qa: 'ultrathink'             // Efficient QA review
+  planning: 'high',     // High thinking for planning complex features
+  coding: 'low',        // Faster coding iterations
+  qa: 'low'             // Efficient QA review
 };
 
 // ============================================
 // Feature Settings (Non-Pipeline Features)
 // ============================================
 
-// Default feature model configuration (for insights, ideation, roadmap, github)
+// Default feature model configuration (for insights, ideation, roadmap, github, utility)
 export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
   insights: 'sonnet',     // Fast, responsive chat
   ideation: 'opus',       // Creative ideation benefits from Opus
   roadmap: 'opus',        // Strategic planning benefits from Opus
   githubIssues: 'opus',   // Issue triage and analysis benefits from Opus
-  githubPrs: 'opus'       // PR review benefits from thorough Opus analysis
+  githubPrs: 'opus',      // PR review benefits from thorough Opus analysis
+  utility: 'haiku'        // Fast utility operations (commit messages, merge resolution)
 };
 
 // Default feature thinking configuration
 export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
-  insights: 'ultrathink',     // Balanced thinking for chat
-  ideation: 'ultrathink',       // Deep thinking for creative ideas
-  roadmap: 'ultrathink',        // Strategic thinking for roadmap
-  githubIssues: 'ultrathink', // Moderate thinking for issue analysis
-  githubPrs: 'ultrathink'     // Moderate thinking for PR review
+  insights: 'medium',     // Balanced thinking for chat
+  ideation: 'high',       // Deep thinking for creative ideas
+  roadmap: 'high',        // Strategic thinking for roadmap
+  githubIssues: 'medium', // Moderate thinking for issue analysis
+  githubPrs: 'medium',    // Moderate thinking for PR review
+  utility: 'low'          // Fast thinking for utility operations
 };
 
 // Feature labels for UI display
@@ -217,7 +95,8 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
   ideation: { label: 'Ideation', description: 'Generate feature ideas and improvements' },
   roadmap: { label: 'Roadmap', description: 'Create strategic feature roadmaps' },
   githubIssues: { label: 'GitHub Issues', description: 'Automated issue triage and labeling' },
-  githubPrs: { label: 'GitHub PR Review', description: 'AI-powered pull request reviews' }
+  githubPrs: { label: 'GitHub PR Review', description: 'AI-powered pull request reviews' },
+  utility: { label: 'Utility', description: 'Commit messages and merge conflict resolution' }
 };
 
 // Default agent profiles for preset model/thinking configurations
@@ -227,7 +106,7 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     name: 'Auto (Optimized)',
     description: 'Uses Opus across all phases with optimized thinking levels',
     model: 'opus',  // Fallback/default model
-    thinkingLevel: 'ultrathink',
+    thinkingLevel: 'high',
     icon: 'Sparkles',
     isAutoProfile: true,
     phaseModels: DEFAULT_PHASE_MODELS,

@@ -7,7 +7,7 @@
   "sections": {
     "appearance": {
       "title": "Apparence",
-      "description": "Personnalisez l'apparence de Maestro"
+      "description": "Personnalisez l'apparence de Auto Claude"
     },
     "display": {
       "title": "Affichage",
@@ -25,10 +25,6 @@
       "title": "Paramètres de l'agent",
       "description": "Modèle par défaut et framework"
     },
-    "modelProvider": {
-      "title": "Fournisseur de modèle",
-      "description": "Choisir le fournisseur de modèle IA"
-    },
     "paths": {
       "title": "Chemins",
       "description": "Outils CLI et chemins framework"
@@ -39,7 +35,7 @@
     },
     "updates": {
       "title": "Mises à jour",
-      "description": "Mises à jour Maestro"
+      "description": "Mises à jour Auto Claude"
     },
     "notifications": {
       "title": "Notifications",
@@ -48,10 +44,6 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
-    },
-    "zenMode": {
-      "title": "Mode Zen",
-      "description": "Création rapide de tâches minimaliste"
     }
   },
   "language": {
@@ -72,7 +64,7 @@
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
     "agentFramework": "Framework de l'agent",
     "agentFrameworkDescription": "Le framework de codage utilisé pour les tâches autonomes",
-    "agentFrameworkAutoClaude": "Maestro",
+    "agentFrameworkAutoClaude": "Auto Claude",
     "aiTerminalNaming": "Nommage IA des terminaux",
     "aiTerminalNamingDescription": "Nommer automatiquement les terminaux en fonction des commandes (utilise Haiku)",
     "featureModelSettings": "Paramètres du modèle de fonctionnalité",
@@ -103,15 +95,15 @@
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
     "notDetected": "Non détecté",
-    "autoClaudePath": "Chemin Maestro",
-    "autoClaudePathDescription": "Chemin relatif vers le répertoire .maestro dans les projets",
-    "autoClaudePathPlaceholder": ".maestro (par défaut)",
+    "autoClaudePath": "Chemin Auto Claude",
+    "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
+    "autoClaudePathPlaceholder": "auto-claude (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
   },
   "theme": {
     "title": "Apparence",
-    "description": "Personnalisez l'apparence de Maestro",
+    "description": "Personnalisez l'apparence de Auto Claude",
     "mode": "Mode",
     "modeDescription": "Choisir entre les thèmes clair et sombre",
     "light": "Clair",
@@ -127,14 +119,14 @@
     "detectAgain": "Détecter à nouveau",
     "ide": {
       "label": "IDE préféré",
-      "description": "Maestro ouvrira les worktrees dans cet éditeur",
+      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
       "placeholder": "Sélectionner un IDE...",
       "customPath": "Chemin IDE personnalisé",
       "customPathPlaceholder": "/chemin/vers/votre/ide"
     },
     "terminal": {
       "label": "Terminal préféré",
-      "description": "Maestro ouvrira les sessions terminal ici",
+      "description": "Auto Claude ouvrira les sessions terminal ici",
       "placeholder": "Sélectionner un terminal...",
       "customPath": "Chemin terminal personnalisé",
       "customPathPlaceholder": "/chemin/vers/votre/terminal"
@@ -146,7 +138,7 @@
   },
   "updates": {
     "title": "Mises à jour",
-    "description": "Gérer les mises à jour de Maestro",
+    "description": "Gérer les mises à jour de Auto Claude",
     "appUpdateReady": "Mise à jour de l'app prête",
     "newVersion": "Nouvelle version",
     "released": "Publiée le",
@@ -163,7 +155,7 @@
     "unableToCheck": "Impossible de vérifier les mises à jour",
     "checkForUpdates": "Vérifier les mises à jour",
     "autoUpdateProjects": "Mise à jour automatique des projets",
-    "autoUpdateProjectsDescription": "Mettre à jour automatiquement Maestro dans les projets quand une nouvelle version est disponible",
+    "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
     "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)"
   },
@@ -313,18 +305,6 @@
     "openaiKey": "Clé API OpenAI",
     "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)"
   },
-  "modelProvider": {
-    "title": "Paramètres du fournisseur de modèle",
-    "description": "Configurer des fournisseurs de modèles IA alternatifs (OpenRouter, Z.AI)",
-    "selectProvider": "Sélectionner le fournisseur de modèle",
-    "directReplacementMode": "Mode de remplacement direct",
-    "directReplacementDescription": "Mapper automatiquement Opus/Sonnet/Haiku aux équivalents du fournisseur",
-    "providerConfiguration": "Configuration du fournisseur",
-    "apiKey": "Clé API",
-    "apiKeyPlaceholder": "Entrez votre clé API...",
-    "customBaseUrl": "URL de base personnalisée (optionnel)",
-    "infoText": "Les fournisseurs alternatifs offrent accès aux modèles GLM et autres. La réflexion étendue n'est disponible qu'avec les modèles Claude Anthropic."
-  },
   "debug": {
     "title": "Debug & Logs",
     "description": "Accédez aux logs et informations de débogage pour le dépannage",
@@ -339,63 +319,109 @@
     "helpTitle": "Signaler des problèmes",
     "helpText": "Lors du signalement de bugs, cliquez sur \"Copier les infos de débogage\" pour obtenir les informations système et les erreurs récentes qui nous aident à diagnostiquer le problème."
   },
-  "zen": {
-    "title": "Mode Zen",
-    "description": "Interface minimaliste pour création rapide de tâches avec analyse d'intention par IA",
-    "byDefault": "Mode Zen par défaut",
-    "byDefaultDescription": "Ouvrir l'appli en Mode Zen pour une expérience sans distraction",
-    "stayInZen": "Rester en Mode Zen",
-    "stayInZenDescription": "Rester en Mode Zen après création de tâche (décocher pour revenir à la vue normale)",
-    "showSuggestions": "Afficher suggestions",
-    "showSuggestionsDescription": "Afficher les intentions récentes comme suggestions en Mode Zen",
-    "howItWorks": {
-      "title": "Comment le Mode Zen fonctionne",
-      "step1": "Tapez une description en langage naturel de ce que vous voulez construire",
-      "step2": "L'IA interprète votre intention et remplit automatiquement les champs de tâche",
-      "step3": "Appuyez sur Entrée pour créer la tâche ou ajustez les paramètres avant soumission"
-    },
-    "keyboardShortcuts": {
-      "title": "Raccourcis clavier",
-      "exit": "Quitter Mode Zen",
-      "open": "Ouvrir Mode Zen"
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Aucun projet sélectionné",
+      "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
     }
   },
-  "cdp": {
-    "title": "Configuration CDP",
-    "description": "Configurer l'accès Chrome DevTools Protocol pour les agents IA",
-    "enabledAgents": "Agents avec accès CDP",
-    "enabledAgentsDescription": "Sélectionnez les agents IA qui ont accès aux outils Chrome DevTools Protocol",
-    "agentDescriptions": {
-      "qa_reviewer": "Valide l'implémentation contre les critères d'acceptation via tests E2E",
-      "qa_fixer": "Corrige les problèmes rapportés par le QA reviewer via automation navigateur",
-      "coder": "Implémente les fonctionnalités et corrige les bugs (CDP ajoute capacités de débogage)",
-      "planner": "Crée les plans d'implémentation (CDP ajoute capacités de recherche)"
+  "mcp": {
+    "title": "Aperçu des serveurs MCP",
+    "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",
+    "description": "Configurez quels serveurs MCP sont disponibles pour les agents dans ce projet",
+    "descriptionNoProject": "Sélectionnez un projet pour configurer les serveurs MCP",
+    "serversEnabled": "{{count}} serveurs activés",
+    "configuration": "Configuration des serveurs MCP",
+    "configurationHint": "Les serveurs désactivés réduisent l'utilisation du contexte et le temps de démarrage",
+    "noProjectSelected": "Aucun projet sélectionné",
+    "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
+    "projectNotInitialized": "Projet non initialisé",
+    "projectNotInitializedDescription": "Initialisez Auto Claude pour ce projet pour configurer les serveurs MCP.",
+    "browserAutomation": "Automatisation du navigateur (agents QA uniquement)",
+    "alwaysEnabled": "toujours activé",
+    "addServer": "Ajouter un serveur",
+    "addMcpTo": "Ajouter un serveur MCP à {{agent}}",
+    "addMcpDescription": "Sélectionnez un serveur MCP à ajouter à cet agent",
+    "allMcpsAdded": "Tous les serveurs MCP disponibles sont déjà ajoutés",
+    "added": "ajouté",
+    "removed": "supprimé",
+    "remove": "Supprimer",
+    "restore": "Restaurer",
+    "noMcpServers": "Aucun serveur MCP",
+    "cannotRemove": "Impossible à supprimer (requis)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Recherche de documentation pour les bibliothèques"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Graphe de connaissances pour le contexte inter-sessions",
+        "notConfigured": "Nécessite la configuration mémoire (voir paramètres Mémoire)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Intégration gestion de projet",
+        "notConfigured": "Nécessite l'intégration Linear (voir paramètres Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatisation d'applications desktop via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatisation du navigateur web pour les tests"
+      },
+      "autoClaude": {
+        "name": "Outils Auto-Claude",
+        "description": "Suivi de la progression du build"
+      }
     },
-    "categories": "Catégories d'outils CDP",
-    "categoriesDescription": "Sélectionnez les catégories d'outils Chrome DevTools Protocol à activer",
-    "categoryDescriptions": {
-      "network": "Monitoring requêtes/réponses HTTP, timing performance",
-      "storage": "localStorage, sessionStorage, cookies, état application",
-      "performance": "FCP, LCP, TTI, FPS, mémoire, profiling CPU",
-      "emulation": "Émulation appareil, limitation réseau, géolocalisation, thème",
-      "console": "Logs filtrés, tracking exceptions, historique console",
-      "dom": "Interactions améliorées (drag, hover, scroll, état élément)"
+    "customServers": "Serveurs personnalisés",
+    "addCustomServer": "Ajouter un serveur personnalisé",
+    "editCustomServer": "Modifier le serveur personnalisé",
+    "customServerDescription": "Ajouter un serveur MCP basé sur une commande ou HTTP",
+    "serverType": "Type de serveur",
+    "typeCommand": "Commande (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Nom",
+    "serverNamePlaceholder": "Mon serveur MCP",
+    "serverDescription": "Description",
+    "serverDescriptionPlaceholder": "Ce que fait ce serveur",
+    "command": "Commande",
+    "args": "Arguments",
+    "argsHint": "Arguments séparés par des espaces",
+    "url": "URL",
+    "headers": "En-têtes",
+    "headerName": "Nom de l'en-tête",
+    "headerValue": "Valeur de l'en-tête",
+    "noCustomServers": "Aucun serveur personnalisé configuré. Ajoutez-en un pour l'utiliser avec vos agents.",
+    "errorNameRequired": "Le nom du serveur est requis",
+    "errorIdExists": "Un serveur avec cet ID existe déjà",
+    "errorCommandRequired": "La commande est requise pour les serveurs basés sur commande",
+    "errorUrlRequired": "L'URL est requise pour les serveurs basés sur HTTP",
+    "testConnection": "Test",
+    "testing": "Test en cours...",
+    "authToken": "Jeton d'authentification",
+    "authTokenPlaceholder": "Collez votre jeton API ou PAT ici",
+    "authTokenHint": "Utilisé comme jeton Bearer dans l'en-tête Authorization",
+    "advancedHeaders": "En-têtes supplémentaires",
+    "status": {
+      "healthy": "Le serveur répond",
+      "unhealthy": "Le serveur ne répond pas",
+      "needsAuth": "Authentification requise",
+      "checking": "Vérification...",
+      "unknown": "Statut inconnu"
     },
-    "logLevel": "Niveau de logging",
-    "logLevelDescription": "Configurer la verbosité du logging d'activité CDP",
-    "logLevels": {
-      "none": "Aucun",
-      "basic": "Basique",
-      "verbose": "Verbeux",
-      "debug": "Débogage"
-    },
-    "contextWarning": {
-      "title": "Impact sur la fenêtre de contexte",
-      "message": "Activer CDP pour les agents Coder ou Planner augmente leur utilisation de contexte, ce qui peut affecter les performances et les coûts en tokens. Envisagez d'activer seulement pour les agents QA sauf si vous avez spécifiquement besoin de ces capacités."
-    },
-    "save": "Enregistrer la configuration",
-    "saving": "Enregistrement...",
-    "configSummary": "Configuration des outils CDP",
-    "enabledCount": "{count} agent(s) avec accès CDP, {categories} catégor{categories, plural, one {ie} other {ies}} activé{categories, plural, one {e} other {es}}"
+    "hints": {
+      "github": "Ceci ressemble à un serveur MCP GitHub. Vous aurez besoin d'un Personal Access Token avec les scopes appropriés.",
+      "createGithubPat": "Créer un PAT GitHub",
+      "google": "Ceci ressemble à une API Google. Vous aurez besoin d'un jeton OAuth ou d'une clé API.",
+      "createGoogleToken": "Créer des identifiants Google",
+      "anthropic": "Ceci ressemble à une API Anthropic. Vous aurez besoin d'une clé API.",
+      "createAnthropicKey": "Créer une clé API Anthropic",
+      "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
+      "createOpenaiKey": "Créer une clé API OpenAI"
+    }
   }
 }

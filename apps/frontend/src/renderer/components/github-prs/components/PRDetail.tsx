@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   CheckCheck,
   MessageSquare,
+  FileText,
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -25,9 +26,10 @@ import { CollapsibleCard } from './CollapsibleCard';
 import { ReviewStatusTree } from './ReviewStatusTree';
 import { PRHeader } from './PRHeader';
 import { ReviewFindings } from './ReviewFindings';
+import { PRLogs } from './PRLogs';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
-import type { NewCommitsCheck } from '../../../../preload/api/modules/github-api';
+import type { NewCommitsCheck, PRLogs as PRLogsType } from '../../../../preload/api/modules/github-api';
 
 interface PRDetailProps {
   pr: PRData;
@@ -44,6 +46,7 @@ interface PRDetailProps {
   onPostComment: (body: string) => void;
   onMergePR: (mergeMethod?: 'merge' | 'squash' | 'rebase') => void;
   onAssignPR: (username: string) => void;
+  onGetLogs: () => Promise<PRLogsType | null>;
 }
 
 function getStatusColor(status: PRReviewResult['overallStatus']): string {
@@ -72,6 +75,7 @@ export function PRDetail({
   onPostComment,
   onMergePR,
   onAssignPR: _onAssignPR,
+  onGetLogs,
 }: PRDetailProps) {
   const { t, i18n } = useTranslation('common');
   // Selection state for findings
@@ -87,6 +91,11 @@ export function PRDetail({
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
   // Ref to track checking state without causing callback recreation
   const isCheckingNewCommitsRef = useRef(false);
+  // Logs state
+  const [logsExpanded, setLogsExpanded] = useState(false);
+  const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const logsLoadedRef = useRef(false);
 
   // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs)
   useEffect(() => {
@@ -104,18 +113,19 @@ export function PRDetail({
     }
   }, [reviewResult?.postedFindingIds, pr.number]);
 
-  // Auto-select critical and high findings when review completes (excluding already posted)
+  // Auto-select ALL findings when review completes (excluding already posted)
+  // All findings should reach the contributor - even LOW suggestions are valuable feedback
   useEffect(() => {
     if (reviewResult?.success && reviewResult.findings.length > 0) {
-      const importantFindings = reviewResult.findings
-        .filter(f => (f.severity === 'critical' || f.severity === 'high') && !postedFindingIds.has(f.id))
+      const allFindings = reviewResult.findings
+        .filter(f => !postedFindingIds.has(f.id))
         .map(f => f.id);
-      setSelectedFindingIds(new Set(importantFindings));
+      setSelectedFindingIds(new Set(allFindings));
     }
   }, [reviewResult, postedFindingIds]);
 
-  // Check for new commits only when findings have been posted to GitHub
-  // Follow-up review only makes sense after initial findings are shared with the contributor
+  // Check for new commits after any review has been completed
+  // This allows detecting new work pushed after ANY review (initial or follow-up)
   const hasPostedFindings = postedFindingIds.size > 0 || reviewResult?.hasPostedFindings;
 
   const checkForNewCommits = useCallback(async () => {
@@ -130,8 +140,10 @@ export function PRDetail({
     }
     checkNewCommitsAbortRef.current = new AbortController();
 
-    // Only check for new commits if we have a review AND findings have been posted
-    if (reviewResult?.success && reviewResult.reviewedCommitSha && hasPostedFindings) {
+    // Check for new commits if we have ANY successful review with a commit SHA
+    // This includes follow-up reviews that resolved all issues (no new findings)
+    // New commits = new code that needs to be reviewed, regardless of posting status
+    if (reviewResult?.success && reviewResult.reviewedCommitSha) {
       isCheckingNewCommitsRef.current = true;
       try {
         const result = await onCheckNewCommits();
@@ -144,11 +156,8 @@ export function PRDetail({
           isCheckingNewCommitsRef.current = false;
         }
       }
-    } else {
-      // Clear any existing new commits check if we haven't posted yet
-      setNewCommitsCheck(null);
     }
-  }, [reviewResult, onCheckNewCommits, hasPostedFindings]);
+  }, [reviewResult, onCheckNewCommits]);
 
   useEffect(() => {
     checkForNewCommits();
@@ -167,6 +176,70 @@ export function PRDetail({
       return () => clearTimeout(timer);
     }
   }, [postSuccess]);
+
+  // Auto-expand logs section when review starts
+  useEffect(() => {
+    if (isReviewing) {
+      setLogsExpanded(true);
+    }
+  }, [isReviewing]);
+
+  // Load logs when logs section is expanded or when reviewing (for live logs)
+  useEffect(() => {
+    if (logsExpanded && !logsLoadedRef.current && !isLoadingLogs) {
+      logsLoadedRef.current = true;
+      setIsLoadingLogs(true);
+      onGetLogs()
+        .then(logs => setPrLogs(logs))
+        .catch(() => setPrLogs(null))
+        .finally(() => setIsLoadingLogs(false));
+    }
+  }, [logsExpanded, onGetLogs, isLoadingLogs]);
+
+  // Track previous reviewing state to detect transitions
+  const wasReviewingRef = useRef(false);
+
+  // Refresh logs periodically while reviewing (even faster during active review)
+  useEffect(() => {
+    const wasReviewing = wasReviewingRef.current;
+    wasReviewingRef.current = isReviewing;
+
+    // Do one final refresh when review just completed to get final phase status
+    if (wasReviewing && !isReviewing) {
+      onGetLogs()
+        .then(logs => setPrLogs(logs))
+        .catch(err => console.error('Failed to fetch final logs:', err));
+      return;
+    }
+
+    // Clear old logs when a new review starts to avoid showing stale status
+    if (!wasReviewing && isReviewing) {
+      setPrLogs(null);
+    }
+
+    if (!isReviewing) return;
+
+    const refreshLogs = async () => {
+      try {
+        const logs = await onGetLogs();
+        setPrLogs(logs);
+      } catch {
+        // Ignore errors during refresh
+      }
+    };
+
+    // Refresh immediately, then every 1.5 seconds while reviewing for smoother streaming
+    refreshLogs();
+    const interval = setInterval(refreshLogs, 1500);
+    return () => clearInterval(interval);
+  }, [isReviewing, onGetLogs]);
+
+  // Reset logs state when PR changes
+  useEffect(() => {
+    logsLoadedRef.current = false;
+    setPrLogs(null);
+    setLogsExpanded(false);
+  }, [pr.number]);
 
   // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
@@ -222,6 +295,8 @@ export function PRDetail({
     const hasUnpostedBlockers = unpostedFindings.some(f => f.severity === 'critical' || f.severity === 'high');
     const hasNewCommits = newCommitsCheck?.hasNewCommits ?? false;
     const newCommitCount = newCommitsCheck?.newCommitCount ?? 0;
+    // Only consider commits that happened AFTER findings were posted for "Ready for Follow-up"
+    const hasCommitsAfterPosting = newCommitsCheck?.hasCommitsAfterPosting ?? false;
 
     // Follow-up review specific statuses
     if (reviewResult.isFollowupReview) {
@@ -234,8 +309,8 @@ export function PRDetail({
         f => (f.severity === 'critical' || f.severity === 'high')
       );
 
-      // Check if ready for another follow-up (new commits after this follow-up)
-      if (hasNewCommits) {
+      // Check if ready for another follow-up (new commits AFTER this follow-up was posted)
+      if (hasNewCommits && hasCommitsAfterPosting) {
         return {
           status: 'ready_for_followup',
           label: t('prReview.readyForFollowup'),
@@ -280,8 +355,8 @@ export function PRDetail({
 
     // Initial review statuses (non-follow-up)
 
-    // Priority 1: Ready for follow-up review (posted findings + new commits)
-    if (hasPosted && hasNewCommits) {
+    // Priority 1: Ready for follow-up review (posted findings + new commits AFTER posting)
+    if (hasPosted && hasNewCommits && hasCommitsAfterPosting) {
       return {
         status: 'ready_for_followup',
         label: t('prReview.readyForFollowup'),
@@ -620,6 +695,35 @@ ${reviewResult.isFollowupReview ? `- Follow-up review: All previous blocking iss
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Review Logs - show during review or after completion */}
+        {(reviewResult || isReviewing) && (
+          <CollapsibleCard
+            title={t('prReview.reviewLogs')}
+            icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+            badge={
+              isReviewing ? (
+                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/30">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  {t('prReview.aiReviewInProgress')}
+                </Badge>
+              ) : prLogs ? (
+                <Badge variant="outline" className="text-xs">
+                  {prLogs.is_followup ? t('prReview.followup') : t('prReview.initial')}
+                </Badge>
+              ) : null
+            }
+            open={logsExpanded}
+            onOpenChange={setLogsExpanded}
+          >
+            <PRLogs
+              prNumber={pr.number}
+              logs={prLogs}
+              isLoading={isLoadingLogs}
+              isStreaming={isReviewing}
+            />
+          </CollapsibleCard>
         )}
 
         {/* Description */}

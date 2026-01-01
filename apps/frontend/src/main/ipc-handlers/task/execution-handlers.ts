@@ -9,6 +9,12 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { getClaudeProfileManager } from '../../claude-profile-manager';
+import {
+  getPlanPath,
+  persistPlanStatus,
+  persistPlanStatusSync,
+  createPlanIfNotExists
+} from './plan-file-utils';
 
 /**
  * Helper function to check subtask completion status
@@ -169,6 +175,18 @@ export function registerTaskExecutionHandlers(
         );
       }
 
+      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
+      // When getTasks() is called (on refresh), it reads status from the plan file.
+      // Without persisting here, the old status (e.g., 'human_review') would override
+      // the in-memory 'in_progress' status, causing the task to flip back and forth.
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      const persisted = persistPlanStatusSync(planPath, 'in_progress');
+      if (persisted) {
+        console.warn('[TASK_START] Updated plan status to: in_progress');
+      }
+      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatusSync handles ENOENT)
+
       // Notify status change
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
@@ -184,6 +202,20 @@ export function registerTaskExecutionHandlers(
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
+
+    // Find task and project to update the plan file
+    const { task, project } = findTaskAndProject(taskId);
+    
+    if (task && project) {
+      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      const planPath = getPlanPath(project, task);
+      const persisted = persistPlanStatusSync(planPath, 'backlog');
+      if (persisted) {
+        console.warn('[TASK_STOP] Updated plan status to backlog');
+      }
+      // Note: File not found is expected for tasks without a plan file (persistPlanStatusSync handles ENOENT)
+    }
 
     const mainWindow = getMainWindow();
     if (mainWindow) {
@@ -381,55 +413,18 @@ export function registerTaskExecutionHandlers(
         }
       }
 
-      // Get the spec directory
+      // Get the spec directory and plan path using shared utility
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specDir = path.join(
-        project.path,
-        specsBaseDir,
-        task.specId
-      );
-
-      // Update implementation_plan.json if it exists
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      const specDir = path.join(project.path, specsBaseDir, task.specId);
+      const planPath = getPlanPath(project, task);
 
       try {
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          const plan = JSON.parse(planContent);
+        // Use shared utility for thread-safe plan file updates
+        const persisted = await persistPlanStatus(planPath, status);
 
-          // Store the exact UI status - project-store.ts will map it back
-          plan.status = status;
-          // Also store mapped version for Python compatibility
-          plan.planStatus = status === 'in_progress' ? 'in_progress'
-            : status === 'ai_review' ? 'review'
-            : status === 'human_review' ? 'review'
-            : status === 'done' ? 'completed'
-            : 'pending';
-          plan.updated_at = new Date().toISOString();
-
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
-        } else {
+        if (!persisted) {
           // If no implementation plan exists yet, create a basic one
-          const plan = {
-            feature: task.title,
-            description: task.description || '',
-            created_at: task.createdAt.toISOString(),
-            updated_at: new Date().toISOString(),
-            status: status, // Store exact UI status for persistence
-            planStatus: status === 'in_progress' ? 'in_progress'
-              : status === 'ai_review' ? 'review'
-              : status === 'human_review' ? 'review'
-              : status === 'done' ? 'completed'
-              : 'pending',
-            phases: []
-          };
-
-          // Ensure spec directory exists
-          if (!existsSync(specDir)) {
-            mkdirSync(specDir, { recursive: true });
-          }
-
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          await createPlanIfNotExists(planPath, task, status);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running

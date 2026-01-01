@@ -248,6 +248,9 @@ export interface GitHubAPI {
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   runFollowupReview: (projectId: string, prNumber: number) => void;
 
+  // PR logs
+  getPRLogs: (projectId: string, prNumber: number) => Promise<PRLogs | null>;
+
   // PR event listeners
   onPRReviewProgress: (
     callback: (projectId: string, progress: PRReviewProgress) => void
@@ -336,6 +339,8 @@ export interface NewCommitsCheck {
   newCommitCount: number;
   lastReviewedCommit?: string;
   currentHeadCommit?: string;
+  /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
+  hasCommitsAfterPosting?: boolean;
 }
 
 /**
@@ -346,6 +351,56 @@ export interface PRReviewProgress {
   prNumber: number;
   progress: number;
   message: string;
+}
+
+/**
+ * PR review log entry type
+ */
+export type PRLogEntryType = 'text' | 'tool_start' | 'tool_end' | 'phase_start' | 'phase_end' | 'error' | 'success' | 'info';
+
+/**
+ * PR review log phase
+ */
+export type PRLogPhase = 'context' | 'analysis' | 'synthesis';
+
+/**
+ * Single log entry in PR review
+ */
+export interface PRLogEntry {
+  timestamp: string;
+  type: PRLogEntryType;
+  content: string;
+  phase: PRLogPhase;
+  source?: string;  // e.g., 'Context', 'AI', 'Orchestrator', 'ParallelFollowup'
+  detail?: string;  // Expandable detail content
+  collapsed?: boolean;
+}
+
+/**
+ * Phase log containing entries
+ */
+export interface PRPhaseLog {
+  phase: PRLogPhase;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+  started_at: string | null;
+  completed_at: string | null;
+  entries: PRLogEntry[];
+}
+
+/**
+ * Complete PR review logs
+ */
+export interface PRLogs {
+  pr_number: number;
+  repo: string;
+  created_at: string;
+  updated_at: string;
+  is_followup: boolean;
+  phases: {
+    context: PRPhaseLog;
+    analysis: PRPhaseLog;
+    synthesis: PRPhaseLog;
+  };
 }
 
 /**
@@ -563,6 +618,10 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   runFollowupReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW, projectId, prNumber),
+
+  // PR logs
+  getPRLogs: (projectId: string, prNumber: number): Promise<PRLogs | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_LOGS, projectId, prNumber),
 
   // PR event listeners
   onPRReviewProgress: (

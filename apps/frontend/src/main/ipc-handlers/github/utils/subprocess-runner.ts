@@ -28,6 +28,8 @@ export interface SubprocessOptions {
   onComplete?: (stdout: string, stderr: string) => unknown;
   onError?: (error: string) => void;
   progressPattern?: RegExp;
+  /** Additional environment variables to pass to the subprocess */
+  env?: Record<string, string>;
 }
 
 /**
@@ -71,6 +73,13 @@ export function runPythonSubprocess<T = unknown>(
   // Also include any CLAUDE_ or ANTHROPIC_ prefixed vars needed for auth
   for (const [key, value] of Object.entries(process.env)) {
     if ((key.startsWith('CLAUDE_') || key.startsWith('ANTHROPIC_')) && value) {
+      filteredEnv[key] = value;
+    }
+  }
+
+  // Merge in any additional env vars passed by the caller (e.g., USE_CLAUDE_MD)
+  if (options.env) {
+    for (const [key, value] of Object.entries(options.env)) {
       filteredEnv[key] = value;
     }
   }

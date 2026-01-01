@@ -20,8 +20,41 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
     }
 
     const command = lastCommandRef.current.trim();
-    // Skip very short or common commands
-    if (command.length < 2 || ['ls', 'cd', 'll', 'pwd', 'exit', 'clear'].includes(command)) {
+    const commandLower = command.toLowerCase();
+    const firstWord = commandLower.split(/\s+/)[0];
+
+    // Skip very short commands
+    if (command.length < 3) {
+      return;
+    }
+
+    // Skip common shell/navigation commands that don't represent meaningful work.
+    // These commands are too generic to produce useful terminal names - they don't indicate
+    // a specific task or purpose. For example, "git" could be any git operation,
+    // "npm" could be install, run, or test. Meaningful names come from project-specific
+    // commands like "npm run build:prod" or application-specific scripts.
+    const skipCommands = [
+      // Navigation & file listing
+      'ls', 'cd', 'll', 'la', 'pwd', 'dir', 'tree',
+      // Shell control
+      'exit', 'clear', 'cls', 'reset', 'history',
+      // Claude CLI - naming should come from the task description inside Claude, not the launch command
+      'claude',
+      // Common dev tools that are too generic
+      'git', 'npm', 'yarn', 'pnpm', 'node', 'python', 'pip', 'cargo', 'go',
+      'docker', 'kubectl', 'make', 'cmake',
+      // Package managers
+      'brew', 'apt', 'yum', 'pacman', 'choco', 'scoop', 'winget',
+      // Editors
+      'vim', 'nvim', 'nano', 'code', 'cursor',
+      // System commands
+      'cat', 'head', 'tail', 'less', 'more', 'grep', 'find', 'which', 'where',
+      'echo', 'env', 'export', 'set', 'unset', 'alias', 'source',
+      'chmod', 'chown', 'mkdir', 'rmdir', 'rm', 'cp', 'mv', 'touch',
+      'man', 'help', 'whoami', 'hostname', 'date', 'time', 'top', 'htop', 'ps',
+    ];
+
+    if (skipCommands.includes(firstWord)) {
       return;
     }
 

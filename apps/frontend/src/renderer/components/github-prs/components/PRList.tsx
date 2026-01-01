@@ -22,6 +22,8 @@ interface PRStatusFlowProps {
   hasPosted: boolean;
   hasBlockingFindings: boolean;
   hasNewCommits: boolean;
+  /** Whether commits happened AFTER findings were posted - for "Ready for Follow-up" status */
+  hasCommitsAfterPosting: boolean;
   t: (key: string) => string;
 }
 
@@ -34,6 +36,7 @@ function PRStatusFlow({
   hasPosted,
   hasBlockingFindings,
   hasNewCommits,
+  hasCommitsAfterPosting,
   t,
 }: PRStatusFlowProps) {
   // Determine flow state - prioritize more advanced states first
@@ -51,7 +54,10 @@ function PRStatusFlow({
 
   // Determine final status color for posted state
   let finalStatus: FinalStatus = 'success';
-  if (hasNewCommits) {
+  // Only show "Ready for Follow-up" if there are commits AFTER findings were posted
+  // This prevents showing follow-up status for commits that happened during/before the review
+  // hasNewCommits tells us the commits are different, hasCommitsAfterPosting tells us if they're newer
+  if (hasNewCommits && hasCommitsAfterPosting) {
     finalStatus = 'followup';
   } else if (hasBlockingFindings) {
     finalStatus = 'warning';
@@ -256,10 +262,16 @@ export function PRList({ prs, selectedPRNumber, isLoading, error, getReviewState
                         // Follow-up review with no new findings to post is effectively "posted"
                         (Boolean(reviewState?.result?.isFollowupReview) && reviewState?.result?.findings?.length === 0)
                       }
-                      hasBlockingFindings={Boolean(reviewState?.result?.findings?.some(
-                        f => f.severity === 'critical' || f.severity === 'high'
-                      ))}
+                      hasBlockingFindings={
+                        // Use overallStatus from review result as source of truth
+                        reviewState?.result?.overallStatus === 'request_changes' ||
+                        // Fallback to checking findings severity
+                        Boolean(reviewState?.result?.findings?.some(
+                          f => f.severity === 'critical' || f.severity === 'high'
+                        ))
+                      }
                       hasNewCommits={Boolean(reviewState?.newCommitsCheck?.hasNewCommits)}
+                      hasCommitsAfterPosting={reviewState?.newCommitsCheck?.hasCommitsAfterPosting ?? false}
                       t={t}
                     />
                   </div>

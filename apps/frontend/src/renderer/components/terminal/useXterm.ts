@@ -83,6 +83,12 @@ export function useXterm({ terminalId, onCommandEnter, onResize }: UseXtermOptio
         return false;
       }
 
+      // Let Cmd/Ctrl + T pass through for new terminal shortcut
+      // Let Cmd/Ctrl + W pass through for close terminal shortcut
+      if (isMod && (event.key === 't' || event.key === 'T' || event.key === 'w' || event.key === 'W')) {
+        return false;
+      }
+
       // Handle all other keys in xterm
       return true;
     });

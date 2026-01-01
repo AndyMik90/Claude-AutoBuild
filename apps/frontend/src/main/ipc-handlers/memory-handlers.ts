@@ -6,9 +6,10 @@
  */
 
 import { ipcMain, app } from 'electron';
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   IPCResult,
@@ -25,6 +26,7 @@ import {
 import { validateOpenAIApiKey } from '../api-validation-service';
 import { parsePythonCommand } from '../python-detector';
 import { getConfiguredPythonPath } from '../python-env-manager';
+import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
  * Ollama Service Status
@@ -83,6 +85,148 @@ interface OllamaPullResult {
   model: string;                         // Model name that was pulled
   status: 'completed' | 'failed';        // Final status
   output: string[];                      // Log messages from pull operation
+}
+
+/**
+ * Ollama Installation Status
+ * Information about whether Ollama is installed on the system
+ */
+interface OllamaInstallStatus {
+  installed: boolean;         // Whether Ollama binary is found on the system
+  path?: string;             // Path to Ollama binary (if found)
+  version?: string;          // Installed version (if available)
+}
+
+/**
+ * Check if Ollama is installed on the system by looking for the binary.
+ * Checks common installation paths and PATH environment variable.
+ *
+ * @returns {OllamaInstallStatus} Installation status with path if found
+ */
+function checkOllamaInstalled(): OllamaInstallStatus {
+  const platform = process.platform;
+
+  // Common paths to check based on platform
+  const pathsToCheck: string[] = [];
+
+  if (platform === 'win32') {
+    // Windows: Check common installation paths
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    pathsToCheck.push(
+      path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe'),
+      path.join(localAppData, 'Ollama', 'ollama.exe'),
+      'C:\\Program Files\\Ollama\\ollama.exe',
+      'C:\\Program Files (x86)\\Ollama\\ollama.exe'
+    );
+  } else if (platform === 'darwin') {
+    // macOS: Check common paths
+    pathsToCheck.push(
+      '/usr/local/bin/ollama',
+      '/opt/homebrew/bin/ollama',
+      path.join(os.homedir(), '.local', 'bin', 'ollama')
+    );
+  } else {
+    // Linux: Check common paths
+    pathsToCheck.push(
+      '/usr/local/bin/ollama',
+      '/usr/bin/ollama',
+      path.join(os.homedir(), '.local', 'bin', 'ollama')
+    );
+  }
+
+  // Check each path
+  // SECURITY NOTE: ollamaPath values come from the hardcoded pathsToCheck array above,
+  // not from user input or environment variables. These are known system installation paths.
+  for (const ollamaPath of pathsToCheck) {
+    if (fs.existsSync(ollamaPath)) {
+      // Try to get version - use execFileSync to avoid shell injection
+      let version: string | undefined;
+      try {
+        const versionOutput = execFileSync(ollamaPath, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+        }).toString().trim();
+        // Parse version from output like "ollama version 0.1.23"
+        const match = versionOutput.match(/(\d+\.\d+\.\d+)/);
+        if (match) {
+          version = match[1];
+        }
+      } catch {
+        // Couldn't get version, but binary exists
+      }
+
+      return {
+        installed: true,
+        path: ollamaPath,
+        version,
+      };
+    }
+  }
+
+  // Also check if ollama is in PATH using where/which command
+  // Use execFileSync with explicit command to avoid shell injection
+  try {
+    const whichCmd = platform === 'win32' ? 'where.exe' : 'which';
+    const ollamaPath = execFileSync(whichCmd, ['ollama'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+    }).toString().trim().split('\n')[0]; // Get first result on Windows
+
+    if (ollamaPath && fs.existsSync(ollamaPath)) {
+      let version: string | undefined;
+      try {
+        // Use the discovered path directly with execFileSync
+        const versionOutput = execFileSync(ollamaPath, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          windowsHide: true,
+        }).toString().trim();
+        const match = versionOutput.match(/(\d+\.\d+\.\d+)/);
+        if (match) {
+          version = match[1];
+        }
+      } catch {
+        // Couldn't get version
+      }
+
+      return {
+        installed: true,
+        path: ollamaPath,
+        version,
+      };
+    }
+  } catch {
+    // Not in PATH
+  }
+
+  return { installed: false };
+}
+
+/**
+ * Get the platform-specific install command for Ollama
+ * Uses the official Ollama installation methods
+ *
+ * Windows: Uses winget (Windows Package Manager)
+ * - Official method per https://winstall.app/apps/Ollama.Ollama
+ * - Winget is pre-installed on Windows 10 (1709+) and Windows 11
+ *
+ * macOS/Linux: Uses official install script from https://ollama.com/download
+ *
+ * @returns {string} The install command to run in terminal
+ */
+function getOllamaInstallCommand(): string {
+  if (process.platform === 'win32') {
+    // Windows: Use winget (Windows Package Manager)
+    // This is an official installation method for Ollama on Windows
+    // Reference: https://winstall.app/apps/Ollama.Ollama
+    return 'winget install --id Ollama.Ollama --accept-source-agreements';
+  } else {
+    // macOS/Linux: Use shell script from official Ollama
+    // Reference: https://ollama.com/download
+    return 'curl -fsSL https://ollama.com/install.sh | sh';
+  }
 }
 
 /**
@@ -427,7 +571,56 @@ export function registerMemoryHandlers(): void {
         };
       }
     }
-   );
+  );
+
+  // Check if Ollama is installed (binary exists on system)
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_CHECK_INSTALLED,
+    async (): Promise<IPCResult<OllamaInstallStatus>> => {
+      try {
+        const installStatus = checkOllamaInstalled();
+        return {
+          success: true,
+          data: installStatus,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check Ollama installation',
+        };
+      }
+    }
+  );
+
+  // Install Ollama (opens terminal with official install command)
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_INSTALL,
+    async (): Promise<IPCResult<{ command: string }>> => {
+      try {
+        const command = getOllamaInstallCommand();
+        console.log('[Ollama] Platform:', process.platform);
+        console.log('[Ollama] Install command:', command);
+        console.log('[Ollama] Opening terminal...');
+
+        await openTerminalWithCommand(command);
+        console.log('[Ollama] Terminal opened successfully');
+
+        return {
+          success: true,
+          data: { command },
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : '';
+        console.error('[Ollama] Install failed:', errorMsg);
+        console.error('[Ollama] Error stack:', errorStack);
+        return {
+          success: false,
+          error: `Failed to open terminal for installation: ${errorMsg}`,
+        };
+      }
+    }
+  );
 
     // ============================================
     // Ollama Model Discovery & Management

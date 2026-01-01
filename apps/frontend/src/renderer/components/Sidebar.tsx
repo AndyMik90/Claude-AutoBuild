@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -20,8 +20,7 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
-  Wrench,
-  Search
+  Wrench
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -50,19 +49,10 @@ import { useSettingsStore } from '../stores/settings-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
-import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
+import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
+import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
-/* Apple HIG-inspired Sidebar component
-   Key principles:
-   - Clear visual hierarchy with section headers
-   - Consistent spacing (12pt grid system)
-   - Rounded corners for modern appearance
-   - Smooth transitions for interactive states
-   - Proper tap target sizes (44x44pt minimum)
-   - Keyboard shortcuts clearly indicated
-*/
-
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'zen';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -78,7 +68,8 @@ interface NavItem {
   shortcut?: string;
 }
 
-const projectNavItems: NavItem[] = [
+// Base nav items always shown
+const baseNavItems: NavItem[] = [
   { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
   { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
   { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
@@ -86,16 +77,20 @@ const projectNavItems: NavItem[] = [
   { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
-  { id: 'zen', labelKey: 'navigation:items.zen', icon: Search, shortcut: 'Z' }
+  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
 ];
 
-const toolsNavItems: NavItem[] = [
+// GitHub nav items shown when GitHub is enabled
+const githubNavItems: NavItem[] = [
   { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
+  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' }
+];
+
+// GitLab nav items shown when GitLab is enabled
+const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
-  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' },
-  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
-  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' }
+  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
 ];
 
 export function Sidebar({
@@ -116,8 +111,45 @@ export function Sidebar({
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Load env config when project changes to check GitHub/GitLab enabled state
+  useEffect(() => {
+    const loadEnvConfig = async () => {
+      if (selectedProject?.autoBuildPath) {
+        try {
+          const result = await window.electronAPI.getProjectEnv(selectedProject.id);
+          if (result.success && result.data) {
+            setEnvConfig(result.data);
+          } else {
+            setEnvConfig(null);
+          }
+        } catch {
+          setEnvConfig(null);
+        }
+      } else {
+        setEnvConfig(null);
+      }
+    };
+    loadEnvConfig();
+  }, [selectedProject?.id, selectedProject?.autoBuildPath]);
+
+  // Compute visible nav items based on GitHub/GitLab enabled state
+  const visibleNavItems = useMemo(() => {
+    const items = [...baseNavItems];
+
+    if (envConfig?.githubEnabled) {
+      items.push(...githubNavItems);
+    }
+
+    if (envConfig?.gitlabEnabled) {
+      items.push(...gitlabNavItems);
+    }
+
+    return items;
+  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -140,9 +172,8 @@ export function Sidebar({
 
       const key = e.key.toUpperCase();
 
-      // Find matching nav item
-      const allNavItems = [...projectNavItems, ...toolsNavItems];
-      const matchedItem = allNavItems.find((item) => item.shortcut === key);
+      // Find matching nav item from visible items only
+      const matchedItem = visibleNavItems.find((item) => item.shortcut === key);
 
       if (matchedItem) {
         e.preventDefault();
@@ -152,7 +183,7 @@ export function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProjectId, onViewChange]);
+  }, [selectedProjectId, onViewChange, visibleNavItems]);
 
   // Check git status when project changes
   useEffect(() => {
@@ -246,31 +277,16 @@ export function Sidebar({
         onClick={() => handleNavClick(item.id)}
         disabled={!selectedProjectId}
         className={cn(
-          /* Apple HIG nav item styling */
-          'sidebar-item group relative flex w-full items-center gap-3 tap-target rounded-xl px-3 py-2.5 text-sm font-medium',
-          /* Smooth transitions */
-          'transition-all duration-150 ease-out',
-          /* Hover state */
+          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
-          /* Disabled state */
           'disabled:pointer-events-none disabled:opacity-50',
-          /* Active state */
-          isActive && 'bg-primary text-primary-foreground hover:bg-primary/90'
+          isActive && 'bg-accent text-accent-foreground'
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+        <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left">{t(item.labelKey)}</span>
         {item.shortcut && (
-          <kbd
-            className={cn(
-              /* Apple-style keyboard shortcut badge */
-              'pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex',
-              /* Transition for hover state */
-              'transition-opacity duration-150',
-              /* Show on hover */
-              'opacity-60 group-hover:opacity-100'
-            )}
-          >
+          <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
             {item.shortcut}
           </kbd>
         )}
@@ -280,60 +296,27 @@ export function Sidebar({
 
   return (
     <TooltipProvider>
-      <div
-        className={cn(
-          /* Apple HIG sidebar container */
-          'sidebar flex h-full w-80 flex-col bg-sidebar border-r border-border',
-          /* Smooth transitions for theme changes */
-          'transition-colors duration-200 ease-out'
-        )}
-      >
+      <div className="flex h-full w-64 flex-col bg-sidebar border-r border-border">
         {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className="electron-drag flex h-16 items-center px-5 pt-7">
-          <span className="electron-no-drag text-lg font-semibold text-foreground tracking-tight">
-            Maestro
-          </span>
+        <div className="electron-drag flex h-14 items-center px-4 pt-6">
+          <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
         </div>
 
-        <Separator className="mx-4" />
+        <Separator className="mt-2" />
 
 
         <Separator />
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
-          <div className="px-3 py-5">
+          <div className="px-3 py-4">
             {/* Project Section */}
-            <div className="mb-6">
-              <h3
-                className={cn(
-                  /* Apple HIG section header styling */
-                  'mb-3 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70',
-                  /* Slightly reduced letter spacing for uppercase */
-                  'tracking-wider'
-                )}
-              >
+            <div>
+              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {t('sections.project')}
               </h3>
-              <nav className="space-y-0.5">
-                {projectNavItems.map(renderNavItem)}
-              </nav>
-            </div>
-
-            {/* Tools Section */}
-            <div>
-              <h3
-                className={cn(
-                  /* Apple HIG section header styling */
-                  'mb-3 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70',
-                  /* Slightly reduced letter spacing for uppercase */
-                  'tracking-wider'
-                )}
-              >
-                {t('sections.tools')}
-              </h3>
-              <nav className="space-y-0.5">
-                {toolsNavItems.map(renderNavItem)}
+              <nav className="space-y-1">
+                {visibleNavItems.map(renderNavItem)}
               </nav>
             </div>
           </div>
@@ -345,7 +328,10 @@ export function Sidebar({
         <RateLimitIndicator />
 
         {/* Bottom section with Settings, Help, and New Task */}
-        <div className="p-5 space-y-3">
+        <div className="p-4 space-y-3">
+          {/* Claude Code Status Badge */}
+          <ClaudeCodeStatusBadge />
+
           {/* Settings and Help row */}
           <div className="flex items-center gap-2">
             <Tooltip>
@@ -353,10 +339,10 @@ export function Sidebar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex-1 justify-start gap-2 h-10 rounded-xl font-medium"
+                  className="flex-1 justify-start gap-2"
                   onClick={onSettingsClick}
                 >
-                  <Settings className="h-4 w-4" strokeWidth={2.5} />
+                  <Settings className="h-4 w-4" />
                   {t('actions.settings')}
                 </Button>
               </TooltipTrigger>
@@ -367,10 +353,9 @@ export function Sidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl"
                   onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
                 >
-                  <HelpCircle className="h-4 w-4" strokeWidth={2.5} />
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">{t('tooltips.help')}</TooltipContent>
@@ -379,11 +364,11 @@ export function Sidebar({
 
           {/* New Task button */}
           <Button
-            className="w-full h-11 rounded-xl font-medium shadow-sm hover:shadow-md transition-all duration-150"
+            className="w-full"
             onClick={onNewTaskClick}
             disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
           >
-            <Plus className="mr-2 h-4 w-4" strokeWidth={2.5} />
+            <Plus className="mr-2 h-4 w-4" />
             {t('actions.newTask')}
           </Button>
           {selectedProject && !selectedProject.autoBuildPath && (
@@ -394,7 +379,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Initialize Maestro Dialog */}
+      {/* Initialize Auto Claude Dialog */}
       <Dialog open={showInitDialog} onOpenChange={(open) => {
         // Only allow closing if user manually closes (not during initialization)
         if (!open && !isInitializing) {
@@ -412,7 +397,7 @@ export function Sidebar({
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="rounded-xl bg-muted p-4 text-sm">
+            <div className="rounded-lg bg-muted p-4 text-sm">
               <p className="font-medium mb-2">{t('dialogs:initialize.willDo')}</p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 <li>{t('dialogs:initialize.createFolder')}</li>
@@ -421,7 +406,7 @@ export function Sidebar({
               </ul>
             </div>
             {!settings.autoBuildPath && (
-              <div className="mt-4 rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm">
+              <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4 text-sm">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                   <div>

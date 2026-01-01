@@ -375,6 +375,13 @@ class PRReviewResult:
         default_factory=list
     )  # New issues in recent commits
 
+    # Posted findings tracking (for frontend state sync)
+    has_posted_findings: bool = False  # True if any findings have been posted to GitHub
+    posted_finding_ids: list[str] = field(
+        default_factory=list
+    )  # IDs of posted findings
+    posted_at: str | None = None  # Timestamp when findings were posted
+
     def to_dict(self) -> dict:
         return {
             "pr_number": self.pr_number,
@@ -401,6 +408,10 @@ class PRReviewResult:
             "resolved_findings": self.resolved_findings,
             "unresolved_findings": self.unresolved_findings,
             "new_findings_since_last_review": self.new_findings_since_last_review,
+            # Posted findings tracking
+            "has_posted_findings": self.has_posted_findings,
+            "posted_finding_ids": self.posted_finding_ids,
+            "posted_at": self.posted_at,
         }
 
     @classmethod
@@ -443,6 +454,10 @@ class PRReviewResult:
             new_findings_since_last_review=data.get(
                 "new_findings_since_last_review", []
             ),
+            # Posted findings tracking
+            has_posted_findings=data.get("has_posted_findings", False),
+            posted_finding_ids=data.get("posted_finding_ids", []),
+            posted_at=data.get("posted_at"),
         )
 
     async def save(self, github_dir: Path) -> None:
@@ -528,6 +543,9 @@ class FollowupReviewContext:
     # PR reviews since last review (formal review submissions from Cursor, CodeRabbit, etc.)
     # These are different from comments - they're full review submissions with body text
     pr_reviews_since_review: list[dict] = field(default_factory=list)
+
+    # Error flag - if set, context gathering failed and data may be incomplete
+    error: str | None = None
 
 
 @dataclass
@@ -773,7 +791,12 @@ class GitHubRunnerConfig:
     auto_post_reviews: bool = False
     allow_fix_commits: bool = True
     review_own_prs: bool = False  # Whether bot can review its own PRs
-    use_orchestrator_review: bool = True  # Use new Opus 4.5 orchestrating agent
+    use_orchestrator_review: bool = (
+        True  # DEPRECATED: No longer used, kept for config compatibility
+    )
+    use_parallel_orchestrator: bool = (
+        True  # Use SDK subagent parallel orchestrator (default)
+    )
 
     # Model settings
     model: str = "claude-sonnet-4-20250514"

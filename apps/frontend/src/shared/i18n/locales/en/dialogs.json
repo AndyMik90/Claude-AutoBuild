@@ -1,23 +1,23 @@
 {
   "initialize": {
-    "title": "Initialize Maestro",
-    "description": "This project doesn't have Maestro initialized. Would you like to set it up now?",
+    "title": "Initialize Auto Claude",
+    "description": "This project doesn't have Auto Claude initialized. Would you like to set it up now?",
     "willDo": "This will:",
-    "createFolder": "Create a .maestro folder in your project",
-    "copyFramework": "Copy the Maestro framework files",
+    "createFolder": "Create a .auto-claude folder in your project",
+    "copyFramework": "Copy the Auto Claude framework files",
     "setupSpecs": "Set up the specs directory for your tasks",
     "sourcePathNotConfigured": "Source path not configured",
-    "sourcePathNotConfiguredDescription": "Please set the Maestro source path in App Settings before initializing.",
+    "sourcePathNotConfiguredDescription": "Please set the Auto Claude source path in App Settings before initializing.",
     "initFailed": "Initialization Failed",
-    "initFailedDescription": "Failed to initialize Maestro. Please try again."
+    "initFailedDescription": "Failed to initialize Auto Claude. Please try again."
   },
   "gitSetup": {
     "title": "Git Repository Required",
-    "description": "Maestro uses git to safely build features in isolated workspaces",
+    "description": "Auto Claude uses git to safely build features in isolated workspaces",
     "notGitRepo": "This folder is not a git repository",
     "noCommits": "Git repository has no commits",
-    "needsInit": "Git needs to be initialized before Maestro can manage your code.",
-    "needsCommit": "At least one commit is required for Maestro to create worktrees.",
+    "needsInit": "Git needs to be initialized before Auto Claude can manage your code.",
+    "needsCommit": "At least one commit is required for Auto Claude to create worktrees.",
     "willSetup": "We'll set up git for you:",
     "initRepo": "Initialize a new git repository",
     "createCommit": "Create an initial commit with your current files",
@@ -25,71 +25,33 @@
     "settingUp": "Setting up Git",
     "initializingRepo": "Initializing git repository and creating initial commit...",
     "success": "Git Initialized",
-    "readyToUse": "Your project is now ready to use with Maestro!",
-    "skipForNow": "Skip for now",
-    "initFailed": "Failed to initialize git",
-    "manualInstructions": "Open a terminal in your project folder and run:",
-    "commands": {
-      "init": "git init",
-      "add": "git add .",
-      "commit": "git commit -m \"Initial commit\""
-    }
+    "readyToUse": "Your project is now ready to use with Auto Claude!"
   },
   "githubSetup": {
     "connectTitle": "Connect to GitHub",
-    "connectDescription": "Maestro requires GitHub to manage your code branches and keep tasks up to date.",
+    "connectDescription": "Auto Claude requires GitHub to manage your code branches and keep tasks up to date.",
     "claudeTitle": "Connect to Claude AI",
-    "claudeDescription": "Maestro uses Claude AI for intelligent features like Roadmap generation, Task automation, and Ideation.",
+    "claudeDescription": "Auto Claude uses Claude AI for intelligent features like Roadmap generation, Task automation, and Ideation.",
     "selectRepo": "Select Repository",
-    "repoDescription": "Maestro will use this repository for managing task branches and keeping your code up to date.",
+    "repoDescription": "Auto Claude will use this repository for managing task branches and keeping your code up to date.",
     "selectBranch": "Select Base Branch",
-    "branchDescription": "Choose which branch Maestro should use as the base for creating task branches.",
+    "branchDescription": "Choose which branch Auto Claude should use as the base for creating task branches.",
     "whyBranch": "Why select a branch?",
-    "branchExplanation": "Maestro creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
-    "ready": "Maestro is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch.",
-    "skipForNow": "Skip for now",
-    "confirmRepository": "Confirm Repository",
-    "repositoryDetected": "Repository Detected",
-    "useDifferentRepository": "Use Different Repository",
-    "confirmContinue": "Confirm & Continue",
-    "connectToGitHub": "Connect to GitHub",
-    "createNewRepo": "Create New Repo",
-    "linkExisting": "Link Existing",
-    "createNewRepository": "Create a new repository",
-    "linkExistingRepo": "Link to existing repository",
-    "selectOwner": "Select your personal account or an organization",
-    "repositoryName": "Repository Name",
-    "visibility": "Visibility",
-    "private": "Private",
-    "public": "Public",
-    "selectBaseBranch": "Select Base Branch",
-    "baseBranch": "Base Branch",
-    "selectBranch": "Select a branch",
-    "loadingBranches": "Loading branches...",
-    "recommended": "Recommended",
-    "setupComplete": "Setup Complete",
-    "readyToUse": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the",
-    "branch": "branch",
-    "creating": "Creating...",
-    "linking": "Linking...",
-    "completeSetup": "Complete Setup",
-    "repository": "Repository",
-    "enterRepositoryName": "Enter the full repository path (e.g., octocat/hello-world)",
-    "createRepository": "Create Repository",
-    "linkRepositoryButton": "Link Repository"
+    "branchExplanation": "Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures your tasks start with the latest code from your main development line.",
+    "ready": "Auto Claude is ready to use! You can now create tasks that will be automatically based on the {{branchName}} branch."
   },
   "worktrees": {
     "title": "Worktrees",
-    "description": "Manage isolated workspaces for your Maestro tasks",
+    "description": "Manage isolated workspaces for your Auto Claude tasks",
     "empty": "No Worktrees",
-    "emptyDescription": "Worktrees are created automatically when Maestro builds features. They provide isolated workspaces for each task.",
+    "emptyDescription": "Worktrees are created automatically when Auto Claude builds features. They provide isolated workspaces for each task.",
     "merge": "Merge Worktree",
     "mergeDescription": "Merge changes from this worktree into the base branch.",
     "delete": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and all uncommitted changes. This action cannot be undone."
   },
   "update": {
-    "title": "Maestro",
+    "title": "Auto Claude",
     "projectInitialized": "Project is initialized."
   },
   "addFeature": {
@@ -157,7 +119,11 @@
     "cancel": "Cancel",
     "apply": "Apply"
   },
-  "oauth": {
-    "skipForNow": "Skip for now"
+  "removeProject": {
+    "title": "Remove Project?",
+    "description": "This will remove \"{{projectName}}\" from the app. Your files will be preserved on disk and you can re-add the project later.",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "error": "Failed to remove project"
   }
 }
