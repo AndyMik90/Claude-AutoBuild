@@ -116,6 +116,17 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "-r",  # Node.js require shorthand
     }
 
+    # Shell metacharacters that could enable command injection
+    # Issue #489: Prevent shell metacharacters in MCP server args
+    SHELL_METACHARACTERS = {"&", "|", ";", ">", "<", "`", "$", "(", ")", "{", "}", "
+", ""}
+
+    # Shell metacharacters that could enable command injection
+    # Issue #489: Prevent shell metacharacters in MCP server args
+    SHELL_METACHARACTERS = {"&", "|", ";", ">", "<", "`", "$", "(", ")", "{", "}", "
+", "
+"}
+
     # Type-specific validation
     if server["type"] == "command":
         if not isinstance(server.get("command"), str) or not server["command"]:
@@ -154,12 +165,37 @@ def _validate_custom_mcp_server(server: dict) -> bool:
                 return False
             if not all(isinstance(arg, str) for arg in server["args"]):
                 return False
+
+            # SECURITY FIX #489: Block shell metacharacters in args to prevent command injection
+            SHELL_METACHARACTERS = {'&', '|', ';', '>', '<', '`', '$', '(', ')', '{', '}'}
+            for arg in server["args"]:
+                if any(char in arg for char in SHELL_METACHARACTERS):
+                    logger.warning(
+                        f"Rejected arg with shell metacharacter in MCP server: {arg}. "
+                        f"Shell metacharacters are not allowed for security reasons."
+                    )
+                    return False
+
             # Check for dangerous interpreter flags that allow code execution
             for arg in server["args"]:
                 if arg in DANGEROUS_FLAGS:
                     logger.warning(
                         f"Rejected dangerous flag '{arg}' in MCP server args. "
                         f"Interpreter code execution flags are not allowed."
+                    )
+                    return False
+                # Issue #489: Check for shell metacharacters that could enable command injection
+                if any(char in arg for char in SHELL_METACHARACTERS):
+                    logger.warning(
+                        f"Rejected arg with shell metacharacter in MCP server: {arg}. "
+                        f"Shell metacharacters are not allowed for security reasons."
+                    )
+                    return False
+                # Issue #489: Check for shell metacharacters that could enable command injection
+                if any(char in arg for char in SHELL_METACHARACTERS):
+                    logger.warning(
+                        f"Rejected arg with shell metacharacter in MCP server: {arg}. "
+                        f"Shell metacharacters are not allowed for security reasons."
                     )
                     return False
     elif server["type"] == "http":

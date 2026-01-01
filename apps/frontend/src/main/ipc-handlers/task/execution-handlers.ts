@@ -103,6 +103,17 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
 
+      // SECURITY FIX #486: Validate spec ID to prevent path traversal
+      if (!/^[a-zA-Z0-9-]+$/.test(task.specId)) {
+        console.error('[TASK_START] Invalid spec ID format:', task.specId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_ERROR,
+          taskId,
+          'Invalid spec ID format. Only alphanumeric characters and hyphens are allowed.'
+        );
+        return;
+      }
+
       // Start file watcher for this task
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(
@@ -110,6 +121,19 @@ export function registerTaskExecutionHandlers(
         specsBaseDir,
         task.specId
       );
+
+      // SECURITY FIX #486: Verify resolved path is within project boundary
+      const resolvedSpecDir = path.resolve(project.path, specsBaseDir, task.specId);
+      const projectBase = path.resolve(project.path, specsBaseDir);
+      if (!resolvedSpecDir.startsWith(projectBase + path.sep) && resolvedSpecDir !== projectBase) {
+        console.error('[TASK_START] Path traversal attempt detected:', task.specId);
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_ERROR,
+          taskId,
+          'Path traversal attempt detected. Invalid spec ID.'
+        );
+        return;
+      }
       fileWatcher.watch(taskId, specDir);
 
       // Check if spec.md exists (indicates spec creation was already done or in progress)
