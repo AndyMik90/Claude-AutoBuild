@@ -12,6 +12,14 @@ import logging
 import re
 from typing import Any
 
+# FIX #491: Retry logic for transient failures
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+
 # Import kuzu (might be real_ladybug via monkeypatch)
 try:
     import kuzu
@@ -44,6 +52,12 @@ def create_patched_kuzu_driver(db: str = ":memory:", max_concurrent_queries: int
             self._database = db  # Required by Graphiti for group_id checks
             super().__init__(db, max_concurrent_queries)
 
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=1, max=10),
+            retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError)),
+            reraise=True,
+        )
         async def execute_query(
             self, cypher_query_: str, **kwargs: Any
         ) -> tuple[list[dict[str, Any]] | list[list[dict[str, Any]]], None, None]:
@@ -53,6 +67,9 @@ def create_patched_kuzu_driver(db: str = ":memory:", max_concurrent_queries: int
             The original driver filters out None values, but LadybugDB requires
             all referenced parameters to exist. This override keeps None values
             in the parameters dict.
+
+            FIX #491: Retries up to 3 times with exponential backoff on
+            transient network/connection errors (ConnectionError, TimeoutError, OSError).
             """
             # Don't filter out None values - LadybugDB needs them
             params = {k: v for k, v in kwargs.items()}

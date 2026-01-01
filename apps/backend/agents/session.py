@@ -9,6 +9,14 @@ memory updates, recovery tracking, and Linear integration.
 import logging
 from pathlib import Path
 
+# FIX #491: Retry logic for transient failures
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
@@ -310,6 +318,12 @@ async def post_session_processing(
         return False
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError)),
+    reraise=True,
+)
 async def run_agent_session(
     client: ClaudeSDKClient,
     message: str,
@@ -332,6 +346,9 @@ async def run_agent_session(
         - "continue" if agent should continue working
         - "complete" if all subtasks complete
         - "error" if an error occurred
+
+    FIX #491: Retries up to 3 times with exponential backoff on
+    transient network/connection errors (ConnectionError, TimeoutError, OSError).
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(
