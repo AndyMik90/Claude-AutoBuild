@@ -1,4 +1,8 @@
 {
+  "page": {
+    "title": "Débogage et Tests",
+    "description": "Outils de diagnostic pour IPC, backend runners, journaux et configuration"
+  },
   "tabs": {
     "ipc": "Testeur IPC",
     "runner": "Backend Runner",
