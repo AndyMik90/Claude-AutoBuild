@@ -20,6 +20,23 @@ export const integrationMock = {
     success: true
   }),
 
+  // Profile Environment Operations
+  getProfileEnv: async () => ({
+    success: true,
+    data: {
+      claudeAuthStatus: 'not_configured' as const,
+      linearEnabled: false,
+      githubEnabled: false,
+      gitlabEnabled: false,
+      graphitiEnabled: false,
+      enableFancyUi: true
+    }
+  }),
+
+  updateProfileEnv: async () => ({
+    success: true
+  }),
+
   // Auto-Build Source Environment Operations
   getSourceEnv: async () => ({
     success: true,
