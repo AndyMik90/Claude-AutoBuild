@@ -153,6 +153,12 @@ export const IPC_CHANNELS = {
   ENV_CHECK_CLAUDE_AUTH: 'env:checkClaudeAuth',
   ENV_INVOKE_CLAUDE_SETUP: 'env:invokeClaudeSetup',
 
+  // Profile environment operations
+  PROFILE_ENV_GET: 'profileEnv:get',
+  PROFILE_ENV_UPDATE: 'profileEnv:update',
+  PROFILE_ENV_DELETE: 'profileEnv:delete',
+  PROFILE_ENV_LIST: 'profileEnv:list',
+
   // Ideation operations
   IDEATION_GET: 'ideation:get',
   IDEATION_GENERATE: 'ideation:generate',

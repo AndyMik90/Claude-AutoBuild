@@ -46,6 +46,11 @@ export function loadProfileStore(storePath: string): ProfileStoreData | null {
         data.autoSwitch = DEFAULT_AUTO_SWITCH_SETTINGS;
       }
 
+      if (data.version === 2 || data.version === 3) {
+        // Migrate v2/v3 to v4: envVariables field is optional, no changes needed
+        data.version = STORE_VERSION;
+      }
+
       if (data.version === STORE_VERSION) {
         // Parse dates
         data.profiles = data.profiles.map((p: ClaudeProfile) => ({
