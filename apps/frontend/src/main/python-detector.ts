@@ -37,6 +37,9 @@ export function getBundledPythonPath(): string | null {
  * Checks common Homebrew paths for Python 3, including versioned installations.
  * Prioritizes newer Python versions (3.13, 3.12, 3.11, 3.10).
  *
+ * Note: This list should be updated when new Python versions are released.
+ * Check for specific versions first to ensure we find the latest available version.
+ *
  * @returns The path to Homebrew Python, or null if not found
  */
 function findHomebrewPython(): string | null {
@@ -46,7 +49,8 @@ function findHomebrewPython(): string | null {
   ];
 
   // Check for specific Python versions first (newest to oldest), then fall back to generic python3.
-  // This ensures we find the latest available version.
+  // This ensures we find the latest available version that meets our requirements.
+  // TODO: Update this list when Python 3.14+ is released
   const pythonNames = [
     'python3.13',
     'python3.12',
@@ -59,15 +63,25 @@ function findHomebrewPython(): string | null {
     for (const name of pythonNames) {
       const pythonPath = path.join(dir, name);
       if (existsSync(pythonPath)) {
-        // Validate that this Python meets our version requirements
-        const validation = validatePythonVersion(pythonPath);
-        if (validation.valid) {
-          return pythonPath;
+        try {
+          // Validate that this Python meets our version requirements
+          const validation = validatePythonVersion(pythonPath);
+          if (validation.valid) {
+            console.log(`[Python] Found valid Homebrew Python: ${pythonPath} (${validation.version})`);
+            return pythonPath;
+          } else {
+            console.warn(`[Python] ${pythonPath} rejected: ${validation.message}`);
+          }
+        } catch (error) {
+          // Version check failed (e.g., timeout, permission issue), try next candidate
+          console.warn(`[Python] Failed to validate ${pythonPath}: ${error}`);
+          continue;
         }
       }
     }
   }
 
+  console.log(`[Python] No valid Homebrew Python found in ${homebrewDirs.join(', ')}`);
   return null;
 }
 
