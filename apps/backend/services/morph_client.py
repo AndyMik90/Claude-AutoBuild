@@ -103,7 +103,9 @@ class MorphConfig:
         timeout: Request timeout in seconds
         max_retries: Maximum number of retries for failed requests
         backoff_factor: Multiplier for exponential backoff between retries
-        health_cache_ttl: Seconds to cache health check results
+        health_cache_ttl: Seconds to cache health check results. Set to 300 (5 min)
+                         by default to minimize API credit usage since health checks
+                         use real apply operations (Morph has no dedicated health endpoint).
     """
 
     api_key: str = ""
@@ -112,7 +114,7 @@ class MorphConfig:
     timeout: float = 60.0
     max_retries: int = 3
     backoff_factor: float = 1.5
-    health_cache_ttl: int = 60
+    health_cache_ttl: int = 300  # 5 minutes - reduces API credit usage
 
     @classmethod
     def from_env(cls) -> MorphConfig:
@@ -150,7 +152,23 @@ class ApplyResult:
 
     @classmethod
     def from_response(cls, data: dict[str, Any]) -> ApplyResult:
-        """Create ApplyResult from API response data."""
+        """
+        Create ApplyResult from SDK-style API response data.
+
+        NOTE: This method is for SDK-style responses with explicit result/metadata
+        fields. The current apply() method uses the OpenAI-compatible /chat/completions
+        endpoint which returns a different format and constructs ApplyResult directly.
+
+        This method is kept for potential future SDK integration or alternative
+        endpoint support.
+
+        Expected format:
+            {
+                "success": true,
+                "result": {"new_content": "...", "changes_applied": [], "confidence": 0.9},
+                "metadata": {"processing_time_ms": 100}
+            }
+        """
         result = data.get("result", {})
         metadata = data.get("metadata", {})
         return cls(
@@ -360,11 +378,14 @@ class MorphClient:
         """
         Check if the Morph service is healthy by attempting a minimal API call.
 
-        Note: Morph API does not have a dedicated /health endpoint. This method
-        attempts a simple validation to check if the service is responding.
+        WARNING: Uncached calls consume API credits!
+        Morph API does not have a dedicated /health endpoint. This method calls
+        validate_api_key() which makes a minimal apply operation. Results are cached
+        for health_cache_ttl seconds (default 300s/5min) to minimize credit usage.
 
         Args:
-            use_cache: Whether to use cached result (default: True)
+            use_cache: Whether to use cached result (default: True). Set to False
+                      only when you need to force a fresh check (consumes credits).
 
         Returns:
             True if service appears healthy (API key valid and service responding), False otherwise
@@ -390,8 +411,10 @@ class MorphClient:
         """
         Validate the configured API key.
 
-        Note: Morph API does not have a dedicated /auth/validate endpoint.
-        This method attempts a minimal apply operation to verify the key works.
+        WARNING: This method consumes API credits!
+        Morph API does not have a dedicated /auth/validate endpoint, so validation
+        is performed by making a minimal apply operation. Each call uses API credits.
+        Use check_health() with caching enabled to minimize credit usage.
 
         Returns:
             ValidationResult with basic validity status
@@ -446,7 +469,7 @@ class MorphClient:
             instruction: Brief description of what you're changing
             code_edit: The code edit with "// ... existing code ..." markers for unchanged sections.
                       If not provided, uses original_content as the update (full file rewrite)
-            language: Optional programming language hint (for logging, not sent to API)
+            language: Optional programming language hint (included in XML for better parsing)
 
         Returns:
             ApplyResult with the transformed content
@@ -461,10 +484,14 @@ class MorphClient:
             code_edit = original_content
 
         # Log that we're using Morph for this operation
-        logger.info(f"🚀 Using Morph Fast Apply for {file_path}")
+        lang_info = f" ({language})" if language else ""
+        logger.info(f"🚀 Using Morph Fast Apply for {file_path}{lang_info}")
 
         # Format message in XML format as per Morph API spec
+        # Include language hint if provided for better code parsing
+        language_tag = f"<language>{language}</language>\n" if language else ""
         message_content = (
+            f"{language_tag}"
             f"<instruction>{instruction}</instruction>\n"
             f"<code>{original_content}</code>\n"
             f"<update>{code_edit}</update>"
@@ -479,8 +506,61 @@ class MorphClient:
         data = self._make_request("POST", "/chat/completions", json_data=payload)
 
         # Extract merged code from OpenAI-compatible response format
+        # Expected format: {"choices": [{"message": {"content": "..."}}]}
         try:
-            merged_content = data["choices"][0]["message"]["content"]
+            if not isinstance(data, dict):
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message=f"Expected dict response, got {type(data).__name__}",
+                    status_code=500,
+                )
+
+            choices = data.get("choices")
+            if not choices or not isinstance(choices, list):
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message="Response missing 'choices' array",
+                    status_code=500,
+                )
+
+            if len(choices) == 0:
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message="Response 'choices' array is empty",
+                    status_code=500,
+                )
+
+            first_choice = choices[0]
+            if not isinstance(first_choice, dict):
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message=f"Expected choice to be dict, got {type(first_choice).__name__}",
+                    status_code=500,
+                )
+
+            message = first_choice.get("message")
+            if not isinstance(message, dict):
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message="Response missing 'message' object in choice",
+                    status_code=500,
+                )
+
+            merged_content = message.get("content")
+            if merged_content is None:
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message="Response missing 'content' in message",
+                    status_code=500,
+                )
+
+            if not isinstance(merged_content, str):
+                raise MorphAPIError(
+                    code=MorphErrorCode.PROCESSING_ERROR,
+                    message=f"Expected content to be string, got {type(merged_content).__name__}",
+                    status_code=500,
+                )
+
             return ApplyResult(
                 success=True,
                 new_content=merged_content,
@@ -488,10 +568,12 @@ class MorphClient:
                 confidence=1.0,
                 processing_time_ms=0,
             )
-        except (KeyError, IndexError) as e:
+        except MorphAPIError:
+            raise
+        except Exception as e:
             raise MorphAPIError(
                 code=MorphErrorCode.PROCESSING_ERROR,
-                message=f"Failed to parse Morph API response: {e}",
+                message=f"Unexpected error parsing Morph API response: {e}",
                 status_code=500,
             )
 

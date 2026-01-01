@@ -275,6 +275,7 @@ class TestApplyToolSelectionWithMorphEnabled:
             assert json_data["model"] == "auto"
             assert "messages" in json_data
             message_content = json_data["messages"][0]["content"]
+            assert "<language>python</language>" in message_content  # Language hint included
             assert "<instruction>Add type hints</instruction>" in message_content
             assert "<code>def add(a, b): return a + b</code>" in message_content
             assert "<update>" in message_content

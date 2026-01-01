@@ -60,7 +60,7 @@ def test_config(test_api_key):
         timeout=30.0,
         max_retries=2,
         backoff_factor=1.5,
-        health_cache_ttl=60,
+        health_cache_ttl=300,
     )
 
 
@@ -140,7 +140,7 @@ class TestMorphConfig:
         assert config.timeout == 60.0
         assert config.max_retries == 3
         assert config.backoff_factor == 1.5
-        assert config.health_cache_ttl == 60
+        assert config.health_cache_ttl == 300
 
     def test_custom_values(self, test_api_key):
         """Verify custom configuration values."""
@@ -439,6 +439,7 @@ class TestApplyOperations:
             assert "messages" in payload
             # Verify XML format in message content
             message_content = payload["messages"][0]["content"]
+            assert "<language>python</language>" in message_content  # Language hint included
             assert "<instruction>Add type hints</instruction>" in message_content
             assert "<code>def add(a, b): return a + b</code>" in message_content
             assert "<update>" in message_content
