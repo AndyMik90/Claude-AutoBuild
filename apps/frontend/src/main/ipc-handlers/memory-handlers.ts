@@ -6,7 +6,7 @@
  */
 
 import { ipcMain, app } from 'electron';
-import { spawn, execSync } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -139,14 +139,14 @@ function checkOllamaInstalled(): OllamaInstallStatus {
   // not from user input or environment variables. These are known system installation paths.
   for (const ollamaPath of pathsToCheck) {
     if (fs.existsSync(ollamaPath)) {
-      // Try to get version
+      // Try to get version - use execFileSync to avoid shell injection
       let version: string | undefined;
       try {
-        const versionOutput = execSync(`"${ollamaPath}" --version`, {
+        const versionOutput = execFileSync(ollamaPath, ['--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-        }).trim();
+        }).toString().trim();
         // Parse version from output like "ollama version 0.1.23"
         const match = versionOutput.match(/(\d+\.\d+\.\d+)/);
         if (match) {
@@ -164,23 +164,25 @@ function checkOllamaInstalled(): OllamaInstallStatus {
     }
   }
 
-  // Also check if ollama is in PATH
+  // Also check if ollama is in PATH using where/which command
+  // Use execFileSync with explicit command to avoid shell injection
   try {
-    const whichCmd = platform === 'win32' ? 'where ollama' : 'which ollama';
-    const ollamaPath = execSync(whichCmd, {
+    const whichCmd = platform === 'win32' ? 'where.exe' : 'which';
+    const ollamaPath = execFileSync(whichCmd, ['ollama'], {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,
-    }).trim().split('\n')[0]; // Get first result on Windows
+    }).toString().trim().split('\n')[0]; // Get first result on Windows
 
     if (ollamaPath && fs.existsSync(ollamaPath)) {
       let version: string | undefined;
       try {
-        const versionOutput = execSync('ollama --version', {
+        // Use the discovered path directly with execFileSync
+        const versionOutput = execFileSync(ollamaPath, ['--version'], {
           encoding: 'utf-8',
           timeout: 5000,
           windowsHide: true,
-        }).trim();
+        }).toString().trim();
         const match = versionOutput.match(/(\d+\.\d+\.\d+)/);
         if (match) {
           version = match[1];

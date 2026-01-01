@@ -18,7 +18,7 @@
  */
 
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { TaskStatus, Project, Task } from '../../../shared/types';
 
@@ -52,6 +52,13 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
       planLocks.delete(planPath);
     }
   }
+}
+
+/**
+ * Check if an error is a "file not found" error
+ */
+function isFileNotFoundError(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException).code === 'ENOENT';
 }
 
 /**
@@ -91,10 +98,7 @@ export function mapStatusToPlanStatus(status: TaskStatus): string {
 export async function persistPlanStatus(planPath: string, status: TaskStatus): Promise<boolean> {
   return withPlanLock(planPath, async () => {
     try {
-      if (!existsSync(planPath)) {
-        return false;
-      }
-
+      // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
       const plan = JSON.parse(planContent);
 
@@ -105,6 +109,10 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus): P
       writeFileSync(planPath, JSON.stringify(plan, null, 2));
       return true;
     } catch (err) {
+      // File not found is expected - return false
+      if (isFileNotFoundError(err)) {
+        return false;
+      }
       console.warn(`[plan-file-utils] Could not persist status to ${planPath}:`, err);
       return false;
     }
@@ -137,10 +145,7 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus): P
  */
 export function persistPlanStatusSync(planPath: string, status: TaskStatus): boolean {
   try {
-    if (!existsSync(planPath)) {
-      return false;
-    }
-
+    // Read file directly without existence check to avoid TOCTOU race condition
     const planContent = readFileSync(planPath, 'utf-8');
     const plan = JSON.parse(planContent);
 
@@ -151,6 +156,10 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus): boo
     writeFileSync(planPath, JSON.stringify(plan, null, 2));
     return true;
   } catch (err) {
+    // File not found is expected - return false
+    if (isFileNotFoundError(err)) {
+      return false;
+    }
     console.warn(`[plan-file-utils] Could not persist status to ${planPath}:`, err);
     return false;
   }
@@ -169,10 +178,7 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
 ): Promise<T | null> {
   return withPlanLock(planPath, async () => {
     try {
-      if (!existsSync(planPath)) {
-        return null;
-      }
-
+      // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
       const plan = JSON.parse(planContent) as T;
 
@@ -183,6 +189,10 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       writeFileSync(planPath, JSON.stringify(updatedPlan, null, 2));
       return updatedPlan;
     } catch (err) {
+      // File not found is expected - return null
+      if (isFileNotFoundError(err)) {
+        return null;
+      }
       console.warn(`[plan-file-utils] Could not update plan at ${planPath}:`, err);
       return null;
     }
@@ -202,8 +212,15 @@ export async function createPlanIfNotExists(
   status: TaskStatus
 ): Promise<void> {
   return withPlanLock(planPath, async () => {
-    if (existsSync(planPath)) {
-      return;
+    // Try to read the file first - if it exists, do nothing
+    try {
+      readFileSync(planPath, 'utf-8');
+      return; // File exists, nothing to do
+    } catch (err) {
+      if (!isFileNotFoundError(err)) {
+        throw err; // Re-throw unexpected errors
+      }
+      // File doesn't exist, continue to create it
     }
 
     const plan = {
@@ -216,10 +233,15 @@ export async function createPlanIfNotExists(
       phases: []
     };
 
-    // Ensure directory exists
+    // Ensure directory exists - use try/catch pattern
     const planDir = path.dirname(planPath);
-    if (!existsSync(planDir)) {
+    try {
       mkdirSync(planDir, { recursive: true });
+    } catch (err) {
+      // Directory might already exist or be created concurrently - that's fine
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw err;
+      }
     }
 
     writeFileSync(planPath, JSON.stringify(plan, null, 2));

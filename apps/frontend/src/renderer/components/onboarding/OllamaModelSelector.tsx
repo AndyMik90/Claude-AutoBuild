@@ -336,13 +336,17 @@ export function OllamaModelSelector({
                   </>
                 )}
               </Button>
+              {/* Note: isLoading is always false when this block renders because we only show
+                  this block after setIsLoading(false) is called. However, clicking Retry calls
+                  checkInstalledModels() which immediately sets isLoading=true, triggering a
+                  re-render that shows the loading block instead. This React batching behavior
+                  naturally prevents double-clicks without needing the disabled prop. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => checkInstalledModels()}
-                disabled={isLoading}
               >
-                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isLoading && 'animate-spin')} />
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                 {t('ollama.notInstalled.retry')}
               </Button>
               <Button

@@ -12,9 +12,7 @@ import { getClaudeProfileManager } from '../../claude-profile-manager';
 import {
   getPlanPath,
   persistPlanStatus,
-  updatePlanFile,
-  createPlanIfNotExists,
-  mapStatusToPlanStatus
+  createPlanIfNotExists
 } from './plan-file-utils';
 
 /**
@@ -182,18 +180,20 @@ export function registerTaskExecutionHandlers(
       // the in-memory 'in_progress' status, causing the task to flip back and forth.
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
       try {
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          const plan = JSON.parse(planContent);
-          plan.status = needsSpecCreation ? 'planning' : 'in_progress';
-          plan.planStatus = needsSpecCreation ? 'planning' : 'in_progress';
-          plan.updated_at = new Date().toISOString();
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
-          console.warn('[TASK_START] Updated plan status to:', plan.status);
-        }
+        // Read file directly without existence check to avoid TOCTOU race condition
+        const planContent = readFileSync(planPath, 'utf-8');
+        const plan = JSON.parse(planContent);
+        plan.status = needsSpecCreation ? 'planning' : 'in_progress';
+        plan.planStatus = needsSpecCreation ? 'planning' : 'in_progress';
+        plan.updated_at = new Date().toISOString();
+        writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        console.warn('[TASK_START] Updated plan status to:', plan.status);
       } catch (err) {
-        // Plan file may not exist yet for new tasks - that's fine
-        console.warn('[TASK_START] Could not update plan status:', err);
+        // Plan file may not exist yet for new tasks - that's fine (ENOENT is expected)
+        const isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT';
+        if (!isNotFound) {
+          console.warn('[TASK_START] Could not update plan status:', err);
+        }
       }
 
       // Notify status change
@@ -220,19 +220,22 @@ export function registerTaskExecutionHandlers(
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
       const specDir = path.join(project.path, specsBaseDir, task.specId);
       const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
-      
+
       try {
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          const plan = JSON.parse(planContent);
-          plan.status = 'backlog';
-          plan.planStatus = 'pending';
-          plan.updated_at = new Date().toISOString();
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
-          console.warn('[TASK_STOP] Updated plan status to backlog');
-        }
+        // Read file directly without existence check to avoid TOCTOU race condition
+        const planContent = readFileSync(planPath, 'utf-8');
+        const plan = JSON.parse(planContent);
+        plan.status = 'backlog';
+        plan.planStatus = 'pending';
+        plan.updated_at = new Date().toISOString();
+        writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        console.warn('[TASK_STOP] Updated plan status to backlog');
       } catch (err) {
-        console.warn('[TASK_STOP] Could not update plan status:', err);
+        // File not found is expected for tasks without a plan file
+        const isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT';
+        if (!isNotFound) {
+          console.warn('[TASK_STOP] Could not update plan status:', err);
+        }
       }
     }
 
