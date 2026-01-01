@@ -1,0 +1,87 @@
+name: OpenHands Auto-Fix
+
+on:
+  issues:
+    types:
+      - labeled
+
+# Cancel in-progress runs for the same issue
+concurrency:
+  group: openhands-fix-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  autofix:
+    name: Fix Issue with OpenHands
+    # Only run when 'fix-me' label is added
+    if: github.event.label.name == 'fix-me'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Add status comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🤖 **OpenHands Auto-Fix** has been triggered!\n\n' +
+                    'The AI agent will analyze this issue and attempt to create a fix.\n' +
+                    'You can track progress in the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).'
+            });
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run OpenHands Resolver
+        uses: OpenHands/openhands-github-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          # Optional: Set custom model or configuration
+          # model: 'gpt-4'
+          # max-iterations: 50
+        env:
+          # Add API keys if using external LLM providers
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update issue on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '✅ **OpenHands has completed the auto-fix!**\n\n' +
+                    'A pull request should have been created with the proposed fix.\n' +
+                    'Please review the changes before merging.'
+            });
+
+      - name: Update issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '⚠️ **OpenHands auto-fix encountered an error.**\n\n' +
+                    'The AI agent was unable to automatically fix this issue.\n' +
+                    'Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.\n\n' +
+                    'You may need to:\n' +
+                    '- Provide more details in the issue description\n' +
+                    '- Fix the issue manually\n' +
+                    '- Remove the `fix-me` label if this should not be auto-fixed'
+            });

@@ -1,83 +1,213 @@
-name: 🎛️ Master Automation Controller (30-minute backup)
+name: Master Automation Controller
+
+# Backup controller running every 30 minutes
+# Catches issues that slipped through event-driven workflows
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch:
     inputs:
-      action:
-        description: 'Manual action'
-        required: true
-        type: choice
-        options:
-          - process-all
-          - force-assign-copilot
-          - force-escalate-openhands
+      force_check_all:
+        description: 'Force check all issues'
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+  pull-requests: write
+
+env:
+  GH_TOKEN: ${{ secrets.COPILOT_PAT || secrets.GITHUB_TOKEN }}
 
 jobs:
-  process-issues:
-    name: 🔄 Process Issues
-    if: github.event_name == 'schedule' || github.event.inputs.action == 'process-all'
+  scan-and-fix:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
-      - uses: actions/github-script@v7
+      - name: Scan all open issues
+        id: scan
+        uses: actions/github-script@v7
         with:
           script: |
-            const { data: issues } = await github.rest.issues.listForRepo({
+            const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              per_page: 50
+              per_page: 100
             });
-            
-            for (const issue of issues) {
+
+            const categorized = {
+              unplanned: [],
+              planned_no_copilot: [],
+              copilot_stale: [],
+              needs_escalation: []
+            };
+
+            for (const issue of issues.data.filter(i => !i.pull_request)) {
               const labels = issue.labels.map(l => l.name);
-              if (labels.includes('skip-automation')) continue;
-              
-              if (!labels.includes('plan-ready') && !labels.includes('copilot-assigned')) {
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  labels: ['needs-plan']
-                });
+
+              // Get comments
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                per_page: 100
+              });
+
+              // Check for CodeRabbit plan
+              const hasCodeRabbitPlan = comments.data.some(c =>
+                c.user.login.includes('coderabbit') &&
+                (c.body.includes('## Implementation') ||
+                 c.body.includes('## Coding Plan') ||
+                 c.body.includes('### Phase') ||
+                 c.body.includes('Prompt for AI')) &&
+                c.body.length > 500
+              );
+
+              const hasCopilotAssigned = labels.includes('copilot-assigned');
+              const hasNeedsPlan = labels.includes('needs-plan');
+              const createdHoursAgo = (Date.now() - new Date(issue.created_at)) / (1000 * 60 * 60);
+              const updatedHoursAgo = (Date.now() - new Date(issue.updated_at)) / (1000 * 60 * 60);
+
+              // Categorize
+              if (!hasNeedsPlan && !hasCodeRabbitPlan && !hasCopilotAssigned) {
+                categorized.unplanned.push(issue.number);
+              } else if (hasCodeRabbitPlan && !hasCopilotAssigned && createdHoursAgo > 0.5) {
+                categorized.planned_no_copilot.push(issue.number);
+              } else if (hasCopilotAssigned && updatedHoursAgo > 12) {
+                categorized.copilot_stale.push(issue.number);
+              } else if (hasCopilotAssigned && updatedHoursAgo > 24) {
+                categorized.needs_escalation.push(issue.number);
               }
             }
 
-  process-prs:
-    name: 📦 Auto-merge Ready PRs
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/github-script@v7
+            core.setOutput('unplanned', categorized.unplanned.join(','));
+            core.setOutput('planned_no_copilot', categorized.planned_no_copilot.join(','));
+            core.setOutput('copilot_stale', categorized.copilot_stale.join(','));
+            core.setOutput('needs_escalation', categorized.needs_escalation.join(','));
+
+            console.log('Scan results:', categorized);
+
+      - name: Fix unplanned issues
+        if: steps.scan.outputs.unplanned != ''
+        uses: actions/github-script@v7
         with:
           script: |
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open'
-            });
-            
-            for (const pr of prs) {
-              const labels = pr.labels.map(l => l.name);
-              if (labels.includes('bot-pr')) {
-                const { data: prDetail } = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: pr.number
-                });
-                
-                if (prDetail.mergeable_state === 'clean') {
-                  await github.rest.pulls.merge({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    pull_number: pr.number,
-                    merge_method: 'squash'
-                  });
-                }
-              }
+            const issues = '${{ steps.scan.outputs.unplanned }}'.split(',').filter(Boolean);
+            for (const num of issues) {
+              const issue = parseInt(num);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue,
+                labels: ['auto-implement', 'needs-plan', 'stage-1-planning']
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue,
+                body: [
+                  '## 🤖 Automation Pipeline Started (Master Controller)',
+                  '',
+                  '@coderabbitai Please create a comprehensive implementation plan:',
+                  '',
+                  '1. **Requirements Analysis**',
+                  '2. **Implementation Steps**',
+                  '3. **Files to Modify/Create**',
+                  '4. **Test Cases**',
+                  '5. **Acceptance Criteria**',
+                  '',
+                  '_Auto-detected by master controller (no event trigger)._'
+                ].join('\n')
+              });
             }
+
+      - name: Assign Copilot to planned issues
+        if: steps.scan.outputs.planned_no_copilot != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          IFS=',' read -ra ISSUES <<< "${{ steps.scan.outputs.planned_no_copilot }}"
+          for ISSUE_NUM in "${ISSUES[@]}"; do
+            if [ -n "$ISSUE_NUM" ]; then
+              echo "Assigning Copilot to issue #$ISSUE_NUM (missed by event trigger)"
+
+              gh api repos/${{ github.repository }}/issues/$ISSUE_NUM/assignees \
+                -X POST -f 'assignees[]=copilot-swe-agent' 2>&1 || \
+              gh api repos/${{ github.repository }}/issues/$ISSUE_NUM/assignees \
+                -X POST -f 'assignees[]=Copilot' 2>&1 || true
+
+              gh issue edit $ISSUE_NUM \
+                --add-label "copilot-assigned,stage-2-implementation" \
+                --remove-label "needs-plan,stage-1-planning" 2>&1 || true
+
+              sleep 0.5
+            fi
+          done
+
+      - name: Reactivate stale Copilot issues
+        if: steps.scan.outputs.copilot_stale != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = '${{ steps.scan.outputs.copilot_stale }}'.split(',').filter(Boolean);
+            for (const num of issues) {
+              const issue = parseInt(num);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue,
+                body: [
+                  '## ⏰ Copilot Reminder (12+ hours)',
+                  '',
+                  '@copilot This issue has been assigned for 12+ hours.',
+                  'Please provide status update or create PR.',
+                  '',
+                  '_Auto-detected by master controller._'
+                ].join('\n')
+              });
+            }
+
+      - name: Escalate to OpenHands
+        if: steps.scan.outputs.needs_escalation != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = '${{ steps.scan.outputs.needs_escalation }}'.split(',').filter(Boolean);
+            for (const num of issues) {
+              const issue = parseInt(num);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue,
+                labels: ['fix-me', 'escalated-to-openhands', 'stage-3-escalation']
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue,
+                body: [
+                  '## ⚠️ Escalated to OpenHands (24+ hours)',
+                  '',
+                  '@openhands-agent Copilot has not completed this after 24 hours.',
+                  'Please implement this issue with comprehensive tests.',
+                  '',
+                  '_Auto-escalated by master controller._'
+                ].join('\n')
+              });
+            }
+
+      - name: Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = {
+              unplanned: '${{ steps.scan.outputs.unplanned }}'.split(',').filter(Boolean).length,
+              planned_no_copilot: '${{ steps.scan.outputs.planned_no_copilot }}'.split(',').filter(Boolean).length,
+              copilot_stale: '${{ steps.scan.outputs.copilot_stale }}'.split(',').filter(Boolean).length,
+              needs_escalation: '${{ steps.scan.outputs.needs_escalation }}'.split(',').filter(Boolean).length
+            };
+
+            console.log('Master Controller Summary:', summary);
+            console.log('Total issues processed:', Object.values(summary).reduce((a,b) => a+b, 0));

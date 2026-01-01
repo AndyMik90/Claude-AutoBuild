@@ -1,0 +1,204 @@
+name: Classify Issue Complexity
+
+# AI-driven complexity classification for cost-optimized model routing
+# Routes simple tasks to DeepSeek Chat ($0.14/M tokens)
+# Routes complex tasks to DeepSeek R1 ($0.30/M tokens)
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to classify'
+        required: true
+        type: number
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get issue details
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNum = context.payload.issue?.number || ${{ github.event.inputs.issue_number }};
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum
+            });
+
+            core.setOutput('number', issueNum);
+            core.setOutput('title', issue.data.title);
+            core.setOutput('body', issue.data.body || '');
+            core.setOutput('labels', issue.data.labels.map(l => l.name).join(','));
+
+      - name: Analyze complexity
+        id: analyze
+        uses: actions/github-script@v7
+        env:
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+          ISSUE_LABELS: ${{ steps.issue.outputs.labels }}
+        with:
+          script: |
+            const title = process.env.ISSUE_TITLE;
+            const body = process.env.ISSUE_BODY;
+            const labels = process.env.ISSUE_LABELS.split(',').filter(Boolean);
+
+            // Simple heuristic analysis
+            const simpleSignals = [
+              'typo', 'fix typo', 'update', 'bump', 'upgrade',
+              'documentation', 'docs', 'readme', 'comment',
+              'rename', 'remove unused', 'cleanup', 'format'
+            ];
+
+            const complexSignals = [
+              'implement', 'add feature', 'refactor', 'architecture',
+              'performance', 'optimize', 'security', 'integration',
+              'database', 'migration', 'api', 'authentication',
+              'multi-step', 'comprehensive', 'system', 'design'
+            ];
+
+            const text = (title + ' ' + body).toLowerCase();
+
+            const hasSimple = simpleSignals.some(s => text.includes(s));
+            const hasComplex = complexSignals.some(s => text.includes(s));
+            const wordCount = body.split(/\s+/).length;
+            const hasCodeBlocks = body.includes('```');
+            const hasMultipleSections = (body.match(/##/g) || []).length > 2;
+
+            // Scoring system
+            let score = 50; // Base score
+
+            if (hasSimple) score -= 20;
+            if (hasComplex) score += 20;
+            if (wordCount > 200) score += 15;
+            if (wordCount < 50) score -= 15;
+            if (hasCodeBlocks) score += 10;
+            if (hasMultipleSections) score += 10;
+            if (labels.includes('enhancement')) score += 10;
+            if (labels.includes('feature')) score += 15;
+            if (labels.includes('bug')) score -= 5;
+            if (labels.includes('documentation')) score -= 20;
+
+            // Classify
+            let complexity, model, reasoning;
+
+            if (score < 40) {
+              complexity = 'simple';
+              model = 'openrouter/deepseek/deepseek-chat';
+              reasoning = 'Simple task - using cost-optimized DeepSeek Chat ($0.14/M)';
+            } else if (score < 65) {
+              complexity = 'moderate';
+              model = 'openrouter/deepseek/deepseek-chat';
+              reasoning = 'Moderate task - using DeepSeek Chat for efficiency';
+            } else {
+              complexity = 'complex';
+              model = 'openrouter/deepseek/deepseek-r1';
+              reasoning = 'Complex task - using advanced DeepSeek R1 ($0.30/M)';
+            }
+
+            core.setOutput('complexity', complexity);
+            core.setOutput('model', model);
+            core.setOutput('score', score);
+            core.setOutput('reasoning', reasoning);
+
+            console.log('Complexity Analysis:');
+            console.log('  Score:', score);
+            console.log('  Classification:', complexity);
+            console.log('  Model:', model);
+            console.log('  Reasoning:', reasoning);
+
+      - name: Label issue with complexity
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNum = ${{ steps.issue.outputs.number }};
+            const complexity = '${{ steps.analyze.outputs.complexity }}';
+            const model = '${{ steps.analyze.outputs.model }}';
+            const score = '${{ steps.analyze.outputs.score }}';
+            const reasoning = '${{ steps.analyze.outputs.reasoning }}';
+
+            // Remove old complexity labels
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum
+            });
+
+            const oldComplexityLabels = issue.data.labels
+              .map(l => l.name)
+              .filter(name => name.startsWith('complexity-') || name.startsWith('model-'));
+
+            for (const label of oldComplexityLabels) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNum,
+                name: label
+              }).catch(() => {});
+            }
+
+            // Add new labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum,
+              labels: [
+                `complexity-${complexity}`,
+                `model-${model.split('/').pop()}`,
+                `score-${score}`
+              ]
+            });
+
+            // Add classification comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum,
+              body: [
+                '## 🤖 AI Complexity Classification',
+                '',
+                `**Complexity:** \`${complexity}\``,
+                `**Score:** ${score}/100`,
+                `**Assigned Model:** \`${model}\``,
+                '',
+                `**Reasoning:** ${reasoning}`,
+                '',
+                '---',
+                '_Cost Optimization: Simple tasks use DeepSeek Chat ($0.14/M), complex tasks use DeepSeek R1 ($0.30/M)_'
+              ].join('\n')
+            });
+
+      - name: Update OpenHands configuration
+        if: steps.analyze.outputs.complexity == 'complex'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNum = ${{ steps.issue.outputs.number }};
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNum,
+              body: [
+                '💡 **Note for @openhands-agent:**',
+                'This issue has been classified as **complex**.',
+                'Will use DeepSeek R1 model for advanced reasoning.',
+                '',
+                'Configuration:',
+                '```',
+                'LLM_MODEL: openrouter/deepseek/deepseek-r1',
+                'MAX_ITERATIONS: 50',
+                '```'
+              ].join('\n')
+            });

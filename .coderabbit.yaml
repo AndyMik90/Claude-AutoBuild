@@ -1,65 +1,78 @@
-# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit Configuration for AI Automation Pipeline
+# Optimized for CodeRabbit → Copilot → OpenHands workflow
 
-# CodeRabbit Configuration
-# Documentation: https://docs.coderabbit.ai/reference/configuration
-
-language: "en-US"
+language: en-US
+tone_instructions: 'Professional, technical, and actionable. Focus on implementation details.'
 
 reviews:
-  # Review profile: "chill" for fewer comments, "assertive" for more thorough feedback
-  profile: "assertive"
-
-  # Generate high-level summary in PR description
+  request_changes_workflow: true
+  profile: assertive
   high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
 
-  # Automatic review settings
   auto_review:
     enabled: true
-    auto_incremental_review: true
-    # Target branches for review (in addition to default branch)
-    base_branches:
-      - develop
-      - "release/*"
-      - "hotfix/*"
-    # Skip review for PRs with these title keywords (case-insensitive)
-    ignore_title_keywords:
-      - "[WIP]"
-      - "WIP:"
-      - "DO NOT MERGE"
-    # Don't review draft PRs
     drafts: false
+    base_branches:
+      - main
+      - master
+      - develop
 
-  # Path filters - exclude generated/vendor files
-  path_filters:
-    - "!**/node_modules/**"
-    - "!**/.venv/**"
-    - "!**/dist/**"
-    - "!**/build/**"
-    - "!**/*.lock"
-    - "!**/package-lock.json"
-    - "!**/*.min.js"
-    - "!**/*.min.css"
-
-  # Path-specific review instructions
   path_instructions:
-    - path: "apps/backend/**/*.py"
+    - path: '**.ts'
       instructions: |
-        Focus on Python best practices, type hints, and async patterns.
-        Check for proper error handling and security considerations.
-        Verify compatibility with Python 3.12+.
-    - path: "apps/frontend/**/*.{ts,tsx}"
+        - Ensure strict TypeScript typing
+        - Check for proper error handling
+        - Verify null safety
+        - Suggest type guards where appropriate
+
+    - path: '**.tsx'
       instructions: |
-        Review React patterns and TypeScript type safety.
-        Check for proper state management and component composition.
-    - path: "tests/**"
+        - Check React best practices
+        - Verify proper hook usage
+        - Ensure accessibility (a11y)
+        - Check for prop type definitions
+
+    - path: '**.test.{ts,tsx,js,jsx}'
       instructions: |
-        Ensure tests are comprehensive and follow pytest conventions.
-        Check for proper mocking and test isolation.
+        - Verify test coverage for edge cases
+        - Check for proper mocking
+        - Ensure tests are deterministic
+        - Validate assertion messages
+
+    - path: '**/workflows/**.yml'
+      instructions: |
+        - Verify GitHub Actions syntax
+        - Check for security best practices
+        - Validate secret usage
+        - Ensure proper error handling
 
 chat:
   auto_reply: true
 
 knowledge_base:
-  opt_out: false
   learnings:
-    scope: "auto"
+    enabled: true
+  opt_out: false
+
+code_generation:
+  enabled: true
+  include_full_functions: true
+  provide_alternatives: true
+
+ignore:
+  - '**/*.min.js'
+  - '**/*.min.css'
+  - '**/dist/**'
+  - '**/build/**'
+  - '**/coverage/**'
+  - '**/node_modules/**'
+  - '**/.next/**'
+  - '**/.cache/**'
+  - '**/package-lock.json'
+  - '**/yarn.lock'
+  - '**/pnpm-lock.yaml'
+
+early_access: true
