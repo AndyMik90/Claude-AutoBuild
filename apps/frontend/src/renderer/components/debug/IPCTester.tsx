@@ -49,16 +49,12 @@ export function IPCTester() {
       // Parse parameters
       const parsedParams = JSON.parse(params);
 
-      // Simulate IPC call (will be replaced with actual IPC when handlers are ready)
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Make real IPC call using testInvokeChannel
+      const result = await window.electronAPI.testInvokeChannel(selectedChannel, parsedParams);
 
       setResponse({
         success: true,
-        data: {
-          message: 'IPC call simulation - handlers not yet implemented',
-          channel: selectedChannel,
-          params: parsedParams,
-        },
+        data: result,
       });
     } catch (error) {
       setResponse({
