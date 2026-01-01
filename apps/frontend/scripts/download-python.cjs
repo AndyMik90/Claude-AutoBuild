@@ -465,16 +465,25 @@ function stripSitePackages(sitePackagesDir) {
   let removedCount = 0;
 
   // First, remove specific package paths (e.g., googleapiclient/discovery_cache/documents)
+  // Use try/catch instead of existsSync to avoid TOCTOU race conditions
   if (STRIP_PATTERNS.packagePaths) {
     for (const pkgPath of STRIP_PATTERNS.packagePaths) {
       const fullPath = path.join(sitePackagesDir, pkgPath);
-      if (fs.existsSync(fullPath)) {
+      try {
+        // Get size first (may throw ENOENT if path doesn't exist)
+        let pathSize = 0;
         try {
-          const pathSize = getDirectorySize(fullPath);
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          console.log(`[download-python] Removed ${pkgPath} (${formatBytes(pathSize)})`);
-          removedCount++;
-        } catch (err) {
+          pathSize = getDirectorySize(fullPath);
+        } catch {
+          // Path doesn't exist or can't get size - skip
+          continue;
+        }
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        console.log(`[download-python] Removed ${pkgPath} (${formatBytes(pathSize)})`);
+        removedCount++;
+      } catch (err) {
+        // ENOENT means file was already gone - not an error
+        if (err.code !== 'ENOENT') {
           console.warn(`[download-python] Failed to remove ${pkgPath}: ${err.message}`);
         }
       }
