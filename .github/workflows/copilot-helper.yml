@@ -1,0 +1,82 @@
+name: Copilot Helper
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  copilot-guidance:
+    name: Provide Copilot Guidance
+    # Trigger when 'copilot' label is added
+    if: github.event.label.name == 'copilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Add Copilot guidance comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+            const issueTitle = context.payload.issue.title;
+            const issueBody = context.payload.issue.body || '';
+            
+            const guidanceComment = `
+            ## 🤖 GitHub Copilot Coding Agent - Assignment Instructions
+            
+            This issue has been labeled for **GitHub Copilot** assistance. Here's how to assign it to the Copilot coding agent:
+            
+            ### Option 1: From GitHub Web Interface
+            1. Navigate to the **Agents** panel (available on every GitHub page)
+            2. Click on **Copilot coding agent**
+            3. Reference this issue number: **#${issueNumber}**
+            4. Copilot will create a draft PR with the implementation
+            
+            ### Option 2: From VS Code
+            1. Open the repository in VS Code
+            2. Open the GitHub Copilot panel
+            3. Use the command: \`@github-copilot fix issue #${issueNumber}\`
+            4. Copilot will analyze and propose changes
+            
+            ### Option 3: From Issue Page
+            1. Click the **Copilot** button in the issue toolbar
+            2. Select "Create a fix for this issue"
+            3. Copilot will work asynchronously and push commits to a draft PR
+            
+            ---
+            
+            ### What Copilot Will Do:
+            - ✅ Create a new branch
+            - ✅ Implement the requested changes
+            - ✅ Run automated tests and linters
+            - ✅ Create a draft pull request
+            - ✅ Document changes in PR description
+            
+            ### Important Notes:
+            - 🔒 The PR requires human approval before CI/CD workflows run
+            - 👥 Human review is required before merging
+            - 📊 You can track progress through the agent session logs
+            - ⚙️ Your org policies and branch protections apply automatically
+            
+            ---
+            
+            **Current Issue Context:**
+            - **Title:** ${issueTitle}
+            - **Issue #:** ${issueNumber}
+            
+            _Remove the \`copilot\` label if you prefer a different approach or if the issue has been resolved._
+            `;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: guidanceComment
+            });
+            
+            console.log(`✅ Added Copilot guidance to issue #${issueNumber}`);

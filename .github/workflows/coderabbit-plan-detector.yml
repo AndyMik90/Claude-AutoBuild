@@ -1,0 +1,106 @@
+name: CodeRabbit Plan Detector
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  detect-plan:
+    name: Detect CodeRabbit Plan Completion
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    # Only run on issue comments (not PR comments)
+    if: github.event.issue.pull_request == null
+    
+    steps:
+      - name: Check for CodeRabbit plan
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment;
+            const commentBody = comment.body || '';
+            const author = comment.user.login;
+            
+            console.log(`Checking comment from: ${author}`);
+            console.log(`Comment preview: ${commentBody.substring(0, 200)}...`);
+            
+            // Check if comment is from CodeRabbit
+            const isCodeRabbit = author === 'coderabbitai' || 
+                                 author.toLowerCase().includes('coderabbit');
+            
+            // Check for plan indicators in the comment
+            const hasPlanIndicators = 
+              commentBody.includes('## Implementation Plan') ||
+              commentBody.includes('## Plan') ||
+              commentBody.includes('### Implementation Steps') ||
+              commentBody.includes('### Steps') ||
+              (commentBody.includes('implementation') && commentBody.includes('step')) ||
+              (commentBody.includes('Here\'s') && commentBody.includes('plan'));
+            
+            const isPlan = isCodeRabbit && hasPlanIndicators;
+            
+            console.log(`Is from CodeRabbit: ${isCodeRabbit}`);
+            console.log(`Has plan indicators: ${hasPlanIndicators}`);
+            console.log(`Final decision - Is plan: ${isPlan}`);
+            
+            return {
+              isPlan,
+              author,
+              issueNumber: context.issue.number
+            };
+
+      - name: Add fix-me label if plan detected
+        if: fromJSON(steps.check.outputs.result).isPlan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { issueNumber } = ${{ steps.check.outputs.result }};
+            
+            // Check if fix-me label already exists
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+            
+            const hasFixMeLabel = labels.some(label => label.name === 'fix-me');
+            
+            if (hasFixMeLabel) {
+              console.log('fix-me label already exists, skipping');
+              return;
+            }
+            
+            // Add the fix-me label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['fix-me']
+            });
+            
+            console.log('✅ Added fix-me label to trigger OpenHands auto-fix');
+            
+            // Add a comment to notify
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: '🎯 **CodeRabbit implementation plan detected!**\n\n' +
+                    'I\'ve added the `fix-me` label to automatically trigger the **OpenHands Auto-Fix** workflow.\n\n' +
+                    'The AI agent will:\n' +
+                    '1. Analyze CodeRabbit\'s implementation plan\n' +
+                    '2. Generate code to implement the solution\n' +
+                    '3. Create a pull request with the changes\n\n' +
+                    '_Note: You can remove the `fix-me` label if you prefer to handle this manually._'
+            });
+
+      - name: Log no plan detected
+        if: "!fromJSON(steps.check.outputs.result).isPlan"
+        run: |
+          echo "No CodeRabbit plan detected in this comment"
