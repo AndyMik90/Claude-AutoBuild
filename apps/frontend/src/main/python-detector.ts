@@ -35,7 +35,7 @@ export function getBundledPythonPath(): string | null {
 /**
  * Find the first existing Homebrew Python installation.
  * Checks common Homebrew paths for Python 3, including versioned installations.
- * Prioritizes newer Python versions (3.13, 3.12, 3.11, 3.10).
+ * Prioritizes newer Python versions (3.14, 3.13, 3.12, 3.11, 3.10).
  *
  * Note: This list should be updated when new Python versions are released.
  * Check for specific versions first to ensure we find the latest available version.
@@ -50,8 +50,8 @@ function findHomebrewPython(): string | null {
 
   // Check for specific Python versions first (newest to oldest), then fall back to generic python3.
   // This ensures we find the latest available version that meets our requirements.
-  // TODO: Update this list when Python 3.14+ is released
   const pythonNames = [
+    'python3.14',
     'python3.13',
     'python3.12',
     'python3.11',
@@ -340,6 +340,7 @@ const ALLOWED_PATH_PATTERNS: RegExp[] = [
 /**
  * Known safe Python commands (not full paths).
  * These are resolved by the shell/OS and are safe.
+ * Note: Update this list when new Python versions are released.
  */
 const SAFE_PYTHON_COMMANDS = new Set([
   'python',
@@ -348,6 +349,7 @@ const SAFE_PYTHON_COMMANDS = new Set([
   'python3.11',
   'python3.12',
   'python3.13',
+  'python3.14',
   'py',
   'py -3',
 ]);
