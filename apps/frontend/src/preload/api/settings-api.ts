@@ -5,7 +5,8 @@ import type {
   IPCResult,
   SourceEnvConfig,
   SourceEnvCheckResult,
-  ToolDetectionResult
+  ToolDetectionResult,
+  ProfileEnvVariable
 } from '../../shared/types';
 
 export interface SettingsAPI {
@@ -28,6 +29,12 @@ export interface SettingsAPI {
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
   updateSourceEnv: (config: { claudeOAuthToken?: string }) => Promise<IPCResult>;
   checkSourceToken: () => Promise<IPCResult<SourceEnvCheckResult>>;
+
+  // Profile Environment Variables
+  getProfileEnv: (profileId: string) => Promise<IPCResult<ProfileEnvVariable[]>>;
+  updateProfileEnv: (profileId: string, variables: ProfileEnvVariable[]) => Promise<IPCResult>;
+  deleteProfileEnv: (profileId: string, key: string) => Promise<IPCResult>;
+  listProfileEnv: (profileId: string) => Promise<IPCResult<ProfileEnvVariable[]>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -59,5 +66,18 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_UPDATE, config),
 
   checkSourceToken: (): Promise<IPCResult<SourceEnvCheckResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN)
+    ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN),
+
+  // Profile Environment Variables
+  getProfileEnv: (profileId: string): Promise<IPCResult<ProfileEnvVariable[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILE_ENV_GET, profileId),
+
+  updateProfileEnv: (profileId: string, variables: ProfileEnvVariable[]): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILE_ENV_UPDATE, profileId, variables),
+
+  deleteProfileEnv: (profileId: string, key: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILE_ENV_DELETE, profileId, key),
+
+  listProfileEnv: (profileId: string): Promise<IPCResult<ProfileEnvVariable[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROFILE_ENV_LIST, profileId)
 });
