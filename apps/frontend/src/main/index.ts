@@ -1,3 +1,36 @@
+// Fix PATH for macOS/Linux GUI apps
+// GUI apps launched from Finder/Dock don't inherit shell PATH (.zshrc, .bashrc, etc.)
+// This ensures tools like `gh`, `git`, `node` are available to child processes
+// Note: We use dynamic import with error handling to prevent app crashes
+async function initializeShellPath(): Promise<void> {
+  // Only needed on macOS/Linux - Windows GUI apps inherit PATH correctly
+  if (process.platform === 'win32') {
+    return;
+  }
+
+  const originalPath = process.env.PATH;
+
+  try {
+    const { default: fixPath } = await import('fix-path');
+    fixPath();
+
+    if (process.env.PATH !== originalPath) {
+      console.warn('[main] Shell PATH initialized from user shell configuration');
+    }
+  } catch (error) {
+    // Log warning but don't crash - app can still work with limited PATH
+    console.warn(
+      '[main] Failed to initialize shell PATH:',
+      error instanceof Error ? error.message : error
+    );
+    console.warn('[main] Some CLI tools may not be found. Falling back to system PATH.');
+    // Restore PATH if it was partially modified
+    if (process.env.PATH !== originalPath) {
+      process.env.PATH = originalPath;
+    }
+  }
+}
+
 import { app, BrowserWindow, shell, nativeImage } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync } from 'fs';
@@ -111,7 +144,10 @@ if (process.platform === 'darwin') {
 }
 
 // Initialize the application
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize shell PATH before any child processes are spawned
+  await initializeShellPath();
+
   // Set app user model id for Windows
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
