@@ -1,0 +1,83 @@
+name: 🎛️ Master Automation Controller (30-minute backup)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Manual action'
+        required: true
+        type: choice
+        options:
+          - process-all
+          - force-assign-copilot
+          - force-escalate-openhands
+
+jobs:
+  process-issues:
+    name: 🔄 Process Issues
+    if: github.event_name == 'schedule' || github.event.inputs.action == 'process-all'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 50
+            });
+            
+            for (const issue of issues) {
+              const labels = issue.labels.map(l => l.name);
+              if (labels.includes('skip-automation')) continue;
+              
+              if (!labels.includes('plan-ready') && !labels.includes('copilot-assigned')) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ['needs-plan']
+                });
+              }
+            }
+
+  process-prs:
+    name: 📦 Auto-merge Ready PRs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            for (const pr of prs) {
+              const labels = pr.labels.map(l => l.name);
+              if (labels.includes('bot-pr')) {
+                const { data: prDetail } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number
+                });
+                
+                if (prDetail.mergeable_state === 'clean') {
+                  await github.rest.pulls.merge({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr.number,
+                    merge_method: 'squash'
+                  });
+                }
+              }
+            }
