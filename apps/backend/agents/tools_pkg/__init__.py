@@ -41,6 +41,11 @@ from .models import (
     GRAPHITI_MCP_TOOLS,
     LINEAR_TOOLS,
     PUPPETEER_TOOLS,
+    # Thinking tools
+    SEQUENTIAL_THINKING_TOOLS,
+    CODE_REASONING_TOOLS,
+    REASONER_TOOLS,
+    ALL_THINKING_TOOLS,
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,
     TOOL_GET_SESSION_CONTEXT,
@@ -79,6 +84,11 @@ __all__ = [
     "GRAPHITI_MCP_TOOLS",
     "ELECTRON_TOOLS",
     "PUPPETEER_TOOLS",
+    # Thinking tool lists
+    "SEQUENTIAL_THINKING_TOOLS",
+    "CODE_REASONING_TOOLS",
+    "REASONER_TOOLS",
+    "ALL_THINKING_TOOLS",
     # Auto-Claude tool name constants
     "TOOL_UPDATE_SUBTASK_STATUS",
     "TOOL_GET_BUILD_PROGRESS",

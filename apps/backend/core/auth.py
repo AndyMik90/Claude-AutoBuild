@@ -90,7 +90,17 @@ def _get_token_from_macos_keychain() -> str | None:
 
         return token
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
+    except subprocess.TimeoutExpired:
+        # Keychain access timed out - might be locked or slow
+        return None
+    except (json.JSONDecodeError, KeyError):
+        # Invalid or unexpected credential format
+        return None
+    except OSError as e:
+        # File system or process errors (permission denied, etc.)
+        # Only log in debug mode to avoid noise during normal operation
+        if os.environ.get("DEBUG"):
+            print(f"[auth] macOS keychain access error: {e}")
         return None
 
 
@@ -118,7 +128,16 @@ def _get_token_from_windows_credential_files() -> str | None:
 
         return None
 
-    except (json.JSONDecodeError, KeyError, FileNotFoundError, Exception):
+    except FileNotFoundError:
+        # Expected when credential files don't exist
+        return None
+    except (json.JSONDecodeError, KeyError):
+        # Invalid or unexpected credential format
+        return None
+    except OSError as e:
+        # File system errors (permission denied, etc.)
+        if os.environ.get("DEBUG"):
+            print(f"[auth] Windows credential file access error: {e}")
         return None
 
 

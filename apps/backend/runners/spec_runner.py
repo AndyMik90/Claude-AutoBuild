@@ -215,19 +215,76 @@ Examples:
     # Load task description from requirements.json when spec-dir is provided
     # This avoids passing huge descriptions on the command line (Windows ENAMETOOLONG)
     if not task_description and args.spec_dir:
-        requirements_file = args.spec_dir / "requirements.json"
-        if requirements_file.exists():
+        try:
+            # Security: Resolve to absolute path and validate it's within project directory
+            spec_dir_abs = args.spec_dir.resolve()
+            project_root = project_dir.resolve()
+
+            # Validate spec_dir is within project directory (prevent path traversal)
             try:
+                spec_dir_abs.relative_to(project_root)
+            except ValueError:
+                debug_error(
+                    "spec_runner",
+                    f"spec-dir must be within project directory: {spec_dir_abs} not in {project_root}",
+                )
+                print(f"Error: spec-dir must be within project directory")
+                print(f"  spec-dir: {spec_dir_abs}")
+                print(f"  project:  {project_root}")
+                sys.exit(1)
+
+            requirements_file = spec_dir_abs / "requirements.json"
+
+            # Security: Prevent symlink attacks
+            if requirements_file.is_symlink():
+                debug_error("spec_runner", f"requirements.json cannot be a symlink: {requirements_file}")
+                print(f"Error: requirements.json cannot be a symlink: {requirements_file}")
+                sys.exit(1)
+
+            # Security: Validate it's a regular file
+            if requirements_file.exists() and requirements_file.is_file():
                 import json
                 requirements_data = json.loads(requirements_file.read_text(encoding="utf-8"))
+
+                # Security: Validate JSON structure
+                if not isinstance(requirements_data, dict):
+                    debug_error(
+                        "spec_runner",
+                        f"requirements.json must be a dict, got {type(requirements_data).__name__}",
+                    )
+                    print(f"Error: requirements.json must contain a JSON object")
+                    sys.exit(1)
+
                 task_description = requirements_data.get("task_description", "")
+
+                # Security: Validate task_description is a string
+                if task_description and not isinstance(task_description, str):
+                    debug_error(
+                        "spec_runner",
+                        f"task_description must be a string, got {type(task_description).__name__}",
+                    )
+                    print(f"Error: task_description must be a string")
+                    sys.exit(1)
+
+                # Security: Limit task description length (prevent DoS)
+                MAX_TASK_LENGTH = 50000  # 50KB
+                if task_description and len(task_description) > MAX_TASK_LENGTH:
+                    debug_error(
+                        "spec_runner",
+                        f"task_description too long: {len(task_description)} chars (max {MAX_TASK_LENGTH})",
+                    )
+                    print(f"Error: task_description too long ({len(task_description)} chars, max {MAX_TASK_LENGTH})")
+                    sys.exit(1)
+
                 if task_description:
                     debug(
                         "spec_runner",
                         f"Loaded task description from requirements.json ({len(task_description)} chars)",
                     )
-            except (json.JSONDecodeError, OSError) as e:
-                debug_error("spec_runner", f"Failed to load requirements.json: {e}")
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as e:
+            debug_error("spec_runner", f"Failed to load requirements.json: {e}")
+            print(f"Error: Could not read requirements.json: {e}")
+            sys.exit(1)
 
     # Validate task description isn't problematic
     if task_description:
