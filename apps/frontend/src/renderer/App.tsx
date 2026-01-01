@@ -141,6 +141,10 @@ export function App() {
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
 
+  // Remove project confirmation state
+  const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
+  const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
+
   // Setup drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -482,9 +486,26 @@ export function App() {
   };
 
   const handleProjectTabClose = (projectId: string) => {
-    // Closing a tab removes the project from the app entirely
-    // (files are preserved on disk for re-adding later)
-    removeProject(projectId);
+    // Show confirmation dialog before removing the project
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setProjectToRemove(project);
+      setShowRemoveProjectDialog(true);
+    }
+  };
+
+  const handleConfirmRemoveProject = () => {
+    if (projectToRemove) {
+      // Remove the project from the app (files are preserved on disk for re-adding later)
+      removeProject(projectToRemove.id);
+    }
+    setShowRemoveProjectDialog(false);
+    setProjectToRemove(null);
+  };
+
+  const handleCancelRemoveProject = () => {
+    setShowRemoveProjectDialog(false);
+    setProjectToRemove(null);
   };
 
   // Handle drag start - set the active dragged project
@@ -894,6 +915,28 @@ export function App() {
             onSkip={handleGitHubSetupSkip}
           />
         )}
+
+        {/* Remove Project Confirmation Dialog */}
+        <Dialog open={showRemoveProjectDialog} onOpenChange={(open) => {
+          if (!open) handleCancelRemoveProject();
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('removeProject.title')}</DialogTitle>
+              <DialogDescription>
+                {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelRemoveProject}>
+                {t('removeProject.cancel')}
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmRemoveProject}>
+                {t('removeProject.remove')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Rate Limit Modal - shows when Claude Code hits usage limits (terminal) */}
         <RateLimitModal />

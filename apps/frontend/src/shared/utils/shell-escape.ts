@@ -52,8 +52,9 @@ export function buildCdCommand(path: string | undefined): string {
 
   // Windows cmd.exe uses double quotes, Unix shells use single quotes
   if (process.platform === 'win32') {
-    // On Windows, use double quotes and escape special characters
-    const escaped = path.replace(/"/g, '""'); // Escape double quotes by doubling them
+    // On Windows, escape cmd.exe metacharacters (& | < > ^) that could enable command injection,
+    // then wrap in double quotes. Using escapeShellArgWindows for proper escaping.
+    const escaped = escapeShellArgWindows(path);
     return `cd "${escaped}" && `;
   }
 

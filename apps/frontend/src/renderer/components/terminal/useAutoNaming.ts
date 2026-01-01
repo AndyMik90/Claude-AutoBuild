@@ -28,7 +28,11 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
       return;
     }
 
-    // Skip common shell/navigation commands that don't represent meaningful work
+    // Skip common shell/navigation commands that don't represent meaningful work.
+    // These commands are too generic to produce useful terminal names - they don't indicate
+    // a specific task or purpose. For example, "git" could be any git operation,
+    // "npm" could be install, run, or test. Meaningful names come from project-specific
+    // commands like "npm run build:prod" or application-specific scripts.
     const skipCommands = [
       // Navigation & file listing
       'ls', 'cd', 'll', 'la', 'pwd', 'dir', 'tree',
