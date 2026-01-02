@@ -99,11 +99,10 @@ export function PRDetail({
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const logsLoadedRef = useRef(false);
 
-  // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs)
+  // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs or after refresh)
+  // Always sync to keep local state in sync with store, including null values
   useEffect(() => {
-    if (initialNewCommitsCheck !== undefined) {
-      setNewCommitsCheck(initialNewCommitsCheck);
-    }
+    setNewCommitsCheck(initialNewCommitsCheck ?? null);
   }, [initialNewCommitsCheck]);
 
   // Sync local postedFindingIds with reviewResult.postedFindingIds when it changes
