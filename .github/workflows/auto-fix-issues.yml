@@ -1,4 +1,4 @@
-name: OpenHands Agent AutoFix
+name: Auto Fix
 
 on:
   issue_comment:
@@ -6,41 +6,19 @@ on:
 
 permissions:
   issues: write
-  contents: write
 
 jobs:
-  autofix:
+  fix:
     if: contains(github.event.comment.body, '@openhands-agent')
     runs-on: ubuntu-latest
     steps:
-      - name: Auto-respond
+      - name: Comment response
         uses: actions/github-script@v7
         with:
           script: |
-            const issue = context.payload.issue;
-            const comment = context.payload.comment;
-            
-            const response = `## Auto-Fix Acknowledged
-
-**Issue:** ${issue.title}
-**Triggered by:** @${comment.user.login}
-
-The @openhands-agent workflow is now processing this issue.
-
-**Status:** Analyzing codebase and issue details...
-
----
-*Next steps: The automation system will analyze this issue and post follow-up comments with:*
-- Root cause analysis
-- Proposed solution
-- Implementation plan
-- Test strategy`;
-            
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issue.number,
-              body: response
-            });
-            
-            console.log(`Posted acknowledgment to issue #${issue.number}`);
+              issue_number: context.issue.number,
+              body: '@openhands-agent acknowledged! This workflow is working.'
+            })
