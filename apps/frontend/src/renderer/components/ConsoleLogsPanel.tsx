@@ -146,7 +146,7 @@ export function ConsoleLogsPanel() {
   }
 
   return (
-    <div className="border-t border-border bg-card flex flex-col" style={{ height: '250px' }}>
+    <div className="border-t border-border bg-card flex flex-col h-[250px]">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">

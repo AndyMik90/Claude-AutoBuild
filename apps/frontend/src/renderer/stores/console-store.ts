@@ -25,10 +25,7 @@ interface ConsoleState {
   setOpen: (open: boolean) => void
   toggleOpen: () => void
   setFilter: (filter: Partial<ConsoleState['filter']>) => void
-  getFilteredLogs: () => ConsoleLogEntry[]
 }
-
-let logIdCounter = 0
 
 export const useConsoleStore = create<ConsoleState>((set, get) => ({
   logs: [],
@@ -42,7 +39,7 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
   addLog: (entry) => {
     const newLog: ConsoleLogEntry = {
       ...entry,
-      id: `log-${Date.now()}-${logIdCounter++}`,
+      id: `log-${crypto.randomUUID()}`,
       timestamp: new Date(),
     }
 
@@ -66,21 +63,6 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
     set((state) => ({
       filter: { ...state.filter, ...filter },
     })),
-
-  getFilteredLogs: () => {
-    const state = get()
-    return state.logs.filter((log) => {
-      // Filter by level
-      if (!state.filter.level.includes(log.level)) {
-        return false
-      }
-      // Filter by source (empty means all)
-      if (state.filter.source.length > 0 && !state.filter.source.includes(log.source)) {
-        return false
-      }
-      return true
-    })
-  },
 }))
 
 // Helper function to add logs from different sources
