@@ -6,59 +6,23 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../ui/select';
 import { OllamaModelSelector } from './OllamaModelSelector';
+import { ProviderSelector, type ProviderConfig } from '../settings/environment/ProviderSelector';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
+import type { AppSettings } from '../../../shared/types';
 
 interface MemoryStepProps {
   onNext: () => void;
   onBack: () => void;
 }
 
-// Embedding provider configurations (LLM provider removed - Claude SDK handles RAG)
-const EMBEDDING_PROVIDERS: Array<{
-  id: GraphitiEmbeddingProvider;
-  name: string;
-  description: string;
-  requiresApiKey: boolean;
-}> = [
-  { id: 'ollama', name: 'Ollama (Local)', description: 'Free, local embeddings', requiresApiKey: false },
-  { id: 'openai', name: 'OpenAI', description: 'text-embedding-3-small', requiresApiKey: true },
-  { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (high quality)', requiresApiKey: true },
-  { id: 'google', name: 'Google AI', description: 'text-embedding-004', requiresApiKey: true },
-  { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise deployment', requiresApiKey: true },
-];
-
 interface MemoryConfig {
   database: string;
-  embeddingProvider: GraphitiEmbeddingProvider;
-  // OpenAI
-  openaiApiKey: string;
-  // Azure OpenAI
-  azureOpenaiApiKey: string;
-  azureOpenaiBaseUrl: string;
-  azureOpenaiEmbeddingDeployment: string;
-  // Voyage
-  voyageApiKey: string;
-  // Google
-  googleApiKey: string;
-  // Ollama
-  ollamaBaseUrl: string;
-  ollamaEmbeddingModel: string;
+  providerConfig: ProviderConfig;
   ollamaEmbeddingDim: number;
 }
 
@@ -75,18 +39,15 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<MemoryConfig>({
     database: 'auto_claude_memory',
-    embeddingProvider: 'ollama',
-    openaiApiKey: settings.globalOpenAIApiKey || '',
-    azureOpenaiApiKey: '',
-    azureOpenaiBaseUrl: '',
-    azureOpenaiEmbeddingDeployment: '',
-    voyageApiKey: '',
-    googleApiKey: settings.globalGoogleApiKey || '',
-    ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',
-    ollamaEmbeddingModel: 'embeddinggemma',
+    providerConfig: {
+      provider: 'ollama',
+      openaiApiKey: settings.globalOpenAIApiKey || '',
+      googleApiKey: settings.globalGoogleApiKey || '',
+      ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',
+      ollamaEmbeddingModel: 'embeddinggemma',
+    },
     ollamaEmbeddingDim: 768,
   });
-  const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingInfra, setIsCheckingInfra] = useState(true);
@@ -109,27 +70,23 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
     checkInfrastructure();
   }, []);
 
-  const toggleShowApiKey = (key: string) => {
-    setShowApiKey(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   // Check if we have valid configuration
   const isConfigValid = (): boolean => {
-    const { embeddingProvider } = config;
+    const { provider } = config.providerConfig;
 
     // Ollama just needs a model selected
-    if (embeddingProvider === 'ollama') {
-      return !!config.ollamaEmbeddingModel.trim();
+    if (provider === 'ollama') {
+      return !!(config.providerConfig.ollamaEmbeddingModel?.trim());
     }
 
     // Other providers need API keys
-    if (embeddingProvider === 'openai' && !config.openaiApiKey.trim()) return false;
-    if (embeddingProvider === 'voyage' && !config.voyageApiKey.trim()) return false;
-    if (embeddingProvider === 'google' && !config.googleApiKey.trim()) return false;
-    if (embeddingProvider === 'azure_openai') {
-      if (!config.azureOpenaiApiKey.trim()) return false;
-      if (!config.azureOpenaiBaseUrl.trim()) return false;
-      if (!config.azureOpenaiEmbeddingDeployment.trim()) return false;
+    if (provider === 'openai' && !config.providerConfig.openaiApiKey?.trim()) return false;
+    if (provider === 'voyage' && !config.providerConfig.voyageApiKey?.trim()) return false;
+    if (provider === 'google' && !config.providerConfig.googleApiKey?.trim()) return false;
+    if (provider === 'azure_openai') {
+      if (!config.providerConfig.azureOpenaiApiKey?.trim()) return false;
+      if (!config.providerConfig.azureOpenaiBaseUrl?.trim()) return false;
+      if (!config.providerConfig.azureOpenaiEmbeddingDeployment?.trim()) return false;
     }
 
     return true;
@@ -142,15 +99,16 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
     try {
       // Save the API keys to global settings
       const settingsToSave: Record<string, string | undefined> = {};
+      const pc = config.providerConfig;
 
-      if (config.openaiApiKey.trim()) {
-        settingsToSave.globalOpenAIApiKey = config.openaiApiKey.trim();
+      if (pc.openaiApiKey?.trim()) {
+        settingsToSave.globalOpenAIApiKey = pc.openaiApiKey.trim();
       }
-      if (config.googleApiKey.trim()) {
-        settingsToSave.globalGoogleApiKey = config.googleApiKey.trim();
+      if (pc.googleApiKey?.trim()) {
+        settingsToSave.globalGoogleApiKey = pc.googleApiKey.trim();
       }
-      if (config.ollamaBaseUrl.trim()) {
-        settingsToSave.ollamaBaseUrl = config.ollamaBaseUrl.trim();
+      if (pc.ollamaBaseUrl?.trim()) {
+        settingsToSave.ollamaBaseUrl = pc.ollamaBaseUrl.trim();
       }
 
       const result = await window.electronAPI.saveSettings(settingsToSave);
@@ -158,9 +116,9 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
       if (result?.success) {
         // Update local settings store
         const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalGoogleApiKey' | 'ollamaBaseUrl'>> = {};
-        if (config.openaiApiKey.trim()) storeUpdate.globalOpenAIApiKey = config.openaiApiKey.trim();
-        if (config.googleApiKey.trim()) storeUpdate.globalGoogleApiKey = config.googleApiKey.trim();
-        if (config.ollamaBaseUrl.trim()) storeUpdate.ollamaBaseUrl = config.ollamaBaseUrl.trim();
+        if (pc.openaiApiKey?.trim()) storeUpdate.globalOpenAIApiKey = pc.openaiApiKey.trim();
+        if (pc.googleApiKey?.trim()) storeUpdate.globalGoogleApiKey = pc.googleApiKey.trim();
+        if (pc.ollamaBaseUrl?.trim()) storeUpdate.ollamaBaseUrl = pc.ollamaBaseUrl.trim();
         updateSettings(storeUpdate);
         onNext();
       } else {
@@ -180,189 +138,39 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
   const handleOllamaModelSelect = (modelName: string, dim: number) => {
     setConfig(prev => ({
       ...prev,
-      ollamaEmbeddingModel: modelName,
+      providerConfig: {
+        ...prev.providerConfig,
+        ollamaEmbeddingModel: modelName,
+      },
       ollamaEmbeddingDim: dim,
     }));
   };
 
-  // Render provider-specific configuration fields
-  const renderProviderFields = () => {
-    const { embeddingProvider } = config;
-
-    if (embeddingProvider === 'ollama') {
-      return (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">
-              Select Embedding Model
-            </Label>
-            <OllamaModelSelector
-              selectedModel={config.ollamaEmbeddingModel}
-              onModelSelect={handleOllamaModelSelect}
-              disabled={isSaving}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (embeddingProvider === 'openai') {
-      return (
-        <div className="space-y-2">
-          <Label htmlFor="openai-key" className="text-sm font-medium text-foreground">
-            OpenAI API Key
-          </Label>
-          <div className="relative">
-            <Input
-              id="openai-key"
-              type={showApiKey['openai'] ? 'text' : 'password'}
-              value={config.openaiApiKey}
-              onChange={(e) => setConfig(prev => ({ ...prev, openaiApiKey: e.target.value }))}
-              placeholder="sk-..."
-              className="pr-10 font-mono text-sm"
-              disabled={isSaving}
-            />
-            <button
-              type="button"
-              onClick={() => toggleShowApiKey('openai')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey['openai'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
-            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              OpenAI
-            </a>
-          </p>
-        </div>
-      );
-    }
-
-    if (embeddingProvider === 'voyage') {
-      return (
-        <div className="space-y-2">
-          <Label htmlFor="voyage-key" className="text-sm font-medium text-foreground">
-            Voyage API Key
-          </Label>
-          <div className="relative">
-            <Input
-              id="voyage-key"
-              type={showApiKey['voyage'] ? 'text' : 'password'}
-              value={config.voyageApiKey}
-              onChange={(e) => setConfig(prev => ({ ...prev, voyageApiKey: e.target.value }))}
-              placeholder="pa-..."
-              className="pr-10 font-mono text-sm"
-              disabled={isSaving}
-            />
-            <button
-              type="button"
-              onClick={() => toggleShowApiKey('voyage')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey['voyage'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
-            <a href="https://dash.voyageai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              Voyage AI
-            </a>
-          </p>
-        </div>
-      );
-    }
-
-    if (embeddingProvider === 'google') {
-      return (
-        <div className="space-y-2">
-          <Label htmlFor="google-key" className="text-sm font-medium text-foreground">
-            Google API Key
-          </Label>
-          <div className="relative">
-            <Input
-              id="google-key"
-              type={showApiKey['google'] ? 'text' : 'password'}
-              value={config.googleApiKey}
-              onChange={(e) => setConfig(prev => ({ ...prev, googleApiKey: e.target.value }))}
-              placeholder="AIza..."
-              className="pr-10 font-mono text-sm"
-              disabled={isSaving}
-            />
-            <button
-              type="button"
-              onClick={() => toggleShowApiKey('google')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey['google'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Get your key from{' '}
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-              Google AI Studio
-            </a>
-          </p>
-        </div>
-      );
-    }
-
-    if (embeddingProvider === 'azure_openai') {
-      return (
-        <div className="space-y-3 p-3 rounded-md bg-muted/50">
-          <p className="text-sm font-medium text-foreground">Azure OpenAI Settings</p>
-          <div className="space-y-2">
-            <Label htmlFor="azure-key" className="text-xs text-muted-foreground">API Key</Label>
-            <div className="relative">
-              <Input
-                id="azure-key"
-                type={showApiKey['azure'] ? 'text' : 'password'}
-                value={config.azureOpenaiApiKey}
-                onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiApiKey: e.target.value }))}
-                placeholder="Azure API key"
-                className="pr-10 font-mono text-sm"
-                disabled={isSaving}
-              />
-              <button
-                type="button"
-                onClick={() => toggleShowApiKey('azure')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showApiKey['azure'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="azure-url" className="text-xs text-muted-foreground">Base URL</Label>
-            <Input
-              id="azure-url"
-              type="text"
-              value={config.azureOpenaiBaseUrl}
-              onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiBaseUrl: e.target.value }))}
-              placeholder="https://your-resource.openai.azure.com"
-              className="font-mono text-sm"
-              disabled={isSaving}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="azure-embedding-deployment" className="text-xs text-muted-foreground">Embedding Deployment Name</Label>
-            <Input
-              id="azure-embedding-deployment"
-              type="text"
-              value={config.azureOpenaiEmbeddingDeployment}
-              onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiEmbeddingDeployment: e.target.value }))}
-              placeholder="text-embedding-ada-002"
-              className="font-mono text-sm"
-              disabled={isSaving}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    return null;
+  const handleProviderConfigChange = (updates: Partial<ProviderConfig>) => {
+    setConfig(prev => ({
+      ...prev,
+      providerConfig: {
+        ...prev.providerConfig,
+        ...updates,
+      },
+    }));
   };
+
+  // Render custom Ollama UI with model selector
+  const renderOllamaFields = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">
+          Select Embedding Model
+        </Label>
+        <OllamaModelSelector
+          selectedModel={config.providerConfig.ollamaEmbeddingModel || ''}
+          onModelSelect={handleOllamaModelSelect}
+          disabled={isSaving}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 py-6">
@@ -465,35 +273,15 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
 
             {/* Embedding Provider Selection */}
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">
-                  Embedding Provider (for semantic search)
-                </Label>
-                <Select
-                  value={config.embeddingProvider}
-                  onValueChange={(value: GraphitiEmbeddingProvider) => {
-                    setConfig(prev => ({ ...prev, embeddingProvider: value }));
-                  }}
-                  disabled={isSaving}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMBEDDING_PROVIDERS.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex flex-col">
-                          <span>{p.name}</span>
-                          <span className="text-xs text-muted-foreground">{p.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Provider-specific fields */}
-              {renderProviderFields()}
+              <Label className="text-sm font-medium text-foreground">
+                Embedding Provider (for semantic search)
+              </Label>
+              <ProviderSelector
+                config={config.providerConfig}
+                onChange={handleProviderConfigChange}
+                disabled={isSaving}
+                renderOllama={renderOllamaFields}
+              />
             </div>
 
             {/* Fallback info */}

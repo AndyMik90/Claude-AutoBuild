@@ -34,6 +34,8 @@ interface ProviderSelectorProps {
   disabled?: boolean;
   /** Hide provider selector, only show provider-specific fields */
   hideProviderSelect?: boolean;
+  /** Custom render function for Ollama provider (e.g., for model discovery UI) */
+  renderOllama?: () => React.ReactNode;
 }
 
 const PROVIDER_OPTIONS: { value: EmbeddingProvider; label: string; description: string }[] = [
@@ -51,7 +53,8 @@ export function ProviderSelector({
   config,
   onChange,
   disabled = false,
-  hideProviderSelect = false
+  hideProviderSelect = false,
+  renderOllama
 }: ProviderSelectorProps) {
   const handleProviderChange = (provider: EmbeddingProvider) => {
     onChange({ provider });
@@ -142,47 +145,49 @@ export function ProviderSelector({
       )}
 
       {config.provider === 'ollama' && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="ollama-base-url">Ollama Server URL</Label>
-            <Input
-              id="ollama-base-url"
-              value={config.ollamaBaseUrl || 'http://localhost:11434'}
-              onChange={(e) => onChange({ ollamaBaseUrl: e.target.value })}
-              placeholder="http://localhost:11434"
-              disabled={disabled}
-            />
-            <p className="text-xs text-muted-foreground">
-              URL of your local Ollama server
-            </p>
+        renderOllama ? renderOllama() : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ollama-base-url">Ollama Server URL</Label>
+              <Input
+                id="ollama-base-url"
+                value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                onChange={(e) => onChange({ ollamaBaseUrl: e.target.value })}
+                placeholder="http://localhost:11434"
+                disabled={disabled}
+              />
+              <p className="text-xs text-muted-foreground">
+                URL of your local Ollama server
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ollama-model">Embedding Model</Label>
+              <Input
+                id="ollama-model"
+                value={config.ollamaEmbeddingModel || ''}
+                onChange={(e) => onChange({ ollamaEmbeddingModel: e.target.value })}
+                placeholder="nomic-embed-text"
+                disabled={disabled}
+              />
+              <p className="text-xs text-muted-foreground">
+                Model name (e.g., nomic-embed-text, mxbai-embed-large)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ollama-dim">Embedding Dimension (optional)</Label>
+              <Input
+                id="ollama-dim"
+                value={config.ollamaEmbeddingDim || ''}
+                onChange={(e) => onChange({ ollamaEmbeddingDim: e.target.value })}
+                placeholder="768"
+                disabled={disabled}
+              />
+              <p className="text-xs text-muted-foreground">
+                Auto-detected for known models. Override if needed.
+              </p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ollama-model">Embedding Model</Label>
-            <Input
-              id="ollama-model"
-              value={config.ollamaEmbeddingModel || ''}
-              onChange={(e) => onChange({ ollamaEmbeddingModel: e.target.value })}
-              placeholder="nomic-embed-text"
-              disabled={disabled}
-            />
-            <p className="text-xs text-muted-foreground">
-              Model name (e.g., nomic-embed-text, mxbai-embed-large)
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ollama-dim">Embedding Dimension (optional)</Label>
-            <Input
-              id="ollama-dim"
-              value={config.ollamaEmbeddingDim || ''}
-              onChange={(e) => onChange({ ollamaEmbeddingDim: e.target.value })}
-              placeholder="768"
-              disabled={disabled}
-            />
-            <p className="text-xs text-muted-foreground">
-              Auto-detected for known models. Override if needed.
-            </p>
-          </div>
-        </div>
+        )
       )}
 
       {config.provider === 'google' && (
