@@ -69,9 +69,38 @@ This will:
 - Update `apps/frontend/package.json`
 - Update `package.json` (root)
 - Update `apps/backend/__init__.py`
+- Check if `CHANGELOG.md` has an entry for the new version (warns if missing)
 - Create a commit with message `chore: bump version to X.Y.Z`
 
-### Step 2: Push and Create PR
+### Step 2: Update CHANGELOG.md (REQUIRED)
+
+**IMPORTANT: The release will fail if CHANGELOG.md doesn't have an entry for the new version.**
+
+Add release notes to `CHANGELOG.md` at the top of the file:
+
+```markdown
+## 2.8.0 - Your Release Title
+
+### ✨ New Features
+- Feature description
+
+### 🛠️ Improvements
+- Improvement description
+
+### 🐛 Bug Fixes
+- Fix description
+
+---
+```
+
+Then amend the version bump commit:
+
+```bash
+git add CHANGELOG.md
+git commit --amend --no-edit
+```
+
+### Step 3: Push and Create PR
 
 ```bash
 # Push your branch
@@ -81,24 +110,25 @@ git push origin your-branch
 gh pr create --base main --title "Release v2.8.0"
 ```
 
-### Step 3: Merge to Main
+### Step 4: Merge to Main
 
 Once the PR is approved and merged to `main`, GitHub Actions will automatically:
 
 1. **Detect the version bump** (`prepare-release.yml`)
-2. **Create a git tag** (e.g., `v2.8.0`)
-3. **Trigger the release workflow** (`release.yml`)
-4. **Build binaries** for all platforms:
+2. **Validate CHANGELOG.md** has an entry for the new version (FAILS if missing)
+3. **Extract release notes** from CHANGELOG.md
+4. **Create a git tag** (e.g., `v2.8.0`)
+5. **Trigger the release workflow** (`release.yml`)
+6. **Build binaries** for all platforms:
    - macOS Intel (x64) - code signed & notarized
    - macOS Apple Silicon (arm64) - code signed & notarized
    - Windows (NSIS installer) - code signed
    - Linux (AppImage + .deb)
-5. **Generate changelog** from merged PRs (using release-drafter)
-6. **Scan binaries** with VirusTotal
-7. **Create GitHub release** with all artifacts
-8. **Update README** with new version badge and download links
+7. **Scan binaries** with VirusTotal
+8. **Create GitHub release** with release notes from CHANGELOG.md
+9. **Update README** with new version badge and download links
 
-### Step 4: Verify
+### Step 5: Verify
 
 After merging, check:
 - [GitHub Actions](https://github.com/AndyMik90/Auto-Claude/actions) - ensure all workflows pass
@@ -113,28 +143,49 @@ We follow [Semantic Versioning](https://semver.org/):
 - **MINOR** (0.X.0): New features, backwards compatible
 - **PATCH** (0.0.X): Bug fixes, backwards compatible
 
-## Changelog Generation
+## Changelog Management
 
-Changelogs are automatically generated from merged PRs using [Release Drafter](https://github.com/release-drafter/release-drafter).
+Release notes are managed in `CHANGELOG.md` and used for GitHub releases.
 
-### PR Labels for Changelog Categories
+### Changelog Format
 
-| Label | Category |
-|-------|----------|
-| `feature`, `enhancement` | New Features |
-| `bug`, `fix` | Bug Fixes |
-| `improvement`, `refactor` | Improvements |
-| `documentation` | Documentation |
-| (any other) | Other Changes |
+Each version entry in `CHANGELOG.md` should follow this format:
 
-**Tip:** Add appropriate labels to your PRs for better changelog organization.
+```markdown
+## X.Y.Z - Release Title
+
+### ✨ New Features
+- Feature description with context
+
+### 🛠️ Improvements
+- Improvement description
+
+### 🐛 Bug Fixes
+- Fix description
+
+---
+```
+
+### Changelog Validation
+
+The release workflow **validates** that `CHANGELOG.md` has an entry for the version being released:
+
+- If the entry is **missing**, the release is **blocked** with a clear error message
+- If the entry **exists**, its content is used for the GitHub release notes
+
+### Writing Good Release Notes
+
+- **Be specific**: Instead of "Fixed bug", write "Fixed crash when opening large files"
+- **Group by impact**: Features first, then improvements, then fixes
+- **Credit contributors**: Mention contributors for significant changes
+- **Link issues**: Reference GitHub issues where relevant (e.g., "Fixes #123")
 
 ## Workflows
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `prepare-release.yml` | Push to `main` | Detects version bump, creates tag |
-| `release.yml` | Tag `v*` pushed | Builds binaries, creates release |
+| `prepare-release.yml` | Push to `main` | Detects version bump, **validates CHANGELOG.md**, creates tag |
+| `release.yml` | Tag `v*` pushed | Builds binaries, extracts changelog, creates release |
 | `validate-version.yml` | Tag `v*` pushed | Validates tag matches package.json |
 | `update-readme` (in release.yml) | After release | Updates README with new version |
 
@@ -152,6 +203,22 @@ Changelogs are automatically generated from merged PRs using [Release Drafter](h
    ```bash
    git diff HEAD~1 --name-only | grep package.json
    ```
+
+### Release blocked: Missing changelog entry
+
+If you see "CHANGELOG VALIDATION FAILED" in the workflow:
+
+1. The `prepare-release.yml` workflow validated that `CHANGELOG.md` doesn't have an entry for the new version
+2. **Fix**: Add an entry to `CHANGELOG.md` with the format `## X.Y.Z - Title`
+3. Commit and push the changelog update
+4. The workflow will automatically retry when the changes are pushed to `main`
+
+```bash
+# Add changelog entry, then:
+git add CHANGELOG.md
+git commit -m "docs: add changelog for vX.Y.Z"
+git push origin main
+```
 
 ### Build failed after tag was created
 
