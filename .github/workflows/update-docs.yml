@@ -1,0 +1,177 @@
+name: Update Documentation
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      # Only trigger on source code changes, not docs themselves
+      - 'apps/backend/**/*.py'
+      - 'apps/frontend/src/**/*.ts'
+      - 'apps/frontend/src/**/*.tsx'
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10  # Fetch recent commits for analysis
+
+      - name: Get commits since last doc update
+        id: commits
+        run: |
+          # Extract last updated date from docs/README.md (format: > Last updated: YYYY-MM-DD)
+          LAST_UPDATE=$(grep -oP '(?<=Last updated: )\d{4}-\d{2}-\d{2}' docs/README.md || echo "")
+          echo "last_update=$LAST_UPDATE" >> $GITHUB_OUTPUT
+
+          if [ -n "$LAST_UPDATE" ]; then
+            echo "Documentation was last updated on: $LAST_UPDATE"
+            # Get commits since the last documentation update
+            COMMITS=$(git log --oneline --since="$LAST_UPDATE" --no-merges -- 'apps/backend/**/*.py' 'apps/frontend/src/**/*.ts' 'apps/frontend/src/**/*.tsx')
+            CHANGED_FILES=$(git diff --name-only $(git rev-list -1 --before="$LAST_UPDATE" HEAD) HEAD -- 'apps/backend/**/*.py' 'apps/frontend/src/**/*.ts' 'apps/frontend/src/**/*.tsx' 2>/dev/null || echo "")
+          else
+            echo "No last update date found, using recent commits"
+            COMMITS=$(git log --oneline -10 --no-merges)
+            CHANGED_FILES=$(git diff --name-only HEAD~5 HEAD 2>/dev/null || git diff --name-only HEAD)
+          fi
+
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Store today's date for updating README
+          echo "today=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Use GitHub Copilot to update docs
+        uses: github/copilot-action@v1
+        with:
+          prompt: |
+            You are a technical documentation writer for the Auto-Claude project. Your task is to analyze recent code changes and update the documentation ONLY if changes are relevant to the technical overview.
+
+            ## IMPORTANT: Documentation Purpose
+
+            This documentation is a **technical overview** of how the Auto-Claude system works. It explains architecture, component relationships, data flows, and system design.
+
+            **This is NOT:**
+            - A changelog or commit log
+            - API reference documentation
+            - A place to document every code change
+
+            **Only update documentation when changes affect the fundamental understanding of how the system works.** Most code changes (bug fixes, refactors, minor features) do NOT require documentation updates.
+
+            ## Documentation Last Updated
+            The documentation home page (`docs/README.md`) contains a "Last updated" date at the top.
+            Last update: ${{ steps.commits.outputs.last_update }}
+
+            ## Commits Since Last Documentation Update
+            These are the source code commits since the documentation was last updated:
+            ${{ steps.commits.outputs.commits }}
+
+            ## Changed Files Since Last Update
+            ${{ steps.commits.outputs.changed_files }}
+
+            ## Instructions
+
+            1. **Analyze the changes**: Review the recent commits and changed files to understand what was modified.
+
+            2. **Determine relevance**: Only update documentation if changes affect:
+               - Architecture or system design patterns
+               - New major components, modules, or services
+               - Significant workflow or process changes
+               - New integration points between systems
+               - Changes to how agents, IPC, or core systems work
+
+            3. **Skip documentation updates for**:
+               - Bug fixes
+               - Code refactoring without architectural changes
+               - Minor feature additions
+               - Performance improvements
+               - Dependency updates
+               - Test changes
+
+            4. **Read existing documentation**: Before making changes, read these example documentation pages to understand the style and format:
+               - `docs/README.md` - Overview and structure
+               - `docs/architecture/overview.md` - Architecture documentation style
+               - `docs/components/backend/agents.md` - Component documentation style
+               - `docs/diagrams/sequences.md` - How to use Mermaid diagrams
+
+            5. **Documentation style guidelines**:
+               - Use Mermaid diagrams for visualizing:
+                 - Flowcharts for processes and workflows
+                 - Sequence diagrams for component interactions
+                 - Class diagrams for type structures
+               - Keep explanations concise and technical
+               - Use tables for listing properties, methods, or configurations
+               - Follow the existing heading hierarchy (h2 for main sections, h3 for subsections)
+
+            6. **Update the appropriate documentation file(s)**:
+               - Architecture changes → `docs/architecture/`
+               - Backend component changes → `docs/components/backend/`
+               - Frontend component changes → `docs/components/frontend/`
+               - New diagrams → `docs/diagrams/`
+               - Update `docs/_sidebar.md` if adding new pages
+
+            7. **If no documentation updates are needed**: Simply respond with "No documentation updates required" and briefly explain why.
+
+            8. **Double-check Mermaid diagrams for syntax errors**:
+               - Decision nodes (diamond shapes) use `{Label}` syntax - do NOT include `<br/>` inside curly braces
+               - Rectangular nodes use `[Label]` or `[Label<br/>Subtitle]` - `<br/>` is allowed here
+               - Keep decision node labels short (e.g., `{Valid?}` not `{Is the value<br/>valid?}`)
+               - Verify all node connections are valid (source and target nodes exist)
+               - Test complex diagrams by removing subgraphs if they cause rendering issues
+
+            ## Mermaid Diagram Examples
+
+            ```mermaid
+            flowchart TB
+                A[Component] --> B[Process]
+                B --> C{Decision}
+                C -->|Yes| D[Action]
+                C -->|No| E[Alternative]
+            ```
+
+            ```mermaid
+            sequenceDiagram
+                participant A as Component A
+                participant B as Component B
+                A->>B: Request
+                B-->>A: Response
+            ```
+
+            Please analyze the changes and provide any necessary documentation updates.
+
+      - name: Update documentation date and commit
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Always update the "Last updated" date in README.md
+          TODAY="${{ steps.commits.outputs.today }}"
+          sed -i "s/> Last updated: [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}/> Last updated: $TODAY/" docs/README.md
+
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "No documentation changes to commit"
+          else
+            git commit -m "docs: Auto-update technical documentation
+
+            Based on commits since ${{ steps.commits.outputs.last_update }}.
+
+            🤖 Generated with GitHub Copilot"
+            git push
+          fi
