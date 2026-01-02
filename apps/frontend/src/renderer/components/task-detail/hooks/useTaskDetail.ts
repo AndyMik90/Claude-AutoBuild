@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress } from '../../../stores/task-store';
+import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, recoverStuckTask } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
 
 export interface UseTaskDetailOptions {
@@ -57,6 +57,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const isIncomplete = isIncompleteHumanReview(task);
   const taskProgress = getTaskProgress(task);
 
+  // Smart auto-recovery: Automatically recover stuck tasks up to MAX_AUTO_RECOVERY_ATTEMPTS
+  // After max attempts, show manual recovery button
+  const MAX_AUTO_RECOVERY_ATTEMPTS = 2;
+
   // Check if task is stuck (status says in_progress/ai_review but no actual process)
   // Add a grace period to avoid false positives during process spawn
   useEffect(() => {
@@ -64,11 +68,41 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
     if (isActiveTask && !hasCheckedRunning) {
       // Wait 2 seconds before checking - gives process time to spawn and register
-      timeoutId = setTimeout(() => {
-        checkTaskRunning(task.id).then((actuallyRunning) => {
-          setIsStuck(!actuallyRunning);
-          setHasCheckedRunning(true);
-        });
+      timeoutId = setTimeout(async () => {
+        const actuallyRunning = await checkTaskRunning(task.id);
+        const taskIsStuck = !actuallyRunning;
+
+        if (taskIsStuck) {
+          const recoveryCount = task.autoRecoveryCount || 0;
+
+          // Smart auto-recovery: Try to recover automatically if we haven't hit the limit
+          if (recoveryCount < MAX_AUTO_RECOVERY_ATTEMPTS) {
+            console.log(`[Auto-Recovery] Task ${task.id} is stuck. Attempting auto-recovery (attempt ${recoveryCount + 1}/${MAX_AUTO_RECOVERY_ATTEMPTS})`);
+            setIsRecovering(true);
+
+            try {
+              const result = await recoverStuckTask(task.id, { autoRestart: true });
+              if (result.success) {
+                console.log('[Auto-Recovery] Successfully auto-recovered task');
+                setIsStuck(false);
+              } else {
+                console.error('[Auto-Recovery] Auto-recovery failed:', result.message);
+                setIsStuck(true);
+              }
+            } catch (error) {
+              console.error('[Auto-Recovery] Auto-recovery error:', error);
+              setIsStuck(true);
+            } finally {
+              setIsRecovering(false);
+            }
+          } else {
+            // Max auto-recovery attempts reached - show manual recovery button
+            console.log(`[Auto-Recovery] Max auto-recovery attempts (${MAX_AUTO_RECOVERY_ATTEMPTS}) reached. Showing manual recovery button.`);
+            setIsStuck(true);
+          }
+        }
+
+        setHasCheckedRunning(true);
       }, 2000);
     } else if (!isActiveTask) {
       setIsStuck(false);
@@ -78,7 +112,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [task.id, isActiveTask, hasCheckedRunning]);
+  }, [task.id, isActiveTask, hasCheckedRunning, task.autoRecoveryCount]);
 
   // Handle scroll events in logs to detect if user scrolled up
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {

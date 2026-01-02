@@ -52,6 +52,9 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   const isIncomplete = isIncompleteHumanReview(task);
 
   // Check if task is stuck (status says in_progress but no actual process)
+  // Smart auto-recovery: Automatically recover stuck tasks up to MAX_AUTO_RECOVERY_ATTEMPTS
+  const MAX_AUTO_RECOVERY_ATTEMPTS = 2;
+
   // Add a grace period to avoid false positives during process spawn
   useEffect(() => {
     if (!isRunning) {
@@ -60,10 +63,39 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     }
 
     // Initial check after 2s grace period
-    const initialTimeout = setTimeout(() => {
-      checkTaskRunning(task.id).then((actuallyRunning) => {
-        setIsStuck(!actuallyRunning);
-      });
+    const initialTimeout = setTimeout(async () => {
+      const actuallyRunning = await checkTaskRunning(task.id);
+      const taskIsStuck = !actuallyRunning;
+
+      if (taskIsStuck) {
+        const recoveryCount = task.autoRecoveryCount || 0;
+
+        // Smart auto-recovery: Try to recover automatically if we haven't hit the limit
+        if (recoveryCount < MAX_AUTO_RECOVERY_ATTEMPTS) {
+          console.log(`[Auto-Recovery] Task ${task.id} is stuck. Attempting auto-recovery (attempt ${recoveryCount + 1}/${MAX_AUTO_RECOVERY_ATTEMPTS})`);
+          setIsRecovering(true);
+
+          try {
+            const result = await recoverStuckTask(task.id, { autoRestart: true });
+            if (result.success) {
+              console.log('[Auto-Recovery] Successfully auto-recovered task');
+              setIsStuck(false);
+            } else {
+              console.error('[Auto-Recovery] Auto-recovery failed:', result.message);
+              setIsStuck(true);
+            }
+          } catch (error) {
+            console.error('[Auto-Recovery] Auto-recovery error:', error);
+            setIsStuck(true);
+          } finally {
+            setIsRecovering(false);
+          }
+        } else {
+          // Max auto-recovery attempts reached - show manual recovery button
+          console.log(`[Auto-Recovery] Max auto-recovery attempts (${MAX_AUTO_RECOVERY_ATTEMPTS}) reached. Showing manual recovery button.`);
+          setIsStuck(true);
+        }
+      }
     }, 2000);
 
     // Periodic re-check every 15 seconds
@@ -77,7 +109,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       clearTimeout(initialTimeout);
       clearInterval(recheckInterval);
     };
-  }, [task.id, isRunning]);
+  }, [task.id, isRunning, task.autoRecoveryCount]);
 
   // Add visibility change handler to re-validate on focus
   useEffect(() => {

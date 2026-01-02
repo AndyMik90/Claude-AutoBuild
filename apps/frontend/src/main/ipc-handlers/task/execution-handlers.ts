@@ -637,6 +637,10 @@ export function registerTaskExecutionHandlers(
           // Add recovery note
           plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
 
+          // Track auto-recovery attempts for smart retry limits
+          const currentRecoveryCount = (plan.autoRecoveryCount as number | undefined) || 0;
+          plan.autoRecoveryCount = currentRecoveryCount + 1;
+
           // Check if task is actually stuck or just completed and waiting for merge
           const { allCompleted } = checkSubtasksCompletion(plan);
 

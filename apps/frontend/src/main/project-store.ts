@@ -470,6 +470,7 @@ export class ProjectStore {
           stagedAt,
           location, // Add location metadata (main vs worktree)
           specsPath: specPath, // Add full path to specs directory
+          autoRecoveryCount: (plan?.autoRecoveryCount as number | undefined) || 0, // Track auto-recovery attempts
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });
