@@ -340,6 +340,7 @@ async def run_agent_session(
         - "continue" if agent should continue working
         - "complete" if all subtasks complete
         - "error" if an error occurred
+        - "retry" if token was refreshed and caller should retry
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(

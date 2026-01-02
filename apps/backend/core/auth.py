@@ -292,8 +292,14 @@ def _get_full_credentials_macos() -> dict | None:
                 "expiresAt": oauth.get("expiresAt"),
             }
         return None
-    except Exception as e:
-        logger.warning(f"Failed to get credentials from macOS Keychain: {e}")
+    except subprocess.TimeoutExpired:
+        logger.debug("macOS Keychain read timed out")
+        return None
+    except subprocess.SubprocessError as e:
+        logger.debug(f"macOS Keychain subprocess error: {e}")
+        return None
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.debug(f"Failed to parse macOS Keychain data: {e}")
         return None
 
 
@@ -441,8 +447,14 @@ def _save_credentials_to_file(
             os.chmod(cred_path, 0o600)
 
         return True
-    except Exception as e:
+    except (OSError, IOError) as e:
         logger.warning(f"Failed to save credentials to {cred_path}: {e}")
+        return False
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse existing credentials at {cred_path}: {e}")
+        return False
+    except KeyError as e:
+        logger.warning(f"Missing required credential field: {e}")
         return False
 
 
@@ -515,8 +527,14 @@ def _save_credentials_macos(credentials: dict) -> bool:
             return False
 
         return True
-    except Exception as e:
-        logger.warning(f"Failed to save to Keychain: {e}")
+    except subprocess.TimeoutExpired:
+        logger.warning("macOS Keychain save timed out")
+        return False
+    except subprocess.SubprocessError as e:
+        logger.warning(f"macOS Keychain subprocess error: {e}")
+        return False
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"Failed to handle Keychain data: {e}")
         return False
 
 
@@ -585,14 +603,21 @@ def get_auth_token(verbose: bool = False) -> str | None:
 
 
 def get_auth_token_source() -> str | None:
-    """Get the name of the source that provided the auth token."""
-    # Check environment variables first
-    for var in AUTH_TOKEN_ENV_VARS:
-        if os.environ.get(var):
-            return var
+    """
+    Get the name of the source that provided the auth token.
 
-    # Check if token came from system credential store
-    if get_token_from_keychain():
+    Priority matches get_auth_token():
+    1. ANTHROPIC_AUTH_TOKEN (enterprise/CCR)
+    2. System credential store (for refresh token capability)
+    3. CLAUDE_CODE_OAUTH_TOKEN (env var override)
+    """
+    # Enterprise token has top priority
+    if os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+        return "ANTHROPIC_AUTH_TOKEN"
+
+    # Check credential store (matches get_full_credentials priority)
+    creds = _get_full_credentials_from_store()
+    if creds and creds.get("accessToken"):
         system = platform.system()
         if system == "Darwin":
             return "macOS Keychain"
@@ -600,6 +625,10 @@ def get_auth_token_source() -> str | None:
             return "Windows Credential Files"
         else:
             return "System Credential Store"
+
+    # CLAUDE_CODE_OAUTH_TOKEN as fallback
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return "CLAUDE_CODE_OAUTH_TOKEN"
 
     return None
 
