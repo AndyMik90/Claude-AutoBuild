@@ -1,32 +1,25 @@
-name: OpenHands Resolver
+name: OpenHands Fix Issues (Working)
 
 on:
-  issues:
-    types: [labeled]
-  pull_request:
-    types: [labeled]
   issue_comment:
     types: [created]
-  pull_request_review_comment:
-    types: [created]
-  pull_request_review:
-    types: [submitted]
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  issues:
+    types: [labeled]
 
 jobs:
   call-openhands-resolver:
+    name: OpenHands Resolver
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@openhands-agent')) ||
+      (github.event_name == 'issues' && github.event.label.name == 'fix-me')
     uses: OpenHands/OpenHands/.github/workflows/openhands-resolver.yml@main
     with:
       macro: '@openhands-agent'
       max_iterations: 100
-      target_branch: 'main'
-      LLM_MODEL: 'openrouter/deepseek/deepseek-r1'
+      target_branch: 'develop'
+      LLM_MODEL: 'openai/gpt-4'
+      LLM_BASE_URL: 'https://api.openai.com/v1'
     secrets:
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-      PAT_USERNAME: ${{ secrets.PAT_USERNAME }}
-      LLM_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      PAT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PAT_USERNAME: 'github-actions[bot]'
+      LLM_API_KEY: ${{ secrets.OPENAI_API_KEY }}
