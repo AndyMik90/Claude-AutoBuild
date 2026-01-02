@@ -319,6 +319,12 @@
     "helpTitle": "Reporting Issues",
     "helpText": "When reporting bugs, click \"Copy Debug Info\" to get system information and recent errors that help us diagnose the issue."
   },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "No Project Selected",
+      "description": "Select a project from the sidebar to configure its settings."
+    }
+  },
   "mcp": {
     "title": "MCP Server Overview",
     "titleWithProject": "MCP Server Overview for {{projectName}}",

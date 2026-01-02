@@ -377,6 +377,8 @@ export const IPC_CHANNELS = {
 
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',
+  OLLAMA_CHECK_INSTALLED: 'ollama:checkInstalled',
+  OLLAMA_INSTALL: 'ollama:install',
   OLLAMA_LIST_MODELS: 'ollama:listModels',
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',

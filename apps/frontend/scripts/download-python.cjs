@@ -46,6 +46,8 @@ const STRIP_PATTERNS = {
     '.pytest_cache',
     '.mypy_cache',
     '__pypackages__',
+    // Windows-specific bloat
+    'pythonwin',       // PyWin32 IDE - not needed (9MB)
   ],
   // File extensions to remove
   extensions: [
@@ -68,6 +70,7 @@ const STRIP_PATTERNS = {
     '.gitignore',
     '.gitattributes',
     '.editorconfig',
+    '.chm',      // Windows help files - not needed
   ],
   // Specific files to remove
   files: [
@@ -96,6 +99,12 @@ const STRIP_PATTERNS = {
     '.travis.yml',
     'conftest.py',
     'pytest.ini',
+  ],
+  // Specific paths within packages to remove (relative to package directory)
+  // Format: 'package_name/subpath' - removes the entire subpath
+  packagePaths: [
+    'googleapiclient/discovery_cache/documents',  // Cached Google API discovery docs (92MB!)
+    'claude_agent_sdk/_bundled',                  // Bundled Claude CLI (224MB!) - users have it installed separately
   ],
   // Packages that should NEVER be bundled (too large, specialized)
   // If these appear in dependencies, warn and skip
@@ -455,6 +464,32 @@ function stripSitePackages(sitePackagesDir) {
   const sizeBefore = getDirectorySize(sitePackagesDir);
   let removedCount = 0;
 
+  // First, remove specific package paths (e.g., googleapiclient/discovery_cache/documents)
+  // Use try/catch instead of existsSync to avoid TOCTOU race conditions
+  if (STRIP_PATTERNS.packagePaths) {
+    for (const pkgPath of STRIP_PATTERNS.packagePaths) {
+      const fullPath = path.join(sitePackagesDir, pkgPath);
+      try {
+        // Get size first (may throw ENOENT if path doesn't exist)
+        let pathSize = 0;
+        try {
+          pathSize = getDirectorySize(fullPath);
+        } catch {
+          // Path doesn't exist or can't get size - skip
+          continue;
+        }
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        console.log(`[download-python] Removed ${pkgPath} (${formatBytes(pathSize)})`);
+        removedCount++;
+      } catch (err) {
+        // ENOENT means file was already gone - not an error
+        if (err.code !== 'ENOENT') {
+          console.warn(`[download-python] Failed to remove ${pkgPath}: ${err.message}`);
+        }
+      }
+    }
+  }
+
   function shouldRemoveDir(name) {
     return STRIP_PATTERNS.dirs.includes(name.toLowerCase());
   }
@@ -574,12 +609,12 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
 
   // Install packages directly to target directory
   // --no-compile: Don't create .pyc files (saves space, Python will work without them)
-  // --no-cache-dir: Don't use pip cache
   // --target: Install to specific directory
+  // Note: We intentionally DO use pip's cache to preserve built wheels for packages
+  // like real_ladybug that must be compiled from source on Intel Mac (no PyPI wheel)
   const pipArgs = [
     '-m', 'pip', 'install',
     '--no-compile',
-    '--no-cache-dir',
     '--target', targetSitePackages,
     '-r', requirementsPath,
   ];

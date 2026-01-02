@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next';
 import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
-import { EnvironmentSettings } from '../../project-settings/EnvironmentSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
@@ -22,8 +21,6 @@ interface SectionRouterProps {
   isLoadingEnv: boolean;
   envError: string | null;
   updateEnvConfig: (updates: Partial<ProjectEnvConfig>) => void;
-  showClaudeToken: boolean;
-  setShowClaudeToken: React.Dispatch<React.SetStateAction<boolean>>;
   showLinearKey: boolean;
   setShowLinearKey: React.Dispatch<React.SetStateAction<boolean>>;
   showOpenAIKey: boolean;
@@ -36,12 +33,9 @@ interface SectionRouterProps {
   setShowGitLabToken: React.Dispatch<React.SetStateAction<boolean>>;
   gitLabConnectionStatus: GitLabSyncStatus | null;
   isCheckingGitLab: boolean;
-  isCheckingClaudeAuth: boolean;
-  claudeAuthStatus: 'checking' | 'authenticated' | 'not_authenticated' | 'error';
   linearConnectionStatus: LinearSyncStatus | null;
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
-  handleClaudeSetup: () => Promise<void>;
   onOpenLinearImport: () => void;
 }
 
@@ -61,8 +55,6 @@ export function SectionRouter({
   isLoadingEnv,
   envError,
   updateEnvConfig,
-  showClaudeToken,
-  setShowClaudeToken,
   showLinearKey,
   setShowLinearKey,
   showOpenAIKey,
@@ -75,12 +67,9 @@ export function SectionRouter({
   setShowGitLabToken,
   gitLabConnectionStatus,
   isCheckingGitLab,
-  isCheckingClaudeAuth,
-  claudeAuthStatus,
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
-  handleClaudeSetup,
   onOpenLinearImport
 }: SectionRouterProps) {
   const { t } = useTranslation('settings');
@@ -101,34 +90,6 @@ export function SectionRouter({
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
           />
-        </SettingsSection>
-      );
-
-    case 'claude':
-      return (
-        <SettingsSection
-          title="Claude Authentication"
-          description="Configure Claude CLI authentication for this project"
-        >
-          <InitializationGuard
-            initialized={!!project.autoBuildPath}
-            title="Claude Authentication"
-            description="Configure Claude CLI authentication"
-          >
-            <EnvironmentSettings
-              envConfig={envConfig}
-              isLoadingEnv={isLoadingEnv}
-              envError={envError}
-              updateEnvConfig={updateEnvConfig}
-              isCheckingClaudeAuth={isCheckingClaudeAuth}
-              claudeAuthStatus={claudeAuthStatus}
-              handleClaudeSetup={handleClaudeSetup}
-              showClaudeToken={showClaudeToken}
-              setShowClaudeToken={setShowClaudeToken}
-              expanded={true}
-              onToggle={() => {}}
-            />
-          </InitializationGuard>
         </SettingsSection>
       );
 

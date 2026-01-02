@@ -50,6 +50,7 @@
   },
   "errors": {
     "generic": "An error occurred",
+    "unknownError": "An unknown error occurred",
     "networkError": "Network error",
     "notFound": "Not found",
     "unauthorized": "Unauthorized"

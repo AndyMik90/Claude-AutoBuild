@@ -319,6 +319,12 @@
     "helpTitle": "Signaler des problèmes",
     "helpText": "Lors du signalement de bugs, cliquez sur \"Copier les infos de débogage\" pour obtenir les informations système et les erreurs récentes qui nous aident à diagnostiquer le problème."
   },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Aucun projet sélectionné",
+      "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
+    }
+  },
   "mcp": {
     "title": "Aperçu des serveurs MCP",
     "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",

@@ -221,6 +221,14 @@ class PRReviewFinding:
     )
     redundant_with: str | None = None  # Reference to duplicate code (file:line)
 
+    # NEW: Finding validation fields (from finding-validator re-investigation)
+    validation_status: str | None = (
+        None  # confirmed_valid, dismissed_false_positive, needs_human_review
+    )
+    validation_evidence: str | None = None  # Code snippet examined during validation
+    validation_confidence: float | None = None  # Confidence of validation (0.0-1.0)
+    validation_explanation: str | None = None  # Why finding was validated/dismissed
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -237,6 +245,11 @@ class PRReviewFinding:
             "confidence": self.confidence,
             "verification_note": self.verification_note,
             "redundant_with": self.redundant_with,
+            # Validation fields
+            "validation_status": self.validation_status,
+            "validation_evidence": self.validation_evidence,
+            "validation_confidence": self.validation_confidence,
+            "validation_explanation": self.validation_explanation,
         }
 
     @classmethod
@@ -256,6 +269,11 @@ class PRReviewFinding:
             confidence=data.get("confidence", 0.85),
             verification_note=data.get("verification_note"),
             redundant_with=data.get("redundant_with"),
+            # Validation fields
+            validation_status=data.get("validation_status"),
+            validation_evidence=data.get("validation_evidence"),
+            validation_confidence=data.get("validation_confidence"),
+            validation_explanation=data.get("validation_explanation"),
         )
 
 

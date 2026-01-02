@@ -157,9 +157,10 @@ export function findExecutable(command: string): string | null {
   const pathSeparator = process.platform === 'win32' ? ';' : ':';
   const pathDirs = (env.PATH || '').split(pathSeparator);
 
-  // On Windows, also check with common extensions
+  // On Windows, check Windows-native extensions first (.exe, .cmd) before
+  // extensionless files (which are typically bash/sh scripts for Git Bash/Cygwin)
   const extensions = process.platform === 'win32'
-    ? ['', '.exe', '.cmd', '.bat', '.ps1']
+    ? ['.exe', '.cmd', '.bat', '.ps1', '']
     : [''];
 
   for (const dir of pathDirs) {

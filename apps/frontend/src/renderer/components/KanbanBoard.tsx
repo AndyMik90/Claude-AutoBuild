@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { TaskCard } from './TaskCard';
@@ -33,6 +33,8 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -42,6 +44,55 @@ interface DroppableColumnProps {
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
+}
+
+/**
+ * Compare two tasks arrays for meaningful changes.
+ * Returns true if tasks are equivalent (should skip re-render).
+ */
+function tasksAreEquivalent(prevTasks: Task[], nextTasks: Task[]): boolean {
+  if (prevTasks.length !== nextTasks.length) return false;
+  if (prevTasks === nextTasks) return true;
+
+  // Compare by ID and fields that affect rendering
+  for (let i = 0; i < prevTasks.length; i++) {
+    const prev = prevTasks[i];
+    const next = nextTasks[i];
+    if (
+      prev.id !== next.id ||
+      prev.status !== next.status ||
+      prev.executionProgress?.phase !== next.executionProgress?.phase ||
+      prev.updatedAt !== next.updatedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Custom comparator for DroppableColumn memo.
+ */
+function droppableColumnPropsAreEqual(
+  prevProps: DroppableColumnProps,
+  nextProps: DroppableColumnProps
+): boolean {
+  // Quick checks first
+  if (prevProps.status !== nextProps.status) return false;
+  if (prevProps.isOver !== nextProps.isOver) return false;
+  if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
+  if (prevProps.onAddClick !== nextProps.onAddClick) return false;
+  if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
+
+  // Deep compare tasks
+  const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
+
+  // Only log when re-rendering (reduces noise)
+  if (window.DEBUG && !tasksEqual) {
+    console.log(`[DroppableColumn] Re-render: ${nextProps.status} column (${nextProps.tasks.length} tasks)`);
+  }
+
+  return tasksEqual;
 }
 
 // Empty state content for each column
@@ -85,13 +136,35 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
   const { t } = useTranslation('tasks');
   const { setNodeRef } = useDroppable({
     id: status
   });
 
-  const taskIds = tasks.map((t) => t.id);
+  // Memoize taskIds to prevent SortableContext from re-rendering unnecessarily
+  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+
+  // Create stable onClick handlers for each task to prevent unnecessary re-renders
+  const onClickHandlers = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    tasks.forEach((task) => {
+      handlers.set(task.id, () => onTaskClick(task));
+    });
+    return handlers;
+  }, [tasks, onTaskClick]);
+
+  // Memoize task card elements to prevent recreation on every render
+  const taskCards = useMemo(() => {
+    if (tasks.length === 0) return null;
+    return tasks.map((task) => (
+      <SortableTaskCard
+        key={task.id}
+        task={task}
+        onClick={onClickHandlers.get(task.id)!}
+      />
+    ));
+  }, [tasks, onClickHandlers]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -194,13 +267,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   )}
                 </div>
               ) : (
-                tasks.map((task) => (
-                  <SortableTaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => onTaskClick(task)}
-                  />
-                ))
+                taskCards
               )}
             </div>
           </SortableContext>
@@ -208,7 +275,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
       </div>
     </div>
   );
-}
+}, droppableColumnPropsAreEqual);
 
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
   const { t } = useTranslation('tasks');

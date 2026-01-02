@@ -2,13 +2,56 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { getClaudeProfileManager } from '../../claude-profile-manager';
+import {
+  getPlanPath,
+  persistPlanStatus,
+  persistPlanStatusSync,
+  createPlanIfNotExists
+} from './plan-file-utils';
+
+/**
+ * Atomic file write to prevent TOCTOU race conditions.
+ * Writes to a temporary file first, then atomically renames to target.
+ * This ensures the target file is never in an inconsistent state.
+ */
+function atomicWriteFileSync(filePath: string, content: string): void {
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tempPath, content, 'utf-8');
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    // Clean up temp file if rename failed
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw error;
+  }
+}
+
+/**
+ * Safe file read that handles missing files without TOCTOU issues.
+ * Returns null if file doesn't exist or can't be read.
+ */
+function safeReadFileSync(filePath: string): string | null {
+  try {
+    return readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    // ENOENT (file not found) is expected, other errors should be logged
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error(`[safeReadFileSync] Error reading ${filePath}:`, error);
+    }
+    return null;
+  }
+}
 
 /**
  * Helper function to check subtask completion status
@@ -169,12 +212,44 @@ export function registerTaskExecutionHandlers(
         );
       }
 
-      // Notify status change
+      // Notify status change IMMEDIATELY (don't wait for file write)
+      // This provides instant UI feedback while file persistence happens in background
+      const ipcSentAt = Date.now();
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
         taskId,
         'in_progress'
       );
+
+      const DEBUG = process.env.DEBUG === 'true';
+      if (DEBUG) {
+        console.log(`[TASK_START] IPC sent immediately for task ${taskId}, deferring file persistence`);
+      }
+
+      // CRITICAL: Persist status to implementation_plan.json to prevent status flip-flop
+      // When getTasks() is called (on refresh), it reads status from the plan file.
+      // Without persisting here, the old status (e.g., 'human_review') would override
+      // the in-memory 'in_progress' status, causing the task to flip back and forth.
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      // NOTE: This is now async and non-blocking for better UI responsiveness
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      setImmediate(async () => {
+        const persistStart = Date.now();
+        try {
+          const persisted = await persistPlanStatus(planPath, 'in_progress');
+          if (persisted) {
+            console.warn('[TASK_START] Updated plan status to: in_progress');
+          }
+          if (DEBUG) {
+            const delay = persistStart - ipcSentAt;
+            const duration = Date.now() - persistStart;
+            console.log(`[TASK_START] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
+          }
+        } catch (err) {
+          console.error('[TASK_START] Failed to persist plan status:', err);
+        }
+      });
+      // Note: Plan file may not exist yet for new tasks - that's fine (persistPlanStatus handles ENOENT)
     }
   );
 
@@ -182,9 +257,13 @@ export function registerTaskExecutionHandlers(
    * Stop a task
    */
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
+    const DEBUG = process.env.DEBUG === 'true';
+
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
+    // Notify status change IMMEDIATELY for instant UI feedback
+    const ipcSentAt = Date.now();
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(
@@ -192,6 +271,37 @@ export function registerTaskExecutionHandlers(
         taskId,
         'backlog'
       );
+    }
+
+    if (DEBUG) {
+      console.log(`[TASK_STOP] IPC sent immediately for task ${taskId}, deferring file persistence`);
+    }
+
+    // Find task and project to update the plan file (async, non-blocking)
+    const { task, project } = findTaskAndProject(taskId);
+
+    if (task && project) {
+      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+      // Uses shared utility for consistency with agent-events-handlers.ts
+      // NOTE: This is now async and non-blocking for better UI responsiveness
+      const planPath = getPlanPath(project, task);
+      setImmediate(async () => {
+        const persistStart = Date.now();
+        try {
+          const persisted = await persistPlanStatus(planPath, 'backlog');
+          if (persisted) {
+            console.warn('[TASK_STOP] Updated plan status to backlog');
+          }
+          if (DEBUG) {
+            const delay = persistStart - ipcSentAt;
+            const duration = Date.now() - persistStart;
+            console.log(`[TASK_STOP] File persistence: delayed ${delay}ms after IPC, completed in ${duration}ms`);
+          }
+        } catch (err) {
+          console.error('[TASK_STOP] Failed to persist plan status:', err);
+        }
+      });
+      // Note: File not found is expected for tasks without a plan file (persistPlanStatus handles ENOENT)
     }
   });
 
@@ -229,10 +339,15 @@ export function registerTaskExecutionHandlers(
       if (approved) {
         // Write approval to QA report
         const qaReportPath = path.join(specDir, AUTO_BUILD_PATHS.QA_REPORT);
-        writeFileSync(
-          qaReportPath,
-          `# QA Review\n\nStatus: APPROVED\n\nReviewed at: ${new Date().toISOString()}\n`
-        );
+        try {
+          writeFileSync(
+            qaReportPath,
+            `# QA Review\n\nStatus: APPROVED\n\nReviewed at: ${new Date().toISOString()}\n`
+          );
+        } catch (error) {
+          console.error('[TASK_REVIEW] Failed to write QA report:', error);
+          return { success: false, error: 'Failed to write QA report file' };
+        }
 
         const mainWindow = getMainWindow();
         if (mainWindow) {
@@ -288,10 +403,15 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
         console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
 
-        writeFileSync(
-          fixRequestPath,
-          `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
-        );
+        try {
+          writeFileSync(
+            fixRequestPath,
+            `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
+          );
+        } catch (error) {
+          console.error('[TASK_REVIEW] Failed to write QA fix request:', error);
+          return { success: false, error: 'Failed to write QA fix request file' };
+        }
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
@@ -381,55 +501,18 @@ export function registerTaskExecutionHandlers(
         }
       }
 
-      // Get the spec directory
+      // Get the spec directory and plan path using shared utility
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specDir = path.join(
-        project.path,
-        specsBaseDir,
-        task.specId
-      );
-
-      // Update implementation_plan.json if it exists
-      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      const specDir = path.join(project.path, specsBaseDir, task.specId);
+      const planPath = getPlanPath(project, task);
 
       try {
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          const plan = JSON.parse(planContent);
+        // Use shared utility for thread-safe plan file updates
+        const persisted = await persistPlanStatus(planPath, status);
 
-          // Store the exact UI status - project-store.ts will map it back
-          plan.status = status;
-          // Also store mapped version for Python compatibility
-          plan.planStatus = status === 'in_progress' ? 'in_progress'
-            : status === 'ai_review' ? 'review'
-            : status === 'human_review' ? 'review'
-            : status === 'done' ? 'completed'
-            : 'pending';
-          plan.updated_at = new Date().toISOString();
-
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
-        } else {
+        if (!persisted) {
           // If no implementation plan exists yet, create a basic one
-          const plan = {
-            feature: task.title,
-            description: task.description || '',
-            created_at: task.createdAt.toISOString(),
-            updated_at: new Date().toISOString(),
-            status: status, // Store exact UI status for persistence
-            planStatus: status === 'in_progress' ? 'in_progress'
-              : status === 'ai_review' ? 'review'
-              : status === 'human_review' ? 'review'
-              : status === 'done' ? 'completed'
-              : 'pending',
-            phases: []
-          };
-
-          // Ensure spec directory exists
-          if (!existsSync(specDir)) {
-            mkdirSync(specDir, { recursive: true });
-          }
-
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          await createPlanIfNotExists(planPath, task, status);
         }
 
         // Auto-stop task when status changes AWAY from 'in_progress' and process IS running
@@ -602,10 +685,19 @@ export function registerTaskExecutionHandlers(
 
       try {
         // Read the plan to analyze subtask progress
+        // Using safe read to avoid TOCTOU race conditions
         let plan: Record<string, unknown> | null = null;
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          plan = JSON.parse(planContent);
+        const planContent = safeReadFileSync(planPath);
+        if (planContent) {
+          try {
+            plan = JSON.parse(planContent);
+          } catch (parseError) {
+            console.error('[Recovery] Failed to parse plan file as JSON:', parseError);
+            return {
+              success: false,
+              error: 'Plan file contains invalid JSON. The file may be corrupted.'
+            };
+          }
         }
 
         // Determine the target status intelligently based on subtask progress
@@ -651,7 +743,16 @@ export function registerTaskExecutionHandlers(
             // Just update status in plan file (project store reads from file, no separate update needed)
             plan.status = 'human_review';
             plan.planStatus = 'review';
-            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            try {
+              // Use atomic write to prevent TOCTOU race conditions
+              atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
+            } catch (writeError) {
+              console.error('[Recovery] Failed to write plan file:', writeError);
+              return {
+                success: false,
+                error: 'Failed to write plan file'
+              };
+            }
 
             return {
               success: true,
@@ -696,7 +797,16 @@ export function registerTaskExecutionHandlers(
             }
           }
 
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          try {
+            // Use atomic write to prevent TOCTOU race conditions
+            atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
+          } catch (writeError) {
+            console.error('[Recovery] Failed to write plan file:', writeError);
+            return {
+              success: false,
+              error: 'Failed to write plan file during recovery'
+            };
+          }
         }
 
         // Stop file watcher if it was watching this task
@@ -747,7 +857,14 @@ export function registerTaskExecutionHandlers(
             if (plan) {
               plan.status = 'in_progress';
               plan.planStatus = 'in_progress';
-              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              try {
+                // Use atomic write to prevent TOCTOU race conditions
+                atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
+              } catch (writeError) {
+                console.error('[Recovery] Failed to write plan file for restart:', writeError);
+                // Continue with restart attempt even if file write fails
+                // The plan status will be updated by the agent when it starts
+              }
             }
 
             // Start the task execution

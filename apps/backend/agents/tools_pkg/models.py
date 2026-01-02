@@ -216,8 +216,9 @@ AGENT_CONFIGS = {
     # QA PHASES (Read + test + browser + Graphiti memory)
     # ═══════════════════════════════════════════════════════════════════════
     "qa_reviewer": {
-        # Read-only + Bash (for running tests) - reviewer should NOT edit code
-        "tools": BASE_READ_TOOLS + ["Bash"] + WEB_TOOLS,
+        # Read + Write/Edit (for QA reports and plan updates) + Bash (for tests)
+        # Note: Reviewer writes to spec directory only (qa_report.md, implementation_plan.json)
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
         "mcp_servers_optional": ["linear"],  # For updating issue status
         "auto_claude_tools": [

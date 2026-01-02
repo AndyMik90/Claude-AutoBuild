@@ -1,6 +1,5 @@
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../shared/constants';
 import type {
   SDKRateLimitInfo,
@@ -15,6 +14,7 @@ import { titleGenerator } from '../title-generator';
 import { fileWatcher } from '../file-watcher';
 import { projectStore } from '../project-store';
 import { notificationService } from '../notification-service';
+import { persistPlanStatusSync, getPlanPath } from './task/plan-file-utils';
 
 
 /**
@@ -92,6 +92,15 @@ export function registerAgenteventsHandlers(
 
         if (task && project) {
           const taskTitle = task.title || task.specId;
+          const planPath = getPlanPath(project, task);
+
+          // Use shared utility for persisting status (prevents race conditions)
+          const persistStatus = (status: TaskStatus) => {
+            const persisted = persistPlanStatusSync(planPath, status);
+            if (persisted) {
+              console.log(`[Task ${taskId}] Persisted status to plan: ${status}`);
+            }
+          };
 
           if (code === 0) {
             notificationService.notifyReviewNeeded(taskTitle, project.id, taskId);
@@ -105,6 +114,7 @@ export function registerAgenteventsHandlers(
             
             if (isActiveStatus && !hasIncompleteSubtasks) {
               console.log(`[Task ${taskId}] Fallback: Moving to human_review (process exited successfully)`);
+              persistStatus('human_review');
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_STATUS_CHANGE,
                 taskId,
@@ -113,6 +123,7 @@ export function registerAgenteventsHandlers(
             }
           } else {
             notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
+            persistStatus('human_review');
             mainWindow.webContents.send(
               IPC_CHANNELS.TASK_STATUS_CHANGE,
               taskId,
@@ -148,6 +159,26 @@ export function registerAgenteventsHandlers(
           taskId,
           newStatus
         );
+
+        // CRITICAL: Persist status to plan file to prevent flip-flop on task list refresh
+        // When getTasks() is called, it reads status from the plan file. Without persisting,
+        // the status in the file might differ from the UI, causing inconsistent state.
+        // Uses shared utility with locking to prevent race conditions.
+        try {
+          const projects = projectStore.getProjects();
+          for (const p of projects) {
+            const tasks = projectStore.getTasks(p.id);
+            const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+            if (task) {
+              const planPath = getPlanPath(p, task);
+              persistPlanStatusSync(planPath, newStatus);
+              break;
+            }
+          }
+        } catch (err) {
+          // Ignore persistence errors - UI will still work, just might flip on refresh
+          console.warn('[execution-progress] Could not persist status:', err);
+        }
       }
     }
   });

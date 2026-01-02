@@ -21,6 +21,7 @@ from progress import (
     is_build_complete,
 )
 from recovery import RecoveryManager
+from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
     LogPhase,
@@ -386,41 +387,43 @@ async def run_agent_session(
                             )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
-                        tool_input = None
+                        tool_input_display = None
                         tool_count += 1
 
+                        # Safely extract tool input (handles None, non-dict, etc.)
+                        inp = get_safe_tool_input(block)
+
                         # Extract meaningful tool input for display
-                        if hasattr(block, "input") and block.input:
-                            inp = block.input
-                            if isinstance(inp, dict):
-                                if "pattern" in inp:
-                                    tool_input = f"pattern: {inp['pattern']}"
-                                elif "file_path" in inp:
-                                    fp = inp["file_path"]
-                                    if len(fp) > 50:
-                                        fp = "..." + fp[-47:]
-                                    tool_input = fp
-                                elif "command" in inp:
-                                    cmd = inp["command"]
-                                    if len(cmd) > 50:
-                                        cmd = cmd[:47] + "..."
-                                    tool_input = cmd
-                                elif "path" in inp:
-                                    tool_input = inp["path"]
+                        if inp:
+                            if "pattern" in inp:
+                                tool_input_display = f"pattern: {inp['pattern']}"
+                            elif "file_path" in inp:
+                                fp = inp["file_path"]
+                                if len(fp) > 50:
+                                    fp = "..." + fp[-47:]
+                                tool_input_display = fp
+                            elif "command" in inp:
+                                cmd = inp["command"]
+                                if len(cmd) > 50:
+                                    cmd = cmd[:47] + "..."
+                                tool_input_display = cmd
+                            elif "path" in inp:
+                                tool_input_display = inp["path"]
 
                         debug(
                             "session",
                             f"Tool call #{tool_count}: {tool_name}",
-                            tool_input=tool_input,
-                            full_input=str(block.input)[:500]
-                            if hasattr(block, "input")
-                            else None,
+                            tool_input=tool_input_display,
+                            full_input=str(inp)[:500] if inp else None,
                         )
 
                         # Log tool start (handles printing too)
                         if task_logger:
                             task_logger.tool_start(
-                                tool_name, tool_input, phase, print_to_console=True
+                                tool_name,
+                                tool_input_display,
+                                phase,
+                                print_to_console=True,
                             )
                         else:
                             print(f"\n[Tool: {tool_name}]", flush=True)

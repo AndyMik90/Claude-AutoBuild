@@ -201,6 +201,9 @@ class PRContext:
     ai_bot_comments: list[AIBotComment] = field(default_factory=list)
     # Flag indicating if full diff was skipped (PR > 20K lines)
     diff_truncated: bool = False
+    # Commit SHAs for worktree creation (PR review isolation)
+    head_sha: str = ""  # Commit SHA of PR head (headRefOid)
+    base_sha: str = ""  # Commit SHA of PR base (baseRefOid)
 
 
 class PRContextGatherer:
@@ -291,6 +294,8 @@ class PRContextGatherer:
             total_deletions=pr_data.get("deletions", 0),
             ai_bot_comments=ai_bot_comments,
             diff_truncated=diff_truncated,
+            head_sha=pr_data.get("headRefOid", ""),
+            base_sha=pr_data.get("baseRefOid", ""),
         )
 
     async def _fetch_pr_metadata(self) -> dict:

@@ -49,7 +49,7 @@ import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
-import { useProjectStore, loadProjects, addProject, initializeProject } from './stores/project-store';
+import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings } from './stores/settings-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
@@ -113,7 +113,6 @@ export function App() {
   const getProjectTabs = useProjectStore((state) => state.getProjectTabs);
   const openProjectIds = useProjectStore((state) => state.openProjectIds);
   const openProjectTab = useProjectStore((state) => state.openProjectTab);
-  const closeProjectTab = useProjectStore((state) => state.closeProjectTab);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
   const tasks = useTaskStore((state) => state.tasks);
@@ -128,6 +127,7 @@ export function App() {
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
+  const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -141,6 +141,11 @@ export function App() {
   // GitHub setup state (shown after Auto Claude init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
+
+  // Remove project confirmation state
+  const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
+  const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
+  const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
 
   // Setup drag sensors
   const sensors = useSensors(
@@ -437,6 +442,17 @@ export function App() {
     setSelectedTask(task);
   };
 
+  const handleRefreshTasks = async () => {
+    const currentProjectId = activeProjectId || selectedProjectId;
+    if (!currentProjectId) return;
+    setIsRefreshingTasks(true);
+    try {
+      await loadTasks(currentProjectId);
+    } finally {
+      setIsRefreshingTasks(false);
+    }
+  };
+
   const handleCloseTaskDetail = () => {
     setSelectedTask(null);
   };
@@ -483,7 +499,39 @@ export function App() {
   };
 
   const handleProjectTabClose = (projectId: string) => {
-    closeProjectTab(projectId);
+    // Show confirmation dialog before removing the project
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setProjectToRemove(project);
+      setShowRemoveProjectDialog(true);
+    }
+  };
+
+  const handleConfirmRemoveProject = () => {
+    if (projectToRemove) {
+      try {
+        // Clear any previous error
+        setRemoveProjectError(null);
+        // Remove the project from the app (files are preserved on disk for re-adding later)
+        removeProject(projectToRemove.id);
+        // Only clear dialog state on success
+        setShowRemoveProjectDialog(false);
+        setProjectToRemove(null);
+      } catch (err) {
+        // Log error and keep dialog open so user can retry or cancel
+        console.error('[App] Failed to remove project:', err);
+        // Show error in dialog
+        setRemoveProjectError(
+          err instanceof Error ? err.message : t('common:errors.unknownError')
+        );
+      }
+    }
+  };
+
+  const handleCancelRemoveProject = () => {
+    setShowRemoveProjectDialog(false);
+    setProjectToRemove(null);
+    setRemoveProjectError(null);
   };
 
   // Handle drag start - set the active dragged project
@@ -679,6 +727,8 @@ export function App() {
                     tasks={tasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+                    onRefresh={handleRefreshTasks}
+                    isRefreshing={isRefreshingTasks}
                   />
                 )}
                 {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}
@@ -719,13 +769,17 @@ export function App() {
                     onNavigateToTask={handleGoToTask}
                   />
                 )}
-                {activeView === 'github-prs' && (activeProjectId || selectedProjectId) && (
-                  <GitHubPRs
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('github');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                  />
+                {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
+                    <GitHubPRs
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('github');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                      isActive={activeView === 'github-prs'}
+                    />
+                  </div>
                 )}
                 {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
                   <GitLabMergeRequests
@@ -893,6 +947,34 @@ export function App() {
             onSkip={handleGitHubSetupSkip}
           />
         )}
+
+        {/* Remove Project Confirmation Dialog */}
+        <Dialog open={showRemoveProjectDialog} onOpenChange={(open) => {
+          if (!open) handleCancelRemoveProject();
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('removeProject.title')}</DialogTitle>
+              <DialogDescription>
+                {t('removeProject.description', { projectName: projectToRemove?.name || '' })}
+              </DialogDescription>
+            </DialogHeader>
+            {removeProjectError && (
+              <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{removeProjectError}</span>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelRemoveProject}>
+                {t('removeProject.cancel')}
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmRemoveProject}>
+                {t('removeProject.remove')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Rate Limit Modal - shows when Claude Code hits usage limits (terminal) */}
         <RateLimitModal />

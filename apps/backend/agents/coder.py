@@ -257,16 +257,33 @@ async def run_autonomous_agent(
         phase_thinking_budget = get_phase_thinking_budget(spec_dir, current_phase)
 
         # Create client (fresh context) with phase-specific model and thinking
+        # Use appropriate agent_type for correct tool permissions and thinking budget
         client = create_client(
             project_dir,
             spec_dir,
             phase_model,
+            agent_type="planner" if first_run else "coder",
             max_thinking_tokens=phase_thinking_budget,
         )
 
         # Generate appropriate prompt
         if first_run:
             prompt = generate_planner_prompt(spec_dir, project_dir)
+
+            # Retrieve Graphiti memory context for planning phase
+            # This gives the planner knowledge of previous patterns, gotchas, and insights
+            planner_context = await get_graphiti_context(
+                spec_dir,
+                project_dir,
+                {
+                    "description": "Planning implementation for new feature",
+                    "id": "planner",
+                },
+            )
+            if planner_context:
+                prompt += "\n\n" + planner_context
+                print_status("Graphiti memory context loaded for planner", "success")
+
             first_run = False
             current_log_phase = LogPhase.PLANNING
 

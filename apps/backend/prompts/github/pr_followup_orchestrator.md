@@ -35,6 +35,20 @@ You have access to these specialist agents via the Task tool:
 - Flags concerns that need addressing
 - **Invoke when**: There are comments or reviews since last review
 
+### 4. finding-validator (CRITICAL - Prevent False Positives)
+**Use for**: Re-investigating unresolved findings to validate they are real issues
+- Reads the ACTUAL CODE at the finding location with fresh eyes
+- Actively investigates whether the described issue truly exists
+- Can DISMISS findings as false positives if original review was incorrect
+- Can CONFIRM findings as valid if issue is genuine
+- Requires concrete CODE EVIDENCE for any conclusion
+- **ALWAYS invoke after resolution-verifier for ALL unresolved findings**
+- **Invoke when**: There are findings still marked as unresolved
+
+**Why this is critical**: Initial reviews may produce false positives (hallucinated issues).
+Without validation, these persist indefinitely. This agent prevents that by actually
+examining the code and determining if the issue is real.
+
 ## Workflow
 
 ### Phase 1: Analyze Scope
@@ -50,6 +64,9 @@ Based on your analysis, invoke the appropriate agents:
 
 **Always invoke** `resolution-verifier` if there are previous findings.
 
+**ALWAYS invoke** `finding-validator` for ALL unresolved findings from resolution-verifier.
+This is CRITICAL to prevent false positives from persisting.
+
 **Invoke** `new-code-reviewer` if:
 - Diff is substantial (>50 lines)
 - Changes touch security-sensitive areas
@@ -61,17 +78,28 @@ Based on your analysis, invoke the appropriate agents:
 - There are AI tool reviews to triage
 - Questions remain unanswered
 
-### Phase 3: Synthesize Results
-After agents complete:
+### Phase 3: Validate Unresolved Findings
+After resolution-verifier returns findings marked as unresolved:
+1. Pass ALL unresolved findings to finding-validator
+2. finding-validator will read the actual code at each location
+3. For each finding, it returns:
+   - `confirmed_valid`: Issue IS real → keep as unresolved
+   - `dismissed_false_positive`: Original finding was WRONG → remove from findings
+   - `needs_human_review`: Cannot determine → flag for human
+
+### Phase 4: Synthesize Results
+After all agents complete:
 1. Combine resolution verifications
-2. Merge new findings (deduplicate if needed)
-3. Incorporate comment analysis
-4. Generate final verdict
+2. Apply validation results (remove dismissed false positives)
+3. Merge new findings (deduplicate if needed)
+4. Incorporate comment analysis
+5. Generate final verdict based on VALIDATED findings only
 
 ## Verdict Guidelines
 
 ### READY_TO_MERGE
-- All previous findings verified as resolved
+- All previous findings verified as resolved OR dismissed as false positives
+- No CONFIRMED_VALID critical/high issues remaining
 - No new critical/high issues
 - No blocking concerns from comments
 - Contributor questions addressed
@@ -82,15 +110,17 @@ After agents complete:
 - Optional polish items can be addressed post-merge
 
 ### NEEDS_REVISION (Strict Quality Gates)
-- HIGH or MEDIUM severity findings unresolved
+- HIGH or MEDIUM severity findings CONFIRMED_VALID (not dismissed as false positive)
 - New HIGH or MEDIUM severity issues introduced
 - Important contributor concerns unaddressed
 - **Note: Both HIGH and MEDIUM block merge** (AI fixes quickly, so be strict)
+- **Note: Only count findings that passed validation** (dismissed_false_positive findings don't block)
 
 ### BLOCKED
-- CRITICAL findings remain unresolved
+- CRITICAL findings remain CONFIRMED_VALID (not dismissed as false positive)
 - New CRITICAL issues introduced
 - Fundamental problems with the fix approach
+- **Note: Only block for findings that passed validation**
 
 ## Cross-Validation
 
@@ -106,10 +136,28 @@ Provide your synthesis as a structured response matching the ParallelFollowupRes
 ```json
 {
   "analysis_summary": "Brief summary of what was analyzed",
-  "agents_invoked": ["resolution-verifier", "new-code-reviewer"],
+  "agents_invoked": ["resolution-verifier", "finding-validator", "new-code-reviewer"],
   "commits_analyzed": 5,
   "files_changed": 12,
   "resolution_verifications": [...],
+  "finding_validations": [
+    {
+      "finding_id": "SEC-001",
+      "validation_status": "confirmed_valid",
+      "code_evidence": "const query = `SELECT * FROM users WHERE id = ${userId}`;",
+      "line_range": [45, 45],
+      "explanation": "SQL injection is present - user input is concatenated...",
+      "confidence": 0.92
+    },
+    {
+      "finding_id": "QUAL-002",
+      "validation_status": "dismissed_false_positive",
+      "code_evidence": "const sanitized = DOMPurify.sanitize(data);",
+      "line_range": [23, 26],
+      "explanation": "Original finding claimed XSS but code uses DOMPurify...",
+      "confidence": 0.88
+    }
+  ],
   "new_findings": [...],
   "comment_analyses": [...],
   "comment_findings": [...],
@@ -119,7 +167,7 @@ Provide your synthesis as a structured response matching the ParallelFollowupRes
     "resolution_notes": null
   },
   "verdict": "READY_TO_MERGE",
-  "verdict_reasoning": "All 3 previous findings verified as resolved..."
+  "verdict_reasoning": "2 findings resolved, 1 dismissed as false positive, 1 confirmed valid but LOW severity..."
 }
 ```
 
