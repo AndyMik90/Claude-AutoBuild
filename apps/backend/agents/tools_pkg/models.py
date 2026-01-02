@@ -213,7 +213,7 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "spec_compaction": {
-        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,  # Will be replaced dynamically
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": [],
         "auto_claude_tools": [],
         "thinking_default": "medium",
@@ -225,7 +225,7 @@ AGENT_CONFIGS = {
     "planner": {
         "tools": BASE_READ_TOOLS
         + BASE_WRITE_TOOLS
-        + WEB_TOOLS,  # Will be replaced dynamically
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],  # Only if project setting enabled
         "auto_claude_tools": [
@@ -238,7 +238,7 @@ AGENT_CONFIGS = {
     "coder": {
         "tools": BASE_READ_TOOLS
         + BASE_WRITE_TOOLS
-        + WEB_TOOLS,  # Will be replaced dynamically
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
@@ -269,7 +269,7 @@ AGENT_CONFIGS = {
     "qa_fixer": {
         "tools": BASE_READ_TOOLS
         + BASE_WRITE_TOOLS
-        + WEB_TOOLS,  # Will be replaced dynamically
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
         "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
