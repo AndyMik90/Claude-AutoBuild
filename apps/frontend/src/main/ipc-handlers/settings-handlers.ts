@@ -171,11 +171,17 @@ export function registerSettingsHandlers(
       if (settings.morphEnabled !== undefined) {
         process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
       }
-      if (settings.morphApiKey) {
+      // Only set API key and model if Morph is enabled - prevents stale credentials
+      if (settings.morphEnabled && settings.morphApiKey) {
         process.env.MORPH_API_KEY = settings.morphApiKey;
+      } else {
+        // Clean up API key when Morph is disabled
+        delete process.env.MORPH_API_KEY;
       }
-      if (settings.morphModel) {
+      if (settings.morphEnabled && settings.morphModel) {
         process.env.MORPH_MODEL = settings.morphModel;
+      } else {
+        delete process.env.MORPH_MODEL;
       }
 
       return { success: true, data: settings as AppSettings };
