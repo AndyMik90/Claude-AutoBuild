@@ -152,17 +152,17 @@
       "notReviewed": "Not Reviewed",
       "notReviewedDesc": "Run an AI review to analyze this MR",
       "reviewComplete": "Review Complete",
-      "reviewCompleteDesc": "finding(s) found. Select and post to GitLab.",
+      "reviewCompleteDesc": "{{count}} finding(s) found. Select and post to GitLab.",
       "waitingForChanges": "Waiting for Changes",
-      "waitingForChangesDesc": "finding(s) posted. Waiting for contributor to address issues.",
+      "waitingForChangesDesc": "{{count}} finding(s) posted. Waiting for contributor to address issues.",
       "readyToMerge": "Ready to Merge",
       "readyToMergeDesc": "No blocking issues found. This MR can be merged.",
       "needsAttention": "Needs Attention",
-      "needsAttentionDesc": "finding(s) need to be posted to GitLab.",
+      "needsAttentionDesc": "{{count}} finding(s) need to be posted to GitLab.",
       "readyForFollowup": "Ready for Follow-up",
       "readyForFollowupDesc": "since review. Run follow-up to check if issues are resolved.",
       "blockingIssues": "Blocking Issues",
-      "blockingIssuesDesc": "blocking issue(s) still open."
+      "blockingIssuesDesc": "{{count}} blocking issue(s) still open."
     },
     "overallStatus": {
       "approve": "Approve",

@@ -152,17 +152,17 @@
       "notReviewed": "Non analysée",
       "notReviewedDesc": "Lancez une revue IA pour analyser cette MR",
       "reviewComplete": "Revue terminée",
-      "reviewCompleteDesc": "problème(s) trouvé(s). Sélectionnez et publiez sur GitLab.",
+      "reviewCompleteDesc": "{{count}} problème(s) trouvé(s). Sélectionnez et publiez sur GitLab.",
       "waitingForChanges": "En attente de modifications",
-      "waitingForChangesDesc": "résultat(s) publié(s). En attente des corrections du contributeur.",
+      "waitingForChangesDesc": "{{count}} résultat(s) publié(s). En attente des corrections du contributeur.",
       "readyToMerge": "Prête à fusionner",
       "readyToMergeDesc": "Aucun problème bloquant. Cette MR peut être fusionnée.",
       "needsAttention": "Attention requise",
-      "needsAttentionDesc": "résultat(s) à publier sur GitLab.",
+      "needsAttentionDesc": "{{count}} résultat(s) à publier sur GitLab.",
       "readyForFollowup": "Prête pour suivi",
       "readyForFollowupDesc": "depuis la revue. Lancez un suivi pour vérifier si les problèmes sont résolus.",
       "blockingIssues": "Problèmes bloquants",
-      "blockingIssuesDesc": "problème(s) bloquant(s) encore ouvert(s)."
+      "blockingIssuesDesc": "{{count}} problème(s) bloquant(s) encore ouvert(s)."
     },
     "overallStatus": {
       "approve": "Approuver",
