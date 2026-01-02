@@ -399,9 +399,12 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     }
 
     const args = server.args || [];
+
+    // On Windows, use shell: true to properly handle .cmd/.bat scripts like npx
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000, // OS-level timeout for reliable process termination
+      shell: process.platform === 'win32', // Required for Windows to run npx.cmd
     });
 
     let stdout = '';
