@@ -188,7 +188,7 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       return resolve({
         serverId: server.id,
         status: 'unhealthy',
-        message: 'Args contain dangerous interpreter flags',
+        message: 'Args contain dangerous flags or shell metacharacters',
         checkedAt: new Date().toISOString(),
       });
     }
@@ -411,7 +411,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
       return resolve({
         serverId: server.id,
         success: false,
-        message: 'Args contain dangerous interpreter flags',
+        message: 'Args contain dangerous flags or shell metacharacters',
       });
     }
 
