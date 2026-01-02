@@ -9,6 +9,10 @@ export interface EnvironmentVars {
 export interface GlobalSettings {
   autoBuildPath?: string;
   globalOpenAIApiKey?: string;
+  globalAnthropicApiKey?: string;
+  globalAzureOpenAIApiKey?: string;
+  globalVoyageApiKey?: string;
+  globalGoogleApiKey?: string;
 }
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -117,6 +121,60 @@ export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: Gl
     globalSettings.globalOpenAIApiKey ||
     process.env.OPENAI_API_KEY
   );
+}
+
+/**
+ * Get configured embedder provider and check if it has valid credentials
+ * Supports: openai, voyage, azure_openai, ollama, google
+ */
+export function getEmbedderProviderStatus(
+  projectEnvVars: EnvironmentVars,
+  globalSettings: GlobalSettings
+): { provider: string; configured: boolean; reason?: string } {
+  const embedderProvider = (
+    projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] ||
+    process.env.GRAPHITI_EMBEDDER_PROVIDER ||
+    'openai'
+  ).toLowerCase();
+
+  switch (embedderProvider) {
+    case 'openai':
+      if (projectEnvVars['OPENAI_API_KEY'] || globalSettings.globalOpenAIApiKey || process.env.OPENAI_API_KEY) {
+        return { provider: 'openai', configured: true };
+      }
+      return { provider: 'openai', configured: false, reason: 'OPENAI_API_KEY not set' };
+
+    case 'voyage':
+      if (projectEnvVars['VOYAGE_API_KEY'] || globalSettings.globalVoyageApiKey || process.env.VOYAGE_API_KEY) {
+        return { provider: 'voyage', configured: true };
+      }
+      return { provider: 'voyage', configured: false, reason: 'VOYAGE_API_KEY not set' };
+
+    case 'azure_openai':
+      const hasAzureKey = projectEnvVars['AZURE_OPENAI_API_KEY'] || globalSettings.globalAzureOpenAIApiKey || process.env.AZURE_OPENAI_API_KEY;
+      const hasAzureUrl = projectEnvVars['AZURE_OPENAI_BASE_URL'] || process.env.AZURE_OPENAI_BASE_URL;
+      const hasAzureDeployment = projectEnvVars['AZURE_OPENAI_EMBEDDING_DEPLOYMENT'] || process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT;
+      if (hasAzureKey && hasAzureUrl && hasAzureDeployment) {
+        return { provider: 'azure_openai', configured: true };
+      }
+      return { provider: 'azure_openai', configured: false, reason: 'Azure OpenAI requires API key, base URL, and embedding deployment' };
+
+    case 'ollama':
+      const hasOllamaModel = projectEnvVars['OLLAMA_EMBEDDING_MODEL'] || process.env.OLLAMA_EMBEDDING_MODEL;
+      if (hasOllamaModel) {
+        return { provider: 'ollama', configured: true };
+      }
+      return { provider: 'ollama', configured: false, reason: 'OLLAMA_EMBEDDING_MODEL not set' };
+
+    case 'google':
+      if (projectEnvVars['GOOGLE_API_KEY'] || globalSettings.globalGoogleApiKey || process.env.GOOGLE_API_KEY) {
+        return { provider: 'google', configured: true };
+      }
+      return { provider: 'google', configured: false, reason: 'GOOGLE_API_KEY not set' };
+
+    default:
+      return { provider: embedderProvider, configured: false, reason: `Unknown embedder provider: ${embedderProvider}` };
+  }
 }
 
 /**

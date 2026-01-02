@@ -10,6 +10,7 @@ import {
   loadGlobalSettings,
   isGraphitiEnabled,
   hasOpenAIKey,
+  getEmbedderProviderStatus,
   getGraphitiDatabaseDetails
 } from './utils';
 
@@ -76,7 +77,6 @@ export function buildMemoryStatus(
 
   // Check environment configuration
   const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
-  const hasOpenAI = hasOpenAIKey(projectEnvVars, globalSettings);
 
   if (!graphitiEnabled) {
     return {
@@ -86,11 +86,14 @@ export function buildMemoryStatus(
     };
   }
 
-  if (!hasOpenAI) {
+  // Check if the configured embedder provider has valid credentials
+  const embedderStatus = getEmbedderProviderStatus(projectEnvVars, globalSettings);
+
+  if (!embedderStatus.configured) {
     return {
       enabled: true,
       available: false,
-      reason: 'OPENAI_API_KEY not set (required for Graphiti embeddings)'
+      reason: `${embedderStatus.reason} (required for Graphiti embeddings with ${embedderStatus.provider} provider)`
     };
   }
 
