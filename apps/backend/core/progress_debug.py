@@ -42,7 +42,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
         return 0, 0
 
     try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+        print('[DEBUG] Reading plan file...', file=sys.stderr)
         with open(plan_file) as f:
             plan = json.load(f)
 
@@ -81,7 +81,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
         return result
 
     try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+        print('[DEBUG] Reading plan file...', file=sys.stderr)
         with open(plan_file) as f:
             plan = json.load(f)
 
@@ -183,7 +183,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
 
         # Phase summary
         try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+            print('[DEBUG] Reading plan file...', file=sys.stderr)
             with open(spec_dir / "implementation_plan.json") as f:
                 plan = json.load(f)
 
@@ -304,7 +304,7 @@ def get_plan_summary(spec_dir: Path) -> dict:
         }
 
     try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+        print('[DEBUG] Reading plan file...', file=sys.stderr)
         with open(plan_file) as f:
             plan = json.load(f)
 
@@ -380,7 +380,7 @@ def get_current_phase(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+        print('[DEBUG] Reading plan file...', file=sys.stderr)
         with open(plan_file) as f:
             plan = json.load(f)
 
@@ -425,7 +425,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
         return None
 
     try:
-        print('[DEBUG] Reading plan file...'', file=sys.stderr)
+        print('[DEBUG] Reading plan file...', file=sys.stderr)
         with open(plan_file) as f:
             plan = json.load(f)
 
@@ -454,7 +454,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             # Find first pending subtask in this phase
             for subtask in phase.get("subtasks", []):
                 if subtask.get("status") == "pending":
-                print(f'[DEBUG] Found pending subtask: {subtask.get("id")}', file=sys.stderr)
+                    print(f'[DEBUG] Found pending subtask: {subtask.get("id")}', file=sys.stderr)
                     return {
                         "phase_id": phase_id,
                         "phase_name": phase.get("name"),

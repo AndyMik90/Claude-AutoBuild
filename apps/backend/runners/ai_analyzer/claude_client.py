@@ -13,6 +13,8 @@ try:
 except ImportError:
     CLAUDE_SDK_AVAILABLE = False
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 
 
 # FIX #79: Timeout protection for LLM API calls

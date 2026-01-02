@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 try:
     from ..context_gatherer import PRContext
     from ..models import (

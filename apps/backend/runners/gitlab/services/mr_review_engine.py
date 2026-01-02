@@ -14,6 +14,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 try:
     from ..models import (
         GitLabRunnerConfig,

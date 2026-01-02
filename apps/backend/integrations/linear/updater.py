@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from core.timeout import query_with_timeout, receive_with_timeout
 
 # Linear status constants (matching Valma AI team setup)
 STATUS_TODO = "Todo"

@@ -28,6 +28,8 @@ try:
     from .file_lock import locked_json_write
 except (ImportError, ValueError, SystemError):
     from batch_validator import BatchValidator
+
+from core.timeout import query_with_timeout, receive_with_timeout
     from duplicates import SIMILAR_THRESHOLD
     from file_lock import locked_json_write
 

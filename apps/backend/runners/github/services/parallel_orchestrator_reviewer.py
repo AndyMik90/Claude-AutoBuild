@@ -28,6 +28,8 @@ from typing import Any
 
 from claude_agent_sdk import AgentDefinition
 
+from core.timeout import query_with_timeout
+
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget

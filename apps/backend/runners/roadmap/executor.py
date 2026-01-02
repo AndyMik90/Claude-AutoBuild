@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from core.timeout import query_with_timeout, receive_with_timeout
 from debug import debug, debug_detailed, debug_error, debug_success
 
 

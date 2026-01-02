@@ -17,6 +17,7 @@ from pathlib import Path
 try:
     from ...analysis.test_discovery import TestDiscovery
     from ...core.client import create_client
+    from ...core.timeout import query_with_timeout, receive_with_timeout
     from ..context_gatherer import PRContext
     from ..models import PRReviewFinding, ReviewSeverity
     from .category_utils import map_category
@@ -25,6 +26,7 @@ except (ImportError, ValueError, SystemError):
     from category_utils import map_category
     from context_gatherer import PRContext
     from core.client import create_client
+    from core.timeout import query_with_timeout, receive_with_timeout
     from models import PRReviewFinding, ReviewSeverity
 
 logger = logging.getLogger(__name__)

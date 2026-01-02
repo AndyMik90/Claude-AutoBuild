@@ -1205,6 +1205,8 @@ import asyncio
 import logging
 import os
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 _merge_logger = logging.getLogger(__name__)
 
 # System prompt for AI file merging

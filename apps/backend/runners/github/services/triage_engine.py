@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 try:
     from ..models import GitHubRunnerConfig, TriageCategory, TriageResult
     from .prompt_manager import PromptManager

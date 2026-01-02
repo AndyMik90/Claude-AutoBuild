@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 # Check for Claude SDK availability without importing (avoids unused import warning)
 CLAUDE_SDK_AVAILABLE = importlib.util.find_spec("claude_agent_sdk") is not None
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 # Default model and thinking configuration
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 DEFAULT_THINKING_BUDGET = 10000  # Medium thinking

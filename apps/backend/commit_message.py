@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 if TYPE_CHECKING:
     pass
 

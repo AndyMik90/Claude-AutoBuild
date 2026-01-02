@@ -28,6 +28,8 @@ try:
 except ImportError:
     SDK_AVAILABLE = False
     ClaudeAgentOptions = None
+
+from core.timeout import query_with_timeout, receive_with_timeout
     ClaudeSDKClient = None
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token

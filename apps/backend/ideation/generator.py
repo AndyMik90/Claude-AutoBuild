@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from client import create_client
+from core.timeout import query_with_timeout, receive_with_timeout
 from phase_config import get_thinking_budget
 from ui import print_status
 

@@ -15,6 +15,8 @@ import logging
 import sys
 from typing import TYPE_CHECKING
 
+from core.timeout import query_with_timeout, receive_with_timeout
+
 if TYPE_CHECKING:
     from .resolver import AIResolver
 
