@@ -234,6 +234,7 @@ export function MorphSettings({ settings, onSettingsChange }: MorphSettingsProps
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showApiKey ? t('morph.hideApiKey') : t('morph.showApiKey')}
                   >
                     {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -348,9 +349,9 @@ export function MorphSettings({ settings, onSettingsChange }: MorphSettingsProps
                     type="button"
                     onClick={clearError}
                     className="text-muted-foreground hover:text-foreground shrink-0"
-                    aria-label="Dismiss error"
+                    aria-label={t('morph.dismissError')}
                   >
-                    <span className="sr-only">Dismiss</span>
+                    <span className="sr-only">{t('morph.dismiss')}</span>
                     ×
                   </button>
                 </div>

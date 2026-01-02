@@ -373,7 +373,11 @@
       "couldNotVerify": "Impossible de vérifier la clé API pour le moment. Vos paramètres ont été sauvegardés.",
       "validationFailed": "Échec de la validation de la clé API. Veuillez réessayer.",
       "fallbackActive": "Le système utilisera les outils par défaut (Edit/Write) jusqu'à ce que le service soit disponible."
-    }
+    },
+    "showApiKey": "Afficher la clé API",
+    "hideApiKey": "Masquer la clé API",
+    "dismiss": "Fermer",
+    "dismissError": "Fermer l'erreur"
   },
   "mcp": {
     "title": "Aperçu des serveurs MCP",

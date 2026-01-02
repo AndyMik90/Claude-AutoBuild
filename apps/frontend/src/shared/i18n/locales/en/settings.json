@@ -373,7 +373,11 @@
       "couldNotVerify": "Could not verify the API key at this time. Your settings have been saved.",
       "validationFailed": "Failed to validate the API key. Please try again.",
       "fallbackActive": "The system will use default apply tools (Edit/Write) until the service is available."
-    }
+    },
+    "showApiKey": "Show API key",
+    "hideApiKey": "Hide API key",
+    "dismiss": "Dismiss",
+    "dismissError": "Dismiss error"
   },
   "mcp": {
     "title": "MCP Server Overview",
