@@ -5,8 +5,9 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { ScrollArea } from '../ui/scroll-area';
-import { Play, Trash2 } from 'lucide-react';
+import { Play, Trash2, Info } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 interface CommandOutput {
   stdout: string;
@@ -39,23 +40,35 @@ export function RunnerTester() {
 
       setOutput({
         stdout: [
-          `Command: ${command}`,
-          `Arguments: ${JSON.stringify(parsedArgs, null, 2)}`,
+          `📋 Command Preview:`,
+          `   ${command}`,
+          ``,
+          `📝 Arguments:`,
+          `   ${JSON.stringify(parsedArgs, null, 2)}`,
           '',
-          '⚠️ Runner System Status:',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          'The runner system is not yet implemented on the backend.',
           '',
-          'The runner is designed for executing project-specific',
-          'commands (gh, git, npm, etc.) in a sandboxed environment',
-          'with proper security controls and output capture.',
+          '⚠️  RUNNER SYSTEM NOT YET IMPLEMENTED',
           '',
-          'For now, please use the Terminal feature in the sidebar',
-          'for command execution.',
+          'The backend runner system is currently under development.',
+          'This panel is a preview of the future functionality.',
           '',
-          'This tester will be enabled once backend IPC handlers',
-          'for the runner system are implemented.',
-          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+          '📌 What the Runner System Will Provide:',
+          '   • Execute project-specific commands (gh, git, npm, etc.)',
+          '   • Sandboxed environment with security controls',
+          '   • Real-time output capture and streaming',
+          '   • Exit code and error handling',
+          '   • Command history and replay',
+          '',
+          '🔧 Current Workaround:',
+          '   Use the Terminal feature in the left sidebar for',
+          '   command execution. It provides similar functionality',
+          '   with a full interactive terminal experience.',
+          '',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          '',
+          'This tester will be automatically enabled when the',
+          'backend IPC handlers for the runner system are implemented.'
         ].join('\n'),
         stderr: '',
         exitCode: 0,
@@ -77,6 +90,15 @@ export function RunnerTester() {
 
   return (
     <div className="flex flex-col h-full gap-6">
+      {/* Info Alert */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>{t('runner.statusTitle')}</AlertTitle>
+        <AlertDescription>
+          {t('runner.statusMessage')}
+        </AlertDescription>
+      </Alert>
+
       {/* Input Section */}
       <div className="space-y-4">
         <div>
@@ -108,7 +130,7 @@ export function RunnerTester() {
         <div className="flex gap-2">
           <Button onClick={handleExecute} disabled={isLoading}>
             <Play className="mr-2 h-4 w-4" />
-            {t('runner.executeButton')}
+            {t('runner.previewButton')}
           </Button>
           <Button variant="outline" onClick={handleClear}>
             <Trash2 className="mr-2 h-4 w-4" />

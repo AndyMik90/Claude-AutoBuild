@@ -14,6 +14,7 @@ import {
   getSystemInfo,
   getLogsPath,
   getRecentErrors,
+  getRecentLogs,
   generateDebugReport,
   listLogFiles,
   logger
@@ -86,6 +87,11 @@ export function registerDebugHandlers(getMainWindow?: () => BrowserWindow | null
   ipcMain.handle(IPC_CHANNELS.DEBUG_GET_RECENT_ERRORS, async (_, maxCount?: number): Promise<string[]> => {
     logIpcEvent('debug', `Getting recent errors (max: ${maxCount ?? 20})`, undefined, getMainWindow);
     return getRecentErrors(maxCount ?? 20);
+  });
+
+  // Get recent logs with optional filtering
+  ipcMain.handle(IPC_CHANNELS.DEBUG_GET_RECENT_LOGS, async (_, maxLines?: number): Promise<string[]> => {
+    return getRecentLogs(maxLines ?? 200);
   });
 
   // List log files

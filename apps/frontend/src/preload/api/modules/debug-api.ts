@@ -47,6 +47,7 @@ export interface DebugAPI {
   openLogsFolder: () => Promise<DebugResult>;
   copyDebugInfo: () => Promise<DebugResult>;
   getRecentErrors: (maxCount?: number) => Promise<string[]>;
+  getRecentLogs: (maxLines?: number) => Promise<string[]>;
   listLogFiles: () => Promise<LogFileInfo[]>;
   testInvokeChannel: (channel: string, params?: unknown) => Promise<unknown>;
 
@@ -73,6 +74,9 @@ export const createDebugAPI = (): DebugAPI => ({
 
   getRecentErrors: (maxCount?: number): Promise<string[]> =>
     invokeIpc(IPC_CHANNELS.DEBUG_GET_RECENT_ERRORS, maxCount),
+
+  getRecentLogs: (maxLines?: number): Promise<string[]> =>
+    invokeIpc(IPC_CHANNELS.DEBUG_GET_RECENT_LOGS, maxLines),
 
   listLogFiles: (): Promise<LogFileInfo[]> =>
     invokeIpc(IPC_CHANNELS.DEBUG_LIST_LOG_FILES),
