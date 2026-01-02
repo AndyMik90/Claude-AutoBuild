@@ -12,13 +12,67 @@ jobs:
     if: contains(github.event.comment.body, '@openhands-agent')
     runs-on: ubuntu-latest
     steps:
-      - name: Comment response
+      - name: AI Analysis
         uses: actions/github-script@v7
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
           script: |
+            const https = require('https');
+            
+            // Get issue details
+            const issue = context.payload.issue;
+            const prompt = `Analyze this GitHub issue and provide a fix:
+            
+            Title: ${issue.title}
+            Description: ${issue.body}
+            
+            Provide:
+            1. Root cause analysis
+            2. Solution approach  
+            3. Implementation steps
+            4. Files to modify`;
+            
+            // Call OpenAI
+            const data = JSON.stringify({
+              model: 'gpt-4',
+              messages: [{role: 'user', content: prompt}],
+              temperature: 0.7
+            });
+            
+            const options = {
+              hostname: 'api.openai.com',
+              path: '/v1/chat/completions',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+                'Content-Length': data.length
+              }
+            };
+            
+            const response = await new Promise((resolve, reject) => {
+              const req = https.request(options, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(JSON.parse(body)));
+              });
+              req.on('error', reject);
+              req.write(data);
+              req.end();
+            });
+            
+            const analysis = response.choices[0].message.content;
+            
+            // Post comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '✅ Auto-fix workflow is now working! AI analysis coming soon...'
-            })
+              issue_number: issue.number,
+              body: `## 🤖 AI Analysis
+
+${analysis}
+
+---
+*Powered by GPT-4*`
+            });
