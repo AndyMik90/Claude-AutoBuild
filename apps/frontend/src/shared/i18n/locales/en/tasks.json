@@ -95,5 +95,8 @@
     "retry": "Retry",
     "selectFile": "Select a file to view its contents",
     "openInIDE": "Open in IDE"
+  },
+  "metadata": {
+    "severity": "severity"
   }
 }
