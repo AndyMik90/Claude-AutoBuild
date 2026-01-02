@@ -1,23 +1,66 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
+import type { APIProfile, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
+import { toast } from '../hooks/use-toast';
 
 interface SettingsState {
   settings: AppSettings;
   isLoading: boolean;
   error: string | null;
 
+  // API Profile state
+  profiles: APIProfile[];
+  activeProfileId: string | null;
+  profilesLoading: boolean;
+  profilesError: string | null;
+
+  // Test connection state
+  isTestingConnection: boolean;
+  testConnectionResult: TestConnectionResult | null;
+
+  // Model discovery state
+  modelsLoading: boolean;
+  modelsError: string | null;
+  discoveredModels: Map<string, ModelInfo[]>; // Cache key -> models mapping
+
   // Actions
   setSettings: (settings: AppSettings) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+
+  // Profile actions
+  setProfiles: (profiles: APIProfile[], activeProfileId: string | null) => void;
+  setProfilesLoading: (loading: boolean) => void;
+  setProfilesError: (error: string | null) => void;
+  saveProfile: (profile: ProfileFormData) => Promise<boolean>;
+  updateProfile: (profile: APIProfile) => Promise<boolean>;
+  deleteProfile: (profileId: string) => Promise<boolean>;
+  setActiveProfile: (profileId: string | null) => Promise<boolean>;
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
+  discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<ModelInfo[] | null>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: DEFAULT_APP_SETTINGS as AppSettings,
   isLoading: true,  // Start as true since we load settings on app init
   error: null,
+
+  // API Profile state
+  profiles: [],
+  activeProfileId: null,
+  profilesLoading: false,
+  profilesError: null,
+
+  // Test connection state
+  isTestingConnection: false,
+  testConnectionResult: null,
+
+  // Model discovery state
+  modelsLoading: false,
+  modelsError: null,
+  discoveredModels: new Map<string, ModelInfo[]>(),
 
   setSettings: (settings) => set({ settings }),
 
@@ -28,7 +71,227 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  setError: (error) => set({ error })
+  setError: (error) => set({ error }),
+
+  // Profile actions
+  setProfiles: (profiles, activeProfileId) => set({ profiles, activeProfileId }),
+
+  setProfilesLoading: (profilesLoading) => set({ profilesLoading }),
+
+  setProfilesError: (profilesError) => set({ profilesError }),
+
+  saveProfile: async (profile: ProfileFormData): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.saveAPIProfile(profile);
+      if (result.success && result.data) {
+        // Re-fetch profiles from backend to get authoritative activeProfileId
+        // (backend only auto-activates the first profile)
+        try {
+          const profilesResult = await window.electronAPI.getAPIProfiles();
+          if (profilesResult.success && profilesResult.data) {
+            set({
+              profiles: profilesResult.data.profiles,
+              activeProfileId: profilesResult.data.activeProfileId,
+              profilesLoading: false
+            });
+          } else {
+            // Fallback: add profile locally but don't assume activeProfileId
+            set((state) => ({
+              profiles: [...state.profiles, result.data!],
+              profilesLoading: false
+            }));
+          }
+        } catch {
+          // Fallback on fetch error: add profile locally
+          set((state) => ({
+            profiles: [...state.profiles, result.data!],
+            profilesLoading: false
+          }));
+        }
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to save profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to save profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  updateProfile: async (profile: APIProfile): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.updateAPIProfile(profile);
+      if (result.success && result.data) {
+        set((state) => ({
+          profiles: state.profiles.map((p) =>
+            p.id === result.data!.id ? result.data! : p
+          ),
+          profilesLoading: false
+        }));
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to update profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to update profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  deleteProfile: async (profileId: string): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.deleteAPIProfile(profileId);
+      if (result.success) {
+        set((state) => ({
+          profiles: state.profiles.filter((p) => p.id !== profileId),
+          activeProfileId: state.activeProfileId === profileId ? null : state.activeProfileId,
+          profilesLoading: false
+        }));
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to delete profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to delete profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  setActiveProfile: async (profileId: string | null): Promise<boolean> => {
+    set({ profilesLoading: true, profilesError: null });
+    try {
+      const result = await window.electronAPI.setActiveAPIProfile(profileId);
+      if (result.success) {
+        set({ activeProfileId: profileId, profilesLoading: false });
+        return true;
+      }
+      set({
+        profilesError: result.error || 'Failed to set active profile',
+        profilesLoading: false
+      });
+      return false;
+    } catch (error) {
+      set({
+        profilesError: error instanceof Error ? error.message : 'Failed to set active profile',
+        profilesLoading: false
+      });
+      return false;
+    }
+  },
+
+  testConnection: async (baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<TestConnectionResult | null> => {
+    set({ isTestingConnection: true, testConnectionResult: null });
+    try {
+      const result = await window.electronAPI.testConnection(baseUrl, apiKey, signal);
+
+      // Type narrowing pattern
+      if (result.success && result.data) {
+        set({ testConnectionResult: result.data, isTestingConnection: false });
+
+        // Show toast on success
+        // TODO: Use i18n translation keys (settings:connection.successTitle, settings:connection.successDescription)
+        // Note: Zustand stores can't use useTranslation() hook - need to pass t() or use i18n.t()
+        if (result.data.success) {
+          toast({
+            title: 'Connection successful',
+            description: 'Your API credentials are valid.'
+          });
+        }
+        return result.data;
+      }
+
+      // Error from IPC layer - set testConnectionResult for inline display
+      const errorResult: TestConnectionResult = {
+        success: false,
+        errorType: 'unknown',
+        message: result.error || 'Failed to test connection'
+      };
+      set({ testConnectionResult: errorResult, isTestingConnection: false });
+      toast({
+        variant: 'destructive',
+        title: 'Connection test failed',
+        description: result.error || 'Failed to test connection'
+      });
+      return errorResult;
+    } catch (error) {
+      // Unexpected error - set testConnectionResult for inline display
+      const errorResult: TestConnectionResult = {
+        success: false,
+        errorType: 'unknown',
+        message: error instanceof Error ? error.message : 'Failed to test connection'
+      };
+      set({ testConnectionResult: errorResult, isTestingConnection: false });
+      toast({
+        variant: 'destructive',
+        title: 'Connection test failed',
+        description: error instanceof Error ? error.message : 'Failed to test connection'
+      });
+      return errorResult;
+    }
+  },
+
+  discoverModels: async (baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<ModelInfo[] | null> => {
+    console.log('[settings-store] discoverModels called with:', { baseUrl, apiKey: `${apiKey.slice(-4)}` });
+    // Generate cache key from baseUrl and apiKey (last 4 chars)
+    const cacheKey = `${baseUrl}::${apiKey.slice(-4)}`;
+
+    // Check cache first
+    const state = useSettingsStore.getState();
+    const cached = state.discoveredModels.get(cacheKey);
+    if (cached) {
+      console.log('[settings-store] Returning cached models');
+      return cached;
+    }
+
+    // Fetch from API
+    set({ modelsLoading: true, modelsError: null });
+    try {
+      console.log('[settings-store] Calling window.electronAPI.discoverModels...');
+      const result = await window.electronAPI.discoverModels(baseUrl, apiKey, signal);
+      console.log('[settings-store] discoverModels result:', result);
+
+      if (result.success && result.data) {
+        const models = result.data.models;
+        // Cache the results
+        set((state) => ({
+          discoveredModels: new Map(state.discoveredModels).set(cacheKey, models),
+          modelsLoading: false
+        }));
+        return models;
+      }
+
+      // Error from IPC layer
+      set({ modelsError: result.error || 'Failed to discover models', modelsLoading: false });
+      return null;
+    } catch (error) {
+      set({
+        modelsError: error instanceof Error ? error.message : 'Failed to discover models',
+        modelsLoading: false
+      });
+      return null;
+    }
+  }
 }));
 
 /**
@@ -102,5 +365,24 @@ export async function saveSettings(updates: Partial<AppSettings>): Promise<boole
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Load API profiles from main process
+ */
+export async function loadProfiles(): Promise<void> {
+  const store = useSettingsStore.getState();
+  store.setProfilesLoading(true);
+
+  try {
+    const result = await window.electronAPI.getAPIProfiles();
+    if (result.success && result.data) {
+      store.setProfiles(result.data.profiles, result.data.activeProfileId);
+    }
+  } catch (error) {
+    store.setProfilesError(error instanceof Error ? error.message : 'Failed to load profiles');
+  } finally {
+    store.setProfilesLoading(false);
   }
 }

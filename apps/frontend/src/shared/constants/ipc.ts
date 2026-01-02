@@ -111,6 +111,17 @@ export const IPC_CHANNELS = {
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
 
+  // API Profile management (custom Anthropic-compatible endpoints)
+  PROFILES_GET: 'profiles:get',
+  PROFILES_SAVE: 'profiles:save',
+  PROFILES_UPDATE: 'profiles:update',
+  PROFILES_DELETE: 'profiles:delete',
+  PROFILES_SET_ACTIVE: 'profiles:setActive',
+  PROFILES_TEST_CONNECTION: 'profiles:test-connection',
+  PROFILES_TEST_CONNECTION_CANCEL: 'profiles:test-connection-cancel',
+  PROFILES_DISCOVER_MODELS: 'profiles:discover-models',
+  PROFILES_DISCOVER_MODELS_CANCEL: 'profiles:discover-models-cancel',
+
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
   DIALOG_CREATE_PROJECT_FOLDER: 'dialog:createProjectFolder',

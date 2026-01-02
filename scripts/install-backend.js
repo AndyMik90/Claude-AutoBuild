@@ -27,10 +27,11 @@ function run(cmd, options = {}) {
 }
 
 // Find Python 3.12+
+// Prefer 3.12 first since it has the most stable wheel support for native packages
 function findPython() {
   const candidates = isWindows
-    ? ['py -3.14', 'py -3.13', 'py -3.12', 'python3.14', 'python3.13', 'python3.12', 'python3', 'python']
-    : ['python3.14', 'python3.13', 'python3.12', 'python3', 'python'];
+    ? ['py -3.12', 'py -3.13', 'py -3.14', 'python3.12', 'python3.13', 'python3.14', 'python3', 'python']
+    : ['python3.12', 'python3.13', 'python3.14', 'python3', 'python'];
 
   for (const cmd of candidates) {
     try {

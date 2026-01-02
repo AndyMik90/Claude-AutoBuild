@@ -63,6 +63,7 @@
   },
   "steps": {
     "welcome": "Welcome",
+    "authChoice": "Auth Method",
     "auth": "Auth",
     "claudeCode": "CLI",
     "devtools": "Dev Tools",
