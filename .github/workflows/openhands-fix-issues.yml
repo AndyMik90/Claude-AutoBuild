@@ -1,0 +1,25 @@
+name: 🛠️ OpenHands Fix Issues (Working)
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled]
+
+jobs:
+  call-openhands-resolver:
+    name: 🤖 OpenHands Resolver
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@openhands-agent')) ||
+      (github.event_name == 'issues' && github.event.label.name == 'fix-me')
+    uses: OpenHands/OpenHands/.github/workflows/openhands-resolver.yml@main
+    with:
+      macro: '@openhands-agent'
+      max_iterations: 100
+      target_branch: 'develop'
+      LLM_MODEL: 'openai/gpt-4'
+      LLM_BASE_URL: 'https://api.openai.com/v1'
+    secrets:
+      PAT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PAT_USERNAME: 'github-actions[bot]'
+      LLM_API_KEY: ${{ secrets.OPENAI_API_KEY }}
