@@ -42,8 +42,7 @@ vi.mock('child_process', async (importOriginal) => {
         return '/fake/path';
       }
       return '';
-    }),
-    default: actual
+    })
   };
 });
 
