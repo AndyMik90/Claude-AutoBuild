@@ -129,27 +129,45 @@ class MorphConfig:
     @classmethod
     def from_env(cls) -> MorphConfig:
         """Create configuration from environment variables."""
+
+        def parse_int(key: str, default: int) -> int:
+            """Parse integer from env var with fallback to default."""
+            val = os.environ.get(key)
+            if not val:
+                return default
+            try:
+                return int(val)
+            except ValueError:
+                logger.warning(f"Invalid integer for {key}: {val!r}, using default {default}")
+                return default
+
+        def parse_float(key: str, default: float) -> float:
+            """Parse float from env var with fallback to default."""
+            val = os.environ.get(key)
+            if not val:
+                return default
+            try:
+                return float(val)
+            except ValueError:
+                logger.warning(f"Invalid float for {key}: {val!r}, using default {default}")
+                return default
+
         max_tokens_str = os.environ.get("MORPH_MAX_TOKENS")
-        max_tokens = int(max_tokens_str) if max_tokens_str else None
-
-        # Parse retry configuration with sensible defaults
-        max_retries_str = os.environ.get("MORPH_MAX_RETRIES")
-        max_retries = int(max_retries_str) if max_retries_str else 3
-
-        backoff_factor_str = os.environ.get("MORPH_BACKOFF_FACTOR")
-        backoff_factor = float(backoff_factor_str) if backoff_factor_str else 1.5
-
-        jitter_factor_str = os.environ.get("MORPH_JITTER_FACTOR")
-        jitter_factor = float(jitter_factor_str) if jitter_factor_str else 0.25
+        max_tokens: int | None = None
+        if max_tokens_str:
+            try:
+                max_tokens = int(max_tokens_str)
+            except ValueError:
+                logger.warning(f"Invalid integer for MORPH_MAX_TOKENS: {max_tokens_str!r}, ignoring")
 
         return cls(
             api_key=os.environ.get("MORPH_API_KEY", ""),
             base_url=os.environ.get("MORPH_BASE_URL", "https://api.morphllm.com/v1"),
             model=os.environ.get("MORPH_MODEL", "auto"),
-            timeout=float(os.environ.get("MORPH_TIMEOUT", "60")),
-            max_retries=max_retries,
-            backoff_factor=backoff_factor,
-            jitter_factor=jitter_factor,
+            timeout=parse_float("MORPH_TIMEOUT", 60.0),
+            max_retries=parse_int("MORPH_MAX_RETRIES", 3),
+            backoff_factor=parse_float("MORPH_BACKOFF_FACTOR", 1.5),
+            jitter_factor=parse_float("MORPH_JITTER_FACTOR", 0.25),
             stream=os.environ.get("MORPH_STREAM", "").lower() == "true",
             max_tokens=max_tokens,
         )
