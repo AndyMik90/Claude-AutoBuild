@@ -563,13 +563,11 @@ class CLIToolManager {
     const MINIMUM_VERSION = '3.10.0';
 
     try {
-      const version = execSync(`${pythonCmd} --version`, {
-        stdio: 'pipe',
+      const version = execFileSync(pythonCmd, ['--version'], {
+        encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
-      })
-        .toString()
-        .trim();
+      }).trim();
 
       const match = version.match(/Python (\d+\.\d+\.\d+)/);
       if (!match) {
@@ -683,12 +681,22 @@ class CLIToolManager {
       const needsShell = process.platform === 'win32' &&
         (claudeCmd.endsWith('.cmd') || claudeCmd.endsWith('.bat'));
 
-      const version = execFileSync(claudeCmd, ['--version'], {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true,
-        shell: needsShell,
-      }).trim();
+      let version: string;
+      if (needsShell) {
+        // For .cmd/.bat files with paths containing spaces, use execSync with quoted path
+        // Increased timeout to 15s as Claude CLI can be slow to start on some systems
+        version = execSync(`"${claudeCmd}" --version`, {
+          encoding: 'utf-8',
+          timeout: 15000,
+          windowsHide: true,
+        }).trim();
+      } else {
+        version = execFileSync(claudeCmd, ['--version'], {
+          encoding: 'utf-8',
+          timeout: 15000,
+          windowsHide: true,
+        }).trim();
+      }
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
       const match = version.match(/(\d+\.\d+\.\d+)/);
