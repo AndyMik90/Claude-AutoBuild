@@ -12,6 +12,7 @@ The client factory now uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
 single source of truth for phase-aware tool and MCP server configuration.
 """
 
+import copy
 import json
 import logging
 import os
@@ -61,7 +62,8 @@ def _get_cached_project_data(
                         f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
                     )
                 logger.debug(f"Using cached project index for {project_dir}")
-                return cached_index, cached_capabilities
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
             elif debug:
                 print(
                     f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
@@ -91,10 +93,12 @@ def _get_cached_project_data(
                     print(
                         "[ClientCache] Cache was populated by another thread, using cached data"
                     )
-                return cached_index, cached_capabilities
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
         # Either no cache entry or it's expired - store our fresh data
         _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, time.time())
 
+    # Return the freshly loaded data (no need to copy since it's not from cache)
     return project_index, project_capabilities
 
 

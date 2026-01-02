@@ -31,7 +31,7 @@ from claude_agent_sdk import AgentDefinition
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget
-    from ..context_gatherer import PRContext
+    from ..context_gatherer import PRContext, _validate_git_ref
     from ..models import (
         GitHubRunnerConfig,
         MergeVerdict,
@@ -43,7 +43,7 @@ try:
     from .pydantic_models import ParallelOrchestratorResponse
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
-    from context_gatherer import PRContext
+    from context_gatherer import PRContext, _validate_git_ref
     from core.client import create_client
     from models import (
         GitHubRunnerConfig,
@@ -126,7 +126,7 @@ class ParallelOrchestratorReviewer:
         """Create a temporary worktree at the PR head commit.
 
         Args:
-            head_sha: The commit SHA of the PR head
+            head_sha: The commit SHA of the PR head (validated before use)
             pr_number: The PR number for naming
 
         Returns:
@@ -134,7 +134,15 @@ class ParallelOrchestratorReviewer:
 
         Raises:
             RuntimeError: If worktree creation fails
+            ValueError: If head_sha fails validation (command injection prevention)
         """
+        # SECURITY: Validate git ref before use in subprocess calls
+        if not _validate_git_ref(head_sha):
+            raise ValueError(
+                f"Invalid git ref: '{head_sha}'. "
+                "Must contain only alphanumeric characters, dots, slashes, underscores, and hyphens."
+            )
+
         worktree_name = f"pr-{pr_number}-{uuid.uuid4().hex[:8]}"
         worktree_dir = self.project_dir / PR_WORKTREE_DIR
 
@@ -178,6 +186,7 @@ class ParallelOrchestratorReviewer:
             cwd=self.project_dir,
             capture_output=True,
             text=True,
+            timeout=120,  # Worktree add can be slow for large repos
         )
 
         if DEBUG_MODE:
@@ -239,6 +248,7 @@ class ParallelOrchestratorReviewer:
             cwd=self.project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
 
         if DEBUG_MODE:
@@ -258,6 +268,7 @@ class ParallelOrchestratorReviewer:
                 ["git", "worktree", "prune"],
                 cwd=self.project_dir,
                 capture_output=True,
+                timeout=30,
             )
             logger.warning(f"[PRReview] Used shutil fallback for: {worktree_path.name}")
         except Exception as e:
@@ -275,12 +286,15 @@ class ParallelOrchestratorReviewer:
             cwd=self.project_dir,
             capture_output=True,
             text=True,
+            timeout=30,
         )
-        registered = {
-            Path(line.split(" ", 1)[1])
-            for line in result.stdout.split("\n")
-            if line.startswith("worktree ")
-        }
+        registered = set()
+        for line in result.stdout.split("\n"):
+            if line.startswith("worktree "):
+                # Safely parse - check bounds to prevent IndexError
+                parts = line.split(" ", 1)
+                if len(parts) > 1 and parts[1]:
+                    registered.add(Path(parts[1]))
 
         # Remove unregistered directories
         stale_count = 0
@@ -295,6 +309,7 @@ class ParallelOrchestratorReviewer:
                 ["git", "worktree", "prune"],
                 cwd=self.project_dir,
                 capture_output=True,
+                timeout=30,
             )
             if DEBUG_MODE:
                 print(
@@ -618,6 +633,15 @@ The SDK will run invoked agents in parallel automatically.
                 )
                 print(f"[PRReview] DEBUG: resolved head_sha='{head_sha}'", flush=True)
 
+            # SECURITY: Validate the resolved head_sha (whether SHA or branch name)
+            # This catches invalid refs early before subprocess calls
+            if head_sha and not _validate_git_ref(head_sha):
+                logger.warning(
+                    f"[ParallelOrchestrator] Invalid git ref '{head_sha}', "
+                    "using current checkout for safety"
+                )
+                head_sha = None
+
             if not head_sha:
                 if DEBUG_MODE:
                     print("[PRReview] DEBUG: No head_sha - using fallback", flush=True)
@@ -647,7 +671,7 @@ The SDK will run invoked agents in parallel automatically.
                             f"project_root={project_root}",
                             flush=True,
                         )
-                except RuntimeError as e:
+                except (RuntimeError, ValueError) as e:
                     if DEBUG_MODE:
                         print(
                             f"[PRReview] DEBUG: Worktree creation FAILED: {e}",
