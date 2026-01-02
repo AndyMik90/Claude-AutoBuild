@@ -171,7 +171,7 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
         {t('stagedInProject.title')}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
-        {t('stagedInProject.description', { date: task.stagedAt ? new Date(task.stagedAt).toLocaleDateString() : '' })}
+        {task.stagedAt ? t('stagedInProject.descriptionWithDate', { date: new Date(task.stagedAt).toLocaleDateString() }) : t('stagedInProject.description')}
       </p>
 
       {/* Commit Message Section */}

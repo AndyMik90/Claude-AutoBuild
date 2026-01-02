@@ -27,7 +27,8 @@
   },
   "stagedInProject": {
     "title": "Modifications indexées dans le projet",
-    "description": "Les modifications de cette tâche ont été indexées dans votre projet principal{{date}}.",
+        "description": "Les modifications de cette tâche ont été indexées dans votre projet principal.",
+    "descriptionWithDate": "Les modifications de cette tâche ont été indexées dans votre projet principal le {{date}}.",
     "commitFailed": "Échec du commit",
     "unknownError": "Erreur inconnue",
     "deleteFailed": "Échec de la suppression du worktree",

@@ -27,7 +27,8 @@
   },
   "stagedInProject": {
     "title": "Changes Staged in Project",
-    "description": "This task's changes have been staged in your main project{{date}}.",
+    "description": "This task's changes have been staged in your main project.",
+    "descriptionWithDate": "This task's changes have been staged in your main project on {{date}}.",
     "commitFailed": "Failed to commit changes",
     "unknownError": "Unknown error occurred",
     "deleteFailed": "Failed to delete worktree",
