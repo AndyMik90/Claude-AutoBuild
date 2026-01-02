@@ -54,11 +54,17 @@ export interface ProfileFormData {
 }
 
 /**
+ * Shared error type for connection-related errors
+ * Used by both TestConnectionResult and DiscoverModelsError
+ */
+export type ConnectionErrorType = 'auth' | 'network' | 'endpoint' | 'timeout' | 'not_supported' | 'unknown';
+
+/**
  * Test connection result - returned by profile:test-connection
  */
 export interface TestConnectionResult {
   success: boolean;
-  errorType?: 'auth' | 'network' | 'endpoint' | 'timeout' | 'unknown';
+  errorType?: ConnectionErrorType;
   message: string;
 }
 
@@ -81,6 +87,6 @@ export interface DiscoverModelsResult {
  * Error from discoverModels operation
  */
 export interface DiscoverModelsError {
-  errorType: 'auth' | 'network' | 'endpoint' | 'not_supported' | 'timeout';
+  errorType: ConnectionErrorType;
   message: string;
 }
