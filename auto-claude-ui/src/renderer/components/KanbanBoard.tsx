@@ -339,7 +339,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   return (
     <div className="flex h-full flex-col">
       {/* Kanban header with filters */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border/50">
+      <div className="flex items-center px-6 py-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           {onRefresh && (
             <Button
@@ -354,7 +354,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           <Checkbox
             id="showArchived"
             checked={showArchived}
