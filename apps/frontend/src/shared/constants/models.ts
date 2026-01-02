@@ -3,7 +3,14 @@
  * Claude models, thinking levels, memory backends, and agent profiles
  */
 
-import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
+import type {
+  AgentProfile,
+  PhaseModelConfig,
+  FeatureModelConfig,
+  FeatureThinkingConfig,
+  CrewAIAgentModelsConfig,
+  CrewAIProfileDefinition
+} from '../types/settings';
 
 // ============================================
 // Available Models
@@ -145,4 +152,152 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
 export const MEMORY_BACKENDS = [
   { value: 'file', label: 'File-based (default)' },
   { value: 'graphiti', label: 'Graphiti (LadybugDB)' }
+] as const;
+
+// ============================================
+// CrewAI Configuration
+// ============================================
+
+// Default CrewAI agent model configuration (balanced profile)
+export const DEFAULT_CREWAI_AGENT_MODELS: CrewAIAgentModelsConfig = {
+  // Product Management Crew
+  productManager: { model: 'sonnet', thinkingLevel: 'medium' },
+  requirementsAnalyst: { model: 'sonnet', thinkingLevel: 'medium' },
+  priorityAnalyst: { model: 'haiku', thinkingLevel: 'low' },
+  // Development Crew
+  techLead: { model: 'opus', thinkingLevel: 'high' },
+  seniorDeveloper: { model: 'sonnet', thinkingLevel: 'medium' },
+  codeReviewer: { model: 'sonnet', thinkingLevel: 'medium' },
+  // QA & Release Crew
+  qaLead: { model: 'sonnet', thinkingLevel: 'high' },
+  securityAnalyst: { model: 'sonnet', thinkingLevel: 'medium' },
+  releaseManager: { model: 'haiku', thinkingLevel: 'low' }
+};
+
+// Performance profile - Opus everywhere for maximum quality
+const CREWAI_PERFORMANCE_MODELS: CrewAIAgentModelsConfig = {
+  productManager: { model: 'opus', thinkingLevel: 'high' },
+  requirementsAnalyst: { model: 'opus', thinkingLevel: 'high' },
+  priorityAnalyst: { model: 'opus', thinkingLevel: 'medium' },
+  techLead: { model: 'opus', thinkingLevel: 'ultrathink' },
+  seniorDeveloper: { model: 'opus', thinkingLevel: 'high' },
+  codeReviewer: { model: 'opus', thinkingLevel: 'high' },
+  qaLead: { model: 'opus', thinkingLevel: 'high' },
+  securityAnalyst: { model: 'opus', thinkingLevel: 'high' },
+  releaseManager: { model: 'opus', thinkingLevel: 'medium' }
+};
+
+// Economy profile - Haiku/Sonnet for cost reduction
+const CREWAI_ECONOMY_MODELS: CrewAIAgentModelsConfig = {
+  productManager: { model: 'haiku', thinkingLevel: 'low' },
+  requirementsAnalyst: { model: 'haiku', thinkingLevel: 'low' },
+  priorityAnalyst: { model: 'haiku', thinkingLevel: 'none' },
+  techLead: { model: 'sonnet', thinkingLevel: 'medium' },
+  seniorDeveloper: { model: 'haiku', thinkingLevel: 'low' },
+  codeReviewer: { model: 'haiku', thinkingLevel: 'low' },
+  qaLead: { model: 'haiku', thinkingLevel: 'low' },
+  securityAnalyst: { model: 'haiku', thinkingLevel: 'low' },
+  releaseManager: { model: 'haiku', thinkingLevel: 'none' }
+};
+
+// CrewAI profile definitions
+export const CREWAI_PROFILES: CrewAIProfileDefinition[] = [
+  {
+    id: 'balanced',
+    name: 'Balanced',
+    description: 'Optimal mix of performance and cost',
+    agents: DEFAULT_CREWAI_AGENT_MODELS
+  },
+  {
+    id: 'performance',
+    name: 'Performance',
+    description: 'Opus everywhere for maximum quality',
+    agents: CREWAI_PERFORMANCE_MODELS
+  },
+  {
+    id: 'economy',
+    name: 'Economy',
+    description: 'Haiku/Sonnet to reduce costs',
+    agents: CREWAI_ECONOMY_MODELS
+  },
+  {
+    id: 'custom',
+    name: 'Custom',
+    description: 'Configure each agent individually',
+    agents: null // Uses crewaiAgentModels from settings
+  }
+];
+
+// CrewAI agent labels for UI display (grouped by crew)
+export const CREWAI_AGENT_LABELS = {
+  // Product Management Crew
+  productManager: {
+    label: 'Product Manager',
+    description: 'Analyzes requests and creates requirements',
+    crew: 'Product Management'
+  },
+  requirementsAnalyst: {
+    label: 'Requirements Analyst',
+    description: 'Validates requirements against codebase',
+    crew: 'Product Management'
+  },
+  priorityAnalyst: {
+    label: 'Priority Analyst',
+    description: 'Evaluates complexity and prioritizes tasks',
+    crew: 'Product Management'
+  },
+  // Development Crew
+  techLead: {
+    label: 'Tech Lead',
+    description: 'Designs architecture and implementation plans',
+    crew: 'Development'
+  },
+  seniorDeveloper: {
+    label: 'Senior Developer',
+    description: 'Implements features via Auto-Claude bridge',
+    crew: 'Development'
+  },
+  codeReviewer: {
+    label: 'Code Reviewer',
+    description: 'Reviews code quality and standards',
+    crew: 'Development'
+  },
+  // QA & Release Crew
+  qaLead: {
+    label: 'QA Lead',
+    description: 'Validates acceptance criteria',
+    crew: 'QA & Release'
+  },
+  securityAnalyst: {
+    label: 'Security Analyst',
+    description: 'Scans for vulnerabilities',
+    crew: 'QA & Release'
+  },
+  releaseManager: {
+    label: 'Release Manager',
+    description: 'Manages changelog and versioning',
+    crew: 'QA & Release'
+  }
+} as const;
+
+// CrewAI crew groupings for UI accordion
+export const CREWAI_CREWS = [
+  {
+    id: 'product-management',
+    name: 'Product Management',
+    description: 'Transform user requests into actionable specs',
+    agents: ['productManager', 'requirementsAnalyst', 'priorityAnalyst'] as const
+  },
+  {
+    id: 'development',
+    name: 'Development',
+    description: 'Execute technical implementation via Auto-Claude',
+    agents: ['techLead', 'seniorDeveloper', 'codeReviewer'] as const
+  },
+  {
+    id: 'qa-release',
+    name: 'QA & Release',
+    description: 'Validate and prepare releases',
+    agents: ['qaLead', 'securityAnalyst', 'releaseManager'] as const
+  }
 ] as const;

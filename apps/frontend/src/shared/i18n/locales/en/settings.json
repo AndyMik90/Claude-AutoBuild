@@ -25,6 +25,10 @@
       "title": "Agent Settings",
       "description": "Default model and framework"
     },
+    "crewai": {
+      "title": "CrewAI",
+      "description": "Multi-agent orchestration"
+    },
     "paths": {
       "title": "Paths",
       "description": "CLI tools and framework paths"
@@ -253,6 +257,17 @@
         "description": "Quality assurance and validation"
       }
     }
+  },
+  "crewai": {
+    "title": "CrewAI Orchestration",
+    "description": "Configure multi-agent workflow orchestration",
+    "enable": "Enable CrewAI",
+    "enableDescription": "Use CrewAI for automated multi-agent orchestration",
+    "info": "CrewAI orchestrates 3 specialized crews (Product Management, Development, QA & Release) that work together to automate your entire development workflow. Each agent can be configured with a different Claude model and thinking level.",
+    "profile": "Profile",
+    "agentConfiguration": "Agent Configuration",
+    "currentConfiguration": "Current Configuration",
+    "resetToDefaults": "Reset to Defaults"
   },
   "workspace": {
     "roles": {

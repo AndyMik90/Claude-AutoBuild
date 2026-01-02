@@ -163,6 +163,43 @@ export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus';
 
+// ============================================
+// CrewAI Configuration Types
+// ============================================
+
+// CrewAI profile presets
+export type CrewAIProfile = 'balanced' | 'performance' | 'economy' | 'custom';
+
+// Configuration for a single CrewAI agent
+export interface CrewAIAgentConfig {
+  model: ModelTypeShort;
+  thinkingLevel: ThinkingLevel;
+}
+
+// Full configuration for all CrewAI agents (9 agents across 3 crews)
+export interface CrewAIAgentModelsConfig {
+  // Product Management Crew
+  productManager: CrewAIAgentConfig;
+  requirementsAnalyst: CrewAIAgentConfig;
+  priorityAnalyst: CrewAIAgentConfig;
+  // Development Crew
+  techLead: CrewAIAgentConfig;
+  seniorDeveloper: CrewAIAgentConfig;
+  codeReviewer: CrewAIAgentConfig;
+  // QA & Release Crew
+  qaLead: CrewAIAgentConfig;
+  securityAnalyst: CrewAIAgentConfig;
+  releaseManager: CrewAIAgentConfig;
+}
+
+// CrewAI profile definition with preset configurations
+export interface CrewAIProfileDefinition {
+  id: CrewAIProfile;
+  name: string;
+  description: string;
+  agents: CrewAIAgentModelsConfig | null; // null for 'custom' profile
+}
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -265,6 +302,10 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // CrewAI Orchestration settings
+  crewaiEnabled?: boolean;
+  crewaiProfile?: CrewAIProfile;
+  crewaiAgentModels?: CrewAIAgentModelsConfig;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
