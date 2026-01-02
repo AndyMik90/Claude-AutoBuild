@@ -47,6 +47,7 @@
       "ipc": "IPC Communication",
       "frontend": "Frontend Logs"
     },
+    "refreshButton": "Refresh",
     "clearButton": "Clear Logs",
     "noLogs": "No logs available for this source.",
     "timestampLabel": "Timestamp",

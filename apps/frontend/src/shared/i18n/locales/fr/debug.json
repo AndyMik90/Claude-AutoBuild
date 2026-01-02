@@ -47,6 +47,7 @@
       "ipc": "Communication IPC",
       "frontend": "Journaux Frontend"
     },
+    "refreshButton": "Actualiser",
     "clearButton": "Effacer les Journaux",
     "noLogs": "Aucun journal disponible pour cette source.",
     "timestampLabel": "Horodatage",

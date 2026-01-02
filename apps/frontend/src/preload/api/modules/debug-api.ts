@@ -6,10 +6,11 @@
  * - Open logs folder
  * - Copy debug info to clipboard
  * - List log files
+ * - Stream logs from backend, IPC, and frontend
  */
 
 import { IPC_CHANNELS } from '../../../shared/constants';
-import { invokeIpc } from './ipc-utils';
+import { invokeIpc, createIpcListener, sendIpc } from './ipc-utils';
 
 export interface DebugInfo {
   systemInfo: Record<string, string>;
@@ -30,6 +31,14 @@ export interface DebugResult {
   error?: string;
 }
 
+export interface LogEntry {
+  timestamp: string;
+  level: 'error' | 'warn' | 'info' | 'debug';
+  source: 'backend' | 'ipc' | 'frontend';
+  message: string;
+  context?: Record<string, any>;
+}
+
 /**
  * Debug API interface exposed to renderer
  */
@@ -40,6 +49,13 @@ export interface DebugAPI {
   getRecentErrors: (maxCount?: number) => Promise<string[]>;
   listLogFiles: () => Promise<LogFileInfo[]>;
   testInvokeChannel: (channel: string, params?: unknown) => Promise<unknown>;
+
+  // Log streaming methods
+  getRecentLogs: (source: 'backend' | 'ipc' | 'frontend', limit?: number) => Promise<LogEntry[]>;
+  onBackendLog: (callback: (log: LogEntry) => void) => () => void;
+  onIpcLog: (callback: (log: LogEntry) => void) => () => void;
+  onFrontendLog: (callback: (log: LogEntry) => void) => () => void;
+  forwardFrontendLog: (log: Omit<LogEntry, 'source'>) => void;
 }
 
 /**
@@ -62,5 +78,23 @@ export const createDebugAPI = (): DebugAPI => ({
     invokeIpc(IPC_CHANNELS.DEBUG_LIST_LOG_FILES),
 
   testInvokeChannel: (channel: string, params?: unknown): Promise<unknown> =>
-    invokeIpc(channel, params)
+    invokeIpc(channel, params),
+
+  // Log streaming methods
+  getRecentLogs: (source: 'backend' | 'ipc' | 'frontend', limit: number = 100): Promise<LogEntry[]> =>
+    invokeIpc(IPC_CHANNELS.LOGS_GET_RECENT, source, limit),
+
+  onBackendLog: (callback: (log: LogEntry) => void): (() => void) =>
+    createIpcListener(IPC_CHANNELS.LOGS_BACKEND_STREAM, callback),
+
+  onIpcLog: (callback: (log: LogEntry) => void): (() => void) =>
+    createIpcListener(IPC_CHANNELS.LOGS_IPC_STREAM, callback),
+
+  onFrontendLog: (callback: (log: LogEntry) => void): (() => void) =>
+    createIpcListener(IPC_CHANNELS.LOGS_FRONTEND_STREAM, callback),
+
+  forwardFrontendLog: (log: Omit<LogEntry, 'source'>): void => {
+    // Send to main process to be broadcast to all windows
+    sendIpc('logs:frontend:forward', log);
+  }
 });

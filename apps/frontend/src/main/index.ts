@@ -4,6 +4,7 @@ import { accessSync, readFileSync, writeFileSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
+import { AgentProcessManager } from './agent/agent-process';
 import { TerminalManager } from './terminal-manager';
 import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
@@ -156,6 +157,9 @@ app.whenReady().then(() => {
 
   // Initialize agent manager
   agentManager = new AgentManager();
+  
+  // Set main window getter for log streaming
+  AgentProcessManager.setMainWindowGetter(() => mainWindow);
 
   // Load settings and configure agent manager with Python and auto-claude paths
   // Uses EAFP pattern (try/catch) instead of LBYL (existsSync) to avoid TOCTOU race conditions

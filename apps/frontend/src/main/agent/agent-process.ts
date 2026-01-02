@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { app } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
@@ -11,6 +11,7 @@ import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { logBackendOutput } from '../ipc-handlers/logs-handlers';
 
 // Essential environment variables needed for Python processes
 // On Windows, passing the full process.env can cause ENAMETOOLONG errors
@@ -81,11 +82,21 @@ export class AgentProcessManager {
   // Use null to indicate not yet configured - getPythonPath() will use fallback
   private _pythonPath: string | null = null;
   private autoBuildSourcePath: string = '';
+  
+  // Static reference to getMainWindow for log streaming
+  private static getMainWindow: (() => BrowserWindow | null) | null = null;
 
   constructor(state: AgentState, events: AgentEvents, emitter: EventEmitter) {
     this.state = state;
     this.events = events;
     this.emitter = emitter;
+  }
+  
+  /**
+   * Set the main window getter for log streaming
+   */
+  static setMainWindowGetter(getMainWindow: () => BrowserWindow | null): void {
+    AgentProcessManager.getMainWindow = getMainWindow;
   }
 
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
@@ -497,7 +508,7 @@ export class AgentProcessManager {
       }
     };
 
-    const processBufferedOutput = (buffer: string, newData: string): string => {
+    const processBufferedOutput = (buffer: string, newData: string, isStderr: boolean = false): string => {
       if (isDebug && newData.includes('__EXEC_PHASE__')) {
         console.log(`[PhaseDebug:${taskId}] Raw chunk with marker (${newData.length} bytes): "${newData.substring(0, 300)}"`);
         console.log(`[PhaseDebug:${taskId}] Current buffer before append (${buffer.length} bytes): "${buffer.substring(0, 100)}"`);
@@ -515,6 +526,15 @@ export class AgentProcessManager {
         if (line.trim()) {
           this.emitter.emit('log', taskId, line + '\n');
           processLog(line);
+          
+          // Stream backend logs to LogViewer
+          if (AgentProcessManager.getMainWindow) {
+            const level = isStderr || line.toLowerCase().includes('error') ? 'error' :
+                         line.toLowerCase().includes('warn') ? 'warn' :
+                         line.toLowerCase().includes('debug') ? 'debug' : 'info';
+            logBackendOutput(line, level, AgentProcessManager.getMainWindow);
+          }
+          
           if (isDebug) {
             console.log(`[Agent:${taskId}] ${line}`);
           }
@@ -525,11 +545,11 @@ export class AgentProcessManager {
     };
 
     childProcess.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'));
+      stdoutBuffer = processBufferedOutput(stdoutBuffer, data.toString('utf8'), false);
     });
 
     childProcess.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'));
+      stderrBuffer = processBufferedOutput(stderrBuffer, data.toString('utf8'), true);
     });
 
     childProcess.on('exit', (code: number | null) => {
