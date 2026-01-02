@@ -689,7 +689,15 @@ export function registerTaskExecutionHandlers(
         let plan: Record<string, unknown> | null = null;
         const planContent = safeReadFileSync(planPath);
         if (planContent) {
-          plan = JSON.parse(planContent);
+          try {
+            plan = JSON.parse(planContent);
+          } catch (parseError) {
+            console.error('[Recovery] Failed to parse plan file as JSON:', parseError);
+            return {
+              success: false,
+              error: 'Plan file contains invalid JSON. The file may be corrupted.'
+            };
+          }
         }
 
         // Determine the target status intelligently based on subtask progress

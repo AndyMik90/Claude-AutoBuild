@@ -214,23 +214,26 @@ class StatusManager:
 
     def update(self, **kwargs) -> None:
         """Update specific status fields."""
-        for key, value in kwargs.items():
-            if hasattr(self._status, key):
-                setattr(self._status, key, value)
+        with self._write_lock:
+            for key, value in kwargs.items():
+                if hasattr(self._status, key):
+                    setattr(self._status, key, value)
         self.write()
 
     def set_active(self, spec: str, state: BuildState) -> None:
         """Mark build as active. Writes immediately for visibility."""
-        self._status.active = True
-        self._status.spec = spec
-        self._status.state = state
-        self._status.session_started = datetime.now().isoformat()
+        with self._write_lock:
+            self._status.active = True
+            self._status.spec = spec
+            self._status.state = state
+            self._status.session_started = datetime.now().isoformat()
         self.write(immediate=True)
 
     def set_inactive(self) -> None:
         """Mark build as inactive. Writes immediately for visibility."""
-        self._status.active = False
-        self._status.state = BuildState.IDLE
+        with self._write_lock:
+            self._status.active = False
+            self._status.state = BuildState.IDLE
         self.write(immediate=True)
 
     def update_subtasks(
@@ -241,33 +244,37 @@ class StatusManager:
         failed: int = None,
     ) -> None:
         """Update subtask progress."""
-        if completed is not None:
-            self._status.subtasks_completed = completed
-        if total is not None:
-            self._status.subtasks_total = total
-        if in_progress is not None:
-            self._status.subtasks_in_progress = in_progress
-        if failed is not None:
-            self._status.subtasks_failed = failed
+        with self._write_lock:
+            if completed is not None:
+                self._status.subtasks_completed = completed
+            if total is not None:
+                self._status.subtasks_total = total
+            if in_progress is not None:
+                self._status.subtasks_in_progress = in_progress
+            if failed is not None:
+                self._status.subtasks_failed = failed
         self.write()
 
     def update_phase(self, current: str, phase_id: int = 0, total: int = 0) -> None:
         """Update current phase."""
-        self._status.phase_current = current
-        self._status.phase_id = phase_id
-        self._status.phase_total = total
+        with self._write_lock:
+            self._status.phase_current = current
+            self._status.phase_id = phase_id
+            self._status.phase_total = total
         self.write()
 
     def update_workers(self, active: int, max_workers: int = None) -> None:
         """Update worker count."""
-        self._status.workers_active = active
-        if max_workers is not None:
-            self._status.workers_max = max_workers
+        with self._write_lock:
+            self._status.workers_active = active
+            if max_workers is not None:
+                self._status.workers_max = max_workers
         self.write()
 
     def update_session(self, number: int) -> None:
         """Update session number."""
-        self._status.session_number = number
+        with self._write_lock:
+            self._status.session_number = number
         self.write()
 
     def clear(self) -> None:
