@@ -12,7 +12,7 @@ Key Features:
 - Smart retry with different approaches
 - Escalation to human when stuck
 
-NOTE: Uses `from __future__ import annotations` for Python 3.9 compatibility
+NOTE: Uses `from __future__ import annotations` for Python 3.12+ compatibility
 with type hints like `str | None`.
 """
 
