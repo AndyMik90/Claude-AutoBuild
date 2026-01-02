@@ -74,6 +74,16 @@ export const taskMock = {
 
   checkTaskRunning: async () => ({ success: true, data: false }),
 
+  recreateTask: async (taskId: string) => ({
+    success: true,
+    data: { taskId, recreated: true }
+  }),
+
+  approvePlan: async (taskId: string) => ({
+    success: true,
+    data: { taskId, approved: true }
+  }),
+
   // Task logs operations
   getTaskLogs: async () => ({
     success: true,

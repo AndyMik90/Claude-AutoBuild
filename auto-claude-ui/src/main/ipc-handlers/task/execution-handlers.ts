@@ -769,4 +769,230 @@ export function registerTaskExecutionHandlers(
       }
     }
   );
+
+  /**
+   * Approve plan without starting execution
+   * Updates review_state.json and plan status to allow future execution
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_APPROVE_PLAN,
+    async (_, taskId: string): Promise<IPCResult<{ taskId: string; approved: boolean }>> => {
+      console.log('[TASK_APPROVE_PLAN] Approving plan for taskId:', taskId);
+
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+
+        if (!task || !project) {
+          return {
+            success: false,
+            error: 'Task or project not found'
+          };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, task.specId);
+        const specPath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
+        const reviewStatePath = path.join(specDir, 'review_state.json');
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+        // Check if spec exists
+        if (!existsSync(specPath)) {
+          return {
+            success: false,
+            error: 'Spec file not found. Cannot approve a plan without a spec.'
+          };
+        }
+
+        // Calculate current spec hash
+        const crypto = await import('crypto');
+        const specContent = readFileSync(specPath, 'utf-8');
+        const specHash = crypto.createHash('md5').update(specContent).digest('hex');
+
+        // Update review_state.json
+        const reviewState = {
+          approved: true,
+          approved_by: 'user',
+          approved_at: new Date().toISOString(),
+          feedback: [],
+          spec_hash: specHash,
+          review_count: 1
+        };
+
+        // Try to preserve existing review_count
+        if (existsSync(reviewStatePath)) {
+          try {
+            const existing = JSON.parse(readFileSync(reviewStatePath, 'utf-8'));
+            reviewState.review_count = (existing.review_count || 0) + 1;
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
+        writeFileSync(reviewStatePath, JSON.stringify(reviewState, null, 2));
+        console.log('[TASK_APPROVE_PLAN] Updated review_state.json');
+
+        // Update implementation_plan.json status if it exists
+        if (existsSync(planPath)) {
+          try {
+            const plan = JSON.parse(readFileSync(planPath, 'utf-8'));
+            // Move from human_review/review to backlog/pending (ready for start)
+            plan.status = 'backlog';
+            plan.planStatus = 'pending';
+            plan.updated_at = new Date().toISOString();
+            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            console.log('[TASK_APPROVE_PLAN] Updated implementation_plan.json status to backlog/pending');
+          } catch (e) {
+            console.warn('[TASK_APPROVE_PLAN] Could not update plan status:', e);
+          }
+        }
+
+        // Notify renderer of status change
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_STATUS_CHANGE,
+            taskId,
+            'backlog'
+          );
+        }
+
+        return {
+          success: true,
+          data: {
+            taskId,
+            approved: true
+          }
+        };
+      } catch (error) {
+        console.error('Failed to approve plan:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to approve plan'
+        };
+      }
+    }
+  );
+
+  /**
+   * Recreate task - delete spec directory and re-run spec creation
+   * Preserves task description/title from metadata
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RECREATE,
+    async (_, taskId: string): Promise<IPCResult<{ taskId: string; recreated: boolean }>> => {
+      console.log('[TASK_RECREATE] Recreating task:', taskId);
+
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+
+        if (!task || !project) {
+          return {
+            success: false,
+            error: 'Task or project not found'
+          };
+        }
+
+        // Check if a process is currently running for this task
+        if (agentManager.isRunning(taskId)) {
+          return {
+            success: false,
+            error: 'Cannot recreate task while it is running. Please stop the task first.'
+          };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, task.specId);
+
+        // Preserve task description before deleting
+        const taskDescription = task.description || task.title;
+        const taskMetadata = task.metadata || {};
+
+        // Check for worktree and clean it up if it exists
+        const worktreesDir = path.join(project.path, '.worktrees', task.specId);
+        if (existsSync(worktreesDir)) {
+          console.log('[TASK_RECREATE] Cleaning up worktree:', worktreesDir);
+          try {
+            // Use git worktree remove
+            spawnSync('git', ['worktree', 'remove', '--force', worktreesDir], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
+          } catch (e) {
+            console.warn('[TASK_RECREATE] Could not remove worktree:', e);
+          }
+        }
+
+        // Delete spec directory contents but keep the directory
+        if (existsSync(specDir)) {
+          console.log('[TASK_RECREATE] Clearing spec directory:', specDir);
+          const fs = await import('fs');
+          const entries = fs.readdirSync(specDir);
+          for (const entry of entries) {
+            const entryPath = path.join(specDir, entry);
+            try {
+              const stat = fs.statSync(entryPath);
+              if (stat.isDirectory()) {
+                fs.rmSync(entryPath, { recursive: true, force: true });
+              } else {
+                fs.unlinkSync(entryPath);
+              }
+            } catch (e) {
+              console.warn('[TASK_RECREATE] Could not delete:', entryPath, e);
+            }
+          }
+        } else {
+          // Create spec directory if it doesn't exist
+          mkdirSync(specDir, { recursive: true });
+        }
+
+        // Create minimal task_metadata.json to preserve the task
+        const metadataPath = path.join(specDir, 'task_metadata.json');
+        const newMetadata = {
+          ...taskMetadata,
+          recreatedAt: new Date().toISOString(),
+          recreatedFrom: taskId
+        };
+        writeFileSync(metadataPath, JSON.stringify(newMetadata, null, 2));
+
+        // Create requirements.json with preserved description
+        const requirementsPath = path.join(specDir, 'requirements.json');
+        const requirements = {
+          task: taskDescription,
+          workflow: taskMetadata.category || 'feature',
+          created_at: new Date().toISOString(),
+          recreated: true
+        };
+        writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2));
+
+        // Stop file watcher for this task
+        fileWatcher.unwatch(taskId);
+
+        // Notify renderer of status change (back to backlog/needs spec creation)
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_STATUS_CHANGE,
+            taskId,
+            'backlog'
+          );
+        }
+
+        console.log('[TASK_RECREATE] Task recreated successfully:', taskId);
+
+        return {
+          success: true,
+          data: {
+            taskId,
+            recreated: true
+          }
+        };
+      } catch (error) {
+        console.error('Failed to recreate task:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to recreate task'
+        };
+      }
+    }
+  );
 }
