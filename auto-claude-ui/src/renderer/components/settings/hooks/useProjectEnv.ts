@@ -60,7 +60,7 @@ export function useProjectEnv(
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const result = await window.api.env.get(projectId);
+      const result = await window.electronAPI.getProjectEnv(projectId);
       if (result.success && result.data) {
         const projectConfig = result.data;
 
@@ -164,7 +164,7 @@ export function useProjectEnv(
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const result = await window.api.env.update(projectId, state.stagedChanges);
+      const result = await window.electronAPI.updateProjectEnv(projectId, state.stagedChanges);
 
       if (result.success) {
         // Reload to get fresh state

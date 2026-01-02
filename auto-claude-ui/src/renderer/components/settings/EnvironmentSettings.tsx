@@ -8,10 +8,17 @@ import { useProjectStore } from '../../stores/project-store';
 import type { AppSettings, GlobalEnvConfig } from '../../../shared/types/settings';
 import type { ProjectEnvConfig } from '../../../shared/types/project';
 
+interface EnvironmentSaveHook {
+  save: () => Promise<boolean>;
+  hasChanges: boolean;
+  discard: () => void;
+}
+
 interface EnvironmentSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: Partial<AppSettings>) => void;
   isOpen: boolean;
+  onEnvHookReady?: (hook: EnvironmentSaveHook | null) => void;
 }
 
 /**
@@ -22,7 +29,8 @@ interface EnvironmentSettingsProps {
 export function EnvironmentSettings({
   settings,
   onSettingsChange,
-  isOpen
+  isOpen,
+  onEnvHookReady
 }: EnvironmentSettingsProps) {
   const [activeTab, setActiveTab] = useState<'global' | 'project'>('global');
 
@@ -38,6 +46,21 @@ export function EnvironmentSettings({
 
   // Project environment hook
   const projectEnv = useProjectEnv(selectedProjectId, globalConfig);
+
+  // Expose the save hook to parent
+  useEffect(() => {
+    if (onEnvHookReady) {
+      if (isOpen && selectedProjectId) {
+        onEnvHookReady({
+          save: projectEnv.save,
+          hasChanges: projectEnv.hasChanges,
+          discard: projectEnv.discard
+        });
+      } else {
+        onEnvHookReady(null);
+      }
+    }
+  }, [isOpen, selectedProjectId, projectEnv.save, projectEnv.hasChanges, projectEnv.discard, onEnvHookReady]);
 
   // Handle global config changes
   const handleGlobalChange = useCallback((updates: Partial<GlobalEnvConfig>) => {

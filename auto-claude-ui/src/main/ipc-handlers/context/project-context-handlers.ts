@@ -13,7 +13,8 @@ import type {
 import { projectStore } from '../../project-store';
 import { getMemoryService, isKuzuAvailable } from '../../memory-service';
 import {
-  getGraphitiDatabaseDetails
+  getGraphitiDatabaseDetails,
+  getPythonPath
 } from './utils';
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import {
@@ -157,9 +158,10 @@ export function registerProjectContextHandlers(
         const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
         const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
 
-        // Run analyzer
+        // Run analyzer using configured Python path
+        const pythonPath = getPythonPath();
         await new Promise<void>((resolve, reject) => {
-          const proc = spawn('python', [
+          const proc = spawn(pythonPath, [
             analyzerPath,
             '--project-dir', project.path,
             '--output', indexOutputPath
