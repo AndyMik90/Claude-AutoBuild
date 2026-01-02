@@ -403,6 +403,13 @@ export interface WorktreeDiscardResult {
   message: string;
 }
 
+export interface WorktreeCreatePRResult {
+  success: boolean;
+  prUrl?: string;
+  error?: string;
+  alreadyExists?: boolean;
+}
+
 /**
  * Information about a single spec worktree
  * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/

@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Group,
+  PanelGroup,
   Panel,
-  Separator,
+  PanelResizeHandle,
 } from 'react-resizable-panels';
 import {
   DndContext,
@@ -403,11 +403,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
             "flex-1 overflow-hidden p-2 transition-all duration-300 ease-out",
             fileExplorerOpen && "pr-0"
           )}>
-            <Group orientation="vertical" className="h-full">
+            <PanelGroup direction="vertical" className="h-full">
               {terminalRows.map((row, rowIndex) => (
                 <React.Fragment key={rowIndex}>
                   <Panel id={`row-${rowIndex}`} defaultSize={100 / terminalRows.length} minSize={15}>
-                    <Group orientation="horizontal" className="h-full">
+                    <PanelGroup direction="horizontal" className="h-full">
                       {row.map((terminal, colIndex) => (
                         <React.Fragment key={terminal.id}>
                           <Panel id={terminal.id} defaultSize={100 / row.length} minSize={20}>
@@ -426,18 +426,18 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                             </div>
                           </Panel>
                           {colIndex < row.length - 1 && (
-                            <Separator className="w-1 hover:bg-primary/30 transition-colors" />
+                            <PanelResizeHandle className="w-1 hover:bg-primary/30 transition-colors" />
                           )}
                         </React.Fragment>
                       ))}
-                    </Group>
+                    </PanelGroup>
                   </Panel>
                   {rowIndex < terminalRows.length - 1 && (
-                    <Separator className="h-1 hover:bg-primary/30 transition-colors" />
+                    <PanelResizeHandle className="h-1 hover:bg-primary/30 transition-colors" />
                   )}
                 </React.Fragment>
               ))}
-            </Group>
+            </PanelGroup>
           </div>
 
           {/* File explorer panel (slides from right, pushes content) */}

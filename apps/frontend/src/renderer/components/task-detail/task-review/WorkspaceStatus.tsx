@@ -12,12 +12,15 @@ import {
   CheckCircle,
   GitCommit,
   Code,
-  Terminal
+  Terminal,
+  GitPullRequest
 } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { useTranslation } from 'react-i18next';
+import { CreatePRDialog } from './CreatePRDialog';
 import { Checkbox } from '../../ui/checkbox';
 import { cn } from '../../../lib/utils';
-import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
+import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal, WorktreeCreatePRResult } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
 
 interface WorkspaceStatusProps {
@@ -28,6 +31,11 @@ interface WorkspaceStatusProps {
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR: boolean;
+  showCreatePRDialog: boolean;
+  createPRResult: WorktreeCreatePRResult | null;
+  onShowCreatePRDialog: (show: boolean) => void;
+  onCreatePR: () => void;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
@@ -84,6 +92,11 @@ export function WorkspaceStatus({
   isLoadingPreview,
   isMerging,
   isDiscarding,
+  isCreatingPR,
+  showCreatePRDialog,
+  createPRResult,
+  onShowCreatePRDialog,
+  onCreatePR,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
@@ -94,6 +107,7 @@ export function WorkspaceStatus({
   onSwitchToTerminals,
   onOpenInbuiltTerminal
 }: WorkspaceStatusProps) {
+  const { t } = useTranslation('taskReview');
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
@@ -381,13 +395,13 @@ export function WorkspaceStatus({
         </label>
 
         {/* Primary Actions */}
-        <div className="flex gap-2">
-          <Button
-            variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-            onClick={onMerge}
-            disabled={isMerging || isDiscarding}
-            className="flex-1"
-          >
+         <div className="flex gap-2">
+           <Button
+             variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
+             onClick={onMerge}
+             disabled={isMerging || isDiscarding || isCreatingPR}
+             className="flex-1"
+           >
             {isMerging ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -404,15 +418,33 @@ export function WorkspaceStatus({
           </Button>
           <Button
             variant="outline"
+            onClick={() => onShowCreatePRDialog(true)}
+            disabled={isMerging || isDiscarding || isCreatingPR}
+            className="px-3"
+          >
+            <GitPullRequest className="mr-2 h-4 w-4" />
+            {t('pr.actions.create')}
+          </Button>
+          <Button
+            variant="outline"
             size="icon"
             onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding}
+            disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
             title="Discard build"
           >
             <FolderX className="h-4 w-4" />
           </Button>
         </div>
+
+        <CreatePRDialog
+          open={showCreatePRDialog}
+          worktreeStatus={worktreeStatus}
+          isCreatingPR={isCreatingPR}
+          result={createPRResult}
+          onOpenChange={onShowCreatePRDialog}
+          onCreatePR={onCreatePR}
+        />
       </div>
     </div>
   );

@@ -38,6 +38,7 @@ from .utils import (
 )
 from .workspace_commands import (
     handle_cleanup_worktrees_command,
+    handle_create_pr_command,
     handle_discard_command,
     handle_list_worktrees_command,
     handle_merge_command,
@@ -144,6 +145,11 @@ Environment Variables:
         help="Merge an existing build into your project",
     )
     build_group.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch and create a pull request instead of merging locally",
+    )
+    build_group.add_argument(
         "--review",
         action="store_true",
         help="Review what an existing build contains",
@@ -164,6 +170,25 @@ Environment Variables:
         "--merge-preview",
         action="store_true",
         help="Preview merge conflicts without actually merging (returns JSON)",
+    )
+
+    # PR creation options
+    parser.add_argument(
+        "--pr-target",
+        type=str,
+        default=None,
+        help="Target branch for PR (default: auto-detect main/master or base branch)",
+    )
+    parser.add_argument(
+        "--pr-title",
+        type=str,
+        default=None,
+        help="Custom title for the PR (default: generated from spec)",
+    )
+    parser.add_argument(
+        "--pr-draft",
+        action="store_true",
+        help="Create PR as draft",
     )
 
     # QA options
@@ -354,6 +379,18 @@ def main() -> None:
             base_branch=args.base_branch,
         )
         if not success:
+            sys.exit(1)
+        return
+
+    if args.create_pr:
+        result = handle_create_pr_command(
+            project_dir,
+            spec_dir.name,
+            target_branch=args.pr_target or args.base_branch,
+            title=args.pr_title,
+            draft=args.pr_draft,
+        )
+        if not result.get("success"):
             sys.exit(1)
         return
 

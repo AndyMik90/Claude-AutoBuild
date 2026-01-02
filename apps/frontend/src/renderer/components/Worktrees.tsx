@@ -7,12 +7,14 @@ import {
   AlertCircle,
   FolderOpen,
   GitMerge,
+  GitPullRequest,
   FileCode,
   Plus,
   Minus,
   ChevronRight,
   Check,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -38,7 +40,7 @@ import {
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
-import type { WorktreeListItem, WorktreeMergeResult } from '../../shared/types';
+import type { WorktreeListItem, WorktreeMergeResult, WorktreeCreatePRResult } from '../../shared/types';
 
 interface WorktreesProps {
   projectId: string;
@@ -63,6 +65,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Create PR dialog state
+  const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
+  const [prWorktree, setPRWorktree] = useState<WorktreeListItem | null>(null);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
+  const [prResult, setPRResult] = useState<WorktreeCreatePRResult | null>(null);
 
   // Load worktrees
   const loadWorktrees = useCallback(async () => {
@@ -158,11 +166,51 @@ export function Worktrees({ projectId }: WorktreesProps) {
     }
   };
 
+  // Handle create PR
+  const handleCreatePR = async () => {
+    if (!prWorktree) return;
+
+    const task = findTaskForWorktree(prWorktree.specName);
+    if (!task) {
+      setError('Task not found for this worktree');
+      return;
+    }
+
+    setIsCreatingPR(true);
+    try {
+      const result = await window.electronAPI.createWorktreePR(task.id, {
+        targetBranch: prWorktree.baseBranch
+      });
+      if (result.success && result.data) {
+        setPRResult(result.data);
+      } else {
+        setPRResult({
+          success: false,
+          error: result.error || 'Failed to create PR'
+        });
+      }
+    } catch (err) {
+      setPRResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to create PR'
+      });
+    } finally {
+      setIsCreatingPR(false);
+    }
+  };
+
   // Open merge dialog
   const openMergeDialog = (worktree: WorktreeListItem) => {
     setSelectedWorktree(worktree);
     setMergeResult(null);
     setShowMergeDialog(true);
+  };
+
+  // Open create PR dialog
+  const openCreatePRDialog = (worktree: WorktreeListItem) => {
+    setPRWorktree(worktree);
+    setPRResult(null);
+    setShowCreatePRDialog(true);
   };
 
   // Confirm delete
@@ -305,8 +353,16 @@ export function Worktrees({ projectId }: WorktreesProps) {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => openCreatePRDialog(worktree)}
+                        disabled={!task}
+                      >
+                        <GitPullRequest className="h-3.5 w-3.5 mr-1.5" />
+                        Create PR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
-                          // Copy worktree path to clipboard
                           navigator.clipboard.writeText(worktree.path);
                         }}
                       >
@@ -474,6 +530,116 @@ export function Worktrees({ projectId }: WorktreesProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create PR Dialog */}
+      <Dialog open={showCreatePRDialog} onOpenChange={setShowCreatePRDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitPullRequest className="h-5 w-5" />
+              Create Pull Request
+            </DialogTitle>
+            <DialogDescription>
+              Push branch and create a GitHub pull request.
+            </DialogDescription>
+          </DialogHeader>
+
+          {prWorktree && !prResult && (
+            <div className="py-4">
+              <div className="rounded-lg bg-muted p-4 text-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Source Branch</span>
+                  <span className="font-mono text-info">{prWorktree.branch}</span>
+                </div>
+                <div className="flex items-center justify-center">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground rotate-90" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Target Branch</span>
+                  <span className="font-mono">{prWorktree.baseBranch}</span>
+                </div>
+                <div className="border-t border-border pt-3 mt-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Changes</span>
+                    <span>
+                      {prWorktree.commitCount} commits, {prWorktree.filesChanged} files
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {prResult && (
+            <div className="py-4">
+              <div className={`rounded-lg p-4 text-sm ${
+                prResult.success
+                  ? 'bg-success/10 border border-success/30'
+                  : 'bg-destructive/10 border border-destructive/30'
+              }`}>
+                <div className="flex items-start gap-2">
+                  {prResult.success ? (
+                    <Check className="h-4 w-4 text-success mt-0.5" />
+                  ) : (
+                    <X className="h-4 w-4 text-destructive mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className={`font-medium ${prResult.success ? 'text-success' : 'text-destructive'}`}>
+                      {prResult.success 
+                        ? (prResult.alreadyExists ? 'PR Already Exists' : 'PR Created Successfully')
+                        : 'PR Creation Failed'}
+                    </p>
+                    {prResult.error && (
+                      <p className="text-muted-foreground mt-1">{prResult.error}</p>
+                    )}
+                    {prResult.prUrl && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 h-auto mt-2 text-info"
+                        onClick={() => window.electronAPI.openExternal(prResult.prUrl!)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                        View Pull Request
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreatePRDialog(false);
+                setPRResult(null);
+              }}
+            >
+              {prResult ? 'Close' : 'Cancel'}
+            </Button>
+            {!prResult && (
+              <Button
+                onClick={handleCreatePR}
+                disabled={isCreatingPR}
+              >
+                {isCreatingPR ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating PR...
+                  </>
+                ) : (
+                  <>
+                    <GitPullRequest className="h-4 w-4 mr-2" />
+                    Create PR
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

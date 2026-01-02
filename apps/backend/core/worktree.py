@@ -587,6 +587,254 @@ class WorktreeManager:
 
         return commands
 
+    # ==================== PR Creation ====================
+
+    def push_branch(
+        self, spec_name: str, remote: str = "origin", force: bool = False
+    ) -> dict:
+        """
+        Push a spec's branch to the remote repository.
+
+        Args:
+            spec_name: The spec folder name
+            remote: Remote name (default: origin)
+            force: Force push (default: False)
+
+        Returns:
+            Dict with success status and details
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return {
+                "success": False,
+                "error": f"No worktree found for spec: {spec_name}",
+            }
+
+        branch_name = info.branch
+
+        push_args = ["push", "-u", remote, branch_name]
+        if force:
+            push_args.insert(1, "--force")
+
+        result = self._run_git(push_args, cwd=info.path)
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "error": f"Failed to push branch: {result.stderr}",
+                "branch": branch_name,
+            }
+
+        return {
+            "success": True,
+            "branch": branch_name,
+            "remote": remote,
+            "message": f"Pushed {branch_name} to {remote}",
+        }
+
+    def create_pull_request(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        body: str | None = None,
+        draft: bool = False,
+    ) -> dict:
+        """
+        Create a pull request for a spec's branch using the gh CLI.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for the PR (default: auto-detect)
+            title: PR title (default: generated from spec)
+            body: PR body (default: generated from spec)
+            draft: Create as draft PR (default: False)
+
+        Returns:
+            Dict with success status, PR URL, and details
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return {
+                "success": False,
+                "error": f"No worktree found for spec: {spec_name}",
+            }
+
+        branch_name = info.branch
+        base_branch = target_branch or self.base_branch
+
+        if not title:
+            title = f"feat: {spec_name.split('-', 1)[-1].replace('-', ' ')}"
+
+        pr_args = [
+            "gh",
+            "pr",
+            "create",
+            "--base",
+            base_branch,
+            "--head",
+            branch_name,
+            "--title",
+            title,
+        ]
+
+        if body:
+            pr_args.extend(["--body", body])
+        else:
+            spec_file = (
+                self.project_dir / ".auto-claude" / "specs" / spec_name / "spec.md"
+            )
+            if spec_file.exists():
+                spec_content = spec_file.read_text(encoding="utf-8")
+                summary = self._extract_spec_summary(spec_content)
+                pr_args.extend(["--body", summary])
+            else:
+                pr_args.extend(["--body", f"Auto-generated PR for task: {spec_name}"])
+
+        if draft:
+            pr_args.append("--draft")
+
+        try:
+            result = subprocess.run(
+                pr_args,
+                cwd=self.project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+
+            if result.returncode != 0:
+                error_msg = result.stderr.strip()
+                if "already exists" in error_msg.lower():
+                    pr_url = self._get_existing_pr_url(branch_name)
+                    return {
+                        "success": True,
+                        "pr_url": pr_url,
+                        "branch": branch_name,
+                        "target_branch": base_branch,
+                        "message": "PR already exists",
+                        "already_exists": True,
+                    }
+                return {
+                    "success": False,
+                    "error": f"Failed to create PR: {error_msg}",
+                    "branch": branch_name,
+                }
+
+            pr_url = result.stdout.strip()
+            return {
+                "success": True,
+                "pr_url": pr_url,
+                "branch": branch_name,
+                "target_branch": base_branch,
+                "title": title,
+                "draft": draft,
+                "message": f"Created PR: {pr_url}",
+            }
+
+        except FileNotFoundError:
+            return {
+                "success": False,
+                "error": "gh CLI not found. Install it from https://cli.github.com/",
+                "branch": branch_name,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to create PR: {str(e)}",
+                "branch": branch_name,
+            }
+
+    def _extract_spec_summary(self, spec_content: str) -> str:
+        """Extract a summary from spec.md for PR body."""
+        lines = spec_content.split("\n")
+        summary_lines = []
+        in_overview = False
+
+        for line in lines:
+            if (
+                "## Overview" in line
+                or "## Summary" in line
+                or "## Description" in line
+            ):
+                in_overview = True
+                continue
+            if in_overview:
+                if line.startswith("## "):
+                    break
+                if line.strip():
+                    summary_lines.append(line)
+                if len(summary_lines) >= 10:
+                    break
+
+        if summary_lines:
+            return "\n".join(summary_lines)
+
+        for line in lines[:20]:
+            if line.strip() and not line.startswith("#"):
+                summary_lines.append(line)
+            if len(summary_lines) >= 5:
+                break
+
+        return "\n".join(summary_lines) if summary_lines else f"Auto-generated PR"
+
+    def _get_existing_pr_url(self, branch_name: str) -> str | None:
+        """Get the URL of an existing PR for a branch."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", branch_name, "--json", "url", "-q", ".url"],
+                cwd=self.project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return None
+
+    def push_and_create_pr(
+        self,
+        spec_name: str,
+        target_branch: str | None = None,
+        title: str | None = None,
+        body: str | None = None,
+        draft: bool = False,
+        remote: str = "origin",
+    ) -> dict:
+        """
+        Push branch and create a pull request in one operation.
+
+        Args:
+            spec_name: The spec folder name
+            target_branch: Target branch for the PR (default: auto-detect)
+            title: PR title (default: generated from spec)
+            body: PR body (default: generated from spec)
+            draft: Create as draft PR (default: False)
+            remote: Remote name (default: origin)
+
+        Returns:
+            Dict with success status, PR URL, and details
+        """
+        push_result = self.push_branch(spec_name, remote=remote)
+        if not push_result.get("success"):
+            return push_result
+
+        pr_result = self.create_pull_request(
+            spec_name,
+            target_branch=target_branch,
+            title=title,
+            body=body,
+            draft=draft,
+        )
+
+        pr_result["pushed"] = True
+        pr_result["remote"] = remote
+        return pr_result
+
     # ==================== Backward Compatibility ====================
     # These methods provide backward compatibility with the old single-worktree API
 

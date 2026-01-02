@@ -7,6 +7,7 @@
 
 export { StagedSuccessMessage } from './StagedSuccessMessage';
 export { WorkspaceStatus } from './WorkspaceStatus';
+export { CreatePRDialog } from './CreatePRDialog';
 export { MergePreviewSummary } from './MergePreviewSummary';
 export { QAFeedbackSection } from './QAFeedbackSection';
 export { DiscardDialog } from './DiscardDialog';

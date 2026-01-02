@@ -89,5 +89,13 @@ export const workspaceMock = {
         { id: 'system', name: 'System Terminal', path: '', installed: true }
       ]
     }
+  }),
+
+  createWorktreePR: async () => ({
+    success: true,
+    data: {
+      success: true,
+      prUrl: 'https://github.com/example/repo/pull/123'
+    }
   })
 };

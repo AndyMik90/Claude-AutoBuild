@@ -148,6 +148,33 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     }
   };
 
+  const handleCreatePR = async () => {
+    state.setIsCreatingPR(true);
+    state.setCreatePRResult(null);
+
+    try {
+      const targetBranch = state.worktreeStatus?.baseBranch;
+      const result = await window.electronAPI.createWorktreePR(task.id, {
+        targetBranch
+      });
+      if (result.success && result.data) {
+        state.setCreatePRResult(result.data);
+      } else {
+        state.setCreatePRResult({
+          success: false,
+          error: result.error || 'Failed to create pull request'
+        });
+      }
+    } catch (error) {
+      state.setCreatePRResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create pull request'
+      });
+    } finally {
+      state.setIsCreatingPR(false);
+    }
+  };
+
   const handleDiscard = async () => {
     state.setIsDiscarding(true);
     state.setWorkspaceError(null);
@@ -422,17 +449,22 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             showConflictDialog={state.showConflictDialog}
                             onFeedbackChange={state.setFeedback}
                             onReject={handleReject}
-                            onMerge={handleMerge}
-                            onDiscard={handleDiscard}
-                            onShowDiscardDialog={state.setShowDiscardDialog}
-                            onShowDiffDialog={state.setShowDiffDialog}
-                            onStageOnlyChange={state.setStageOnly}
-                            onShowConflictDialog={state.setShowConflictDialog}
-                            onLoadMergePreview={state.loadMergePreview}
-                            onClose={handleClose}
-                            onSwitchToTerminals={onSwitchToTerminals}
-                            onOpenInbuiltTerminal={onOpenInbuiltTerminal}
-                          />
+                             onMerge={handleMerge}
+                             onCreatePR={handleCreatePR}
+                             onShowCreatePRDialog={state.setShowCreatePRDialog}
+                             isCreatingPR={state.isCreatingPR}
+                             showCreatePRDialog={state.showCreatePRDialog}
+                             createPRResult={state.createPRResult}
+                             onDiscard={handleDiscard}
+                             onShowDiscardDialog={state.setShowDiscardDialog}
+                             onShowDiffDialog={state.setShowDiffDialog}
+                             onStageOnlyChange={state.setStageOnly}
+                             onShowConflictDialog={state.setShowConflictDialog}
+                             onLoadMergePreview={state.loadMergePreview}
+                             onClose={handleClose}
+                             onSwitchToTerminals={onSwitchToTerminals}
+                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
+                           />
                         </>
                       )}
                     </div>

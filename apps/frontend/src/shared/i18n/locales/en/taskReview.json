@@ -3,5 +3,23 @@
     "openTerminal": "Open terminal",
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
+  },
+  "pr": {
+    "title": "Create Pull Request",
+    "description": "Push branch and create a GitHub pull request.",
+    "source": "Source Branch",
+    "target": "Target Branch",
+    "actions": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "create": "Create PR",
+      "creating": "Creating PR..."
+    },
+    "result": {
+      "successTitle": "PR Created Successfully",
+      "alreadyExistsTitle": "PR Already Exists",
+      "failureTitle": "PR Creation Failed",
+      "view": "View Pull Request"
+    }
   }
 }

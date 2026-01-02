@@ -31,6 +31,9 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [stagedSuccess, setStagedSuccess] = useState<string | null>(null);
   const [stagedProjectPath, setStagedProjectPath] = useState<string | undefined>(undefined);
   const [suggestedCommitMessage, setSuggestedCommitMessage] = useState<string | undefined>(undefined);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
+  const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
+  const [createPRResult, setCreatePRResult] = useState<import('../../../../shared/types').WorktreeCreatePRResult | null>(null);
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<TaskLogPhase>>(new Set());
@@ -276,7 +279,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     mergePreview,
     isLoadingPreview,
     showConflictDialog,
-
+    isCreatingPR,
+    showCreatePRDialog,
+    createPRResult,
+ 
     // Setters
     setFeedback,
     setIsSubmitting,
@@ -307,7 +313,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setMergePreview,
     setIsLoadingPreview,
     setShowConflictDialog,
-
+    setIsCreatingPR,
+    setShowCreatePRDialog,
+    setCreatePRResult,
+ 
     // Handlers
     handleLogsScroll,
     togglePhase,

@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, shell, app } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
@@ -2010,10 +2010,172 @@ export function registerWorktreeHandlers(
     }
   );
 
-  /**
-   * Discard the worktree changes
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
-   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_CREATE_PR,
+    async (_, taskId: string, options?: { targetBranch?: string; title?: string; draft?: boolean }): Promise<IPCResult<{ success: boolean; prUrl?: string; error?: string; alreadyExists?: boolean }>> => {
+      console.log('[IPC] TASK_WORKTREE_CREATE_PR called with taskId:', taskId, 'options:', options);
+      try {
+        if (!pythonEnvManager.isEnvReady()) {
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        if (!existsSync(worktreePath)) {
+          return { success: false, error: 'No worktree found for this task' };
+        }
+
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+
+        if (!existsSync(specDir)) {
+          return { success: false, error: 'Spec directory not found' };
+        }
+
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--create-pr'
+        ];
+
+        if (options?.targetBranch) {
+          args.push('--pr-target', options.targetBranch);
+        }
+
+        if (options?.title) {
+          args.push('--pr-title', options.title);
+        }
+
+        if (options?.draft) {
+          args.push('--pr-draft');
+        }
+
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch && !options?.targetBranch) {
+          args.push('--pr-target', taskBaseBranch);
+        }
+
+        const pythonPath = getConfiguredPythonPath();
+        const profileEnv = getProfileEnv();
+        const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
+        return new Promise((resolve) => {
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const prProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...process.env,
+              ...pythonEnv,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONUTF8: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          prProcess.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString();
+          });
+
+          prProcess.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString();
+          });
+
+          prProcess.on('close', (code: number | null) => {
+            console.log('[CREATE_PR] Process exited with code:', code);
+            console.log('[CREATE_PR] stdout:', stdout);
+            console.log('[CREATE_PR] stderr:', stderr);
+
+            if (code === 0) {
+              const prUrlMatch = stdout.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
+              const prUrl = prUrlMatch ? prUrlMatch[0] : undefined;
+              const alreadyExists = stdout.includes('already exists');
+
+              const planPaths = [
+                path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+                path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN)
+              ];
+
+              const persistPlans = async () => {
+                for (const planPath of planPaths) {
+                  try {
+                    if (!existsSync(planPath)) continue;
+                    const planContent = await fsPromises.readFile(planPath, 'utf-8');
+                    const plan = JSON.parse(planContent);
+                    plan.status = 'done';
+                    plan.planStatus = 'completed';
+                    plan.updated_at = new Date().toISOString();
+                    await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+                  } catch (persistError) {
+                    console.warn('[CREATE_PR] Failed to persist plan status:', planPath, persistError);
+                  }
+                }
+              };
+
+              persistPlans().catch((persistError) => {
+                console.warn('[CREATE_PR] Background plan persistence failed:', persistError);
+              });
+
+              const mainWindow = getMainWindow();
+              if (mainWindow) {
+                mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'done');
+              }
+
+              resolve({
+                success: true,
+                data: {
+                  success: true,
+                  prUrl,
+                  alreadyExists
+                }
+              });
+            } else {
+              resolve({
+                success: false,
+                error: stderr || stdout || 'Failed to create PR'
+              });
+            }
+          });
+
+          prProcess.on('error', (err: Error) => {
+            console.error('[CREATE_PR] Process error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run create-pr: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[IPC] TASK_WORKTREE_CREATE_PR error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create PR'
+        };
+      }
+    }
+  );
+
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
     async (_, taskId: string): Promise<IPCResult<WorktreeDiscardResult>> => {

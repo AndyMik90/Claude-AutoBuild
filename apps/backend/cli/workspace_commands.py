@@ -25,7 +25,12 @@ from core.workspace.git_utils import (
 from debug import debug_warning
 from ui import (
     Icons,
+    bold,
+    box,
+    highlight,
     icon,
+    muted,
+    print_status,
 )
 from workspace import (
     cleanup_all_worktrees,
@@ -33,6 +38,8 @@ from workspace import (
     list_all_worktrees,
     merge_existing_build,
     review_existing_build,
+    get_existing_build_worktree,
+    show_build_summary,
 )
 
 from .utils import print_banner
@@ -290,6 +297,88 @@ def handle_review_command(project_dir: Path, spec_name: str) -> None:
         spec_name: Name of the spec
     """
     review_existing_build(project_dir, spec_name)
+
+
+def handle_create_pr_command(
+    project_dir: Path,
+    spec_name: str,
+    target_branch: str | None = None,
+    title: str | None = None,
+    draft: bool = False,
+) -> dict:
+    """
+    Handle the --create-pr command.
+
+    Pushes the spec branch and creates a pull request.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+        target_branch: Target branch for the PR
+        title: Custom PR title
+        draft: Create as draft PR
+
+    Returns:
+        Dict with success status and PR URL
+    """
+    from worktree import WorktreeManager
+
+    worktree_path = get_existing_build_worktree(project_dir, spec_name)
+
+    if not worktree_path:
+        print()
+        print_status(f"No existing build found for '{spec_name}'.", "warning")
+        print()
+        print("To start a new build:")
+        print(highlight(f"  python auto-claude/run.py --spec {spec_name}"))
+        return {"success": False, "error": f"No build found for '{spec_name}'"}
+
+    print()
+    content = [
+        bold(f"{icon(Icons.BRANCH)} CREATING PULL REQUEST"),
+        "",
+        muted("Pushing branch and creating PR on GitHub..."),
+    ]
+    print(box(content, width=60, style="heavy"))
+    print()
+
+    manager = WorktreeManager(project_dir, base_branch=target_branch)
+    show_build_summary(manager, spec_name)
+    print()
+
+    result = manager.push_and_create_pr(
+        spec_name,
+        target_branch=target_branch,
+        title=title,
+        draft=draft,
+    )
+
+    if result.get("success"):
+        pr_url = result.get("pr_url", "")
+        already_exists = result.get("already_exists", False)
+
+        print()
+        if already_exists:
+            print_status("PR already exists!", "info")
+        else:
+            print_status("Pull request created successfully!", "success")
+
+        print()
+        print(f"  {icon(Icons.LINK)} {highlight(pr_url)}")
+        print()
+        print(muted("Next steps:"))
+        print(muted("  1. Review the PR on GitHub"))
+        print(muted("  2. Request reviews from teammates"))
+        print(muted("  3. Merge when approved"))
+        print()
+        print(muted("To discard the local worktree after PR is merged:"))
+        print(muted(f"  python auto-claude/run.py --spec {spec_name} --discard"))
+
+        return result
+    else:
+        print()
+        print_status(f"Failed to create PR: {result.get('error')}", "error")
+        return result
 
 
 def handle_discard_command(project_dir: Path, spec_name: str) -> None:

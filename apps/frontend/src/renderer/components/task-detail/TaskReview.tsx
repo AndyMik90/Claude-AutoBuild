@@ -20,6 +20,9 @@ interface TaskReviewProps {
   isLoadingWorktree: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR: boolean;
+  showCreatePRDialog: boolean;
+  createPRResult: import('../../../shared/types').WorktreeCreatePRResult | null;
   showDiscardDialog: boolean;
   showDiffDialog: boolean;
   workspaceError: string | null;
@@ -33,6 +36,8 @@ interface TaskReviewProps {
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
   onMerge: () => void;
+  onCreatePR: () => void;
+  onShowCreatePRDialog: (show: boolean) => void;
   onDiscard: () => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowDiffDialog: (show: boolean) => void;
@@ -62,6 +67,9 @@ export function TaskReview({
   isLoadingWorktree,
   isMerging,
   isDiscarding,
+  isCreatingPR,
+  showCreatePRDialog,
+  createPRResult,
   showDiscardDialog,
   showDiffDialog,
   workspaceError,
@@ -75,6 +83,8 @@ export function TaskReview({
   onFeedbackChange,
   onReject,
   onMerge,
+  onCreatePR,
+  onShowCreatePRDialog,
   onDiscard,
   onShowDiscardDialog,
   onShowDiffDialog,
@@ -110,12 +120,17 @@ export function TaskReview({
           isLoadingPreview={isLoadingPreview}
           isMerging={isMerging}
           isDiscarding={isDiscarding}
+          isCreatingPR={isCreatingPR}
+          showCreatePRDialog={showCreatePRDialog}
+          createPRResult={createPRResult}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
+          onShowCreatePRDialog={onShowCreatePRDialog}
           onShowConflictDialog={onShowConflictDialog}
           onLoadMergePreview={onLoadMergePreview}
           onStageOnlyChange={onStageOnlyChange}
           onMerge={onMerge}
+          onCreatePR={onCreatePR}
           onClose={onClose}
           onSwitchToTerminals={onSwitchToTerminals}
           onOpenInbuiltTerminal={onOpenInbuiltTerminal}
