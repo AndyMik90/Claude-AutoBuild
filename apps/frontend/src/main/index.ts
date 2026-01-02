@@ -6,9 +6,11 @@ import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
 import { TerminalManager } from './terminal-manager';
 import { pythonEnvManager } from './python-env-manager';
+import { fileWatcher } from './file-watcher';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater } from './app-updater';
+import { initializeApiServer, shutdownApiServer, isApiServerEnabled } from './api/startup';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
@@ -232,6 +234,25 @@ app.whenReady().then(() => {
     usageMonitor.start();
     console.warn('[main] Usage monitor initialized and started');
 
+    // Initialize API server (optional - only starts if API_KEY is set)
+    if (isApiServerEnabled()) {
+      initializeApiServer(agentManager, fileWatcher, {
+        debug: process.env.DEBUG === 'true',
+      }).then((result) => {
+        if (result.success && !result.skipped) {
+          console.warn(`[main] API server started at ${result.address}`);
+        } else if (result.skipped) {
+          console.warn(`[main] API server skipped: ${result.skipReason}`);
+        } else if (!result.success) {
+          console.warn(`[main] API server failed to start: ${result.error}`);
+        }
+      }).catch((error) => {
+        console.warn('[main] API server initialization failed:', error);
+      });
+    } else {
+      console.warn('[main] API server disabled (API_KEY not set)');
+    }
+
     // Log debug mode status
     const isDebugMode = process.env.DEBUG === 'true';
     if (isDebugMode) {
@@ -284,6 +305,18 @@ app.on('before-quit', async () => {
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
+
+  // Shutdown API server (if running)
+  try {
+    const result = await shutdownApiServer();
+    if (result.success) {
+      console.warn('[main] API server stopped');
+    } else if (result.error) {
+      console.warn('[main] API server shutdown error:', result.error);
+    }
+  } catch (error) {
+    console.warn('[main] API server shutdown failed:', error);
+  }
 
   // Kill all running agent processes
   if (agentManager) {
