@@ -20,7 +20,7 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -630,13 +630,17 @@ class CLIToolManager {
     const MINIMUM_VERSION = '3.10.0';
 
     try {
-      const version = execSync(`${pythonCmd} --version`, {
-        stdio: 'pipe',
+      // Parse command to handle cases like 'py -3' on Windows
+      // This avoids command injection by using execFileSync instead of execSync
+      const parts = pythonCmd.split(' ');
+      const cmd = parts[0];
+      const args = [...parts.slice(1), '--version'];
+
+      const version = execFileSync(cmd, args, {
+        encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
-      })
-        .toString()
-        .trim();
+      }).trim();
 
       const match = version.match(/Python (\d+\.\d+\.\d+)/);
       if (!match) {

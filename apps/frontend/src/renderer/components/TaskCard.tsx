@@ -63,8 +63,8 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.category === nextTask.metadata?.category &&
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
-    // Check if subtask statuses changed (quick check on first few)
-    prevTask.subtasks.slice(0, 5).every((s, i) => s.status === nextTask.subtasks[i]?.status)
+    // Check if any subtask statuses changed (compare all subtasks)
+    prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
 
   // Only log when actually re-rendering (reduces noise significantly)

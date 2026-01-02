@@ -182,7 +182,7 @@ class StatusManager:
                 f"[StatusManager] Scheduled batched write in {self._WRITE_DEBOUNCE_MS}ms"
             )
 
-    def write(self, status: BuildStatus = None, immediate: bool = False) -> None:
+    def write(self, status: BuildStatus | None = None, immediate: bool = False) -> None:
         """Write status to file.
 
         Args:

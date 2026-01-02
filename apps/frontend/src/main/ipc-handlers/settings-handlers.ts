@@ -385,7 +385,22 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_, url: string): Promise<void> => {
-      await shell.openExternal(url);
+      // Validate URL scheme to prevent opening dangerous protocols
+      try {
+        const parsedUrl = new URL(url);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          console.warn(`[SHELL_OPEN_EXTERNAL] Blocked URL with unsafe protocol: ${parsedUrl.protocol}`);
+          throw new Error(`Unsafe URL protocol: ${parsedUrl.protocol}`);
+        }
+        await shell.openExternal(url);
+      } catch (error) {
+        if (error instanceof TypeError) {
+          // Invalid URL format
+          console.warn(`[SHELL_OPEN_EXTERNAL] Invalid URL format: ${url}`);
+          throw new Error('Invalid URL format');
+        }
+        throw error;
+      }
     }
   );
 
@@ -443,17 +458,21 @@ export function registerSettingsHandlers(
           });
         } else {
           // Linux: Try common terminal emulators with argument arrays
-          const terminals: Array<{ cmd: string; args: string[] }> = [
+          // Note: xterm uses cwd option to avoid shell injection vulnerabilities
+          const terminals: Array<{ cmd: string; args: string[]; useCwd?: boolean }> = [
             { cmd: 'gnome-terminal', args: ['--working-directory', resolvedPath] },
             { cmd: 'konsole', args: ['--workdir', resolvedPath] },
             { cmd: 'xfce4-terminal', args: ['--working-directory', resolvedPath] },
-            { cmd: 'xterm', args: ['-e', 'bash', '-c', `cd '${resolvedPath.replace(/'/g, "'\\''")}' && exec bash`] }
+            { cmd: 'xterm', args: ['-e', 'bash'], useCwd: true }
           ];
 
           let opened = false;
-          for (const { cmd, args } of terminals) {
+          for (const { cmd, args, useCwd } of terminals) {
             try {
-              execFileSync(cmd, args, { stdio: 'ignore' });
+              execFileSync(cmd, args, {
+                stdio: 'ignore',
+                ...(useCwd ? { cwd: resolvedPath } : {})
+              });
               opened = true;
               break;
             } catch {
