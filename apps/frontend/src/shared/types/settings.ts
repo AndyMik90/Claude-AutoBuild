@@ -292,27 +292,3 @@ export interface SourceEnvCheckResult {
   sourcePath?: string;
   error?: string;
 }
-
-// Auto Claude Source Update Types
-export interface AutoBuildSourceUpdateCheck {
-  updateAvailable: boolean;
-  currentVersion: string;
-  latestVersion?: string;
-  releaseNotes?: string;
-  releaseUrl?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateResult {
-  success: boolean;
-  version?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateProgress {
-  stage: 'checking' | 'downloading' | 'extracting' | 'complete' | 'error';
-  percent?: number;
-  message: string;
-  /** New version after successful update - used to refresh UI */
-  newVersion?: string;
-}

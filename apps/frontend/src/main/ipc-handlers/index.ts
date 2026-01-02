@@ -23,7 +23,6 @@ import { registerEnvHandlers } from './env-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerGitlabHandlers } from './gitlab-handlers';
-import { registerAutobuildSourceHandlers } from './autobuild-source-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
@@ -88,9 +87,6 @@ export function setupIpcHandlers(
   // GitLab integration handlers
   registerGitlabHandlers(agentManager, getMainWindow);
 
-  // Auto-build source update handlers
-  registerAutobuildSourceHandlers(getMainWindow);
-
   // Ideation handlers
   registerIdeationHandlers(agentManager, getMainWindow);
 
@@ -135,7 +131,6 @@ export {
   registerLinearHandlers,
   registerGithubHandlers,
   registerGitlabHandlers,
-  registerAutobuildSourceHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,
   registerInsightsHandlers,

@@ -395,12 +395,6 @@ export const IPC_CHANNELS = {
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
 
-  // Auto Claude source updates
-  AUTOBUILD_SOURCE_CHECK: 'autobuild:source:check',
-  AUTOBUILD_SOURCE_DOWNLOAD: 'autobuild:source:download',
-  AUTOBUILD_SOURCE_VERSION: 'autobuild:source:version',
-  AUTOBUILD_SOURCE_PROGRESS: 'autobuild:source:progress',
-
   // Auto Claude source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',
   AUTOBUILD_SOURCE_ENV_UPDATE: 'autobuild:source:env:update',
@@ -466,6 +460,7 @@ export const IPC_CHANNELS = {
   APP_UPDATE_DOWNLOADED: 'app-update:downloaded',
   APP_UPDATE_PROGRESS: 'app-update:progress',
   APP_UPDATE_ERROR: 'app-update:error',
+  APP_UPDATE_STABLE_DOWNGRADE: 'app-update:stable-downgrade',  // Stable version available for downgrade from beta
 
   // Release operations
   RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
