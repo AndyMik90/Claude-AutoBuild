@@ -211,12 +211,18 @@ class SemanticAnalyzer:
         """Analyze using tree-sitter AST parsing."""
         parser = self._parsers[ext]
 
-        tree_before = parser.parse(bytes(before, "utf-8"))
-        tree_after = parser.parse(bytes(after, "utf-8"))
+        # Normalize line endings to LF for consistent cross-platform behavior
+        # This ensures byte positions and line counts work correctly on all platforms
+        before_normalized = before.replace("\r\n", "\n").replace("\r", "\n")
+        after_normalized = after.replace("\r\n", "\n").replace("\r", "\n")
+
+        tree_before = parser.parse(bytes(before_normalized, "utf-8"))
+        tree_after = parser.parse(bytes(after_normalized, "utf-8"))
 
         # Extract structural elements from both versions
-        elements_before = self._extract_elements(tree_before, before, ext)
-        elements_after = self._extract_elements(tree_after, after, ext)
+        # Use normalized content to match tree-sitter byte positions
+        elements_before = self._extract_elements(tree_before, before_normalized, ext)
+        elements_after = self._extract_elements(tree_after, after_normalized, ext)
 
         # Compare and generate semantic changes
         changes = compare_elements(elements_before, elements_after, ext)

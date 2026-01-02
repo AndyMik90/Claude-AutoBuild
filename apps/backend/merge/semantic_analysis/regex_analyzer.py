@@ -30,11 +30,16 @@ def analyze_with_regex(
     """
     changes: list[SemanticChange] = []
 
+    # Normalize line endings to LF for consistent cross-platform behavior
+    # This handles Windows CRLF, old Mac CR, and Unix LF
+    before_normalized = before.replace("\r\n", "\n").replace("\r", "\n")
+    after_normalized = after.replace("\r\n", "\n").replace("\r", "\n")
+
     # Get a unified diff
     diff = list(
         difflib.unified_diff(
-            before.splitlines(keepends=True),
-            after.splitlines(keepends=True),
+            before_normalized.splitlines(keepends=True),
+            after_normalized.splitlines(keepends=True),
             lineterm="",
         )
     )
@@ -89,8 +94,22 @@ def analyze_with_regex(
     # Detect function changes (simplified)
     func_pattern = get_function_pattern(ext)
     if func_pattern:
-        funcs_before = set(func_pattern.findall(before))
-        funcs_after = set(func_pattern.findall(after))
+        # For JS/TS patterns with alternation, findall() returns tuples
+        # Extract the non-empty match from each tuple
+        def extract_func_names(matches):
+            names = set()
+            for match in matches:
+                if isinstance(match, tuple):
+                    # Get the first non-empty group from the tuple
+                    name = next((m for m in match if m), None)
+                    if name:
+                        names.add(name)
+                elif match:
+                    names.add(match)
+            return names
+
+        funcs_before = extract_func_names(func_pattern.findall(before_normalized))
+        funcs_after = extract_func_names(func_pattern.findall(after_normalized))
 
         for func in funcs_after - funcs_before:
             changes.append(

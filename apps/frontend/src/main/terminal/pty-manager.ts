@@ -5,9 +5,65 @@
 
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
+import { existsSync } from 'fs';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager } from '../claude-profile-manager';
+import { readSettingsFile } from '../settings-utils';
+import type { SupportedTerminal } from '../../shared/types/settings';
+
+/**
+ * Windows shell paths for different terminal preferences
+ */
+const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
+  powershell: [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // PowerShell 7 (Core)
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',  // Windows PowerShell 5.1
+  ],
+  windowsterminal: [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // Prefer PowerShell Core in Windows Terminal
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  ],
+  cmd: [
+    'C:\\Windows\\System32\\cmd.exe',
+  ],
+  gitbash: [
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+  ],
+  cygwin: [
+    'C:\\cygwin64\\bin\\bash.exe',
+    'C:\\cygwin\\bin\\bash.exe',
+  ],
+  msys2: [
+    'C:\\msys64\\usr\\bin\\bash.exe',
+    'C:\\msys32\\usr\\bin\\bash.exe',
+  ],
+};
+
+/**
+ * Get the Windows shell executable based on preferred terminal setting
+ */
+function getWindowsShell(preferredTerminal: SupportedTerminal | undefined): string {
+  // If no preference or 'system', use COMSPEC (usually cmd.exe)
+  if (!preferredTerminal || preferredTerminal === 'system') {
+    return process.env.COMSPEC || 'cmd.exe';
+  }
+
+  // Check if we have paths defined for this terminal type
+  const paths = WINDOWS_SHELL_PATHS[preferredTerminal];
+  if (paths) {
+    // Find the first existing shell
+    for (const shellPath of paths) {
+      if (existsSync(shellPath)) {
+        return shellPath;
+      }
+    }
+  }
+
+  // Fallback to COMSPEC for unrecognized terminals
+  return process.env.COMSPEC || 'cmd.exe';
+}
 
 /**
  * Spawn a new PTY process with appropriate shell and environment
@@ -18,13 +74,17 @@ export function spawnPtyProcess(
   rows: number,
   profileEnv?: Record<string, string>
 ): pty.IPty {
+  // Read user's preferred terminal setting
+  const settings = readSettingsFile();
+  const preferredTerminal = settings?.preferredTerminal as SupportedTerminal | undefined;
+
   const shell = process.platform === 'win32'
-    ? process.env.COMSPEC || 'cmd.exe'
+    ? getWindowsShell(preferredTerminal)
     : process.env.SHELL || '/bin/zsh';
 
   const shellArgs = process.platform === 'win32' ? [] : ['-l'];
 
-  console.warn('[PtyManager] Spawning shell:', shell, shellArgs);
+  console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
 
   return pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
