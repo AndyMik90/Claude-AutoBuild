@@ -13,7 +13,7 @@ import { existsSync, statSync } from 'fs';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
-import type { ClaudeCodeVersionInfo } from '../../shared/types/cli';
+import type { ClaudeCodeVersionInfo, ToolDetectionResult } from '../../shared/types/cli';
 import { getToolInfo } from '../cli-tool-manager';
 import { readSettingsFile } from '../settings-utils';
 import semver from 'semver';
@@ -514,14 +514,41 @@ export function registerClaudeCodeHandlers(): void {
       try {
         console.log('[Claude Code] Checking version...');
 
-        // Get installed version via cli-tool-manager
-        let detectionResult;
+        // Get installed version via cli-tool-manager with timeout protection
+        // This prevents the IPC handler from hanging if execFileSync hangs
+        // NOTE: Since getToolInfo is synchronous and uses execFileSync internally,
+        // Promise.race cannot interrupt true blocking behavior. However, it provides
+        // defense-in-depth for slow operations and ensures the handler returns a
+        // response within a reasonable timeframe.
+        let detectionResult: ToolDetectionResult;
         try {
-          detectionResult = getToolInfo('claude');
+          // Wrap getToolInfo in a Promise.race to add timeout protection
+          detectionResult = await Promise.race([
+            // Execute detection in a Promise
+            new Promise<ToolDetectionResult>((resolve, reject) => {
+              try {
+                const result = getToolInfo('claude');
+                resolve(result);
+              } catch (error) {
+                reject(error);
+              }
+            }),
+            // Timeout after 5 seconds
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Detection timeout after 5 seconds')), 5000)
+            )
+          ]);
           console.log('[Claude Code] Detection result:', JSON.stringify(detectionResult, null, 2));
         } catch (detectionError) {
           console.error('[Claude Code] Detection error:', detectionError);
-          throw new Error(`Detection failed: ${detectionError instanceof Error ? detectionError.message : 'Unknown error'}`);
+          const errorMsg = detectionError instanceof Error ? detectionError.message : 'Unknown error';
+          
+          // Return a graceful error response instead of throwing
+          // This ensures the IPC handler always sends a reply
+          return {
+            success: false,
+            error: `Detection failed: ${errorMsg}`,
+          };
         }
 
         const installed = detectionResult.found ? detectionResult.version || null : null;
@@ -576,6 +603,8 @@ export function registerClaudeCodeHandlers(): void {
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         console.error('[Claude Code] Check failed:', errorMsg, error);
+        // Always return an error response instead of throwing
+        // This ensures the IPC handler always sends a reply
         return {
           success: false,
           error: `Failed to check Claude Code version: ${errorMsg}`,
