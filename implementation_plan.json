@@ -8,19 +8,36 @@
     }
   ],
   "qa_signoff": {
-    "status": "fixes_applied",
-    "timestamp": "2025-12-27T02:20:00Z",
-    "fix_session": 0,
+    "status": "approved",
+    "timestamp": "2026-01-02T10:45:00.000Z",
+    "qa_session": 3,
+    "fix_session": 1,
     "issues_fixed": [
       {
-        "title": "Remove preview hint textbox",
-        "fix_commit": "2653019"
+        "title": "Environment variable values not hidden by default",
+        "location": "apps/frontend/src/renderer/components/settings/IntegrationSettings.tsx:686-729",
+        "fix_commit": "ee19042"
       },
       {
-        "title": "Remove unused preview translation keys",
-        "fix_commit": "e17536c"
+        "title": "Maximum 20 environment variables limit not enforced",
+        "location": "apps/frontend/src/renderer/components/settings/IntegrationSettings.tsx:293-312",
+        "fix_commit": "ee19042"
+      },
+      {
+        "title": "No scrollable container for environment variables",
+        "location": "apps/frontend/src/renderer/components/settings/IntegrationSettings.tsx:686-703",
+        "fix_commit": "ee19042"
       }
     ],
-    "ready_for_qa_revalidation": true
-  }
+    "fix_request_file": "QA_FIX_REQUEST.md",
+    "tests_passed": {
+      "unit": "962/962",
+      "integration": "N/A",
+      "e2e": "N/A"
+    },
+    "verified_by": "qa_agent"
+  },
+  "status": "done",
+  "planStatus": "completed",
+  "updated_at": "2026-01-02T10:38:11.924Z"
 }
