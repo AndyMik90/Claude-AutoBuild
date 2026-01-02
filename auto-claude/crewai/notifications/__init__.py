@@ -6,10 +6,38 @@ Available Services:
 - EscalationManager: Human escalation management
 """
 
-# Services will be imported here once implemented
-# from .service import NotificationService, EscalationManager
+from .service import (
+    NotificationService,
+    EscalationManager,
+    NotificationChannel,
+    ConsoleChannel,
+    SlackChannel,
+    EmailChannel,
+    WebhookChannel,
+    LinearChannel,
+    Notification,
+    NotificationType,
+    NotificationPriority,
+    EscalationEvent,
+    EscalationReason,
+)
 
 __all__ = [
-    # "NotificationService",
-    # "EscalationManager",
+    # Service classes
+    "NotificationService",
+    "EscalationManager",
+    # Channel implementations
+    "NotificationChannel",
+    "ConsoleChannel",
+    "SlackChannel",
+    "EmailChannel",
+    "WebhookChannel",
+    "LinearChannel",
+    # Data classes
+    "Notification",
+    "EscalationEvent",
+    # Enums
+    "NotificationType",
+    "NotificationPriority",
+    "EscalationReason",
 ]

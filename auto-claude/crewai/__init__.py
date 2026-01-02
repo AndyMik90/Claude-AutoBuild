@@ -11,6 +11,10 @@ Crews:
 
 Flows:
 - DevelopmentWorkflowFlow: Orchestrates the complete development lifecycle
+
+Notifications:
+- NotificationService: Multi-channel notification delivery
+- EscalationManager: Human escalation management
 """
 
 from .config import (
@@ -19,8 +23,47 @@ from .config import (
     is_crewai_enabled,
 )
 
+from .crews import (
+    create_product_management_crew,
+    create_development_crew,
+    create_qa_release_crew,
+)
+
+from .flows import (
+    DevelopmentWorkflowFlow,
+    WorkflowState,
+    WorkflowStatus,
+    TaskType,
+    run_development_workflow,
+)
+
+from .notifications import (
+    NotificationService,
+    EscalationManager,
+    NotificationType,
+    NotificationPriority,
+    EscalationReason,
+)
+
 __all__ = [
+    # Config
     "get_agent_model",
     "get_crewai_config",
     "is_crewai_enabled",
+    # Crews
+    "create_product_management_crew",
+    "create_development_crew",
+    "create_qa_release_crew",
+    # Flows
+    "DevelopmentWorkflowFlow",
+    "WorkflowState",
+    "WorkflowStatus",
+    "TaskType",
+    "run_development_workflow",
+    # Notifications
+    "NotificationService",
+    "EscalationManager",
+    "NotificationType",
+    "NotificationPriority",
+    "EscalationReason",
 ]
