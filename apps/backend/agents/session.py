@@ -6,6 +6,7 @@ Handles running agent sessions and post-session processing including
 memory updates, recovery tracking, and Linear integration.
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -612,8 +613,16 @@ async def run_agent_session(
                 print("   Please retry your command to continue.\n")
                 return "retry", "Token refreshed. Please retry your command."
 
+            except (OSError, IOError, json.JSONDecodeError, KeyError) as refresh_error:
+                # Specific exceptions from credential file/keychain operations
+                logger.warning(f"Token refresh failed (credential error): {refresh_error}")
+                print_status("Authentication failed. Please run: claude setup-token", "error")
+                return "error", f"Token refresh failed: {refresh_error}"
             except Exception as refresh_error:
-                logger.warning(f"Token refresh attempt failed: {refresh_error}")
+                # Catch-all for unexpected errors (defensive programming)
+                # auth.py functions catch most errors internally, but this ensures
+                # any unanticipated exceptions don't crash the session
+                logger.warning(f"Token refresh attempt failed (unexpected): {refresh_error}")
                 print_status("Authentication failed. Please run: claude setup-token", "error")
                 return "error", f"Token refresh failed: {refresh_error}"
 

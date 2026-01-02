@@ -234,6 +234,11 @@ def _get_full_credentials_from_file(cred_path: str) -> dict | None:
                     "refreshToken": oauth.get("refreshToken"),
                     "expiresAt": oauth.get("expiresAt"),
                 }
+            # File exists but has no valid OAuth token
+            logger.debug(f"No valid OAuth token in {cred_path}")
+            return None
+    except (OSError, IOError) as e:
+        logger.debug(f"Failed to read credentials file {cred_path}: {e}")
     except (json.JSONDecodeError, KeyError) as e:
         logger.debug(f"Failed to parse credentials from {cred_path}: {e}")
     return None
@@ -422,6 +427,13 @@ def _save_credentials_to_file(
 
     Returns:
         True if saved successfully
+
+    Design note:
+        If the existing file is malformed JSON, this returns False rather than
+        force-overwriting. This is the safest approach as it prevents data loss
+        and guides users to run `claude setup-token` which properly recreates
+        the credential store. A backup strategy was considered but adds complexity
+        without significant benefit since setup-token is the canonical recovery path.
     """
     try:
         # Read existing file to preserve other data
@@ -557,6 +569,11 @@ def get_auth_token(verbose: bool = False) -> str | None:
 
     NOTE: ANTHROPIC_API_KEY is intentionally NOT supported to prevent
     silent billing to user's API credits when OAuth is misconfigured.
+
+    Side effects:
+        - If token is refreshed, updates CLAUDE_CODE_OAUTH_TOKEN env var
+          (process-level only, not persisted to system environment)
+        - If token is refreshed, updates credential store via save_credentials()
 
     Args:
         verbose: If True, print user-facing messages during refresh
