@@ -126,6 +126,9 @@ BUILTIN_TOOLS = [
     "Glob",
     "Grep",
     "Bash",
+    "WebSearch",
+    "WebFetch",
+    "Task",
 ]
 
 
@@ -167,6 +170,9 @@ def create_client(
 
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
     sdk_env = get_sdk_env_vars()
+
+    # Get explicit CLI path if set (fixes Issue #529 for packaged Electron apps)
+    cli_path = os.environ.get("CLAUDE_CLI_PATH")
 
     # Check if Linear integration is enabled
     linear_enabled = is_linear_enabled()
@@ -234,6 +240,10 @@ def create_client(
                 # Bash permission granted here, but actual commands are validated
                 # by the bash_security_hook (see security.py for allowed commands)
                 "Bash(*)",
+                # Allow web tools for research and documentation
+                "WebSearch(*)",
+                "WebFetch(*)",
+                "Task(*)",
                 # Allow Context7 MCP tools for documentation lookup
                 *CONTEXT7_TOOLS,
                 # Allow Linear MCP tools for project management (if enabled)
@@ -338,6 +348,7 @@ def create_client(
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
             model=model,
+            cli_path=cli_path,  # Explicit CLI path for packaged Electron apps (Issue #529)
             system_prompt=(
                 f"You are an expert full-stack developer building production-quality software. "
                 f"Your working directory is: {project_dir.resolve()}\n"
