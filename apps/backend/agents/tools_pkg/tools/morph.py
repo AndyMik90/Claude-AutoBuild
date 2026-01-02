@@ -37,6 +37,25 @@ from services.morph_client import (  # noqa: E402  # type: ignore[reportImplicit
 
 logger = logging.getLogger(__name__)
 
+# Maximum characters to include in error messages for transformed content
+MAX_CONTENT_IN_ERROR = 500
+
+
+def _truncate_content(content: str, max_chars: int = MAX_CONTENT_IN_ERROR) -> str:
+    """
+    Truncate content for inclusion in error messages.
+
+    Args:
+        content: The content to truncate
+        max_chars: Maximum characters to include
+
+    Returns:
+        Truncated content with indicator if truncated
+    """
+    if len(content) <= max_chars:
+        return content
+    return content[:max_chars] + f"\n\n... [truncated, {len(content) - max_chars} more characters]"
+
 # Tool description following Morph's edit_file pattern
 # See: https://docs.morphllm.com/guides/agent-tools
 MORPH_APPLY_DESCRIPTION = """Use this tool to make an edit to an existing file using Morph Fast Apply.
@@ -253,6 +272,8 @@ def create_morph_tools(spec_dir: Path, project_dir: Path) -> list[Any]:
                     try:
                         file_path.write_text(result.new_content, encoding="utf-8")
                     except PermissionError:
+                        # Truncate content to avoid bloating error messages
+                        truncated = _truncate_content(result.new_content)
                         return {
                             "content": [
                                 {
@@ -260,12 +281,14 @@ def create_morph_tools(spec_dir: Path, project_dir: Path) -> list[Any]:
                                     "text": (
                                         f"Error: Permission denied writing to file: {target_file}. "
                                         f"Edit was computed but could not be saved.\n\n"
-                                        f"Transformed content:\n\n{result.new_content}"
+                                        f"Transformed content (preview):\n\n{truncated}"
                                     ),
                                 }
                             ]
                         }
                     except Exception as e:
+                        # Truncate content to avoid bloating error messages
+                        truncated = _truncate_content(result.new_content)
                         return {
                             "content": [
                                 {
@@ -273,7 +296,7 @@ def create_morph_tools(spec_dir: Path, project_dir: Path) -> list[Any]:
                                     "text": (
                                         f"Error: Failed to write file {target_file}: {str(e)}. "
                                         f"Edit was computed but could not be saved.\n\n"
-                                        f"Transformed content:\n\n{result.new_content}"
+                                        f"Transformed content (preview):\n\n{truncated}"
                                     ),
                                 }
                             ]
