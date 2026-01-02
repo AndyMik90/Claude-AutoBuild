@@ -26,7 +26,8 @@ function createMockProcess() {
 // Mock child_process - must be BEFORE imports of modules that use it
 const spawnCalls: Array<{ command: string; args: string[]; options: { env: Record<string, string>; cwd?: string; [key: string]: unknown } }> = [];
 
-vi.mock('child_process', () => {
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
   const mockSpawn = vi.fn((command: string, args: string[], options: { env: Record<string, string>; cwd?: string; [key: string]: unknown }) => {
     // Record the call for test assertions
     spawnCalls.push({ command, args, options });
@@ -34,18 +35,14 @@ vi.mock('child_process', () => {
   });
 
   return {
+    ...actual,
     spawn: mockSpawn,
     execSync: vi.fn((command: string) => {
       if (command.includes('git')) {
         return '/fake/path';
       }
       return '';
-    }),
-    // Include default for ESM compatibility
-    default: {
-      spawn: mockSpawn,
-      execSync: vi.fn()
-    }
+    })
   };
 });
 

@@ -10,11 +10,15 @@ const mockSpawn = vi.fn();
 const mockExecSync = vi.fn();
 const mockExecFileSync = vi.fn();
 
-vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
-  execSync: (...args: unknown[]) => mockExecSync(...args),
-  execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
-}));
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: unknown[]) => mockSpawn(...args),
+    execSync: (...args: unknown[]) => mockExecSync(...args),
+    execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
+  };
+});
 
 // Mock shell.openExternal
 const mockOpenExternal = vi.fn();

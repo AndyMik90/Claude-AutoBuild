@@ -30,9 +30,13 @@ const mockProcess = Object.assign(new EventEmitter(), {
   })
 });
 
-vi.mock('child_process', () => ({
-  spawn: vi.fn(() => mockProcess)
-}));
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: vi.fn(() => mockProcess)
+  };
+});
 
 // Mock claude-profile-manager to bypass auth checks in tests
 vi.mock('../../main/claude-profile-manager', () => ({
