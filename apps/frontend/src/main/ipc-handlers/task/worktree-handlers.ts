@@ -1701,9 +1701,11 @@ export function registerWorktreeHandlers(
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
               // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
+              // FIX: Worktree plan path must include .auto-claude/specs/{specId}/ structure
+              const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
               const planPaths = [
                 { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
-                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
+                { path: path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
               ];
 
               const { promises: fsPromises } = require('fs');
