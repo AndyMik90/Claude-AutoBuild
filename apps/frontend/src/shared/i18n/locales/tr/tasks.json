@@ -1,0 +1,102 @@
+{
+    "status": {
+        "backlog": "Backlog",
+        "todo": "Yapılacak",
+        "in_progress": "Devam Ediyor",
+        "review": "İnceleme",
+        "complete": "Tamamlandı",
+        "archived": "Arşivlendi"
+    },
+    "actions": {
+        "start": "Başlat",
+        "stop": "Durdur",
+        "recover": "Kurtar",
+        "resume": "Devam Et",
+        "archive": "Arşivle",
+        "delete": "Sil",
+        "view": "Ayrıntıları Görüntüle"
+    },
+    "labels": {
+        "running": "Çalışıyor",
+        "aiReview": "AI İnceleme",
+        "needsReview": "İnceleme Gerekiyor",
+        "pending": "Beklemede",
+        "stuck": "Takıldı",
+        "incomplete": "Tamamlanmadı",
+        "recovering": "Kurtarılıyor...",
+        "needsRecovery": "Kurtarma Gerekiyor",
+        "needsResume": "Devam Etme Gerekiyor"
+    },
+    "reviewReason": {
+        "completed": "Tamamlandı",
+        "hasErrors": "Hatalar Var",
+        "qaIssues": "QA Sorunları",
+        "approvePlan": "Planı Onayla"
+    },
+    "tooltips": {
+        "archiveTask": "Görevi arşivle",
+        "archiveAllDone": "Tamamlanan tüm görevleri arşivle"
+    },
+    "creation": {
+        "title": "Yeni Görev Oluştur",
+        "description": "Ne oluşturmak istediğinizi açıklayın",
+        "placeholder": "Görevinizi açıklayın..."
+    },
+    "empty": {
+        "title": "Henüz görev yok",
+        "description": "Başlamak için ilk görevinizi oluşturun"
+    },
+    "kanban": {
+        "emptyBacklog": "Planlanmış görev yok",
+        "emptyBacklogHint": "Başlamak için bir görev ekleyin",
+        "emptyInProgress": "Çalışan bir şey yok",
+        "emptyInProgressHint": "Backlog'dan bir görev başlatın",
+        "emptyAiReview": "İncelemede görev yok",
+        "emptyAiReviewHint": "AI tamamlanan görevleri inceleyecek",
+        "emptyHumanReview": "İncelenecek bir şey yok",
+        "emptyHumanReviewHint": "Görevler onayınızı burada bekleyecek",
+        "emptyDone": "Tamamlanan görev yok",
+        "emptyDoneHint": "Onaylanan görevler burada görünür",
+        "emptyDefault": "Görev yok",
+        "dropHere": "Buraya bırakın",
+        "showArchived": "Arşivlenenleri göster"
+    },
+    "execution": {
+        "phases": {
+            "idle": "Boşta",
+            "planning": "Planlama",
+            "coding": "Kodlama",
+            "reviewing": "İnceleme",
+            "fixing": "Düzeltme",
+            "complete": "Tamamlandı",
+            "failed": "Başarısız"
+        },
+        "labels": {
+            "interrupted": "Kesintiye Uğradı",
+            "progress": "İlerleme",
+            "entry": "girdi",
+            "entries": "girdi"
+        },
+        "shortPhases": {
+            "plan": "Plan",
+            "code": "Kod",
+            "qa": "QA"
+        }
+    },
+    "files": {
+        "title": "Dosyalar",
+        "tab": "Dosyalar",
+        "noSpecPath": "Spec dosyaları mevcut değil",
+        "noFiles": "Dosya bulunamadı",
+        "loading": "Dosyalar yükleniyor...",
+        "loadingContent": "İçerik yükleniyor...",
+        "errorLoading": "Dosyalar yüklenemedi",
+        "errorLoadingContent": "Dosya içeriği yüklenemedi",
+        "retry": "Tekrar Dene",
+        "selectFile": "İçeriğini görüntülemek için bir dosya seçin",
+        "openInIDE": "IDE'de Aç"
+    },
+    "metadata": {
+        "severity": "önem"
+    }
+}

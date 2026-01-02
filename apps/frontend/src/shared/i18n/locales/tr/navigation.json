@@ -1,0 +1,50 @@
+{
+    "sections": {
+        "project": "Proje",
+        "tools": "Araçlar"
+    },
+    "items": {
+        "kanban": "Kanban Panosu",
+        "terminals": "Agent Terminalleri",
+        "insights": "İçgörüler",
+        "roadmap": "Yol Haritası",
+        "ideation": "Fikir Üretme",
+        "changelog": "Değişiklik Günlüğü",
+        "context": "Bağlam",
+        "githubIssues": "GitHub Sorunları",
+        "githubPRs": "GitHub PR'ları",
+        "gitlabIssues": "GitLab Sorunları",
+        "gitlabMRs": "GitLab MR'ları",
+        "worktrees": "Worktree'ler",
+        "agentTools": "MCP Genel Bakış"
+    },
+    "actions": {
+        "settings": "Ayarlar",
+        "help": "Yardım & Geri Bildirim",
+        "newTask": "Yeni Görev"
+    },
+    "tooltips": {
+        "settings": "Uygulama Ayarları",
+        "help": "Yardım & Geri Bildirim"
+    },
+    "messages": {
+        "initializeToCreateTasks": "Görev oluşturmak için Auto Claude'u başlatın"
+    },
+    "claudeCode": {
+        "checking": "Claude Code kontrol ediliyor...",
+        "upToDate": "Claude Code güncel",
+        "updateAvailable": "Claude Code güncellemesi mevcut",
+        "notInstalled": "Claude Code yüklü değil",
+        "error": "Claude Code kontrol edilirken hata",
+        "installed": "Yüklü",
+        "outdated": "Güncelleme mevcut",
+        "missing": "Yüklü değil",
+        "current": "Mevcut",
+        "latest": "En son",
+        "lastChecked": "Son kontrol",
+        "learnMore": "Claude Code hakkında daha fazla bilgi",
+        "updateWarningTitle": "Claude Code güncellensin mi?",
+        "updateWarningDescription": "Güncelleme tüm çalışan Claude Code oturumlarını kapatacak. Bu oturumlardaki kaydedilmemiş çalışmalar kaybolabilir. Devam etmeden önce çalışmanızı kaydettiğinizden emin olun.",
+        "updateAnyway": "Yine de Güncelle"
+    }
+}

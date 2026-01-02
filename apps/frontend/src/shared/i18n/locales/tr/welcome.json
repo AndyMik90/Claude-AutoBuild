@@ -1,0 +1,16 @@
+{
+    "hero": {
+        "title": "Auto Claude'a Hoş Geldiniz",
+        "subtitle": "AI destekli ajanlarla otonom olarak yazılım oluşturun"
+    },
+    "actions": {
+        "newProject": "Yeni Proje",
+        "openProject": "Proje Aç"
+    },
+    "recentProjects": {
+        "title": "Son Projeler",
+        "empty": "Henüz proje yok",
+        "emptyDescription": "Başlamak için yeni bir proje oluşturun veya mevcut bir projeyi açın",
+        "openFolder": "Klasör Aç"
+    }
+}

@@ -1,0 +1,139 @@
+{
+    "wizard": {
+        "title": "Kurulum Sihirbazı",
+        "description": "Auto Claude ortamınızı birkaç basit adımda yapılandırın",
+        "helpText": "Bu sihirbaz, ortamınızı sadece birkaç adımda kurmanıza yardımcı olacak. Claude OAuth tokeninizi yapılandırabilir, bellek özelliklerini ayarlayabilir ve ilk görevinizi oluşturabilirsiniz."
+    },
+    "welcome": {
+        "title": "Auto Claude'a Hoş Geldiniz",
+        "subtitle": "AI destekli ajanlarla otonom olarak yazılım oluşturun",
+        "getStarted": "Başlayın",
+        "skip": "Kurulumu Atla",
+        "features": {
+            "aiPowered": {
+                "title": "AI Destekli Geliştirme",
+                "description": "Claude Code ajanlarını kullanarak kod oluşturun ve özellikler geliştirin"
+            },
+            "specDriven": {
+                "title": "Spesifikasyon Odaklı İş Akışı",
+                "description": "Net spesifikasyonlarla görevler tanımlayın ve uygulamayı Auto Claude'a bırakın"
+            },
+            "memory": {
+                "title": "Bellek & Bağlam",
+                "description": "Graphiti ile oturumlar arası kalıcı bellek"
+            },
+            "parallel": {
+                "title": "Paralel Yürütme",
+                "description": "Daha hızlı geliştirme döngüleri için birden fazla ajanı paralel çalıştırın"
+            }
+        }
+    },
+    "oauth": {
+        "title": "Claude Kimlik Doğrulama",
+        "description": "AI özelliklerini etkinleştirmek için Claude hesabınızı bağlayın",
+        "keychainTitle": "Güvenli Depolama",
+        "keychainDescription": "Tokenleriniz sisteminizin anahtar zinciri kullanılarak şifrelenir. macOS'tan bir parola istemi görebilirsiniz — tekrar görmemek için \"Her Zaman İzin Ver\"e tıklayın."
+    },
+    "memory": {
+        "title": "Bellek",
+        "description": "Auto Claude Bellek, kodlama oturumlarınız boyunca bağlamı hatırlamaya yardımcı olur"
+    },
+    "completion": {
+        "title": "Hazırsınız!",
+        "subtitle": "Auto Claude, harika yazılımlar oluşturmanıza yardımcı olmaya hazır",
+        "setupComplete": "Kurulum Tamamlandı",
+        "setupCompleteDescription": "Ortamınız yapılandırıldı ve hazır. Hemen görev oluşturmaya başlayabilir veya uygulamayı kendi hızınızda keşfedebilirsiniz.",
+        "whatsNext": "Sırada Ne Var?",
+        "createTask": {
+            "title": "Bir Görev Oluşturun",
+            "description": "Auto Claude'u çalışırken görmek için ilk görevinizi oluşturarak başlayın.",
+            "action": "Görev Oluşturucuyu Aç"
+        },
+        "customizeSettings": {
+            "title": "Ayarları Özelleştirin",
+            "description": "Tercihlerinizi ince ayarlayın, entegrasyonları yapılandırın veya bu sihirbazı yeniden çalıştırın.",
+            "action": "Ayarları Aç"
+        },
+        "exploreDocs": {
+            "title": "Dokümantasyonu Keşfedin",
+            "description": "Gelişmiş özellikler, en iyi uygulamalar ve sorun giderme hakkında daha fazla bilgi edinin."
+        },
+        "finish": "Bitir & Oluşturmaya Başla",
+        "rerunHint": "Bu sihirbazı her zaman Ayarlar → Uygulama'dan yeniden çalıştırabilirsiniz"
+    },
+    "steps": {
+        "welcome": "Hoş Geldiniz",
+        "authChoice": "Kimlik Doğrulama Yöntemi",
+        "auth": "Kimlik Doğrulama",
+        "claudeCode": "CLI",
+        "devtools": "Geliştirici Araçları",
+        "memory": "Bellek",
+        "done": "Bitti"
+    },
+    "claudeCode": {
+        "title": "Claude Code CLI",
+        "description": "AI destekli özellikleri etkinleştirmek için Claude Code CLI'yi yükleyin veya güncelleyin",
+        "detecting": "Claude Code kurulumu kontrol ediliyor...",
+        "info": {
+            "title": "Claude Code Nedir?",
+            "description": "Claude Code, Auto Claude'un AI özelliklerini destekleyen Anthropic'in resmi CLI'sidir. Güvenli kimlik doğrulama ve Claude modellerine doğrudan erişim sağlar."
+        },
+        "status": {
+            "installed": "Yüklü",
+            "outdated": "Güncelleme Mevcut",
+            "notFound": "Yüklü Değil"
+        },
+        "version": {
+            "current": "Mevcut Sürüm",
+            "latest": "En Son Sürüm"
+        },
+        "install": {
+            "button": "Claude Code'u Yükle",
+            "updating": "Claude Code'u Güncelle",
+            "inProgress": "Yükleniyor...",
+            "success": "Yükleme komutu terminale gönderildi. Lütfen kurulumu orada tamamlayın.",
+            "instructions": "Yükleyici terminalinizde açılacak. Kurulumu tamamlamak için istemleri takip edin."
+        },
+        "learnMore": "Claude Code hakkında daha fazla bilgi"
+    },
+    "devtools": {
+        "title": "Geliştirici Araçları",
+        "description": "Auto Claude worktree'leriyle çalışmak için tercih ettiğiniz IDE ve terminali seçin",
+        "detecting": "Yüklü araçlar algılanıyor...",
+        "detectAgain": "Tekrar Algıla",
+        "whyConfigure": "Bunları neden yapılandırmalı?",
+        "whyConfigureDescription": "Auto Claude izole worktree'lerde özellikler oluştururken, değişiklikleri test etmek ve incelemek için bunları doğrudan tercih ettiğiniz IDE veya terminalinde açabilirsiniz.",
+        "ide": {
+            "label": "Tercih Edilen IDE",
+            "description": "Auto Claude worktree'leri bu editörde açacak",
+            "customPath": "Özel IDE Yolu"
+        },
+        "terminal": {
+            "label": "Tercih Edilen Terminal",
+            "description": "Auto Claude terminal oturumlarını burada açacak",
+            "customPath": "Özel Terminal Yolu"
+        },
+        "detectedSummary": "Sisteminizde algılanan:",
+        "noToolsDetected": "Ek araç algılanmadı (VS Code ve sistem terminali kullanılacak)",
+        "custom": "Özel...",
+        "saveAndContinue": "Kaydet & Devam Et"
+    },
+    "ollama": {
+        "notInstalled": {
+            "title": "Ollama yüklü değil",
+            "description": "Ollama, semantik arama için ücretsiz, yerel gömme modelleri sağlar. Bu özelliği etkinleştirmek için tek tıkla yükleyin.",
+            "installSuccess": "Kurulum terminalinizde başladı. Kurulumu orada tamamlayın, sonra Tekrar Dene'ye tıklayın.",
+            "installButton": "Ollama'yı Yükle",
+            "installing": "Yükleniyor...",
+            "retry": "Tekrar Dene",
+            "learnMore": "Daha fazla bilgi",
+            "fallbackNote": "Ollama olmadan bile bellek anahtar kelime aramasıyla çalışmaya devam edecek."
+        },
+        "notRunning": {
+            "title": "Ollama çalışmıyor",
+            "description": "Ollama yüklü ama çalışmıyor. Yerel gömme modellerini kullanmak için Ollama'yı başlatın.",
+            "retry": "Tekrar Dene",
+            "fallbackNote": "Gömmeler olmadan bile bellek anahtar kelime aramasıyla çalışmaya devam edecek."
+        }
+    }
+}

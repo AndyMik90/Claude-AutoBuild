@@ -1,0 +1,208 @@
+{
+    "title": "GitLab Sorunları",
+    "states": {
+        "opened": "Açık",
+        "closed": "Kapalı"
+    },
+    "complexity": {
+        "simple": "Basit",
+        "standard": "Standart",
+        "complex": "Karmaşık"
+    },
+    "header": {
+        "open": "açık",
+        "searchPlaceholder": "Sorunları ara..."
+    },
+    "filters": {
+        "opened": "Açık",
+        "closed": "Kapalı",
+        "all": "Tümü"
+    },
+    "empty": {
+        "noMatch": "Aramanızla eşleşen sorun yok",
+        "selectIssue": "Ayrıntıları görüntülemek için bir sorun seçin"
+    },
+    "notConnected": {
+        "title": "GitLab Bağlı Değil",
+        "description": "Sorunları senkronize etmek için proje ayarlarında GitLab token ve projenizi yapılandırın.",
+        "openSettings": "Ayarları Aç"
+    },
+    "detail": {
+        "notes": "notlar",
+        "viewTask": "Görevi Görüntüle",
+        "createTask": "Görev Oluştur",
+        "taskLinked": "Görev Bağlandı",
+        "taskId": "Görev ID",
+        "description": "Açıklama",
+        "noDescription": "Açıklama sağlanmadı.",
+        "assignees": "Atanan Kişiler",
+        "milestone": "Kilometre Taşı"
+    },
+    "investigation": {
+        "title": "Sorundan Görev Oluştur",
+        "issuePrefix": "Sorun",
+        "description": "Bu GitLab sorundan bir görev oluşturun. Görev Kanban panonuza Backlog sütununda eklenecek.",
+        "selectNotes": "Dahil Edilecek Notları Seç",
+        "deselectAll": "Seçimi Kaldır",
+        "selectAll": "Tümünü Seç",
+        "willInclude": "Görev şunları içerecek:",
+        "includeTitle": "Sorun başlığı ve açıklaması",
+        "includeLink": "GitLab sorununa geri bağlantı",
+        "includeLabels": "Sorundan etiketler ve meta veriler",
+        "noNotes": "Not yok (bu sorunun notu yok)",
+        "failedToLoadNotes": "Notlar yüklenemedi",
+        "taskCreated": "Görev oluşturuldu! Kanban panonuzda görüntüleyin.",
+        "creating": "Oluşturuluyor...",
+        "cancel": "İptal",
+        "done": "Bitti",
+        "close": "Kapat"
+    },
+    "settings": {
+        "enableIssues": "GitLab Sorunları Etkinleştir",
+        "enableIssuesDescription": "GitLab'dan sorunları senkronize edin ve otomatik görevler oluşturun",
+        "instance": "GitLab Örneği",
+        "instanceDescription": "https://gitlab.com veya kendi barındırılan örnek URL'nizi kullanın",
+        "connectedVia": "GitLab CLI üzerinden bağlı",
+        "authenticatedAs": "Kimlik doğrulaması yapılan:",
+        "useDifferentToken": "Farklı Token Kullan",
+        "authentication": "GitLab Kimlik Doğrulama",
+        "useManualToken": "Manuel Token Kullan",
+        "authenticating": "glab CLI ile kimlik doğrulanıyor...",
+        "browserWindow": "Giriş yapmanız için bir tarayıcı penceresi açılmalı.",
+        "personalAccessToken": "Kişisel Erişim Tokeni",
+        "useOAuth": "Bunun Yerine OAuth Kullan",
+        "tokenScope": "Şu kapsamda bir token oluşturun:",
+        "scopeApi": "api",
+        "scopeFrom": "kapsamı şuradan:",
+        "gitlabSettings": "GitLab Ayarları",
+        "project": "Proje",
+        "enterManually": "Manuel Gir",
+        "loadingProjects": "Projeler yükleniyor...",
+        "selectProject": "Bir proje seçin...",
+        "searchProjects": "Projeleri ara...",
+        "noMatchingProjects": "Eşleşen proje yok",
+        "noProjectsFound": "Proje bulunamadı",
+        "selected": "Seçili",
+        "projectFormat": "Format:",
+        "projectFormatExample": "(örn. gitlab-org/gitlab)",
+        "connectionStatus": "Bağlantı Durumu",
+        "checking": "Kontrol ediliyor...",
+        "connectedTo": "Bağlandı:",
+        "notConnected": "Bağlı değil",
+        "issuesAvailable": "Sorunlar Mevcut",
+        "issuesAvailableDescription": "Sorunları görüntülemek, araştırmak ve görevler oluşturmak için kenar çubuğundan GitLab Sorunlarına erişin.",
+        "defaultBranch": "Varsayılan Dal",
+        "defaultBranchDescription": "Görev worktree'leri oluşturmak için temel dal",
+        "loadingBranches": "Dallar yükleniyor...",
+        "autoDetect": "Otomatik algıla (main/master)",
+        "searchBranches": "Dalları ara...",
+        "noMatchingBranches": "Eşleşen dal yok",
+        "noBranchesFound": "Dal bulunamadı",
+        "branchFromNote": "Tüm yeni görevler şu daldan oluşturulacak:",
+        "autoSyncOnLoad": "Yüklemede Otomatik Senkronize",
+        "autoSyncDescription": "Proje yüklendiğinde sorunları otomatik olarak al",
+        "cli": {
+            "required": "GitLab CLI Gerekli",
+            "notInstalled": "OAuth kimlik doğrulaması için GitLab CLI (glab) gereklidir. 'OAuth Kullan' seçeneğini kullanmak için yükleyin.",
+            "installButton": "glab'ı Yükle",
+            "installing": "Yükleniyor...",
+            "installSuccess": "Yükleme terminalinizde başladı. Tamamlayın ve Yenile'ye tıklayın.",
+            "refresh": "Yenile",
+            "learnMore": "Daha fazla bilgi",
+            "installed": "GitLab CLI yüklendi:"
+        }
+    },
+    "mergeRequests": {
+        "title": "GitLab Birleştirme İstekleri",
+        "newMR": "Yeni Birleştirme İsteği",
+        "selectMR": "Ayrıntıları görüntülemek için bir birleştirme isteği seçin",
+        "states": {
+            "opened": "Açık",
+            "closed": "Kapalı",
+            "merged": "Birleştirildi",
+            "locked": "Kilitli"
+        },
+        "filters": {
+            "opened": "Açık",
+            "closed": "Kapalı",
+            "merged": "Birleştirildi",
+            "all": "Tümü"
+        }
+    },
+    "mrReview": {
+        "runReview": "AI İncelemesi Başlat",
+        "reviewing": "İnceleniyor...",
+        "followupReview": "Takip İncelemesi",
+        "newCommits": "yeni commit",
+        "newCommitsPlural": "yeni commit",
+        "cancel": "İptal",
+        "postFindings": "Bulguları Gönder",
+        "posting": "Gönderiliyor...",
+        "postedTo": "GitLab'a Gönderildi",
+        "approve": "Onayla",
+        "approving": "Onaylanıyor...",
+        "merge": "MR Birleştir",
+        "merging": "Birleştiriliyor...",
+        "aiReviewResult": "AI İnceleme Sonucu",
+        "followupReviewResult": "Takip İncelemesi",
+        "description": "Açıklama",
+        "noDescription": "Açıklama sağlanmadı.",
+        "labels": "Etiketler",
+        "status": {
+            "notReviewed": "İncelenmedi",
+            "notReviewedDesc": "Bu MR'ı analiz etmek için AI incelemesi çalıştırın",
+            "reviewComplete": "İnceleme Tamamlandı",
+            "reviewCompleteDesc": "bulgu bulundu. Seçin ve GitLab'a gönderin.",
+            "waitingForChanges": "Değişiklikler Bekleniyor",
+            "waitingForChangesDesc": "bulgu gönderildi. Katkıda bulunanın sorunları çözmesi bekleniyor.",
+            "readyToMerge": "Birleştirmeye Hazır",
+            "readyToMergeDesc": "Engelleyici sorun bulunamadı. Bu MR birleştirilebilir.",
+            "needsAttention": "Dikkat Gerekiyor",
+            "needsAttentionDesc": "bulgu GitLab'a gönderilmeli.",
+            "readyForFollowup": "Takip İçin Hazır",
+            "readyForFollowupDesc": "incelemeden bu yana. Sorunların çözülüp çözülmediğini kontrol etmek için takip çalıştırın.",
+            "blockingIssues": "Engelleyici Sorunlar",
+            "blockingIssuesDesc": "engelleyici sorun hala açık."
+        },
+        "overallStatus": {
+            "approve": "Onayla",
+            "requestChanges": "Değişiklik İstendi",
+            "comment": "Yorum"
+        },
+        "resolution": {
+            "resolved": "çözüldü",
+            "stillOpen": "hala açık",
+            "newIssue": "yeni sorun",
+            "newIssues": "yeni sorunlar"
+        }
+    },
+    "findings": {
+        "summary": "seçili",
+        "selectCriticalHigh": "Engelleyici/Gerekli Seç",
+        "selectAll": "Tümünü Seç",
+        "clear": "Temizle",
+        "noIssues": "Sorun bulunamadı! Kod iyi görünüyor.",
+        "suggestedFix": "Önerilen düzeltme:",
+        "posted": "Gönderildi",
+        "severity": {
+            "critical": "Engelleyici",
+            "criticalDesc": "Düzeltilmeli",
+            "high": "Gerekli",
+            "highDesc": "Düzeltilmeli",
+            "medium": "Önerilen",
+            "mediumDesc": "Kaliteyi artır",
+            "low": "Öneri",
+            "lowDesc": "Değerlendirin"
+        },
+        "category": {
+            "security": "Güvenlik",
+            "quality": "Kalite",
+            "style": "Stil",
+            "test": "Test",
+            "docs": "Dokümantasyon",
+            "pattern": "Desen",
+            "performance": "Performans",
+            "logic": "Mantık"
+        }
+    }
+}
