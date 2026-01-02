@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
@@ -262,6 +262,12 @@ export function useIpcListeners(): void {
 
     // Cleanup on unmount
     return () => {
+      // Flush any pending batched updates before cleanup
+      if (batchTimeout) {
+        clearTimeout(batchTimeout);
+        flushBatch();
+        batchTimeout = null;
+      }
       cleanupProgress();
       cleanupError();
       cleanupLog();

@@ -55,6 +55,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   const phase = rawPhase || 'idle';
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const prevVisibleRef = useRef(true);
 
   // Use IntersectionObserver to pause animations when component is not visible
   useEffect(() => {
@@ -63,13 +64,13 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        const wasVisible = isVisible;
         const nowVisible = entry.isIntersecting;
 
-        if (wasVisible !== nowVisible && window.DEBUG) {
-          console.log(`[PhaseProgress] Visibility changed: ${wasVisible} -> ${nowVisible}, animations ${nowVisible ? 'resumed' : 'paused'}`);
+        if (prevVisibleRef.current !== nowVisible && window.DEBUG) {
+          console.log(`[PhaseProgress] Visibility changed: ${prevVisibleRef.current} -> ${nowVisible}, animations ${nowVisible ? 'resumed' : 'paused'}`);
         }
 
+        prevVisibleRef.current = nowVisible;
         setIsVisible(nowVisible);
       },
       { threshold: 0.1 }
@@ -77,7 +78,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [isVisible]);
+  }, []);
 
   // Only animate when visible and running
   const shouldAnimate = isVisible && isRunning && !isStuck;

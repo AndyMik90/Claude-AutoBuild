@@ -302,10 +302,15 @@ export function registerTaskExecutionHandlers(
       if (approved) {
         // Write approval to QA report
         const qaReportPath = path.join(specDir, AUTO_BUILD_PATHS.QA_REPORT);
-        writeFileSync(
-          qaReportPath,
-          `# QA Review\n\nStatus: APPROVED\n\nReviewed at: ${new Date().toISOString()}\n`
-        );
+        try {
+          writeFileSync(
+            qaReportPath,
+            `# QA Review\n\nStatus: APPROVED\n\nReviewed at: ${new Date().toISOString()}\n`
+          );
+        } catch (error) {
+          console.error('[TASK_REVIEW] Failed to write QA report:', error);
+          return { success: false, error: 'Failed to write QA report file' };
+        }
 
         const mainWindow = getMainWindow();
         if (mainWindow) {
@@ -361,10 +366,15 @@ export function registerTaskExecutionHandlers(
         console.warn('[TASK_REVIEW] Writing QA fix request to:', fixRequestPath);
         console.warn('[TASK_REVIEW] hasWorktree:', hasWorktree, 'worktreePath:', worktreePath);
 
-        writeFileSync(
-          fixRequestPath,
-          `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
-        );
+        try {
+          writeFileSync(
+            fixRequestPath,
+            `# QA Fix Request\n\nStatus: REJECTED\n\n## Feedback\n\n${feedback || 'No feedback provided'}\n\nCreated at: ${new Date().toISOString()}\n`
+          );
+        } catch (error) {
+          console.error('[TASK_REVIEW] Failed to write QA fix request:', error);
+          return { success: false, error: 'Failed to write QA fix request file' };
+        }
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
@@ -687,7 +697,15 @@ export function registerTaskExecutionHandlers(
             // Just update status in plan file (project store reads from file, no separate update needed)
             plan.status = 'human_review';
             plan.planStatus = 'review';
-            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            try {
+              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            } catch (writeError) {
+              console.error('[Recovery] Failed to write plan file:', writeError);
+              return {
+                success: false,
+                error: 'Failed to write plan file'
+              };
+            }
 
             return {
               success: true,
@@ -732,7 +750,15 @@ export function registerTaskExecutionHandlers(
             }
           }
 
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          try {
+            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          } catch (writeError) {
+            console.error('[Recovery] Failed to write plan file:', writeError);
+            return {
+              success: false,
+              error: 'Failed to write plan file during recovery'
+            };
+          }
         }
 
         // Stop file watcher if it was watching this task
@@ -783,7 +809,13 @@ export function registerTaskExecutionHandlers(
             if (plan) {
               plan.status = 'in_progress';
               plan.planStatus = 'in_progress';
-              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              try {
+                writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              } catch (writeError) {
+                console.error('[Recovery] Failed to write plan file for restart:', writeError);
+                // Continue with restart attempt even if file write fails
+                // The plan status will be updated by the agent when it starts
+              }
             }
 
             // Start the task execution

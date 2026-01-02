@@ -15,6 +15,7 @@ single source of truth for phase-aware tool and MCP server configuration.
 import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_INDEX_CACHE: dict[str, tuple[dict[str, Any], dict[str, bool], float]] = {}
 _CACHE_TTL_SECONDS = 300  # 5 minute TTL
+_CACHE_LOCK = threading.Lock()  # Protects _PROJECT_INDEX_CACHE access
 
 
 def _get_cached_project_data(
@@ -48,23 +50,24 @@ def _get_cached_project_data(
     now = time.time()
     debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
 
-    # Check cache
-    if key in _PROJECT_INDEX_CACHE:
-        cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
-        cache_age = now - cached_time
-        if cache_age < _CACHE_TTL_SECONDS:
-            if debug:
+    # Check cache with lock
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = now - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                if debug:
+                    print(
+                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    )
+                logger.debug(f"Using cached project index for {project_dir}")
+                return cached_index, cached_capabilities
+            elif debug:
                 print(
-                    f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
                 )
-            logger.debug(f"Using cached project index for {project_dir}")
-            return cached_index, cached_capabilities
-        elif debug:
-            print(
-                f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
-            )
 
-    # Cache miss or expired - load fresh data
+    # Cache miss or expired - load fresh data (outside lock to avoid blocking)
     load_start = time.time()
     logger.debug(f"Loading project index for {project_dir}")
     project_index = load_project_index(project_dir)
@@ -76,8 +79,9 @@ def _get_cached_project_data(
             f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
         )
 
-    # Store in cache
-    _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, now)
+    # Store in cache with lock
+    with _CACHE_LOCK:
+        _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, now)
 
     return project_index, project_capabilities
 
@@ -89,15 +93,15 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
     Args:
         project_dir: Specific project to invalidate, or None to clear all
     """
-    global _PROJECT_INDEX_CACHE
-    if project_dir is None:
-        _PROJECT_INDEX_CACHE.clear()
-        logger.debug("Cleared all project index cache entries")
-    else:
-        key = str(project_dir.resolve())
-        if key in _PROJECT_INDEX_CACHE:
-            del _PROJECT_INDEX_CACHE[key]
-            logger.debug(f"Invalidated project index cache for {project_dir}")
+    with _CACHE_LOCK:
+        if project_dir is None:
+            _PROJECT_INDEX_CACHE.clear()
+            logger.debug("Cleared all project index cache entries")
+        else:
+            key = str(project_dir.resolve())
+            if key in _PROJECT_INDEX_CACHE:
+                del _PROJECT_INDEX_CACHE[key]
+                logger.debug(f"Invalidated project index cache for {project_dir}")
 
 
 from agents.tools_pkg import (

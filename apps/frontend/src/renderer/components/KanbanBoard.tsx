@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useViewState } from '../contexts/ViewStateContext';
 import {
@@ -143,6 +143,15 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   // Memoize taskIds to prevent SortableContext from re-rendering unnecessarily
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
 
+  // Create stable onClick handlers for each task to prevent unnecessary re-renders
+  const onClickHandlers = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    tasks.forEach((task) => {
+      handlers.set(task.id, () => onTaskClick(task));
+    });
+    return handlers;
+  }, [tasks, onTaskClick]);
+
   // Memoize task card elements to prevent recreation on every render
   const taskCards = useMemo(() => {
     if (tasks.length === 0) return null;
@@ -150,10 +159,10 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <SortableTaskCard
         key={task.id}
         task={task}
-        onClick={() => onTaskClick(task)}
+        onClick={onClickHandlers.get(task.id)!}
       />
     ));
-  }, [tasks, onTaskClick]);
+  }, [tasks, onClickHandlers]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {

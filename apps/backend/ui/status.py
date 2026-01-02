@@ -114,6 +114,7 @@ class StatusManager:
         self._status = BuildStatus()
         self._write_pending = False
         self._write_timer: threading.Timer | None = None
+        self._write_lock = threading.Lock()  # Protects _write_pending and _write_timer
 
     def read(self) -> BuildStatus:
         """Read current status from file."""
@@ -136,8 +137,9 @@ class StatusManager:
         debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
         write_start = time.time()
 
-        self._write_pending = False
-        self._write_timer = None
+        with self._write_lock:
+            self._write_pending = False
+            self._write_timer = None
         self._status.last_update = datetime.now().isoformat()
 
         try:
@@ -155,22 +157,22 @@ class StatusManager:
     def _schedule_write(self) -> None:
         """Schedule a debounced write to batch multiple updates."""
         import os
-        import threading
 
         debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
 
-        if self._write_timer is not None:
-            self._write_timer.cancel()
-            if debug:
-                print(
-                    "[StatusManager] Cancelled pending write, batching with new update"
-                )
+        with self._write_lock:
+            if self._write_timer is not None:
+                self._write_timer.cancel()
+                if debug:
+                    print(
+                        "[StatusManager] Cancelled pending write, batching with new update"
+                    )
 
-        self._write_pending = True
-        self._write_timer = threading.Timer(
-            self._WRITE_DEBOUNCE_MS / 1000.0, self._do_write
-        )
-        self._write_timer.start()
+            self._write_pending = True
+            self._write_timer = threading.Timer(
+                self._WRITE_DEBOUNCE_MS / 1000.0, self._do_write
+            )
+            self._write_timer.start()
 
         if debug:
             print(
@@ -189,18 +191,22 @@ class StatusManager:
 
         if immediate:
             # Cancel any pending debounced write
-            if self._write_timer is not None:
-                self._write_timer.cancel()
-                self._write_timer = None
+            with self._write_lock:
+                if self._write_timer is not None:
+                    self._write_timer.cancel()
+                    self._write_timer = None
             self._do_write()
         else:
             self._schedule_write()
 
     def flush(self) -> None:
         """Force any pending writes to complete immediately."""
-        if self._write_pending:
+        with self._write_lock:
+            should_write = self._write_pending
             if self._write_timer is not None:
                 self._write_timer.cancel()
+                self._write_timer = None
+        if should_write:
             self._do_write()
 
     def update(self, **kwargs) -> None:
@@ -264,10 +270,11 @@ class StatusManager:
     def clear(self) -> None:
         """Remove status file."""
         # Cancel any pending writes
-        if self._write_timer is not None:
-            self._write_timer.cancel()
-            self._write_timer = None
-        self._write_pending = False
+        with self._write_lock:
+            if self._write_timer is not None:
+                self._write_timer.cancel()
+                self._write_timer = None
+            self._write_pending = False
 
         if self.status_file.exists():
             try:
