@@ -231,12 +231,16 @@ export function registerSettingsHandlers(
         // The Python backend reads these via os.getenv() in morph_client.py
         if (settings.morphEnabled !== undefined) {
           process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
+          // Clean up API key when Morph is disabled
+          if (!settings.morphEnabled) {
+            delete process.env.MORPH_API_KEY;
+          }
         }
         if (settings.morphApiKey !== undefined) {
-          if (settings.morphApiKey) {
+          if (settings.morphApiKey && newSettings.morphEnabled) {
             process.env.MORPH_API_KEY = settings.morphApiKey;
           } else {
-            // Remove from env if API key is cleared
+            // Remove from env if API key is cleared or Morph is disabled
             delete process.env.MORPH_API_KEY;
           }
         }
