@@ -152,17 +152,17 @@
             "notReviewed": "İncelenmedi",
             "notReviewedDesc": "Bu MR'ı analiz etmek için AI incelemesi çalıştırın",
             "reviewComplete": "İnceleme Tamamlandı",
-            "reviewCompleteDesc": "bulgu bulundu. Seçin ve GitLab'a gönderin.",
+            "reviewCompleteDesc": "bulgular bulundu. Seçin ve GitLab'a gönderin.",
             "waitingForChanges": "Değişiklikler Bekleniyor",
-            "waitingForChangesDesc": "bulgu gönderildi. Katkıda bulunanın sorunları çözmesi bekleniyor.",
+            "waitingForChangesDesc": "bulgular gönderildi. Katkıda bulunanın sorunları çözmesi bekleniyor.",
             "readyToMerge": "Birleştirmeye Hazır",
             "readyToMergeDesc": "Engelleyici sorun bulunamadı. Bu MR birleştirilebilir.",
             "needsAttention": "Dikkat Gerekiyor",
-            "needsAttentionDesc": "bulgu GitLab'a gönderilmeli.",
+            "needsAttentionDesc": "bulgular GitLab'a gönderilmeli.",
             "readyForFollowup": "Takip İçin Hazır",
             "readyForFollowupDesc": "incelemeden bu yana. Sorunların çözülüp çözülmediğini kontrol etmek için takip çalıştırın.",
             "blockingIssues": "Engelleyici Sorunlar",
-            "blockingIssuesDesc": "engelleyici sorun hala açık."
+            "blockingIssuesDesc": "engelleyici sorunlar hala açık."
         },
         "overallStatus": {
             "approve": "Onayla",
