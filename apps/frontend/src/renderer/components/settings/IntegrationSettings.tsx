@@ -65,6 +65,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   const [envVariables, setEnvVariables] = useState<Record<string, Array<{ key: string; value: string }>>>({});
   const [newEnvKey, setNewEnvKey] = useState('');
   const [newEnvValue, setNewEnvValue] = useState('');
+  const [isSavingEnv, setIsSavingEnv] = useState<string | null>(null);
 
   // Auto-swap settings state
   const [autoSwitchSettings, setAutoSwitchSettings] = useState<ClaudeAutoSwitchSettings | null>(null);
@@ -266,15 +267,26 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   };
 
   // Environment Variables handlers
-  const toggleEnvVariables = (profileId: string) => {
+  const toggleEnvVariables = async (profileId: string) => {
     if (expandedEnvProfileId === profileId) {
+      // Closing the section - clear local state
       setExpandedEnvProfileId(null);
       setNewEnvKey('');
       setNewEnvValue('');
     } else {
+      // Opening the section - load existing env vars from the profile
       setExpandedEnvProfileId(profileId);
       setNewEnvKey('');
       setNewEnvValue('');
+
+      // Find the profile and load its env vars
+      const profile = claudeProfiles.find(p => p.id === profileId);
+      if (profile) {
+        setEnvVariables(prev => ({
+          ...prev,
+          [profileId]: profile.envVariables || []
+        }));
+      }
     }
   };
 
@@ -297,6 +309,38 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       ...envVariables,
       [profileId]: updatedVars
     });
+  };
+
+  const handleSaveEnvVariables = async (profileId: string) => {
+    const profileEnvVars = envVariables[profileId] || [];
+    const profile = claudeProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    setIsSavingEnv(profileId);
+    try {
+      // Create updated profile with envVariables
+      const updatedProfile: ClaudeProfile = {
+        ...profile,
+        envVariables: profileEnvVars
+      };
+
+      const result = await window.electronAPI.saveClaudeProfile(updatedProfile);
+      if (result.success) {
+        // Reload profiles to get the updated data
+        await loadClaudeProfiles();
+        // Close the section after successful save
+        setExpandedEnvProfileId(null);
+        setNewEnvKey('');
+        setNewEnvValue('');
+      } else {
+        alert(`Failed to save environment variables: ${result.error || 'Please try again.'}`);
+      }
+    } catch (err) {
+      console.error('Failed to save environment variables:', err);
+      alert('Failed to save environment variables. Please try again.');
+    } finally {
+      setIsSavingEnv(null);
+    }
   };
 
   // Load auto-swap settings
@@ -695,14 +739,28 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-end">
+                          <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => toggleEnvVariables(profile.id)}
                               className="h-7 text-xs"
+                              disabled={isSavingEnv === profile.id}
                             >
-                              Done
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEnvVariables(profile.id)}
+                              disabled={isSavingEnv === profile.id}
+                              className="h-7 text-xs gap-1"
+                            >
+                              {isSavingEnv === profile.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )}
+                              Save
                             </Button>
                           </div>
                         </div>
