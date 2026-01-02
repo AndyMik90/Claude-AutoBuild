@@ -129,6 +129,43 @@ MODULE = "workspace"
 # - _heuristic_merge
 
 
+def _record_merge_completion(
+    project_dir: Path,
+    spec_name: str,
+    resolved_files: list[str],
+) -> None:
+    """
+    Record which files were merged by which spec.
+
+    Captures the merge outcome in the evolution tracker so future
+    parallel specs can understand what was already merged.
+
+    Args:
+        project_dir: The project directory
+        spec_name: Name of the spec (task ID)
+        resolved_files: List of files that were successfully merged
+    """
+    from merge.file_evolution import FileEvolutionTracker
+
+    try:
+        tracker = FileEvolutionTracker(project_dir)
+        tracker.mark_task_completed(spec_name)
+        # Log resolved files for debugging and audit trail
+        if resolved_files:
+            print(
+                muted(f"  Recorded merge completion for {len(resolved_files)} files:")
+            )
+            for file_path in resolved_files[:5]:  # Show first 5 files
+                print(muted(f"    - {file_path}"))
+            if len(resolved_files) > 5:
+                print(muted(f"    ... and {len(resolved_files) - 5} more"))
+        else:
+            print(muted("  Recorded merge completion (no files to merge)"))
+    except Exception as e:
+        # Non-fatal: merge succeeded, just couldn't record
+        print(muted(f"  Warning: Could not record merge completion: {e}"))
+
+
 def merge_existing_build(
     project_dir: Path,
     spec_name: str,
@@ -973,9 +1010,8 @@ def _resolve_git_conflicts_with_ai(
             print(muted(f"    Warning: Could not process {file_path}: {e}"))
 
     # V2: Record merge completion in Evolution Tracker for future context
-    # TODO: _record_merge_completion not yet implemented - see line 141
-    # if resolved_files:
-    #     _record_merge_completion(project_dir, spec_name, resolved_files)
+    if resolved_files:
+        _record_merge_completion(project_dir, spec_name, resolved_files)
 
     # Build result - partial success if some files failed but we got others
     result = {
