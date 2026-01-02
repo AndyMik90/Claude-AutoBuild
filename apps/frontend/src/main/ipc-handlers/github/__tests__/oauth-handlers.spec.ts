@@ -16,7 +16,8 @@ vi.mock('child_process', async (importOriginal) => {
     ...actual,
     spawn: (...args: unknown[]) => mockSpawn(...args),
     execSync: (...args: unknown[]) => mockExecSync(...args),
-    execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
+    execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
+    default: actual
   };
 });
 

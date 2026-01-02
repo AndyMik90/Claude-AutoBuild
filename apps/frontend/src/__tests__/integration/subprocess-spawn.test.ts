@@ -34,7 +34,8 @@ vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
     ...actual,
-    spawn: vi.fn(() => mockProcess)
+    spawn: vi.fn(() => mockProcess),
+    default: actual
   };
 });
 
