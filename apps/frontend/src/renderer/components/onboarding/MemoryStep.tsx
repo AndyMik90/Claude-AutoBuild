@@ -49,6 +49,8 @@ interface MemoryConfig {
   embeddingProvider: GraphitiEmbeddingProvider;
   // OpenAI
   openaiApiKey: string;
+  // OpenRouter
+  openrouterApiKey: string;
   // Azure OpenAI
   azureOpenaiApiKey: string;
   azureOpenaiBaseUrl: string;
@@ -78,14 +80,15 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
     database: 'auto_claude_memory',
     embeddingProvider: 'openai', // Default to 'openai' per .env.example, will be updated from .env on mount
     openaiApiKey: settings.globalOpenAIApiKey || '',
+    openrouterApiKey: settings.globalOpenRouterApiKey || '',
     azureOpenaiApiKey: '',
     azureOpenaiBaseUrl: '',
     azureOpenaiEmbeddingDeployment: '',
     voyageApiKey: '',
     googleApiKey: settings.globalGoogleApiKey || '',
     ollamaBaseUrl: settings.ollamaBaseUrl || 'http://localhost:11434',
-    ollamaEmbeddingModel: 'embeddinggemma',
-    ollamaEmbeddingDim: 768,
+    ollamaEmbeddingModel: 'qwen3-embedding:4b',
+    ollamaEmbeddingDim: 2560,
   });
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -144,6 +147,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
 
     // Other providers need API keys
     if (embeddingProvider === 'openai' && !config.openaiApiKey.trim()) return false;
+    if (embeddingProvider === 'openrouter' && !config.openrouterApiKey.trim()) return false;
     if (embeddingProvider === 'voyage' && !config.voyageApiKey.trim()) return false;
     if (embeddingProvider === 'google' && !config.googleApiKey.trim()) return false;
     if (embeddingProvider === 'azure_openai') {
@@ -160,27 +164,45 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
     setError(null);
 
     try {
-      // Save the API keys to global settings
-      const settingsToSave: Record<string, string | undefined> = {};
-
-      if (config.openaiApiKey.trim()) {
-        settingsToSave.globalOpenAIApiKey = config.openaiApiKey.trim();
-      }
-      if (config.googleApiKey.trim()) {
-        settingsToSave.globalGoogleApiKey = config.googleApiKey.trim();
-      }
-      if (config.ollamaBaseUrl.trim()) {
-        settingsToSave.ollamaBaseUrl = config.ollamaBaseUrl.trim();
-      }
+      // Save complete memory configuration to global settings
+      // This includes all settings needed for backend to use memory
+      const settingsToSave: Record<string, string | number | boolean | undefined> = {
+        // Core memory settings (CRITICAL - these were missing before)
+        memoryEnabled: true,
+        memoryEmbeddingProvider: config.embeddingProvider,
+        memoryOllamaEmbeddingModel: config.ollamaEmbeddingModel || undefined,
+        memoryOllamaEmbeddingDim: config.ollamaEmbeddingDim || undefined,
+        // Ollama base URL
+        ollamaBaseUrl: config.ollamaBaseUrl.trim() || undefined,
+        // Global API keys (shared across features)
+        globalOpenAIApiKey: config.openaiApiKey.trim() || undefined,
+        globalOpenRouterApiKey: config.openrouterApiKey.trim() || undefined,
+        globalGoogleApiKey: config.googleApiKey.trim() || undefined,
+        // Provider-specific keys for memory
+        memoryVoyageApiKey: config.voyageApiKey.trim() || undefined,
+        memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
+        memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
+        memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
+      };
 
       const result = await window.electronAPI.saveSettings(settingsToSave);
 
       if (result?.success) {
-        // Update local settings store
-        const storeUpdate: Partial<Pick<AppSettings, 'globalOpenAIApiKey' | 'globalGoogleApiKey' | 'ollamaBaseUrl'>> = {};
-        if (config.openaiApiKey.trim()) storeUpdate.globalOpenAIApiKey = config.openaiApiKey.trim();
-        if (config.googleApiKey.trim()) storeUpdate.globalGoogleApiKey = config.googleApiKey.trim();
-        if (config.ollamaBaseUrl.trim()) storeUpdate.ollamaBaseUrl = config.ollamaBaseUrl.trim();
+        // Update local settings store with all memory config
+        const storeUpdate: Partial<AppSettings> = {
+          memoryEnabled: true,
+          memoryEmbeddingProvider: config.embeddingProvider,
+          memoryOllamaEmbeddingModel: config.ollamaEmbeddingModel || undefined,
+          memoryOllamaEmbeddingDim: config.ollamaEmbeddingDim || undefined,
+          ollamaBaseUrl: config.ollamaBaseUrl.trim() || undefined,
+          globalOpenAIApiKey: config.openaiApiKey.trim() || undefined,
+          globalOpenRouterApiKey: config.openrouterApiKey.trim() || undefined,
+          globalGoogleApiKey: config.googleApiKey.trim() || undefined,
+          memoryVoyageApiKey: config.voyageApiKey.trim() || undefined,
+          memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
+          memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
+          memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
+        };
         updateSettings(storeUpdate);
         onNext();
       } else {
@@ -254,6 +276,40 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
             Get your key from{' '}
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
               OpenAI
+            </a>
+          </p>
+        </div>
+      );
+    }
+
+    if (embeddingProvider === 'openrouter') {
+      return (
+        <div className="space-y-2">
+          <Label htmlFor="openrouter-key" className="text-sm font-medium text-foreground">
+            OpenRouter API Key
+          </Label>
+          <div className="relative">
+            <Input
+              id="openrouter-key"
+              type={showApiKey['openrouter'] ? 'text' : 'password'}
+              value={config.openrouterApiKey}
+              onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
+              placeholder="sk-or-..."
+              className="pr-10 font-mono text-sm"
+              disabled={isSaving}
+            />
+            <button
+              type="button"
+              onClick={() => toggleShowApiKey('openrouter')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your key from{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+              OpenRouter
             </a>
           </p>
         </div>
