@@ -27,6 +27,7 @@ import asyncio
 import difflib
 import logging
 import os
+import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -105,6 +106,8 @@ class MorphConfig:
         timeout: Request timeout in seconds
         max_retries: Maximum number of retries for failed requests
         backoff_factor: Multiplier for exponential backoff between retries
+        jitter_factor: Random jitter factor (0-1) to add to backoff. Default 0.25 means
+                      up to 25% additional random delay to avoid thundering herd.
         health_cache_ttl: Seconds to cache health check results. Set to 300 (5 min)
                          by default to minimize API credit usage since health checks
                          use real apply operations (Morph has no dedicated health endpoint).
@@ -118,6 +121,7 @@ class MorphConfig:
     timeout: float = 60.0
     max_retries: int = 3
     backoff_factor: float = 1.5
+    jitter_factor: float = 0.25  # Add up to 25% random jitter
     health_cache_ttl: int = 300  # 5 minutes - reduces API credit usage
     stream: bool = False
     max_tokens: int | None = None
@@ -128,14 +132,44 @@ class MorphConfig:
         max_tokens_str = os.environ.get("MORPH_MAX_TOKENS")
         max_tokens = int(max_tokens_str) if max_tokens_str else None
 
+        # Parse retry configuration with sensible defaults
+        max_retries_str = os.environ.get("MORPH_MAX_RETRIES")
+        max_retries = int(max_retries_str) if max_retries_str else 3
+
+        backoff_factor_str = os.environ.get("MORPH_BACKOFF_FACTOR")
+        backoff_factor = float(backoff_factor_str) if backoff_factor_str else 1.5
+
+        jitter_factor_str = os.environ.get("MORPH_JITTER_FACTOR")
+        jitter_factor = float(jitter_factor_str) if jitter_factor_str else 0.25
+
         return cls(
             api_key=os.environ.get("MORPH_API_KEY", ""),
             base_url=os.environ.get("MORPH_BASE_URL", "https://api.morphllm.com/v1"),
             model=os.environ.get("MORPH_MODEL", "auto"),
             timeout=float(os.environ.get("MORPH_TIMEOUT", "60")),
+            max_retries=max_retries,
+            backoff_factor=backoff_factor,
+            jitter_factor=jitter_factor,
             stream=os.environ.get("MORPH_STREAM", "").lower() == "true",
             max_tokens=max_tokens,
         )
+
+    def calculate_backoff(self, attempt: int) -> float:
+        """
+        Calculate backoff time with exponential backoff and jitter.
+
+        Uses full jitter strategy: base_delay * (1 + random(0, jitter_factor))
+        This helps avoid thundering herd problems when multiple clients retry.
+
+        Args:
+            attempt: The retry attempt number (0-based)
+
+        Returns:
+            Wait time in seconds with jitter applied
+        """
+        base_delay = self.backoff_factor ** (attempt + 1)
+        jitter = random.uniform(0, self.jitter_factor) * base_delay
+        return base_delay + jitter
 
     def has_api_key(self) -> bool:
         """Check if an API key is configured."""
@@ -358,7 +392,7 @@ class MorphClient:
 
                 # Retry on retryable errors
                 if error.is_retryable() and attempt < self.config.max_retries - 1:
-                    wait_time = self.config.backoff_factor ** (attempt + 1)
+                    wait_time = self.config.calculate_backoff(attempt)
                     logger.debug(
                         f"Morph API error (attempt {attempt + 1}): {error}. "
                         f"Retrying in {wait_time:.1f}s"
@@ -372,7 +406,7 @@ class MorphClient:
             except httpx.ConnectError as e:
                 logger.warning(f"Failed to connect to Morph API: {e}")
                 if attempt < self.config.max_retries - 1:
-                    wait_time = self.config.backoff_factor ** (attempt + 1)
+                    wait_time = self.config.calculate_backoff(attempt)
                     await asyncio.sleep(wait_time)
                     last_error = e
                     continue
@@ -383,7 +417,7 @@ class MorphClient:
             except httpx.TimeoutException as e:
                 logger.warning(f"Morph API request timed out: {e}")
                 if attempt < self.config.max_retries - 1:
-                    wait_time = self.config.backoff_factor ** (attempt + 1)
+                    wait_time = self.config.calculate_backoff(attempt)
                     await asyncio.sleep(wait_time)
                     last_error = e
                     continue
