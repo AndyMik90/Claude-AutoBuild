@@ -169,6 +169,16 @@
             "requestChanges": "Değişiklik İstendi",
             "comment": "Yorum"
         },
+        "severity": {
+            "critical": "Engelleyici",
+            "criticalDesc": "Düzeltilmeli",
+            "high": "Gerekli",
+            "highDesc": "Düzeltilmeli",
+            "medium": "Önerilen",
+            "mediumDesc": "Kaliteyi artır",
+            "low": "Öneri",
+            "lowDesc": "Değerlendirin"
+        },
         "resolution": {
             "resolved": "çözüldü",
             "stillOpen": "hala açık",
