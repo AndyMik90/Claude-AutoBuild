@@ -6,20 +6,64 @@ on:
 
 permissions:
   issues: write
+  contents: write
 
 jobs:
   fix:
     if: contains(github.event.comment.body, '@openhands-agent')
     runs-on: ubuntu-latest
     steps:
-      - name: Acknowledge
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Create analysis script
         uses: actions/github-script@v7
         with:
           script: |
-            const msg = ' @openhands-agent workflow triggered! Analyzing...';
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: msg
-            });
+            const fs = require('fs');
+            const script = `import os
+from openai import OpenAI
+from github import Github
+
+client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+gh = Github(os.environ['GITHUB_TOKEN'])
+repo = gh.get_repo(os.environ['REPO'])
+issue = repo.get_issue(int(os.environ['ISSUE_NUMBER']))
+
+prompt = 'Analyze this GitHub issue and provide: 1. Root cause, 2. Solution, 3. Implementation steps. Title: ' + issue.title + ' Description: ' + (issue.body or 'No description')
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    analysis = response.choices[0].message.content
+    issue.create_comment("## AI Analysis
+
+" + analysis + "
+
+---
+*By GPT-4*")
+    print("Posted to issue #" + str(issue.number))
+except Exception as e:
+    print("Error: " + str(e))
+    issue.create_comment("Error: " + str(e))
+`;
+            fs.writeFileSync('analyze.py', script);
+      
+      - name: Install dependencies
+        run: pip install openai==1.12.0 PyGithub==2.1.1
+      
+      - name: Run AI analysis
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: python analyze.py
