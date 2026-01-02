@@ -20,7 +20,6 @@ jobs:
           script: |
             const https = require('https');
             
-            // Get issue details
             const issue = context.payload.issue;
             const prompt = `Analyze this GitHub issue and provide a fix:
             
@@ -33,7 +32,6 @@ jobs:
             3. Implementation steps
             4. Files to modify`;
             
-            // Call OpenAI
             const data = JSON.stringify({
               model: 'gpt-4',
               messages: [{role: 'user', content: prompt}],
@@ -64,12 +62,11 @@ jobs:
             
             const analysis = response.choices[0].message.content;
             
-            // Post comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              body: `## 🤖 AI Analysis
+              body: `## AI Analysis
 
 ${analysis}
 
