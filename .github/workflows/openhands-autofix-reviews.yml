@@ -1,0 +1,56 @@
+name: 🔧 OpenHands Auto-Fix PR Reviews
+
+# Automatically trigger OpenHands when PR review requests changes
+# Source: job-applier-csharp (adapted for Auto-Claude)
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-fix-review-comments:
+    name: 🤖 Auto-Fix Review Issues
+    if: github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Trigger OpenHands fix
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = context.payload.review;
+            const pr = context.payload.pull_request;
+            
+            // Add fix-me label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['fix-me', 'review-changes-requested']
+            });
+            
+            // Trigger OpenHands
+            const reviewBody = review.body || '';
+            const preview = reviewBody.substring(0, 1000);
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `## 🔧 Auto-Fix Triggered
+
+Review requested changes detected. OpenHands is being activated to address the issues.
+
+@openhands-agent Please fix all issues from the review:
+
+> ${preview}${reviewBody.length > 1000 ? '\n\n_(Review truncated, see full review above)_' : ''}
+
+**Instructions:**
+- Address all concerns raised in the review
+- Follow project conventions
+- Ensure tests pass
+- Update PR description with changes made`
+            });
