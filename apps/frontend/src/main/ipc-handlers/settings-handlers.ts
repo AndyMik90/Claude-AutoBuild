@@ -1,5 +1,5 @@
 import { ipcMain, dialog, app, shell } from 'electron';
-import { existsSync, writeFileSync, mkdirSync, statSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync, statSync, readFileSync } from 'fs';
 import { execFileSync } from 'node:child_process';
 import path from 'path';
 import { is } from '@electron-toolkit/utils';
@@ -460,6 +460,111 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: `Failed to open terminal: ${errorMsg}`
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Custom API Settings
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_SAVE_CUSTOM_API,
+    async (
+      _,
+      settings: { baseUrl: string; authToken: string; model?: string }
+    ): Promise<IPCResult> => {
+      try {
+        // Load current settings to get autoBuildPath
+        const savedSettings = readSettingsFile();
+        const currentSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
+        let autoBuildPath = currentSettings.autoBuildPath || detectAutoBuildSourcePath();
+
+        // Fallback: try development paths if detected path doesn't exist
+        if (!autoBuildPath || !existsSync(autoBuildPath)) {
+          const devPaths = [
+            path.resolve(process.cwd(), 'apps', 'backend'),
+            path.resolve(__dirname, '..', '..', '..', 'backend'),
+            path.resolve(__dirname, '..', '..', '..', '..', 'apps', 'backend')
+          ];
+
+          for (const p of devPaths) {
+            if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
+              autoBuildPath = p;
+              console.log('[SAVE_CUSTOM_API_SETTINGS] Using fallback path:', p);
+              break;
+            }
+          }
+        }
+
+        if (!autoBuildPath || !existsSync(autoBuildPath)) {
+          return {
+            success: false,
+            error: 'Auto Claude backend path not found. Searched paths:\n' +
+              `- ${currentSettings.autoBuildPath || 'not configured'}\n` +
+              `- ${process.cwd()}/apps/backend\n` +
+              'Please configure backend path in settings.'
+          };
+        }
+
+        const envPath = path.join(autoBuildPath, '.env');
+        console.log('[SAVE_CUSTOM_API_SETTINGS] Writing to:', envPath);
+
+        // Read existing .env file or create new content
+        let envContent = '';
+        if (existsSync(envPath)) {
+          envContent = readFileSync(envPath, 'utf-8');
+        } else {
+          console.log('[SAVE_CUSTOM_API_SETTINGS] .env file does not exist, creating new one');
+        }
+
+        // Helper function to escape special regex characters
+        const escapeRegex = (str: string): string => {
+          return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        };
+
+        // Update or add settings with proper escaping
+        const updateEnvVar = (content: string, key: string, value: string): string => {
+          const escapedKey = escapeRegex(key);
+          const regex = new RegExp(`^${escapedKey}=.*$`, 'm');
+          if (regex.test(content)) {
+            // Use function replacement to avoid $ interpretation in value
+            return content.replace(regex, () => `${key}=${value}`);
+          } else {
+            return content + `\n${key}=${value}`;
+          }
+        };
+
+        envContent = updateEnvVar(envContent, 'ANTHROPIC_BASE_URL', settings.baseUrl);
+        envContent = updateEnvVar(envContent, 'ANTHROPIC_AUTH_TOKEN', settings.authToken);
+
+        try {
+          const hostname = new URL(settings.baseUrl).hostname;
+          envContent = updateEnvVar(envContent, 'NO_PROXY', hostname);
+        } catch {
+          // If URL parsing fails, skip NO_PROXY
+          console.warn('[SAVE_CUSTOM_API_SETTINGS] Failed to parse URL for NO_PROXY');
+        }
+
+        envContent = updateEnvVar(envContent, 'DISABLE_TELEMETRY', 'true');
+        envContent = updateEnvVar(envContent, 'DISABLE_COST_WARNINGS', 'true');
+        envContent = updateEnvVar(envContent, 'API_TIMEOUT_MS', '600000');
+
+        if (settings.model) {
+          envContent = updateEnvVar(envContent, 'AUTO_BUILD_MODEL', settings.model);
+        }
+
+        // Write back to .env file
+        writeFileSync(envPath, envContent.trim() + '\n');
+        console.log('[SAVE_CUSTOM_API_SETTINGS] Successfully saved settings to:', envPath);
+
+        return { success: true };
+      } catch (error) {
+        console.error('[SAVE_CUSTOM_API_SETTINGS] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save custom API settings'
         };
       }
     }

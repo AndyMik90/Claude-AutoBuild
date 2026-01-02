@@ -24,6 +24,13 @@ export interface SettingsAPI {
   // App Info
   getAppVersion: () => Promise<string>;
 
+  // Custom API Settings
+  saveCustomApiSettings: (settings: {
+    baseUrl: string;
+    authToken: string;
+    model?: string;
+  }) => Promise<IPCResult>;
+
   // Auto-Build Source Environment
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
   updateSourceEnv: (config: { claudeOAuthToken?: string }) => Promise<IPCResult>;
@@ -50,6 +57,14 @@ export const createSettingsAPI = (): SettingsAPI => ({
   // App Info
   getAppVersion: (): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.APP_VERSION),
+
+  // Custom API Settings
+  saveCustomApiSettings: (settings: {
+    baseUrl: string;
+    authToken: string;
+    model?: string;
+  }): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_CUSTOM_API, settings),
 
   // Auto-Build Source Environment
   getSourceEnv: (): Promise<IPCResult<SourceEnvConfig>> =>

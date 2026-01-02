@@ -9,6 +9,7 @@ about a codebase. It can also suggest tasks based on the conversation.
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -132,7 +133,7 @@ async def run_with_sdk(
     project_dir: str,
     message: str,
     history: list,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = None,
     thinking_level: str = "medium",
 ) -> None:
     """Run the chat using Claude SDK with streaming."""
@@ -151,6 +152,10 @@ async def run_with_sdk(
 
     # Ensure SDK can find the token
     ensure_claude_code_oauth_token()
+
+    # Use environment variable for model if not provided
+    if model is None:
+        model = os.getenv("AUTO_BUILD_MODEL", "claude-sonnet-4-5-20250929")
 
     system_prompt = build_system_prompt(project_dir)
     project_path = Path(project_dir).resolve()
@@ -336,8 +341,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="claude-sonnet-4-5-20250929",
-        help="Claude model ID (default: claude-sonnet-4-5-20250929)",
+        default=None,
+        help="Claude model ID (default: from AUTO_BUILD_MODEL env var or claude-sonnet-4-5-20250929)",
     )
     parser.add_argument(
         "--thinking-level",
