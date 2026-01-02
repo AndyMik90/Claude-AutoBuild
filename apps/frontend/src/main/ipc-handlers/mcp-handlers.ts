@@ -29,6 +29,12 @@ const DANGEROUS_FLAGS = new Set([
 ]);
 
 /**
+ * Defense-in-depth: Shell metacharacters that could enable command injection
+ * when shell: true is used on Windows
+ */
+const SHELL_METACHARACTERS = ['&', '|', '>', '<', '^', '%', ';', '$', '`', '\n', '\r'];
+
+/**
  * Validate that a command is in the safe allowlist
  */
 function isCommandSafe(command: string | undefined): boolean {
@@ -39,11 +45,22 @@ function isCommandSafe(command: string | undefined): boolean {
 }
 
 /**
- * Validate that args don't contain dangerous interpreter flags
+ * Validate that args don't contain dangerous interpreter flags or shell metacharacters
  */
 function areArgsSafe(args: string[] | undefined): boolean {
   if (!args || args.length === 0) return true;
-  return !args.some(arg => DANGEROUS_FLAGS.has(arg));
+
+  // Check for dangerous interpreter flags
+  if (args.some(arg => DANGEROUS_FLAGS.has(arg))) return false;
+
+  // On Windows with shell: true, check for shell metacharacters that could enable injection
+  if (process.platform === 'win32') {
+    if (args.some(arg => SHELL_METACHARACTERS.some(char => arg.includes(char)))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
