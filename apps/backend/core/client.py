@@ -12,12 +12,113 @@ The client factory now uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
 single source of truth for phase-aware tool and MCP server configuration.
 """
 
+import copy
 import json
 import logging
 import os
+import threading
+import time
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Project Index Cache
+# =============================================================================
+# Caches project index and capabilities to avoid reloading on every create_client() call.
+# This significantly reduces the time to create new agent sessions.
+
+_PROJECT_INDEX_CACHE: dict[str, tuple[dict[str, Any], dict[str, bool], float]] = {}
+_CACHE_TTL_SECONDS = 300  # 5 minute TTL
+_CACHE_LOCK = threading.Lock()  # Protects _PROJECT_INDEX_CACHE access
+
+
+def _get_cached_project_data(
+    project_dir: Path,
+) -> tuple[dict[str, Any], dict[str, bool]]:
+    """
+    Get project index and capabilities with caching.
+
+    Args:
+        project_dir: Path to the project directory
+
+    Returns:
+        Tuple of (project_index, project_capabilities)
+    """
+
+    key = str(project_dir.resolve())
+    now = time.time()
+    debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+    # Check cache with lock
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = now - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                if debug:
+                    print(
+                        f"[ClientCache] Cache HIT for project index (age: {cache_age:.1f}s / TTL: {_CACHE_TTL_SECONDS}s)"
+                    )
+                logger.debug(f"Using cached project index for {project_dir}")
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+            elif debug:
+                print(
+                    f"[ClientCache] Cache EXPIRED for project index (age: {cache_age:.1f}s > TTL: {_CACHE_TTL_SECONDS}s)"
+                )
+
+    # Cache miss or expired - load fresh data (outside lock to avoid blocking)
+    load_start = time.time()
+    logger.debug(f"Loading project index for {project_dir}")
+    project_index = load_project_index(project_dir)
+    project_capabilities = detect_project_capabilities(project_index)
+
+    if debug:
+        load_duration = (time.time() - load_start) * 1000
+        print(
+            f"[ClientCache] Cache MISS - loaded project index in {load_duration:.1f}ms"
+        )
+
+    # Store in cache with lock - use double-checked locking pattern
+    # Re-check if another thread populated the cache while we were loading
+    with _CACHE_LOCK:
+        if key in _PROJECT_INDEX_CACHE:
+            cached_index, cached_capabilities, cached_time = _PROJECT_INDEX_CACHE[key]
+            cache_age = time.time() - cached_time
+            if cache_age < _CACHE_TTL_SECONDS:
+                # Another thread already cached valid data while we were loading
+                if debug:
+                    print(
+                        "[ClientCache] Cache was populated by another thread, using cached data"
+                    )
+                # Return deep copies to prevent callers from corrupting the cache
+                return copy.deepcopy(cached_index), copy.deepcopy(cached_capabilities)
+        # Either no cache entry or it's expired - store our fresh data
+        _PROJECT_INDEX_CACHE[key] = (project_index, project_capabilities, time.time())
+
+    # Return the freshly loaded data (no need to copy since it's not from cache)
+    return project_index, project_capabilities
+
+
+def invalidate_project_cache(project_dir: Path | None = None) -> None:
+    """
+    Invalidate the project index cache.
+
+    Args:
+        project_dir: Specific project to invalidate, or None to clear all
+    """
+    with _CACHE_LOCK:
+        if project_dir is None:
+            _PROJECT_INDEX_CACHE.clear()
+            logger.debug("Cleared all project index cache entries")
+        else:
+            key = str(project_dir.resolve())
+            if key in _PROJECT_INDEX_CACHE:
+                del _PROJECT_INDEX_CACHE[key]
+                logger.debug(f"Invalidated project index cache for {project_dir}")
+
 
 from agents.tools_pkg import (
     CONTEXT7_TOOLS,
@@ -396,8 +497,8 @@ def create_client(
 
     # Load project capabilities for dynamic MCP tool selection
     # This enables context-aware tool injection based on project type
-    project_index = load_project_index(project_dir)
-    project_capabilities = detect_project_capabilities(project_index)
+    # Uses caching to avoid reloading on every create_client() call
+    project_index, project_capabilities = _get_cached_project_data(project_dir)
 
     # Load per-project MCP configuration from .auto-claude/.env
     mcp_config = load_project_mcp_config(project_dir)

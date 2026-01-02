@@ -71,6 +71,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -153,6 +158,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -231,6 +241,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -287,6 +302,11 @@ jobs:
         with:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

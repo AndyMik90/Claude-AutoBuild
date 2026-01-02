@@ -1341,25 +1341,32 @@ export function registerPRHandlers(
           return { hasNewCommits: false, newCommitCount: 0 };
         }
 
+        // Fetch PR data to get current HEAD (before try block so it's accessible in catch)
+        let currentHeadSha: string;
         try {
-          // Get PR data to find current HEAD
           const prData = (await githubFetch(
             config.token,
             `/repos/${config.repo}/pulls/${prNumber}`
           )) as { head: { sha: string }; commits: number };
+          currentHeadSha = prData.head.sha;
+        } catch (error) {
+          debugLog('Error fetching PR data', { prNumber, error: error instanceof Error ? error.message : error });
+          return { hasNewCommits: false, newCommitCount: 0 };
+        }
 
-          const currentHeadSha = prData.head.sha;
+        // Early return if SHAs match - no new commits
+        if (reviewedCommitSha === currentHeadSha) {
+          return {
+            hasNewCommits: false,
+            newCommitCount: 0,
+            lastReviewedCommit: reviewedCommitSha,
+            currentHeadCommit: currentHeadSha,
+            hasCommitsAfterPosting: false,
+          };
+        }
 
-          if (reviewedCommitSha === currentHeadSha) {
-            return {
-              hasNewCommits: false,
-              newCommitCount: 0,
-              lastReviewedCommit: reviewedCommitSha,
-              currentHeadCommit: currentHeadSha,
-              hasCommitsAfterPosting: false,
-            };
-          }
-
+        // Try to get detailed comparison
+        try {
           // Get comparison to count new commits
           const comparison = (await githubFetch(
             config.token,
@@ -1396,8 +1403,21 @@ export function registerPRHandlers(
             hasCommitsAfterPosting,
           };
         } catch (error) {
-          debugLog('Error checking new commits', { prNumber, error: error instanceof Error ? error.message : error });
-          return { hasNewCommits: false, newCommitCount: 0 };
+          // Comparison failed (e.g., force push made old commit unreachable)
+          // Since we already verified SHAs differ, treat as having new commits
+          debugLog('Comparison failed but SHAs differ - likely force push, treating as new commits', {
+            prNumber,
+            reviewedCommitSha,
+            currentHeadSha,
+            error: error instanceof Error ? error.message : error
+          });
+          return {
+            hasNewCommits: true,
+            newCommitCount: 1, // Unknown count due to force push
+            lastReviewedCommit: reviewedCommitSha,
+            currentHeadCommit: currentHeadSha,
+            hasCommitsAfterPosting: true, // Assume yes for force push scenarios
+          };
         }
       });
 

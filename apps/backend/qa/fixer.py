@@ -3,10 +3,16 @@ QA Fixer Agent Session
 =======================
 
 Runs QA fixer sessions to resolve issues identified by the reviewer.
+
+Memory Integration:
+- Retrieves past patterns, fixes, and gotchas before fixing
+- Saves fix outcomes and learnings after session
 """
 
 from pathlib import Path
 
+# Memory integration for cross-session learning
+from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from security.tool_input_validator import get_safe_tool_input
@@ -45,6 +51,7 @@ async def run_qa_fixer_session(
     spec_dir: Path,
     fix_session: int,
     verbose: bool = False,
+    project_dir: Path | None = None,
 ) -> tuple[str, str]:
     """
     Run a QA fixer agent session.
@@ -54,12 +61,18 @@ async def run_qa_fixer_session(
         spec_dir: Spec directory
         fix_session: Fix iteration number
         verbose: Whether to show detailed output
+        project_dir: Project root directory (for memory context)
 
     Returns:
         (status, response_text) where status is:
         - "fixed" if fixes were applied
         - "error" if an error occurred
     """
+    # Derive project_dir from spec_dir if not provided
+    # spec_dir is typically: /project/.auto-claude/specs/001-name/
+    if project_dir is None:
+        # Walk up from spec_dir to find project root
+        project_dir = spec_dir.parent.parent.parent
     debug_section("qa_fixer", f"QA Fixer Session {fix_session}")
     debug(
         "qa_fixer",
@@ -88,6 +101,20 @@ async def run_qa_fixer_session(
     # Load fixer prompt
     prompt = load_qa_fixer_prompt()
     debug_detailed("qa_fixer", "Loaded QA fixer prompt", prompt_length=len(prompt))
+
+    # Retrieve memory context for fixer (past fixes, patterns, gotchas)
+    fixer_memory_context = await get_graphiti_context(
+        spec_dir,
+        project_dir,
+        {
+            "description": "Fixing QA issues and implementing corrections",
+            "id": f"qa_fixer_{fix_session}",
+        },
+    )
+    if fixer_memory_context:
+        prompt += "\n\n" + fixer_memory_context
+        print("✓ Memory context loaded for QA fixer")
+        debug_success("qa_fixer", "Graphiti memory context loaded for fixer")
 
     # Add session context - use full path so agent can find files
     prompt += f"\n\n---\n\n**Fix Session**: {fix_session}\n"
@@ -244,12 +271,42 @@ async def run_qa_fixer_session(
             if status
             else False,
         )
+
+        # Save fixer session insights to memory
+        fixer_discoveries = {
+            "files_understood": {},
+            "patterns_found": [
+                f"QA fixer session {fix_session}: Applied fixes from QA_FIX_REQUEST.md"
+            ],
+            "gotchas_encountered": [],
+        }
+
         if status and status.get("ready_for_qa_revalidation"):
             debug_success("qa_fixer", "Fixes applied, ready for QA revalidation")
+            # Save successful fix session to memory
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=f"qa_fixer_{fix_session}",
+                session_num=fix_session,
+                success=True,
+                subtasks_completed=[f"qa_fixer_{fix_session}"],
+                discoveries=fixer_discoveries,
+            )
             return "fixed", response_text
         else:
             # Fixer didn't update the status properly, but we'll trust it worked
             debug_success("qa_fixer", "Fixes assumed applied (status not updated)")
+            # Still save to memory as successful (fixes were attempted)
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=f"qa_fixer_{fix_session}",
+                session_num=fix_session,
+                success=True,
+                subtasks_completed=[f"qa_fixer_{fix_session}"],
+                discoveries=fixer_discoveries,
+            )
             return "fixed", response_text
 
     except Exception as e:

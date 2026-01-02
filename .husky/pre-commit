@@ -163,6 +163,10 @@ if git diff --cached --name-only | grep -q "^apps/frontend/"; then
 
   # Run lint-staged (handles staged .ts/.tsx files)
   npm exec lint-staged
+  if [ $? -ne 0 ]; then
+    echo "lint-staged failed. Please fix linting errors before committing."
+    exit 1
+  fi
 
   # Run TypeScript type check
   echo "Running type check..."

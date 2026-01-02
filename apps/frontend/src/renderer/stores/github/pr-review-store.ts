@@ -30,7 +30,7 @@ interface PRReviewStoreState {
   startPRReview: (projectId: string, prNumber: number) => void;
   startFollowupReview: (projectId: string, prNumber: number) => void;
   setPRReviewProgress: (projectId: string, progress: PRReviewProgress) => void;
-  setPRReviewResult: (projectId: string, result: PRReviewResult) => void;
+  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => void;
   setPRReviewError: (projectId: string, prNumber: number, error: string) => void;
   setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
   clearPRReview: (projectId: string, prNumber: number) => void;
@@ -114,7 +114,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     };
   }),
 
-  setPRReviewResult: (projectId: string, result: PRReviewResult) => set((state) => {
+  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => set((state) => {
     const key = `${projectId}:${result.prNumber}`;
     const existing = state.prReviews[key];
     return {
@@ -129,7 +129,8 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           previousResult: existing?.previousResult ?? null,
           error: result.error ?? null,
           // Clear new commits check when review completes (it was just reviewed)
-          newCommitsCheck: null
+          // BUT preserve it during preload/refresh to avoid race condition
+          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null
         }
       }
     };

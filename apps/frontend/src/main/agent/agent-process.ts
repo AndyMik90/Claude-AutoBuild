@@ -11,6 +11,9 @@ import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { buildMemoryEnvVars } from '../memory-env-builder';
+import { readSettingsFile } from '../settings-utils';
+import type { AppSettings } from '../../shared/types/settings';
 
 /**
  * Process spawning and lifecycle management
@@ -551,14 +554,24 @@ export class AgentProcessManager {
    * Get combined environment variables for a project
    *
    * Priority (later sources override earlier):
-   * 1. Backend source .env (apps/backend/.env) - CLI defaults
-   * 2. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
-   * 3. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
+   * 1. App-wide memory settings from settings.json (NEW - enables memory from onboarding)
+   * 2. Backend source .env (apps/backend/.env) - CLI defaults
+   * 3. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
+   * 4. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
+    // Load app-wide memory settings from settings.json
+    // This bridges onboarding config to backend agents
+    const appSettings = (readSettingsFile() || {}) as Partial<AppSettings>;
+    const memoryEnv = buildMemoryEnvVars(appSettings as AppSettings);
+
+    // Existing env sources
     const autoBuildEnv = this.loadAutoBuildEnv();
     const projectFileEnv = this.loadProjectEnv(projectPath);
     const projectSettingsEnv = this.getProjectEnvVars(projectPath);
-    return { ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+
+    // Priority: app-wide memory -> backend .env -> project .env -> project settings
+    // Later sources override earlier ones
+    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }
