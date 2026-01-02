@@ -57,6 +57,8 @@ export interface TaskAPI {
   worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+  recreateTask: (taskId: string) => Promise<IPCResult<{ taskId: string; recreated: boolean }>>;
+  approvePlan: (taskId: string) => Promise<IPCResult<{ taskId: string; approved: boolean }>>;
 
   // Task Event Listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
@@ -158,6 +160,12 @@ export const createTaskAPI = (): TaskAPI => ({
 
   unarchiveTasks: (projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UNARCHIVE, projectId, taskIds),
+
+  recreateTask: (taskId: string): Promise<IPCResult<{ taskId: string; recreated: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_RECREATE, taskId),
+
+  approvePlan: (taskId: string): Promise<IPCResult<{ taskId: string; approved: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_APPROVE_PLAN, taskId),
 
   // Task Event Listeners
   onTaskProgress: (

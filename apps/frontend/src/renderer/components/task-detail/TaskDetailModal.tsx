@@ -26,7 +26,9 @@ import {
   Loader2,
   AlertTriangle,
   Pencil,
-  X
+  X,
+  RefreshCw,
+  Check
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
@@ -122,6 +124,38 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       state.setDeleteError(result.error || 'Failed to delete task');
     }
     state.setIsDeleting(false);
+  };
+
+  const handleApprovePlan = async () => {
+    state.setIsApproving(true);
+    try {
+      const result = await window.electronAPI.approvePlan(task.id);
+      if (!result.success) {
+        console.error('Failed to approve plan:', result.error);
+      }
+    } catch (error) {
+      console.error('Error approving plan:', error);
+    } finally {
+      state.setIsApproving(false);
+    }
+  };
+
+  const handleRecreate = async () => {
+    state.setIsRecreating(true);
+    state.setRecreateError(null);
+    try {
+      const result = await window.electronAPI.recreateTask(task.id);
+      if (result.success) {
+        state.setShowRecreateDialog(false);
+        // Task will be refreshed via status change event
+      } else {
+        state.setRecreateError(result.error || 'Failed to recreate task');
+      }
+    } catch (error) {
+      state.setRecreateError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      state.setIsRecreating(false);
+    }
   };
 
   const handleMerge = async () => {
@@ -480,7 +514,38 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Task
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-warning hover:bg-warning/10"
+                onClick={() => state.setShowRecreateDialog(true)}
+                disabled={state.isRunning && !state.isStuck}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Recreate
+              </Button>
               <div className="flex-1" />
+              {/* Approve Plan button - shown when awaiting plan approval */}
+              {task.reviewReason === 'plan_review' && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleApprovePlan}
+                  disabled={state.isApproving}
+                >
+                  {state.isApproving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Approve Plan
+                    </>
+                  )}
+                </Button>
+              )}
               {renderPrimaryAction()}
               <Button variant="outline" onClick={handleClose}>
                 Close
@@ -540,6 +605,59 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete Permanently
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Recreate Confirmation Dialog */}
+      <AlertDialog open={state.showRecreateDialog} onOpenChange={state.setShowRecreateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-warning" />
+              Recreate Task
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground space-y-3">
+                <p>
+                  Are you sure you want to recreate <strong className="text-foreground">"{task.title}"</strong>?
+                </p>
+                <p>
+                  This will delete the current spec, implementation plan, and any generated code, then restart the spec creation process from scratch.
+                </p>
+                <p className="text-warning">
+                  Use this when a task is stuck or the generated spec doesn't match your requirements.
+                </p>
+                {state.recreateError && (
+                  <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
+                    {state.recreateError}
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={state.isRecreating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRecreate();
+              }}
+              disabled={state.isRecreating}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              {state.isRecreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recreating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recreate Task
                 </>
               )}
             </AlertDialogAction>
