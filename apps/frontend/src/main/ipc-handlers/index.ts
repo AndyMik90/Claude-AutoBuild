@@ -33,6 +33,7 @@ import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerMorphHandlers } from './morph-handlers';
+import { registerProfileHandlers } from './profile-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -118,6 +119,9 @@ export function setupIpcHandlers(
   // Morph Fast Apply handlers
   registerMorphHandlers();
 
+  // API Profile handlers (custom Anthropic-compatible endpoints)
+  registerProfileHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -144,5 +148,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
-  registerMorphHandlers
+  registerMorphHandlers,
+  registerProfileHandlers
 };

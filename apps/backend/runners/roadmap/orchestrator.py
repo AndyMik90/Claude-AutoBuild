@@ -27,7 +27,7 @@ class RoadmapOrchestrator:
         self,
         project_dir: Path,
         output_dir: Path | None = None,
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "opus",
         thinking_level: str = "medium",
         refresh: bool = False,
         enable_competitor_analysis: bool = False,
