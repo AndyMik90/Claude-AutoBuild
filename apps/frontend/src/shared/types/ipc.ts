@@ -123,6 +123,7 @@ import type {
   GitLabMRReviewProgress,
   GitLabNewCommitsCheck
 } from './integrations';
+import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -262,6 +263,16 @@ export interface ElectronAPI {
     gh: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
+  saveAPIProfile: (profile: Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<APIProfile>>;
+  updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
+  deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
+  setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
+  // Note: AbortSignal is handled in preload via separate cancel IPC channels, not passed through IPC
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<TestConnectionResult>>;
+  discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<DiscoverModelsResult>>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
