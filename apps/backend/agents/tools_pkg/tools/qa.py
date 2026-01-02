@@ -121,6 +121,10 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
             with open(plan_file, "w") as f:
                 json.dump(plan, f, indent=2)
 
+            # Emit plan update marker for frontend synchronization
+            # This ensures the UI refreshes immediately when plan status changes
+            print(f"__PLAN_UPDATED__:{plan_file.parent.name}", flush=True)
+
             return {
                 "content": [
                     {

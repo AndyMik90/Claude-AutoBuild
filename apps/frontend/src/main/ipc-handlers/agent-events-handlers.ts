@@ -183,6 +183,16 @@ export function registerAgenteventsHandlers(
     }
   });
 
+  // Handle plan update events from QA tool
+  // This ensures the frontend refreshes when implementation_plan.json is updated
+  agentManager.on('plan-updated', (taskId: string, specId: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      console.log(`[AgentEvents] Plan updated for task ${taskId}, spec ${specId} - emitting IPC event`);
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_PLAN_UPDATED, taskId, specId);
+    }
+  });
+
   // ============================================
   // File Watcher Events → Renderer
   // ============================================
