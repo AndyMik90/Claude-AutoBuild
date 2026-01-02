@@ -260,8 +260,22 @@ export class FileWatcher extends EventEmitter {
     const watcherInfo = this.specsWatchers.get(projectId);
     if (watcherInfo) {
       console.log(`[FileWatcher] Stopping specs directory watcher for project ${projectId}`);
+      // Clear any pending debounced updates for this project
+      this.clearPendingUpdatesForProject(projectId);
       await watcherInfo.watcher.close();
       this.specsWatchers.delete(projectId);
+    }
+  }
+
+  /**
+   * Clear all pending debounced updates for a specific project
+   */
+  private clearPendingUpdatesForProject(projectId: string): void {
+    for (const [key, pending] of this.pendingUpdates.entries()) {
+      if (pending.projectId === projectId) {
+        clearTimeout(pending.timeout);
+        this.pendingUpdates.delete(key);
+      }
     }
   }
 
@@ -276,6 +290,12 @@ export class FileWatcher extends EventEmitter {
    * Stop all specs directory watchers
    */
   async unwatchAllSpecsDirectories(): Promise<void> {
+    // Clear all pending debounced updates
+    for (const pending of this.pendingUpdates.values()) {
+      clearTimeout(pending.timeout);
+    }
+    this.pendingUpdates.clear();
+
     const closePromises = Array.from(this.specsWatchers.values()).map(
       async (info) => {
         await info.watcher.close();
