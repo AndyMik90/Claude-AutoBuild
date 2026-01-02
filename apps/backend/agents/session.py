@@ -550,10 +550,19 @@ async def run_agent_session(
         error_str = str(e).lower()
 
         # Check for OAuth token expiration (401 authentication error)
-        # Check multiple variations: HTTP status, error type, common messages
+        # Use specific patterns to avoid false positives (e.g., "processed 401 records")
         is_auth_error = any(
             indicator in error_str
-            for indicator in ["401", "authentication_error", "unauthorized", "token expired", "invalid token"]
+            for indicator in [
+                "status 401",
+                "http 401",
+                "401 unauthorized",
+                "authentication_error",
+                "token expired",
+                "token has expired",
+                "invalid token",
+                "invalid_token",
+            ]
         )
         if is_auth_error:
             debug_error(
@@ -563,41 +572,45 @@ async def run_agent_session(
             )
             logger.info("Authentication error detected, attempting token refresh...")
 
-            # Try to refresh the token (imports are at top of file)
+            # Try to refresh the token using guard clauses for clearer flow
             try:
                 creds = get_full_credentials()
-                if creds and creds.get("refreshToken"):
-                    new_creds = refresh_oauth_token(creds["refreshToken"])
-                    if new_creds and new_creds.get("accessToken"):
-                        if save_credentials(new_creds):
-                            logger.info("Token refreshed successfully")
-                            print(
-                                "\n⚠️  OAuth token was expired and has been refreshed."
-                            )
-                            print("   Please retry your command.\n")
-                            return "error", "Token refreshed. Please retry your command."
-                        else:
-                            logger.warning("Token refreshed but failed to save")
-                            print("\n⚠️  Token refreshed but couldn't save to store.")
-                            print("   Please retry your command.\n")
-                            return "error", "Token refreshed. Please retry your command."
-                    else:
-                        print("\n⚠️  Authentication failed - token refresh failed.")
-                        print("   Please run: claude setup-token")
-                        print(
-                            "   This creates a long-lived token (1 year) that avoids expiration issues.\n"
-                        )
-                        return "error", "Token refresh failed."
-                else:
-                    if not creds:
-                        print("\n⚠️  Authentication failed - no credentials found.")
-                    else:
-                        print("\n⚠️  Authentication failed - no refresh token available.")
+
+                # Guard: No credentials found
+                if not creds:
+                    print("\n⚠️  Authentication failed - no credentials found.")
                     print("   Please run: claude setup-token")
-                    print(
-                        "   This creates a long-lived token (1 year) that avoids expiration issues.\n"
-                    )
+                    print("   This creates a long-lived token (1 year) that avoids expiration issues.\n")
+                    return "error", "No credentials found."
+
+                # Guard: No refresh token available
+                if not creds.get("refreshToken"):
+                    print("\n⚠️  Authentication failed - no refresh token available.")
+                    print("   Please run: claude setup-token")
+                    print("   This creates a long-lived token (1 year) that avoids expiration issues.\n")
                     return "error", "No refresh token available."
+
+                # Attempt token refresh
+                new_creds = refresh_oauth_token(creds["refreshToken"])
+
+                # Guard: Refresh failed
+                if not new_creds or not new_creds.get("accessToken"):
+                    print("\n⚠️  Authentication failed - token refresh failed.")
+                    print("   Please run: claude setup-token")
+                    print("   This creates a long-lived token (1 year) that avoids expiration issues.\n")
+                    return "error", "Token refresh failed."
+
+                # Success: Save and notify user
+                if save_credentials(new_creds):
+                    logger.info("Token refreshed successfully")
+                else:
+                    logger.warning("Token refreshed but failed to save")
+
+                print("\n✓ OAuth token was expired and has been refreshed.")
+                print("   The current operation was interrupted mid-request.")
+                print("   Please retry your command to continue.\n")
+                return "retry", "Token refreshed. Please retry your command."
+
             except Exception as refresh_error:
                 logger.warning(f"Token refresh attempt failed: {refresh_error}")
                 print("\n⚠️  Authentication failed. Please run: claude setup-token\n")

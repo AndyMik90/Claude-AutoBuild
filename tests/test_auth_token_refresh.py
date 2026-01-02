@@ -191,6 +191,21 @@ class TestRefreshOAuthToken:
         call_args = mock_post.call_args
         assert call_args[0][0] == OAUTH_TOKEN_URL
 
+    @patch("core.auth.requests.post")
+    def test_refresh_missing_access_token_in_response(self, mock_post):
+        """200 response without access_token should return None."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Response is 200 but missing access_token (e.g., error response)
+        mock_response.json.return_value = {
+            "error": "something_went_wrong",
+            "refresh_token": "refresh",
+        }
+        mock_post.return_value = mock_response
+
+        result = refresh_oauth_token("some-refresh-token")
+        assert result is None
+
 
 # =============================================================================
 # get_full_credentials() Tests
@@ -251,9 +266,8 @@ class TestLinuxCredentials:
     """Tests for Linux credential store operations."""
 
     @patch("core.auth.platform.system")
-    @patch("builtins.open", new_callable=mock_open)
     @patch("core.auth.os.path.exists")
-    def test_linux_read_credentials(self, mock_exists, mock_file, mock_system, monkeypatch):
+    def test_linux_read_credentials(self, mock_exists, mock_system, monkeypatch):
         """Linux should read from ~/.claude/credentials.json."""
         # Clear env vars
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
@@ -262,23 +276,24 @@ class TestLinuxCredentials:
         mock_system.return_value = "Linux"
         mock_exists.return_value = True
 
+        # Use valid token format (sk-ant-oat01-...) required by the function
         cred_data = {
             "claudeAiOauth": {
-                "accessToken": "linux-access-token",
-                "refreshToken": "linux-refresh-token",
+                "accessToken": "sk-ant-oat01-test-linux-token",
+                "refreshToken": "sk-ant-ort01-test-refresh-token",
                 "expiresAt": 1735123456789,
             }
         }
-        mock_file.return_value.read.return_value = json.dumps(cred_data)
 
-        # Need to import inside to get fresh instance
-        from core.auth import _get_full_credentials_linux
+        # Use read_data parameter for mock_open (works with json.load)
+        with patch("builtins.open", mock_open(read_data=json.dumps(cred_data))):
+            from core.auth import _get_full_credentials_linux
 
-        result = _get_full_credentials_linux()
+            result = _get_full_credentials_linux()
 
         assert result is not None
-        assert result["accessToken"] == "linux-access-token"
-        assert result["refreshToken"] == "linux-refresh-token"
+        assert result["accessToken"] == "sk-ant-oat01-test-linux-token"
+        assert result["refreshToken"] == "sk-ant-ort01-test-refresh-token"
         assert result["expiresAt"] == 1735123456789
 
     @patch("core.auth.os.path.exists")
@@ -466,16 +481,27 @@ class TestOAuthConfiguration:
 
     def test_custom_token_url(self, monkeypatch):
         """Custom token URL should be picked up from environment."""
-        monkeypatch.setenv("CLAUDE_OAUTH_TOKEN_URL", "https://custom.example.com/token")
-
-        # Reload module to pick up new env var
         import importlib
         import core.auth
 
-        importlib.reload(core.auth)
+        # Store original values for cleanup
+        original_url = core.auth.OAUTH_TOKEN_URL
+        original_client_id = core.auth.OAUTH_CLIENT_ID
+        original_buffer = core.auth.TOKEN_REFRESH_BUFFER_SECONDS
 
-        assert core.auth.OAUTH_TOKEN_URL == "https://custom.example.com/token"
+        try:
+            monkeypatch.setenv("CLAUDE_OAUTH_TOKEN_URL", "https://custom.example.com/token")
 
-        # Reset
-        monkeypatch.delenv("CLAUDE_OAUTH_TOKEN_URL")
-        importlib.reload(core.auth)
+            # Reload module to pick up new env var
+            importlib.reload(core.auth)
+
+            assert core.auth.OAUTH_TOKEN_URL == "https://custom.example.com/token"
+        finally:
+            # Always restore original state regardless of test outcome
+            monkeypatch.delenv("CLAUDE_OAUTH_TOKEN_URL", raising=False)
+            importlib.reload(core.auth)
+            # Verify restoration (or manually restore if reload failed)
+            if core.auth.OAUTH_TOKEN_URL != original_url:
+                core.auth.OAUTH_TOKEN_URL = original_url
+                core.auth.OAUTH_CLIENT_ID = original_client_id
+                core.auth.TOKEN_REFRESH_BUFFER_SECONDS = original_buffer

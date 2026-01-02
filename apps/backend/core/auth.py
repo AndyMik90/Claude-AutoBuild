@@ -193,29 +193,58 @@ def _get_full_credentials_from_store() -> dict | None:
         return _get_full_credentials_linux()
 
 
+def _get_full_credentials_from_file(cred_path: str) -> dict | None:
+    """
+    Read and parse credentials from a single file path.
+
+    Args:
+        cred_path: Path to the credentials JSON file
+
+    Returns:
+        Dict with accessToken, refreshToken, expiresAt or None if invalid
+    """
+    if not os.path.exists(cred_path):
+        return None
+
+    try:
+        with open(cred_path, encoding="utf-8") as f:
+            data = json.load(f)
+            oauth = data.get("claudeAiOauth", {})
+            access_token = oauth.get("accessToken")
+            if access_token and access_token.startswith("sk-ant-oat01-"):
+                return {
+                    "accessToken": access_token,
+                    "refreshToken": oauth.get("refreshToken"),
+                    "expiresAt": oauth.get("expiresAt"),
+                }
+    except (json.JSONDecodeError, KeyError):
+        pass
+    return None
+
+
+def _get_full_credentials_from_paths(cred_paths: list[str]) -> dict | None:
+    """
+    Try to read credentials from a list of file paths.
+
+    Args:
+        cred_paths: List of paths to try in order
+
+    Returns:
+        Credentials from first valid file, or None if none found
+    """
+    for cred_path in cred_paths:
+        result = _get_full_credentials_from_file(cred_path)
+        if result:
+            return result
+    return None
+
+
 def _get_full_credentials_linux() -> dict | None:
     """Get full credentials from Linux file store."""
-    cred_paths = [
+    return _get_full_credentials_from_paths([
         os.path.expanduser("~/.claude/credentials.json"),
         os.path.expanduser("~/.claude/.credentials.json"),
-    ]
-
-    for cred_path in cred_paths:
-        if os.path.exists(cred_path):
-            try:
-                with open(cred_path, encoding="utf-8") as f:
-                    data = json.load(f)
-                    oauth = data.get("claudeAiOauth", {})
-                    access_token = oauth.get("accessToken")
-                    if access_token and access_token.startswith("sk-ant-oat01-"):
-                        return {
-                            "accessToken": access_token,
-                            "refreshToken": oauth.get("refreshToken"),
-                            "expiresAt": oauth.get("expiresAt"),
-                        }
-            except (json.JSONDecodeError, KeyError):
-                continue
-    return None
+    ])
 
 
 def _get_full_credentials_macos() -> dict | None:
@@ -253,29 +282,12 @@ def _get_full_credentials_macos() -> dict | None:
 
 def _get_full_credentials_windows() -> dict | None:
     """Get full credentials from Windows credential files."""
-    cred_paths = [
+    return _get_full_credentials_from_paths([
         os.path.expandvars(r"%USERPROFILE%\.claude\.credentials.json"),
         os.path.expandvars(r"%USERPROFILE%\.claude\credentials.json"),
         os.path.expandvars(r"%LOCALAPPDATA%\Claude\credentials.json"),
         os.path.expandvars(r"%APPDATA%\Claude\credentials.json"),
-    ]
-
-    for cred_path in cred_paths:
-        if os.path.exists(cred_path):
-            try:
-                with open(cred_path, encoding="utf-8") as f:
-                    data = json.load(f)
-                    oauth = data.get("claudeAiOauth", {})
-                    access_token = oauth.get("accessToken")
-                    if access_token and access_token.startswith("sk-ant-oat01-"):
-                        return {
-                            "accessToken": access_token,
-                            "refreshToken": oauth.get("refreshToken"),
-                            "expiresAt": oauth.get("expiresAt"),
-                        }
-            except (json.JSONDecodeError, KeyError):
-                continue
-    return None
+    ])
 
 
 # =============================================================================
@@ -331,16 +343,20 @@ def refresh_oauth_token(refresh_token: str) -> dict | None:
 
         if response.status_code == 200:
             data = response.json()
+            access_token = data.get("access_token")
+            if not access_token:
+                logger.warning("OAuth response missing access_token")
+                return None
             expires_in = data.get("expires_in", 28800)  # Default 8 hours
             return {
-                "accessToken": data.get("access_token"),
+                "accessToken": access_token,
                 "refreshToken": data.get("refresh_token"),
                 "expiresAt": int((time.time() + expires_in) * 1000),
             }
         else:
-            logger.warning(f"Token refresh failed: {response.status_code}")
+            logger.warning(f"Token refresh failed: {response.status_code} {response.text}")
             return None
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.warning(f"Token refresh error: {e}")
         return None
 
@@ -370,12 +386,22 @@ def save_credentials(credentials: dict) -> bool:
         return _save_credentials_linux(credentials)
 
 
-def _save_credentials_linux(credentials: dict) -> bool:
-    """Save credentials to Linux file store."""
-    cred_path = os.path.expanduser("~/.claude/credentials.json")
+def _save_credentials_to_file(
+    cred_path: str, credentials: dict, set_permissions: bool = False
+) -> bool:
+    """
+    Save credentials to a JSON file.
 
+    Args:
+        cred_path: Path to the credentials file
+        credentials: Dict with accessToken, refreshToken, expiresAt
+        set_permissions: If True, set file permissions to 0o600 (Linux)
+
+    Returns:
+        True if saved successfully
+    """
     try:
-        # Read existing file
+        # Read existing file to preserve other data
         existing = {}
         if os.path.exists(cred_path):
             with open(cred_path, encoding="utf-8") as f:
@@ -388,43 +414,39 @@ def _save_credentials_linux(credentials: dict) -> bool:
             "expiresAt": credentials["expiresAt"],
         }
 
-        # Write back
+        # Create directory and write file
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w", encoding="utf-8") as f:
             json.dump(existing, f, indent=2)
-        os.chmod(cred_path, 0o600)
+
+        # Set restrictive permissions on Linux/Unix
+        if set_permissions:
+            os.chmod(cred_path, 0o600)
 
         return True
     except Exception as e:
-        logger.warning(f"Failed to save credentials: {e}")
+        logger.warning(f"Failed to save credentials to {cred_path}: {e}")
         return False
+
+
+def _save_credentials_linux(credentials: dict) -> bool:
+    """Save credentials to Linux file store."""
+    cred_path = os.path.expanduser("~/.claude/credentials.json")
+
+    # Use umask to create file with restrictive permissions atomically
+    # This prevents TOCTOU race condition where file is briefly world-readable
+    old_umask = os.umask(0o077)
+    try:
+        return _save_credentials_to_file(cred_path, credentials, set_permissions=True)
+    finally:
+        os.umask(old_umask)
 
 
 def _save_credentials_windows(credentials: dict) -> bool:
     """Save credentials to Windows file store."""
     # Use .credentials.json (with leading dot) to match Claude Code's primary path
     cred_path = os.path.expandvars(r"%USERPROFILE%\.claude\.credentials.json")
-
-    try:
-        existing = {}
-        if os.path.exists(cred_path):
-            with open(cred_path, encoding="utf-8") as f:
-                existing = json.load(f)
-
-        existing["claudeAiOauth"] = {
-            "accessToken": credentials["accessToken"],
-            "refreshToken": credentials["refreshToken"],
-            "expiresAt": credentials["expiresAt"],
-        }
-
-        os.makedirs(os.path.dirname(cred_path), exist_ok=True)
-        with open(cred_path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, indent=2)
-
-        return True
-    except Exception as e:
-        logger.warning(f"Failed to save credentials: {e}")
-        return False
+    return _save_credentials_to_file(cred_path, credentials)
 
 
 def _save_credentials_macos(credentials: dict) -> bool:
