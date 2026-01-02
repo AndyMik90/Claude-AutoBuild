@@ -174,6 +174,9 @@ export function registerSettingsHandlers(
       if (settings.morphApiKey) {
         process.env.MORPH_API_KEY = settings.morphApiKey;
       }
+      if (settings.morphModel) {
+        process.env.MORPH_MODEL = settings.morphModel;
+      }
 
       return { success: true, data: settings as AppSettings };
     }
@@ -235,6 +238,13 @@ export function registerSettingsHandlers(
           } else {
             // Remove from env if API key is cleared
             delete process.env.MORPH_API_KEY;
+          }
+        }
+        if (settings.morphModel !== undefined) {
+          if (settings.morphModel) {
+            process.env.MORPH_MODEL = settings.morphModel;
+          } else {
+            delete process.env.MORPH_MODEL;
           }
         }
 
