@@ -1,9 +1,9 @@
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execSync, execFileSync, ChildProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
-import { findPythonCommand, getBundledPythonPath } from './python-detector';
+import { findPythonCommand, getBundledPythonPath, validatePythonPath, parsePythonCommand, validatePythonVersion } from './python-detector';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -40,6 +40,39 @@ export class PythonEnvManager extends EventEmitter {
   private initializationPromise: Promise<PythonEnvStatus> | null = null;
   private activeProcesses: Set<ChildProcess> = new Set();
   private static readonly VENV_CREATION_TIMEOUT_MS = 120000; // 2 minutes timeout for venv creation
+  // User-configured Python path from settings (takes priority over auto-detection)
+  private configuredPythonPath: string | null = null;
+
+  /**
+   * Configure the Python path from user settings.
+   * This should be called before initialize() to ensure the user's preferred Python is used.
+   * @param pythonPath - The user-configured Python path from settings
+   * @returns true if path was accepted, false if rejected (will use auto-detection)
+   */
+  configure(pythonPath?: string): boolean {
+    if (!pythonPath) {
+      return false;
+    }
+
+    // Step 1: Validate path security (no shell injection, valid executable)
+    const pathValidation = validatePythonPath(pythonPath);
+    if (!pathValidation.valid || !pathValidation.sanitizedPath) {
+      console.error(`[PythonEnvManager] Invalid Python path rejected: ${pathValidation.reason}`);
+      return false;
+    }
+
+    // Step 2: Validate Python version meets 3.10+ requirement
+    const versionValidation = validatePythonVersion(pathValidation.sanitizedPath);
+    if (!versionValidation.valid) {
+      console.error(`[PythonEnvManager] Python version rejected: ${versionValidation.message}`);
+      this.emit('error', `Configured Python version is too old: ${versionValidation.message}`);
+      return false;
+    }
+
+    this.configuredPythonPath = pathValidation.sanitizedPath;
+    console.log(`[PythonEnvManager] Configured Python path: ${this.configuredPythonPath} (${versionValidation.version})`);
+    return true;
+  }
 
   /**
    * Get the path where the venv should be created.
@@ -181,11 +214,33 @@ if sys.version_info >= (3, 12):
   }
 
   /**
-   * Find Python 3.10+ (bundled or system).
+   * Find Python 3.10+ (configured, bundled, or system).
    * Uses the shared python-detector logic which validates version requirements.
-   * Priority: bundled Python (packaged apps) > system Python
+   * Priority: user-configured > bundled Python (packaged apps) > system Python
    */
   private findSystemPython(): string | null {
+    // 1. First check user-configured Python path (from settings)
+    if (this.configuredPythonPath) {
+      try {
+        // Verify the configured path actually works and resolve it to a full path
+        // Use execFileSync with shell: false for security (defense-in-depth)
+        const [command, args] = parsePythonCommand(this.configuredPythonPath);
+        const pythonPath = execFileSync(command, [...args, '-c', 'import sys; print(sys.executable)'], {
+          stdio: 'pipe',
+          timeout: 5000,
+          windowsHide: true,
+          shell: false // Explicitly disable shell for security
+        }).toString().trim();
+
+        console.log(`[PythonEnvManager] Using user-configured Python: ${pythonPath}`);
+        return pythonPath;
+      } catch (err) {
+        console.error(`[PythonEnvManager] User-configured Python failed, falling back to auto-detection:`, err);
+        // Fall through to auto-detection
+      }
+    }
+
+    // 2. Auto-detect Python
     const pythonCmd = findPythonCommand();
     if (!pythonCmd) {
       return null;

@@ -137,7 +137,7 @@ function getPythonVersion(pythonCmd: string): string | null {
  * @param pythonCmd - The Python command to validate
  * @returns Validation result with status, version, and message
  */
-function validatePythonVersion(pythonCmd: string): {
+export function validatePythonVersion(pythonCmd: string): {
   valid: boolean;
   version?: string;
   message: string;

@@ -14,6 +14,7 @@ import { getEffectiveVersion } from '../auto-claude-updater';
 import { setUpdateChannel } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo } from '../cli-tool-manager';
+import { pythonEnvManager } from '../python-env-manager';
 
 const settingsPath = getSettingsPath();
 
@@ -176,6 +177,10 @@ export function registerSettingsHandlers(
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {
           agentManager.configure(settings.pythonPath, settings.autoBuildPath);
+          // Also update pythonEnvManager so future venv creations use the new path
+          if (settings.pythonPath) {
+            pythonEnvManager.configure(settings.pythonPath);
+          }
         }
 
         // Configure CLI tools if any paths changed
