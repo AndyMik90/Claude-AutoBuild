@@ -21,7 +21,6 @@ import { ScrollArea } from '../../ui/scroll-area';
 import { Progress } from '../../ui/progress';
 import { formatDate } from '../utils/formatDate';
 
-// Local components
 import { CollapsibleCard } from './CollapsibleCard';
 import { ReviewStatusTree } from './ReviewStatusTree';
 import { PRHeader } from './PRHeader';
@@ -80,33 +79,28 @@ export function PRDetail({
   onGetLogs,
 }: PRDetailProps) {
   const { t, i18n } = useTranslation('common');
-  // Selection state for findings
+
   const [selectedFindingIds, setSelectedFindingIds] = useState<Set<string>>(new Set());
   const [postedFindingIds, setPostedFindingIds] = useState<Set<string>>(new Set());
   const [isPostingFindings, setIsPostingFindings] = useState(false);
   const [postSuccess, setPostSuccess] = useState<{ count: number; timestamp: number } | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
-  // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
-  // Ref to track checking state without causing callback recreation
   const isCheckingNewCommitsRef = useRef(false);
-  // Logs state
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const logsLoadedRef = useRef(false);
 
-  // Sync with store's newCommitsCheck when it changes (e.g., when switching PRs)
   useEffect(() => {
     if (initialNewCommitsCheck !== undefined) {
       setNewCommitsCheck(initialNewCommitsCheck);
     }
   }, [initialNewCommitsCheck]);
 
-  // Sync local postedFindingIds with reviewResult.postedFindingIds when it changes
   useEffect(() => {
     if (reviewResult?.postedFindingIds) {
       setPostedFindingIds(new Set(reviewResult.postedFindingIds));
@@ -115,8 +109,6 @@ export function PRDetail({
     }
   }, [reviewResult?.postedFindingIds, pr.number]);
 
-  // Auto-select ALL findings when review completes (excluding already posted)
-  // All findings should reach the contributor - even LOW suggestions are valuable feedback
   useEffect(() => {
     if (reviewResult?.success && reviewResult.findings.length > 0) {
       const allFindings = reviewResult.findings
@@ -126,30 +118,22 @@ export function PRDetail({
     }
   }, [reviewResult, postedFindingIds]);
 
-  // Check for new commits after any review has been completed
-  // This allows detecting new work pushed after ANY review (initial or follow-up)
   const hasPostedFindings = postedFindingIds.size > 0 || reviewResult?.hasPostedFindings;
 
   const checkForNewCommits = useCallback(async () => {
-    // Prevent duplicate concurrent calls using ref (avoids callback recreation)
     if (isCheckingNewCommitsRef.current) {
       return;
     }
 
-    // Cancel any pending check
     if (checkNewCommitsAbortRef.current) {
       checkNewCommitsAbortRef.current.abort();
     }
     checkNewCommitsAbortRef.current = new AbortController();
 
-    // Check for new commits if we have ANY successful review with a commit SHA
-    // This includes follow-up reviews that resolved all issues (no new findings)
-    // New commits = new code that needs to be reviewed, regardless of posting status
     if (reviewResult?.success && reviewResult.reviewedCommitSha) {
       isCheckingNewCommitsRef.current = true;
       try {
         const result = await onCheckNewCommits();
-        // Only update state if not aborted
         if (!checkNewCommitsAbortRef.current?.signal.aborted) {
           setNewCommitsCheck(result);
         }
@@ -164,14 +148,12 @@ export function PRDetail({
   useEffect(() => {
     checkForNewCommits();
     return () => {
-      // Cleanup abort controller on unmount
       if (checkNewCommitsAbortRef.current) {
         checkNewCommitsAbortRef.current.abort();
       }
     };
   }, [checkForNewCommits]);
 
-  // Clear success message after 3 seconds
   useEffect(() => {
     if (postSuccess) {
       const timer = setTimeout(() => setPostSuccess(null), 3000);
@@ -179,14 +161,12 @@ export function PRDetail({
     }
   }, [postSuccess]);
 
-  // Auto-expand logs section when review starts
   useEffect(() => {
     if (isReviewing) {
       setLogsExpanded(true);
     }
   }, [isReviewing]);
 
-  // Load logs when logs section is expanded or when reviewing (for live logs)
   useEffect(() => {
     if (logsExpanded && !logsLoadedRef.current && !isLoadingLogs) {
       logsLoadedRef.current = true;
@@ -198,15 +178,12 @@ export function PRDetail({
     }
   }, [logsExpanded, onGetLogs, isLoadingLogs]);
 
-  // Track previous reviewing state to detect transitions
   const wasReviewingRef = useRef(false);
 
-  // Refresh logs periodically while reviewing (even faster during active review)
   useEffect(() => {
     const wasReviewing = wasReviewingRef.current;
     wasReviewingRef.current = isReviewing;
 
-    // Do one final refresh when review just completed to get final phase status
     if (wasReviewing && !isReviewing) {
       onGetLogs()
         .then(logs => setPrLogs(logs))
@@ -214,7 +191,6 @@ export function PRDetail({
       return;
     }
 
-    // Clear old logs when a new review starts to avoid showing stale status
     if (!wasReviewing && isReviewing) {
       setPrLogs(null);
     }
@@ -226,56 +202,44 @@ export function PRDetail({
         const logs = await onGetLogs();
         setPrLogs(logs);
       } catch {
-        // Ignore errors during refresh
+        // Ignore refresh errors
       }
     };
 
-    // Refresh immediately, then every 1.5 seconds while reviewing for smoother streaming
     refreshLogs();
     const interval = setInterval(refreshLogs, 1500);
     return () => clearInterval(interval);
   }, [isReviewing, onGetLogs]);
 
-  // Reset logs state when PR changes
   useEffect(() => {
     logsLoadedRef.current = false;
     setPrLogs(null);
     setLogsExpanded(false);
   }, [pr.number]);
 
-  // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
 
-  // Check if PR is ready to merge based on review
   const isReadyToMerge = useMemo(() => {
     if (!reviewResult || !reviewResult.success) return false;
-    // Check if the summary contains "READY TO MERGE"
     return reviewResult.summary?.includes('READY TO MERGE') || reviewResult.overallStatus === 'approve';
   }, [reviewResult]);
 
-  // Check if review is "clean" - only LOW severity findings (no MEDIUM, HIGH, or CRITICAL)
-  // Requires at least having a successful review to be considered clean
   const isCleanReview = useMemo(() => {
     if (!reviewResult || !reviewResult.success) return false;
-    // Only LOW findings allowed - no medium, high, or critical
-    // A review with zero findings is also considered clean
     return !reviewResult.findings.some(f =>
       f.severity === 'critical' || f.severity === 'high' || f.severity === 'medium'
     );
   }, [reviewResult]);
 
-  // Check if there are any findings at all (for auto-approve button label)
   const hasFindings = useMemo(() => {
     return reviewResult?.findings && reviewResult.findings.length > 0;
   }, [reviewResult]);
 
-  // Get LOW severity findings for auto-posting
   const lowSeverityFindings = useMemo(() => {
     if (!reviewResult?.findings) return [];
     return reviewResult.findings.filter(f => f.severity === 'low');
   }, [reviewResult]);
 
-  // Compute the overall PR review status for visual display
   type PRStatus = 'not_reviewed' | 'reviewed_pending_post' | 'waiting_for_changes' | 'ready_to_merge' | 'needs_attention' | 'ready_for_followup' | 'followup_issues_remain';
   const prStatus: { status: PRStatus; label: string; description: string; icon: React.ReactNode; color: string } = useMemo(() => {
     if (!reviewResult || !reviewResult.success) {
@@ -288,7 +252,6 @@ export function PRDetail({
       };
     }
 
-    // Use a merged Set to avoid double-counting (local state may overlap with backend state)
     const allPostedIds = new Set([...postedFindingIds, ...(reviewResult.postedFindingIds ?? [])]);
     const totalPosted = allPostedIds.size;
     const hasPosted = totalPosted > 0 || reviewResult.hasPostedFindings;
@@ -297,21 +260,17 @@ export function PRDetail({
     const hasUnpostedBlockers = unpostedFindings.some(f => f.severity === 'critical' || f.severity === 'high');
     const hasNewCommits = newCommitsCheck?.hasNewCommits ?? false;
     const newCommitCount = newCommitsCheck?.newCommitCount ?? 0;
-    // Only consider commits that happened AFTER findings were posted for "Ready for Follow-up"
     const hasCommitsAfterPosting = newCommitsCheck?.hasCommitsAfterPosting ?? false;
 
-    // Follow-up review specific statuses
     if (reviewResult.isFollowupReview) {
       const resolvedCount = reviewResult.resolvedFindings?.length ?? 0;
       const unresolvedCount = reviewResult.unresolvedFindings?.length ?? 0;
       const newIssuesCount = reviewResult.newFindingsSinceLastReview?.length ?? 0;
 
-      // Check if any remaining issues are blockers (HIGH/CRITICAL)
       const hasBlockingIssuesRemaining = reviewResult.findings.some(
         f => (f.severity === 'critical' || f.severity === 'high')
       );
 
-      // Check if ready for another follow-up (new commits AFTER this follow-up was posted)
       if (hasNewCommits && hasCommitsAfterPosting) {
         return {
           status: 'ready_for_followup',
@@ -322,7 +281,6 @@ export function PRDetail({
         };
       }
 
-      // All issues resolved - ready to merge
       if (unresolvedCount === 0 && newIssuesCount === 0) {
         return {
           status: 'ready_to_merge',
@@ -333,7 +291,6 @@ export function PRDetail({
         };
       }
 
-      // No blocking issues (only MEDIUM/LOW) - can merge with suggestions
       if (!hasBlockingIssuesRemaining) {
         const suggestionsCount = unresolvedCount + newIssuesCount;
         return {
@@ -345,7 +302,6 @@ export function PRDetail({
         };
       }
 
-      // Blocking issues still remain after follow-up
       return {
         status: 'followup_issues_remain',
         label: t('prReview.blockingIssues'),
@@ -355,9 +311,6 @@ export function PRDetail({
       };
     }
 
-    // Initial review statuses (non-follow-up)
-
-    // Priority 1: Ready for follow-up review (posted findings + new commits AFTER posting)
     if (hasPosted && hasNewCommits && hasCommitsAfterPosting) {
       return {
         status: 'ready_for_followup',
@@ -368,7 +321,6 @@ export function PRDetail({
       };
     }
 
-    // Priority 2: Ready to merge (no blockers)
     if (isReadyToMerge && hasPosted) {
       return {
         status: 'ready_to_merge',
@@ -379,7 +331,6 @@ export function PRDetail({
       };
     }
 
-    // Priority 3: Waiting for changes (posted but has blockers, no new commits yet)
     if (hasPosted && hasBlockers) {
       return {
         status: 'waiting_for_changes',
@@ -390,7 +341,6 @@ export function PRDetail({
       };
     }
 
-    // Priority 4: Ready to merge (posted, no blockers)
     if (hasPosted && !hasBlockers) {
       return {
         status: 'ready_to_merge',
@@ -401,7 +351,6 @@ export function PRDetail({
       };
     }
 
-    // Priority 5: Needs attention (unposted blockers)
     if (hasUnpostedBlockers) {
       return {
         status: 'needs_attention',
@@ -412,7 +361,6 @@ export function PRDetail({
       };
     }
 
-    // Default: Review complete, pending post
     return {
       status: 'reviewed_pending_post',
       label: t('prReview.reviewComplete'),
@@ -430,13 +378,9 @@ export function PRDetail({
     try {
       const success = await onPostReview(idsToPost);
       if (success) {
-        // Mark these findings as posted
         setPostedFindingIds(prev => new Set([...prev, ...idsToPost]));
-        // Clear selection
         setSelectedFindingIds(new Set());
-        // Show success message
         setPostSuccess({ count: idsToPost.length, timestamp: Date.now() });
-        // After posting, check for new commits (follow-up review now available)
         checkForNewCommits();
       }
     } finally {
@@ -458,11 +402,11 @@ export function PRDetail({
     }
   };
 
+  // Auto-approval: posts LOW findings as suggestions, then approves
   const handleAutoApprove = async () => {
     if (!reviewResult) return;
     setIsPosting(true);
     try {
-      // Step 1: Post any LOW findings as non-blocking suggestions
       const lowFindingIds = lowSeverityFindings.map(f => f.id);
       if (lowFindingIds.length > 0) {
         const success = await onPostReview(lowFindingIds);
@@ -470,7 +414,6 @@ export function PRDetail({
         setPostedFindingIds(prev => new Set([...prev, ...lowFindingIds]));
       }
 
-      // Step 2: Post the approval (no findings = approve status)
       const approvalSuccess = await onPostReview([]);
       if (approvalSuccess) {
         checkForNewCommits();
@@ -483,7 +426,7 @@ export function PRDetail({
   const handleMerge = async () => {
     setIsMerging(true);
     try {
-      await onMergePR('squash'); // Default to squash merge
+      await onMergePR('squash');
     } finally {
       setIsMerging(false);
     }
@@ -493,7 +436,6 @@ export function PRDetail({
     <ScrollArea className="flex-1">
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
-        {/* Refactored Header */}
         <PRHeader pr={pr} />
 
         {/* Review Status & Actions */}
@@ -510,7 +452,7 @@ export function PRDetail({
           lastPostedAt={postSuccess?.timestamp || (reviewResult?.postedAt ? new Date(reviewResult.postedAt).getTime() : null)}
         />
 
-        {/* Action Bar (Legacy Actions that fit under the tree context) */}
+        {/* Action Bar */}
         {reviewResult && reviewResult.success && !isReviewing && (
           <div className="flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
              {selectedCount > 0 && (
@@ -529,7 +471,6 @@ export function PRDetail({
                 </Button>
              )}
 
-             {/* Auto-approve for clean PRs (only LOW findings or no findings) */}
              {isCleanReview && (
                 <Button
                   onClick={handleAutoApprove}
@@ -599,7 +540,7 @@ export function PRDetail({
           </div>
         )}
 
-        {/* Review Result / Findings */}
+        {/* Review Result */}
         {reviewResult && reviewResult.success && (
           <CollapsibleCard
             title={reviewResult.isFollowupReview ? t('prReview.followupReviewDetails') : t('prReview.aiAnalysisResults')}
@@ -647,7 +588,6 @@ export function PRDetail({
                 {reviewResult.summary}
               </div>
 
-              {/* Interactive Findings with Selection */}
               <ReviewFindings
                 findings={reviewResult.findings}
                 selectedIds={selectedFindingIds}
@@ -673,7 +613,7 @@ export function PRDetail({
           </Card>
         )}
 
-        {/* Review Logs - show during review or after completion */}
+        {/* Review Logs */}
         {(reviewResult || isReviewing) && (
           <CollapsibleCard
             title={t('prReview.reviewLogs')}
