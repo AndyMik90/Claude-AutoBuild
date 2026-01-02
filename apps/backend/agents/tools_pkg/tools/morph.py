@@ -389,8 +389,12 @@ def _detect_language(file_path: Path) -> str | None:
         ".py": "python",
         ".js": "javascript",
         ".jsx": "javascript",
+        ".mjs": "javascript",  # ES modules
+        ".cjs": "javascript",  # CommonJS modules
         ".ts": "typescript",
         ".tsx": "typescript",
+        ".mts": "typescript",  # ES modules
+        ".cts": "typescript",  # CommonJS modules
         ".java": "java",
         ".kt": "kotlin",
         ".kts": "kotlin",
