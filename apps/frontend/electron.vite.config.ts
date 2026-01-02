@@ -1,6 +1,10 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { config } from 'dotenv';
+
+// Load .env file
+config({ quiet: true });
 
 export default defineConfig({
   main: {
@@ -55,6 +59,7 @@ export default defineConfig({
       }
     },
     server: {
+      port: Number(process.env.VITE_DEV_PORT) || 5173,
       watch: {
         // Ignore directories to prevent HMR conflicts during merge operations
         // Using absolute paths and broader patterns
