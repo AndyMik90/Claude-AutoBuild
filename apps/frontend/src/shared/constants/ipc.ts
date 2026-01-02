@@ -481,3 +481,11 @@ export const IPC_CHANNELS = {
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
 } as const;
+
+/**
+ * Agent communication markers
+ * Special markers printed by backend agents to stdout that main process parses
+ */
+export const AGENT_MARKERS = {
+  PLAN_UPDATED: '__PLAN_UPDATED__:',  // Emitted by QA agent when implementation_plan.json is updated
+} as const;

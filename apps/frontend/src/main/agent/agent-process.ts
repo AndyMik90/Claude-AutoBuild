@@ -14,6 +14,7 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
+import { AGENT_MARKERS } from '../../shared/constants/ipc';
 
 /**
  * Process spawning and lifecycle management
@@ -391,9 +392,9 @@ export class AgentProcessManager {
       allOutput = (allOutput + line).slice(-10000);
 
       // Check for plan update marker from QA tool
-      const planUpdateMarkerIndex = line.indexOf('__PLAN_UPDATED__:');
+      const planUpdateMarkerIndex = line.indexOf(AGENT_MARKERS.PLAN_UPDATED);
       if (planUpdateMarkerIndex !== -1) {
-        const specId = line.slice(planUpdateMarkerIndex + '__PLAN_UPDATED__:'.length).trim();
+        const specId = line.slice(planUpdateMarkerIndex + AGENT_MARKERS.PLAN_UPDATED.length).trim();
         if (specId) {
           console.log(`[AgentProcess] Plan updated for task: ${taskId}, spec: ${specId}`);
           this.emitter.emit('plan-updated', taskId, specId);

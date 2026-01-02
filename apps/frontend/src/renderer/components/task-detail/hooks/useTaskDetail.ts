@@ -186,7 +186,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   // Listen for plan updates (from QA approval, etc.)
   // This ensures UI stays in sync when backend updates implementation_plan.json
   useEffect(() => {
-    const updateTaskFromPlan = useTaskStore.getState().updateTaskFromPlan;
+    const updateTask = useTaskStore.getState().updateTask;
 
     const unsubscribe = window.electronAPI.onTaskPlanUpdated((taskId, specId) => {
       // Only refresh if this is the current task
@@ -195,33 +195,19 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         setHasCheckedRunning(false);
         setIsStuck(false);
 
-        // Load the updated implementation plan
-        const loadUpdatedPlan = async () => {
+        // Load the updated task state
+        const loadUpdatedTask = async () => {
           if (!selectedProject) return;
 
           try {
             // The plan is already updated on disk by the backend
-            // We need to re-read it via the task list refresh
+            // Re-fetch the task to get the latest status and subtasks
             const result = await window.electronAPI.getTasks(selectedProject.id);
             if (result.success && result.data) {
               const updatedTask = result.data.find(t => t.id === task.id || t.specId === task.specId);
-              if (updatedTask && updatedTask.subtasks) {
-                // Create a minimal implementation plan from the task subtasks
-                // This will trigger the task store to update the status
-                const plan = {
-                  feature: updatedTask.title,
-                  spec_name: updatedTask.specId,
-                  phases: [{
-                    phase: 1,
-                    subtasks: updatedTask.subtasks.map(s => ({
-                      id: s.id,
-                      description: s.description,
-                      status: s.status,
-                      verification: s.verification
-                    }))
-                  }]
-                };
-                updateTaskFromPlan(task.id, plan as any);
+              if (updatedTask) {
+                // Update the task directly in the store
+                updateTask(task.id, updatedTask);
               }
             }
           } catch (err) {
@@ -229,7 +215,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
           }
         };
 
-        loadUpdatedPlan();
+        loadUpdatedTask();
       }
     });
 
