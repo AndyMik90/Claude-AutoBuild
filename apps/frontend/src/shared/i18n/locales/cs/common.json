@@ -135,7 +135,7 @@
     "analysisInProgress": "Probíhá AI analýza...",
     "analysisComplete": "Analýza dokončena ({{count}} nálezů)",
     "findingsPostedToGitHub": "Nálezy odeslány na GitHub",
-    "newCommits": "{{count}} nový commit",
+    "newCommits": "{{count}} nových commitů",
     "newCommit": "{{count}} nový commit",
     "runFollowup": "Spustit následnou kontrolu",
     "aiReviewInProgress": "Probíhá AI kontrola",
