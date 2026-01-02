@@ -161,8 +161,11 @@ describe('File Watcher Integration', () => {
       });
       writeFileSync(planPath, JSON.stringify(updatedPlan));
 
-      // Simulate file change event
+      // Simulate file change event and wait for async handler
       mockWatcher.emit('change', planPath);
+      
+      // Wait for async file read to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(progressHandler).toHaveBeenCalledWith('task-1', expect.objectContaining({
         phases: expect.arrayContaining([
@@ -290,7 +293,7 @@ describe('File Watcher Integration', () => {
 
       await watcher.watch('task-1', TEST_SPEC_DIR);
 
-      const currentPlan = watcher.getCurrentPlan('task-1');
+      const currentPlan = await watcher.getCurrentPlan('task-1');
 
       expect(currentPlan).toMatchObject({
         feature: 'Test Feature'
@@ -301,7 +304,7 @@ describe('File Watcher Integration', () => {
       const { FileWatcher } = await import('../../main/file-watcher');
       const watcher = new FileWatcher();
 
-      const currentPlan = watcher.getCurrentPlan('nonexistent');
+      const currentPlan = await watcher.getCurrentPlan('nonexistent');
 
       expect(currentPlan).toBeNull();
     });

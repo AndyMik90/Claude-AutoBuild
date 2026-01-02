@@ -73,7 +73,7 @@ export function registerChangelogHandlers(
 
       // Use renderer tasks if provided (they have the correct UI status),
       // otherwise fall back to reading from filesystem
-      const tasks = rendererTasks || projectStore.getTasks(projectId);
+      const tasks = rendererTasks || await projectStore.getTasks(projectId);
 
       // Get specs directory path
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -91,7 +91,7 @@ export function registerChangelogHandlers(
         return { success: false, error: 'Project not found' };
       }
 
-      const tasks = projectStore.getTasks(projectId);
+      const tasks = await projectStore.getTasks(projectId);
 
       // Get specs directory path
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -120,7 +120,7 @@ export function registerChangelogHandlers(
       // Load specs for selected tasks (only in tasks mode)
       let specs: TaskSpecContent[] = [];
       if (request.sourceMode === 'tasks' && request.taskIds && request.taskIds.length > 0) {
-        const tasks = projectStore.getTasks(request.projectId);
+        const tasks = await projectStore.getTasks(request.projectId);
         const specsBaseDir = getSpecsDir(project.autoBuildPath);
         specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
       }
@@ -177,7 +177,7 @@ export function registerChangelogHandlers(
         const currentVersion = existing.lastVersion;
 
         // Load specs for selected tasks to analyze change types
-        const tasks = projectStore.getTasks(projectId);
+        const tasks = await projectStore.getTasks(projectId);
                 const specsBaseDir = getSpecsDir(project.autoBuildPath);
         const specs = await changelogService.loadTaskSpecs(project.path, taskIds, tasks, specsBaseDir);
 

@@ -1335,7 +1335,7 @@ export function registerWorktreeHandlers(
     IPC_CHANNELS.TASK_WORKTREE_STATUS,
     async (_, taskId: string): Promise<IPCResult<WorktreeStatus>> => {
       try {
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
         }
@@ -1445,7 +1445,7 @@ export function registerWorktreeHandlers(
     IPC_CHANNELS.TASK_WORKTREE_DIFF,
     async (_, taskId: string): Promise<IPCResult<WorktreeDiff>> => {
       try {
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
         }
@@ -1563,7 +1563,7 @@ export function registerWorktreeHandlers(
           }
         }
 
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           debug('Task or project not found');
           return { success: false, error: 'Task not found' };
@@ -2027,7 +2027,7 @@ export function registerWorktreeHandlers(
           }
         }
 
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           console.error('[IPC] Task not found:', taskId);
           return { success: false, error: 'Task not found' };
@@ -2189,7 +2189,7 @@ export function registerWorktreeHandlers(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
     async (_, taskId: string): Promise<IPCResult<WorktreeDiscardResult>> => {
       try {
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
         }
@@ -2454,7 +2454,7 @@ export function registerWorktreeHandlers(
     IPC_CHANNELS.TASK_GET_MERGED_CHANGES,
     async (_, taskId: string): Promise<IPCResult<TaskMergedChanges>> => {
       try {
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
         }

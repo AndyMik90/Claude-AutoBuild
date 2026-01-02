@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { promises as fs } from 'fs';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -236,7 +237,7 @@ export class ProjectStore {
   /**
    * Get tasks for a project by scanning specs directory
    */
-  getTasks(projectId: string): Task[] {
+  async getTasks(projectId: string): Promise<Task[]> {
     console.warn('[ProjectStore] getTasks called with projectId:', projectId);
     const project = this.getProject(projectId);
     if (!project) {
@@ -253,7 +254,7 @@ export class ProjectStore {
     const mainSpecIds = new Set<string>();
     console.warn('[ProjectStore] Main specsDir:', mainSpecsDir, 'exists:', existsSync(mainSpecsDir));
     if (existsSync(mainSpecsDir)) {
-      const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
+      const mainTasks = await this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
       allTasks.push(...mainTasks);
       // Track which specs exist in main project
       mainTasks.forEach(t => mainSpecIds.add(t.specId));
@@ -273,7 +274,7 @@ export class ProjectStore {
 
           const worktreeSpecsDir = path.join(worktreesDir, worktree.name, specsBaseDir);
           if (existsSync(worktreeSpecsDir)) {
-            const worktreeTasks = this.loadTasksFromSpecsDir(
+            const worktreeTasks = await this.loadTasksFromSpecsDir(
               worktreeSpecsDir,
               path.join(worktreesDir, worktree.name),
               'worktree',
@@ -309,13 +310,13 @@ export class ProjectStore {
   /**
    * Load tasks from a specs directory (helper method for main project and worktrees)
    */
-  private loadTasksFromSpecsDir(
+  private async loadTasksFromSpecsDir(
     specsDir: string,
     basePath: string,
     location: 'main' | 'worktree',
     projectId: string,
     specsBaseDir: string
-  ): Task[] {
+  ): Promise<Task[]> {
     const tasks: Task[] = [];
     let specDirs: Dirent[] = [];
 
@@ -335,32 +336,30 @@ export class ProjectStore {
         const planPath = path.join(specPath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         const specFilePath = path.join(specPath, AUTO_BUILD_PATHS.SPEC_FILE);
 
-        // Try to read implementation plan
+        // Try to read implementation plan (async)
         let plan: ImplementationPlan | null = null;
-        if (existsSync(planPath)) {
-          try {
-            const content = readFileSync(planPath, 'utf-8');
-            plan = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
-          }
+        try {
+          await fs.access(planPath);
+          const content = await fs.readFile(planPath, 'utf-8');
+          plan = JSON.parse(content);
+        } catch {
+          // Ignore parse errors or file not found
         }
 
-        // Try to read spec file for description
+        // Try to read spec file for description (async)
         let description = '';
-        if (existsSync(specFilePath)) {
-          try {
-            const content = readFileSync(specFilePath, 'utf-8');
-            // Extract full Overview section until next heading or end of file
-            // Use \n#{1,6}\s to match valid markdown headings (# to ######) with required space
-            // This avoids truncating at # in code blocks (e.g., Python comments)
-            const overviewMatch = content.match(/## Overview\s*\n+([\s\S]*?)(?=\n#{1,6}\s|$)/);
-            if (overviewMatch) {
-              description = overviewMatch[1].trim();
-            }
-          } catch {
-            // Ignore read errors
+        try {
+          await fs.access(specFilePath);
+          const content = await fs.readFile(specFilePath, 'utf-8');
+          // Extract full Overview section until next heading or end of file
+          // Use \n#{1,6}\s to match valid markdown headings (# to ######) with required space
+          // This avoids truncating at # in code blocks (e.g., Python comments)
+          const overviewMatch = content.match(/## Overview\s*\n+([\s\S]*?)(?=\n#{1,6}\s|$)/);
+          if (overviewMatch) {
+            description = overviewMatch[1].trim();
           }
+        } catch {
+          // Ignore read errors
         }
 
         // Fallback: read description from implementation_plan.json if not found in spec.md
@@ -368,56 +367,54 @@ export class ProjectStore {
           description = plan.description;
         }
 
-        // Fallback: read description from requirements.json if still not found
+        // Fallback: read description from requirements.json if still not found (async)
         if (!description) {
           const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
-          if (existsSync(requirementsPath)) {
-            try {
-              const reqContent = readFileSync(requirementsPath, 'utf-8');
-              const requirements = JSON.parse(reqContent);
-              if (requirements.task_description) {
-                // Extract a clean summary from task_description (first line or first ~200 chars)
-                const taskDesc = requirements.task_description;
-                const firstLine = taskDesc.split('\n')[0].trim();
-                // If the first line is a title like "Investigate GitHub Issue #36", use the next meaningful line
-                if (firstLine.toLowerCase().startsWith('investigate') && taskDesc.includes('\n\n')) {
-                  const sections = taskDesc.split('\n\n');
-                  // Find the first paragraph that's not a title
-                  for (const section of sections) {
-                    const trimmed = section.trim();
-                    // Skip headers and short lines
-                    if (trimmed.startsWith('#') || trimmed.length < 20) continue;
-                    // Skip the "Please analyze" instruction at the end
-                    if (trimmed.startsWith('Please analyze')) continue;
-                    description = trimmed.substring(0, 200).split('\n')[0];
-                    break;
-                  }
-                }
-                // If still no description, use a shortened version of task_description
-                if (!description) {
-                  description = firstLine.substring(0, 150);
+          try {
+            await fs.access(requirementsPath);
+            const reqContent = await fs.readFile(requirementsPath, 'utf-8');
+            const requirements = JSON.parse(reqContent);
+            if (requirements.task_description) {
+              // Extract a clean summary from task_description (first line or first ~200 chars)
+              const taskDesc = requirements.task_description;
+              const firstLine = taskDesc.split('\n')[0].trim();
+              // If the first line is a title like "Investigate GitHub Issue #36", use the next meaningful line
+              if (firstLine.toLowerCase().startsWith('investigate') && taskDesc.includes('\n\n')) {
+                const sections = taskDesc.split('\n\n');
+                // Find the first paragraph that's not a title
+                for (const section of sections) {
+                  const trimmed = section.trim();
+                  // Skip headers and short lines
+                  if (trimmed.startsWith('#') || trimmed.length < 20) continue;
+                  // Skip the "Please analyze" instruction at the end
+                  if (trimmed.startsWith('Please analyze')) continue;
+                  description = trimmed.substring(0, 200).split('\n')[0];
+                  break;
                 }
               }
-            } catch {
-              // Ignore parse errors
+              // If still no description, use a shortened version of task_description
+              if (!description) {
+                description = firstLine.substring(0, 150);
+              }
             }
+          } catch {
+            // Ignore parse errors or file not found
           }
         }
 
-        // Try to read task metadata
+        // Try to read task metadata (async)
         const metadataPath = path.join(specPath, 'task_metadata.json');
         let metadata: TaskMetadata | undefined;
-        if (existsSync(metadataPath)) {
-          try {
-            const content = readFileSync(metadataPath, 'utf-8');
-            metadata = JSON.parse(content);
-          } catch {
-            // Ignore parse errors
-          }
+        try {
+          await fs.access(metadataPath);
+          const content = await fs.readFile(metadataPath, 'utf-8');
+          metadata = JSON.parse(content);
+        } catch {
+          // Ignore parse errors or file not found
         }
 
-        // Determine task status and review reason from plan
-        const { status, reviewReason } = this.determineTaskStatusAndReason(plan, specPath, metadata);
+        // Determine task status and review reason from plan (async)
+        const { status, reviewReason } = await this.determineTaskStatusAndReason(plan, specPath, metadata);
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
         const subtasks = plan?.phases?.flatMap((phase) => {
@@ -439,9 +436,10 @@ export class ProjectStore {
         // Determine title - check if feature looks like a spec ID (e.g., "054-something-something")
         let title = plan?.feature || plan?.title || dir.name;
         const looksLikeSpecId = /^\d{3}-/.test(title);
-        if (looksLikeSpecId && existsSync(specFilePath)) {
+        if (looksLikeSpecId) {
           try {
-            const specContent = readFileSync(specFilePath, 'utf-8');
+            await fs.access(specFilePath);
+            const specContent = await fs.readFile(specFilePath, 'utf-8');
             // Extract title from first # line, handling patterns like:
             // "# Quick Spec: Title" -> "Title"
             // "# Specification: Title" -> "Title"
@@ -451,7 +449,7 @@ export class ProjectStore {
               title = titleMatch[1].trim();
             }
           } catch {
-            // Keep the original title on error
+            // Keep the original title on error or file not found
           }
         }
 
@@ -493,11 +491,11 @@ export class ProjectStore {
    * - 'errors': Subtasks failed during execution - needs attention
    * - 'qa_rejected': QA found issues that need fixing
    */
-  private determineTaskStatusAndReason(
+  private async determineTaskStatusAndReason(
     plan: ImplementationPlan | null,
     specPath: string,
     metadata?: TaskMetadata
-  ): { status: TaskStatus; reviewReason?: ReviewReason } {
+  ): Promise<{ status: TaskStatus; reviewReason?: ReviewReason }> {
     // Handle both 'subtasks' and 'chunks' naming conventions, filter out undefined
     const allSubtasks = plan?.phases?.flatMap((p) => p.subtasks || (p as { chunks?: PlanSubtask[] }).chunks || []).filter(Boolean) || [];
 
@@ -588,23 +586,22 @@ export class ProjectStore {
       }
     }
 
-    // SECOND: Check QA report file for additional status info
+    // SECOND: Check QA report file for additional status info (async)
     const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
-    if (existsSync(qaReportPath)) {
-      try {
-        const content = readFileSync(qaReportPath, 'utf-8');
-        if (content.includes('REJECTED') || content.includes('FAILED')) {
-          return { status: 'human_review', reviewReason: 'qa_rejected' };
-        }
-        if (content.includes('PASSED') || content.includes('APPROVED')) {
-          // QA passed - if all subtasks done, move to human_review
-          if (allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed')) {
-            return { status: 'human_review', reviewReason: 'completed' };
-          }
-        }
-      } catch {
-        // Ignore read errors
+    try {
+      await fs.access(qaReportPath);
+      const content = await fs.readFile(qaReportPath, 'utf-8');
+      if (content.includes('REJECTED') || content.includes('FAILED')) {
+        return { status: 'human_review', reviewReason: 'qa_rejected' };
       }
+      if (content.includes('PASSED') || content.includes('APPROVED')) {
+        // QA passed - if all subtasks done, move to human_review
+        if (allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed')) {
+          return { status: 'human_review', reviewReason: 'completed' };
+        }
+      }
+    } catch {
+      // Ignore read errors or file not found
     }
 
     return { status: calculatedStatus, reviewReason: calculatedStatus === 'human_review' ? reviewReason : undefined };

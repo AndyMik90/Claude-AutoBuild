@@ -55,8 +55,10 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      // Find task and project
-      const { task, project } = findTaskAndProject(taskId);
+      // Wrap in async IIFE to handle async operations
+      (async () => {
+        // Find task and project
+        const { task, project } = await findTaskAndProject(taskId);
 
       if (!task || !project) {
         console.warn('[TASK_START] Task or project not found for taskId:', taskId);
@@ -217,6 +219,9 @@ export function registerTaskExecutionHandlers(
         taskId,
         'in_progress'
       );
+      })().catch((err) => {
+        console.error('[TASK_START] Error starting task:', err);
+      });
     }
   );
 
@@ -227,19 +232,23 @@ export function registerTaskExecutionHandlers(
     agentManager.killTask(taskId);
     fileWatcher.unwatch(taskId);
 
-    // Find task and project to update the plan file
-    const { task, project } = findTaskAndProject(taskId);
-    
-    if (task && project) {
-      // Persist status to implementation_plan.json to prevent status flip-flop on refresh
-      // Uses shared utility for consistency with agent-events-handlers.ts
-      const planPath = getPlanPath(project, task);
-      const persisted = persistPlanStatusSync(planPath, 'backlog');
-      if (persisted) {
-        console.warn('[TASK_STOP] Updated plan status to backlog');
+    // Find task and project to update the plan file (async wrapper)
+    (async () => {
+      const { task, project } = await findTaskAndProject(taskId);
+      
+      if (task && project) {
+        // Persist status to implementation_plan.json to prevent status flip-flop on refresh
+        // Uses shared utility for consistency with agent-events-handlers.ts
+        const planPath = getPlanPath(project, task);
+        const persisted = persistPlanStatusSync(planPath, 'backlog');
+        if (persisted) {
+          console.warn('[TASK_STOP] Updated plan status to backlog');
+        }
+        // Note: File not found is expected for tasks without a plan file (persistPlanStatusSync handles ENOENT)
       }
-      // Note: File not found is expected for tasks without a plan file (persistPlanStatusSync handles ENOENT)
-    }
+    })().catch((err) => {
+      console.error('[TASK_STOP] Error updating plan status:', err);
+    });
 
     const mainWindow = getMainWindow();
     if (mainWindow) {
@@ -263,7 +272,7 @@ export function registerTaskExecutionHandlers(
       feedback?: string
     ): Promise<IPCResult> => {
       // Find task and project
-      const { task, project } = findTaskAndProject(taskId);
+      const { task, project } = await findTaskAndProject(taskId);
 
       if (!task || !project) {
         return { success: false, error: 'Task not found' };
@@ -380,7 +389,7 @@ export function registerTaskExecutionHandlers(
       status: TaskStatus
     ): Promise<IPCResult> => {
       // Find task and project first (needed for worktree check)
-      const { task, project } = findTaskAndProject(taskId);
+      const { task, project } = await findTaskAndProject(taskId);
 
       if (!task || !project) {
         return { success: false, error: 'Task not found' };
@@ -601,7 +610,7 @@ export function registerTaskExecutionHandlers(
       }
 
       // Find task and project
-      const { task, project } = findTaskAndProject(taskId);
+      const { task, project } = await findTaskAndProject(taskId);
 
       if (!task || !project) {
         return { success: false, error: 'Task not found' };

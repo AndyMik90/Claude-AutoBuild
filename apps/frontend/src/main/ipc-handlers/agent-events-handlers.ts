@@ -61,34 +61,40 @@ export function registerAgenteventsHandlers(
   agentManager.on('exit', (taskId: string, code: number | null, processType: ProcessType) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      // Send final plan state to renderer BEFORE unwatching
+      // Send final plan state to renderer BEFORE unwatching (async wrapper)
       // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
-      const finalPlan = fileWatcher.getCurrentPlan(taskId);
-      if (finalPlan) {
-        mainWindow.webContents.send(IPC_CHANNELS.TASK_PROGRESS, taskId, finalPlan);
-      }
+      (async () => {
+        const finalPlan = await fileWatcher.getCurrentPlan(taskId);
+        if (finalPlan) {
+          mainWindow.webContents.send(IPC_CHANNELS.TASK_PROGRESS, taskId, finalPlan);
+        }
 
-      fileWatcher.unwatch(taskId);
+        await fileWatcher.unwatch(taskId);
+      })().catch((err) => {
+        console.error(`[Task ${taskId}] Error getting final plan:`, err);
+      });
 
       if (processType === 'spec-creation') {
         console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
         return;
       }
 
-      let task: Task | undefined;
-      let project: Project | undefined;
+      // Handle task status update after completion (async wrapper)
+      (async () => {
+        let task: Task | undefined;
+        let project: Project | undefined;
 
-      try {
-        const projects = projectStore.getProjects();
+        try {
+          const projects = projectStore.getProjects();
 
-        for (const p of projects) {
-          const tasks = projectStore.getTasks(p.id);
-          task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-          if (task) {
-            project = p;
-            break;
+          for (const p of projects) {
+            const tasks = await projectStore.getTasks(p.id);
+            task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+            if (task) {
+              project = p;
+              break;
+            }
           }
-        }
 
         if (task && project) {
           const taskTitle = task.title || task.specId;
@@ -134,6 +140,9 @@ export function registerAgenteventsHandlers(
       } catch (error) {
         console.error(`[Task ${taskId}] Exit handler error:`, error);
       }
+      })().catch((err) => {
+        console.error(`[Task ${taskId}] Error in exit handler:`, err);
+      });
     }
   });
 
@@ -164,21 +173,25 @@ export function registerAgenteventsHandlers(
         // When getTasks() is called, it reads status from the plan file. Without persisting,
         // the status in the file might differ from the UI, causing inconsistent state.
         // Uses shared utility with locking to prevent race conditions.
-        try {
-          const projects = projectStore.getProjects();
-          for (const p of projects) {
-            const tasks = projectStore.getTasks(p.id);
-            const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
-            if (task) {
-              const planPath = getPlanPath(p, task);
-              persistPlanStatusSync(planPath, newStatus);
-              break;
+        (async () => {
+          try {
+            const projects = projectStore.getProjects();
+            for (const p of projects) {
+              const tasks = await projectStore.getTasks(p.id);
+              const task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+              if (task) {
+                const planPath = getPlanPath(p, task);
+                persistPlanStatusSync(planPath, newStatus);
+                break;
+              }
             }
+          } catch (err) {
+            // Ignore persistence errors - UI will still work, just might flip on refresh
+            console.warn('[execution-progress] Could not persist status:', err);
           }
-        } catch (err) {
-          // Ignore persistence errors - UI will still work, just might flip on refresh
-          console.warn('[execution-progress] Could not persist status:', err);
-        }
+        })().catch((err) => {
+          console.error('[execution-progress] Error persisting status:', err);
+        });
       }
     }
   });

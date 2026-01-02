@@ -262,7 +262,7 @@ describe('ProjectStore', () => {
       const { ProjectStore } = await import('../project-store');
       const store = new ProjectStore();
 
-      const tasks = store.getTasks('nonexistent-id');
+      const tasks = await store.getTasks('nonexistent-id');
 
       expect(tasks).toEqual([]);
     });
@@ -272,7 +272,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks).toEqual([]);
     });
@@ -315,7 +315,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks).toHaveLength(1);
       expect(tasks[0].title).toBe('Test Feature');
@@ -358,7 +358,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks[0].status).toBe('backlog');
     });
@@ -397,7 +397,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks[0].status).toBe('ai_review');
     });
@@ -440,7 +440,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks[0].status).toBe('human_review');
     });
@@ -484,7 +484,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks[0].status).toBe('human_review');
       expect(tasks[0].reviewReason).toBe('completed');
@@ -525,7 +525,7 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      const tasks = store.getTasks(project.id);
+      const tasks = await store.getTasks(project.id);
 
       expect(tasks[0].status).toBe('done');
     });

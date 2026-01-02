@@ -1,5 +1,5 @@
 import chokidar, { FSWatcher } from 'chokidar';
-import { readFileSync, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import type { ImplementationPlan } from '../shared/types';
@@ -25,8 +25,10 @@ export class FileWatcher extends EventEmitter {
 
     const planPath = path.join(specDir, 'implementation_plan.json');
 
-    // Check if plan file exists
-    if (!existsSync(planPath)) {
+    // Check if plan file exists (async)
+    try {
+      await fs.access(planPath);
+    } catch {
       this.emit('error', taskId, `Plan file not found: ${planPath}`);
       return;
     }
@@ -48,10 +50,10 @@ export class FileWatcher extends EventEmitter {
       planPath
     });
 
-    // Handle file changes
-    watcher.on('change', () => {
+    // Handle file changes (async)
+    watcher.on('change', async () => {
       try {
-        const content = readFileSync(planPath, 'utf-8');
+        const content = await fs.readFile(planPath, 'utf-8');
         const plan: ImplementationPlan = JSON.parse(content);
         this.emit('progress', taskId, plan);
       } catch {
@@ -66,9 +68,9 @@ export class FileWatcher extends EventEmitter {
       this.emit('error', taskId, message);
     });
 
-    // Read and emit initial state
+    // Read and emit initial state (async)
     try {
-      const content = readFileSync(planPath, 'utf-8');
+      const content = await fs.readFile(planPath, 'utf-8');
       const plan: ImplementationPlan = JSON.parse(content);
       this.emit('progress', taskId, plan);
     } catch {
@@ -108,14 +110,14 @@ export class FileWatcher extends EventEmitter {
   }
 
   /**
-   * Get current plan state for a task
+   * Get current plan state for a task (async)
    */
-  getCurrentPlan(taskId: string): ImplementationPlan | null {
+  async getCurrentPlan(taskId: string): Promise<ImplementationPlan | null> {
     const watcherInfo = this.watchers.get(taskId);
     if (!watcherInfo) return null;
 
     try {
-      const content = readFileSync(watcherInfo.planPath, 'utf-8');
+      const content = await fs.readFile(watcherInfo.planPath, 'utf-8');
       return JSON.parse(content);
     } catch {
       return null;

@@ -19,7 +19,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
     IPC_CHANNELS.TASK_LIST,
     async (_, projectId: string): Promise<IPCResult<Task[]>> => {
       console.warn('[IPC] TASK_LIST called with projectId:', projectId);
-      const tasks = projectStore.getTasks(projectId);
+      const tasks = await projectStore.getTasks(projectId);
       console.warn('[IPC] TASK_LIST returning', tasks.length, 'tasks');
       return { success: true, data: tasks };
     }
@@ -207,7 +207,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       const { rm } = await import('fs/promises');
 
       // Find task and project
-      const { task, project } = findTaskAndProject(taskId);
+      const { task, project } = await findTaskAndProject(taskId);
 
       if (!task || !project) {
         return { success: false, error: 'Task or project not found' };
@@ -253,7 +253,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
     ): Promise<IPCResult<Task>> => {
       try {
         // Find task and project
-        const { task, project } = findTaskAndProject(taskId);
+        const { task, project } = await findTaskAndProject(taskId);
 
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
