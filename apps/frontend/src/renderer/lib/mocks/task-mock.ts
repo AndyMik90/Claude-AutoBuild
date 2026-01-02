@@ -11,6 +11,11 @@ export const taskMock = {
     data: mockTasks.filter(t => t.projectId === projectId)
   }),
 
+  getTask: async (_projectId: string, _specId: string) => ({
+    success: true,
+    data: null
+  }),
+
   createTask: async (projectId: string, title: string, description: string) => ({
     success: true,
     data: {
@@ -91,5 +96,10 @@ export const taskMock = {
   onTaskStatusChange: () => () => {},
   onTaskExecutionProgress: () => () => {},
   onTaskLogsChanged: () => () => {},
-  onTaskLogsStream: () => () => {}
+  onTaskLogsStream: () => () => {},
+
+  // Spec file watcher events (no-op in browser)
+  onSpecAdded: () => () => {},
+  onSpecRemoved: () => () => {},
+  onSpecUpdated: () => () => {}
 };
