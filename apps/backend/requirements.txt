@@ -15,3 +15,7 @@ google-generativeai>=0.8.0
 
 # Pydantic for structured output schemas
 pydantic>=2.0.0
+
+# CrewAI Integration (optional - for multi-agent orchestration)
+crewai>=0.76.0
+crewai-tools>=0.12.0
