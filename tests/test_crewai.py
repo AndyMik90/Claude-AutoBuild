@@ -26,9 +26,9 @@ class TestCrewAIConfig:
 
     def test_default_config_when_no_settings_file(self, temp_dir):
         """Test that default config is used when no settings file exists."""
-        from crewai.config import get_crewai_config
+        from orchestration.config import get_crewai_config
 
-        with patch('crewai.config.Path.home', return_value=temp_dir):
+        with patch('orchestration.config.Path.home', return_value=temp_dir):
             config = get_crewai_config()
 
         assert config["enabled"] is False
@@ -37,7 +37,7 @@ class TestCrewAIConfig:
 
     def test_config_loaded_from_settings_file(self, temp_dir):
         """Test that config is loaded from settings file."""
-        from crewai.config import get_crewai_config
+        from orchestration.config import get_crewai_config
 
         # Create settings directory and file
         config_dir = temp_dir / ".config" / "Auto-Claude"
@@ -51,7 +51,7 @@ class TestCrewAIConfig:
             }
         }))
 
-        with patch('crewai.config.Path.home', return_value=temp_dir):
+        with patch('orchestration.config.Path.home', return_value=temp_dir):
             config = get_crewai_config()
 
         assert config["enabled"] is True
@@ -59,7 +59,7 @@ class TestCrewAIConfig:
 
     def test_is_crewai_enabled(self, temp_dir):
         """Test the is_crewai_enabled function."""
-        from crewai.config import is_crewai_enabled
+        from orchestration.config import is_crewai_enabled
 
         # Create settings with crewai disabled
         config_dir = temp_dir / ".config" / "Auto-Claude"
@@ -67,20 +67,20 @@ class TestCrewAIConfig:
         settings_file = config_dir / "settings.json"
         settings_file.write_text(json.dumps({"crewaiEnabled": False}))
 
-        with patch('crewai.config.Path.home', return_value=temp_dir):
+        with patch('orchestration.config.Path.home', return_value=temp_dir):
             assert is_crewai_enabled() is False
 
         # Enable crewai
         settings_file.write_text(json.dumps({"crewaiEnabled": True}))
 
-        with patch('crewai.config.Path.home', return_value=temp_dir):
+        with patch('orchestration.config.Path.home', return_value=temp_dir):
             assert is_crewai_enabled() is True
 
     def test_get_agent_model_returns_defaults(self, temp_dir):
         """Test get_agent_model returns correct defaults."""
-        from crewai.config import get_agent_model
+        from orchestration.config import get_agent_model
 
-        with patch('crewai.config.Path.home', return_value=temp_dir):
+        with patch('orchestration.config.Path.home', return_value=temp_dir):
             # Product Manager default is sonnet with medium thinking
             model_id, thinking_budget = get_agent_model("productManager")
             assert "sonnet" in model_id.lower()
@@ -105,7 +105,7 @@ class TestNotificationService:
 
     def test_console_channel_always_configured(self):
         """Test that console channel is always available."""
-        from crewai.notifications import NotificationService, ConsoleChannel
+        from orchestration.notifications import NotificationService, ConsoleChannel
 
         service = NotificationService(
             enable_console=True,
@@ -120,7 +120,7 @@ class TestNotificationService:
 
     def test_notify_returns_success_count(self, capsys):
         """Test that notify returns the number of successful channels."""
-        from crewai.notifications import NotificationService, NotificationType
+        from orchestration.notifications import NotificationService, NotificationType
 
         service = NotificationService(
             enable_console=True,
@@ -144,7 +144,7 @@ class TestNotificationService:
 
     def test_notify_success_helper(self, capsys):
         """Test notify_success helper method."""
-        from crewai.notifications import NotificationService
+        from orchestration.notifications import NotificationService
 
         service = NotificationService(
             enable_console=True,
@@ -165,7 +165,7 @@ class TestNotificationService:
 
     def test_notify_error_helper(self, capsys):
         """Test notify_error helper method."""
-        from crewai.notifications import NotificationService
+        from orchestration.notifications import NotificationService
 
         service = NotificationService(
             enable_console=True,
@@ -186,35 +186,35 @@ class TestNotificationService:
 
     def test_slack_channel_not_configured_without_webhook(self):
         """Test that Slack channel is not configured without webhook URL."""
-        from crewai.notifications import SlackChannel
+        from orchestration.notifications import SlackChannel
 
         channel = SlackChannel()
         assert channel.is_configured() is False
 
     def test_slack_channel_configured_with_webhook(self):
         """Test that Slack channel is configured with webhook URL."""
-        from crewai.notifications import SlackChannel
+        from orchestration.notifications import SlackChannel
 
         channel = SlackChannel(webhook_url="https://hooks.slack.com/test")
         assert channel.is_configured() is True
 
     def test_email_channel_not_configured_without_smtp(self):
         """Test that email channel is not configured without SMTP settings."""
-        from crewai.notifications import EmailChannel
+        from orchestration.notifications import EmailChannel
 
         channel = EmailChannel()
         assert channel.is_configured() is False
 
     def test_webhook_channel_not_configured_without_url(self):
         """Test that webhook channel is not configured without URL."""
-        from crewai.notifications import WebhookChannel
+        from orchestration.notifications import WebhookChannel
 
         channel = WebhookChannel()
         assert channel.is_configured() is False
 
     def test_linear_channel_not_configured_without_api_key(self):
         """Test that Linear channel is not configured without API key."""
-        from crewai.notifications import LinearChannel
+        from orchestration.notifications import LinearChannel
 
         channel = LinearChannel()
         assert channel.is_configured() is False
@@ -225,7 +225,7 @@ class TestNotification:
 
     def test_notification_to_dict(self):
         """Test Notification.to_dict() method."""
-        from crewai.notifications import (
+        from orchestration.notifications import (
             Notification,
             NotificationType,
             NotificationPriority,
@@ -258,7 +258,7 @@ class TestEscalationManager:
 
     def test_check_qa_iterations_no_escalation(self):
         """Test that no escalation occurs below threshold."""
-        from crewai.notifications import EscalationManager, NotificationService
+        from orchestration.notifications import EscalationManager, NotificationService
 
         service = NotificationService(
             enable_console=False,
@@ -277,7 +277,7 @@ class TestEscalationManager:
 
     def test_check_qa_iterations_escalation(self):
         """Test that escalation occurs when threshold exceeded."""
-        from crewai.notifications import (
+        from orchestration.notifications import (
             EscalationManager,
             EscalationReason,
             NotificationService,
@@ -304,7 +304,7 @@ class TestEscalationManager:
 
     def test_check_consecutive_failures_no_escalation(self):
         """Test that no escalation occurs below failure threshold."""
-        from crewai.notifications import EscalationManager, NotificationService
+        from orchestration.notifications import EscalationManager, NotificationService
 
         service = NotificationService(
             enable_console=False,
@@ -323,7 +323,7 @@ class TestEscalationManager:
 
     def test_check_consecutive_failures_escalation(self):
         """Test that escalation occurs when failure threshold reached."""
-        from crewai.notifications import (
+        from orchestration.notifications import (
             EscalationManager,
             EscalationReason,
             NotificationService,
@@ -350,7 +350,7 @@ class TestEscalationManager:
 
     def test_check_security_vulnerabilities_no_escalation(self):
         """Test that no escalation for low severity vulnerabilities."""
-        from crewai.notifications import EscalationManager, NotificationService
+        from orchestration.notifications import EscalationManager, NotificationService
 
         service = NotificationService(
             enable_console=False,
@@ -371,7 +371,7 @@ class TestEscalationManager:
 
     def test_check_security_vulnerabilities_escalation(self):
         """Test that escalation occurs for critical vulnerabilities."""
-        from crewai.notifications import (
+        from orchestration.notifications import (
             EscalationManager,
             EscalationReason,
             NotificationService,
@@ -400,7 +400,7 @@ class TestEscalationManager:
 
     def test_manual_escalation(self):
         """Test manual escalation trigger."""
-        from crewai.notifications import (
+        from orchestration.notifications import (
             EscalationManager,
             EscalationReason,
             NotificationService,
@@ -427,7 +427,7 @@ class TestEscalationManager:
 
     def test_escalation_history(self):
         """Test that escalation events are recorded in history."""
-        from crewai.notifications import EscalationManager, NotificationService
+        from orchestration.notifications import EscalationManager, NotificationService
 
         service = NotificationService(
             enable_console=False,
@@ -462,7 +462,7 @@ class TestWorkflowState:
 
     def test_workflow_state_defaults(self):
         """Test WorkflowState default values."""
-        from crewai.flows import WorkflowState, WorkflowStatus
+        from orchestration.flows import WorkflowState, WorkflowStatus
 
         state = WorkflowState()
 
@@ -476,7 +476,7 @@ class TestWorkflowState:
 
     def test_workflow_state_initialization(self):
         """Test WorkflowState with custom values."""
-        from crewai.flows import WorkflowState, WorkflowStatus, TaskType
+        from orchestration.flows import WorkflowState, WorkflowStatus, TaskType
 
         state = WorkflowState(
             user_request="Add user authentication",
@@ -497,7 +497,7 @@ class TestTaskType:
 
     def test_task_type_values(self):
         """Test TaskType enum values."""
-        from crewai.flows import TaskType
+        from orchestration.flows import TaskType
 
         assert TaskType.FEATURE.value == "feature"
         assert TaskType.BUG.value == "bug"
@@ -511,7 +511,7 @@ class TestWorkflowStatus:
 
     def test_workflow_status_values(self):
         """Test WorkflowStatus enum values."""
-        from crewai.flows import WorkflowStatus
+        from orchestration.flows import WorkflowStatus
 
         assert WorkflowStatus.PENDING.value == "pending"
         assert WorkflowStatus.ANALYZING.value == "analyzing"
@@ -536,9 +536,9 @@ class TestCrewAIIntegration:
 
     def test_run_development_workflow_disabled(self, temp_dir):
         """Test that run_development_workflow raises when CrewAI is disabled."""
-        from crewai.flows import run_development_workflow
+        from orchestration.flows import run_development_workflow
 
-        with patch('crewai.config.is_crewai_enabled', return_value=False):
+        with patch('orchestration.config.is_crewai_enabled', return_value=False):
             with pytest.raises(RuntimeError, match="CrewAI is not enabled"):
                 run_development_workflow(
                     user_request="Test",
