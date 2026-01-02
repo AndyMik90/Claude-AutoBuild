@@ -12,64 +12,14 @@ jobs:
     if: contains(github.event.comment.body, '@openhands-agent')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Acknowledge
+        uses: actions/github-script@v7
         with:
-          ref: develop
-      
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Create fix script
-        run: |
-          cat > analyze.py << 'SCRIPT_END'
-import os, json, sys
-from openai import OpenAI
-from github import Github
-
-client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
-gh = Github(os.environ['GITHUB_TOKEN'])
-repo = gh.get_repo(os.environ['REPO'])
-issue = repo.get_issue(int(os.environ['ISSUE_NUMBER']))
-
-prompt = f"""Analyze this GitHub issue:
-
-Title: {issue.title}
-Description: {issue.body if issue.body else 'No description'}
-
-Provide:
-1. Root cause
-2. Solution approach
-3. Files to modify
-4. Implementation steps"""
-
-try:
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    analysis = response.choices[0].message.content
-    comment = f"## AI Analysis
-
-{analysis}
-
----
-*Analysis by GPT-4*"
-    issue.create_comment(comment)
-    print(f"Posted to issue #{issue.number}")
-except Exception as e:
-    print(f"Error: {e}")
-    issue.create_comment(f"Error analyzing issue: {str(e)}")
-SCRIPT_END
-      
-      - name: Install deps
-        run: pip install openai==1.12.0 PyGithub==2.1.1
-      
-      - name: Run analysis
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
-        run: python analyze.py
+          script: |
+            const msg = ' @openhands-agent workflow triggered! Analyzing...';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: msg
+            });
