@@ -2,18 +2,44 @@
 CrewAI Crews for Auto-Claude.
 
 Available Crews:
-- ProductManagementCrew: Handles requirements analysis and spec creation
-- DevelopmentCrew: Handles technical implementation
-- QAReleasesCrew: Handles QA validation and release management
+- ProductManagementCrew: Transforms user requests into actionable specs
+- DevelopmentCrew: Executes technical implementation via Auto-Claude
+- QAReleasesCrew: Validates and prepares releases
 """
 
-# Crews will be imported here once implemented
-# from .product_management import ProductManagementCrew
-# from .development import DevelopmentCrew
-# from .qa_release import QAReleasesCrew
+from .product_management import (
+    create_product_management_crew,
+    create_product_manager,
+    create_requirements_analyst,
+    create_priority_analyst,
+)
+from .development import (
+    create_development_crew,
+    create_tech_lead,
+    create_senior_developer,
+    create_code_reviewer,
+)
+from .qa_release import (
+    create_qa_release_crew,
+    create_qa_lead,
+    create_security_analyst,
+    create_release_manager,
+)
 
 __all__ = [
-    # "ProductManagementCrew",
-    # "DevelopmentCrew",
-    # "QAReleasesCrew",
+    # Product Management Crew
+    "create_product_management_crew",
+    "create_product_manager",
+    "create_requirements_analyst",
+    "create_priority_analyst",
+    # Development Crew
+    "create_development_crew",
+    "create_tech_lead",
+    "create_senior_developer",
+    "create_code_reviewer",
+    # QA & Release Crew
+    "create_qa_release_crew",
+    "create_qa_lead",
+    "create_security_analyst",
+    "create_release_manager",
 ]
