@@ -2279,7 +2279,7 @@ export function registerWorktreeHandlers(
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_COMMIT_STAGED,
-    async (_, taskId: string): Promise<IPCResult<{ committed: boolean; message?: string }>> => {
+    async (_, taskId: string, customMessage?: string): Promise<IPCResult<{ committed: boolean; message?: string }>> => {
       try {
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) {
@@ -2300,17 +2300,21 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Failed to check staged changes' };
         }
 
-        // Read suggested commit message
+        // Determine commit message: use customMessage if provided, otherwise fall back to suggested message file
         const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
-        const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
+        let commitMessage = customMessage;
 
-        let commitMessage = 'Merge auto-claude changes';
-        try {
-          if (existsSync(commitMsgPath)) {
-            commitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+        if (!commitMessage) {
+          // Fall back to suggested commit message from file
+          const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
+          commitMessage = 'Merge auto-claude changes';
+          try {
+            if (existsSync(commitMsgPath)) {
+              commitMessage = readFileSync(commitMsgPath, 'utf-8').trim();
+            }
+          } catch (error) {
+            console.warn('Failed to read suggested commit message, using default:', error);
           }
-        } catch (error) {
-          console.warn('Failed to read suggested commit message, using default:', error);
         }
 
         // Commit the staged changes
@@ -2321,25 +2325,42 @@ export function registerWorktreeHandlers(
           });
 
           // Update implementation_plan.json status to 'done'
-          const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
+          // because ProjectStore prefers the worktree version when deduplicating tasks.
           const { promises: fsPromises } = require('fs');
+          const worktreePath = path.join(project.path, '.worktrees', task.specId);
+          const planPaths = [
+            { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
+            { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
+          ];
 
-          // Update plan status asynchronously (non-blocking)
+          // Update plan status (await to ensure completion before returning)
           const updatePlanStatus = async () => {
-            try {
-              const planContent = await fsPromises.readFile(planPath, 'utf-8');
-              const plan = JSON.parse(planContent);
-              plan.status = 'done';
-              plan.planStatus = 'completed';
-              plan.updated_at = new Date().toISOString();
-              await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
-            } catch (planError) {
-              console.error('Failed to update implementation plan status:', planError);
+            for (const { path: planPath, isMain } of planPaths) {
+              try {
+                const planContent = await fsPromises.readFile(planPath, 'utf-8');
+                const plan = JSON.parse(planContent);
+                plan.status = 'done';
+                plan.planStatus = 'completed';
+                plan.updated_at = new Date().toISOString();
+                await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
+              } catch (planError: unknown) {
+                // File doesn't exist - nothing to update (not an error)
+                if (planError && typeof planError === 'object' && 'code' in planError && planError.code === 'ENOENT') {
+                  continue;
+                }
+                // Only log error if main plan fails; worktree plan might legitimately be missing or read-only
+                if (isMain) {
+                  console.error('Failed to update implementation plan status:', planError);
+                } else {
+                  console.debug('Failed to update worktree plan status (non-critical):', planError);
+                }
+              }
             }
           };
 
-          // Update plan and send status change event (fire and forget)
-          updatePlanStatus().catch(err => console.error('Plan update failed:', err));
+          // Update plan and wait for completion
+          await updatePlanStatus();
 
           // Send TASK_STATUS_CHANGE event to UI
           const mainWindow = getMainWindow();

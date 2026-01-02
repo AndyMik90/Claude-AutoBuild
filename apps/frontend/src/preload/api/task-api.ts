@@ -51,7 +51,7 @@ export interface TaskAPI {
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   discardWorktree: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>>;
-  commitStagedChanges: (taskId: string) => Promise<IPCResult<{ committed: boolean; message?: string }>>;
+  commitStagedChanges: (taskId: string, customMessage?: string) => Promise<IPCResult<{ committed: boolean; message?: string }>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<import('../../shared/types').WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
   worktreeOpenInTerminal: (worktreePath: string, terminal: SupportedTerminal, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -142,8 +142,8 @@ export const createTaskAPI = (): TaskAPI => ({
   discardWorktree: (taskId: string): Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_DISCARD, taskId),
 
-  commitStagedChanges: (taskId: string): Promise<IPCResult<{ committed: boolean; message?: string }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_COMMIT_STAGED, taskId),
+  commitStagedChanges: (taskId: string, customMessage?: string): Promise<IPCResult<{ committed: boolean; message?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_COMMIT_STAGED, taskId, customMessage),
 
   listWorktrees: (projectId: string): Promise<IPCResult<import('../../shared/types').WorktreeListResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_LIST_WORKTREES, projectId),
