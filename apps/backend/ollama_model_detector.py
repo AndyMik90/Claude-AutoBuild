@@ -13,6 +13,7 @@ Usage:
 Output:
     JSON to stdout with structure: {"success": bool, "data": ..., "error": ...}
 """
+from __future__ import annotations
 
 import argparse
 import json

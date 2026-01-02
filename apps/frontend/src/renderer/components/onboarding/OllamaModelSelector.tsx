@@ -28,6 +28,7 @@ interface OllamaModelSelectorProps {
   onModelSelect: (model: string, dim: number) => void;
   disabled?: boolean;
   className?: string;
+  baseUrl?: string;
 }
 
 // Recommended embedding models for Auto Claude Memory
@@ -107,6 +108,7 @@ export function OllamaModelSelector({
   onModelSelect,
   disabled = false,
   className,
+  baseUrl,
 }: OllamaModelSelectorProps) {
   const { t } = useTranslation('onboarding');
   const [models, setModels] = useState<OllamaModel[]>(RECOMMENDED_MODELS);
@@ -138,18 +140,23 @@ export function OllamaModelSelector({
     setOllamaState('checking');
 
     try {
-      // First check if Ollama is installed (binary exists)
-      const installResult = await window.electronAPI.checkOllamaInstalled();
-      if (abortSignal?.aborted) return;
+      // If using a remote server, skip local install check
+      const isRemote = baseUrl && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1');
 
-      if (!installResult?.success || !installResult?.data?.installed) {
-        setOllamaState('not-installed');
-        setIsLoading(false);
-        return;
+      if (!isRemote) {
+        // Check if Ollama is installed locally (binary exists)
+        const installResult = await window.electronAPI.checkOllamaInstalled();
+        if (abortSignal?.aborted) return;
+
+        if (!installResult?.success || !installResult?.data?.installed) {
+          setOllamaState('not-installed');
+          setIsLoading(false);
+          return;
+        }
       }
 
-      // Ollama is installed, now check if it's running
-      const statusResult = await window.electronAPI.checkOllamaStatus();
+      // Check if Ollama is running (local or remote)
+      const statusResult = await window.electronAPI.checkOllamaStatus(baseUrl);
       if (abortSignal?.aborted) return;
 
       if (!statusResult?.success || !statusResult?.data?.running) {
@@ -161,7 +168,7 @@ export function OllamaModelSelector({
       setOllamaState('available');
 
       // Get list of installed embedding models
-      const result = await window.electronAPI.listOllamaEmbeddingModels();
+      const result = await window.electronAPI.listOllamaEmbeddingModels(baseUrl);
       if (abortSignal?.aborted) return;
 
       if (result?.success && result?.data?.embedding_models) {
@@ -236,7 +243,7 @@ export function OllamaModelSelector({
     }
   };
 
-  // Fetch installed models on mount with cleanup
+  // Fetch installed models on mount and when baseUrl changes
   useEffect(() => {
     const controller = new AbortController();
     checkInstalledModels(controller.signal);
@@ -247,7 +254,7 @@ export function OllamaModelSelector({
         clearTimeout(installCheckTimeoutRef.current);
       }
     };
-  }, []);
+  }, [baseUrl]);
 
   // Progress is now handled globally by the download store listener initialized in App.tsx
 
@@ -263,7 +270,7 @@ export function OllamaModelSelector({
      setError(null);
 
      try {
-       const result = await window.electronAPI.pullOllamaModel(modelName);
+       const result = await window.electronAPI.pullOllamaModel(modelName, baseUrl);
        if (result?.success) {
          completeDownload(modelName);
          // Refresh the model list

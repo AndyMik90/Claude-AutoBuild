@@ -54,10 +54,20 @@ export function SecuritySettings({
     azure: false
   });
 
+  // Local state for Ollama URL to prevent cursor jumping
+  const [localOllamaUrl, setLocalOllamaUrl] = useState(
+    envConfig?.graphitiProviderConfig?.ollamaBaseUrl || ''
+  );
+
   // Sync parent's showOpenAIKey prop to local state
   useEffect(() => {
     setShowApiKey(prev => ({ ...prev, openai: showOpenAIKey }));
   }, [showOpenAIKey]);
+
+  // Sync Ollama URL from parent when it changes externally
+  useEffect(() => {
+    setLocalOllamaUrl(envConfig?.graphitiProviderConfig?.ollamaBaseUrl || '');
+  }, [envConfig?.graphitiProviderConfig?.ollamaBaseUrl]);
 
   const embeddingProvider = envConfig?.graphitiProviderConfig?.embeddingProvider || 'ollama';
 
@@ -301,10 +311,29 @@ export function SecuritySettings({
     if (embeddingProvider === 'ollama') {
       return (
         <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">Ollama Server URL</Label>
+            <p className="text-xs text-muted-foreground">
+              Leave empty if Ollama is installed on this computer. If you have Ollama running on another machine (like a home server or cloud instance), enter its URL here.
+            </p>
+            <Input
+              placeholder="http://localhost:11434 (or remote: http://192.168.1.100:11434)"
+              value={localOllamaUrl}
+              onChange={(e) => setLocalOllamaUrl(e.target.value)}
+              onBlur={() => updateEnvConfig({
+                graphitiProviderConfig: {
+                  ...envConfig.graphitiProviderConfig,
+                  embeddingProvider: 'ollama',
+                  ollamaBaseUrl: localOllamaUrl || undefined,
+                }
+              })}
+            />
+          </div>
           <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
           <OllamaModelSelector
             selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
             onModelSelect={handleOllamaModelSelect}
+            baseUrl={localOllamaUrl || undefined}
           />
         </div>
       );
