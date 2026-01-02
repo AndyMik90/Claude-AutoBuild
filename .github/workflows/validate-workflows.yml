@@ -1,0 +1,417 @@
+name: Validate Workflows
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/**'
+
+# Cancel in-progress runs for the same PR/branch
+concurrency:
+  group: validate-workflows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Workflow Consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Validate workflow syntax and rules
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+            const { glob } = require('glob');
+            
+            console.log('::group::Loading workflow files');
+            
+            // Load all workflow files
+            const workflowFiles = await glob('.github/workflows/*.{yml,yaml}');
+            console.log(`Found ${workflowFiles.length} workflow files`);
+            
+            const workflows = workflowFiles.map(file => {
+              try {
+                const content = yaml.load(fs.readFileSync(file, 'utf8'));
+                const name = file.split('/').pop();
+                console.log(`  ✓ Loaded: ${name}`);
+                return { path: file, name, content };
+              } catch (error) {
+                core.error(`Failed to parse ${file}: ${error.message}`);
+                throw error;
+              }
+            });
+            
+            console.log('::endgroup::');
+            
+            let errors = [];
+            let warnings = [];
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 1: All workflows must have minimal permissions
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 1: Checking permissions');
+            
+            for (const wf of workflows) {
+              // Skip self-validation
+              if (wf.name === 'validate-workflows.yml') continue;
+              
+              if (!wf.content.permissions) {
+                errors.push(`${wf.name}: Missing 'permissions' field. All workflows must explicitly declare permissions.`);
+              } else if (typeof wf.content.permissions === 'string') {
+                // Valid: permissions: read-all or permissions: write-all
+                console.log(`  ✓ ${wf.name}: Has string permission '${wf.content.permissions}'`);
+              } else if (typeof wf.content.permissions === 'object') {
+                const permCount = Object.keys(wf.content.permissions).length;
+                if (permCount === 0) {
+                  warnings.push(`${wf.name}: Empty permissions object. Consider using 'permissions: {}' explicitly for clarity.`);
+                } else {
+                  console.log(`  ✓ ${wf.name}: Has ${permCount} permission(s) defined`);
+                }
+              }
+            }
+            
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 2: Workflows should have concurrency control
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 2: Checking concurrency control');
+            
+            for (const wf of workflows) {
+              if (wf.name === 'validate-workflows.yml') continue;
+              
+              // Skip scheduled/manual workflows (they don't need concurrency)
+              const triggers = wf.content.on || {};
+              const hasSchedule = triggers.schedule || false;
+              const onlyWorkflowDispatch = triggers.workflow_dispatch && Object.keys(triggers).length === 1;
+              
+              if (hasSchedule || onlyWorkflowDispatch) {
+                console.log(`  ⏭️  ${wf.name}: Skipped (scheduled/manual workflow)`);
+                continue;
+              }
+              
+              if (!wf.content.concurrency) {
+                warnings.push(`${wf.name}: No concurrency control defined. Consider adding to prevent redundant runs.`);
+              } else {
+                console.log(`  ✓ ${wf.name}: Has concurrency control`);
+              }
+            }
+            
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 3: All jobs should have timeout
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 3: Checking job timeouts');
+            
+            for (const wf of workflows) {
+              if (wf.name === 'validate-workflows.yml') continue;
+              
+              const jobs = wf.content.jobs || {};
+              for (const [jobName, job] of Object.entries(jobs)) {
+                if (!job['timeout-minutes']) {
+                  warnings.push(`${wf.name}:${jobName}: No timeout defined. Consider adding 'timeout-minutes' to prevent runaway jobs.`);
+                } else {
+                  console.log(`  ✓ ${wf.name}:${jobName}: timeout-minutes=${job['timeout-minutes']}`);
+                }
+              }
+            }
+            
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 4: Extract all job names for cross-referencing
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 4: Extracting job names');
+            
+            const jobNames = new Map();
+            for (const wf of workflows) {
+              const workflowName = wf.content.name || wf.name;
+              const jobs = wf.content.jobs || {};
+              
+              for (const jobName of Object.keys(jobs)) {
+                // Format: "Workflow Name / job-name (trigger)"
+                // We'll store multiple trigger variants
+                const baseKey = `${workflowName} / ${jobName}`;
+                
+                if (!jobNames.has(baseKey)) {
+                  jobNames.set(baseKey, {
+                    workflow: wf.name,
+                    workflowName,
+                    jobName,
+                    triggers: new Set()
+                  });
+                }
+                
+                // Add common trigger types
+                const triggers = wf.content.on || {};
+                if (triggers.pull_request) jobNames.get(baseKey).triggers.add('pull_request');
+                if (triggers.push) jobNames.get(baseKey).triggers.add('push');
+                if (triggers.workflow_run) jobNames.get(baseKey).triggers.add('workflow_run');
+                if (triggers.schedule) jobNames.get(baseKey).triggers.add('schedule');
+              }
+            }
+            
+            console.log(`Found ${jobNames.size} unique jobs across all workflows:`);
+            for (const [key, info] of jobNames) {
+              const triggersStr = Array.from(info.triggers).join(', ') || 'none';
+              console.log(`  - ${key} [${triggersStr}]`);
+            }
+            
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 5: Validate pr-status-gate references
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 5: Validating pr-status-gate.yml references');
+            
+            const statusGate = workflows.find(w => w.name === 'pr-status-gate.yml');
+            if (statusGate) {
+              console.log('Found pr-status-gate.yml - validating required check references');
+              
+              const scriptContent = statusGate.content.jobs?.['update-status']?.steps
+                ?.find(s => s.name === 'Check all required checks and update label')
+                ?.with?.script || '';
+              
+              // Extract requiredChecks array from script
+              const requiredChecksMatch = scriptContent.match(/const requiredChecks = \[([\s\S]*?)\];/);
+              
+              if (!requiredChecksMatch) {
+                warnings.push('pr-status-gate.yml: Could not parse requiredChecks array');
+              } else {
+                // Extract check names from the array
+                const checksContent = requiredChecksMatch[1];
+                const checkMatches = checksContent.matchAll(/'([^']+)'/g);
+                const requiredChecks = Array.from(checkMatches).map(m => m[1]);
+                
+                console.log(`Found ${requiredChecks.length} required checks in pr-status-gate.yml`);
+                
+                let missingChecks = [];
+                let foundChecks = [];
+                
+                for (const checkName of requiredChecks) {
+                  // Check format: "Workflow Name / job-name (trigger)"
+                  // Remove the trigger suffix for matching
+                  const baseName = checkName.replace(/ \([^)]+\)$/, '');
+                  
+                  if (jobNames.has(baseName)) {
+                    const info = jobNames.get(baseName);
+                    
+                    // Extract expected trigger from check name
+                    const triggerMatch = checkName.match(/\(([^)]+)\)$/);
+                    const expectedTrigger = triggerMatch ? triggerMatch[1] : null;
+                    
+                    // Validate the trigger exists for this job
+                    if (expectedTrigger && !info.triggers.has(expectedTrigger)) {
+                      warnings.push(
+                        `pr-status-gate.yml: Check '${checkName}' references trigger '${expectedTrigger}' ` +
+                        `but workflow only has triggers: ${Array.from(info.triggers).join(', ')}`
+                      );
+                    } else {
+                      foundChecks.push(checkName);
+                      console.log(`  ✓ ${checkName} → ${info.workflow}`);
+                    }
+                  } else {
+                    missingChecks.push(checkName);
+                    errors.push(`pr-status-gate.yml: References non-existent check: '${checkName}'`);
+                  }
+                }
+                
+                console.log(`\nValidation summary:`);
+                console.log(`  ✓ Found:   ${foundChecks.length}/${requiredChecks.length}`);
+                console.log(`  ✗ Missing: ${missingChecks.length}/${requiredChecks.length}`);
+                
+                if (missingChecks.length > 0) {
+                  console.log(`\nMissing checks:`);
+                  missingChecks.forEach(c => console.log(`  - ${c}`));
+                }
+              }
+            } else {
+              console.log('pr-status-gate.yml not found - skipping check reference validation');
+            }
+            
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RULE 6: Check for hardcoded secrets
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Rule 6: Checking for hardcoded secrets');
+            
+            for (const wf of workflows) {
+              const fileContent = fs.readFileSync(wf.path, 'utf8');
+              
+              // Look for suspicious patterns (but allow secrets.GITHUB_TOKEN references)
+              const suspiciousPatterns = [
+                /GITHUB_TOKEN:\s*['"]\w+['"]/, // GITHUB_TOKEN: "ghp_..."
+                /token:\s*['"]\w{20,}['"]/, // token: "some-long-string"
+                /password:\s*['"]\w+['"]/, // password: "..."
+              ];
+              
+              for (const pattern of suspiciousPatterns) {
+                if (pattern.test(fileContent)) {
+                  errors.push(`${wf.name}: Possible hardcoded secret detected. Use secrets context instead.`);
+                  break;
+                }
+              }
+            }
+            
+            console.log('No hardcoded secrets detected');
+            console.log('::endgroup::');
+            
+            // ═══════════════════════════════════════════════════════════════
+            // Report Results
+            // ═══════════════════════════════════════════════════════════════
+            console.log('::group::Validation Summary');
+            
+            console.log(`\n${'═'.repeat(70)}`);
+            console.log('VALIDATION RESULTS');
+            console.log('═'.repeat(70));
+            console.log(`Workflows checked: ${workflows.length}`);
+            console.log(`Errors:   ${errors.length}`);
+            console.log(`Warnings: ${warnings.length}`);
+            console.log('═'.repeat(70));
+            
+            if (warnings.length > 0) {
+              console.log(`\n⚠️  WARNINGS (${warnings.length}):`);
+              console.log('─'.repeat(70));
+              warnings.forEach((w, i) => console.log(`${i + 1}. ${w}`));
+              console.log('');
+            }
+            
+            if (errors.length > 0) {
+              console.log(`\n❌ ERRORS (${errors.length}):`);
+              console.log('─'.repeat(70));
+              errors.forEach((e, i) => console.log(`${i + 1}. ${e}`));
+              console.log('');
+            }
+            
+            console.log('::endgroup::');
+            
+            // Create summary
+            core.summary.addHeading('Workflow Validation Results', 2);
+            core.summary.addRaw(`\n**Workflows checked:** ${workflows.length}\n`);
+            core.summary.addRaw(`**Errors:** ${errors.length} ❌\n`);
+            core.summary.addRaw(`**Warnings:** ${warnings.length} ⚠️\n\n`);
+            
+            if (errors.length > 0) {
+              core.summary.addHeading('Errors', 3);
+              core.summary.addList(errors);
+            }
+            
+            if (warnings.length > 0) {
+              core.summary.addHeading('Warnings', 3);
+              core.summary.addList(warnings);
+            }
+            
+            await core.summary.write();
+            
+            // Fail if errors found
+            if (errors.length > 0) {
+              core.setFailed(`Workflow validation failed with ${errors.length} error(s)`);
+            } else if (warnings.length > 0) {
+              console.log(`\n✅ Validation passed with ${warnings.length} warning(s)`);
+            } else {
+              console.log('\n✅ All validations passed!');
+            }
+      
+      - name: Validate with actionlint
+        run: |
+          echo "::group::Installing actionlint"
+          # Download and install actionlint
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv ./actionlint /usr/local/bin/
+          actionlint --version
+          echo "::endgroup::"
+          
+          echo "::group::Running actionlint"
+          # Run actionlint on all workflow files
+          actionlint -color || {
+            echo "::error::actionlint found issues in workflow files"
+            exit 1
+          }
+          echo "::endgroup::"
+      
+      - name: Check for pinned action versions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { glob } = require('glob');
+            
+            console.log('::group::Checking action version pinning');
+            
+            let unpinned = [];
+            const workflowFiles = await glob('.github/workflows/*.{yml,yaml}');
+            
+            for (const file of workflowFiles) {
+              const content = fs.readFileSync(file, 'utf8');
+              const fileName = file.split('/').pop();
+              
+              // Find all "uses:" lines
+              const lines = content.split('\n');
+              
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const usesMatch = line.match(/uses:\s+(.+)/);
+                
+                if (usesMatch) {
+                  const action = usesMatch[1].trim();
+                  
+                  // Skip comments
+                  if (action.startsWith('#')) continue;
+                  
+                  // Check if action contains a path (local action or Docker action)
+                  if (action.startsWith('./') || action.startsWith('docker://')) {
+                    continue;
+                  }
+                  
+                  // Check if version is pinned
+                  // Valid: @v1, @v2.1.0, @abc123... (40 char SHA)
+                  // Invalid: @main, @master, @latest, no version
+                  const hasVersionTag = /@v?\d+(\.\d+)?(\.\d+)?/.test(action);
+                  const hasSHA = /@[a-f0-9]{40}/.test(action);
+                  const hasUnpinnedRef = /@(main|master|latest|develop|head)/.test(action);
+                  const hasNoVersion = !action.includes('@');
+                  
+                  if (hasNoVersion || hasUnpinnedRef || (!hasVersionTag && !hasSHA)) {
+                    unpinned.push({
+                      file: fileName,
+                      line: i + 1,
+                      action: action,
+                      reason: hasNoVersion ? 'no version' : 
+                              hasUnpinnedRef ? 'unpinned ref (@main/@master/@latest)' : 
+                              'invalid version format'
+                    });
+                  }
+                }
+              }
+            }
+            
+            if (unpinned.length > 0) {
+              console.log(`\n⚠️  Found ${unpinned.length} unpinned action(s):\n`);
+              
+              for (const item of unpinned) {
+                const msg = `${item.file}:${item.line} - ${item.action} (${item.reason})`;
+                console.log(`  - ${msg}`);
+                core.warning(msg);
+              }
+              
+              console.log('\n💡 Best practice: Pin actions to specific versions (@v1) or commit SHAs');
+              console.log('   This ensures reproducibility and prevents breaking changes.');
+            } else {
+              console.log('✅ All actions are properly pinned to specific versions');
+            }
+            
+            console.log('::endgroup::');

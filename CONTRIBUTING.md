@@ -429,7 +429,73 @@ All pull requests and pushes to `main` trigger automated CI checks via GitHub Ac
 |----------|---------|----------------|
 | **CI** | Push to `main`, PRs | Python tests (3.11 & 3.12), Frontend tests |
 | **Lint** | Push to `main`, PRs | Ruff (Python), ESLint + TypeScript (Frontend) |
+| **Validate Workflows** | Push to `main`, PRs (workflow changes) | Workflow consistency, best practices, job references |
 | **Test on Tag** | Version tags (`v*`) | Full test suite before release |
+
+### Workflow Validation
+
+The **Validate Workflows** meta-workflow automatically enforces best practices and consistency across all GitHub Actions workflows. It runs whenever workflow files are modified.
+
+#### What Gets Validated
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| **Permissions** | ERROR | All workflows must explicitly declare `permissions:` |
+| **Concurrency** | WARNING | Workflows should have `concurrency:` to prevent redundant runs |
+| **Job Timeouts** | WARNING | All jobs should have `timeout-minutes:` to prevent runaway jobs |
+| **Job References** | ERROR | `pr-status-gate.yml` references must match actual job names |
+| **Hardcoded Secrets** | ERROR | No hardcoded credentials (use `secrets.*` context) |
+| **Action Pinning** | WARNING | Actions should be pinned to specific versions (@v1, @sha) |
+| **Syntax** | ERROR | YAML syntax and actionlint validation |
+
+#### How to Fix Common Issues
+
+**Missing permissions:**
+```yaml
+# Add at workflow level
+permissions:
+  contents: read  # Minimal permissions
+```
+
+**Missing concurrency:**
+```yaml
+# Add at workflow level
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+**Missing timeout:**
+```yaml
+# Add to each job
+jobs:
+  my-job:
+    timeout-minutes: 10  # Adjust based on expected runtime
+```
+
+**Unpinned actions:**
+```yaml
+# Before (unpinned - not recommended)
+uses: actions/checkout@main
+
+# After (pinned to major version - recommended)
+uses: actions/checkout@v4
+```
+
+**Updating pr-status-gate.yml:**
+
+When you add, rename, or remove jobs in workflows, update the `requiredChecks` array in `.github/workflows/pr-status-gate.yml`:
+
+```yaml
+const requiredChecks = [
+  // Format: "Workflow Name / job-name (trigger)"
+  'CI / test-frontend (pull_request)',
+  'CI / test-python (3.12) (pull_request)',
+  // Add your new check here
+];
+```
+
+The validation workflow will verify these references exist and warn about mismatches.
 
 ### PR Requirements
 

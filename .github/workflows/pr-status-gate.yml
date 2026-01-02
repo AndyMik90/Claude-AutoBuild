@@ -2,7 +2,7 @@ name: PR Status Gate
 
 on:
   workflow_run:
-    workflows: [CI, Lint, Quality Security]
+    workflows: [CI, Lint, Quality Security, CLA Assistant, Quality Commit Lint, Validate Workflows]
     types: [completed]
 
 permissions:
@@ -36,7 +36,7 @@ jobs:
             // To find check names: Go to PR → Checks tab → copy exact name
             // To update: Edit this list when workflow jobs are added/renamed/removed
             //
-            // Last validated: 2025-12-31
+            // Last validated: 2026-01-02
             // ═══════════════════════════════════════════════════════════════════════
             const requiredChecks = [
               // CI workflow (ci.yml) - 3 checks
@@ -49,7 +49,13 @@ jobs:
               'Quality Security / CodeQL (javascript-typescript) (pull_request)',
               'Quality Security / CodeQL (python) (pull_request)',
               'Quality Security / Python Security (Bandit) (pull_request)',
-              'Quality Security / Security Summary (pull_request)'
+              'Quality Security / Security Summary (pull_request)',
+              // CLA Assistant workflow (cla.yml) - 1 check
+              'CLA Assistant / CLA Check',
+              // Quality Commit Lint workflow (quality-commit-lint.yml) - 1 check
+              'Quality Commit Lint / Conventional Commits (pull_request)',
+              // Validate Workflows workflow (validate-workflows.yml) - 1 check
+              'Validate Workflows / Validate Workflow Consistency (pull_request)'
             ];
 
             const statusLabels = {
