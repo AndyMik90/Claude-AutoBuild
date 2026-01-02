@@ -1,4 +1,5 @@
 name: Release
+# Triggers on version tags (v*) to build and publish releases
 
 on:
   push:
