@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
 import { getValidatedPythonPath } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
+import { getConfiguredPythonPath, pythonEnvManager } from '../python-env-manager';
+import { getAugmentedEnv } from '../env-utils';
 
 /**
  * Configuration manager for insights service
@@ -107,9 +108,15 @@ export class InsightsConfig {
   getProcessEnv(): Record<string, string> {
     const autoBuildEnv = this.loadAutoBuildEnv();
     const profileEnv = getProfileEnv();
+    // Get Python environment (PYTHONPATH for bundled packages like python-dotenv)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+    // Use getAugmentedEnv() to ensure common tool paths (claude, dotnet, etc.)
+    // are available even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
 
     return {
-      ...process.env as Record<string, string>,
+      ...augmentedEnv,
+      ...pythonEnv, // Include PYTHONPATH for bundled site-packages
       ...autoBuildEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
