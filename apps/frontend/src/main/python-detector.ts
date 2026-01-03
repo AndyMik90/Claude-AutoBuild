@@ -117,11 +117,11 @@ export function findPythonCommand(): string | null {
  */
 function getPythonVersion(pythonCmd: string): string | null {
   try {
-    const version = execSync(`${pythonCmd} --version`, {
-      stdio: 'pipe',
+    const version = execFileSync(pythonCmd, ['--version'], {
+      encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true
-    }).toString().trim();
+    }).trim();
 
     // Extract version number from "Python 3.10.5" format
     const match = version.match(/Python (\d+\.\d+\.\d+)/);

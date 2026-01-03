@@ -1,4 +1,4 @@
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execSync, execFileSync, ChildProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
@@ -201,10 +201,10 @@ if sys.version_info >= (3, 12):
     try {
       // Get the actual executable path from the command
       // For commands like "py -3", we need to resolve to the actual executable
-      const pythonPath = execSync(`${pythonCmd} -c "import sys; print(sys.executable)"`, {
-        stdio: 'pipe',
+      const pythonPath = execFileSync(pythonCmd, ['-c', 'import sys; print(sys.executable)'], {
+        encoding: 'utf-8',
         timeout: 5000
-      }).toString().trim();
+      }).trim();
 
       console.log(`[PythonEnvManager] Found Python at: ${pythonPath}`);
       return pythonPath;
