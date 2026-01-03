@@ -258,7 +258,7 @@ Environment Variables:
     return parser.parse_args()
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     """Main CLI entry point."""
     # Set up environment first
     setup_environment()

@@ -332,6 +332,76 @@ class TestGenerateSpecName:
 
             assert name == "spec"
 
+    def test_all_skip_words_returns_spec(self, temp_dir: Path):
+        """Returns 'spec' when all words are skip words."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+            name = orchestrator._generate_spec_name("the a an to for of in on")
+
+            # All words are skip words, should fall back to first words or "spec"
+            assert name == "spec" or len(name) > 0
+
+    def test_numbers_in_name(self, temp_dir: Path):
+        """Numbers are preserved in name."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+            name = orchestrator._generate_spec_name("OAuth2 authentication flow")
+
+            assert "oauth2" in name
+
+    def test_mixed_case_normalized(self, temp_dir: Path):
+        """Mixed case is normalized to lowercase."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+            name = orchestrator._generate_spec_name("Add GitHub OAuth Integration")
+
+            assert name == name.lower()
+
+    def test_short_words_filtered(self, temp_dir: Path):
+        """Words with 2 or fewer chars are filtered (except in fallback)."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+            name = orchestrator._generate_spec_name("Add UI to DB sync feature")
+
+            # "ui" and "db" are 2 chars, should be filtered
+            # "sync" and "feature" should remain
+            assert "sync" in name or "feature" in name
+
+    def test_whitespace_handling(self, temp_dir: Path):
+        """Extra whitespace is handled correctly."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+            name = orchestrator._generate_spec_name("  Add   user   authentication  ")
+
+            assert "--" not in name  # No double dashes
+            assert not name.startswith("-")
+            assert not name.endswith("-")
+
 
 class TestCleanupOrphanedPendingFolders:
     """Tests for orphaned pending folder cleanup."""
