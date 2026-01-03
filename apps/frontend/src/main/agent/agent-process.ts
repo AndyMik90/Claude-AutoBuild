@@ -347,30 +347,54 @@ export class AgentProcessManager {
     extraEnv: Record<string, string> = {},
     processType: ProcessType = 'task-execution'
   ): Promise<void> {
+    console.warn(`[AgentProcess] Starting subprocess initialization for task: ${taskId}`);
+    console.log(`[AgentProcess] Process type: ${processType}, CWD: ${cwd}`);
+    console.log(`[AgentProcess] Args: ${JSON.stringify(args)}`);
+
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
 
     const spawnId = this.state.generateSpawnId();
+    console.log(`[AgentProcess] Generated spawn ID: ${spawnId}`);
+
+    console.log(`[AgentProcess] Setting up process environment with extraEnv keys: ${Object.keys(extraEnv).join(', ')}`);
     const env = this.setupProcessEnvironment(extraEnv);
 
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
+    console.log(`[AgentProcess] Getting Python environment from pythonEnvManager...`);
     const pythonEnv = pythonEnvManager.getPythonEnv();
+    console.log(`[AgentProcess] Python env keys: ${Object.keys(pythonEnv).join(', ')}`);
+    if (pythonEnv.PYTHONPATH) {
+      console.log(`[AgentProcess] PYTHONPATH set to: ${pythonEnv.PYTHONPATH}`);
+    }
 
     // Get active API profile environment variables
+    console.log(`[AgentProcess] Loading API profile environment...`);
     let apiProfileEnv: Record<string, string> = {};
     try {
       apiProfileEnv = await getAPIProfileEnv();
+      console.log(`[AgentProcess] API profile env loaded with keys: ${Object.keys(apiProfileEnv).join(', ')}`);
     } catch (error) {
-      console.error('[Agent Process] Failed to get API profile env:', error);
+      console.error('[AgentProcess] Failed to get API profile env:', error);
       // Continue with empty profile env (falls back to OAuth mode)
     }
 
     // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    console.log(`[AgentProcess] Getting OAuth mode clearing vars...`);
     const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+    console.log(`[AgentProcess] OAuth clear vars keys: ${Object.keys(oauthModeClearVars).join(', ')}`);
 
     // Parse Python commandto handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+    const pythonPath = this.getPythonPath();
+    console.warn(`[AgentProcess] Resolved Python path: ${pythonPath}`);
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+    console.log(`[AgentProcess] Parsed Python command: "${pythonCommand}", base args: ${JSON.stringify(pythonBaseArgs)}`);
+
+    const fullArgs = [...pythonBaseArgs, ...args];
+    console.warn(`[AgentProcess] Spawning process: ${pythonCommand} ${fullArgs.join(' ')}`);
+    console.log(`[AgentProcess] Working directory: ${cwd}`);
+
+    const childProcess = spawn(pythonCommand, fullArgs, {
       cwd,
       env: {
         ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
@@ -380,12 +404,15 @@ export class AgentProcessManager {
       }
     });
 
+    console.log(`[AgentProcess] Process spawned with PID: ${childProcess.pid}`);
+
     this.state.addProcess(taskId, {
       taskId,
       process: childProcess,
       startedAt: new Date(),
       spawnId
     });
+    console.warn(`[AgentProcess] Process registered and tracked for task: ${taskId}`);
 
     let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
     let phaseProgress = 0;
