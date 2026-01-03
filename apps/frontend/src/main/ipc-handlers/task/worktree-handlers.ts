@@ -465,9 +465,23 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
     commands: { darwin: [], win32: ['wt.exe', '-d'], linux: [] }
   },
   powershell: {
-    name: 'PowerShell',
+    name: 'Windows PowerShell 5.1',
     paths: { darwin: [], win32: ['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'], linux: [] },
     commands: { darwin: [], win32: ['powershell.exe', '-NoExit', '-Command', 'cd'], linux: [] }
+  },
+  pwsh: {
+    name: 'PowerShell 7',
+    paths: { 
+      darwin: ['/usr/local/bin/pwsh', '/opt/homebrew/bin/pwsh'], 
+      win32: [
+        'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+        'C:\\Program Files (x86)\\PowerShell\\7\\pwsh.exe',
+        'C:\\Program Files\\PowerShell\\8\\pwsh.exe',
+        'C:\\Program Files (x86)\\PowerShell\\8\\pwsh.exe'
+      ], 
+      linux: ['/usr/bin/pwsh', '/usr/local/bin/pwsh', '/opt/microsoft/powershell/pwsh'] 
+    },
+    commands: { darwin: ['pwsh'], win32: ['pwsh.exe', '-NoExit', '-Command', 'cd'], linux: ['pwsh'] }
   },
   cmd: {
     name: 'Command Prompt',
@@ -955,7 +969,48 @@ async function detectInstalledTools(): Promise<DetectedTools> {
 
     const { installed, foundPath } = isAppInstalled(searchNames, paths, platform);
 
-    if (installed) {
+    // Special handling for PowerShell versions - get version info
+    if (installed && (id === 'powershell' || id === 'pwsh') && platform === 'win32') {
+      let versionInfo = '';
+      try {
+        // Find the actual executable path
+        let exePath = foundPath;
+        if (!exePath || !existsSync(exePath)) {
+          // Try to find from paths array
+          for (const p of paths) {
+            const expanded = p.replace('%USERNAME%', process.env.USERNAME || process.env.USER || '');
+            if (existsSync(expanded)) {
+              exePath = expanded;
+              break;
+            }
+          }
+        }
+        
+        if (exePath && existsSync(exePath)) {
+          // Get version using PowerShell command
+          const versionCmd = `"${exePath}" -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"`;
+          
+          try {
+            const { stdout } = await execAsync(versionCmd, { timeout: 3000 });
+            const version = stdout.trim();
+            if (version && version.length < 20) { // Sanity check - version strings shouldn't be too long
+              versionInfo = ` (${version})`;
+            }
+          } catch {
+            // Version detection failed, continue without version info
+          }
+        }
+      } catch {
+        // Version detection failed, continue without version info
+      }
+
+      terminals.push({
+        id,
+        name: config.name + versionInfo,
+        path: foundPath,
+        installed: true
+      });
+    } else if (installed) {
       terminals.push({
         id,
         name: config.name,
@@ -1097,6 +1152,11 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
       if (terminal === 'system') {
         // Use spawn with proper argument separation
         spawn('cmd.exe', ['/K', 'cd', '/d', dirPath], { detached: true, stdio: 'ignore' }).unref();
+      } else if (terminal === 'powershell' || terminal === 'pwsh') {
+        // PowerShell needs special handling - use -Command with cd command
+        const powershellExe = terminal === 'pwsh' ? 'pwsh.exe' : 'powershell.exe';
+        const escapedPath = dirPath.replace(/"/g, '`"'); // Escape quotes for PowerShell
+        spawn(powershellExe, ['-NoExit', '-Command', `cd "${escapedPath}"`], { detached: true, stdio: 'ignore' }).unref();
       } else if (commands.length > 0) {
         spawn(commands[0], [...commands.slice(1), dirPath], { detached: true, stdio: 'ignore' }).unref();
       }

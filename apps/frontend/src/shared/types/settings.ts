@@ -100,7 +100,8 @@ export type SupportedTerminal =
   | 'rio'              // Rio (Rust-based, GPU-accelerated)
   // Windows Terminals
   | 'windowsterminal'  // Windows Terminal (Microsoft)
-  | 'powershell'       // PowerShell
+  | 'powershell'       // Windows PowerShell 5.1
+  | 'pwsh'             // PowerShell 7+ (Core)
   | 'cmd'              // Command Prompt
   | 'conemu'           // ConEmu
   | 'cmder'            // Cmder (ConEmu-based)

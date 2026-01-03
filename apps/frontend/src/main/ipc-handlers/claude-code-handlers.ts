@@ -239,12 +239,31 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
 
   } else if (platform === 'win32') {
     // Windows: Use appropriate terminal
-    // Values match SupportedTerminal type: 'windowsterminal', 'powershell', 'cmd', 'conemu', 'cmder',
+    // Values match SupportedTerminal type: 'windowsterminal', 'powershell', 'pwsh', 'cmd', 'conemu', 'cmder',
     // 'gitbash', 'alacritty', 'wezterm', 'hyper', 'tabby', 'cygwin', 'msys2'
     const terminalId = preferredTerminal?.toLowerCase() || 'powershell';
 
     console.log('[Claude Code] Using terminal:', terminalId);
     console.log('[Claude Code] Command to run:', command);
+
+    // Determine which PowerShell executable to use
+    const getPowerShellExe = (): string => {
+      if (terminalId === 'pwsh') {
+        // Try to find PowerShell 7+ (pwsh.exe)
+        const pwshPaths = [
+          'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+          'C:\\Program Files (x86)\\PowerShell\\7\\pwsh.exe',
+          'C:\\Program Files\\PowerShell\\8\\pwsh.exe',
+          'C:\\Program Files (x86)\\PowerShell\\8\\pwsh.exe',
+        ];
+        const pwshPath = pwshPaths.find(p => existsSync(p));
+        return pwshPath || 'pwsh.exe'; // Fallback to PATH lookup
+      }
+      // Default to Windows PowerShell 5.1
+      return 'powershell.exe';
+    };
+
+    const powershellExe = getPowerShellExe();
 
     // For Windows, use exec with a properly formed command string
     // This is more reliable than spawn for complex PowerShell commands with pipes
@@ -271,8 +290,8 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
       const escapedCommand = escapePowerShellCommand(command);
 
       if (terminalId === 'windowsterminal') {
-        // Windows Terminal - open new tab with PowerShell
-        await runWindowsCommand(`wt new-tab powershell -NoExit -Command "${escapedCommand}"`);
+        // Windows Terminal - open new tab with the selected PowerShell version
+        await runWindowsCommand(`wt new-tab ${powershellExe} -NoExit -Command "${escapedCommand}"`);
       } else if (terminalId === 'gitbash') {
         // Git Bash - use the passed command (escaped for bash context)
         const escapedBashCommand = escapeGitBashCommand(command);
@@ -288,16 +307,16 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         }
       } else if (terminalId === 'alacritty') {
         // Alacritty
-        await runWindowsCommand(`start alacritty -e powershell -NoExit -Command "${escapedCommand}"`);
+        await runWindowsCommand(`start alacritty -e ${powershellExe} -NoExit -Command "${escapedCommand}"`);
       } else if (terminalId === 'wezterm') {
         // WezTerm
-        await runWindowsCommand(`start wezterm start -- powershell -NoExit -Command "${escapedCommand}"`);
+        await runWindowsCommand(`start wezterm start -- ${powershellExe} -NoExit -Command "${escapedCommand}"`);
       } else if (terminalId === 'cmd') {
         // Command Prompt - use cmd /k to run command and keep window open
         // Note: cmd.exe uses its own escaping rules, so we pass the raw command
         // and let cmd handle it. The command is typically PowerShell-formatted
         // for install scripts, so we run PowerShell from cmd.
-        await runWindowsCommand(`start cmd /k "powershell -NoExit -Command ${escapedCommand}"`);
+        await runWindowsCommand(`start cmd /k "${powershellExe} -NoExit -Command ${escapedCommand}"`);
       } else if (terminalId === 'conemu') {
         // ConEmu - open with PowerShell tab running the command
         const conemuPaths = [
@@ -307,11 +326,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         const conemuPath = conemuPaths.find(p => existsSync(p));
         if (conemuPath) {
           // ConEmu uses -run to specify the command to execute
-          await runWindowsCommand(`start "" "${conemuPath}" -run "powershell -NoExit -Command ${escapedCommand}"`);
+          await runWindowsCommand(`start "" "${conemuPath}" -run "${powershellExe} -NoExit -Command ${escapedCommand}"`);
         } else {
           // Fall back to PowerShell if ConEmu not found
           console.warn('[Claude Code] ConEmu not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'cmder') {
         // Cmder - portable console emulator for Windows
@@ -323,11 +342,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         const cmderPath = cmderPaths.find(p => existsSync(p));
         if (cmderPath) {
           // Cmder uses /TASK for predefined tasks or /START for directory, but we can use /C for command
-          await runWindowsCommand(`start "" "${cmderPath}" /SINGLE /START "" /TASK "powershell -NoExit -Command ${escapedCommand}"`);
+          await runWindowsCommand(`start "" "${cmderPath}" /SINGLE /START "" /TASK "${powershellExe} -NoExit -Command ${escapedCommand}"`);
         } else {
           // Fall back to PowerShell if Cmder not found
           console.warn('[Claude Code] Cmder not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'hyper') {
         // Hyper - Electron-based terminal
@@ -343,7 +362,7 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           console.log('[Claude Code] Hyper opened - command must be pasted manually');
         } else {
           console.warn('[Claude Code] Hyper not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'tabby') {
         // Tabby (formerly Terminus) - modern terminal for Windows
@@ -358,7 +377,7 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           console.log('[Claude Code] Tabby opened - command must be pasted manually');
         } else {
           console.warn('[Claude Code] Tabby not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'cygwin') {
         // Cygwin terminal
@@ -373,7 +392,7 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           await runWindowsCommand(`"${cygwinPath}" -e /bin/bash -lc "${escapedBashCommand}"`);
         } else {
           console.warn('[Claude Code] Cygwin not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
       } else if (terminalId === 'msys2') {
         // MSYS2 terminal
@@ -394,13 +413,16 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           }
         } else {
           console.warn('[Claude Code] MSYS2 not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
         }
+      } else if (terminalId === 'powershell' || terminalId === 'pwsh') {
+        // Explicit PowerShell selection - use the selected version
+        await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
       } else {
-        // Default: PowerShell (handles 'powershell', 'system', or any unknown value)
+        // Default: PowerShell (handles 'system', or any unknown value)
         // Use 'start' command to open a new PowerShell window
         // The command is wrapped in double quotes and passed via -Command
-        await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+        await runWindowsCommand(`start ${powershellExe} -NoExit -Command "${escapedCommand}"`);
       }
     } catch (err) {
       console.error('[Claude Code] Terminal execution failed:', err);
