@@ -19,6 +19,7 @@ from core.auth import (
     is_token_expired,
     refresh_oauth_token,
     get_full_credentials,
+    get_auth_token_source,
     save_credentials,
     TOKEN_REFRESH_BUFFER_SECONDS,
     OAUTH_TOKEN_URL,
@@ -661,3 +662,72 @@ class TestOAuthConfiguration:
         """Custom token URL should be picked up from environment."""
         auth_module = reloaded_auth_with_custom_url
         assert auth_module.OAUTH_TOKEN_URL == "https://custom.example.com/token"
+
+
+# =============================================================================
+# get_auth_token_source() Tests
+# =============================================================================
+
+
+class TestGetAuthTokenSource:
+    """Tests for the get_auth_token_source function priority logic."""
+
+    @patch("core.auth._get_full_credentials_from_store")
+    def test_enterprise_token_has_highest_priority(self, mock_store, monkeypatch):
+        """ANTHROPIC_AUTH_TOKEN should take priority over all other sources."""
+        monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "enterprise-token")
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-token")
+        mock_store.return_value = {"accessToken": "sk-ant-oat01-store-token"}
+
+        assert get_auth_token_source() == "ANTHROPIC_AUTH_TOKEN"
+
+    @patch("core.auth._get_full_credentials_from_store")
+    def test_oauth_env_var_priority_over_store(self, mock_store, monkeypatch):
+        """CLAUDE_CODE_OAUTH_TOKEN should take priority over credential store."""
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-token")
+        mock_store.return_value = {"accessToken": "sk-ant-oat01-store-token"}
+
+        assert get_auth_token_source() == "CLAUDE_CODE_OAUTH_TOKEN"
+
+    @patch("core.auth._get_full_credentials_from_store")
+    @patch("core.auth.platform.system")
+    def test_linux_store_when_no_env_vars(self, mock_system, mock_store, monkeypatch):
+        """Linux credential store should be returned when no env vars set."""
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+        mock_system.return_value = "Linux"
+        mock_store.return_value = {"accessToken": "sk-ant-oat01-store-token"}
+
+        assert get_auth_token_source() == "Linux credential file"
+
+    @patch("core.auth._get_full_credentials_from_store")
+    @patch("core.auth.platform.system")
+    def test_macos_keychain_when_no_env_vars(self, mock_system, mock_store, monkeypatch):
+        """macOS Keychain should be returned when no env vars set."""
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+        mock_system.return_value = "Darwin"
+        mock_store.return_value = {"accessToken": "sk-ant-oat01-store-token"}
+
+        assert get_auth_token_source() == "macOS Keychain"
+
+    @patch("core.auth._get_full_credentials_from_store")
+    @patch("core.auth.platform.system")
+    def test_windows_store_when_no_env_vars(self, mock_system, mock_store, monkeypatch):
+        """Windows credential file should be returned when no env vars set."""
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+        mock_system.return_value = "Windows"
+        mock_store.return_value = {"accessToken": "sk-ant-oat01-store-token"}
+
+        assert get_auth_token_source() == "Windows credential file"
+
+    @patch("core.auth._get_full_credentials_from_store")
+    def test_returns_none_when_no_sources(self, mock_store, monkeypatch):
+        """Should return None when no token sources are available."""
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+        mock_store.return_value = None
+
+        assert get_auth_token_source() is None
