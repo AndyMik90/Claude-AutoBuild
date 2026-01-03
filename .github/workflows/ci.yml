@@ -1,49 +1,357 @@
+# ╔═══════════════════════════════════════════════════════════════════════════════╗
+# ║                                                                               ║
+# ║                        AUTO CLAUDE - CI PIPELINE                              ║
+# ║                                                                               ║
+# ║  A unified, enterprise-grade CI workflow for pull request validation.         ║
+# ║                                                                               ║
+# ║  WORKFLOW STAGES:                                                             ║
+# ║  ┌─────────────────────────────────────────────────────────────────────────┐  ║
+# ║  │ Stage 1: PR Setup        - Label PR and set "Checking" status          │  ║
+# ║  │ Stage 2: Change Detection - Determine which tests to run               │  ║
+# ║  │ Stage 3: Quality Gates   - Run tests, linting, and security scans      │  ║
+# ║  │ Stage 4: Status Update   - Update PR with final status                 │  ║
+# ║  └─────────────────────────────────────────────────────────────────────────┘  ║
+# ║                                                                               ║
+# ║  SMART PATH FILTERING:                                                        ║
+# ║  - Backend changes (apps/backend/**, tests/**)  → Python tests + lint        ║
+# ║  - Frontend changes (apps/frontend/**)          → Frontend tests + build     ║
+# ║  - No code changes (docs, CI configs only)      → Skip tests, mark ready     ║
+# ║                                                                               ║
+# ║  LABELS APPLIED:                                                              ║
+# ║  - Status: 🔄 Checking → ✅ Ready for Review / ❌ Checks Failed              ║
+# ║  - Type: feature, bug, docs, refactor, ci, chore (from PR title)             ║
+# ║  - Area: area/frontend, area/backend, area/fullstack, area/ci                ║
+# ║  - Size: size/XS, size/S, size/M, size/L, size/XL                            ║
+# ║                                                                               ║
+# ║  MAINTAINERS: See CONTRIBUTING.md for workflow modification guidelines.       ║
+# ║                                                                               ║
+# ╚═══════════════════════════════════════════════════════════════════════════════╝
+
 name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
     branches: [main, develop]
+    types: [opened, synchronize, reopened]
 
+# ─────────────────────────────────────────────────────────────────────────────────
+# CONCURRENCY: Cancel redundant runs when new commits are pushed to the same PR
+# ─────────────────────────────────────────────────────────────────────────────────
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+# ─────────────────────────────────────────────────────────────────────────────────
+# PERMISSIONS: Minimal permissions required for this workflow
+# ─────────────────────────────────────────────────────────────────────────────────
 permissions:
-  contents: read
-  actions: read
+  contents: read          # Read repository contents
+  actions: read           # Read workflow runs
+  security-events: write  # Upload CodeQL results
+  pull-requests: write    # Update PR labels
+  checks: read            # Read check run status
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+#                                    JOBS
+# ═══════════════════════════════════════════════════════════════════════════════════
 
 jobs:
-  # Python tests
-  test-python:
+
+  # ┌─────────────────────────────────────────────────────────────────────────────┐
+  # │ STAGE 1: PR SETUP                                                           │
+  # │                                                                             │
+  # │ Purpose: Initialize PR with labels and "Checking" status                    │
+  # │ Runs: First, before any other job                                           │
+  # │ Labels: Status (Checking), Type, Area, Size                                 │
+  # └─────────────────────────────────────────────────────────────────────────────┘
+  stage-1-setup:
+    name: "Stage 1: PR Setup"
     runs-on: ubuntu-latest
+    # Skip for fork PRs (they cannot write labels)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 5
+
+    steps:
+      - name: "1.1 Apply Labels and Set Checking Status"
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
+            const title = pr.title;
+
+            console.log(`\n${'═'.repeat(60)}`);
+            console.log(`  PR #${prNumber}: ${title}`);
+            console.log(`${'═'.repeat(60)}\n`);
+
+            const labelsToAdd = new Set();
+            const labelsToRemove = new Set();
+
+            // ─────────────────────────────────────────────────────────────
+            // STATUS LABEL: Set to "Checking" while CI runs
+            // ─────────────────────────────────────────────────────────────
+            const statusLabels = ['🔄 Checking', '✅ Ready for Review', '❌ Checks Failed'];
+            statusLabels.forEach(l => labelsToRemove.add(l));
+            labelsToAdd.add('🔄 Checking');
+            console.log('Status: 🔄 Checking');
+
+            // ─────────────────────────────────────────────────────────────
+            // TYPE LABEL: Extracted from Conventional Commit prefix
+            // Format: type(scope)!: description
+            // Examples: feat:, fix(ui):, docs!:, refactor(api):
+            // ─────────────────────────────────────────────────────────────
+            const typeMap = {
+              'feat': 'feature',      // New feature
+              'fix': 'bug',           // Bug fix
+              'docs': 'documentation',// Documentation only
+              'refactor': 'refactor', // Code refactoring
+              'test': 'test',         // Adding/updating tests
+              'ci': 'ci',             // CI/CD changes
+              'chore': 'chore',       // Maintenance tasks
+              'perf': 'performance',  // Performance improvements
+              'style': 'style',       // Code style changes
+              'build': 'build'        // Build system changes
+            };
+
+            const typeMatch = title.match(/^(\w+)(\(.+?\))?(!)?:/);
+            if (typeMatch) {
+              const type = typeMatch[1].toLowerCase();
+              const isBreaking = typeMatch[3] === '!';
+
+              if (typeMap[type]) {
+                labelsToAdd.add(typeMap[type]);
+                console.log(`Type: ${typeMap[type]}`);
+              }
+              if (isBreaking) {
+                labelsToAdd.add('breaking-change');
+                console.log('⚠️  Breaking change detected');
+              }
+            } else {
+              console.log('Type: (no conventional commit prefix detected)');
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // AREA LABEL: Determined by which files were changed
+            // ─────────────────────────────────────────────────────────────
+            let files = [];
+            try {
+              const { data } = await github.rest.pulls.listFiles({
+                owner, repo, pull_number: prNumber, per_page: 100
+              });
+              files = data;
+            } catch (e) {
+              console.log(`Warning: Could not fetch changed files: ${e.message}`);
+            }
+
+            const areas = { frontend: false, backend: false, ci: false };
+            for (const file of files) {
+              const path = file.filename;
+              if (path.startsWith('apps/frontend/')) areas.frontend = true;
+              if (path.startsWith('apps/backend/') || path.startsWith('tests/')) areas.backend = true;
+              if (path.startsWith('.github/')) areas.ci = true;
+            }
+
+            // Area labels are mutually exclusive
+            const areaLabels = ['area/frontend', 'area/backend', 'area/fullstack', 'area/ci'];
+            let areaLabel = null;
+
+            if (areas.frontend && areas.backend) {
+              areaLabel = 'area/fullstack';
+            } else if (areas.frontend) {
+              areaLabel = 'area/frontend';
+            } else if (areas.backend) {
+              areaLabel = 'area/backend';
+            } else if (areas.ci) {
+              areaLabel = 'area/ci';
+            }
+
+            if (areaLabel) {
+              labelsToAdd.add(areaLabel);
+              areaLabels.filter(l => l !== areaLabel).forEach(l => labelsToRemove.add(l));
+              console.log(`Area: ${areaLabel.replace('area/', '')}`);
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SIZE LABEL: Based on total lines changed
+            // XS: <10, S: <100, M: <500, L: <1000, XL: >=1000
+            // ─────────────────────────────────────────────────────────────
+            const additions = pr.additions || 0;
+            const deletions = pr.deletions || 0;
+            const totalLines = additions + deletions;
+
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            const sizeLabel = totalLines < 10 ? 'size/XS' :
+                             totalLines < 100 ? 'size/S' :
+                             totalLines < 500 ? 'size/M' :
+                             totalLines < 1000 ? 'size/L' : 'size/XL';
+
+            labelsToAdd.add(sizeLabel);
+            sizeLabels.filter(l => l !== sizeLabel).forEach(l => labelsToRemove.add(l));
+            console.log(`Size: ${sizeLabel.replace('size/', '')} (+${additions}/-${deletions} = ${totalLines} lines)`);
+
+            // ─────────────────────────────────────────────────────────────
+            // APPLY LABELS
+            // ─────────────────────────────────────────────────────────────
+            console.log(`\n${'─'.repeat(60)}`);
+            console.log('Applying labels...');
+
+            // Remove old labels first
+            const removeArray = [...labelsToRemove].filter(l => !labelsToAdd.has(l));
+            for (const label of removeArray) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber, name: label
+                });
+              } catch (e) {
+                // Ignore 404 (label not present)
+              }
+            }
+
+            // Add new labels
+            const addArray = [...labelsToAdd];
+            if (addArray.length > 0) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: prNumber, labels: addArray
+                });
+                console.log(`✓ Labels applied: ${addArray.join(', ')}`);
+              } catch (e) {
+                if (e.status === 404) {
+                  core.warning('Some labels do not exist. Please create them in Settings > Labels.');
+                  // Try adding labels one by one
+                  for (const label of addArray) {
+                    try {
+                      await github.rest.issues.addLabels({
+                        owner, repo, issue_number: prNumber, labels: [label]
+                      });
+                    } catch (e2) {
+                      console.log(`  ⚠ Label '${label}' does not exist`);
+                    }
+                  }
+                }
+              }
+            }
+
+            console.log(`${'─'.repeat(60)}\n`);
+
+  # ┌─────────────────────────────────────────────────────────────────────────────┐
+  # │ STAGE 2: CHANGE DETECTION                                                   │
+  # │                                                                             │
+  # │ Purpose: Analyze changed files to determine which tests to run              │
+  # │ Runs: After Stage 1 completes                                               │
+  # │ Outputs: backend, frontend, any_code, skip_tests                            │
+  # └─────────────────────────────────────────────────────────────────────────────┘
+  stage-2-changes:
+    name: "Stage 2: Detect Changes"
+    runs-on: ubuntu-latest
+    needs: stage-1-setup
+    # Always run even if stage-1 was skipped (fork PRs)
+    if: always()
+    timeout-minutes: 5
+
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      any_code: ${{ steps.filter.outputs.any_code }}
+      skip_tests: ${{ steps.evaluate.outputs.skip_tests }}
+
+    steps:
+      - name: "2.1 Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "2.2 Analyze Changed Files"
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+              - 'tests/**'
+              - 'requirements*.txt'
+            frontend:
+              - 'apps/frontend/**'
+              - 'package*.json'
+            any_code:
+              - 'apps/**'
+              - 'tests/**'
+              - 'package*.json'
+              - 'requirements*.txt'
+
+      - name: "2.3 Evaluate Test Requirements"
+        id: evaluate
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════════════════════"
+          echo "  CHANGE DETECTION RESULTS"
+          echo "═══════════════════════════════════════════════════════════"
+          echo ""
+          echo "  Backend changes:  ${{ steps.filter.outputs.backend }}"
+          echo "  Frontend changes: ${{ steps.filter.outputs.frontend }}"
+          echo "  Any code changes: ${{ steps.filter.outputs.any_code }}"
+          echo ""
+
+          if [ "${{ steps.filter.outputs.any_code }}" = "false" ]; then
+            echo "skip_tests=true" >> $GITHUB_OUTPUT
+            echo "  → No code changes detected"
+            echo "  → Tests will be SKIPPED (docs/config only changes)"
+          else
+            echo "skip_tests=false" >> $GITHUB_OUTPUT
+            echo "  → Code changes detected"
+            echo "  → Tests will be EXECUTED"
+          fi
+
+          echo ""
+          echo "═══════════════════════════════════════════════════════════"
+
+  # ┌─────────────────────────────────────────────────────────────────────────────┐
+  # │ STAGE 3: QUALITY GATES                                                      │
+  # │                                                                             │
+  # │ Purpose: Run tests, linting, and security scans based on detected changes  │
+  # │ Runs: After Stage 2, jobs run in parallel where possible                    │
+  # │ Jobs: Python Tests, Frontend Tests, Python Lint, CodeQL, Bandit            │
+  # └─────────────────────────────────────────────────────────────────────────────┘
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PYTHON TESTS: Run pytest across Python version matrix
+  # Triggered: When backend files change
+  # ─────────────────────────────────────────────────────────────────────────────
+  stage-3-test-python:
+    name: "Stage 3: Python Tests (${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: stage-2-changes
+    if: needs.stage-2-changes.outputs.backend == 'true'
+    timeout-minutes: 15
+
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.12', '3.13']
 
     steps:
-      - name: Checkout
+      - name: "3.1 Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: "3.2 Setup Python ${{ matrix.python-version }}"
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
+      - name: "3.3 Setup UV Package Manager"
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
 
-      - name: Install dependencies
+      - name: "3.4 Install Dependencies"
         working-directory: apps/backend
         run: |
           uv venv
           uv pip install -r requirements.txt
           uv pip install -r ../../tests/requirements-test.txt
 
-      - name: Run tests
+      - name: "3.5 Run Test Suite"
         working-directory: apps/backend
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
@@ -51,16 +359,20 @@ jobs:
           source .venv/bin/activate
           pytest ../../tests/ -v --tb=short -x
 
-      - name: Run tests with coverage
+      - name: "3.6 Run Tests with Coverage"
         if: matrix.python-version == '3.12'
         working-directory: apps/backend
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/backend
         run: |
           source .venv/bin/activate
-          pytest ../../tests/ -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=20
+          pytest ../../tests/ -v \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=20
 
-      - name: Upload coverage reports
+      - name: "3.7 Upload Coverage to Codecov"
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
@@ -69,44 +381,318 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # Frontend lint, typecheck, test, and build
-  test-frontend:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FRONTEND TESTS: Lint, typecheck, test, and build
+  # Triggered: When frontend files change
+  # ─────────────────────────────────────────────────────────────────────────────
+  stage-3-test-frontend:
+    name: "Stage 3: Frontend Tests"
     runs-on: ubuntu-latest
+    needs: stage-2-changes
+    if: needs.stage-2-changes.outputs.frontend == 'true'
+    timeout-minutes: 15
+
     steps:
-      - name: Checkout
+      - name: "3.1 Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: "3.2 Setup Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Get npm cache directory
-        id: npm-cache
-        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@v4
+      - name: "3.3 Cache npm Dependencies"
+        uses: actions/cache@v4
         with:
-          path: ${{ steps.npm-cache.outputs.dir }}
+          path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-npm-
 
-      - name: Install dependencies
+      - name: "3.4 Install Dependencies"
         working-directory: apps/frontend
         run: npm ci --ignore-scripts
 
-      - name: Lint
+      - name: "3.5 Run ESLint"
         working-directory: apps/frontend
         run: npm run lint
 
-      - name: Type check
+      - name: "3.6 Run TypeScript Type Check"
         working-directory: apps/frontend
         run: npm run typecheck
 
-      - name: Run tests
+      - name: "3.7 Run Unit Tests"
         working-directory: apps/frontend
         run: npm run test
 
-      - name: Build
+      - name: "3.8 Build Application"
         working-directory: apps/frontend
         run: npm run build
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PYTHON LINT: Check code style and formatting with Ruff
+  # Triggered: When backend files change
+  # ─────────────────────────────────────────────────────────────────────────────
+  stage-3-lint-python:
+    name: "Stage 3: Python Lint"
+    runs-on: ubuntu-latest
+    needs: stage-2-changes
+    if: needs.stage-2-changes.outputs.backend == 'true'
+    timeout-minutes: 10
+
+    steps:
+      - name: "3.1 Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "3.2 Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Ruff version pinned to match .pre-commit-config.yaml
+      - name: "3.3 Install Ruff"
+        run: pip install ruff==0.14.10
+
+      - name: "3.4 Run Ruff Linter"
+        run: ruff check apps/backend/ --output-format=github
+
+      - name: "3.5 Check Code Formatting"
+        run: ruff format apps/backend/ --check --diff
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CODEQL: Static analysis for security vulnerabilities
+  # Triggered: When any code files change
+  # ─────────────────────────────────────────────────────────────────────────────
+  stage-3-codeql:
+    name: "Stage 3: CodeQL (${{ matrix.language }})"
+    runs-on: ubuntu-latest
+    needs: stage-2-changes
+    if: needs.stage-2-changes.outputs.any_code == 'true'
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+
+    steps:
+      - name: "3.1 Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "3.2 Initialize CodeQL"
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended,security-and-quality
+
+      - name: "3.3 Autobuild"
+        uses: github/codeql-action/autobuild@v3
+
+      - name: "3.4 Run CodeQL Analysis"
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PYTHON SECURITY: Bandit security scanner for Python code
+  # Triggered: When backend files change
+  # ─────────────────────────────────────────────────────────────────────────────
+  stage-3-security-python:
+    name: "Stage 3: Python Security"
+    runs-on: ubuntu-latest
+    needs: stage-2-changes
+    if: needs.stage-2-changes.outputs.backend == 'true'
+    timeout-minutes: 10
+
+    steps:
+      - name: "3.1 Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "3.2 Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "3.3 Install Bandit"
+        run: pip install bandit
+
+      - name: "3.4 Run Bandit Security Scan"
+        run: |
+          # Run Bandit and save results (exit code 1 = issues found, not an error)
+          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || true
+
+      - name: "3.5 Analyze Security Results"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            if (!fs.existsSync('bandit-report.json')) {
+              core.setFailed('Bandit report not found - scan may have failed');
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync('bandit-report.json', 'utf8'));
+            const results = report.results || [];
+
+            // Categorize by severity
+            const high = results.filter(r => r.issue_severity === 'HIGH');
+            const medium = results.filter(r => r.issue_severity === 'MEDIUM');
+            const low = results.filter(r => r.issue_severity === 'LOW');
+
+            console.log('\n' + '═'.repeat(60));
+            console.log('  BANDIT SECURITY SCAN RESULTS');
+            console.log('═'.repeat(60));
+            console.log(`\n  HIGH:   ${high.length}`);
+            console.log(`  MEDIUM: ${medium.length}`);
+            console.log(`  LOW:    ${low.length}\n`);
+
+            if (high.length > 0) {
+              console.log('─'.repeat(60));
+              console.log('  HIGH SEVERITY ISSUES:');
+              console.log('─'.repeat(60));
+              for (const issue of high) {
+                console.log(`\n  📍 ${issue.filename}:${issue.line_number}`);
+                console.log(`     ${issue.issue_text}`);
+                console.log(`     Test: ${issue.test_id} (${issue.test_name})`);
+              }
+              console.log('\n' + '═'.repeat(60));
+              core.setFailed(`Found ${high.length} high severity security issue(s)`);
+            } else {
+              console.log('✓ No high severity security issues found');
+              console.log('═'.repeat(60) + '\n');
+            }
+
+  # ┌─────────────────────────────────────────────────────────────────────────────┐
+  # │ STAGE 4: STATUS UPDATE                                                      │
+  # │                                                                             │
+  # │ Purpose: Aggregate results from all quality gates and update PR status      │
+  # │ Runs: After ALL Stage 3 jobs complete (success, failure, or skipped)        │
+  # │ Updates: PR label to "Ready for Review" or "Checks Failed"                  │
+  # └─────────────────────────────────────────────────────────────────────────────┘
+  stage-4-status:
+    name: "Stage 4: Update PR Status"
+    runs-on: ubuntu-latest
+    needs:
+      - stage-2-changes
+      - stage-3-test-python
+      - stage-3-test-frontend
+      - stage-3-lint-python
+      - stage-3-codeql
+      - stage-3-security-python
+    # Always run to update status, even if previous jobs failed or were skipped
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 5
+
+    steps:
+      - name: "4.1 Evaluate CI Results and Update PR"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+
+            // ─────────────────────────────────────────────────────────────
+            // COLLECT RESULTS FROM ALL QUALITY GATE JOBS
+            // ─────────────────────────────────────────────────────────────
+            const results = {
+              'Python Tests':    '${{ needs.stage-3-test-python.result }}',
+              'Frontend Tests':  '${{ needs.stage-3-test-frontend.result }}',
+              'Python Lint':     '${{ needs.stage-3-lint-python.result }}',
+              'CodeQL':          '${{ needs.stage-3-codeql.result }}',
+              'Python Security': '${{ needs.stage-3-security-python.result }}'
+            };
+
+            const skipTests = '${{ needs.stage-2-changes.outputs.skip_tests }}' === 'true';
+
+            console.log('\n' + '═'.repeat(60));
+            console.log('  CI PIPELINE RESULTS');
+            console.log('═'.repeat(60) + '\n');
+
+            if (skipTests) {
+              console.log('  ℹ️  No code changes detected - tests were skipped\n');
+            }
+
+            console.log('  Job Results:');
+            console.log('  ' + '─'.repeat(40));
+            for (const [job, result] of Object.entries(results)) {
+              const icon = result === 'success' ? '✓' :
+                          result === 'skipped' ? '○' :
+                          result === 'failure' ? '✗' : '?';
+              console.log(`    ${icon} ${job}: ${result}`);
+            }
+            console.log('  ' + '─'.repeat(40) + '\n');
+
+            // ─────────────────────────────────────────────────────────────
+            // DETERMINE FINAL STATUS
+            // Success and skipped are acceptable; failure is not
+            // ─────────────────────────────────────────────────────────────
+            const acceptable = ['success', 'skipped'];
+            const failed = Object.entries(results)
+              .filter(([_, result]) => !acceptable.includes(result))
+              .map(([job, _]) => job);
+
+            const statusLabels = {
+              checking: '🔄 Checking',
+              passed: '✅ Ready for Review',
+              failed: '❌ Checks Failed'
+            };
+
+            // ─────────────────────────────────────────────────────────────
+            // UPDATE PR LABELS
+            // ─────────────────────────────────────────────────────────────
+            // Remove all status labels first
+            for (const label of Object.values(statusLabels)) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber, name: label
+                });
+              } catch (e) {
+                // Ignore 404 (label not present)
+              }
+            }
+
+            // Add appropriate status label
+            const newLabel = failed.length > 0 ? statusLabels.failed : statusLabels.passed;
+            try {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: prNumber, labels: [newLabel]
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                core.warning(`Label '${newLabel}' does not exist. Please create it in Settings > Labels.`);
+              }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // GENERATE SUMMARY
+            // ─────────────────────────────────────────────────────────────
+            if (failed.length > 0) {
+              console.log(`  ❌ RESULT: CI FAILED`);
+              console.log(`     Failed jobs: ${failed.join(', ')}`);
+              console.log('\n' + '═'.repeat(60) + '\n');
+
+              core.summary.addRaw(`## ❌ CI Failed\n\n`);
+              core.summary.addRaw(`The following checks failed:\n`);
+              for (const job of failed) {
+                core.summary.addRaw(`- ${job}\n`);
+              }
+              core.setFailed(`CI failed: ${failed.join(', ')}`);
+
+            } else if (skipTests) {
+              console.log(`  ✅ RESULT: READY FOR REVIEW`);
+              console.log(`     No code changes - tests skipped`);
+              console.log('\n' + '═'.repeat(60) + '\n');
+
+              core.summary.addRaw(`## ✅ Ready for Review\n\n`);
+              core.summary.addRaw(`No code changes detected. Documentation or configuration changes only.\n`);
+
+            } else {
+              console.log(`  ✅ RESULT: READY FOR REVIEW`);
+              console.log(`     All quality gates passed`);
+              console.log('\n' + '═'.repeat(60) + '\n');
+
+              core.summary.addRaw(`## ✅ Ready for Review\n\n`);
+              core.summary.addRaw(`All CI checks passed successfully.\n`);
+            }
+
+            await core.summary.write();

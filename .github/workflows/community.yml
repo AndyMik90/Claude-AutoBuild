@@ -1,0 +1,121 @@
+name: Community
+
+# Consolidated community automation:
+# - Welcome messages for first-time contributors (issues & PRs)
+# - Auto-label issues based on form selection
+# - Mark and close stale issues
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  workflow_dispatch:  # Allow manual trigger for stale check
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WELCOME - First-time contributor welcome messages
+  # ═══════════════════════════════════════════════════════════════════════════
+  welcome:
+    name: Welcome New Contributors
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' || github.event_name == 'issues'
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/first-interaction@v1.4.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thanks for opening your first issue!
+
+            A maintainer will triage this soon. In the meantime:
+            - Make sure you've provided all the requested info
+            - Join our [Discord](https://discord.gg/QhRnz9m5HE) for faster help
+          pr-message: |
+            Thanks for your first PR!
+
+            A maintainer will review it soon. Please make sure:
+            - Your branch is synced with `develop`
+            - CI checks pass
+            - You've followed our [contribution guide](https://github.com/AndyMik90/Auto-Claude/blob/develop/CONTRIBUTING.md)
+
+            Welcome to the Auto Claude community!
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISSUE LABELS - Auto-label issues based on form area selection
+  # ═══════════════════════════════════════════════════════════════════════════
+  issue-labels:
+    name: Label Issue by Area
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    permissions:
+      issues: write
+    steps:
+      - name: Add area label from form
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            console.log(`Processing issue #${issue.number}: ${issue.title}`);
+
+            // Map form selection to label
+            const areaMap = {
+              'Frontend': 'area/frontend',
+              'Backend': 'area/backend',
+              'Fullstack': 'area/fullstack'
+            };
+
+            const labels = [];
+
+            for (const [key, label] of Object.entries(areaMap)) {
+              if (body.includes(key)) {
+                console.log(`Found area: ${key}, adding label: ${label}`);
+                labels.push(label);
+                break;
+              }
+            }
+
+            if (labels.length > 0) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: labels
+                });
+                console.log(`Successfully added labels: ${labels.join(', ')}`);
+              } catch (error) {
+                core.setFailed(`Failed to add labels: ${error.message}`);
+              }
+            } else {
+              console.log('No matching area found in issue body');
+            }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STALE - Mark and close inactive issues
+  # ═══════════════════════════════════════════════════════════════════════════
+  stale:
+    name: Mark Stale Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: |
+            This issue has been inactive for 60 days. It will be closed in 14 days if there's no activity.
+
+            - If this is still relevant, please comment or update the issue
+            - If you're working on this, add the `in-progress` label
+          close-issue-message: 'Closed due to inactivity. Feel free to reopen if still relevant.'
+          stale-issue-label: 'stale'
+          days-before-stale: 60
+          days-before-close: 14
+          exempt-issue-labels: 'priority/critical,priority/high,in-progress,blocked'

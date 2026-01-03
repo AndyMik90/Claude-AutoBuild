@@ -34,6 +34,70 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Package version: $VERSION"
 
+      # Validate all version files are in sync before proceeding
+      - name: Validate version sync
+        run: |
+          echo "Validating version synchronization across all files..."
+
+          ROOT_VERSION=$(node -p "require('./package.json').version")
+          FRONTEND_VERSION=$(node -p "require('./apps/frontend/package.json').version")
+          # Extract Python version - handles both formats: __version__ = "X.Y.Z" or __version__="X.Y.Z"
+          BACKEND_VERSION=$(grep -oP '__version__\s*=\s*["\x27]\K[^"\x27]+' apps/backend/__init__.py || echo "NOT_FOUND")
+
+          echo "=========================================="
+          echo "Version Sync Validation"
+          echo "=========================================="
+          echo "Root package.json:          $ROOT_VERSION"
+          echo "Frontend package.json:      $FRONTEND_VERSION"
+          echo "Backend __init__.py:        $BACKEND_VERSION"
+          echo "=========================================="
+
+          ERRORS=0
+
+          if [ "$ROOT_VERSION" != "$FRONTEND_VERSION" ]; then
+            echo "::error::Version mismatch: root package.json ($ROOT_VERSION) != frontend package.json ($FRONTEND_VERSION)"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [ "$BACKEND_VERSION" = "NOT_FOUND" ]; then
+            echo "::error::Could not extract version from apps/backend/__init__.py"
+            ERRORS=$((ERRORS + 1))
+          elif [ "$ROOT_VERSION" != "$BACKEND_VERSION" ]; then
+            echo "::error::Version mismatch: root package.json ($ROOT_VERSION) != backend __init__.py ($BACKEND_VERSION)"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "::error::═══════════════════════════════════════════════════════════════════════"
+            echo "::error::  VERSION SYNC FAILED"
+            echo "::error::═══════════════════════════════════════════════════════════════════════"
+            echo "::error::"
+            echo "::error::  All version files must be in sync before releasing."
+            echo "::error::"
+            echo "::error::  To fix this, use the bump-version script:"
+            echo "::error::    node scripts/bump-version.js <patch|minor|major|X.Y.Z>"
+            echo "::error::"
+            echo "::error::  This will update all version files automatically."
+            echo "::error::═══════════════════════════════════════════════════════════════════════"
+
+            # Add to job summary
+            echo "## Version Sync Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| File | Version |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
+            echo "| package.json | $ROOT_VERSION |" >> $GITHUB_STEP_SUMMARY
+            echo "| apps/frontend/package.json | $FRONTEND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            echo "| apps/backend/__init__.py | $BACKEND_VERSION |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Use \`node scripts/bump-version.js <version>\` to sync all files." >> $GITHUB_STEP_SUMMARY
+
+            exit 1
+          fi
+
+          echo ""
+          echo "All version files are in sync: $ROOT_VERSION"
+
       - name: Get latest tag version
         id: latest_tag
         run: |
