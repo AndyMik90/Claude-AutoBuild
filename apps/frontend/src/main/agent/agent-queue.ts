@@ -7,7 +7,6 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
 import type { IdeationConfig, Idea } from '../../shared/types';
-import { MODEL_ID_MAP } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from './env-utils';
@@ -96,9 +95,9 @@ export class AgentQueueManager {
     }
 
     // Add model and thinking level from config
+    // Pass shorthand (opus/sonnet/haiku) - backend resolves using API profile env vars
     if (config?.model) {
-      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
-      args.push('--model', modelId);
+      args.push('--model', config.model);
     }
     if (config?.thinkingLevel) {
       args.push('--thinking-level', config.thinkingLevel);
@@ -172,9 +171,9 @@ export class AgentQueueManager {
     }
 
     // Add model and thinking level from config
+    // Pass shorthand (opus/sonnet/haiku) - backend resolves using API profile env vars
     if (config.model) {
-      const modelId = MODEL_ID_MAP[config.model] || MODEL_ID_MAP['opus'];
-      args.push('--model', modelId);
+      args.push('--model', config.model);
     }
     if (config.thinkingLevel) {
       args.push('--thinking-level', config.thinkingLevel);

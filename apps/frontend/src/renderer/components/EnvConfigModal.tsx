@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import { useSettingsStore } from '../stores/settings-store';
 import {
   Dialog,
   DialogContent,
@@ -592,11 +593,18 @@ export function EnvConfigModal({
 /**
  * Hook to check if the Claude token is configured
  * Returns { hasToken, isLoading, checkToken }
+ *
+ * This combines two sources of authentication:
+ * 1. OAuth token from source .env (checked via checkSourceToken)
+ * 2. Active API profile (custom Anthropic-compatible endpoint)
  */
 export function useClaudeTokenCheck() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get active API profile from settings store
+  const activeProfileId = useSettingsStore((state) => state.activeProfileId);
 
   const checkToken = async () => {
     setIsLoading(true);
@@ -604,15 +612,20 @@ export function useClaudeTokenCheck() {
 
     try {
       const result = await window.electronAPI.checkSourceToken();
-      if (result.success && result.data) {
-        setHasToken(result.data.hasToken);
-      } else {
-        setHasToken(false);
-        setError(result.error || 'Failed to check token');
-      }
+      const hasSourceOAuthToken = result.success && result.data?.hasToken;
+
+      // Also check for active API profile
+      const hasAPIProfile = Boolean(activeProfileId && activeProfileId !== '');
+
+      // Auth is valid if either OAuth token OR API profile exists
+      setHasToken(hasSourceOAuthToken || hasAPIProfile);
     } catch (err) {
-      setHasToken(false);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Even if OAuth check fails, API profile is still valid auth
+      const hasAPIProfile = Boolean(activeProfileId && activeProfileId !== '');
+      setHasToken(hasAPIProfile);
+      if (!hasAPIProfile) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -620,7 +633,7 @@ export function useClaudeTokenCheck() {
 
   useEffect(() => {
     checkToken();
-  }, []);
+  }, [activeProfileId]); // Re-check when profile changes
 
   return { hasToken, isLoading, error, checkToken };
 }
