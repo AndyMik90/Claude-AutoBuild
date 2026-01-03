@@ -1,5 +1,6 @@
 import type * as pty from '@lydell/node-pty';
 import type { BrowserWindow } from 'electron';
+import type { ShellType } from '../../shared/utils/shell-escape';
 
 /**
  * Terminal process tracking
@@ -14,6 +15,8 @@ export interface TerminalProcess {
   claudeProfileId?: string;
   outputBuffer: string;
   title: string;
+  /** The detected shell type for this terminal (powershell, cmd, bash, zsh, fish, sh) */
+  shellType?: ShellType;
 }
 
 /**
