@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from agents.constants import PLAN_UPDATE_MARKER
 
 try:
     from claude_agent_sdk import tool
@@ -120,6 +121,10 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
 
             with open(plan_file, "w") as f:
                 json.dump(plan, f, indent=2)
+
+            # Emit plan update marker for frontend synchronization
+            # This ensures the UI refreshes immediately when plan status changes
+            print(f"{PLAN_UPDATE_MARKER}{plan_file.parent.name}", flush=True)
 
             return {
                 "content": [

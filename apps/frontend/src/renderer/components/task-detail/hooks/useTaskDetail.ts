@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
+import { useTaskStore } from '../../../stores/task-store';
 import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
 
@@ -181,6 +182,47 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       window.electronAPI.unwatchTaskLogs(task.specId);
     };
   }, [selectedProject, task.specId]);
+
+  // Listen for plan updates (from QA approval, etc.)
+  // This ensures UI stays in sync when backend updates implementation_plan.json
+  useEffect(() => {
+    const updateTask = useTaskStore.getState().updateTask;
+
+    const unsubscribe = window.electronAPI.onTaskPlanUpdated((taskId, specId) => {
+      // Only refresh if this is the current task
+      if (specId === task.specId || taskId === task.id) {
+        // Reset stuck check state to force re-evaluation with new status
+        setHasCheckedRunning(false);
+        setIsStuck(false);
+
+        // Load the updated task state
+        const loadUpdatedTask = async () => {
+          if (!selectedProject) return;
+
+          try {
+            // The plan is already updated on disk by the backend
+            // Re-fetch the task to get the latest status and subtasks
+            const result = await window.electronAPI.getTasks(selectedProject.id);
+            if (result.success && result.data) {
+              const updatedTask = result.data.find(t => t.id === task.id || t.specId === task.specId);
+              if (updatedTask) {
+                // Update the task directly in the store
+                updateTask(task.id, updatedTask);
+              }
+            }
+          } catch (err) {
+            console.error('[useTaskDetail] Failed to refresh task after plan update:', err);
+          }
+        };
+
+        loadUpdatedTask();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [task.id, task.specId, selectedProject]);
 
   // Toggle phase expansion
   const togglePhase = useCallback((phase: TaskLogPhase) => {

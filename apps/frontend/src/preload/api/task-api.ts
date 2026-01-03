@@ -66,6 +66,7 @@ export interface TaskAPI {
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress) => void
   ) => () => void;
+  onTaskPlanUpdated: (callback: (taskId: string, specId: string) => void) => () => void;
 
   // Task Phase Logs
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -237,6 +238,22 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
+    };
+  },
+
+  onTaskPlanUpdated: (
+    callback: (taskId: string, specId: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      specId: string
+    ): void => {
+      callback(taskId, specId);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_PLAN_UPDATED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_PLAN_UPDATED, handler);
     };
   },
 

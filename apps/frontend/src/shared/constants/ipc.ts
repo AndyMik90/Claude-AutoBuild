@@ -48,6 +48,7 @@ export const IPC_CHANNELS = {
   TASK_LOG: 'task:log',
   TASK_STATUS_CHANGE: 'task:statusChange',
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
+  TASK_PLAN_UPDATED: 'task:planUpdated',  // Emitted when backend updates implementation_plan.json
 
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
@@ -495,4 +496,12 @@ export const IPC_CHANNELS = {
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
+} as const;
+
+/**
+ * Agent communication markers
+ * Special markers printed by backend agents to stdout that main process parses
+ */
+export const AGENT_MARKERS = {
+  PLAN_UPDATED: '__PLAN_UPDATED__:',  // Emitted by QA agent when implementation_plan.json is updated
 } as const;
