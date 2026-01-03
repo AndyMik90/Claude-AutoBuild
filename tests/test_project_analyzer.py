@@ -13,22 +13,22 @@ Tests the project_analyzer.py module functionality including:
 """
 
 import json
-import pytest
 from pathlib import Path
 
+import pytest
 from project_analyzer import (
+    BASE_COMMANDS,
+    DATABASE_COMMANDS,
+    FRAMEWORK_COMMANDS,
+    INFRASTRUCTURE_COMMANDS,
+    LANGUAGE_COMMANDS,
+    CustomScripts,
     ProjectAnalyzer,
     SecurityProfile,
     TechnologyStack,
-    CustomScripts,
     get_or_create_profile,
     is_command_allowed,
     needs_validation,
-    BASE_COMMANDS,
-    LANGUAGE_COMMANDS,
-    FRAMEWORK_COMMANDS,
-    DATABASE_COMMANDS,
-    INFRASTRUCTURE_COMMANDS,
 )
 
 
@@ -489,6 +489,7 @@ class TestSecurityProfileGeneration:
 
         # Force re-analysis
         import time
+
         time.sleep(0.1)  # Ensure different timestamp
         profile2 = get_or_create_profile(python_project, force_reanalyze=True)
 
@@ -582,11 +583,23 @@ class TestSecurityProfileSerialization:
             "stack_commands": ["python"],
             "script_commands": [],
             "custom_commands": [],
-            "detected_stack": {"languages": ["python"], "package_managers": [], "frameworks": [],
-                               "databases": [], "infrastructure": [], "cloud_providers": [],
-                               "code_quality_tools": [], "version_managers": []},
-            "custom_scripts": {"npm_scripts": [], "make_targets": [], "poetry_scripts": [],
-                               "cargo_aliases": [], "shell_scripts": []},
+            "detected_stack": {
+                "languages": ["python"],
+                "package_managers": [],
+                "frameworks": [],
+                "databases": [],
+                "infrastructure": [],
+                "cloud_providers": [],
+                "code_quality_tools": [],
+                "version_managers": [],
+            },
+            "custom_scripts": {
+                "npm_scripts": [],
+                "make_targets": [],
+                "poetry_scripts": [],
+                "cargo_aliases": [],
+                "shell_scripts": [],
+            },
             "project_dir": "/test",
             "created_at": "2024-01-01",
             "project_hash": "abc123",
@@ -617,3 +630,175 @@ class TestSecurityProfileSerialization:
         assert "ls" in loaded.base_commands
         assert "python" in loaded.stack_commands
         assert loaded.project_hash == "test123"
+
+
+class TestDartFlutterDetection:
+    """Tests for Dart/Flutter language and framework detection."""
+
+    def test_detects_dart_language(self, temp_dir: Path):
+        """Detects Dart from pubspec.yaml."""
+        pubspec = """name: my_app
+version: 1.0.0
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+"""
+        (temp_dir / "pubspec.yaml").write_text(pubspec)
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_languages()
+
+        assert "dart" in analyzer.profile.detected_stack.languages
+
+    def test_detects_dart_from_files(self, temp_dir: Path):
+        """Detects Dart from .dart files."""
+        (temp_dir / "lib").mkdir()
+        (temp_dir / "lib" / "main.dart").write_text("void main() {}")
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_languages()
+
+        assert "dart" in analyzer.profile.detected_stack.languages
+
+    def test_detects_flutter_framework(self, temp_dir: Path):
+        """Detects Flutter framework from pubspec.yaml."""
+        pubspec = """name: my_flutter_app
+version: 1.0.0
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+"""
+        (temp_dir / "pubspec.yaml").write_text(pubspec)
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_frameworks()
+
+        assert "flutter" in analyzer.profile.detected_stack.frameworks
+
+    def test_detects_pub_package_manager(self, temp_dir: Path):
+        """Detects pub package manager from pubspec.yaml."""
+        pubspec = """name: my_app
+version: 1.0.0
+"""
+        (temp_dir / "pubspec.yaml").write_text(pubspec)
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_package_managers()
+
+        assert "pub" in analyzer.profile.detected_stack.package_managers
+
+    def test_detects_pub_from_lock_file(self, temp_dir: Path):
+        """Detects pub package manager from pubspec.lock."""
+        (temp_dir / "pubspec.lock").write_text("packages:\n")
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_package_managers()
+
+        assert "pub" in analyzer.profile.detected_stack.package_managers
+
+
+class TestMelosMonorepoDetection:
+    """Tests for Melos monorepo tool detection."""
+
+    def test_detects_melos_from_config(self, temp_dir: Path):
+        """Detects Melos from melos.yaml."""
+        melos_config = """name: my_workspace
+packages:
+  - packages/*
+"""
+        (temp_dir / "melos.yaml").write_text(melos_config)
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_package_managers()
+
+        assert "melos" in analyzer.profile.detected_stack.package_managers
+
+    def test_melos_commands_allowed(self, temp_dir: Path):
+        """Melos commands are allowed when detected."""
+        melos_config = """name: my_workspace
+packages:
+  - packages/*
+"""
+        (temp_dir / "melos.yaml").write_text(melos_config)
+
+        profile = get_or_create_profile(temp_dir, force_reanalyze=True)
+
+        assert "melos" in profile.stack_commands
+
+
+class TestFvmVersionManagerDetection:
+    """Tests for Flutter Version Manager (FVM) detection."""
+
+    def test_detects_fvm_from_directory(self, temp_dir: Path):
+        """Detects FVM from .fvm directory."""
+        (temp_dir / ".fvm").mkdir()
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_version_managers()
+
+        assert "fvm" in analyzer.profile.detected_stack.version_managers
+
+    def test_detects_fvm_from_config(self, temp_dir: Path):
+        """Detects FVM from fvm_config.json."""
+        fvm_config = '{"flutterSdkVersion": "3.19.0"}'
+        (temp_dir / "fvm_config.json").write_text(fvm_config)
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_version_managers()
+
+        assert "fvm" in analyzer.profile.detected_stack.version_managers
+
+    def test_detects_fvm_from_fvmrc(self, temp_dir: Path):
+        """Detects FVM from .fvmrc file."""
+        (temp_dir / ".fvmrc").write_text('{"flutter": "3.19.0"}')
+
+        analyzer = ProjectAnalyzer(temp_dir)
+        analyzer._detect_version_managers()
+
+        assert "fvm" in analyzer.profile.detected_stack.version_managers
+
+    def test_fvm_commands_allowed(self, temp_dir: Path):
+        """FVM commands are allowed when detected."""
+        (temp_dir / ".fvm").mkdir()
+
+        profile = get_or_create_profile(temp_dir, force_reanalyze=True)
+
+        assert "fvm" in profile.stack_commands
+
+
+class TestDartFlutterCommandsAllowed:
+    """Tests that Dart/Flutter commands are properly allowed."""
+
+    def test_dart_commands_allowed_for_dart_project(self, temp_dir: Path):
+        """Dart commands are allowed when Dart is detected."""
+        pubspec = """name: my_app
+version: 1.0.0
+"""
+        (temp_dir / "pubspec.yaml").write_text(pubspec)
+
+        profile = get_or_create_profile(temp_dir, force_reanalyze=True)
+
+        # Core Dart commands
+        assert "dart" in profile.stack_commands
+        assert "pub" in profile.stack_commands
+        # Flutter should be available for Dart projects
+        assert "flutter" in profile.stack_commands
+
+    def test_flutter_commands_allowed_for_flutter_project(self, temp_dir: Path):
+        """Flutter commands are allowed when Flutter is detected."""
+        pubspec = """name: my_flutter_app
+version: 1.0.0
+dependencies:
+  flutter:
+    sdk: flutter
+"""
+        (temp_dir / "pubspec.yaml").write_text(pubspec)
+
+        profile = get_or_create_profile(temp_dir, force_reanalyze=True)
+
+        assert "flutter" in profile.stack_commands
+        assert "dart" in profile.stack_commands
+        assert "pub" in profile.stack_commands

@@ -268,15 +268,24 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
       onClick={onClick}
     >
       <CardContent className="p-4">
-        {/* Header - improved visual hierarchy */}
-        <div className="flex items-start justify-between gap-3">
-          <h3
-            className="font-semibold text-sm text-foreground line-clamp-2 leading-snug flex-1 min-w-0"
-            title={task.title}
-          >
-            {task.title}
-          </h3>
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[180px]">
+        {/* Title - full width, no wrapper */}
+        <h3
+          className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
+          title={task.title}
+        >
+          {task.title}
+        </h3>
+
+        {/* Description - sanitized to handle markdown content (memoized) */}
+        {sanitizedDescription && (
+          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+            {sanitizedDescription}
+          </p>
+        )}
+
+        {/* Metadata badges */}
+        {(task.metadata || isStuck || isIncomplete || hasActiveExecution || reviewReasonInfo) && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {/* Stuck indicator - highest priority */}
             {isStuck && (
               <Badge
@@ -338,21 +347,8 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
                 {reviewReasonInfo.label}
               </Badge>
             )}
-          </div>
-        </div>
-
-        {/* Description - sanitized to handle markdown content (memoized) */}
-        {sanitizedDescription && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {sanitizedDescription}
-          </p>
-        )}
-
-        {/* Metadata badges */}
-        {task.metadata && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {/* Category badge with icon */}
-            {task.metadata.category && (
+            {task.metadata?.category && (
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', TASK_CATEGORY_COLORS[task.metadata.category])}
@@ -367,7 +363,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
               </Badge>
             )}
             {/* Impact badge - high visibility for important tasks */}
-            {task.metadata.impact && (task.metadata.impact === 'high' || task.metadata.impact === 'critical') && (
+            {task.metadata?.impact && (task.metadata.impact === 'high' || task.metadata.impact === 'critical') && (
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.impact])}
@@ -376,7 +372,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
               </Badge>
             )}
             {/* Complexity badge */}
-            {task.metadata.complexity && (
+            {task.metadata?.complexity && (
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
@@ -385,7 +381,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
               </Badge>
             )}
             {/* Priority badge - only show urgent/high */}
-            {task.metadata.priority && (task.metadata.priority === 'urgent' || task.metadata.priority === 'high') && (
+            {task.metadata?.priority && (task.metadata.priority === 'urgent' || task.metadata.priority === 'high') && (
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', TASK_PRIORITY_COLORS[task.metadata.priority])}
@@ -394,12 +390,12 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
               </Badge>
             )}
             {/* Security severity - always show */}
-            {task.metadata.securitySeverity && (
+            {task.metadata?.securitySeverity && (
               <Badge
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
-                {task.metadata.securitySeverity} severity
+                {task.metadata.securitySeverity} {t('metadata.severity')}
               </Badge>
             )}
           </div>

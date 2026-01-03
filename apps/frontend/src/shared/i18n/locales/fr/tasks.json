@@ -95,5 +95,8 @@
     "retry": "Réessayer",
     "selectFile": "Sélectionnez un fichier pour voir son contenu",
     "openInIDE": "Ouvrir dans l'IDE"
+  },
+  "metadata": {
+    "severity": "sévérité"
   }
 }

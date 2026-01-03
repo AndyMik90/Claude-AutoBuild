@@ -173,12 +173,16 @@ LANGUAGE_COMMANDS: dict[str, set[str]] = {
         "zig",
     },
     "dart": {
+        # Core Dart CLI (modern unified tool)
         "dart",
+        "pub",
+        # Flutter CLI (included in Dart language for SDK detection)
+        "flutter",
+        # Legacy commands (deprecated but may exist in older projects)
         "dart2js",
         "dartanalyzer",
         "dartdoc",
         "dartfmt",
-        "pub",
     },
 }
 
