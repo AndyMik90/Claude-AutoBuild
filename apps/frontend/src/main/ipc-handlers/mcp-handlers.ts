@@ -29,6 +29,12 @@ const DANGEROUS_FLAGS = new Set([
 ]);
 
 /**
+ * Defense-in-depth: Shell metacharacters that could enable command injection
+ * when shell: true is used on Windows
+ */
+const SHELL_METACHARACTERS = ['&', '|', '>', '<', '^', '%', ';', '$', '`', '\n', '\r'];
+
+/**
  * Validate that a command is in the safe allowlist
  */
 function isCommandSafe(command: string | undefined): boolean {
@@ -39,11 +45,22 @@ function isCommandSafe(command: string | undefined): boolean {
 }
 
 /**
- * Validate that args don't contain dangerous interpreter flags
+ * Validate that args don't contain dangerous interpreter flags or shell metacharacters
  */
 function areArgsSafe(args: string[] | undefined): boolean {
   if (!args || args.length === 0) return true;
-  return !args.some(arg => DANGEROUS_FLAGS.has(arg));
+
+  // Check for dangerous interpreter flags
+  if (args.some(arg => DANGEROUS_FLAGS.has(arg))) return false;
+
+  // On Windows with shell: true, check for shell metacharacters that could enable injection
+  if (process.platform === 'win32') {
+    if (args.some(arg => SHELL_METACHARACTERS.some(char => arg.includes(char)))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -171,7 +188,7 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       return resolve({
         serverId: server.id,
         status: 'unhealthy',
-        message: 'Args contain dangerous interpreter flags',
+        message: 'Args contain dangerous flags or shell metacharacters',
         checkedAt: new Date().toISOString(),
       });
     }
@@ -394,14 +411,17 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
       return resolve({
         serverId: server.id,
         success: false,
-        message: 'Args contain dangerous interpreter flags',
+        message: 'Args contain dangerous flags or shell metacharacters',
       });
     }
 
     const args = server.args || [];
+
+    // On Windows, use shell: true to properly handle .cmd/.bat scripts like npx
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000, // OS-level timeout for reliable process termination
+      shell: process.platform === 'win32', // Required for Windows to run npx.cmd
     });
 
     let stdout = '';
