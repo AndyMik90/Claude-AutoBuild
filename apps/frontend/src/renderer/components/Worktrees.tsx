@@ -87,14 +87,14 @@ export function Worktrees({ projectId }: WorktreesProps) {
       if (result.success && result.data) {
         setWorktrees(result.data.worktrees);
       } else {
-        setError(result.error || 'Failed to load worktrees');
+        setError(result.error || t('worktrees.errors.loadFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load worktrees');
+      setError(err instanceof Error ? err.message : t('worktrees.errors.loadFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, t]);
 
   // Load on mount and when project changes
   useEffect(() => {
@@ -112,7 +112,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
     const task = findTaskForWorktree(selectedWorktree.specName);
     if (!task) {
-      setError('Task not found for this worktree');
+      setError(t('worktrees.errors.taskNotFound'));
       return;
     }
 
@@ -147,7 +147,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
     const task = findTaskForWorktree(worktreeToDelete.specName);
     if (!task) {
-      setError('Task not found for this worktree');
+      setError(t('worktrees.errors.taskNotFound'));
       return;
     }
 
@@ -160,10 +160,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
         setShowDeleteConfirm(false);
         setWorktreeToDelete(null);
       } else {
-        setError(result.error || 'Failed to delete worktree');
+        setError(result.error || t('worktrees.errors.deleteFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete worktree');
+      setError(err instanceof Error ? err.message : t('worktrees.errors.deleteFailed'));
     } finally {
       setIsDeleting(false);
     }
@@ -175,7 +175,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
     const task = findTaskForWorktree(prWorktree.specName);
     if (!task) {
-      setError('Task not found for this worktree');
+      setError(t('worktrees.errors.taskNotFound'));
       return;
     }
 
@@ -189,13 +189,13 @@ export function Worktrees({ projectId }: WorktreesProps) {
       } else {
         setPRResult({
           success: false,
-          error: result.error || 'Failed to create PR'
+          error: result.error || t('worktrees.errors.createPRFailed')
         });
       }
     } catch (err) {
       setPRResult({
         success: false,
-        error: err instanceof Error ? err.message : 'Failed to create PR'
+        error: err instanceof Error ? err.message : t('worktrees.errors.createPRFailed')
       });
     } finally {
       setIsCreatingPR(false);

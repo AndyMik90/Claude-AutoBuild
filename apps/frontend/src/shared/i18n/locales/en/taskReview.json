@@ -4,6 +4,14 @@
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
   },
+  "worktrees": {
+    "errors": {
+      "taskNotFound": "Task not found for this worktree",
+      "loadFailed": "Failed to load worktrees",
+      "deleteFailed": "Failed to delete worktree",
+      "createPRFailed": "Failed to create PR"
+    }
+  },
   "pr": {
     "title": "Create Pull Request",
     "description": "Push branch and create a GitHub pull request.",

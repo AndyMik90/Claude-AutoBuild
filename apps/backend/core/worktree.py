@@ -124,9 +124,21 @@ class WorktreeManager:
         return result.stdout.strip()
 
     def _run_git(
-        self, args: list[str], cwd: Path | None = None
+        self, args: list[str], cwd: Path | None = None, timeout: int | None = None
     ) -> subprocess.CompletedProcess:
-        """Run a git command and return the result."""
+        """Run a git command and return the result.
+
+        Args:
+            args: Git command arguments (without 'git' prefix)
+            cwd: Working directory for the command
+            timeout: Timeout in seconds (None for no timeout)
+
+        Returns:
+            CompletedProcess with command results
+
+        Raises:
+            subprocess.TimeoutExpired: If command exceeds timeout
+        """
         return subprocess.run(
             ["git"] + args,
             cwd=cwd or self.project_dir,
@@ -134,6 +146,7 @@ class WorktreeManager:
             text=True,
             encoding="utf-8",
             errors="replace",
+            timeout=timeout,
         )
 
     def _unstage_gitignored_files(self) -> None:
@@ -616,7 +629,14 @@ class WorktreeManager:
         if force:
             push_args.insert(1, "--force")
 
-        result = self._run_git(push_args, cwd=info.path)
+        try:
+            result = self._run_git(push_args, cwd=info.path, timeout=120)
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "error": "Git push timed out after 120 seconds. Check network connection.",
+                "branch": branch_name,
+            }
 
         if result.returncode != 0:
             return {
