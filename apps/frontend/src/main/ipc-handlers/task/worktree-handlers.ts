@@ -998,7 +998,7 @@ async function detectInstalledTools(): Promise<DetectedTools> {
             }
           } catch (err) {
             // Version detection failed, continue without version info
-            console.warn(`[worktree-handlers] PowerShell version detection failed for ${id}:`, err);
+            console.warn(`[worktree-handlers] Failed to get PowerShell version for ${exePath}:`, err);
           }
         }
       } catch (err) {
