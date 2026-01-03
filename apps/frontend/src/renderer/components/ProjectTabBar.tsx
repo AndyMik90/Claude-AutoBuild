@@ -124,7 +124,7 @@ export function ProjectTabBar({
           size="icon"
           className="h-8 w-8"
           onClick={onAddProject}
-          title="Add Project"
+          aria-label="Add Project"
         >
           <Plus className="h-4 w-4" />
         </Button>

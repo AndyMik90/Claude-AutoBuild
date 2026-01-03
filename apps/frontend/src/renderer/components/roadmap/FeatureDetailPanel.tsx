@@ -69,10 +69,11 @@ export function FeatureDetailPanel({
                 e.stopPropagation();
                 setShowDeleteConfirm(true);
               }}
+              aria-label="Delete feature"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close feature details">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

@@ -91,6 +91,7 @@ export function TaskHeader({
                 className="hover:bg-primary/10 hover:text-primary transition-colors"
                 onClick={onEdit}
                 disabled={isRunning && !isStuck}
+                aria-label={isRunning && !isStuck ? 'Cannot edit while task is running' : 'Edit task'}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -100,7 +101,7 @@ export function TaskHeader({
             {isRunning && !isStuck ? 'Cannot edit while task is running' : 'Edit task'}
           </TooltipContent>
         </Tooltip>
-        <Button variant="ghost" size="icon" className="hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={onClose} aria-label="Close task details">
           <X className="h-4 w-4" />
         </Button>
       </div>

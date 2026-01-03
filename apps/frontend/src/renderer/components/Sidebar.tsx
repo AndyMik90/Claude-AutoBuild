@@ -354,6 +354,7 @@ export function Sidebar({
                   variant="ghost"
                   size="icon"
                   onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
+                  aria-label={t('tooltips.help')}
                 >
                   <HelpCircle className="h-4 w-4" />
                 </Button>

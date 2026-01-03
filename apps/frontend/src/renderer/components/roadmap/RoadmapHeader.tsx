@@ -55,7 +55,7 @@ export function RoadmapHeader({ roadmap, competitorAnalysis, onAddFeature, onRef
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={onRefresh}>
+              <Button variant="outline" size="icon" onClick={onRefresh} aria-label="Regenerate Roadmap">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </TooltipTrigger>

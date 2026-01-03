@@ -796,6 +796,8 @@ export function TaskCreationWizard({
                 onDrop={handleTextareaDrop}
                 rows={5}
                 disabled={isCreating}
+                aria-required="true"
+                aria-describedby="description-help"
                 className={cn(
                   "resize-y min-h-[120px] max-h-[400px] relative bg-transparent",
                   // Visual feedback when dragging over textarea
@@ -814,7 +816,7 @@ export function TaskCreationWizard({
                 />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p id="description-help" className="text-xs text-muted-foreground">
               Files and images can be copy/pasted or dragged & dropped into the description.
             </p>
 
@@ -851,6 +853,7 @@ export function TaskCreationWizard({
                           e.stopPropagation();
                           setImages(prev => prev.filter(img => img.id !== image.id));
                         }}
+                        aria-label={`Remove image ${image.filename}`}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -914,6 +917,8 @@ export function TaskCreationWizard({
               'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
             )}
             disabled={isCreating}
+            aria-expanded={showAdvanced}
+            aria-controls="advanced-options-section"
           >
             <span>Classification (optional)</span>
             {showAdvanced ? (
@@ -925,7 +930,7 @@ export function TaskCreationWizard({
 
           {/* Advanced Options */}
           {showAdvanced && (
-            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+            <div id="advanced-options-section" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
               <div className="grid grid-cols-2 gap-4">
                 {/* Category */}
                 <div className="space-y-2">
@@ -1057,6 +1062,8 @@ export function TaskCreationWizard({
               'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
             )}
             disabled={isCreating}
+            aria-expanded={showGitOptions}
+            aria-controls="git-options-section"
           >
             <span className="flex items-center gap-2">
               <GitBranch className="h-4 w-4" />
@@ -1076,7 +1083,7 @@ export function TaskCreationWizard({
 
           {/* Git Options */}
           {showGitOptions && (
-            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+            <div id="git-options-section" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
               <div className="space-y-2">
                 <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
                   Base Branch (optional)
@@ -1109,7 +1116,7 @@ export function TaskCreationWizard({
 
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive" role="alert">
               <X className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
