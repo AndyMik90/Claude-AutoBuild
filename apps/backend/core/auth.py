@@ -34,9 +34,13 @@ OAUTH_CLIENT_ID = os.environ.get(
 
 def _parse_buffer_seconds() -> int:
     """Parse TOKEN_REFRESH_BUFFER_SECONDS with graceful fallback."""
+    raw_value = os.environ.get("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS", "300")
     try:
-        return int(os.environ.get("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS", "300"))
+        return int(raw_value)
     except ValueError:
+        logger.warning(
+            f"Invalid CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS='{raw_value}', using default 300 seconds"
+        )
         return 300  # Default 5 minutes if invalid value
 
 
