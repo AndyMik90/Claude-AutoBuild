@@ -63,6 +63,12 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "font": {
+    "label": "Terminal Font",
+    "description": "Choose a monospace font for terminal and code display",
+    "preview": "Preview",
+    "ligatures": "Ligatures"
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",

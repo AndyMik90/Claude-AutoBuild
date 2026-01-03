@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
+import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check, Type } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from '../../stores/settings-store';
-import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
-import type { AppSettings } from '../../../shared/types';
+import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP, TERMINAL_FONTS, TERMINAL_FONT_DEFAULT } from '../../../shared/constants';
+import type { AppSettings, TerminalFont } from '../../../shared/types';
 
 interface DisplaySettingsProps {
   settings: AppSettings;
@@ -90,12 +90,75 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
     handlePresetChange(UI_SCALE_DEFAULT);
   };
 
+  // Font selection handlers
+  const currentFont = settings.terminalFont ?? TERMINAL_FONT_DEFAULT;
+
+  const handleFontChange = async (newFont: TerminalFont) => {
+    onSettingsChange({ ...settings, terminalFont: newFont });
+    updateStoreSettings({ terminalFont: newFont });
+    // Save to backend immediately
+    try {
+      await window.electronAPI.saveSettings({ terminalFont: newFont });
+    } catch (error) {
+      console.error('Failed to save terminal font setting:', error);
+      // TODO: Show user notification (toast) when error handling system is implemented
+    }
+  };
+
   return (
     <SettingsSection
       title={t('sections.display.title')}
       description={t('sections.display.description')}
     >
       <div className="space-y-6">
+        {/* Terminal Font Selection */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Type className="h-4 w-4" />
+            {t('font.label', 'Terminal Font')}
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            {t('font.description', 'Choose a monospace font for terminal and code display')}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            {TERMINAL_FONTS.map((font) => {
+              const isSelected = currentFont === font.id;
+              return (
+                <button
+                  type="button"
+                  key={font.id}
+                  onClick={() => handleFontChange(font.id)}
+                  className={cn(
+                    'flex flex-col items-start gap-2 p-3 rounded-lg border-2 transition-all text-left',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    isSelected
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                  )}
+                >
+                  <div className="w-full">
+                    <div className="text-sm font-medium flex items-center justify-between">
+                      <span>{font.name}</span>
+                      {font.hasLigatures && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                          {t('font.ligatures', 'Ligatures')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{font.description}</div>
+                    <div 
+                      className="text-xs mt-2 p-1.5 rounded bg-muted/50"
+                      style={{ fontFamily: font.cssFamily }}
+                    >
+                      {'const hello = () => "world";'}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Preset Buttons */}
         <div className="space-y-3">
           <Label className="text-sm font-medium text-foreground">{t('scale.presets')}</Label>

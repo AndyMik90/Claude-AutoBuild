@@ -59,7 +59,7 @@ import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
-import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
+import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, TERMINAL_FONT_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
@@ -436,6 +436,13 @@ export function App() {
     const clampedScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, scale));
     root.setAttribute('data-ui-scale', clampedScale.toString());
   }, [settings.uiScale]);
+
+  // Apply terminal font
+  useEffect(() => {
+    const root = document.documentElement;
+    const font = settings.terminalFont ?? TERMINAL_FONT_DEFAULT;
+    root.setAttribute('data-terminal-font', font);
+  }, [settings.terminalFont]);
 
   // Update selected task when tasks change (for real-time updates)
   useEffect(() => {

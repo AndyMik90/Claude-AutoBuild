@@ -63,6 +63,12 @@
     "comfortable": "Confortable",
     "large": "Grand"
   },
+  "font": {
+    "label": "Police du terminal",
+    "description": "Choisissez une police à chasse fixe pour le terminal et l'affichage du code",
+    "preview": "Aperçu",
+    "ligatures": "Ligatures"
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
