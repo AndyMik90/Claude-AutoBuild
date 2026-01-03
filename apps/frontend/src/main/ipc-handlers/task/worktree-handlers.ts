@@ -2078,6 +2078,10 @@ export function registerWorktreeHandlers(
         const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
 
         return new Promise((resolve) => {
+          const PR_TIMEOUT_MS = 120000;
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
+          let resolved = false;
+
           const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
           const prProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
             cwd: sourcePath,
@@ -2094,6 +2098,17 @@ export function registerWorktreeHandlers(
           let stdout = '';
           let stderr = '';
 
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              prProcess.kill();
+              resolve({
+                success: false,
+                error: 'PR creation timed out after 2 minutes. Check if the PR was created on GitHub.'
+              });
+            }
+          }, PR_TIMEOUT_MS);
+
           prProcess.stdout.on('data', (data: Buffer) => {
             stdout += data.toString();
           });
@@ -2103,6 +2118,9 @@ export function registerWorktreeHandlers(
           });
 
           prProcess.on('close', (code: number | null) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.log('[CREATE_PR] Process exited with code:', code);
             console.log('[CREATE_PR] stdout:', stdout);
             console.log('[CREATE_PR] stderr:', stderr);
@@ -2121,14 +2139,16 @@ export function registerWorktreeHandlers(
               const persistPlans = async () => {
                 for (const planPath of planPaths) {
                   try {
-                    if (!existsSync(planPath)) continue;
                     const planContent = await fsPromises.readFile(planPath, 'utf-8');
                     const plan = JSON.parse(planContent);
                     plan.status = 'done';
                     plan.planStatus = 'completed';
                     plan.updated_at = new Date().toISOString();
                     await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
-                  } catch (persistError) {
+                  } catch (persistError: unknown) {
+                    if (persistError && typeof persistError === 'object' && 'code' in persistError && persistError.code === 'ENOENT') {
+                      continue;
+                    }
                     console.warn('[CREATE_PR] Failed to persist plan status:', planPath, persistError);
                   }
                 }
@@ -2160,6 +2180,9 @@ export function registerWorktreeHandlers(
           });
 
           prProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.error('[CREATE_PR] Process error:', err);
             resolve({
               success: false,

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress } from '../../../stores/task-store';
-import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
+import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../../shared/types';
 
 export interface UseTaskDetailOptions {
   task: Task;
@@ -33,7 +33,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [suggestedCommitMessage, setSuggestedCommitMessage] = useState<string | undefined>(undefined);
   const [isCreatingPR, setIsCreatingPR] = useState(false);
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
-  const [createPRResult, setCreatePRResult] = useState<import('../../../../shared/types').WorktreeCreatePRResult | null>(null);
+  const [createPRResult, setCreatePRResult] = useState<WorktreeCreatePRResult | null>(null);
   const [phaseLogs, setPhaseLogs] = useState<TaskLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<TaskLogPhase>>(new Set());

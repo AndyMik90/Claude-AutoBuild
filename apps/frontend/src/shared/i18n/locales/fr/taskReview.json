@@ -9,6 +9,8 @@
     "description": "Pousser la branche et créer une pull request GitHub.",
     "source": "Branche source",
     "target": "Branche cible",
+    "changes": "Modifications",
+    "changesDetail": "{{commits}} commits, {{files}} fichiers",
     "actions": {
       "cancel": "Annuler",
       "close": "Fermer",

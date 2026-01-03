@@ -702,6 +702,7 @@ class WorktreeManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=60,  # 60 second timeout for gh CLI
             )
 
             if result.returncode != 0:
@@ -737,6 +738,12 @@ class WorktreeManager:
             return {
                 "success": False,
                 "error": "gh CLI not found. Install it from https://cli.github.com/",
+                "branch": branch_name,
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "error": "PR creation timed out after 60 seconds. Check network connection.",
                 "branch": branch_name,
             }
         except Exception as e:
@@ -789,10 +796,11 @@ class WorktreeManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=30,  # 30 second timeout for simple query
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-        except Exception:
+        except (subprocess.TimeoutExpired, Exception):
             pass
         return None
 

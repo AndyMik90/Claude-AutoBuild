@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, WorktreeCreatePRResult } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -22,7 +22,7 @@ interface TaskReviewProps {
   isDiscarding: boolean;
   isCreatingPR: boolean;
   showCreatePRDialog: boolean;
-  createPRResult: import('../../../shared/types').WorktreeCreatePRResult | null;
+  createPRResult: WorktreeCreatePRResult | null;
   showDiscardDialog: boolean;
   showDiffDialog: boolean;
   workspaceError: string | null;
