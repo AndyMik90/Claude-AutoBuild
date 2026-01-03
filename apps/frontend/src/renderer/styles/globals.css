@@ -1708,3 +1708,24 @@ body {
 [data-ui-scale="190"] { font-size: 30.4px; }
 [data-ui-scale="195"] { font-size: 31.2px; }
 [data-ui-scale="200"] { font-size: 32px; }
+
+/* ============================================
+   Prose Code Styling
+   Theme-aware inline code styling for markdown content
+   ============================================ */
+
+.prose-code-themed code {
+  color: var(--foreground);
+  background-color: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  font-weight: 400;
+}
+
+/* Remove default backticks from prose plugin */
+.prose-code-themed code::before,
+.prose-code-themed code::after {
+  content: '';
+}

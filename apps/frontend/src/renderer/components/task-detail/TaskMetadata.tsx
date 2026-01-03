@@ -138,7 +138,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
       {/* Description - Primary Content */}
       {task.description && (
-        <div className="prose prose-sm prose-invert max-w-none prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90">
+        <div className="prose prose-sm prose-invert max-w-none prose-p:text-foreground/90 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:text-foreground/90 prose-code-themed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {task.description}
           </ReactMarkdown>
