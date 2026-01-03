@@ -3,5 +3,46 @@
     "openTerminal": "Ouvrir le terminal",
     "openInbuilt": "Ouvrir dans le terminal intégré",
     "openExternal": "Ouvrir dans le terminal externe"
+  },
+  "staged": {
+    "title": "Modifications indexées avec succès",
+    "aiCommitMessage": "Message de commit généré par IA",
+    "copied": "Copié !",
+    "copy": "Copier",
+    "commitPlaceholder": "Message de commit...",
+    "editHint": "Modifiez si nécessaire, puis copiez et utilisez avec",
+    "committing": "Commit en cours...",
+    "commitButton": "Committer les modifications",
+    "commitFailed": "Échec du commit",
+    "commitError": "Erreur inconnue",
+    "manualCommit": "Ou committer manuellement :",
+    "nextSteps": "Prochaines étapes :",
+    "step1": "Ouvrez votre projet dans votre IDE ou terminal",
+    "step2": "Examinez les modifications indexées avec",
+    "step2Code": "git status",
+    "step2And": "et",
+    "step2DiffCode": "git diff --staged",
+    "step3": "Committez lorsque vous êtes prêt :",
+    "step3Code": "git commit -m \"votre message\""
+  },
+  "stagedInProject": {
+    "title": "Modifications indexées dans le projet",
+        "description": "Les modifications de cette tâche ont été indexées dans votre projet principal.",
+    "descriptionWithDate": "Les modifications de cette tâche ont été indexées dans votre projet principal le {{date}}.",
+    "commitFailed": "Échec du commit",
+    "unknownError": "Erreur inconnue",
+    "deleteFailed": "Échec de la suppression du worktree",
+    "cleaningUp": "Nettoyage en cours...",
+    "deleteWorktree": "Supprimer le worktree et marquer terminé",
+    "manualSteps": "Ou committer manuellement :"
+  },
+  "noWorkspace": {
+    "title": "Aucun espace de travail trouvé",
+    "description": "Aucun espace de travail isolé n'a été trouvé pour cette tâche. Les modifications ont peut-être été effectuées directement dans votre projet.",
+    "markDone": "Marquer comme terminé",
+    "updating": "Mise à jour..."
+  },
+  "loading": {
+    "message": "Chargement des informations de l'espace de travail..."
   }
 }

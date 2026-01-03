@@ -3,5 +3,46 @@
     "openTerminal": "Open terminal",
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
+  },
+  "staged": {
+    "title": "Changes Staged Successfully",
+    "aiCommitMessage": "AI-generated commit message",
+    "copied": "Copied!",
+    "copy": "Copy",
+    "commitPlaceholder": "Commit message...",
+    "editHint": "Edit as needed, then copy and use with",
+    "committing": "Committing...",
+    "commitButton": "Commit Changes",
+    "commitFailed": "Failed to commit changes",
+    "commitError": "Unknown error occurred",
+    "manualCommit": "Or commit manually:",
+    "nextSteps": "Next steps:",
+    "step1": "Open your project in your IDE or terminal",
+    "step2": "Review the staged changes with",
+    "step2Code": "git status",
+    "step2And": "and",
+    "step2DiffCode": "git diff --staged",
+    "step3": "Commit when ready:",
+    "step3Code": "git commit -m \"your message\""
+  },
+  "stagedInProject": {
+    "title": "Changes Staged in Project",
+    "description": "This task's changes have been staged in your main project.",
+    "descriptionWithDate": "This task's changes have been staged in your main project on {{date}}.",
+    "commitFailed": "Failed to commit changes",
+    "unknownError": "Unknown error occurred",
+    "deleteFailed": "Failed to delete worktree",
+    "cleaningUp": "Cleaning up...",
+    "deleteWorktree": "Delete Worktree & Mark Done",
+    "manualSteps": "Or commit manually:"
+  },
+  "noWorkspace": {
+    "title": "No Workspace Found",
+    "description": "No isolated workspace was found for this task. The changes may have been made directly in your project.",
+    "markDone": "Mark as Done",
+    "updating": "Updating..."
+  },
+  "loading": {
+    "message": "Loading workspace info..."
   }
 }

@@ -95,6 +95,8 @@ export function TaskReview({
         <StagedSuccessMessage
           stagedSuccess={stagedSuccess}
           suggestedCommitMessage={suggestedCommitMessage}
+          taskId={task.id}
+          onClose={onClose}
         />
       )}
 
@@ -125,6 +127,7 @@ export function TaskReview({
           task={task}
           projectPath={stagedProjectPath}
           hasWorktree={worktreeStatus?.exists || false}
+          suggestedCommitMessage={suggestedCommitMessage}
           onClose={onClose}
         />
       ) : (
