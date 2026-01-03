@@ -10,7 +10,8 @@
     "source": "Branche source",
     "target": "Branche cible",
     "changes": "Modifications",
-    "changesDetail": "{{commits}} commits, {{files}} fichiers",
+    "changesDetail_one": "{{commits}} commit, {{files}} fichier",
+    "changesDetail_other": "{{commits}} commits, {{files}} fichiers",
     "actions": {
       "cancel": "Annuler",
       "close": "Fermer",
@@ -21,6 +22,7 @@
       "successTitle": "PR créée avec succès",
       "alreadyExistsTitle": "La PR existe déjà",
       "failureTitle": "Échec de création de la PR",
+      "errorPrefix": "Erreur",
       "view": "Voir la pull request"
     }
   }

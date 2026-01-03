@@ -565,7 +565,11 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t('pr.changes')}</span>
                     <span>
-                      {t('pr.changesDetail', { commits: prWorktree.commitCount, files: prWorktree.filesChanged })}
+                      {t('pr.changesDetail', {
+                        count: prWorktree.commitCount,
+                        commits: prWorktree.commitCount,
+                        files: prWorktree.filesChanged
+                      })}
                     </span>
                   </div>
                 </div>
