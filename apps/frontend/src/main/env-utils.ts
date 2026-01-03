@@ -64,15 +64,18 @@ const COMMON_BIN_PATHS: Record<string, string[]> = {
   darwin: [
     '/opt/homebrew/bin',      // Apple Silicon Homebrew
     '/usr/local/bin',         // Intel Homebrew / system
+    '/usr/local/share/dotnet', // .NET SDK
     '/opt/homebrew/sbin',     // Apple Silicon Homebrew sbin
     '/usr/local/sbin',        // Intel Homebrew sbin
     '~/.local/bin',           // User-local binaries (Claude CLI)
+    '~/.dotnet/tools',        // .NET global tools
   ],
   linux: [
     '/usr/local/bin',
     '/usr/bin',               // System binaries (Python, etc.)
     '/snap/bin',              // Snap packages
     '~/.local/bin',           // User-local binaries
+    '~/.dotnet/tools',        // .NET global tools
     '/usr/sbin',              // System admin binaries
   ],
   win32: [

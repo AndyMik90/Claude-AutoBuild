@@ -16,6 +16,7 @@ import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
+import { getAugmentedEnv } from '../env-utils';
 
 /**
  * Process spawning and lifecycle management
@@ -55,8 +56,11 @@ export class AgentProcessManager {
     extraEnv: Record<string, string>
   ): NodeJS.ProcessEnv {
     const profileEnv = getProfileEnv();
+    // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
+    // are available even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
     return {
-      ...process.env,
+      ...augmentedEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
