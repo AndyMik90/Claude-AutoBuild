@@ -638,13 +638,11 @@ The SDK will run invoked agents in parallel automatically.
                             validation = validation_map.get(rv.finding_id)
                             validation_status = None
                             validation_evidence = None
-                            validation_confidence = None
                             validation_explanation = None
 
                             if validation:
                                 validation_status = validation.validation_status
                                 validation_evidence = validation.code_evidence
-                                validation_confidence = validation.confidence
                                 validation_explanation = validation.explanation
 
                             findings.append(
@@ -660,7 +658,6 @@ The SDK will run invoked agents in parallel automatically.
                                     fixable=original.fixable,
                                     validation_status=validation_status,
                                     validation_evidence=validation_evidence,
-                                    validation_confidence=validation_confidence,
                                     validation_explanation=validation_explanation,
                                 )
                             )
