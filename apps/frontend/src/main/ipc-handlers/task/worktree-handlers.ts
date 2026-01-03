@@ -465,12 +465,12 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
     commands: { darwin: [], win32: ['wt.exe', '-d'], linux: [] }
   },
   powershell: {
-    name: 'Windows PowerShell 5.1',
+    name: 'Windows PowerShell',
     paths: { darwin: [], win32: ['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'], linux: [] },
     commands: { darwin: [], win32: ['powershell.exe', '-NoExit', '-Command', 'cd'], linux: [] }
   },
   pwsh: {
-    name: 'PowerShell 7',
+    name: 'PowerShell',
     paths: { 
       darwin: ['/usr/local/bin/pwsh', '/opt/homebrew/bin/pwsh'], 
       win32: [
