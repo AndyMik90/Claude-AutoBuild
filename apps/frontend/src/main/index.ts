@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell, nativeImage, session } from 'electron';
 import { join } from 'path';
-import { accessSync, readFileSync, writeFileSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -24,6 +24,32 @@ setupErrorLogging();
 function loadSettingsSync(): AppSettings {
   const savedSettings = readSettingsFile();
   return { ...DEFAULT_APP_SETTINGS, ...savedSettings } as AppSettings;
+}
+
+/**
+ * Clean up stale update metadata files from the redundant source updater system.
+ *
+ * The old "source updater" wrote .update-metadata.json files that could persist
+ * across app updates and cause version display desync. This cleanup ensures
+ * we use the actual bundled version from app.getVersion().
+ */
+function cleanupStaleUpdateMetadata(): void {
+  const userData = app.getPath('userData');
+  const stalePaths = [
+    join(userData, 'auto-claude-source'),
+    join(userData, 'backend-source'),
+  ];
+
+  for (const stalePath of stalePaths) {
+    if (existsSync(stalePath)) {
+      try {
+        rmSync(stalePath, { recursive: true, force: true });
+        console.warn(`[main] Cleaned up stale update metadata: ${stalePath}`);
+      } catch (e) {
+        console.warn(`[main] Failed to clean up stale metadata at ${stalePath}:`, e);
+      }
+    }
+  }
 }
 
 // Get icon path based on platform
@@ -128,6 +154,10 @@ app.whenReady().then(() => {
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
   }
+
+  // Clean up stale update metadata from the old source updater system
+  // This prevents version display desync after electron-updater installs a new version
+  cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
   if (process.platform === 'darwin') {

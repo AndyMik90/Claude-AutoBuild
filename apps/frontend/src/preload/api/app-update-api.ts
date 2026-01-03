@@ -29,6 +29,9 @@ export interface AppUpdateAPI {
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
   ) => IpcListenerCleanup;
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -63,5 +66,10 @@ export const createAppUpdateAPI = (): AppUpdateAPI => ({
   onAppUpdateProgress: (
     callback: (progress: AppUpdateProgress) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.APP_UPDATE_PROGRESS, callback)
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_PROGRESS, callback),
+
+  onAppUpdateStableDowngrade: (
+    callback: (info: AppUpdateInfo) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.APP_UPDATE_STABLE_DOWNGRADE, callback)
 });

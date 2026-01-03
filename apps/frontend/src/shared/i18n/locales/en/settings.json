@@ -161,7 +161,11 @@
     "autoUpdateProjects": "Auto-Update Projects",
     "autoUpdateProjectsDescription": "Automatically update Auto Claude in projects when a new version is available",
     "betaUpdates": "Beta Updates",
-    "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)"
+    "betaUpdatesDescription": "Receive pre-release beta versions with new features (may be less stable)",
+    "stableDowngradeAvailable": "Stable Version Available",
+    "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
+    "stableVersion": "Stable Version",
+    "downloadStableVersion": "Download Stable Version"
   },
   "notifications": {
     "title": "Notifications",
