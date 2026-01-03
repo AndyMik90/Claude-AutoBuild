@@ -1,0 +1,16 @@
+{
+  "hero": {
+    "title": "Vítejte v Auto Claude",
+    "subtitle": "Vyvíjejte software autonomně s AI agenty"
+  },
+  "actions": {
+    "newProject": "Nový projekt",
+    "openProject": "Otevřít projekt"
+  },
+  "recentProjects": {
+    "title": "Nedávné projekty",
+    "empty": "Zatím žádné projekty",
+    "emptyDescription": "Vytvořte nový projekt nebo otevřete existující",
+    "openFolder": "Otevřít složku"
+  }
+}

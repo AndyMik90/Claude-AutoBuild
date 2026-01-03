@@ -1,0 +1,102 @@
+{
+  "status": {
+    "backlog": "Backlog",
+    "todo": "K dokončení",
+    "in_progress": "Probíhá",
+    "review": "Kontrola",
+    "complete": "Dokončeno",
+    "archived": "Archivováno"
+  },
+  "actions": {
+    "start": "Spustit",
+    "stop": "Zastavit",
+    "recover": "Obnovit",
+    "resume": "Pokračovat",
+    "archive": "Archivovat",
+    "delete": "Smazat",
+    "view": "Zobrazit detaily"
+  },
+  "labels": {
+    "running": "Běží",
+    "aiReview": "AI kontrola",
+    "needsReview": "Vyžaduje kontrolu",
+    "pending": "Čekající",
+    "stuck": "Zablokováno",
+    "incomplete": "Nedokončeno",
+    "recovering": "Obnovování...",
+    "needsRecovery": "Vyžaduje obnovení",
+    "needsResume": "Vyžaduje pokračování"
+  },
+  "reviewReason": {
+    "completed": "Dokončeno",
+    "hasErrors": "Obsahuje chyby",
+    "qaIssues": "QA problémy",
+    "approvePlan": "Schválit plán"
+  },
+  "tooltips": {
+    "archiveTask": "Archivovat úkol",
+    "archiveAllDone": "Archivovat všechny dokončené úkoly"
+  },
+  "creation": {
+    "title": "Vytvořit nový úkol",
+    "description": "Popište, co chcete vytvořit",
+    "placeholder": "Popište váš úkol..."
+  },
+  "empty": {
+    "title": "Zatím žádné úkoly",
+    "description": "Vytvořte svůj první úkol"
+  },
+  "kanban": {
+    "emptyBacklog": "Žádné naplánované úkoly",
+    "emptyBacklogHint": "Přidejte úkol pro začátek",
+    "emptyInProgress": "Nic neběží",
+    "emptyInProgressHint": "Spusťte úkol z Backlogu",
+    "emptyAiReview": "Žádné úkoly ke kontrole",
+    "emptyAiReviewHint": "AI zkontroluje dokončené úkoly",
+    "emptyHumanReview": "Nic ke kontrole",
+    "emptyHumanReviewHint": "Úkoly čekající na vaše schválení se zobrazí zde",
+    "emptyDone": "Žádné dokončené úkoly",
+    "emptyDoneHint": "Schválené úkoly se zobrazí zde",
+    "emptyDefault": "Žádné úkoly",
+    "dropHere": "Přetáhněte sem",
+    "showArchived": "Zobrazit archivované"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Nečinný",
+      "planning": "Plánování",
+      "coding": "Kódování",
+      "reviewing": "Kontrola",
+      "fixing": "Oprava",
+      "complete": "Dokončeno",
+      "failed": "Selhalo"
+    },
+    "labels": {
+      "interrupted": "Přerušeno",
+      "progress": "Postup",
+      "entry": "položka",
+      "entries": "položky"
+    },
+    "shortPhases": {
+      "plan": "Plán",
+      "code": "Kód",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Soubory",
+    "tab": "Soubory",
+    "noSpecPath": "Žádné soubory specifikace k dispozici",
+    "noFiles": "Žádné soubory nenalezeny",
+    "loading": "Načítání souborů...",
+    "loadingContent": "Načítání obsahu...",
+    "errorLoading": "Nepodařilo se načíst soubory",
+    "errorLoadingContent": "Nepodařilo se načíst obsah souboru",
+    "retry": "Zkusit znovu",
+    "selectFile": "Vyberte soubor pro zobrazení jeho obsahu",
+    "openInIDE": "Otevřít v IDE"
+  },
+  "metadata": {
+    "severity": "závažnost"
+  }
+}

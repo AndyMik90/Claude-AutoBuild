@@ -1,0 +1,139 @@
+{
+  "wizard": {
+    "title": "Průvodce nastavením",
+    "description": "Nakonfigurujte své Auto Claude prostředí v několika jednoduchých krocích",
+    "helpText": "Tento průvodce vám pomůže nastavit vaše prostředí v několika krocích. Můžete nakonfigurovat váš Claude OAuth token, nastavit paměťové funkce a vytvořit svůj první úkol."
+  },
+  "welcome": {
+    "title": "Vítejte v Auto Claude",
+    "subtitle": "Vyvíjejte software autonomně s AI agenty",
+    "getStarted": "Začít",
+    "skip": "Přeskočit nastavení",
+    "features": {
+      "aiPowered": {
+        "title": "AI vývoj",
+        "description": "Generujte kód a vyvíjejte funkce pomocí Claude Code agentů"
+      },
+      "specDriven": {
+        "title": "Workflow řízený specifikacemi",
+        "description": "Definujte úkoly s jasnými specifikacemi a nechte Auto Claude zvládnout implementaci"
+      },
+      "memory": {
+        "title": "Paměť a kontext",
+        "description": "Trvalá paměť napříč relacemi s Graphiti"
+      },
+      "parallel": {
+        "title": "Paralelní provádění",
+        "description": "Spusťte více agentů paralelně pro rychlejší vývojové cykly"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude autentizace",
+    "description": "Připojte svůj Claude účet pro povolení AI funkcí",
+    "keychainTitle": "Bezpečné úložiště",
+    "keychainDescription": "Vaše tokeny jsou šifrovány pomocí systémového svazku klíčů. Může se zobrazit výzva k heslu od macOS — klikněte na \"Vždy povolit\" pro zamezení opakování."
+  },
+  "memory": {
+    "title": "Paměť",
+    "description": "Auto Claude paměť pomáhá zapamatovat si kontext napříč vašimi relacemi kódování"
+  },
+  "completion": {
+    "title": "Vše je připraveno!",
+    "subtitle": "Auto Claude je připraven pomoci vám vytvářet skvělý software",
+    "setupComplete": "Nastavení dokončeno",
+    "setupCompleteDescription": "Vaše prostředí je nakonfigurováno a připraveno. Můžete začít vytvářet úkoly okamžitě nebo prozkoumávat aplikaci vlastním tempem.",
+    "whatsNext": "Co dál?",
+    "createTask": {
+      "title": "Vytvořit úkol",
+      "description": "Začněte vytvořením svého prvního úkolu a uvidíte Auto Claude v akci.",
+      "action": "Otevřít tvůrce úkolů"
+    },
+    "customizeSettings": {
+      "title": "Přizpůsobit nastavení",
+      "description": "Dolaďte své preference, nakonfigurujte integrace nebo znovu spusťte tohoto průvodce.",
+      "action": "Otevřít nastavení"
+    },
+    "exploreDocs": {
+      "title": "Prozkoumat dokumentaci",
+      "description": "Zjistěte více o pokročilých funkcích, osvědčených postupech a řešení problémů."
+    },
+    "finish": "Dokončit a začít tvořit",
+    "rerunHint": "Tohoto průvodce můžete vždy spustit znovu z Nastavení → Aplikace"
+  },
+  "steps": {
+    "welcome": "Vítejte",
+    "authChoice": "Metoda autentizace",
+    "auth": "Autentizace",
+    "claudeCode": "CLI",
+    "devtools": "Vývojářské nástroje",
+    "memory": "Paměť",
+    "done": "Hotovo"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Nainstalujte nebo aktualizujte Claude Code CLI pro povolení AI funkcí",
+    "detecting": "Kontrola instalace Claude Code...",
+    "info": {
+      "title": "Co je Claude Code?",
+      "description": "Claude Code je oficiální CLI od Anthropic, které pohání AI funkce Auto Claude. Poskytuje bezpečnou autentizaci a přímý přístup k Claude modelům."
+    },
+    "status": {
+      "installed": "Nainstalováno",
+      "outdated": "Aktualizace k dispozici",
+      "notFound": "Není nainstalováno"
+    },
+    "version": {
+      "current": "Aktuální verze",
+      "latest": "Nejnovější verze"
+    },
+    "install": {
+      "button": "Nainstalovat Claude Code",
+      "updating": "Aktualizovat Claude Code",
+      "inProgress": "Instalace...",
+      "success": "Příkaz k instalaci odeslán do terminálu. Dokončete prosím instalaci tam.",
+      "instructions": "Instalátor se otevře v terminálu. Následujte pokyny k dokončení instalace."
+    },
+    "learnMore": "Zjistit více o Claude Code"
+  },
+  "devtools": {
+    "title": "Vývojářské nástroje",
+    "description": "Zvolte své preferované IDE a terminál pro práci s Auto Claude pracovními stromy",
+    "detecting": "Detekce nainstalovaných nástrojů...",
+    "detectAgain": "Detekovat znovu",
+    "whyConfigure": "Proč konfigurovat?",
+    "whyConfigureDescription": "Když Auto Claude vyvíjí funkce v izolovaných pracovních stromech, můžete je otevřít přímo ve vašem preferovaném IDE nebo terminálu pro testování a kontrolu změn.",
+    "ide": {
+      "label": "Preferované IDE",
+      "description": "Auto Claude otevře pracovní stromy v tomto editoru",
+      "customPath": "Vlastní cesta IDE"
+    },
+    "terminal": {
+      "label": "Preferovaný terminál",
+      "description": "Auto Claude otevře terminálové relace zde",
+      "customPath": "Vlastní cesta terminálu"
+    },
+    "detectedSummary": "Detekováno ve vašem systému:",
+    "noToolsDetected": "Žádné další nástroje nebyly detekovány (bude použit VS Code a systémový terminál)",
+    "custom": "Vlastní...",
+    "saveAndContinue": "Uložit a pokračovat"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama není nainstalována",
+      "description": "Ollama poskytuje zdarma lokální embedding modely pro sémantické vyhledávání. Nainstalujte ji jedním kliknutím pro povolení této funkce.",
+      "installSuccess": "Instalace spuštěna ve vašem terminálu. Dokončete instalaci tam, poté klikněte na Zkusit znovu.",
+      "installButton": "Nainstalovat Ollama",
+      "installing": "Instalace...",
+      "retry": "Zkusit znovu",
+      "learnMore": "Zjistit více",
+      "fallbackNote": "Paměť bude fungovat s vyhledáváním klíčových slov i bez Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama neběží",
+      "description": "Ollama je nainstalována, ale neběží. Spusťte Ollama pro použití lokálních embedding modelů.",
+      "retry": "Zkusit znovu",
+      "fallbackNote": "Paměť bude fungovat s vyhledáváním klíčových slov i bez embeddings."
+    }
+  }
+}

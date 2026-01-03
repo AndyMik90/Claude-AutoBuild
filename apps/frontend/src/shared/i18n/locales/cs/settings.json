@@ -1,0 +1,433 @@
+{
+  "title": "Nastavení",
+  "tabs": {
+    "app": "Nastavení aplikace",
+    "project": "Nastavení projektu"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Vzhled",
+      "description": "Přizpůsobte vzhled Auto Claude"
+    },
+    "display": {
+      "title": "Zobrazení",
+      "description": "Upravte velikost UI prvků"
+    },
+    "language": {
+      "title": "Jazyk",
+      "description": "Vyberte preferovaný jazyk"
+    },
+    "devtools": {
+      "title": "Vývojářské nástroje",
+      "description": "Preference IDE a terminálu"
+    },
+    "agent": {
+      "title": "Nastavení agenta",
+      "description": "Výchozí model a framework"
+    },
+    "paths": {
+      "title": "Cesty",
+      "description": "Cesty CLI nástrojů a frameworku"
+    },
+    "integrations": {
+      "title": "Integrace",
+      "description": "API klíče a Claude účty"
+    },
+    "api-profiles": {
+      "title": "API profily",
+      "description": "Vlastní profily API endpointů"
+    },
+    "updates": {
+      "title": "Aktualizace",
+      "description": "Aktualizace Auto Claude"
+    },
+    "notifications": {
+      "title": "Oznámení",
+      "description": "Preference upozornění"
+    },
+    "debug": {
+      "title": "Ladění a logy",
+      "description": "Nástroje pro řešení problémů"
+    }
+  },
+  "language": {
+    "label": "Jazyk rozhraní",
+    "description": "Vyberte jazyk pro rozhraní aplikace"
+  },
+  "scale": {
+    "presets": "Předvolby měřítka",
+    "presetsDescription": "Rychlé možnosti měřítka pro běžné preference",
+    "fineTune": "Jemné doladění měřítka",
+    "fineTuneDescription": "Upravte od 75% do 200% v 5% krocích",
+    "default": "Výchozí",
+    "comfortable": "Pohodlné",
+    "large": "Velké"
+  },
+  "general": {
+    "otherAgentSettings": "Další nastavení agenta",
+    "otherAgentSettingsDescription": "Další možnosti konfigurace agenta",
+    "agentFramework": "Framework agenta",
+    "agentFrameworkDescription": "Framework pro kódování používaný pro autonomní úkoly",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "AI pojmenování terminálu",
+    "aiTerminalNamingDescription": "Automaticky pojmenovat terminály podle příkazů (používá Haiku)",
+    "featureModelSettings": "Nastavení modelu funkcí",
+    "featureModelSettingsDescription": "Model a úroveň myšlení pro Přehledy, Nápady a Plán",
+    "model": "Model",
+    "thinkingLevel": "Úroveň myšlení",
+    "paths": "Cesty",
+    "pathsDescription": "Konfigurujte cesty spustitelných souborů a frameworku",
+    "pythonPath": "Cesta Python",
+    "pythonPathDescription": "Cesta ke spustitelnému souboru Python (ponechte prázdné pro automatickou detekci)",
+    "pythonPathPlaceholder": "python3 (výchozí)",
+    "gitPath": "Cesta Git",
+    "gitPathDescription": "Cesta ke spustitelnému souboru Git (ponechte prázdné pro automatickou detekci)",
+    "gitPathPlaceholder": "git (výchozí)",
+    "githubCLIPath": "Cesta GitHub CLI",
+    "githubCLIPathDescription": "Cesta ke spustitelnému souboru GitHub CLI (gh) (ponechte prázdné pro automatickou detekci)",
+    "githubCLIPathPlaceholder": "gh (výchozí)",
+    "claudePath": "Cesta Claude CLI",
+    "claudePathDescription": "Cesta ke spustitelnému souboru Claude CLI (ponechte prázdné pro automatickou detekci)",
+    "claudePathPlaceholder": "claude (výchozí)",
+    "detectedPath": "Automaticky detekováno",
+    "detectedVersion": "Verze",
+    "detectedSource": "Zdroj",
+    "sourceUserConfig": "Konfigurace uživatele",
+    "sourceVenv": "Virtuální prostředí",
+    "sourceHomebrew": "Homebrew",
+    "sourceSystemPath": "Systémová PATH",
+    "sourceBundled": "Přibaleno",
+    "sourceFallback": "Záložní",
+    "notDetected": "Nedetekováno",
+    "autoClaudePath": "Cesta Auto Claude",
+    "autoClaudePathDescription": "Relativní cesta k adresáři auto-claude v projektech",
+    "autoClaudePathPlaceholder": "auto-claude (výchozí)",
+    "autoNameTerminals": "Automaticky pojmenovat terminály",
+    "autoNameTerminalsDescription": "Použít AI pro generování popisných názvů pro terminálové karty podle jejich aktivity"
+  },
+  "theme": {
+    "title": "Vzhled",
+    "description": "Přizpůsobte vzhled Auto Claude",
+    "mode": "Režim",
+    "modeDescription": "Vyberte mezi světlým a tmavým tématem",
+    "light": "Světlý",
+    "dark": "Tmavý",
+    "system": "Systém",
+    "colorTheme": "Barevné téma",
+    "colorThemeDescription": "Vyberte preferovanou barevnou paletu"
+  },
+  "devtools": {
+    "title": "Vývojářské nástroje",
+    "description": "Konfigurujte své preferované IDE a terminál pro práci s pracovními stromy",
+    "detecting": "Detekce nainstalovaných nástrojů...",
+    "detectAgain": "Detekovat znovu",
+    "ide": {
+      "label": "Preferované IDE",
+      "description": "Auto Claude otevře pracovní stromy v tomto editoru",
+      "placeholder": "Vybrat IDE...",
+      "customPath": "Vlastní cesta IDE",
+      "customPathPlaceholder": "/cesta/k/vašemu/ide"
+    },
+    "terminal": {
+      "label": "Preferovaný terminál",
+      "description": "Auto Claude otevře terminálové relace zde",
+      "placeholder": "Vybrat terminál...",
+      "customPath": "Vlastní cesta terminálu",
+      "customPathPlaceholder": "/cesta/k/vašemu/terminálu"
+    },
+    "detected": "Detekováno",
+    "notInstalled": "Není nainstalováno",
+    "detectedSummary": "Detekováno ve vašem systému:",
+    "noToolsDetected": "Žádné další nástroje nebyly detekovány (bude použit VS Code a systémový terminál)"
+  },
+  "updates": {
+    "title": "Aktualizace",
+    "description": "Správa aktualizací Auto Claude",
+    "appUpdateReady": "Aktualizace aplikace připravena",
+    "newVersion": "Nová verze",
+    "released": "Vydáno",
+    "downloading": "Stahování...",
+    "updateDownloaded": "Aktualizace stažena! Klikněte na Instalovat pro restart a aplikaci aktualizace.",
+    "installAndRestart": "Instalovat a restartovat",
+    "downloadUpdate": "Stáhnout aktualizaci",
+    "version": "Verze",
+    "loading": "Načítání...",
+    "checkingForUpdates": "Kontrola aktualizací...",
+    "newVersionAvailable": "Nová verze k dispozici:",
+    "latestVersion": "Používáte nejnovější verzi.",
+    "viewRelease": "Zobrazit celé vydání na GitHub",
+    "unableToCheck": "Nelze zkontrolovat aktualizace",
+    "checkForUpdates": "Zkontrolovat aktualizace",
+    "autoUpdateProjects": "Automatické aktualizace projektů",
+    "autoUpdateProjectsDescription": "Automaticky aktualizovat Auto Claude v projektech, když je k dispozici nová verze",
+    "betaUpdates": "Beta aktualizace",
+    "betaUpdatesDescription": "Přijímat předběžné beta verze s novými funkcemi (mohou být méně stabilní)"
+  },
+  "notifications": {
+    "title": "Oznámení",
+    "description": "Konfigurovat výchozí preference oznámení",
+    "onTaskComplete": "Při dokončení úkolu",
+    "onTaskCompleteDescription": "Oznámit, když úkol úspěšně dokončí",
+    "onTaskFailed": "Při selhání úkolu",
+    "onTaskFailedDescription": "Oznámit, když úkol narazí na chybu",
+    "onReviewNeeded": "Při potřebě kontroly",
+    "onReviewNeededDescription": "Oznámit, když QA vyžaduje vaši kontrolu",
+    "sound": "Zvuk",
+    "soundDescription": "Přehrát zvuk s oznámeními"
+  },
+  "actions": {
+    "save": "Uložit nastavení",
+    "rerunWizard": "Znovu spustit průvodce",
+    "rerunWizardDescription": "Znovu spustit průvodce nastavením"
+  },
+  "projectSections": {
+    "general": {
+      "title": "Obecné",
+      "description": "Auto-Build a konfigurace agenta",
+      "useClaudeMd": "Použít CLAUDE.md",
+      "useClaudeMdDescription": "Zahrnout instrukce CLAUDE.md do kontextu agenta"
+    },
+    "claude": {
+      "title": "Claude autentizace",
+      "description": "Claude autentizace"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Integrace Linear",
+      "integrationTitle": "Integrace Linear",
+      "integrationDescription": "Připojit k Linear pro sledování issues a import úkolů",
+      "syncDescription": "Synchronizovat s Linear pro sledování issues"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Synchronizace GitHub issues",
+      "integrationTitle": "Integrace GitHub",
+      "integrationDescription": "Připojit k GitHub pro sledování issues",
+      "syncDescription": "Synchronizovat s GitHub Issues"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Synchronizace GitLab issues",
+      "integrationTitle": "Integrace GitLab",
+      "integrationDescription": "Připojit k GitLab pro sledování issues",
+      "syncDescription": "Synchronizovat s GitLab Issues"
+    },
+    "memory": {
+      "title": "Paměť",
+      "description": "Graphiti paměťový backend",
+      "integrationTitle": "Paměť",
+      "integrationDescription": "Konfigurovat trvalou mezirelační paměť pro agenty",
+      "syncDescription": "Konfigurovat trvalou paměť"
+    }
+  },
+  "agentProfile": {
+    "label": "Profil agenta",
+    "title": "Výchozí profil agenta",
+    "sectionDescription": "Vyberte přednastavenou konfiguraci pro model a úroveň myšlení",
+    "profilesInfo": "Profily agentů poskytují přednastavené konfigurace pro Claude model a úroveň myšlení. Když vytvoříte nový úkol, tato nastavení budou použita jako výchozí. Můžete je vždy přepsat v průvodci vytvořením úkolu.",
+    "custom": "Vlastní",
+    "customConfiguration": "Vlastní konfigurace",
+    "customDescription": "Vybrat model a úroveň myšlení",
+    "phaseConfiguration": "Konfigurace fází",
+    "phaseConfigurationDescription": "Přizpůsobit model a úroveň myšlení pro každou fázi",
+    "clickToCustomize": "Klikněte pro přizpůsobení",
+    "model": "Model",
+    "thinking": "Myšlení",
+    "thinkingLevel": "Úroveň myšlení",
+    "selectModel": "Vybrat model",
+    "selectThinkingLevel": "Vybrat úroveň myšlení",
+    "perPhaseOptimization": "(optimalizace podle fází)",
+    "resetToDefaults": "Resetovat na výchozí",
+    "phaseConfigNote": "Tato nastavení budou použita jako výchozí při vytváření nových úkolů s profilem Auto. Můžete je přepsat pro jednotlivé úkoly v průvodci vytvořením úkolu.",
+    "phases": {
+      "spec": {
+        "label": "Vytváření specifikace",
+        "description": "Objevování, požadavky, shromažďování kontextu"
+      },
+      "planning": {
+        "label": "Plánování",
+        "description": "Plánování implementace a architektura"
+      },
+      "coding": {
+        "label": "Kódování",
+        "description": "Skutečná implementace kódu"
+      },
+      "qa": {
+        "label": "QA kontrola",
+        "description": "Zajištění kvality a validace"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "mobile": "Mobilní",
+      "shared": "Sdílené",
+      "apiGateway": "API Gateway",
+      "worker": "Worker",
+      "other": "Ostatní"
+    }
+  },
+  "integrations": {
+    "title": "Integrace",
+    "description": "Správa Claude účtů a API klíčů",
+    "claudeAccounts": "Claude účty",
+    "claudeAccountsDescription": "Přidejte více Claude předplatných pro automatické přepínání mezi nimi při dosažení limitů.",
+    "noAccountsYet": "Zatím žádné účty nakonfigurovány",
+    "default": "Výchozí",
+    "active": "Aktivní",
+    "authenticated": "Autentizováno",
+    "needsAuth": "Vyžaduje autentizaci",
+    "authenticate": "Autentizovat",
+    "setActive": "Nastavit jako aktivní",
+    "manualTokenEntry": "Manuální zadání tokenu",
+    "runSetupToken": "Spusťte claude setup-token pro získání vašeho tokenu",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "Email (volitelné, pro zobrazení)",
+    "saveToken": "Uložit token",
+    "accountNamePlaceholder": "Název účtu (např. Práce, Osobní)",
+    "autoSwitching": "Automatické přepínání účtů",
+    "autoSwitchingDescription": "Automaticky přepínat mezi Claude účty pro zamezení přerušení. Konfigurujte proaktivní monitorování pro přepnutí před dosažením limitů.",
+    "enableAutoSwitching": "Povolit automatické přepínání",
+    "masterSwitch": "Hlavní přepínač pro všechny funkce automatického přepnutí",
+    "proactiveMonitoring": "Proaktivní monitorování",
+    "proactiveDescription": "Pravidelně kontrolovat využití a přepnout před dosažením limitů",
+    "checkUsageEvery": "Kontrolovat využití každých",
+    "seconds15": "15 sekund",
+    "seconds30": "30 sekund (doporučeno)",
+    "minute1": "1 minuta",
+    "disabled": "Zakázáno",
+    "sessionThreshold": "Práh využití relace",
+    "sessionThresholdDescription": "Přepnout, když využití relace dosáhne této úrovně (doporučeno: 95%)",
+    "weeklyThreshold": "Práh týdenního využití",
+    "weeklyThresholdDescription": "Přepnout, když týdenní využití dosáhne této úrovně (doporučeno: 99%)",
+    "reactiveRecovery": "Reaktivní zotavení",
+    "reactiveDescription": "Automatické přepnutí při neočekávaném dosažení limitu",
+    "apiKeys": "API klíče",
+    "apiKeysInfo": "Klíče nastavené zde jsou použity jako výchozí. Jednotlivé projekty mohou přepsat tyto v jejich nastavení.",
+    "openaiKey": "OpenAI API klíč",
+    "openaiKeyDescription": "Vyžadováno pro Graphiti paměťový backend (embeddings)"
+  },
+  "debug": {
+    "title": "Ladění a logy",
+    "description": "Přístup k logům a ladicím informacím pro řešení problémů",
+    "openLogsFolder": "Otevřít složku logů",
+    "copyDebugInfo": "Zkopírovat ladicí info",
+    "copied": "Zkopírováno!",
+    "loadInfo": "Načíst ladicí info",
+    "systemInfo": "Systémové informace",
+    "logsLocation": "Umístění logů",
+    "recentErrors": "Nedávné chyby",
+    "noRecentErrors": "Žádné nedávné chyby",
+    "helpTitle": "Hlášení problémů",
+    "helpText": "Při hlášení chyb klikněte na \"Zkopírovat ladicí info\" pro získání systémových informací a nedávných chyb, které nám pomohou diagnostikovat problém."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Žádný projekt nevybrán",
+      "description": "Vyberte projekt z postranního menu pro konfiguraci jeho nastavení."
+    }
+  },
+  "mcp": {
+    "title": "MCP přehled serverů",
+    "titleWithProject": "MCP přehled serverů pro {{projectName}}",
+    "description": "Konfigurujte, které MCP servery jsou k dispozici pro agenty v tomto projektu",
+    "descriptionNoProject": "Vyberte projekt pro konfiguraci MCP serverů",
+    "serversEnabled_one": "{{count}} server povolen",
+    "serversEnabled_few": "{{count}} servery povoleny",
+    "serversEnabled_other": "{{count}} serverů povoleno",
+    "configuration": "Konfigurace MCP serverů",
+    "configurationHint": "Zakázané servery snižují využití kontextu a čas startu",
+    "noProjectSelected": "Žádný projekt nevybrán",
+    "noProjectSelectedDescription": "Vyberte projekt z rozbalovacího menu pro zobrazení a konfiguraci MCP serverů.",
+    "projectNotInitialized": "Projekt není inicializován",
+    "projectNotInitializedDescription": "Inicializujte Auto Claude pro tento projekt pro konfiguraci MCP serverů.",
+    "browserAutomation": "Automatizace prohlížeče (pouze QA agenti)",
+    "alwaysEnabled": "vždy povoleno",
+    "addServer": "Přidat server",
+    "addMcpTo": "Přidat MCP server k {{agent}}",
+    "addMcpDescription": "Vyberte MCP server pro přidání k tomuto agentovi",
+    "allMcpsAdded": "Všechny dostupné MCP servery jsou již přidány",
+    "added": "přidáno",
+    "removed": "odebráno",
+    "remove": "Odstranit",
+    "restore": "Obnovit",
+    "noMcpServers": "Žádné MCP servery",
+    "cannotRemove": "Nelze odstranit (vyžadováno)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Vyhledávání dokumentace pro knihovny"
+      },
+      "graphiti": {
+        "name": "Graphiti paměť",
+        "description": "Graf znalostí pro mezirelační kontext",
+        "notConfigured": "Vyžaduje konfiguraci paměti (viz nastavení Paměť)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Integrace řízení projektu",
+        "notConfigured": "Vyžaduje integraci Linear (viz nastavení Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automatizace desktopových aplikací přes Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automatizace webového prohlížeče pro testování"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude nástroje",
+        "description": "Sledování pokroku buildu"
+      }
+    },
+    "customServers": "Vlastní servery",
+    "addCustomServer": "Přidat vlastní server",
+    "editCustomServer": "Upravit vlastní server",
+    "customServerDescription": "Přidat příkazový nebo HTTP MCP server",
+    "serverType": "Typ serveru",
+    "typeCommand": "Příkaz (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Název",
+    "serverNamePlaceholder": "Můj MCP server",
+    "serverDescription": "Popis",
+    "serverDescriptionPlaceholder": "Co tento server dělá",
+    "command": "Příkaz",
+    "args": "Argumenty",
+    "argsHint": "Argumenty oddělené mezerou",
+    "url": "URL",
+    "headers": "Hlavičky",
+    "headerName": "Název hlavičky",
+    "headerValue": "Hodnota hlavičky",
+    "noCustomServers": "Žádné vlastní servery nakonfigurovány. Přidejte jeden pro použití s vašimi agenty.",
+    "errorNameRequired": "Název serveru je vyžadován",
+    "errorIdExists": "Server s tímto ID již existuje",
+    "errorCommandRequired": "Příkaz je vyžadován pro příkazové servery",
+    "errorUrlRequired": "URL je vyžadováno pro HTTP servery",
+    "testConnection": "Testovat",
+    "testing": "Testování...",
+    "authToken": "Autentizační token",
+    "authTokenPlaceholder": "Vložte váš API token nebo PAT zde",
+    "authTokenHint": "Používáno jako Bearer token v Authorization hlavičce",
+    "advancedHeaders": "Další hlavičky",
+    "status": {
+      "healthy": "Server odpovídá",
+      "unhealthy": "Server neodpovídá",
+      "needsAuth": "Vyžadována autentizace",
+      "checking": "Kontrola...",
+      "unknown": "Stav neznámý"
+    },
+    "hints": {
+      "github": "Toto vypadá jako GitHub MCP server. Budete potřebovat Personal Access Token s příslušnými scope.",
+      "createGithubPat": "Vytvořit GitHub PAT",
+      "google": "Toto vypadá jako Google API. Budete potřebovat OAuth token nebo API klíč.",
+      "createGoogleToken": "Vytvořit Google pověření",
+      "anthropic": "Toto vypadá jako Anthropic API. Budete potřebovat API klíč.",
+      "createAnthropicKey": "Vytvořit Anthropic API klíč",
+      "openai": "Toto vypadá jako OpenAI API. Budete potřebovat API klíč.",
+      "createOpenaiKey": "Vytvořit OpenAI API klíč"
+    }
+  }
+}

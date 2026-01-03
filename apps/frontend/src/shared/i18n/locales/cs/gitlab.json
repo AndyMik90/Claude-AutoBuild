@@ -1,0 +1,208 @@
+{
+  "title": "GitLab Issues",
+  "states": {
+    "opened": "Otevřené",
+    "closed": "Uzavřené"
+  },
+  "complexity": {
+    "simple": "Jednoduché",
+    "standard": "Standardní",
+    "complex": "Složité"
+  },
+  "header": {
+    "open": "otevřeno",
+    "searchPlaceholder": "Vyhledat issues..."
+  },
+  "filters": {
+    "opened": "Otevřené",
+    "closed": "Uzavřené",
+    "all": "Vše"
+  },
+  "empty": {
+    "noMatch": "Žádné issues neodpovídají vašemu hledání",
+    "selectIssue": "Vyberte issue pro zobrazení detailů"
+  },
+  "notConnected": {
+    "title": "GitLab není připojen",
+    "description": "Nakonfigurujte váš GitLab token a projekt v nastavení projektu pro synchronizaci issues.",
+    "openSettings": "Otevřít nastavení"
+  },
+  "detail": {
+    "notes": "poznámky",
+    "viewTask": "Zobrazit úkol",
+    "createTask": "Vytvořit úkol",
+    "taskLinked": "Úkol propojen",
+    "taskId": "ID úkolu",
+    "description": "Popis",
+    "noDescription": "Není poskytnut popis.",
+    "assignees": "Přiřazení",
+    "milestone": "Milník"
+  },
+  "investigation": {
+    "title": "Vytvořit úkol z issue",
+    "issuePrefix": "Issue",
+    "description": "Vytvořte úkol z tohoto GitLab issue. Úkol bude přidán na vaši Kanban tabuli do sloupce Backlog.",
+    "selectNotes": "Vybrat poznámky k zahrnutí",
+    "deselectAll": "Zrušit výběr všech",
+    "selectAll": "Vybrat vše",
+    "willInclude": "Úkol bude obsahovat:",
+    "includeTitle": "Název a popis issue",
+    "includeLink": "Odkaz zpět na GitLab issue",
+    "includeLabels": "Štítky a metadata z issue",
+    "noNotes": "Žádné poznámky (toto issue nemá poznámky)",
+    "failedToLoadNotes": "Nepodařilo se načíst poznámky",
+    "taskCreated": "Úkol vytvořen! Zobrazte ho na vaší Kanban tabuli.",
+    "creating": "Vytváření...",
+    "cancel": "Zrušit",
+    "done": "Hotovo",
+    "close": "Zavřít"
+  },
+  "settings": {
+    "enableIssues": "Povolit GitLab Issues",
+    "enableIssuesDescription": "Synchronizovat issues z GitLab a vytvářet úkoly automaticky",
+    "instance": "GitLab instance",
+    "instanceDescription": "Použijte https://gitlab.com nebo URL vaší self-hosted instance",
+    "connectedVia": "Připojeno přes GitLab CLI",
+    "authenticatedAs": "Autentizováno jako",
+    "useDifferentToken": "Použít jiný token",
+    "authentication": "GitLab autentizace",
+    "useManualToken": "Použít manuální token",
+    "authenticating": "Autentizace pomocí glab CLI...",
+    "browserWindow": "Mělo by se otevřít okno prohlížeče pro přihlášení.",
+    "personalAccessToken": "Personal Access Token",
+    "useOAuth": "Místo toho použít OAuth",
+    "tokenScope": "Vytvořte token s",
+    "scopeApi": "api",
+    "scopeFrom": "scope z",
+    "gitlabSettings": "GitLab nastavení",
+    "project": "Projekt",
+    "enterManually": "Zadat ručně",
+    "loadingProjects": "Načítání projektů...",
+    "selectProject": "Vybrat projekt...",
+    "searchProjects": "Hledat projekty...",
+    "noMatchingProjects": "Žádné odpovídající projekty",
+    "noProjectsFound": "Žádné projekty nenalezeny",
+    "selected": "Vybráno",
+    "projectFormat": "Formát:",
+    "projectFormatExample": "(např., gitlab-org/gitlab)",
+    "connectionStatus": "Stav připojení",
+    "checking": "Kontrola...",
+    "connectedTo": "Připojeno k",
+    "notConnected": "Není připojeno",
+    "issuesAvailable": "Issues k dispozici",
+    "issuesAvailableDescription": "Přístup k GitLab Issues z postranního menu pro zobrazení, prozkoumání a vytváření úkolů z issues.",
+    "defaultBranch": "Výchozí větev",
+    "defaultBranchDescription": "Základní větev pro vytváření pracovních stromů úkolů",
+    "loadingBranches": "Načítání větví...",
+    "autoDetect": "Automatická detekce (main/master)",
+    "searchBranches": "Hledat větve...",
+    "noMatchingBranches": "Žádné odpovídající větve",
+    "noBranchesFound": "Žádné větve nenalezeny",
+    "branchFromNote": "Všechny nové úkoly budou vytvořeny z",
+    "autoSyncOnLoad": "Automatická synchronizace při načtení",
+    "autoSyncDescription": "Automaticky načíst issues při načtení projektu",
+    "cli": {
+      "required": "Vyžadováno GitLab CLI",
+      "notInstalled": "GitLab CLI (glab) je vyžadováno pro OAuth autentizaci. Nainstalujte ho pro použití možnosti 'Použít OAuth'.",
+      "installButton": "Nainstalovat glab",
+      "installing": "Instalace...",
+      "installSuccess": "Instalace spuštěna ve vašem terminálu. Dokončete ji a klikněte na Obnovit.",
+      "refresh": "Obnovit",
+      "learnMore": "Zjistit více",
+      "installed": "GitLab CLI nainstalováno:"
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab Merge Requests",
+    "newMR": "Nový Merge Request",
+    "selectMR": "Vyberte merge request pro zobrazení detailů",
+    "states": {
+      "opened": "Otevřené",
+      "closed": "Uzavřené",
+      "merged": "Sloučené",
+      "locked": "Uzamčené"
+    },
+    "filters": {
+      "opened": "Otevřené",
+      "closed": "Uzavřené",
+      "merged": "Sloučené",
+      "all": "Vše"
+    }
+  },
+  "mrReview": {
+    "runReview": "Spustit AI kontrolu",
+    "reviewing": "Kontrola...",
+    "followupReview": "Následná kontrola",
+    "newCommits": "nový commit",
+    "newCommitsPlural": "nové commity",
+    "cancel": "Zrušit",
+    "postFindings": "Odeslat nálezy",
+    "posting": "Odesílání...",
+    "postedTo": "Odesláno na GitLab",
+    "approve": "Schválit",
+    "approving": "Schvalování...",
+    "merge": "Sloučit MR",
+    "merging": "Slučování...",
+    "aiReviewResult": "Výsledek AI kontroly",
+    "followupReviewResult": "Následná kontrola",
+    "description": "Popis",
+    "noDescription": "Není poskytnut popis.",
+    "labels": "Štítky",
+    "status": {
+      "notReviewed": "Nezkontrolováno",
+      "notReviewedDesc": "Spusťte AI kontrolu pro analýzu tohoto MR",
+      "reviewComplete": "Kontrola dokončena",
+      "reviewCompleteDesc": "nález(y) nalezen(y). Vyberte a odešlete na GitLab.",
+      "waitingForChanges": "Čekání na změny",
+      "waitingForChangesDesc": "nález(y) odeslán(y). Čekání na přispěvatele k vyřešení problémů.",
+      "readyToMerge": "Připraveno ke sloučení",
+      "readyToMergeDesc": "Žádné blokující problémy nenalezeny. Tento MR může být sloučen.",
+      "needsAttention": "Vyžaduje pozornost",
+      "needsAttentionDesc": "nález(y) je třeba odeslat na GitLab.",
+      "readyForFollowup": "Připraveno k následné kontrole",
+      "readyForFollowupDesc": "od kontroly. Spusťte následnou kontrolu pro ověření vyřešení problémů.",
+      "blockingIssues": "Blokující problémy",
+      "blockingIssuesDesc": "blokující problém(y) stále otevřen(y)."
+    },
+    "overallStatus": {
+      "approve": "Schválit",
+      "requestChanges": "Vyžadovány změny",
+      "comment": "Komentář"
+    },
+    "resolution": {
+      "resolved": "vyřešeno",
+      "stillOpen": "stále otevřeno",
+      "newIssue": "nový problém",
+      "newIssues": "nové problémy"
+    }
+  },
+  "findings": {
+    "summary": "vybráno",
+    "selectCriticalHigh": "Vybrat Blocker/Required",
+    "selectAll": "Vybrat vše",
+    "clear": "Vymazat",
+    "noIssues": "Žádné problémy nenalezeny! Kód vypadá dobře.",
+    "suggestedFix": "Navrhovaná oprava:",
+    "posted": "Odesláno",
+    "severity": {
+      "critical": "Blocker",
+      "criticalDesc": "Nutno opravit",
+      "high": "Required",
+      "highDesc": "Mělo by se opravit",
+      "medium": "Recommended",
+      "mediumDesc": "Zlepšit kvalitu",
+      "low": "Suggestion",
+      "lowDesc": "Zvážit"
+    },
+    "category": {
+      "security": "Bezpečnost",
+      "quality": "Kvalita",
+      "style": "Styl",
+      "test": "Test",
+      "docs": "Dokumentace",
+      "pattern": "Vzor",
+      "performance": "Výkon",
+      "logic": "Logika"
+    }
+  }
+}

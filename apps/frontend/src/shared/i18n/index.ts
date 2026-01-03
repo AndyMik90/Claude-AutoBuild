@@ -23,6 +23,17 @@ import frDialogs from './locales/fr/dialogs.json';
 import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 
+// Import Czech translation resources
+import csCommon from './locales/cs/common.json';
+import csNavigation from './locales/cs/navigation.json';
+import csSettings from './locales/cs/settings.json';
+import csTasks from './locales/cs/tasks.json';
+import csWelcome from './locales/cs/welcome.json';
+import csOnboarding from './locales/cs/onboarding.json';
+import csDialogs from './locales/cs/dialogs.json';
+import csGitlab from './locales/cs/gitlab.json';
+import csTaskReview from './locales/cs/taskReview.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -47,6 +58,17 @@ export const resources = {
     dialogs: frDialogs,
     gitlab: frGitlab,
     taskReview: frTaskReview
+  },
+  cs: {
+    common: csCommon,
+    navigation: csNavigation,
+    settings: csSettings,
+    tasks: csTasks,
+    welcome: csWelcome,
+    onboarding: csOnboarding,
+    dialogs: csDialogs,
+    gitlab: csGitlab,
+    taskReview: csTaskReview
   }
 } as const;
 

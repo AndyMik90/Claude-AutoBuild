@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "project": "Projekt",
+    "tools": "Nástroje"
+  },
+  "items": {
+    "kanban": "Kanban tabule",
+    "terminals": "Terminály agentů",
+    "insights": "Přehledy",
+    "roadmap": "Plán",
+    "ideation": "Nápady",
+    "changelog": "Historie změn",
+    "context": "Kontext",
+    "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
+    "gitlabIssues": "GitLab Issues",
+    "gitlabMRs": "GitLab MRs",
+    "worktrees": "Pracovní stromy",
+    "agentTools": "MCP přehled"
+  },
+  "actions": {
+    "settings": "Nastavení",
+    "help": "Nápověda a zpětná vazba",
+    "newTask": "Nový úkol"
+  },
+  "tooltips": {
+    "settings": "Nastavení aplikace",
+    "help": "Nápověda a zpětná vazba"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Inicializujte Auto Claude pro vytvoření úkolů"
+  },
+  "claudeCode": {
+    "checking": "Kontrola Claude Code...",
+    "upToDate": "Claude Code je aktuální",
+    "updateAvailable": "Aktualizace Claude Code je k dispozici",
+    "notInstalled": "Claude Code není nainstalován",
+    "error": "Chyba při kontrole Claude Code",
+    "installed": "Nainstalováno",
+    "outdated": "Aktualizace k dispozici",
+    "missing": "Není nainstalováno",
+    "current": "Aktuální",
+    "latest": "Nejnovější",
+    "lastChecked": "Naposledy zkontrolováno",
+    "learnMore": "Zjistit více o Claude Code",
+    "updateWarningTitle": "Aktualizovat Claude Code?",
+    "updateWarningDescription": "Aktualizace uzavře všechny běžící relace Claude Code. Jakákoli neuložená práce v těchto relacích může být ztracena. Před pokračováním se ujistěte, že jste uložili svou práci.",
+    "updateAnyway": "Přesto aktualizovat"
+  }
+}
