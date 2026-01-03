@@ -95,6 +95,7 @@
     "sourceUserConfig": "Configuration utilisateur",
     "sourceVenv": "Environnement virtuel",
     "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
     "sourceSystemPath": "PATH système",
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",

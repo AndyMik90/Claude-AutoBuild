@@ -21,7 +21,7 @@
  */
 
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { app } from 'electron';
@@ -593,6 +593,38 @@ class CLIToolManager {
           path.join(homeDir, '.local', 'bin', 'claude'),
           path.join(homeDir, 'bin', 'claude'),
         ];
+
+    // 4.5. NVM (Node Version Manager) paths for Unix/Linux/macOS
+    // NVM installs global npm packages in ~/.nvm/versions/node/vX.X.X/bin/
+    // This is important when the app launches from GUI without NVM sourced
+    if (process.platform !== 'win32') {
+      const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+      try {
+        if (existsSync(nvmVersionsDir)) {
+          const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
+          for (const entry of nodeVersions) {
+            if (entry.isDirectory() && entry.name.startsWith('v')) {
+              const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
+              if (existsSync(nvmClaudePath)) {
+                const validation = this.validateClaude(nvmClaudePath);
+                if (validation.valid) {
+                  return {
+                    found: true,
+                    path: nvmClaudePath,
+                    version: validation.version,
+                    source: 'nvm',
+                    message: `Using NVM Claude CLI: ${nvmClaudePath}`,
+                  };
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail if unable to read NVM directory
+        console.warn(`[Claude CLI] Unable to read NVM directory: ${error}`);
+      }
+    }
 
     for (const claudePath of platformPaths) {
       if (existsSync(claudePath)) {
