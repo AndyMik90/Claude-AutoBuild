@@ -27,7 +27,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [showDiffDialog, setShowDiffDialog] = useState(false);
-  const [stageOnly, setStageOnly] = useState(task.status === 'human_review');
+  const [stageOnly, setStageOnly] = useState(false); // Default to full merge for proper cleanup (fixes #243)
   const [stagedSuccess, setStagedSuccess] = useState<string | null>(null);
   const [stagedProjectPath, setStagedProjectPath] = useState<string | undefined>(undefined);
   const [suggestedCommitMessage, setSuggestedCommitMessage] = useState<string | undefined>(undefined);
