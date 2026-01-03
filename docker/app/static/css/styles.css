@@ -1,0 +1,102 @@
+/* Auto-Claude Docker Web UI - Custom Styles */
+
+/* Extend Tailwind with custom utilities */
+.bg-gray-750 {
+    background-color: #2d3748;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a202c;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #718096;
+}
+
+/* Dialog/Modal styling */
+dialog {
+    border: none;
+    padding: 0;
+    background: transparent;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator {
+    display: inline-block;
+}
+
+.htmx-request.htmx-indicator {
+    display: inline-block;
+}
+
+/* Button disabled state during request */
+.htmx-request button[type="submit"] {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+/* Prose styling for markdown content */
+.prose pre {
+    background: #1a202c;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.prose code {
+    background: #2d3748;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+.prose pre code {
+    background: transparent;
+    padding: 0;
+}
+
+/* Log viewer ANSI color classes */
+.log-viewer .ansi-green { color: #48bb78; }
+.log-viewer .ansi-yellow { color: #ecc94b; }
+.log-viewer .ansi-red { color: #fc8181; }
+.log-viewer .ansi-blue { color: #63b3ed; }
+.log-viewer .ansi-cyan { color: #76e4f7; }
+.log-viewer .ansi-magenta { color: #f687b3; }
+.log-viewer .ansi-white { color: #e2e8f0; }
+.log-viewer .ansi-gray { color: #a0aec0; }
+
+/* Animation utilities */
+@keyframes pulse-border {
+    0%, 100% { border-color: rgba(59, 130, 246, 0.5); }
+    50% { border-color: rgba(59, 130, 246, 1); }
+}
+
+.animate-pulse-border {
+    animation: pulse-border 2s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .log-viewer {
+        font-size: 0.75rem;
+    }
+}

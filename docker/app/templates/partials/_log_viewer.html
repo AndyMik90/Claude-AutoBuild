@@ -1,0 +1,68 @@
+<div
+    id="log-viewer-{{ project_id }}-{{ spec_id }}"
+    class="log-viewer bg-gray-900 rounded-lg p-4 h-96 overflow-auto text-green-400 font-mono text-sm"
+>
+    <div class="text-gray-500">Connecting to log stream...</div>
+</div>
+
+<script>
+(function() {
+    const viewer = document.getElementById('log-viewer-{{ project_id }}-{{ spec_id }}');
+    const wsUrl = `ws://${window.location.host}/ws/logs/{{ project_id }}/{{ spec_id }}`;
+
+    let ws = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    // Escape HTML entities to prevent XSS attacks
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function connect() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            reconnectAttempts = 0;
+            viewer.innerHTML = '<span class="text-gray-500">Connected to log stream...</span>\n';
+        };
+
+        ws.onmessage = function(event) {
+            // Clear the "Connected" message on first real message
+            if (viewer.querySelector('.text-gray-500')) {
+                viewer.innerHTML = '';
+            }
+
+            // First escape HTML to prevent XSS, then apply ANSI color support
+            const escapedData = escapeHtml(event.data);
+            const line = escapedData
+                .replace(/\x1b\[32m/g, '<span class="text-green-400">')
+                .replace(/\x1b\[33m/g, '<span class="text-yellow-400">')
+                .replace(/\x1b\[31m/g, '<span class="text-red-400">')
+                .replace(/\x1b\[34m/g, '<span class="text-blue-400">')
+                .replace(/\x1b\[0m/g, '</span>');
+
+            viewer.innerHTML += line;
+            viewer.scrollTop = viewer.scrollHeight;
+        };
+
+        ws.onclose = function() {
+            viewer.innerHTML += '\n<span class="text-gray-500">[Connection closed]</span>\n';
+
+            // Attempt to reconnect
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                setTimeout(connect, 2000 * reconnectAttempts);
+            }
+        };
+
+        ws.onerror = function() {
+            viewer.innerHTML = '<span class="text-red-500">Failed to connect to log stream</span>';
+        };
+    }
+
+    connect();
+})();
+</script>
