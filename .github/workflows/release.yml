@@ -101,6 +101,8 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
+            apps/frontend/dist/*.blockmap
 
   # Apple Silicon build on ARM64 runner for native compilation
   build-macos-arm64:
@@ -186,6 +188,8 @@ jobs:
           path: |
             apps/frontend/dist/*.dmg
             apps/frontend/dist/*.zip
+            apps/frontend/dist/*.yml
+            apps/frontend/dist/*.blockmap
 
   build-windows:
     runs-on: windows-latest
@@ -248,6 +252,8 @@ jobs:
           name: windows-builds
           path: |
             apps/frontend/dist/*.exe
+            apps/frontend/dist/*.yml
+            apps/frontend/dist/*.blockmap
 
   build-linux:
     runs-on: ubuntu-latest
@@ -317,6 +323,8 @@ jobs:
             apps/frontend/dist/*.AppImage
             apps/frontend/dist/*.deb
             apps/frontend/dist/*.flatpak
+            apps/frontend/dist/*.yml
+            apps/frontend/dist/*.blockmap
 
   create-release:
     needs: [build-macos-intel, build-macos-arm64, build-windows, build-linux]
@@ -336,16 +344,30 @@ jobs:
       - name: Flatten and validate artifacts
         run: |
           mkdir -p release-assets
-          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) -exec cp {} release-assets/ \;
+          find dist -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
 
-          # Validate that at least one artifact was copied
-          artifact_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
-          if [ "$artifact_count" -eq 0 ]; then
-            echo "::error::No build artifacts found! Expected .dmg, .zip, .exe, .AppImage, .deb, or .flatpak files."
+          # Validate that installer files exist (not just manifests)
+          installer_count=$(find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) | wc -l)
+          if [ "$installer_count" -eq 0 ]; then
+            echo "::error::No installer artifacts found! Expected .dmg, .zip, .exe, .AppImage, .deb, or .flatpak files."
             exit 1
           fi
 
-          echo "Found $artifact_count artifact(s):"
+          echo "Found $installer_count installer(s):"
+          find release-assets -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) -exec basename {} \;
+
+          # Validate that electron-updater manifest files are present (required for auto-updates)
+          yml_count=$(find release-assets -type f -name "*.yml" | wc -l)
+          if [ "$yml_count" -eq 0 ]; then
+            echo "::error::No update manifest (.yml) files found! Auto-update architecture detection will not work."
+            exit 1
+          fi
+
+          echo "Found $yml_count manifest file(s):"
+          find release-assets -type f -name "*.yml" -exec basename {} \;
+
+          echo ""
+          echo "All release assets:"
           ls -la release-assets/
 
       - name: Generate checksums
