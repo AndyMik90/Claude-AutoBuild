@@ -65,11 +65,8 @@ async def bash_security_hook(
     if not command:
         return {}
 
-    # Get the working directory from context or use current directory
-    # In the actual client, this would be set by the ClaudeSDKClient
-    cwd = os.getcwd()
-    if context and hasattr(context, "cwd"):
-        cwd = context.cwd
+    # Get the working directory from input_data (SDK passes it there, not in context)
+    cwd = input_data.get("cwd") or os.getcwd()
 
     # Get or create security profile
     # Note: In actual use, spec_dir would be passed through context
