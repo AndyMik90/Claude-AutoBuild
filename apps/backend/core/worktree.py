@@ -23,6 +23,43 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _load_env_file(env_path: Path) -> dict[str, str]:
+    """
+    Load environment variables from a .env file.
+
+    Args:
+        env_path: Path to the .env file
+
+    Returns:
+        Dict of env var name -> value
+    """
+    env_vars = {}
+    if not env_path.exists():
+        return env_vars
+
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith("#"):
+                    continue
+                # Parse KEY=value format
+                if "=" in line:
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove surrounding quotes if present
+                    if value and value[0] in ('"', "'") and value[-1] == value[0]:
+                        value = value[1:-1]
+                    if key:
+                        env_vars[key] = value
+    except Exception:
+        pass
+
+    return env_vars
+
+
 class WorktreeError(Exception):
     """Error during worktree operations."""
 
@@ -63,15 +100,23 @@ class WorktreeManager:
         Detect the base branch for worktree creation.
 
         Priority order:
-        1. DEFAULT_BRANCH environment variable
-        2. Auto-detect main/master (if they exist)
-        3. Fall back to current branch (with warning)
+        1. DEFAULT_BRANCH environment variable (system)
+        2. DEFAULT_BRANCH from project's .auto-claude/.env file
+        3. Auto-detect main/master (if they exist)
+        4. Fall back to current branch (with warning)
 
         Returns:
             The detected base branch name
         """
-        # 1. Check for DEFAULT_BRANCH env var
+        # 1. Check for DEFAULT_BRANCH env var (system environment)
         env_branch = os.getenv("DEFAULT_BRANCH")
+
+        # 2. If not in system env, check project's .auto-claude/.env file
+        if not env_branch:
+            project_env_file = self.project_dir / ".auto-claude" / ".env"
+            project_env = _load_env_file(project_env_file)
+            env_branch = project_env.get("DEFAULT_BRANCH")
+
         if env_branch:
             # Verify the branch exists
             result = subprocess.run(
