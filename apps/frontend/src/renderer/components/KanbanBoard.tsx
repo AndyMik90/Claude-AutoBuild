@@ -212,7 +212,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               size="icon"
               className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={onAddClick}
-              aria-label="Add new task to backlog"
+              aria-label={t('kanban.addTaskAriaLabel')}
             >
               <Plus className="h-4 w-4" />
             </Button>

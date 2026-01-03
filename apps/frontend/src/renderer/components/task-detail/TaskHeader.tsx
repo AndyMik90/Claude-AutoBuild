@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X, Pencil, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -25,6 +26,8 @@ export function TaskHeader({
   onClose,
   onEdit
 }: TaskHeaderProps) {
+  const { t } = useTranslation('tasks');
+
   return (
     <div className="flex items-start justify-between p-4 pb-3">
       <div className="flex-1 min-w-0 pr-2">
@@ -101,7 +104,7 @@ export function TaskHeader({
             {isRunning && !isStuck ? 'Cannot edit while task is running' : 'Edit task'}
           </TooltipContent>
         </Tooltip>
-        <Button variant="ghost" size="icon" className="hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={onClose} aria-label="Close task details">
+        <Button variant="ghost" size="icon" className="hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={onClose} aria-label={t('kanban.closeTaskDetailsAriaLabel')}>
           <X className="h-4 w-4" />
         </Button>
       </div>

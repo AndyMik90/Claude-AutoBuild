@@ -5,7 +5,15 @@
     "hideArchived": "Hide archived",
     "showArchivedTasks": "Show archived tasks",
     "hideArchivedTasks": "Hide archived tasks",
-    "closeTab": "Close tab"
+    "closeTab": "Close tab",
+    "addProjectAriaLabel": "Add project"
+  },
+  "accessibility": {
+    "deleteFeatureAriaLabel": "Delete feature",
+    "closeFeatureDetailsAriaLabel": "Close feature details",
+    "regenerateRoadmapAriaLabel": "Regenerate Roadmap",
+    "repositoryOwnerAriaLabel": "Repository owner",
+    "repositoryVisibilityAriaLabel": "Repository visibility"
   },
   "buttons": {
     "save": "Save",

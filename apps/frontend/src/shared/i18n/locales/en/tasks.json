@@ -59,7 +59,9 @@
     "emptyDoneHint": "Approved tasks appear here",
     "emptyDefault": "No tasks",
     "dropHere": "Drop here",
-    "showArchived": "Show archived"
+    "showArchived": "Show archived",
+    "addTaskAriaLabel": "Add new task to backlog",
+    "closeTaskDetailsAriaLabel": "Close task details"
   },
   "execution": {
     "phases": {

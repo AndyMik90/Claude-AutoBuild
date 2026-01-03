@@ -59,7 +59,9 @@
     "emptyDoneHint": "Les tâches approuvées apparaissent ici",
     "emptyDefault": "Aucune tâche",
     "dropHere": "Déposer ici",
-    "showArchived": "Afficher les archivées"
+    "showArchived": "Afficher les archivées",
+    "addTaskAriaLabel": "Ajouter une nouvelle tâche au backlog",
+    "closeTaskDetailsAriaLabel": "Fermer les détails de la tâche"
   },
   "execution": {
     "phases": {

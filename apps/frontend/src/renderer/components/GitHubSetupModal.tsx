@@ -534,7 +534,7 @@ export function GitHubSetupModal({
                         Loading accounts...
                       </div>
                     ) : (
-                      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Repository owner">
+                      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('common:accessibility.repositoryOwnerAriaLabel')}>
                         {/* Personal account */}
                         {githubUsername && (
                           <button
@@ -600,7 +600,7 @@ export function GitHubSetupModal({
 
                   <div className="space-y-2">
                     <Label>Visibility</Label>
-                    <div className="flex gap-2" role="radiogroup" aria-label="Repository visibility">
+                    <div className="flex gap-2" role="radiogroup" aria-label={t('common:accessibility.repositoryVisibilityAriaLabel')}>
                       <button
                         onClick={() => setIsPrivateRepo(true)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-md border ${
