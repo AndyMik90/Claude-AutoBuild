@@ -1673,6 +1673,33 @@ export function registerWorktreeHandlers(
                 message = 'Changes were already merged and committed. Task marked as done.';
                 staged = false;
                 debug('Stage-only requested but merge already committed. Marking as done.');
+
+                // Clean up worktree since merge is complete (fixes #243)
+                // This is the same cleanup as the full merge path, needed because
+                // stageOnly defaults to true for human_review tasks
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up (already merged):', worktreePath);
+
+                    // Also delete the task branch
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                }
               } else if (isStageOnly && !hasActualStagedChanges) {
                 // Stage-only was requested but no changes to stage (and not committed)
                 // This could mean nothing to merge or an error - keep in human_review for investigation
@@ -1693,6 +1720,33 @@ export function registerWorktreeHandlers(
                 planStatus = 'completed';
                 message = 'Changes merged successfully';
                 staged = false;
+
+                // Clean up worktree after successful full merge (fixes #243)
+                // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up after full merge:', worktreePath);
+
+                    // Also delete the task branch since we merged successfully
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                  // Non-fatal - merge succeeded, cleanup can be done manually
+                }
               }
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
@@ -1717,12 +1771,14 @@ export function registerWorktreeHandlers(
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
               // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
+              // NOTE: The worktree has the same directory structure as main project
               const planPaths: { path: string; isMain: boolean }[] = [
                 { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
               ];
-              // Only add worktree plan path if worktree exists
+              // Add worktree plan path if worktree exists
               if (worktreePath) {
-                planPaths.push({ path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false });
+                const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+                planPaths.push({ path: path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false });
               }
 
               const { promises: fsPromises } = require('fs');
@@ -1785,8 +1841,15 @@ export function registerWorktreeHandlers(
                 }
               };
 
-              // Run async updates without blocking the response
-              updatePlans().catch(err => debug('Background plan update failed:', err));
+              // IMPORTANT: Wait for plan updates to complete before responding (fixes #243)
+              // Previously this was "fire and forget" which caused a race condition:
+              // resolve() would return before files were written, and UI refresh would read old status
+              try {
+                await updatePlans();
+              } catch (err) {
+                debug('Plan update failed:', err);
+                // Non-fatal: UI will still update, but status may not persist across refresh
+              }
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
