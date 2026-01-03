@@ -100,9 +100,9 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
   const isIncomplete = isIncompleteHumanReview(task);
 
   // Memoize expensive computations to avoid running on every render
-  // Pass 0 to disable truncation - show full description on cards
+  // Truncate description for card display - full description shown in modal
   const sanitizedDescription = useMemo(
-    () => task.description ? sanitizeMarkdownForDisplay(task.description, 0) : null,
+    () => task.description ? sanitizeMarkdownForDisplay(task.description, 120) : null,
     [task.description]
   );
 
@@ -279,7 +279,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps)
 
         {/* Description - sanitized to handle markdown content (memoized) */}
         {sanitizedDescription && (
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
             {sanitizedDescription}
           </p>
         )}
