@@ -48,6 +48,10 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Troubleshooting tools"
+    },
+    "morph": {
+      "title": "Morph Fast Apply",
+      "description": "AI-powered code application"
     }
   },
   "language": {
@@ -328,6 +332,56 @@
       "title": "No Project Selected",
       "description": "Select a project from the sidebar to configure its settings."
     }
+  },
+  "morph": {
+    "title": "Morph Fast Apply",
+    "description": "AI-powered fast code application",
+    "info": "Morph Fast Apply uses AI to intelligently apply code changes. When enabled, it will be used instead of the default Edit/Write tools for faster and more accurate code modifications.",
+    "learnMore": "Learn more about Morph",
+    "enableLabel": "Enable Morph Fast Apply",
+    "enableDescription": "Use Morph for AI-powered code application instead of default tools",
+    "apiKeyLabel": "Morph API Key",
+    "apiKeyDescription": "Enter your Morph API key to enable the service",
+    "apiKeyPlaceholder": "morph_...",
+    "modelLabel": "Model",
+    "modelDescription": "Select which Morph model to use for code application",
+    "models": {
+      "auto": {
+        "label": "Auto (Recommended)",
+        "description": "Automatically selects the best model based on the task"
+      },
+      "morph-v3-fast": {
+        "label": "Morph v3 Fast",
+        "description": "Fastest model, optimized for speed (10,500+ tokens/sec)"
+      },
+      "morph-v3-large": {
+        "label": "Morph v3 Large",
+        "description": "Most accurate model, better for complex edits"
+      }
+    },
+    "noApiKeyWarning": "Morph is enabled but no API key is configured. The system will fall back to default apply tools until a valid API key is provided.",
+    "validateKey": "Validate",
+    "status": {
+      "valid": "API key is valid",
+      "invalid": "Invalid API key",
+      "serviceUnavailable": "Service unavailable",
+      "error": "Validation error",
+      "keyValidated": "Your Morph API key has been validated and is ready to use."
+    },
+    "errors": {
+      "emptyApiKey": "Please enter an API key before validating.",
+      "invalidApiKey": "The API key is invalid or has been revoked. Please check your key and try again.",
+      "serviceUnavailable": "The Morph service is currently unavailable. Your settings have been saved and will be used when the service becomes available.",
+      "networkError": "Could not connect to the Morph service. Please check your internet connection.",
+      "timeout": "The connection to Morph timed out. Please try again later.",
+      "couldNotVerify": "Could not verify the API key at this time. Your settings have been saved.",
+      "validationFailed": "Failed to validate the API key. Please try again.",
+      "fallbackActive": "The system will use default apply tools (Edit/Write) until the service is available."
+    },
+    "showApiKey": "Show API key",
+    "hideApiKey": "Hide API key",
+    "dismiss": "Dismiss",
+    "dismissError": "Dismiss error"
   },
   "mcp": {
     "title": "MCP Server Overview",

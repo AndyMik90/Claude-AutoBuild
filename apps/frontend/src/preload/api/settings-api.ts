@@ -5,7 +5,8 @@ import type {
   IPCResult,
   SourceEnvConfig,
   SourceEnvCheckResult,
-  ToolDetectionResult
+  ToolDetectionResult,
+  MorphValidationResult
 } from '../../shared/types';
 
 export interface SettingsAPI {
@@ -28,6 +29,9 @@ export interface SettingsAPI {
   getSourceEnv: () => Promise<IPCResult<SourceEnvConfig>>;
   updateSourceEnv: (config: { claudeOAuthToken?: string }) => Promise<IPCResult>;
   checkSourceToken: () => Promise<IPCResult<SourceEnvCheckResult>>;
+
+  // Morph Fast Apply
+  validateMorphApiKey: (apiKey: string) => Promise<IPCResult<MorphValidationResult>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -59,5 +63,9 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_UPDATE, config),
 
   checkSourceToken: (): Promise<IPCResult<SourceEnvCheckResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN)
+    ipcRenderer.invoke(IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN),
+
+  // Morph Fast Apply
+  validateMorphApiKey: (apiKey: string): Promise<IPCResult<MorphValidationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.MORPH_VALIDATE_API_KEY, apiKey)
 });

@@ -34,5 +34,15 @@ export const settingsMock = {
   // App Update Event Listeners (no-op in browser mode)
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
-  onAppUpdateProgress: () => () => {}
+  onAppUpdateProgress: () => () => {},
+
+  // Morph Fast Apply (mock - returns valid for browser testing)
+  validateMorphApiKey: async () => ({
+    success: true,
+    data: {
+      valid: true,
+      status: 'valid' as const,
+      message: 'Mock validation - always valid in browser mode'
+    }
+  })
 };

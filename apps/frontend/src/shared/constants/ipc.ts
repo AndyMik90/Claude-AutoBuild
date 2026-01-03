@@ -494,5 +494,8 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
-  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Morph Fast Apply validation
+  MORPH_VALIDATE_API_KEY: 'morph:validateApiKey' // Validate Morph API key
 } as const;

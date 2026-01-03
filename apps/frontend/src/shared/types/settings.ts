@@ -274,6 +274,10 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Morph Fast Apply settings
+  morphEnabled?: boolean;      // Enable Morph for fast code application
+  morphApiKey?: string;        // Morph API key
+  morphModel?: 'auto' | 'morph-v3-fast' | 'morph-v3-large';  // Morph model selection
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

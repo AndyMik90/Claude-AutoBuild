@@ -13,7 +13,32 @@ the Claude Agent SDK client. Tool lists are organized by category:
 - Auto-Claude tools: Custom build management tools
 """
 
+from __future__ import annotations
+
 import os
+
+# Import is_morph_enabled from morph_client - the single source of truth
+from services.morph_client import is_morph_enabled
+
+
+def get_write_tools() -> list[str]:
+    """
+    Get the appropriate write tools based on Morph configuration.
+
+    When Morph is enabled, returns only Bash (excludes Write/Edit as they're replaced by Morph).
+    When Morph is disabled, returns the default write tools (Write, Edit, Bash).
+
+    Returns:
+        List of write tool names based on current configuration
+    """
+    if is_morph_enabled():
+        # When Morph is enabled, only provide Bash
+        # (Write/Edit are replaced by Morph's edit_file functionality)
+        return ["Bash"]
+    else:
+        # Normal mode: all default write tools
+        return list(BASE_WRITE_TOOLS)
+
 
 # =============================================================================
 # Base Tools (Built-in Claude Code tools)
@@ -21,7 +46,11 @@ import os
 
 # Core file operation tools
 BASE_READ_TOOLS = ["Read", "Glob", "Grep"]
-BASE_WRITE_TOOLS = ["Write", "Edit", "Bash"]
+BASE_WRITE_TOOLS = [
+    "Write",
+    "Edit",
+    "Bash",
+]  # Default write tools (can be replaced by Morph when enabled)
 
 # Web tools for documentation lookup and research
 # Always available to all agents for accessing external information
@@ -38,6 +67,9 @@ TOOL_RECORD_DISCOVERY = "mcp__auto-claude__record_discovery"
 TOOL_RECORD_GOTCHA = "mcp__auto-claude__record_gotcha"
 TOOL_GET_SESSION_CONTEXT = "mcp__auto-claude__get_session_context"
 TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
+
+# Morph Fast Apply tool (conditionally added when MORPH_ENABLED=true)
+TOOL_MORPH_APPLY = "mcp__auto-claude__MorphApply"
 
 # =============================================================================
 # External MCP Tools
@@ -149,6 +181,8 @@ AGENT_CONFIGS = {
         "thinking_default": "medium",
     },
     "spec_writer": {
+        # Note: When Morph is enabled, permissions.py's get_allowed_tools()
+        # replaces Write/Edit with Morph tools at runtime
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
         "mcp_servers": [],  # Just writes spec.md
         "auto_claude_tools": [],
@@ -179,7 +213,7 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "spec_compaction": {
-        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
+        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": [],
         "auto_claude_tools": [],
         "thinking_default": "medium",
@@ -189,7 +223,9 @@ AGENT_CONFIGS = {
     # Note: "linear" is conditional on project setting "update_linear_with_tasks"
     # ═══════════════════════════════════════════════════════════════════════
     "planner": {
-        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
+        "tools": BASE_READ_TOOLS
+        + BASE_WRITE_TOOLS
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],  # Only if project setting enabled
         "auto_claude_tools": [
@@ -200,7 +236,9 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "coder": {
-        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
+        "tools": BASE_READ_TOOLS
+        + BASE_WRITE_TOOLS
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
         "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
@@ -229,7 +267,9 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "qa_fixer": {
-        "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
+        "tools": BASE_READ_TOOLS
+        + BASE_WRITE_TOOLS
+        + WEB_TOOLS,  # Write/Edit replaced by Morph tools via permissions.py when enabled
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
         "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [

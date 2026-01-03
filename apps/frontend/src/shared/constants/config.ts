@@ -48,7 +48,10 @@ export const DEFAULT_APP_SETTINGS = {
   // Beta updates opt-in (receive pre-release versions)
   betaUpdates: false,
   // Language preference (default to English)
-  language: 'en' as const
+  language: 'en' as const,
+  // Morph Fast Apply settings (disabled by default)
+  morphEnabled: false,
+  morphApiKey: undefined as string | undefined
 };
 
 // ============================================

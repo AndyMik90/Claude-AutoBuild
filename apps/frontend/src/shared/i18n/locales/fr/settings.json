@@ -48,6 +48,10 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
+    },
+    "morph": {
+      "title": "Morph Fast Apply",
+      "description": "Application de code par IA"
     }
   },
   "language": {
@@ -328,6 +332,56 @@
       "title": "Aucun projet sélectionné",
       "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
     }
+  },
+  "morph": {
+    "title": "Morph Fast Apply",
+    "description": "Application de code rapide par IA",
+    "info": "Morph Fast Apply utilise l'IA pour appliquer intelligemment les modifications de code. Lorsqu'il est activé, il sera utilisé à la place des outils Edit/Write par défaut pour des modifications de code plus rapides et plus précises.",
+    "learnMore": "En savoir plus sur Morph",
+    "enableLabel": "Activer Morph Fast Apply",
+    "enableDescription": "Utiliser Morph pour l'application de code par IA au lieu des outils par défaut",
+    "apiKeyLabel": "Clé API Morph",
+    "apiKeyDescription": "Entrez votre clé API Morph pour activer le service",
+    "apiKeyPlaceholder": "morph_...",
+    "modelLabel": "Modèle",
+    "modelDescription": "Sélectionnez le modèle Morph à utiliser pour l'application de code",
+    "models": {
+      "auto": {
+        "label": "Auto (Recommandé)",
+        "description": "Sélectionne automatiquement le meilleur modèle selon la tâche"
+      },
+      "morph-v3-fast": {
+        "label": "Morph v3 Rapide",
+        "description": "Modèle le plus rapide, optimisé pour la vitesse (10 500+ tokens/sec)"
+      },
+      "morph-v3-large": {
+        "label": "Morph v3 Large",
+        "description": "Modèle le plus précis, meilleur pour les modifications complexes"
+      }
+    },
+    "noApiKeyWarning": "Morph est activé mais aucune clé API n'est configurée. Le système utilisera les outils d'application par défaut jusqu'à ce qu'une clé API valide soit fournie.",
+    "validateKey": "Valider",
+    "status": {
+      "valid": "Clé API valide",
+      "invalid": "Clé API invalide",
+      "serviceUnavailable": "Service indisponible",
+      "error": "Erreur de validation",
+      "keyValidated": "Votre clé API Morph a été validée et est prête à l'emploi."
+    },
+    "errors": {
+      "emptyApiKey": "Veuillez entrer une clé API avant de valider.",
+      "invalidApiKey": "La clé API est invalide ou a été révoquée. Veuillez vérifier votre clé et réessayer.",
+      "serviceUnavailable": "Le service Morph est actuellement indisponible. Vos paramètres ont été sauvegardés et seront utilisés quand le service sera disponible.",
+      "networkError": "Impossible de se connecter au service Morph. Veuillez vérifier votre connexion internet.",
+      "timeout": "La connexion à Morph a expiré. Veuillez réessayer plus tard.",
+      "couldNotVerify": "Impossible de vérifier la clé API pour le moment. Vos paramètres ont été sauvegardés.",
+      "validationFailed": "Échec de la validation de la clé API. Veuillez réessayer.",
+      "fallbackActive": "Le système utilisera les outils par défaut (Edit/Write) jusqu'à ce que le service soit disponible."
+    },
+    "showApiKey": "Afficher la clé API",
+    "hideApiKey": "Masquer la clé API",
+    "dismiss": "Fermer",
+    "dismissError": "Fermer l'erreur"
   },
   "mcp": {
     "title": "Aperçu des serveurs MCP",

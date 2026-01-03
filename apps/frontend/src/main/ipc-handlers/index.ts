@@ -32,6 +32,7 @@ import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
+import { registerMorphHandlers } from './morph-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
@@ -119,6 +120,9 @@ export function setupIpcHandlers(
   // MCP server health check handlers
   registerMcpHandlers();
 
+  // Morph Fast Apply handlers
+  registerMorphHandlers();
+
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
@@ -149,5 +153,6 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
+  registerMorphHandlers,
   registerProfileHandlers
 };

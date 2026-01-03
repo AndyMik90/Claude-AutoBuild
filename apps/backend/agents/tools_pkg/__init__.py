@@ -44,6 +44,7 @@ from .models import (
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,
     TOOL_GET_SESSION_CONTEXT,
+    TOOL_MORPH_APPLY,
     TOOL_RECORD_DISCOVERY,
     TOOL_RECORD_GOTCHA,
     TOOL_UPDATE_QA_STATUS,
@@ -53,7 +54,9 @@ from .models import (
     get_agent_config,
     get_default_thinking_level,
     get_required_mcp_servers,
+    get_write_tools,
     is_electron_mcp_enabled,
+    is_morph_enabled,
 )
 from .permissions import get_all_agent_types, get_allowed_tools
 from .registry import create_auto_claude_mcp_server, is_tools_available
@@ -86,6 +89,9 @@ __all__ = [
     "TOOL_RECORD_GOTCHA",
     "TOOL_GET_SESSION_CONTEXT",
     "TOOL_UPDATE_QA_STATUS",
+    "TOOL_MORPH_APPLY",
     # Config
+    "get_write_tools",
     "is_electron_mcp_enabled",
+    "is_morph_enabled",
 ]

@@ -6,6 +6,7 @@ Individual tool implementations organized by functionality.
 """
 
 from .memory import create_memory_tools
+from .morph import create_morph_tools
 from .progress import create_progress_tools
 from .qa import create_qa_tools
 from .subtask import create_subtask_tools
@@ -15,4 +16,5 @@ __all__ = [
     "create_progress_tools",
     "create_memory_tools",
     "create_qa_tools",
+    "create_morph_tools",
 ]

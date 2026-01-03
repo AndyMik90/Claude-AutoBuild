@@ -128,6 +128,15 @@ import type {
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
+/**
+ * Morph API validation result
+ */
+export interface MorphValidationResult {
+  valid: boolean;
+  status: 'valid' | 'invalid' | 'serviceUnavailable' | 'error';
+  message?: string;
+}
+
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
 export interface TabState {
@@ -771,6 +780,9 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Morph Fast Apply operations
+  validateMorphApiKey: (apiKey: string) => Promise<IPCResult<MorphValidationResult>>;
 }
 
 declare global {

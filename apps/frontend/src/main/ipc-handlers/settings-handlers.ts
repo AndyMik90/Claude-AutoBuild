@@ -166,6 +166,24 @@ export function registerSettingsHandlers(
         claudePath: settings.claudePath,
       });
 
+      // Apply Morph settings to process environment on startup
+      // This ensures saved settings are available to spawned Python processes
+      if (settings.morphEnabled !== undefined) {
+        process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
+      }
+      // Only set API key and model if Morph is enabled - prevents stale credentials
+      if (settings.morphEnabled && settings.morphApiKey) {
+        process.env.MORPH_API_KEY = settings.morphApiKey;
+      } else {
+        // Clean up API key when Morph is disabled
+        delete process.env.MORPH_API_KEY;
+      }
+      if (settings.morphEnabled && settings.morphModel) {
+        process.env.MORPH_MODEL = settings.morphModel;
+      } else {
+        delete process.env.MORPH_MODEL;
+      }
+
       return { success: true, data: settings as AppSettings };
     }
   );
@@ -213,6 +231,31 @@ export function registerSettingsHandlers(
         if (settings.betaUpdates !== undefined) {
           const channel = settings.betaUpdates ? 'beta' : 'latest';
           setUpdateChannel(channel);
+        }
+
+        // Apply Morph settings to process environment so spawned agents can access them
+        // The Python backend reads these via os.getenv() in morph_client.py
+        if (settings.morphEnabled !== undefined) {
+          process.env.MORPH_ENABLED = settings.morphEnabled ? 'true' : 'false';
+          // Clean up API key when Morph is disabled
+          if (!settings.morphEnabled) {
+            delete process.env.MORPH_API_KEY;
+          }
+        }
+        if (settings.morphApiKey !== undefined) {
+          if (settings.morphApiKey && newSettings.morphEnabled) {
+            process.env.MORPH_API_KEY = settings.morphApiKey;
+          } else {
+            // Remove from env if API key is cleared or Morph is disabled
+            delete process.env.MORPH_API_KEY;
+          }
+        }
+        if (settings.morphModel !== undefined) {
+          if (settings.morphModel) {
+            process.env.MORPH_MODEL = settings.morphModel;
+          } else {
+            delete process.env.MORPH_MODEL;
+          }
         }
 
         return { success: true };
