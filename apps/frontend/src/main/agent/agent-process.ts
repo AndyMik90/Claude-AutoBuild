@@ -197,6 +197,8 @@ export class AgentProcessManager {
 
     // Auto-detect from app location (configured path was invalid or not set)
     const possiblePaths = [
+      // Packaged app: backend is in extraResources (process.resourcesPath/backend)
+      ...(app.isPackaged ? [path.join(process.resourcesPath, 'backend')] : []),
       // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       // Alternative: from app root -> apps/backend

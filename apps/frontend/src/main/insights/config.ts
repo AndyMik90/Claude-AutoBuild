@@ -48,7 +48,9 @@ export class InsightsConfig {
     }
 
     const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
+      // Packaged app: backend is in extraResources (process.resourcesPath/backend)
+      ...(app.isPackaged ? [path.join(process.resourcesPath, 'backend')] : []),
+      // Dev mode: from out/main -> apps/backend
       path.resolve(__dirname, '..', '..', '..', 'backend'),
       path.resolve(app.getAppPath(), '..', 'backend'),
       path.resolve(process.cwd(), 'apps', 'backend')
