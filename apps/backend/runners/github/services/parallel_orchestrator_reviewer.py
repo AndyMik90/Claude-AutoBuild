@@ -586,7 +586,7 @@ The SDK will run invoked agents in parallel automatically.
             category=category,
             severity=severity,
             suggested_fix=finding_data.suggested_fix or "",
-            confidence=self._normalize_confidence(finding_data.confidence),
+            evidence=finding_data.evidence,
         )
 
     async def review(self, context: PRContext) -> PRReviewResult:
@@ -969,7 +969,7 @@ The SDK will run invoked agents in parallel automatically.
             category=category,
             severity=severity,
             suggested_fix=f_data.get("suggested_fix", ""),
-            confidence=self._normalize_confidence(f_data.get("confidence", 85)),
+            evidence=f_data.get("evidence"),
         )
 
     def _parse_text_output(self, output: str) -> list[PRReviewFinding]:

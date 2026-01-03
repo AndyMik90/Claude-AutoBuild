@@ -48,12 +48,26 @@ If the file was modified:
 - Is the fix approach sound?
 - Are there edge cases the fix misses?
 
-### 4. Assign Confidence
-Rate your confidence (0.0-1.0):
-- **>0.9**: Clear evidence of resolution/non-resolution
-- **0.7-0.9**: Strong indicators but some uncertainty
-- **0.5-0.7**: Mixed signals, moderate confidence
-- **<0.5**: Unclear, consider marking as cant_verify
+### 4. Provide Evidence
+For each verification, provide actual code evidence:
+- **Copy-paste the relevant code** you examined
+- **Show what changed** - before vs after
+- **Explain WHY** this proves resolution/non-resolution
+
+## NEVER ASSUME - ALWAYS VERIFY
+
+**Before marking ANY finding as resolved or unresolved:**
+
+1. **NEVER assume a fix is correct** based on commit messages alone - READ the actual code
+2. **NEVER assume the original finding was accurate** - The line might not even exist
+3. **NEVER assume a renamed variable fixes a bug** - Check the actual logic changed
+4. **NEVER assume "file was modified" means "issue was fixed"** - Verify the specific fix
+
+**You MUST:**
+- Read the actual code at the cited location
+- Verify the problematic pattern no longer exists (for resolved)
+- Verify the pattern still exists (for unresolved)
+- Check surrounding context for alternative fixes you might miss
 
 ## Resolution Criteria
 
@@ -101,23 +115,20 @@ Return verifications in this structure:
   {
     "finding_id": "SEC-001",
     "status": "resolved",
-    "confidence": 0.92,
-    "evidence": "The SQL query at line 45 now uses parameterized queries instead of string concatenation. The fix properly escapes all user inputs.",
-    "resolution_notes": "Changed from f-string to cursor.execute() with parameters"
+    "evidence": "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))",
+    "resolution_notes": "Changed from f-string to cursor.execute() with parameters. The code at line 45 now uses parameterized queries."
   },
   {
     "finding_id": "QUAL-002",
     "status": "partially_resolved",
-    "confidence": 0.75,
-    "evidence": "Error handling was added for the main path, but the fallback path at line 78 still lacks try-catch.",
+    "evidence": "try:\n    result = process(data)\nexcept Exception as e:\n    log.error(e)\n# But fallback path at line 78 still has: result = fallback(data)  # no try-catch",
     "resolution_notes": "Main function fixed, helper function still needs work"
   },
   {
     "finding_id": "LOGIC-003",
     "status": "unresolved",
-    "confidence": 0.88,
-    "evidence": "The off-by-one error remains. The loop still uses `<= length` instead of `< length`.",
-    "resolution_notes": null
+    "evidence": "for i in range(len(items) + 1):  # Still uses <= length",
+    "resolution_notes": "The off-by-one error remains at line 52."
   }
 ]
 ```

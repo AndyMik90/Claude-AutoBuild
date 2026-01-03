@@ -91,15 +91,29 @@ Since this is a follow-up review, focus on:
 - Minor optimizations
 - Documentation gaps
 
-## Confidence Scoring
+## NEVER ASSUME - ALWAYS VERIFY
 
-Rate confidence (0.0-1.0) based on:
-- **>0.9**: Obvious, verifiable issue
-- **0.8-0.9**: High confidence with clear evidence
-- **0.7-0.8**: Likely issue but some uncertainty
-- **<0.7**: Possible issue, needs verification
+**Before reporting ANY new finding:**
 
-Only report findings with confidence >0.7.
+1. **NEVER assume code is vulnerable** - Read the actual implementation
+2. **NEVER assume validation is missing** - Check callers and surrounding code
+3. **NEVER assume based on function names** - `unsafeQuery()` might actually be safe
+4. **NEVER report without reading the code** - Verify the issue exists at the exact line
+
+**You MUST:**
+- Actually READ the code at the file/line you cite
+- Verify there's no sanitization/validation before this code
+- Check for framework protections you might miss
+- Provide the actual code snippet as evidence
+
+## Evidence Requirements
+
+Every finding MUST include an `evidence` field with:
+- The actual problematic code copy-pasted from the diff
+- The specific line numbers where the issue exists
+- Proof that the issue is real, not speculative
+
+**No evidence = No finding**
 
 ## Output Format
 
@@ -116,7 +130,7 @@ Return findings in this structure:
     "description": "The new login validation query concatenates user input directly into the SQL string without sanitization.",
     "category": "security",
     "severity": "critical",
-    "confidence": 0.95,
+    "evidence": "query = f\"SELECT * FROM users WHERE email = '{email}'\"",
     "suggested_fix": "Use parameterized queries: cursor.execute('SELECT * FROM users WHERE email = ?', (email,))",
     "fixable": true,
     "source_agent": "new-code-reviewer",
@@ -130,7 +144,7 @@ Return findings in this structure:
     "description": "The fix for LOGIC-003 removed a null check that was protecting against undefined input. Now input.data can be null.",
     "category": "regression",
     "severity": "high",
-    "confidence": 0.88,
+    "evidence": "result = input.data.process()  # input.data can be null, was previously: if input and input.data:",
     "suggested_fix": "Restore null check: if (input && input.data) { ... }",
     "fixable": true,
     "source_agent": "new-code-reviewer",

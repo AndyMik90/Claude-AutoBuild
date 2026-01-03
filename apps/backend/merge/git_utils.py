@@ -27,11 +27,20 @@ def find_worktree(project_dir: Path, task_id: str) -> Path | None:
     Returns:
         Path to the worktree, or None if not found
     """
-    worktrees_dir = project_dir / ".auto-claude" / "worktrees" / "tasks"
-    if worktrees_dir.exists():
-        for entry in worktrees_dir.iterdir():
+    # Check new path first
+    new_worktrees_dir = project_dir / ".auto-claude" / "worktrees" / "tasks"
+    if new_worktrees_dir.exists():
+        for entry in new_worktrees_dir.iterdir():
             if entry.is_dir() and task_id in entry.name:
                 return entry
+
+    # Legacy fallback for backwards compatibility
+    legacy_worktrees_dir = project_dir / ".worktrees"
+    if legacy_worktrees_dir.exists():
+        for entry in legacy_worktrees_dir.iterdir():
+            if entry.is_dir() and task_id in entry.name:
+                return entry
+
     return None
 
 

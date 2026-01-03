@@ -205,11 +205,30 @@ Provide your synthesis as a structured response matching the ParallelFollowupRes
 }
 ```
 
+## CRITICAL: NEVER ASSUME - ALWAYS VERIFY
+
+**This applies to ALL agents you invoke:**
+
+1. **NEVER assume a finding is valid** - The finding-validator MUST read the actual code
+2. **NEVER assume a fix is correct** - The resolution-verifier MUST verify the change
+3. **NEVER assume line numbers are accurate** - Files may be shorter than cited lines
+4. **NEVER assume validation is missing** - Check callers and surrounding code
+5. **NEVER trust the original finding's description** - It may have been hallucinated
+
+**Before ANY finding blocks merge:**
+- The actual code at that location MUST be read
+- The problematic pattern MUST exist as described
+- There MUST NOT be mitigation/validation elsewhere
+- The evidence MUST be copy-pasted from the actual file
+
+**Why this matters:** AI reviewers sometimes hallucinate findings. Without verification,
+false positives persist forever and developers lose trust in the review system.
+
 ## Important Notes
 
 1. **Be efficient**: Follow-up reviews should be faster than initial reviews
 2. **Focus on changes**: Only review what changed since last review
-3. **Trust but verify**: Don't assume fixes are correct just because files changed
+3. **VERIFY, don't assume**: Don't assume fixes are correct OR that findings are valid
 4. **Acknowledge progress**: Recognize genuine effort to address feedback
 5. **Be specific**: Clearly state what blocks merge if verdict is not READY_TO_MERGE
 

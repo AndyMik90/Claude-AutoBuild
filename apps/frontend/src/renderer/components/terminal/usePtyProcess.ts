@@ -29,10 +29,14 @@ export function usePtyProcess({
   // Track cwd changes - if cwd changes while terminal exists, trigger recreate
   useEffect(() => {
     if (currentCwdRef.current !== cwd) {
-      if (isCreatedRef.current) {
-        // Terminal exists, reset refs to allow recreation
+      // Only reset if we're not already in a controlled recreation process.
+      // prepareForRecreate() sets isCreatingRef=true to prevent auto-recreation
+      // while awaiting destroyTerminal(). Without this check, we'd reset isCreatingRef
+      // back to false before destroyTerminal completes, causing a race condition
+      // where a new PTY is created before the old one is destroyed.
+      if (isCreatedRef.current && !isCreatingRef.current) {
+        // Terminal exists and we're not in a controlled recreation, reset refs
         isCreatedRef.current = false;
-        isCreatingRef.current = false;
       }
       currentCwdRef.current = cwd;
     }
