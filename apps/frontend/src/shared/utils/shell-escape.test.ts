@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectShellType, buildCdCommandForShell, escapeShellArgPowerShell } from './shell-escape';
+import { detectShellType, buildCdCommand, buildCdCommandForShell, escapeShellArgPowerShell } from './shell-escape';
 
 describe('detectShellType', () => {
   describe('PowerShell detection', () => {
@@ -144,6 +144,72 @@ describe('detectShellType', () => {
     it('should default to bash for random path', () => {
       const result = detectShellType('/some/random/path');
       expect(result).toBe('bash');
+    });
+  });
+});
+
+describe('buildCdCommand (backward compatibility)', () => {
+  describe('function existence and behavior', () => {
+    it('should exist and be exported', () => {
+      expect(typeof buildCdCommand).toBe('function');
+    });
+
+    it('should return empty string for undefined path', () => {
+      const result = buildCdCommand(undefined);
+      expect(result).toBe('');
+    });
+
+    it('should return empty string for empty path', () => {
+      const result = buildCdCommand('');
+      expect(result).toBe('');
+    });
+
+    it('should generate cd command with single quotes', () => {
+      const result = buildCdCommand('/home/user');
+      expect(result).toBe("cd '/home/user' && ");
+    });
+
+    it('should escape single quotes with POSIX escaping', () => {
+      const result = buildCdCommand("/home/user's folder");
+      expect(result).toBe("cd '/home/user'\\''s folder' && ");
+    });
+
+    it('should handle paths with spaces', () => {
+      const result = buildCdCommand('/home/user/my documents');
+      expect(result).toBe("cd '/home/user/my documents' && ");
+    });
+
+    it('should handle paths with special characters', () => {
+      const result = buildCdCommand('/home/user/$HOME');
+      expect(result).toBe("cd '/home/user/$HOME' && ");
+    });
+  });
+
+  describe('equivalence with buildCdCommandForShell for bash', () => {
+    it('should produce identical output to buildCdCommandForShell with bash shell', () => {
+      const testPaths = [
+        '/home/user',
+        "/home/user's folder",
+        '/home/user/my documents',
+        '/home/user/$HOME',
+        'C:\\Users\\test',
+        '/usr/local/bin',
+        "it's John's folder",
+        '/',
+        ''
+      ];
+
+      testPaths.forEach(path => {
+        const oldResult = buildCdCommand(path || undefined);
+        const newResult = buildCdCommandForShell(path || undefined, 'bash');
+        expect(oldResult).toBe(newResult);
+      });
+    });
+
+    it('should produce identical output for undefined path', () => {
+      const oldResult = buildCdCommand(undefined);
+      const newResult = buildCdCommandForShell(undefined, 'bash');
+      expect(oldResult).toBe(newResult);
     });
   });
 });
