@@ -66,7 +66,7 @@ async def bash_security_hook(
         return {}
 
     # Get the working directory from input_data (SDK passes it there, not in context)
-    cwd = input_data.get("cwd", os.getcwd())
+    cwd = input_data.get("cwd") or os.getcwd()
 
     # Get or create security profile
     # Note: In actual use, spec_dir would be passed through context

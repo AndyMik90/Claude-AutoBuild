@@ -75,6 +75,7 @@ const COMMON_BIN_PATHS: Record<string, string[]> = {
     '/usr/bin',               // System binaries (Python, etc.)
     '/snap/bin',              // Snap packages
     '~/.local/bin',           // User-local binaries
+    '~/.dotnet/tools',        // .NET global tools
     '/usr/sbin',              // System admin binaries
   ],
   win32: [
