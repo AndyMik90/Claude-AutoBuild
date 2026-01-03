@@ -996,12 +996,14 @@ async function detectInstalledTools(): Promise<DetectedTools> {
             if (version && version.length < 20) { // Sanity check - version strings shouldn't be too long
               versionInfo = ` (${version})`;
             }
-          } catch {
+          } catch (err) {
             // Version detection failed, continue without version info
+            console.warn(`[worktree-handlers] PowerShell version detection failed for ${id}:`, err);
           }
         }
-      } catch {
+      } catch (err) {
         // Version detection failed, continue without version info
+        console.warn('[worktree-handlers] PowerShell version detection failed unexpectedly:', err);
       }
 
       terminals.push({
