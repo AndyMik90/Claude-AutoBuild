@@ -602,20 +602,32 @@ class CLIToolManager {
       try {
         if (existsSync(nvmVersionsDir)) {
           const nodeVersions = readdirSync(nvmVersionsDir, { withFileTypes: true });
-          for (const entry of nodeVersions) {
-            if (entry.isDirectory() && entry.name.startsWith('v')) {
-              const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
-              if (existsSync(nvmClaudePath)) {
-                const validation = this.validateClaude(nvmClaudePath);
-                if (validation.valid) {
-                  return {
-                    found: true,
-                    path: nvmClaudePath,
-                    version: validation.version,
-                    source: 'nvm',
-                    message: `Using NVM Claude CLI: ${nvmClaudePath}`,
-                  };
+          const versionDirs = nodeVersions
+            .filter((entry) => entry.isDirectory() && entry.name.startsWith('v'))
+            .sort((a, b) => {
+              const vA = a.name.slice(1).split('.').map(Number);
+              const vB = b.name.slice(1).split('.').map(Number);
+              for (let i = 0; i < 3; i++) {
+                const diff = (vB[i] ?? 0) - (vA[i] ?? 0);
+                if (diff !== 0) {
+                  return diff;
                 }
+              }
+              return 0;
+            });
+
+          for (const entry of versionDirs) {
+            const nvmClaudePath = path.join(nvmVersionsDir, entry.name, 'bin', 'claude');
+            if (existsSync(nvmClaudePath)) {
+              const validation = this.validateClaude(nvmClaudePath);
+              if (validation.valid) {
+                return {
+                  found: true,
+                  path: nvmClaudePath,
+                  version: validation.version,
+                  source: 'nvm',
+                  message: `Using NVM Claude CLI: ${nvmClaudePath}`,
+                };
               }
             }
           }
