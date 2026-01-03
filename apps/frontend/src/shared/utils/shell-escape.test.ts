@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectShellType, buildCdCommand, buildCdCommandForShell, escapeShellArgPowerShell } from './shell-escape';
+import { detectShellType, buildCdCommand, buildCdCommandForShell, escapeShellArgPowerShell, escapeShellArg, escapeShellArgWindows, isPathSafe } from './shell-escape';
 
 describe('detectShellType', () => {
   describe('PowerShell detection', () => {
@@ -590,6 +590,245 @@ describe('escapeShellArgPowerShell', () => {
     it('should handle drive root', () => {
       const result = escapeShellArgPowerShell('C:\\');
       expect(result).toBe("'C:\\'");
+    });
+  });
+
+  describe('newline injection prevention', () => {
+    it('should strip newlines from input', () => {
+      const result = escapeShellArgPowerShell("path\nwith\nnewlines");
+      expect(result).toBe("'pathwithnewlines'");
+    });
+
+    it('should strip carriage returns from input', () => {
+      const result = escapeShellArgPowerShell("path\r\nwith\r\ncrlf");
+      expect(result).toBe("'pathwithcrlf'");
+    });
+
+    it('should prevent command injection via newlines', () => {
+      const result = escapeShellArgPowerShell("safe\n; Remove-Item -Recurse /");
+      // Newlines are stripped, so the result is the concatenated string
+      expect(result).toBe("'safe; Remove-Item -Recurse /'");
+    });
+  });
+});
+
+describe('escapeShellArg (POSIX)', () => {
+  describe('basic escaping', () => {
+    it('should wrap simple string in single quotes', () => {
+      const result = escapeShellArg('hello');
+      expect(result).toBe("'hello'");
+    });
+
+    it('should handle empty string', () => {
+      const result = escapeShellArg('');
+      expect(result).toBe("''");
+    });
+
+    it('should handle strings with spaces', () => {
+      const result = escapeShellArg('hello world');
+      expect(result).toBe("'hello world'");
+    });
+
+    it('should handle Unix paths', () => {
+      const result = escapeShellArg('/home/user/folder');
+      expect(result).toBe("'/home/user/folder'");
+    });
+  });
+
+  describe('single quote escaping', () => {
+    it('should escape single quote with POSIX escaping', () => {
+      const result = escapeShellArg("it's");
+      expect(result).toBe("'it'\\''s'");
+    });
+
+    it('should escape multiple single quotes', () => {
+      const result = escapeShellArg("it's John's folder");
+      expect(result).toBe("'it'\\''s John'\\''s folder'");
+    });
+  });
+
+  describe('security: command injection prevention', () => {
+    it('should neutralize command substitution with $()', () => {
+      const result = escapeShellArg('$(rm -rf /)');
+      expect(result).toBe("'$(rm -rf /)'");
+    });
+
+    it('should neutralize backtick command substitution', () => {
+      const result = escapeShellArg('`rm -rf /`');
+      expect(result).toBe("'`rm -rf /`'");
+    });
+
+    it('should neutralize semicolon command separator', () => {
+      const result = escapeShellArg('safe; rm -rf /');
+      expect(result).toBe("'safe; rm -rf /'");
+    });
+
+    it('should neutralize pipe', () => {
+      const result = escapeShellArg('safe | cat /etc/passwd');
+      expect(result).toBe("'safe | cat /etc/passwd'");
+    });
+
+    it('should neutralize variable expansion', () => {
+      const result = escapeShellArg('$HOME');
+      expect(result).toBe("'$HOME'");
+    });
+  });
+
+  describe('newline injection prevention', () => {
+    it('should strip newlines from input', () => {
+      const result = escapeShellArg("path\nwith\nnewlines");
+      expect(result).toBe("'pathwithnewlines'");
+    });
+
+    it('should strip carriage returns from input', () => {
+      const result = escapeShellArg("path\r\nwith\r\ncrlf");
+      expect(result).toBe("'pathwithcrlf'");
+    });
+
+    it('should prevent command injection via newlines', () => {
+      const result = escapeShellArg("safe\nrm -rf /");
+      expect(result).toBe("'saferm -rf /'");
+    });
+  });
+});
+
+describe('escapeShellArgWindows (cmd.exe)', () => {
+  describe('basic escaping', () => {
+    it('should escape double quotes with caret', () => {
+      const result = escapeShellArgWindows('say "hello"');
+      expect(result).toBe('say ^"hello^"');
+    });
+
+    it('should escape ampersand with caret', () => {
+      const result = escapeShellArgWindows('Tom & Jerry');
+      expect(result).toBe('Tom ^& Jerry');
+    });
+
+    it('should escape pipe with caret', () => {
+      const result = escapeShellArgWindows('foo | bar');
+      expect(result).toBe('foo ^| bar');
+    });
+
+    it('should escape redirect characters with caret', () => {
+      const result = escapeShellArgWindows('a < b > c');
+      expect(result).toBe('a ^< b ^> c');
+    });
+
+    it('should escape percent by doubling', () => {
+      const result = escapeShellArgWindows('100%');
+      expect(result).toBe('100%%');
+    });
+
+    it('should escape caret by doubling', () => {
+      const result = escapeShellArgWindows('a^b');
+      expect(result).toBe('a^^b');
+    });
+  });
+
+  describe('complex escaping', () => {
+    it('should handle multiple special characters', () => {
+      const result = escapeShellArgWindows('Tom & Jerry (50%) "test"');
+      expect(result).toBe('Tom ^& Jerry (50%%) ^"test^"');
+    });
+
+    it('should escape caret before other characters', () => {
+      const result = escapeShellArgWindows('^"test^"');
+      expect(result).toBe('^^^"test^^^"');
+    });
+  });
+
+  describe('newline injection prevention', () => {
+    it('should strip newlines from input', () => {
+      const result = escapeShellArgWindows("path\nwith\nnewlines");
+      expect(result).toBe('pathwithnewlines');
+    });
+
+    it('should strip carriage returns from input', () => {
+      const result = escapeShellArgWindows("path\r\nwith\r\ncrlf");
+      expect(result).toBe('pathwithcrlf');
+    });
+
+    it('should prevent command injection via newlines', () => {
+      const result = escapeShellArgWindows("safe\ndel /f /s /q C:\\");
+      expect(result).toBe('safedel /f /s /q C:\\');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle empty string', () => {
+      const result = escapeShellArgWindows('');
+      expect(result).toBe('');
+    });
+
+    it('should handle path with no special characters', () => {
+      const result = escapeShellArgWindows('C:\\Users\\test');
+      expect(result).toBe('C:\\Users\\test');
+    });
+  });
+});
+
+describe('isPathSafe', () => {
+  describe('safe paths', () => {
+    it('should return true for simple Unix path', () => {
+      expect(isPathSafe('/home/user/folder')).toBe(true);
+    });
+
+    it('should return true for simple Windows path', () => {
+      expect(isPathSafe('C:\\Users\\test')).toBe(true);
+    });
+
+    it('should return true for path with spaces', () => {
+      expect(isPathSafe('/home/user/my folder')).toBe(true);
+    });
+
+    it('should return true for path with parentheses', () => {
+      expect(isPathSafe('C:\\Program Files (x86)')).toBe(true);
+    });
+
+    it('should return true for path with single quotes', () => {
+      expect(isPathSafe("/home/user's folder")).toBe(true);
+    });
+  });
+
+  describe('suspicious paths', () => {
+    it('should return false for command substitution $()', () => {
+      expect(isPathSafe('/home/$(whoami)')).toBe(false);
+    });
+
+    it('should return false for backtick command substitution', () => {
+      expect(isPathSafe('/home/`whoami`')).toBe(false);
+    });
+
+    it('should return false for pipe', () => {
+      expect(isPathSafe('/home/user | cat')).toBe(false);
+    });
+
+    it('should return false for semicolon', () => {
+      expect(isPathSafe('/home/user; rm')).toBe(false);
+    });
+
+    it('should return false for AND operator', () => {
+      expect(isPathSafe('/home/user && rm')).toBe(false);
+    });
+
+    it('should return false for OR operator', () => {
+      expect(isPathSafe('/home/user || rm')).toBe(false);
+    });
+
+    it('should return false for output redirection', () => {
+      expect(isPathSafe('/home/user > file')).toBe(false);
+    });
+
+    it('should return false for input redirection', () => {
+      expect(isPathSafe('/home/user < file')).toBe(false);
+    });
+
+    it('should return false for newline', () => {
+      expect(isPathSafe("/home/user\nrm")).toBe(false);
+    });
+
+    it('should return false for carriage return', () => {
+      expect(isPathSafe("/home/user\rrm")).toBe(false);
     });
   });
 });

@@ -84,9 +84,11 @@ export function detectShellType(shellPath: string): ShellType {
  * @returns The escaped argument wrapped in single quotes
  */
 export function escapeShellArg(arg: string): string {
-  // Replace single quotes with: end quote, escaped quote, start quote
+  // Remove newlines and carriage returns to prevent command injection
+  // Then replace single quotes with: end quote, escaped quote, start quote
   // This is the standard POSIX-safe way to handle single quotes
-  const escaped = arg.replace(/'/g, "'\\''");
+  const sanitized = arg.replace(/[\r\n]/g, '');
+  const escaped = sanitized.replace(/'/g, "'\\''");
   return `'${escaped}'`;
 }
 
@@ -172,6 +174,7 @@ export function escapeShellArgWindows(arg: string): string {
   // ^ is the escape character in cmd.exe
   // " & | < > ^ need to be escaped
   // % is used for variable expansion
+  // \n \r could allow command injection via newlines
   const escaped = arg
     .replace(/\^/g, '^^')     // Escape carets first (escape char itself)
     .replace(/"/g, '^"')      // Escape double quotes
@@ -179,7 +182,9 @@ export function escapeShellArgWindows(arg: string): string {
     .replace(/\|/g, '^|')     // Escape pipe
     .replace(/</g, '^<')      // Escape less than
     .replace(/>/g, '^>')      // Escape greater than
-    .replace(/%/g, '%%');     // Escape percent (variable expansion)
+    .replace(/%/g, '%%')      // Escape percent (variable expansion)
+    .replace(/\r/g, '')       // Remove carriage returns (prevent injection)
+    .replace(/\n/g, '');      // Remove newlines (prevent injection)
 
   return escaped;
 }
@@ -202,9 +207,11 @@ export function escapeShellArgWindows(arg: string): string {
  * @returns The escaped argument wrapped in single quotes for PowerShell
  */
 export function escapeShellArgPowerShell(arg: string): string {
+  // Remove newlines and carriage returns to prevent command injection
   // In PowerShell single-quoted strings, only single quotes need escaping
   // They are escaped by doubling them: ' → ''
-  const escaped = arg.replace(/'/g, "''");
+  const sanitized = arg.replace(/[\r\n]/g, '');
+  const escaped = sanitized.replace(/'/g, "''");
   return `'${escaped}'`;
 }
 

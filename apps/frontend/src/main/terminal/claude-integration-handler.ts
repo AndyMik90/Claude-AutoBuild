@@ -377,7 +377,10 @@ export function invokeClaude(
       if (effectiveShell === 'bash' || effectiveShell === 'zsh' || effectiveShell === 'fish' || effectiveShell === 'sh') {
         const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}`);
         debugLog('[ClaudeIntegration:invokeClaude] Writing token to temp file:', tempFile);
-        fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN="${token}"\n`, { mode: 0o600 });
+        // SECURITY: Use single quotes to prevent any variable expansion or command substitution
+        // Escape any single quotes in the token using POSIX escaping: ' → '\''
+        const escapedTokenForExport = token.replace(/'/g, "'\\''");
+        fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN='${escapedTokenForExport}'\n`, { mode: 0o600 });
 
         // Build shell-appropriate command using helper function
         const command = buildTokenCommand(token, tempFile, effectiveShell, cwdCommand);
