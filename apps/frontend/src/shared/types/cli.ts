@@ -17,6 +17,7 @@ export interface ToolDetectionResult {
     | 'user-config'
     | 'venv'
     | 'homebrew'
+    | 'nvm'
     | 'system-path'
     | 'bundled'
     | 'fallback';
