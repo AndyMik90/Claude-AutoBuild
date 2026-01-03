@@ -1725,6 +1725,8 @@ export function registerWorktreeHandlers(
                       plan.stagedAt = new Date().toISOString();
                       plan.stagedInMainProject = true;
                     }
+                    // Ensure parent directory exists before writing
+                    await fsPromises.mkdir(path.dirname(planPath), { recursive: true });
                     await fsPromises.writeFile(planPath, JSON.stringify(plan, null, 2));
 
                     // Verify the write succeeded by reading back
