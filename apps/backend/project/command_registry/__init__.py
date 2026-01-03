@@ -18,7 +18,16 @@ This package is organized into focused modules:
 - version_managers: Runtime version management tools
 """
 
-from .base import BASE_COMMANDS, VALIDATED_COMMANDS
+from .base import (
+    BASE_COMMANDS,
+    DANGEROUS_COMMANDS,
+    NETWORK_COMMANDS,
+    SAFE_COMMANDS,
+    VALIDATED_COMMANDS,
+    get_base_commands,
+    get_validated_commands,
+    is_strict_mode,
+)
 from .cloud import CLOUD_COMMANDS
 from .code_quality import CODE_QUALITY_COMMANDS
 from .databases import DATABASE_COMMANDS
@@ -32,6 +41,13 @@ __all__ = [
     # Base commands
     "BASE_COMMANDS",
     "VALIDATED_COMMANDS",
+    # Security mode support
+    "SAFE_COMMANDS",
+    "DANGEROUS_COMMANDS",
+    "NETWORK_COMMANDS",
+    "get_base_commands",
+    "get_validated_commands",
+    "is_strict_mode",
     # Technology-specific command registries
     "LANGUAGE_COMMANDS",
     "PACKAGE_MANAGER_COMMANDS",

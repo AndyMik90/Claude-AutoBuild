@@ -20,7 +20,7 @@ Public API:
 """
 
 from .analyzer import ProjectAnalyzer
-from .command_registry import BASE_COMMANDS, VALIDATED_COMMANDS
+from .command_registry import BASE_COMMANDS, VALIDATED_COMMANDS, get_validated_commands
 from .models import CustomScripts, SecurityProfile, TechnologyStack
 
 __all__ = [
@@ -104,7 +104,10 @@ def needs_validation(command: str) -> str | None:
     """
     Check if a command needs extra validation.
 
+    Uses get_validated_commands() to include strict mode validators
+    (curl/wget) when SECURITY_STRICT_MODE is enabled.
+
     Returns:
         Validation function name or None
     """
-    return VALIDATED_COMMANDS.get(command)
+    return get_validated_commands().get(command)
