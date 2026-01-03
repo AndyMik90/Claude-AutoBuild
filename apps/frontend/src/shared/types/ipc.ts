@@ -50,7 +50,10 @@ import type {
   SessionDateRestoreResult,
   RateLimitInfo,
   SDKRateLimitInfo,
-  RetryWithProfileRequest
+  RetryWithProfileRequest,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from './terminal';
 import type {
   ClaudeProfileSettings,
@@ -199,6 +202,11 @@ export interface ElectronAPI {
   restoreTerminalSessionsFromDate: (date: string, projectPath: string, cols?: number, rows?: number) => Promise<IPCResult<SessionDateRestoreResult>>;
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+
+  // Terminal worktree operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
 
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;

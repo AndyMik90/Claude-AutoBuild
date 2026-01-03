@@ -33,8 +33,9 @@ except (ImportError, ValueError, SystemError):
         TriageResult,
     )
 
-# Confidence threshold for filtering findings (GitHub Copilot standard)
-CONFIDENCE_THRESHOLD = 0.80
+# Evidence-based validation replaces confidence scoring
+# Findings without evidence are filtered out instead of using confidence thresholds
+MIN_EVIDENCE_LENGTH = 20  # Minimum chars for evidence to be considered valid
 
 
 class ResponseParser:
@@ -65,9 +66,13 @@ class ResponseParser:
 
     @staticmethod
     def parse_review_findings(
-        response_text: str, apply_confidence_filter: bool = True
+        response_text: str, require_evidence: bool = True
     ) -> list[PRReviewFinding]:
-        """Parse findings from AI response with optional confidence filtering."""
+        """Parse findings from AI response with optional evidence validation.
+
+        Evidence-based validation: Instead of confidence scores, findings
+        require actual code evidence proving the issue exists.
+        """
         findings = []
 
         try:
@@ -77,14 +82,14 @@ class ResponseParser:
             if json_match:
                 findings_data = json.loads(json_match.group(1))
                 for i, f in enumerate(findings_data):
-                    # Get confidence (default to 0.85 if not provided for backward compat)
-                    confidence = float(f.get("confidence", 0.85))
+                    # Get evidence (code snippet proving the issue)
+                    evidence = f.get("evidence") or f.get("code_snippet") or ""
 
-                    # Apply confidence threshold filter
-                    if apply_confidence_filter and confidence < CONFIDENCE_THRESHOLD:
+                    # Apply evidence-based validation
+                    if require_evidence and len(evidence.strip()) < MIN_EVIDENCE_LENGTH:
                         print(
                             f"[AI] Dropped finding '{f.get('title', 'unknown')}': "
-                            f"confidence {confidence:.2f} < {CONFIDENCE_THRESHOLD}",
+                            f"insufficient evidence ({len(evidence.strip())} chars < {MIN_EVIDENCE_LENGTH})",
                             flush=True,
                         )
                         continue
@@ -105,8 +110,8 @@ class ResponseParser:
                             end_line=f.get("end_line"),
                             suggested_fix=f.get("suggested_fix"),
                             fixable=f.get("fixable", False),
-                            # NEW: Support verification and redundancy fields
-                            confidence=confidence,
+                            # Evidence-based validation fields
+                            evidence=evidence if evidence.strip() else None,
                             verification_note=f.get("verification_note"),
                             redundant_with=f.get("redundant_with"),
                         )

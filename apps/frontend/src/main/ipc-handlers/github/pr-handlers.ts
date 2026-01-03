@@ -101,6 +101,7 @@ export interface PRReviewResult {
   error?: string;
   // Follow-up review fields
   reviewedCommitSha?: string;
+  reviewedFileBlobs?: Record<string, string>; // filename → blob SHA for rebase-resistant follow-ups
   isFollowupReview?: boolean;
   previousReviewId?: number;
   resolvedFindings?: string[];
@@ -542,6 +543,7 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       error: data.error,
       // Follow-up review fields (snake_case -> camelCase)
       reviewedCommitSha: data.reviewed_commit_sha,
+      reviewedFileBlobs: data.reviewed_file_blobs,
       isFollowupReview: data.is_followup_review ?? false,
       previousReviewId: data.previous_review_id,
       resolvedFindings: data.resolved_findings ?? [],
