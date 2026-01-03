@@ -604,10 +604,12 @@ async def run_agent_session(
                 # Success: Save and notify user
                 if save_credentials(new_creds):
                     logger.info("Token refreshed successfully")
+                    print_status("OAuth token was expired and has been refreshed", "success")
                 else:
                     logger.warning("Token refreshed but failed to save")
+                    print_status("Token refreshed but failed to save to credential store", "warning")
+                    print("   You may need to re-authenticate on next run.")
 
-                print_status("OAuth token was expired and has been refreshed", "success")
                 print("   The current operation was interrupted mid-request.")
                 print("   Please retry your command to continue.\n")
                 # Return "error" so callers stop gracefully - user must retry manually
