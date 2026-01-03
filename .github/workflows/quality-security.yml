@@ -75,7 +75,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Analyze Bandit results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -150,7 +150,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check security results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const codeql = '${{ needs.codeql.result }}';
