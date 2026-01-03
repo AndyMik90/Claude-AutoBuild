@@ -580,6 +580,8 @@ export function App() {
   };
 
   const handleInitialize = async () => {
+    // Prevent concurrent initializations from rapid clicks
+    if (isInitializing) return;
     if (!pendingProject) return;
 
     const projectId = pendingProject.id;
@@ -599,11 +601,12 @@ export function App() {
 
         // Mark as successful to prevent onOpenChange from treating this as a skip
         setInitSuccess(true);
-        setIsInitializing(false);
 
-        // Now close the dialog
+        // Close dialog and clear pending project BEFORE re-enabling button
+        // This prevents race condition where button is briefly clickable while dialog is visible
         setShowInitDialog(false);
         setPendingProject(null);
+        setIsInitializing(false);
 
         // Show GitHub setup modal
         if (updatedProject) {
