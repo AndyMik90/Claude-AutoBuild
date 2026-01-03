@@ -185,7 +185,7 @@ export function MemoryBackendSection({
               onValueChange={(value) => onUpdateConfig({
                 graphitiProviderConfig: {
                   ...envConfig.graphitiProviderConfig,
-                  embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google',
+                  embeddingProvider: value as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter',
                 }
               })}
             >
@@ -198,6 +198,7 @@ export function MemoryBackendSection({
                 <SelectItem value="voyage">Voyage AI</SelectItem>
                 <SelectItem value="google">Google AI</SelectItem>
                 <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                <SelectItem value="openrouter">OpenRouter</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -288,6 +289,43 @@ export function MemoryBackendSection({
                   }
                 })}
                 placeholder="AIzaSy..."
+              />
+            </div>
+          )}
+
+          {/* OpenRouter */}
+          {embeddingProvider === 'openrouter' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-foreground">
+                  OpenRouter API Key {envConfig.openrouterKeyIsGlobal ? '(Override)' : ''}
+                </Label>
+                {envConfig.openrouterKeyIsGlobal && (
+                  <span className="flex items-center gap-1 text-xs text-info">
+                    <Globe className="h-3 w-3" />
+                    Using global key
+                  </span>
+                )}
+              </div>
+              {envConfig.openrouterKeyIsGlobal ? (
+                <p className="text-xs text-muted-foreground">
+                  Using key from App Settings. Enter a project-specific key below to override.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Required for OpenRouter embeddings
+                </p>
+              )}
+              <PasswordInput
+                value={envConfig.openrouterKeyIsGlobal ? '' : (envConfig.graphitiProviderConfig?.openrouterApiKey || '')}
+                onChange={(value) => onUpdateConfig({
+                  graphitiProviderConfig: {
+                    ...envConfig.graphitiProviderConfig,
+                    embeddingProvider: 'openrouter',
+                    openrouterApiKey: value || undefined,
+                  }
+                })}
+                placeholder={envConfig.openrouterKeyIsGlobal ? 'Enter to override global key...' : 'sk-or-...'}
               />
             </div>
           )}

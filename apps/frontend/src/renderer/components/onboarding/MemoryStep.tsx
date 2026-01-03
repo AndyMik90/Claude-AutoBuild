@@ -41,6 +41,7 @@ const EMBEDDING_PROVIDERS: Array<{
   { id: 'voyage', name: 'Voyage AI', description: 'voyage-3 (high quality)', requiresApiKey: true },
   { id: 'google', name: 'Google AI', description: 'text-embedding-004', requiresApiKey: true },
   { id: 'azure_openai', name: 'Azure OpenAI', description: 'Enterprise deployment', requiresApiKey: true },
+  { id: 'openrouter', name: 'OpenRouter', description: 'Multi-provider API', requiresApiKey: true },
 ];
 
 interface MemoryConfig {
@@ -48,6 +49,8 @@ interface MemoryConfig {
   embeddingProvider: GraphitiEmbeddingProvider;
   // OpenAI
   openaiApiKey: string;
+  // OpenRouter
+  openrouterApiKey: string;
   // Azure OpenAI
   azureOpenaiApiKey: string;
   azureOpenaiBaseUrl: string;
@@ -75,8 +78,9 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [config, setConfig] = useState<MemoryConfig>({
     database: 'auto_claude_memory',
-    embeddingProvider: 'ollama',
+    embeddingProvider: 'openai', // Default to 'openai' per .env.example, will be updated from .env on mount
     openaiApiKey: settings.globalOpenAIApiKey || '',
+    openrouterApiKey: settings.globalOpenRouterApiKey || '',
     azureOpenaiApiKey: '',
     azureOpenaiBaseUrl: '',
     azureOpenaiEmbeddingDeployment: '',
@@ -92,13 +96,32 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
   const [isCheckingInfra, setIsCheckingInfra] = useState(true);
   const [kuzuAvailable, setKuzuAvailable] = useState<boolean | null>(null);
 
-  // Check LadybugDB/Kuzu availability on mount
+  // Check LadybugDB/Kuzu availability and read .env embedding config on mount
   useEffect(() => {
-    const checkInfrastructure = async () => {
+    const initializeConfig = async () => {
       setIsCheckingInfra(true);
       try {
-        const result = await window.electronAPI.getMemoryInfrastructureStatus();
-        setKuzuAvailable(result?.success && result?.data?.memory?.kuzuInstalled ? true : false);
+        // Run both checks in parallel
+        const [infraResult, envConfigResult] = await Promise.all([
+          window.electronAPI.getMemoryInfrastructureStatus(),
+          window.electronAPI.getBackendEnvEmbeddingConfig()
+        ]);
+
+        // Set Kuzu availability
+        setKuzuAvailable(!!(infraResult?.success && infraResult?.data?.memory?.kuzuInstalled));
+
+        // Update config with detected embedding provider from .env
+        if (envConfigResult?.success && envConfigResult?.data) {
+          const detectedProvider = envConfigResult.data.embeddingProvider;
+          // Validate that the detected provider is supported
+          const isValidProvider = EMBEDDING_PROVIDERS.some(p => p.id === detectedProvider);
+          if (detectedProvider && isValidProvider) {
+            setConfig(prev => ({
+              ...prev,
+              embeddingProvider: detectedProvider
+            }));
+          }
+        }
       } catch {
         setKuzuAvailable(false);
       } finally {
@@ -106,7 +129,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
       }
     };
 
-    checkInfrastructure();
+    initializeConfig();
   }, []);
 
   const toggleShowApiKey = (key: string) => {
@@ -124,6 +147,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
 
     // Other providers need API keys
     if (embeddingProvider === 'openai' && !config.openaiApiKey.trim()) return false;
+    if (embeddingProvider === 'openrouter' && !config.openrouterApiKey.trim()) return false;
     if (embeddingProvider === 'voyage' && !config.voyageApiKey.trim()) return false;
     if (embeddingProvider === 'google' && !config.googleApiKey.trim()) return false;
     if (embeddingProvider === 'azure_openai') {
@@ -152,6 +176,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
         ollamaBaseUrl: config.ollamaBaseUrl.trim() || undefined,
         // Global API keys (shared across features)
         globalOpenAIApiKey: config.openaiApiKey.trim() || undefined,
+        globalOpenRouterApiKey: config.openrouterApiKey.trim() || undefined,
         globalGoogleApiKey: config.googleApiKey.trim() || undefined,
         // Provider-specific keys for memory
         memoryVoyageApiKey: config.voyageApiKey.trim() || undefined,
@@ -171,6 +196,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
           memoryOllamaEmbeddingDim: config.ollamaEmbeddingDim || undefined,
           ollamaBaseUrl: config.ollamaBaseUrl.trim() || undefined,
           globalOpenAIApiKey: config.openaiApiKey.trim() || undefined,
+          globalOpenRouterApiKey: config.openrouterApiKey.trim() || undefined,
           globalGoogleApiKey: config.googleApiKey.trim() || undefined,
           memoryVoyageApiKey: config.voyageApiKey.trim() || undefined,
           memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
@@ -250,6 +276,40 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
             Get your key from{' '}
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
               OpenAI
+            </a>
+          </p>
+        </div>
+      );
+    }
+
+    if (embeddingProvider === 'openrouter') {
+      return (
+        <div className="space-y-2">
+          <Label htmlFor="openrouter-key" className="text-sm font-medium text-foreground">
+            OpenRouter API Key
+          </Label>
+          <div className="relative">
+            <Input
+              id="openrouter-key"
+              type={showApiKey['openrouter'] ? 'text' : 'password'}
+              value={config.openrouterApiKey}
+              onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
+              placeholder="sk-or-..."
+              className="pr-10 font-mono text-sm"
+              disabled={isSaving}
+            />
+            <button
+              type="button"
+              onClick={() => toggleShowApiKey('openrouter')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your key from{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+              OpenRouter
             </a>
           </p>
         </div>

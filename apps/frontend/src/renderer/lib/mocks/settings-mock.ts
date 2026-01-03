@@ -34,5 +34,15 @@ export const settingsMock = {
   // App Update Event Listeners (no-op in browser mode)
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
-  onAppUpdateProgress: () => () => {}
+  onAppUpdateProgress: () => () => {},
+
+  // Backend .env Embedding Configuration (mock - defaults to 'openai' per .env.example)
+  getBackendEnvEmbeddingConfig: async () => ({
+    success: true,
+    data: {
+      embeddingProvider: 'openai' as const,
+      envExists: false,
+      sourcePath: undefined
+    }
+  })
 };
