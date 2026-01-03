@@ -274,6 +274,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Anonymous error reporting (Sentry) - enabled by default to help improve the app
+  sentryEnabled?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

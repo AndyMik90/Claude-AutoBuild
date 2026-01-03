@@ -494,5 +494,8 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
-  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Sentry error reporting
+  SENTRY_STATE_CHANGED: 'sentry:state-changed'   // Notify main process when setting changes
 } as const;

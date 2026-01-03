@@ -265,6 +265,9 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // Sentry error reporting
+  notifySentryStateChanged: (enabled: boolean) => void;
   getCliToolsInfo: () => Promise<IPCResult<{
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;

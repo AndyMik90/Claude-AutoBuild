@@ -3,6 +3,7 @@ import type { AppSettings } from '../../shared/types';
 import type { APIProfile, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
+import { markSettingsLoaded } from '../lib/sentry';
 
 interface SettingsState {
   settings: AppSettings;
@@ -347,6 +348,8 @@ export async function loadSettings(): Promise<void> {
     store.setError(error instanceof Error ? error.message : 'Failed to load settings');
   } finally {
     store.setLoading(false);
+    // Mark settings as loaded for Sentry (prevents sending events before we know user preference)
+    markSettingsLoaded();
   }
 }
 

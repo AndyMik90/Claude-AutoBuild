@@ -12,10 +12,14 @@ import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
+import { initSentryMain } from './sentry';
 import type { AppSettings } from '../shared/types';
 
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
+
+// Initialize Sentry for error tracking (respects user's sentryEnabled setting)
+initSentryMain();
 
 /**
  * Load app settings synchronously (for use during startup).
