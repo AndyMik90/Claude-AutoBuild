@@ -183,6 +183,7 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "python3",
         "uv",
         "uvx",
+        "docker",
     }
 
     # Blocklist of dangerous shell commands that should never be allowed

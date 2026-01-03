@@ -12,10 +12,16 @@ import { initializeAppUpdater } from './app-updater';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
+import { getAugmentedEnv } from './env-utils';
 import type { AppSettings } from '../shared/types';
 
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
+
+// Augment PATH at startup for all child processes
+// Fixes macOS Finder/Dock launch where PATH is minimal (/usr/bin:/bin:/usr/sbin:/sbin)
+// This ensures tools like git, gh, docker, claude are found in common locations
+process.env.PATH = getAugmentedEnv().PATH;
 
 /**
  * Load app settings synchronously (for use during startup).

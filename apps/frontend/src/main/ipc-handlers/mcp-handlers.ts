@@ -15,7 +15,7 @@ import { appLog } from '../app-logger';
  * Mirrors the backend SAFE_COMMANDS allowlist to prevent arbitrary command execution
  * even if malicious configs somehow bypass backend validation
  */
-const SAFE_COMMANDS = new Set(['npx', 'npm', 'node', 'python', 'python3', 'uv', 'uvx']);
+const SAFE_COMMANDS = new Set(['npx', 'npm', 'node', 'python', 'python3', 'uv', 'uvx', 'docker']);
 
 /**
  * Defense-in-depth: Dangerous interpreter flags that allow code execution
