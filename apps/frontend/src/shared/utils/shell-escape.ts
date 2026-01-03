@@ -6,6 +6,68 @@
  */
 
 /**
+ * Supported shell types for command generation.
+ * Used to generate shell-appropriate command syntax.
+ */
+export type ShellType = 'powershell' | 'cmd' | 'bash' | 'zsh' | 'fish' | 'sh';
+
+/**
+ * Detect the shell type from a shell path or name.
+ *
+ * Analyzes the shell path to determine which shell type it represents.
+ * This is used to generate shell-appropriate command syntax.
+ *
+ * Examples:
+ * - '/usr/bin/bash' → 'bash'
+ * - '/bin/zsh' → 'zsh'
+ * - 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' → 'powershell'
+ * - 'C:\\Program Files\\PowerShell\\7\\pwsh.exe' → 'powershell'
+ * - 'C:\\Windows\\System32\\cmd.exe' → 'cmd'
+ * - 'C:\\Program Files\\Git\\bin\\bash.exe' → 'bash' (Git Bash)
+ * - '/usr/local/bin/fish' → 'fish'
+ * - unknown path → 'bash' (default fallback)
+ *
+ * @param shellPath - The path to the shell executable or shell name
+ * @returns The detected shell type
+ */
+export function detectShellType(shellPath: string): ShellType {
+  const normalized = shellPath.toLowerCase();
+
+  // PowerShell (both Windows PowerShell 5.1 and PowerShell Core 7+)
+  if (normalized.includes('powershell') || normalized.includes('pwsh')) {
+    return 'powershell';
+  }
+
+  // Windows Command Prompt
+  if (normalized.includes('cmd.exe') || normalized.endsWith('cmd')) {
+    return 'cmd';
+  }
+
+  // Bash (including Git Bash on Windows, WSL bash)
+  if (normalized.includes('bash')) {
+    return 'bash';
+  }
+
+  // Zsh
+  if (normalized.includes('zsh')) {
+    return 'zsh';
+  }
+
+  // Fish shell
+  if (normalized.includes('fish')) {
+    return 'fish';
+  }
+
+  // Bourne shell
+  if (normalized.endsWith('/sh') || normalized.endsWith('\\sh') || normalized === 'sh') {
+    return 'sh';
+  }
+
+  // Default to bash for unknown shells (POSIX-compatible fallback)
+  return 'bash';
+}
+
+/**
  * Escape a string for safe use as a shell argument.
  *
  * Uses single quotes which prevent all shell expansion (variables, command substitution, etc.)
