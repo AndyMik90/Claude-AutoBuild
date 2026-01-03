@@ -45,7 +45,8 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
-                lines = content.split("\n")
+                # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+                lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
                 content = "\n".join(lines)
@@ -96,7 +97,8 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
-        lines = content.split("\n")
+        # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+        lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
             if imp.content_after and imp.content_after not in content:

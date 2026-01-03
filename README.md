@@ -24,11 +24,11 @@
 <!-- STABLE_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.1-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.1-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.1-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.1-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.1-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-amd64.deb) |
+| **Windows** | [Auto-Claude-2.7.2-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Auto-Claude-2.7.2-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-x64.dmg) |
+| **Linux** | [Auto-Claude-2.7.2-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Auto-Claude-2.7.2-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-amd64.deb) |
 <!-- STABLE_DOWNLOADS_END -->
 
 ### Beta Release
