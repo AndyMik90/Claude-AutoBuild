@@ -13,7 +13,11 @@
     "closeFeatureDetailsAriaLabel": "Close feature details",
     "regenerateRoadmapAriaLabel": "Regenerate Roadmap",
     "repositoryOwnerAriaLabel": "Repository owner",
-    "repositoryVisibilityAriaLabel": "Repository visibility"
+    "repositoryVisibilityAriaLabel": "Repository visibility",
+    "opensInNewWindow": "opens in new window",
+    "visitExternalLink": "Visit {{name}} (opens in new window)",
+    "upgradeSubscriptionAriaLabel": "Upgrade subscription (opens in new window)",
+    "learnMoreAriaLabel": "Learn more (opens in new window)"
   },
   "buttons": {
     "save": "Save",

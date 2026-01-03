@@ -61,7 +61,7 @@ const SafeLink = ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLA
     return <span className="text-muted-foreground">{children}</span>;
   }
 
-  // External links get security attributes
+  // External links get security attributes and accessibility indicator
   const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
 
   return (
@@ -75,6 +75,7 @@ const SafeLink = ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLA
       className="text-primary hover:underline"
     >
       {children}
+      {isExternal && <span className="sr-only"> (opens in new window)</span>}
     </a>
   );
 };
