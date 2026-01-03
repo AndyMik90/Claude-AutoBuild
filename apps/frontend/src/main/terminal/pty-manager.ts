@@ -17,8 +17,13 @@ import type { SupportedTerminal } from '../../shared/types/settings';
  */
 const WINDOWS_SHELL_PATHS: Record<string, string[]> = {
   powershell: [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // PowerShell 7 (Core)
     'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',  // Windows PowerShell 5.1
+  ],
+  pwsh: [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // PowerShell 7
+    'C:\\Program Files (x86)\\PowerShell\\7\\pwsh.exe',
+    'C:\\Program Files\\PowerShell\\8\\pwsh.exe',  // PowerShell 8
+    'C:\\Program Files (x86)\\PowerShell\\8\\pwsh.exe',
   ],
   windowsterminal: [
     'C:\\Program Files\\PowerShell\\7\\pwsh.exe',  // Prefer PowerShell Core in Windows Terminal

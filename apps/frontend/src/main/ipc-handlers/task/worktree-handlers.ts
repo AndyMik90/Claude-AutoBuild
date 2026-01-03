@@ -3,7 +3,9 @@ import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_M
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
+import { escapePowerShellCommand } from '../claude-code-handlers';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { scanPowerShellInstallations, isPwshInPath } from '../../../shared/utils/powershell-detection';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
@@ -469,9 +471,18 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
     commands: { darwin: [], win32: ['wt.exe', '-d'], linux: [] }
   },
   powershell: {
-    name: 'PowerShell',
+    name: 'Windows PowerShell',
     paths: { darwin: [], win32: ['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'], linux: [] },
     commands: { darwin: [], win32: ['powershell.exe', '-NoExit', '-Command', 'cd'], linux: [] }
+  },
+  pwsh: {
+    name: 'PowerShell',
+    paths: { 
+      darwin: ['/usr/local/bin/pwsh', '/opt/homebrew/bin/pwsh'], 
+      win32: [], // Dynamically populated via scanPowerShellInstallations() during detection
+      linux: ['/usr/bin/pwsh', '/usr/local/bin/pwsh', '/opt/microsoft/powershell/pwsh'] 
+    },
+    commands: { darwin: ['pwsh'], win32: ['pwsh.exe', '-NoExit', '-Command', 'cd'], linux: ['pwsh'] }
   },
   cmd: {
     name: 'Command Prompt',
@@ -847,6 +858,7 @@ async function detectLinuxApps(): Promise<Set<string>> {
   return apps;
 }
 
+
 /**
  * Check if an app is installed using the cached app list + specific path checks
  */
@@ -952,7 +964,17 @@ async function detectInstalledTools(): Promise<DetectedTools> {
   for (const [id, config] of Object.entries(TERMINAL_DETECTION)) {
     if (id === 'custom' || !config) continue;
 
-    const paths = config.paths[platform] || [];
+    let paths = config.paths[platform] || [];
+    
+    // Dynamically populate PowerShell 7+ paths on Windows by scanning directories
+    if (id === 'pwsh' && platform === 'win32') {
+      paths = scanPowerShellInstallations();
+      // If no PowerShell 7+ found in standard locations, check PATH
+      if (paths.length === 0 && isPwshInPath()) {
+        paths = ['pwsh.exe'];
+      }
+    }
+    
     const searchNames = [
       config.name.toLowerCase(),
       id.toLowerCase(),
@@ -961,7 +983,66 @@ async function detectInstalledTools(): Promise<DetectedTools> {
 
     const { installed, foundPath } = isAppInstalled(searchNames, paths, platform);
 
-    if (installed) {
+    // Special handling for PowerShell versions - get version info
+    if (installed && (id === 'powershell' || id === 'pwsh') && platform === 'win32') {
+      let versionInfo = '';
+      try {
+        // Find the actual executable path
+        let exePath = foundPath;
+        if (!exePath || !existsSync(exePath)) {
+          // Try to find from paths array
+          for (const p of paths) {
+            const expanded = p.replace('%USERNAME%', process.env.USERNAME || process.env.USER || '');
+            if (existsSync(expanded)) {
+              exePath = expanded;
+              break;
+            }
+          }
+        }
+        
+        if (exePath && existsSync(exePath)) {
+          // Validate path is safe (no path traversal or command injection)
+          if (!isPathSafe(exePath)) {
+            console.warn(`[worktree-handlers] Unsafe PowerShell path detected: ${exePath}`);
+          } else {
+            // Get version using PowerShell command
+            // Use execFileAsync with separate arguments to prevent command injection
+            try {
+              const { stdout } = await execFileAsync(exePath, [
+                '-NoProfile',
+                '-Command',
+                '$PSVersionTable.PSVersion.ToString()'
+              ], { timeout: 3000 });
+              const version = stdout.trim();
+              if (version && version.length < 20) { // Sanity check - version strings shouldn't be too long
+                // Parse version to extract major version number for pwsh
+                if (id === 'pwsh') {
+                  const versionMatch = version.match(/^(\d+)\./);
+                  const majorVersion = versionMatch ? versionMatch[1] : '';
+                  versionInfo = majorVersion ? ` ${majorVersion} (${version})` : ` (${version})`;
+                } else {
+                  // For Windows PowerShell, just append version
+                  versionInfo = ` (${version})`;
+                }
+              }
+            } catch (err) {
+              // Version detection failed, continue without version info
+              console.warn(`[worktree-handlers] Failed to get PowerShell version for ${exePath}:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        // Version detection failed, continue without version info
+        console.warn('[worktree-handlers] PowerShell version detection failed unexpectedly:', err);
+      }
+
+      terminals.push({
+        id,
+        name: config.name + versionInfo,
+        path: foundPath,
+        installed: true
+      });
+    } else if (installed) {
       terminals.push({
         id,
         name: config.name,
@@ -1103,6 +1184,11 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
       if (terminal === 'system') {
         // Use spawn with proper argument separation
         spawn('cmd.exe', ['/K', 'cd', '/d', dirPath], { detached: true, stdio: 'ignore' }).unref();
+      } else if (terminal === 'powershell' || terminal === 'pwsh') {
+        // PowerShell needs special handling - use -Command with cd command
+        const powershellExe = terminal === 'pwsh' ? 'pwsh.exe' : 'powershell.exe';
+        const escapedPath = escapePowerShellCommand(dirPath); // Properly escape all PowerShell metacharacters
+        spawn(powershellExe, ['-NoExit', '-Command', `cd "${escapedPath}"`], { detached: true, stdio: 'ignore' }).unref();
       } else if (commands.length > 0) {
         spawn(commands[0], [...commands.slice(1), dirPath], { detached: true, stdio: 'ignore' }).unref();
       }

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../ui/button';
 import { SettingsSection } from './SettingsSection';
 import type { AppSettings, SupportedIDE, SupportedTerminal } from '../../../shared/types';
+import { IDE_NAMES, TERMINAL_NAMES } from '../../../shared/constants/dev-tools';
 
 interface DevToolsSettingsProps {
   settings: AppSettings;
@@ -25,53 +26,6 @@ interface DetectedTools {
   terminals: DetectedTool[];
 }
 
-// IDE display names - alphabetically sorted for easy scanning
-const IDE_NAMES: Partial<Record<SupportedIDE, string>> = {
-  androidstudio: 'Android Studio',
-  clion: 'CLion',
-  cursor: 'Cursor',
-  emacs: 'Emacs',
-  goland: 'GoLand',
-  intellij: 'IntelliJ IDEA',
-  neovim: 'Neovim',
-  nova: 'Nova',
-  phpstorm: 'PhpStorm',
-  pycharm: 'PyCharm',
-  rider: 'Rider',
-  rubymine: 'RubyMine',
-  sublime: 'Sublime Text',
-  vim: 'Vim',
-  vscode: 'Visual Studio Code',
-  vscodium: 'VSCodium',
-  webstorm: 'WebStorm',
-  windsurf: 'Windsurf',
-  xcode: 'Xcode',
-  zed: 'Zed',
-  custom: 'Custom...'  // Always last
-};
-
-// Terminal display names - alphabetically sorted
-const TERMINAL_NAMES: Partial<Record<SupportedTerminal, string>> = {
-  alacritty: 'Alacritty',
-  ghostty: 'Ghostty',
-  gnometerminal: 'GNOME Terminal',
-  hyper: 'Hyper',
-  iterm2: 'iTerm2',
-  kitty: 'Kitty',
-  konsole: 'Konsole',
-  powershell: 'PowerShell',
-  system: 'System Terminal',
-  tabby: 'Tabby',
-  terminal: 'Terminal.app',
-  terminator: 'Terminator',
-  tilix: 'Tilix',
-  tmux: 'tmux',
-  warp: 'Warp',
-  wezterm: 'WezTerm',
-  windowsterminal: 'Windows Terminal',
-  zellij: 'Zellij',
-  custom: 'Custom...'  // Always last
-};
 
 /**
  * Developer Tools settings component for configuring preferred IDE and terminal
