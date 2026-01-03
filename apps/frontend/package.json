@@ -172,6 +172,10 @@
         "to": "python/Lib/site-packages"
       },
       {
+        "from": "python-runtime/sitecustomize.py",
+        "to": "python/Lib/site-packages/sitecustomize.py"
+      },
+      {
         "from": "../backend",
         "to": "backend",
         "filter": [
