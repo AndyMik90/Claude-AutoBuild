@@ -171,7 +171,8 @@ class TestRefreshOAuthToken:
     @patch("core.auth.requests.post")
     def test_refresh_network_error(self, mock_post):
         """Network error should return None without crashing."""
-        mock_post.side_effect = Exception("Network unreachable")
+        import requests
+        mock_post.side_effect = requests.exceptions.ConnectionError("Network unreachable")
 
         result = refresh_oauth_token("some-refresh-token")
         assert result is None
@@ -449,12 +450,14 @@ class TestLinuxCredentials:
         assert result["refreshToken"] == "sk-ant-ort01-test-refresh-token"
         assert result["expiresAt"] == 1735123456789
 
+    @patch("core.auth.platform.system")
     @patch("core.auth.os.path.exists")
-    def test_linux_no_credentials_file(self, mock_exists, monkeypatch):
+    def test_linux_no_credentials_file(self, mock_exists, mock_system, monkeypatch):
         """Linux should return None if no credentials file exists."""
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
+        mock_system.return_value = "Linux"
         mock_exists.return_value = False
 
         from core.auth import _get_full_credentials_linux
@@ -613,24 +616,32 @@ class TestLinuxCredentialIntegration:
 class TestOAuthConfiguration:
     """Tests for OAuth configuration via environment variables."""
 
-    def test_default_token_url(self):
+    def test_default_token_url(self, monkeypatch):
         """Default token URL should be Anthropic's console API."""
-        assert OAUTH_TOKEN_URL == os.environ.get(
-            "CLAUDE_OAUTH_TOKEN_URL",
-            "https://console.anthropic.com/v1/oauth/token",
-        )
+        # Clear env var to test default
+        monkeypatch.delenv("CLAUDE_OAUTH_TOKEN_URL", raising=False)
+        # If env var was set when module loaded, check it matches; otherwise check default
+        if not os.environ.get("CLAUDE_OAUTH_TOKEN_URL"):
+            assert OAUTH_TOKEN_URL == "https://console.anthropic.com/v1/oauth/token"
+        else:
+            # Module was loaded with env var set, verify it picked it up
+            assert OAUTH_TOKEN_URL == os.environ.get("CLAUDE_OAUTH_TOKEN_URL")
 
-    def test_default_client_id(self):
+    def test_default_client_id(self, monkeypatch):
         """Default client ID should be Claude Code CLI's client ID."""
-        assert OAUTH_CLIENT_ID == os.environ.get(
-            "CLAUDE_OAUTH_CLIENT_ID",
-            "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-        )
+        monkeypatch.delenv("CLAUDE_OAUTH_CLIENT_ID", raising=False)
+        if not os.environ.get("CLAUDE_OAUTH_CLIENT_ID"):
+            assert OAUTH_CLIENT_ID == "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+        else:
+            assert OAUTH_CLIENT_ID == os.environ.get("CLAUDE_OAUTH_CLIENT_ID")
 
-    def test_default_buffer_seconds(self):
+    def test_default_buffer_seconds(self, monkeypatch):
         """Default buffer should be 300 seconds (5 minutes)."""
-        expected = int(os.environ.get("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS", "300"))
-        assert TOKEN_REFRESH_BUFFER_SECONDS == expected
+        monkeypatch.delenv("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS", raising=False)
+        if not os.environ.get("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS"):
+            assert TOKEN_REFRESH_BUFFER_SECONDS == 300
+        else:
+            assert TOKEN_REFRESH_BUFFER_SECONDS == int(os.environ.get("CLAUDE_TOKEN_REFRESH_BUFFER_SECONDS"))
 
     def test_custom_token_url(self, reloaded_auth_with_custom_url):
         """Custom token URL should be picked up from environment."""

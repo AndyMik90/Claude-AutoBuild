@@ -8,6 +8,7 @@ memory updates, recovery tracking, and Linear integration.
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
@@ -606,6 +607,8 @@ async def run_agent_session(
                 if save_credentials(new_creds):
                     logger.info("Token refreshed successfully")
                     print_status("OAuth token was expired and has been refreshed", "success")
+                    # Update env var for any same-process callers
+                    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = new_creds["accessToken"]
                 else:
                     logger.warning("Token refreshed but failed to save")
                     print_status("Token refreshed but failed to save to credential store", "warning")
