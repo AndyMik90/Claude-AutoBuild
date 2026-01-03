@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { TerminalSession } from '../../shared/types';
+import type { TerminalSession, TerminalWorktreeConfig } from '../../shared/types';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
@@ -18,6 +18,7 @@ export interface Terminal {
   isRestored?: boolean;  // Whether this terminal was restored from a saved session
   associatedTaskId?: string;  // ID of task associated with this terminal (for context loading)
   projectPath?: string;  // Project this terminal belongs to (for multi-project support)
+  worktreeConfig?: TerminalWorktreeConfig;  // Associated worktree for isolated development
 }
 
 interface TerminalLayout {
@@ -45,6 +46,7 @@ interface TerminalState {
   setClaudeMode: (id: string, isClaudeMode: boolean) => void;
   setClaudeSessionId: (id: string, sessionId: string) => void;
   setAssociatedTask: (id: string, taskId: string | undefined) => void;
+  setWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
   clearAllTerminals: () => void;
   setHasRestoredSessions: (value: boolean) => void;
 
@@ -53,6 +55,7 @@ interface TerminalState {
   getActiveTerminal: () => Terminal | undefined;
   canAddTerminal: () => boolean;
   getTerminalsForProject: (projectPath: string) => Terminal[];
+  getWorktreeCount: () => number;
 }
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
@@ -185,6 +188,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  setWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => {
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, worktreeConfig: config } : t
+      ),
+    }));
+  },
+
   clearAllTerminals: () => {
     set({ terminals: [], activeTerminalId: null, hasRestoredSessions: false });
   },
@@ -209,6 +220,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   getTerminalsForProject: (projectPath: string) => {
     return get().terminals.filter(t => t.projectPath === projectPath);
+  },
+
+  getWorktreeCount: () => {
+    return get().terminals.filter(t => t.worktreeConfig).length;
   },
 }));
 

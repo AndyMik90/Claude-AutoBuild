@@ -16,7 +16,7 @@ from core.simple_client import create_simple_client
 async def summarize_phase_output(
     phase_name: str,
     phase_output: str,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     target_words: int = 500,
 ) -> str:
     """

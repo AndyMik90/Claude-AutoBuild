@@ -161,14 +161,14 @@ class TestSetupWorkspace:
         assert working_dir.name == TEST_SPEC_NAME
 
     def test_setup_isolated_creates_worktrees_dir(self, temp_git_repo: Path):
-        """Isolated mode creates .worktrees directory."""
+        """Isolated mode creates worktrees directory."""
         setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
         )
 
-        assert (temp_git_repo / ".worktrees").exists()
+        assert (temp_git_repo / ".auto-claude" / "worktrees" / "tasks").exists()
 
 
 class TestWorkspaceUtilities:
@@ -185,7 +185,8 @@ class TestWorkspaceUtilities:
 
         # Worktree should be named after the spec
         assert working_dir.name == spec_name
-        assert working_dir.parent.name == ".worktrees"
+        # New path: .auto-claude/worktrees/tasks/{spec_name}
+        assert working_dir.parent.name == "tasks"
 
 
 class TestWorkspaceIntegration:
@@ -236,12 +237,16 @@ class TestWorkspaceIntegration:
             WorkspaceMode.ISOLATED,
         )
 
-        # Make changes and commit
+        # Make changes and commit using git directly
         (working_dir / "feature.py").write_text("# New feature\n")
-        manager.commit_in_staging("Add feature")
+        subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Add feature"],
+            cwd=working_dir, capture_output=True
+        )
 
-        # Merge back
-        result = manager.merge_staging(delete_after=False)
+        # Merge back using merge_worktree
+        result = manager.merge_worktree("test-spec", delete_after=False)
 
         assert result is True
 
@@ -264,12 +269,16 @@ class TestWorkspaceCleanup:
             WorkspaceMode.ISOLATED,
         )
 
-        # Commit changes
+        # Commit changes using git directly
         (working_dir / "test.py").write_text("test")
-        manager.commit_in_staging("Test")
+        subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Test"],
+            cwd=working_dir, capture_output=True
+        )
 
         # Merge with cleanup
-        manager.merge_staging(delete_after=True)
+        manager.merge_worktree("test-spec", delete_after=True)
 
         # Workspace should be removed
         assert not working_dir.exists()
@@ -282,12 +291,16 @@ class TestWorkspaceCleanup:
             WorkspaceMode.ISOLATED,
         )
 
-        # Commit changes
+        # Commit changes using git directly
         (working_dir / "test.py").write_text("test")
-        manager.commit_in_staging("Test")
+        subprocess.run(["git", "add", "."], cwd=working_dir, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Test"],
+            cwd=working_dir, capture_output=True
+        )
 
         # Merge without cleanup
-        manager.merge_staging(delete_after=False)
+        manager.merge_worktree("test-spec", delete_after=False)
 
         # Workspace should still exist
         assert working_dir.exists()
@@ -371,12 +384,13 @@ class TestPerSpecWorktreeName:
         assert working_dir1 != working_dir2
 
     def test_worktree_path_in_worktrees_dir(self, temp_git_repo: Path):
-        """Worktree is created in .worktrees directory."""
+        """Worktree is created in worktrees directory."""
         working_dir, _, _ = setup_workspace(
             temp_git_repo,
             "test-spec",
             WorkspaceMode.ISOLATED,
         )
 
-        assert ".worktrees" in str(working_dir)
-        assert working_dir.parent.name == ".worktrees"
+        # New path: .auto-claude/worktrees/tasks/{spec_name}
+        assert "worktrees" in str(working_dir)
+        assert working_dir.parent.name == "tasks"

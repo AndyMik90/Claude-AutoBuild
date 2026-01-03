@@ -12,6 +12,10 @@ import { findTaskAndProject } from './shared';
 import { parsePythonCommand } from '../../python-detector';
 import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
+import {
+  getTaskWorktreeDir,
+  findTaskWorktree,
+} from '../../worktree-paths';
 
 /**
  * Read utility feature settings (for commit message, merge resolver) from settings file
@@ -674,12 +678,14 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
  */
 
 /**
- * Escape single quotes in a path for use in AppleScript strings
- * This prevents command injection via malicious directory names
+ * Escape single quotes in a path for safe use in single-quoted shell/script strings.
+ * Works for both AppleScript and shell (bash/sh) contexts.
+ * This prevents command injection via malicious directory names.
  */
-function escapeAppleScriptPath(dirPath: string): string {
-  // In AppleScript, single quotes are escaped by ending the string,
-  // adding an escaped quote, and starting a new string: ' -> '\''
+function escapeSingleQuotedPath(dirPath: string): string {
+  // Single quotes are escaped by ending the string, adding an escaped quote,
+  // and starting a new string: ' -> '\''
+  // This pattern works in both AppleScript and POSIX shells (bash, sh, zsh)
   return dirPath.replace(/'/g, "'\\''");
 }
 
@@ -1069,8 +1075,8 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
 
     if (platform === 'darwin') {
       // macOS: Use open command with the directory
-      // Escape single quotes in dirPath to prevent AppleScript injection
-      const escapedPath = escapeAppleScriptPath(dirPath);
+      // Escape single quotes in dirPath to prevent script injection
+      const escapedPath = escapeSingleQuotedPath(dirPath);
 
       if (terminal === 'system') {
         // Use AppleScript to open Terminal.app at the directory
@@ -1112,7 +1118,7 @@ async function openInTerminal(dirPath: string, terminal: SupportedTerminal, cust
           } catch {
             // xterm doesn't have --working-directory, use -e with a script
             // Escape the path for shell use within the xterm command
-            const escapedPath = escapeAppleScriptPath(dirPath);
+            const escapedPath = escapeSingleQuotedPath(dirPath);
             await execFileAsync('xterm', ['-e', `cd '${escapedPath}' && bash`]);
           }
         }
@@ -1158,7 +1164,7 @@ export function registerWorktreeHandlers(
 ): void {
   /**
    * Get the worktree status for a task
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_STATUS,
@@ -1169,10 +1175,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return {
             success: true,
             data: { exists: false }
@@ -1268,7 +1274,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Get the diff for a task's worktree
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DIFF,
@@ -1279,10 +1285,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return { success: false, error: 'No worktree found for this task' };
         }
 
@@ -1415,8 +1421,8 @@ export function registerWorktreeHandlers(
         }
 
         // Check worktree exists before merge
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
-        debug('Worktree path:', worktreePath, 'exists:', existsSync(worktreePath));
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        debug('Worktree path:', worktreePath, 'exists:', !!worktreePath);
 
         // Check if changes are already staged (for stage-only mode)
         if (options?.noCommit) {
@@ -1657,6 +1663,33 @@ export function registerWorktreeHandlers(
                 message = 'Changes were already merged and committed. Task marked as done.';
                 staged = false;
                 debug('Stage-only requested but merge already committed. Marking as done.');
+
+                // Clean up worktree since merge is complete (fixes #243)
+                // This is the same cleanup as the full merge path, needed because
+                // stageOnly defaults to true for human_review tasks
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up (already merged):', worktreePath);
+
+                    // Also delete the task branch
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                }
               } else if (isStageOnly && !hasActualStagedChanges) {
                 // Stage-only was requested but no changes to stage (and not committed)
                 // This could mean nothing to merge or an error - keep in human_review for investigation
@@ -1677,6 +1710,33 @@ export function registerWorktreeHandlers(
                 planStatus = 'completed';
                 message = 'Changes merged successfully';
                 staged = false;
+
+                // Clean up worktree after successful full merge (fixes #243)
+                // This allows drag-to-Done workflow since TASK_UPDATE_STATUS blocks 'done' when worktree exists
+                try {
+                  if (worktreePath && existsSync(worktreePath)) {
+                    execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+                      cwd: project.path,
+                      encoding: 'utf-8'
+                    });
+                    debug('Worktree cleaned up after full merge:', worktreePath);
+
+                    // Also delete the task branch since we merged successfully
+                    const taskBranch = `auto-claude/${task.specId}`;
+                    try {
+                      execFileSync(getToolPath('git'), ['branch', '-D', taskBranch], {
+                        cwd: project.path,
+                        encoding: 'utf-8'
+                      });
+                      debug('Task branch deleted:', taskBranch);
+                    } catch {
+                      // Branch might not exist or already deleted
+                    }
+                  }
+                } catch (cleanupErr) {
+                  debug('Worktree cleanup failed (non-fatal):', cleanupErr);
+                  // Non-fatal - merge succeeded, cleanup can be done manually
+                }
               }
 
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
@@ -1701,10 +1761,15 @@ export function registerWorktreeHandlers(
               // Issue #243: We must update BOTH the main project's plan AND the worktree's plan (if it exists)
               // because ProjectStore prefers the worktree version when deduplicating tasks.
               // OPTIMIZATION: Use async I/O and parallel updates to prevent UI blocking
-              const planPaths = [
+              // NOTE: The worktree has the same directory structure as main project
+              const planPaths: { path: string; isMain: boolean }[] = [
                 { path: path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: true },
-                { path: path.join(worktreePath, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false }
               ];
+              // Add worktree plan path if worktree exists
+              if (worktreePath) {
+                const worktreeSpecDir = path.join(worktreePath, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+                planPaths.push({ path: path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN), isMain: false });
+              }
 
               const { promises: fsPromises } = require('fs');
 
@@ -1766,8 +1831,15 @@ export function registerWorktreeHandlers(
                 }
               };
 
-              // Run async updates without blocking the response
-              updatePlans().catch(err => debug('Background plan update failed:', err));
+              // IMPORTANT: Wait for plan updates to complete before responding (fixes #243)
+              // Previously this was "fire and forget" which caused a race condition:
+              // resolve() would return before files were written, and UI refresh would read old status
+              try {
+                await updatePlans();
+              } catch (err) {
+                debug('Plan update failed:', err);
+                // Non-fatal: UI will still update, but status may not persist across refresh
+              }
 
               const mainWindow = getMainWindow();
               if (mainWindow) {
@@ -2012,7 +2084,7 @@ export function registerWorktreeHandlers(
 
   /**
    * Discard the worktree changes
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_DISCARD,
@@ -2023,10 +2095,10 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
-        // Per-spec worktree path: .worktrees/{spec-name}/
-        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
 
-        if (!existsSync(worktreePath)) {
+        if (!worktreePath) {
           return {
             success: true,
             data: {
@@ -2090,7 +2162,7 @@ export function registerWorktreeHandlers(
 
   /**
    * List all spec worktrees for a project
-   * Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_LIST_WORKTREES,
@@ -2101,23 +2173,11 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Project not found' };
         }
 
-        const worktreesDir = path.join(project.path, '.worktrees');
         const worktrees: WorktreeListItem[] = [];
+        const worktreesDir = getTaskWorktreeDir(project.path);
 
-        if (!existsSync(worktreesDir)) {
-          return { success: true, data: { worktrees } };
-        }
-
-        // Get all directories in .worktrees
-        const entries = readdirSync(worktreesDir);
-        for (const entry of entries) {
-          const entryPath = path.join(worktreesDir, entry);
-          const stat = statSync(entryPath);
-
-          // Skip worker directories and non-directories
-          if (!stat.isDirectory() || entry.startsWith('worker-')) {
-            continue;
-          }
+        // Helper to process a single worktree entry
+        const processWorktreeEntry = (entry: string, entryPath: string) => {
 
           try {
             // Get branch info
@@ -2187,6 +2247,22 @@ export function registerWorktreeHandlers(
           } catch (gitError) {
             console.error(`Error getting info for worktree ${entry}:`, gitError);
             // Skip this worktree if we can't get git info
+          }
+        };
+
+        // Scan worktrees directory
+        if (existsSync(worktreesDir)) {
+          const entries = readdirSync(worktreesDir);
+          for (const entry of entries) {
+            const entryPath = path.join(worktreesDir, entry);
+            try {
+              const stat = statSync(entryPath);
+              if (stat.isDirectory()) {
+                processWorktreeEntry(entry, entryPath);
+              }
+            } catch {
+              // Skip entries that can't be stat'd
+            }
           }
         }
 

@@ -4,7 +4,7 @@ Workspace Management Package
 =============================
 
 Handles workspace isolation through Git worktrees, where each spec
-gets its own isolated worktree in .worktrees/{spec-name}/.
+gets its own isolated worktree in .auto-claude/worktrees/tasks/{spec-name}/.
 
 This package provides:
 - Workspace setup and configuration

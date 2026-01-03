@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ..models import FollowupReviewContext, GitHubRunnerConfig
 
 try:
+    from ..gh_client import GHClient
     from ..models import (
         MergeVerdict,
         PRReviewFinding,
@@ -37,6 +38,7 @@ try:
     from .prompt_manager import PromptManager
     from .pydantic_models import FollowupReviewResponse
 except (ImportError, ValueError, SystemError):
+    from gh_client import GHClient
     from models import (
         MergeVerdict,
         PRReviewFinding,
@@ -230,6 +232,27 @@ class FollowupReviewer:
             "complete", 100, "Follow-up review complete!", context.pr_number
         )
 
+        # Get file blob SHAs for rebase-resistant follow-up reviews
+        # Blob SHAs persist across rebases - same content = same blob SHA
+        file_blobs: dict[str, str] = {}
+        try:
+            gh_client = GHClient(
+                project_dir=self.project_dir,
+                default_timeout=30.0,
+                repo=self.config.repo,
+            )
+            pr_files = await gh_client.get_pr_files(context.pr_number)
+            for file in pr_files:
+                filename = file.get("filename", "")
+                blob_sha = file.get("sha", "")
+                if filename and blob_sha:
+                    file_blobs[filename] = blob_sha
+            logger.info(
+                f"Captured {len(file_blobs)} file blob SHAs for follow-up tracking"
+            )
+        except Exception as e:
+            logger.warning(f"Could not capture file blobs: {e}")
+
         return PRReviewResult(
             pr_number=context.pr_number,
             repo=self.config.repo,
@@ -243,6 +266,7 @@ class FollowupReviewer:
             reviewed_at=datetime.now().isoformat(),
             # Follow-up specific fields
             reviewed_commit_sha=context.current_commit_sha,
+            reviewed_file_blobs=file_blobs,
             is_followup_review=True,
             previous_review_id=context.previous_review.review_id,
             resolved_findings=[f.id for f in resolved],

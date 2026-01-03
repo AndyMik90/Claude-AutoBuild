@@ -33,6 +33,10 @@
       "title": "Integrations",
       "description": "API keys & Claude accounts"
     },
+    "api-profiles": {
+      "title": "API Profiles",
+      "description": "Custom API endpoint profiles"
+    },
     "updates": {
       "title": "Updates",
       "description": "Auto Claude updates"
