@@ -346,29 +346,13 @@ export class ProjectStore {
           }
         }
 
-        // Try to read spec file for description
+        // PRIORITY 1: Read description from implementation_plan.json (user's original)
         let description = '';
-        if (existsSync(specFilePath)) {
-          try {
-            const content = readFileSync(specFilePath, 'utf-8');
-            // Extract full Overview section until next heading or end of file
-            // Use \n#{1,6}\s to match valid markdown headings (# to ######) with required space
-            // This avoids truncating at # in code blocks (e.g., Python comments)
-            const overviewMatch = content.match(/## Overview\s*\n+([\s\S]*?)(?=\n#{1,6}\s|$)/);
-            if (overviewMatch) {
-              description = overviewMatch[1].trim();
-            }
-          } catch {
-            // Ignore read errors
-          }
-        }
-
-        // Fallback: read description from implementation_plan.json if not found in spec.md
-        if (!description && plan?.description) {
+        if (plan?.description) {
           description = plan.description;
         }
 
-        // Fallback: read description from requirements.json if still not found
+        // PRIORITY 2: Fallback to requirements.json
         if (!description) {
           const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
           if (existsSync(requirementsPath)) {
@@ -401,6 +385,22 @@ export class ProjectStore {
             } catch {
               // Ignore parse errors
             }
+          }
+        }
+
+        // PRIORITY 3: Final fallback to spec.md Overview (AI-synthesized content)
+        if (!description && existsSync(specFilePath)) {
+          try {
+            const content = readFileSync(specFilePath, 'utf-8');
+            // Extract full Overview section until next heading or end of file
+            // Use \n#{1,6}\s to match valid markdown headings (# to ######) with required space
+            // This avoids truncating at # in code blocks (e.g., Python comments)
+            const overviewMatch = content.match(/## Overview\s*\n+([\s\S]*?)(?=\n#{1,6}\s|$)/);
+            if (overviewMatch) {
+              description = overviewMatch[1].trim();
+            }
+          } catch {
+            // Ignore read errors
           }
         }
 

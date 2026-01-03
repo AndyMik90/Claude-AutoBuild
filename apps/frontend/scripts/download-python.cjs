@@ -609,12 +609,12 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
 
   // Install packages directly to target directory
   // --no-compile: Don't create .pyc files (saves space, Python will work without them)
-  // --no-cache-dir: Don't use pip cache
   // --target: Install to specific directory
+  // Note: We intentionally DO use pip's cache to preserve built wheels for packages
+  // like real_ladybug that must be compiled from source on Intel Mac (no PyPI wheel)
   const pipArgs = [
     '-m', 'pip', 'install',
     '--no-compile',
-    '--no-cache-dir',
     '--target', targetSitePackages,
     '-r', requirementsPath,
   ];

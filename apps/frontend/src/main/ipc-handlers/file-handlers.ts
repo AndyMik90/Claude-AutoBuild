@@ -51,7 +51,12 @@ export function registerFileHandlers(): void {
     IPC_CHANNELS.FILE_EXPLORER_LIST,
     async (_, dirPath: string): Promise<IPCResult<FileNode[]>> => {
       try {
-        const entries = readdirSync(dirPath, { withFileTypes: true });
+        // Validate and normalize path to prevent directory traversal
+        const validation = validatePath(dirPath);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+        const entries = readdirSync(validation.path, { withFileTypes: true });
 
         // Filter and map entries
         const nodes: FileNode[] = [];
@@ -65,7 +70,7 @@ export function registerFileHandlers(): void {
           if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) continue;
 
           nodes.push({
-            path: path.join(dirPath, entry.name),
+            path: path.join(validation.path, entry.name),
             name: entry.name,
             isDirectory: entry.isDirectory()
           });

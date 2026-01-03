@@ -112,7 +112,8 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
                 const reviewResult = await window.electronAPI.github.getPRReview(projectId, pr.number);
                 if (reviewResult) {
                   // Update store with the loaded result
-                  usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult);
+                  // Preserve newCommitsCheck during preload to avoid race condition with new commits check
+                  usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult, { preserveNewCommitsCheck: true });
                   return { prNumber: pr.number, reviewResult };
                 }
               } else {
@@ -181,7 +182,8 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
         window.electronAPI.github.getPRReview(projectId, prNumber).then(result => {
           if (result) {
             // Update store with the loaded result
-            usePRReviewStore.getState().setPRReviewResult(projectId, result);
+            // Preserve newCommitsCheck when loading existing review from disk
+            usePRReviewStore.getState().setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
           }
         });
       }
@@ -248,7 +250,8 @@ export function useGitHubPRs(projectId?: string): UseGitHubPRsResult {
         // Reload review result to get updated postedAt and finding status
         const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
         if (result) {
-          usePRReviewStore.getState().setPRReviewResult(projectId, result);
+          // Preserve newCommitsCheck - posting doesn't change whether there are new commits
+          usePRReviewStore.getState().setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
         }
       }
       return success;

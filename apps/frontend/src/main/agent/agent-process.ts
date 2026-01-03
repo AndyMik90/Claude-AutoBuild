@@ -7,10 +7,15 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv, detectAuthFailure } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
+import { buildMemoryEnvVars } from '../memory-env-builder';
+import { readSettingsFile } from '../settings-utils';
+import type { AppSettings } from '../../shared/types/settings';
+import { getOAuthModeClearVars } from './env-utils';
 
 /**
  * Process spawning and lifecycle management
@@ -332,13 +337,16 @@ export class AgentProcessManager {
     }
   }
 
-  spawnProcess(
+  /**
+   * Spawn a Python process for task execution
+   */
+  async spawnProcess(
     taskId: string,
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
     processType: ProcessType = 'task-execution'
-  ): void {
+  ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
 
@@ -348,13 +356,27 @@ export class AgentProcessManager {
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();
 
-    // Parse Python command to handle space-separated commands like "py -3"
+    // Get active API profile environment variables
+    let apiProfileEnv: Record<string, string> = {};
+    try {
+      apiProfileEnv = await getAPIProfileEnv();
+    } catch (error) {
+      console.error('[Agent Process] Failed to get API profile env:', error);
+      // Continue with empty profile env (falls back to OAuth mode)
+    }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {
         ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-        ...pythonEnv // Include Python environment (PYTHONPATH for bundled packages)
+        ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+        ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+        ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
       }
     });
 
@@ -574,14 +596,24 @@ export class AgentProcessManager {
    * Get combined environment variables for a project
    *
    * Priority (later sources override earlier):
-   * 1. Backend source .env (apps/backend/.env) - CLI defaults
-   * 2. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
-   * 3. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
+   * 1. App-wide memory settings from settings.json (NEW - enables memory from onboarding)
+   * 2. Backend source .env (apps/backend/.env) - CLI defaults
+   * 3. Project's .auto-claude/.env - Frontend-configured settings (memory, integrations)
+   * 4. Project settings (graphitiMcpUrl, useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
+    // Load app-wide memory settings from settings.json
+    // This bridges onboarding config to backend agents
+    const appSettings = (readSettingsFile() || {}) as Partial<AppSettings>;
+    const memoryEnv = buildMemoryEnvVars(appSettings as AppSettings);
+
+    // Existing env sources
     const autoBuildEnv = this.loadAutoBuildEnv();
     const projectFileEnv = this.loadProjectEnv(projectPath);
     const projectSettingsEnv = this.getProjectEnvVars(projectPath);
-    return { ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+
+    // Priority: app-wide memory -> backend .env -> project .env -> project settings
+    // Later sources override earlier ones
+    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }

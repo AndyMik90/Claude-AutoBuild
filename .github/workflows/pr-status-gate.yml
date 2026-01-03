@@ -31,25 +31,25 @@ jobs:
             // ═══════════════════════════════════════════════════════════════════════
             // REQUIRED CHECK RUNS - Job-level checks (not workflow-level)
             // ═══════════════════════════════════════════════════════════════════════
-            // Format: "{Workflow Name} / {Job Name} (pull_request)"
+            // Format: "{Workflow Name} / {Job Name}" or "{Workflow Name} / {Job Custom Name}"
             //
             // To find check names: Go to PR → Checks tab → copy exact name
             // To update: Edit this list when workflow jobs are added/renamed/removed
             //
-            // Last validated: 2025-12-31
+            // Last validated: 2026-01-02
             // ═══════════════════════════════════════════════════════════════════════
             const requiredChecks = [
               // CI workflow (ci.yml) - 3 checks
-              'CI / test-frontend (pull_request)',
-              'CI / test-python (3.12) (pull_request)',
-              'CI / test-python (3.13) (pull_request)',
+              'CI / test-frontend',
+              'CI / test-python (3.12)',
+              'CI / test-python (3.13)',
               // Lint workflow (lint.yml) - 1 check
-              'Lint / python (pull_request)',
+              'Lint / python',
               // Quality Security workflow (quality-security.yml) - 4 checks
-              'Quality Security / CodeQL (javascript-typescript) (pull_request)',
-              'Quality Security / CodeQL (python) (pull_request)',
-              'Quality Security / Python Security (Bandit) (pull_request)',
-              'Quality Security / Security Summary (pull_request)'
+              'Quality Security / CodeQL (javascript-typescript)',
+              'Quality Security / CodeQL (python)',
+              'Quality Security / Python Security (Bandit)',
+              'Quality Security / Security Summary'
             ];
 
             const statusLabels = {

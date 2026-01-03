@@ -20,7 +20,7 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -62,6 +62,45 @@ interface CacheEntry {
   path: string;
   version?: string;
   source: string;
+}
+
+/**
+ * Check if a path appears to be from a different platform.
+ * Detects Windows paths on Unix and Unix paths on Windows.
+ *
+ * @param pathStr - The path to check
+ * @returns true if the path is from a different platform
+ */
+function isWrongPlatformPath(pathStr: string | undefined): boolean {
+  if (!pathStr) return false;
+
+  const isWindows = process.platform === 'win32';
+
+  if (isWindows) {
+    // On Windows, reject Unix-style absolute paths (starting with /)
+    // but allow relative paths and Windows paths
+    if (pathStr.startsWith('/') && !pathStr.startsWith('//')) {
+      // Unix absolute path on Windows
+      return true;
+    }
+  } else {
+    // On Unix (macOS/Linux), reject Windows-style paths
+    // Windows paths have: drive letter (C:), backslashes, or specific Windows paths
+    if (/^[A-Za-z]:[/\\]/.test(pathStr)) {
+      // Drive letter path (C:\, D:/, etc.)
+      return true;
+    }
+    if (pathStr.includes('\\')) {
+      // Contains backslashes (Windows path separators)
+      return true;
+    }
+    if (pathStr.includes('AppData') || pathStr.includes('Program Files')) {
+      // Contains Windows-specific directory names
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -165,7 +204,7 @@ class CLIToolManager {
    * Detect Python with multi-level priority
    *
    * Priority order:
-   * 1. User configuration
+   * 1. User configuration (if valid for current platform)
    * 2. Bundled Python (packaged apps only)
    * 3. Homebrew Python (macOS)
    * 4. System PATH (py -3, python3, python)
@@ -179,19 +218,26 @@ class CLIToolManager {
 
     // 1. User configuration
     if (this.userConfig.pythonPath) {
-      const validation = this.validatePython(this.userConfig.pythonPath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: this.userConfig.pythonPath,
-          version: validation.version,
-          source: 'user-config',
-          message: `Using user-configured Python: ${this.userConfig.pythonPath}`,
-        };
+      // Check if path is from wrong platform (e.g., Windows path on macOS)
+      if (isWrongPlatformPath(this.userConfig.pythonPath)) {
+        console.warn(
+          `[Python] User-configured path is from different platform, ignoring: ${this.userConfig.pythonPath}`
+        );
+      } else {
+        const validation = this.validatePython(this.userConfig.pythonPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.pythonPath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured Python: ${this.userConfig.pythonPath}`,
+          };
+        }
+        console.warn(
+          `[Python] User-configured path invalid: ${validation.message}`
+        );
       }
-      console.warn(
-        `[Python] User-configured path invalid: ${validation.message}`
-      );
     }
 
     // 2. Bundled Python (packaged apps only)
@@ -279,7 +325,7 @@ class CLIToolManager {
    * Detect Git with multi-level priority
    *
    * Priority order:
-   * 1. User configuration
+   * 1. User configuration (if valid for current platform)
    * 2. Homebrew Git (macOS)
    * 3. System PATH
    *
@@ -288,17 +334,24 @@ class CLIToolManager {
   private detectGit(): ToolDetectionResult {
     // 1. User configuration
     if (this.userConfig.gitPath) {
-      const validation = this.validateGit(this.userConfig.gitPath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: this.userConfig.gitPath,
-          version: validation.version,
-          source: 'user-config',
-          message: `Using user-configured Git: ${this.userConfig.gitPath}`,
-        };
+      // Check if path is from wrong platform (e.g., Windows path on macOS)
+      if (isWrongPlatformPath(this.userConfig.gitPath)) {
+        console.warn(
+          `[Git] User-configured path is from different platform, ignoring: ${this.userConfig.gitPath}`
+        );
+      } else {
+        const validation = this.validateGit(this.userConfig.gitPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.gitPath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured Git: ${this.userConfig.gitPath}`,
+          };
+        }
+        console.warn(`[Git] User-configured path invalid: ${validation.message}`);
       }
-      console.warn(`[Git] User-configured path invalid: ${validation.message}`);
     }
 
     // 2. Homebrew (macOS)
@@ -351,7 +404,7 @@ class CLIToolManager {
    * Detect GitHub CLI with multi-level priority
    *
    * Priority order:
-   * 1. User configuration
+   * 1. User configuration (if valid for current platform)
    * 2. Homebrew gh (macOS)
    * 3. System PATH
    * 4. Windows Program Files
@@ -361,19 +414,26 @@ class CLIToolManager {
   private detectGitHubCLI(): ToolDetectionResult {
     // 1. User configuration
     if (this.userConfig.githubCLIPath) {
-      const validation = this.validateGitHubCLI(this.userConfig.githubCLIPath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: this.userConfig.githubCLIPath,
-          version: validation.version,
-          source: 'user-config',
-          message: `Using user-configured GitHub CLI: ${this.userConfig.githubCLIPath}`,
-        };
+      // Check if path is from wrong platform (e.g., Windows path on macOS)
+      if (isWrongPlatformPath(this.userConfig.githubCLIPath)) {
+        console.warn(
+          `[GitHub CLI] User-configured path is from different platform, ignoring: ${this.userConfig.githubCLIPath}`
+        );
+      } else {
+        const validation = this.validateGitHubCLI(this.userConfig.githubCLIPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.githubCLIPath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured GitHub CLI: ${this.userConfig.githubCLIPath}`,
+          };
+        }
+        console.warn(
+          `[GitHub CLI] User-configured path invalid: ${validation.message}`
+        );
       }
-      console.warn(
-        `[GitHub CLI] User-configured path invalid: ${validation.message}`
-      );
     }
 
     // 2. Homebrew (macOS)
@@ -449,7 +509,7 @@ class CLIToolManager {
    * Detect Claude CLI with multi-level priority
    *
    * Priority order:
-   * 1. User configuration
+   * 1. User configuration (if valid for current platform)
    * 2. Homebrew claude (macOS)
    * 3. System PATH
    * 4. Windows/macOS/Linux standard locations
@@ -459,19 +519,26 @@ class CLIToolManager {
   private detectClaude(): ToolDetectionResult {
     // 1. User configuration
     if (this.userConfig.claudePath) {
-      const validation = this.validateClaude(this.userConfig.claudePath);
-      if (validation.valid) {
-        return {
-          found: true,
-          path: this.userConfig.claudePath,
-          version: validation.version,
-          source: 'user-config',
-          message: `Using user-configured Claude CLI: ${this.userConfig.claudePath}`,
-        };
+      // Check if path is from wrong platform (e.g., Windows path on macOS)
+      if (isWrongPlatformPath(this.userConfig.claudePath)) {
+        console.warn(
+          `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
+        );
+      } else {
+        const validation = this.validateClaude(this.userConfig.claudePath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.claudePath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured Claude CLI: ${this.userConfig.claudePath}`,
+          };
+        }
+        console.warn(
+          `[Claude CLI] User-configured path invalid: ${validation.message}`
+        );
       }
-      console.warn(
-        `[Claude CLI] User-configured path invalid: ${validation.message}`
-      );
     }
 
     // 2. Homebrew (macOS)
@@ -563,13 +630,17 @@ class CLIToolManager {
     const MINIMUM_VERSION = '3.10.0';
 
     try {
-      const version = execSync(`${pythonCmd} --version`, {
-        stdio: 'pipe',
+      // Parse command to handle cases like 'py -3' on Windows
+      // This avoids command injection by using execFileSync instead of execSync
+      const parts = pythonCmd.split(' ');
+      const cmd = parts[0];
+      const args = [...parts.slice(1), '--version'];
+
+      const version = execFileSync(cmd, args, {
+        encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
-      })
-        .toString()
-        .trim();
+      }).trim();
 
       const match = version.match(/Python (\d+\.\d+\.\d+)/);
       if (!match) {
@@ -859,4 +930,24 @@ export function getToolInfo(tool: CLITool): ToolDetectionResult {
  */
 export function clearToolCache(): void {
   cliToolManager.clearCache();
+}
+
+/**
+ * Check if a path appears to be from a different platform.
+ * Useful for detecting cross-platform path issues in settings.
+ *
+ * @param pathStr - The path to check
+ * @returns true if the path is from a different platform
+ *
+ * @example
+ * ```typescript
+ * import { isPathFromWrongPlatform } from './cli-tool-manager';
+ *
+ * // On macOS, this returns true for Windows paths
+ * isPathFromWrongPlatform('C:\\Program Files\\claude.exe'); // true
+ * isPathFromWrongPlatform('/usr/local/bin/claude'); // false
+ * ```
+ */
+export function isPathFromWrongPlatform(pathStr: string | undefined): boolean {
+  return isWrongPlatformPath(pathStr);
 }

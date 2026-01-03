@@ -28,8 +28,8 @@ from ui import (
     muted,
 )
 
-# Configuration
-DEFAULT_MODEL = "claude-opus-4-5-20251101"
+# Configuration - uses shorthand that resolves via API Profile if configured
+DEFAULT_MODEL = "opus"
 
 
 def setup_environment() -> Path:

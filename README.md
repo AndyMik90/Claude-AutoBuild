@@ -5,7 +5,7 @@
 ![Auto Claude Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
 <!-- TOP_VERSION_BADGE -->
-[![Version](https://img.shields.io/badge/version-2.7.1-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.1)
+[![Version](https://img.shields.io/badge/version-2.7.2-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2)
 <!-- TOP_VERSION_BADGE_END -->
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green?style=flat-square)](./agpl-3.0.txt)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
@@ -18,17 +18,17 @@
 ### Stable Release
 
 <!-- STABLE_VERSION_BADGE -->
-[![Stable](https://img.shields.io/badge/stable-2.7.1-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.1)
+[![Stable](https://img.shields.io/badge/stable-2.7.2-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2)
 <!-- STABLE_VERSION_BADGE_END -->
 
 <!-- STABLE_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.1-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.1-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.1-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.1-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.1-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.1/Auto-Claude-2.7.1-linux-amd64.deb) |
+| **Windows** | [Auto-Claude-2.7.2-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Auto-Claude-2.7.2-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-darwin-x64.dmg) |
+| **Linux** | [Auto-Claude-2.7.2-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Auto-Claude-2.7.2-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2/Auto-Claude-2.7.2-linux-amd64.deb) |
 <!-- STABLE_DOWNLOADS_END -->
 
 ### Beta Release

@@ -88,7 +88,14 @@ if (typeof window !== 'undefined') {
       success: true,
       data: { openProjectIds: [], activeProjectId: null, tabOrder: [] }
     }),
-    saveTabState: vi.fn().mockResolvedValue({ success: true })
+    saveTabState: vi.fn().mockResolvedValue({ success: true }),
+    // Profile-related API methods (API Profile feature)
+    getAPIProfiles: vi.fn(),
+    saveAPIProfile: vi.fn(),
+    updateAPIProfile: vi.fn(),
+    deleteAPIProfile: vi.fn(),
+    setActiveAPIProfile: vi.fn(),
+    testConnection: vi.fn()
   };
 }
 

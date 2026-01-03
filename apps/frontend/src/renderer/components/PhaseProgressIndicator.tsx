@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import { memo, useRef, useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import type { ExecutionPhase, TaskLogs, Subtask } from '../../shared/types';
 
@@ -39,8 +40,10 @@ const PHASE_LABEL_KEYS: Record<ExecutionPhase, string> = {
  * - Planning/Validation: Shows animated activity bar with entry count
  * - Coding: Shows subtask-based percentage progress
  * - Stuck: Shows warning state with interrupted animation
+ *
+ * Performance: Uses IntersectionObserver to pause animations when not visible
  */
-export function PhaseProgressIndicator({
+export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   phase: rawPhase,
   subtasks,
   phaseLogs,
@@ -50,6 +53,35 @@ export function PhaseProgressIndicator({
 }: PhaseProgressIndicatorProps) {
   const { t } = useTranslation('tasks');
   const phase = rawPhase || 'idle';
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const prevVisibleRef = useRef(true);
+
+  // Use IntersectionObserver to pause animations when component is not visible
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nowVisible = entry.isIntersecting;
+
+        if (prevVisibleRef.current !== nowVisible && window.DEBUG) {
+          console.log(`[PhaseProgress] Visibility changed: ${prevVisibleRef.current} -> ${nowVisible}, animations ${nowVisible ? 'resumed' : 'paused'}`);
+        }
+
+        prevVisibleRef.current = nowVisible;
+        setIsVisible(nowVisible);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // Only animate when visible and running
+  const shouldAnimate = isVisible && isRunning && !isStuck;
 
   // Calculate subtask-based progress (for coding phase)
   const completedSubtasks = subtasks.filter((c) => c.status === 'completed').length;
@@ -77,26 +109,26 @@ export function PhaseProgressIndicator({
   const activeEntries = getActivePhaseEntries();
 
   return (
-    <div className={cn('space-y-1.5', className)}>
+    <div ref={containerRef} className={cn('space-y-1.5', className)}>
       {/* Progress label row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
             {isStuck ? t('execution.labels.interrupted') : showSubtaskProgress ? t('execution.labels.progress') : phaseLabel}
           </span>
-          {/* Activity indicator dot for non-coding phases */}
+          {/* Activity indicator dot for non-coding phases - only animate when visible */}
           {isRunning && !isStuck && isIndeterminatePhase && (
             <motion.div
               className={cn('h-1.5 w-1.5 rounded-full', colors.color)}
-              animate={{
+              animate={shouldAnimate ? {
                 scale: [1, 1.5, 1],
                 opacity: [1, 0.5, 1],
-              }}
-              transition={{
+              } : { scale: 1, opacity: 1 }}
+              transition={shouldAnimate ? {
                 duration: 1,
                 repeat: Infinity,
                 ease: 'easeInOut',
-              }}
+              } : undefined}
             />
           )}
         </div>
@@ -122,13 +154,13 @@ export function PhaseProgressIndicator({
       >
         <AnimatePresence mode="wait">
           {isStuck ? (
-            // Stuck/Interrupted state - pulsing warning bar
+            // Stuck/Interrupted state - pulsing warning bar (only animate when visible)
             <motion.div
               key="stuck"
               className="absolute inset-0 bg-warning/40"
               initial={{ opacity: 0 }}
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              animate={isVisible ? { opacity: [0.3, 0.6, 0.3] } : { opacity: 0.45 }}
+              transition={isVisible ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : undefined}
             />
           ) : showSubtaskProgress ? (
             // Determinate progress for coding phase
@@ -139,8 +171,8 @@ export function PhaseProgressIndicator({
               animate={{ width: `${subtaskProgress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             />
-          ) : isRunning && isIndeterminatePhase ? (
-            // Indeterminate animated progress for planning/validation
+          ) : shouldAnimate && isIndeterminatePhase ? (
+            // Indeterminate animated progress for planning/validation (only when visible)
             <motion.div
               key="indeterminate"
               className={cn('absolute h-full w-1/3 rounded-full', colors.color)}
@@ -152,6 +184,12 @@ export function PhaseProgressIndicator({
                 repeat: Infinity,
                 ease: 'easeInOut',
               }}
+            />
+          ) : isRunning && isIndeterminatePhase && !isVisible ? (
+            // Static placeholder when not visible but running
+            <motion.div
+              key="indeterminate-static"
+              className={cn('absolute h-full w-1/3 rounded-full left-1/3', colors.color)}
             />
           ) : totalSubtasks > 0 ? (
             // Static progress based on subtasks (when not running)
@@ -169,37 +207,44 @@ export function PhaseProgressIndicator({
       {/* Subtask indicators (only show when subtasks exist) */}
       {totalSubtasks > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {subtasks.slice(0, 10).map((subtask, index) => (
-            <motion.div
-              key={subtask.id || `subtask-${index}`}
-              className={cn(
-                'h-2 w-2 rounded-full',
-                subtask.status === 'completed' && 'bg-success',
-                subtask.status === 'in_progress' && 'bg-info',
-                subtask.status === 'failed' && 'bg-destructive',
-                subtask.status === 'pending' && 'bg-muted-foreground/30'
-              )}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-                ...(subtask.status === 'in_progress' && {
-                  boxShadow: [
-                    '0 0 0 0 rgba(var(--info), 0.4)',
-                    '0 0 0 4px rgba(var(--info), 0)',
-                  ],
-                }),
-              }}
-              transition={{
-                scale: { delay: index * 0.03, duration: 0.2 },
-                opacity: { delay: index * 0.03, duration: 0.2 },
-                boxShadow: subtask.status === 'in_progress'
-                  ? { duration: 1, repeat: Infinity, ease: 'easeOut' }
-                  : undefined,
-              }}
-              title={`${subtask.title || subtask.id}: ${subtask.status}`}
-            />
-          ))}
+          {subtasks.slice(0, 10).map((subtask, index) => {
+            const isInProgress = subtask.status === 'in_progress';
+            const shouldPulse = isInProgress && isVisible;
+
+            return (
+              <motion.div
+                key={subtask.id || `subtask-${index}`}
+                className={cn(
+                  'h-2 w-2 rounded-full',
+                  subtask.status === 'completed' && 'bg-success',
+                  isInProgress && 'bg-info',
+                  subtask.status === 'failed' && 'bg-destructive',
+                  subtask.status === 'pending' && 'bg-muted-foreground/30'
+                )}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{
+                  scale: 1,
+                  opacity: 1,
+                  // Only animate boxShadow when visible to save GPU cycles
+                  ...(shouldPulse && {
+                    boxShadow: [
+                      '0 0 0 0 rgba(var(--info), 0.4)',
+                      '0 0 0 4px rgba(var(--info), 0)',
+                    ],
+                  }),
+                }}
+                transition={{
+                  scale: { delay: index * 0.03, duration: 0.2 },
+                  opacity: { delay: index * 0.03, duration: 0.2 },
+                  // Only repeat animation when visible
+                  boxShadow: shouldPulse
+                    ? { duration: 1, repeat: Infinity, ease: 'easeOut' }
+                    : undefined,
+                }}
+                title={`${subtask.title || subtask.id}: ${subtask.status}`}
+              />
+            );
+          })}
           {totalSubtasks > 10 && (
             <span key="overflow-count" className="text-[10px] text-muted-foreground font-medium ml-0.5">
               +{totalSubtasks - 10}
@@ -210,21 +255,23 @@ export function PhaseProgressIndicator({
 
       {/* Phase steps indicator (shows overall flow) */}
       {(isRunning || phase !== 'idle') && (
-        <PhaseStepsIndicator currentPhase={phase} isStuck={isStuck} />
+        <PhaseStepsIndicator currentPhase={phase} isStuck={isStuck} isVisible={isVisible} />
       )}
     </div>
   );
-}
+});
 
 /**
  * Mini phase steps indicator showing the overall flow
  */
-function PhaseStepsIndicator({
+const PhaseStepsIndicator = memo(function PhaseStepsIndicator({
   currentPhase,
   isStuck,
+  isVisible = true,
 }: {
   currentPhase: ExecutionPhase;
   isStuck: boolean;
+  isVisible?: boolean;
 }) {
   const { t } = useTranslation('tasks');
 
@@ -252,6 +299,8 @@ function PhaseStepsIndicator({
     <div className="flex items-center gap-1 mt-2">
       {phases.map((phase, index) => {
         const state = getPhaseState(phase.key);
+        const shouldAnimate = state === 'active' && !isStuck && isVisible;
+
         return (
           <div key={phase.key} className="flex items-center">
             <motion.div
@@ -263,16 +312,8 @@ function PhaseStepsIndicator({
                 state === 'failed' && 'bg-destructive/10 text-destructive',
                 state === 'pending' && 'bg-muted text-muted-foreground'
               )}
-              animate={
-                state === 'active' && !isStuck
-                  ? { opacity: [1, 0.6, 1] }
-                  : { opacity: 1 }
-              }
-              transition={
-                state === 'active' && !isStuck
-                  ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }
-                  : undefined
-              }
+              animate={shouldAnimate ? { opacity: [1, 0.6, 1] } : { opacity: 1 }}
+              transition={shouldAnimate ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : undefined}
             >
               {state === 'complete' && (
                 <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -294,4 +335,4 @@ function PhaseStepsIndicator({
       })}
     </div>
   );
-}
+});

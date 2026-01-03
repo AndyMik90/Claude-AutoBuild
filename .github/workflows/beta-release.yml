@@ -71,6 +71,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -92,13 +97,21 @@ jobs:
       - name: Install Rust toolchain (for building native Python packages)
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache pip wheel cache (for compiled packages like real_ladybug)
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
+          restore-keys: |
+            pip-wheel-${{ runner.os }}-x64-
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
           path: apps/frontend/python-runtime
-          key: python-bundle-${{ runner.os }}-x64-3.12.8-rust
+          key: python-bundle-${{ runner.os }}-x64-3.12.8-rust-${{ hashFiles('apps/backend/requirements.txt') }}
           restore-keys: |
-            python-bundle-${{ runner.os }}-x64-
+            python-bundle-${{ runner.os }}-x64-3.12.8-rust-
 
       - name: Build application
         run: cd apps/frontend && npm run build
@@ -153,6 +166,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -171,13 +189,21 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache pip wheel cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-wheel-${{ runner.os }}-arm64-${{ hashFiles('apps/backend/requirements.txt') }}
+          restore-keys: |
+            pip-wheel-${{ runner.os }}-arm64-
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
           path: apps/frontend/python-runtime
-          key: python-bundle-${{ runner.os }}-arm64-3.12.8
+          key: python-bundle-${{ runner.os }}-arm64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
           restore-keys: |
-            python-bundle-${{ runner.os }}-arm64-
+            python-bundle-${{ runner.os }}-arm64-3.12.8-
 
       - name: Build application
         run: cd apps/frontend && npm run build
@@ -231,6 +257,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -250,13 +281,21 @@ jobs:
       - name: Install dependencies
         run: cd apps/frontend && npm ci
 
+      - name: Cache pip wheel cache
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
+          restore-keys: |
+            pip-wheel-${{ runner.os }}-x64-
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
           path: apps/frontend/python-runtime
-          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
           restore-keys: |
-            python-bundle-${{ runner.os }}-x64-
+            python-bundle-${{ runner.os }}-x64-3.12.8-
 
       - name: Build application
         run: cd apps/frontend && npm run build
@@ -288,6 +327,11 @@ jobs:
           # Use tag for real releases, develop branch for dry runs
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -315,13 +359,21 @@ jobs:
           flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
           flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
 
+      - name: Cache pip wheel cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
+          restore-keys: |
+            pip-wheel-${{ runner.os }}-x64-
+
       - name: Cache bundled Python
         uses: actions/cache@v4
         with:
           path: apps/frontend/python-runtime
-          key: python-bundle-${{ runner.os }}-x64-3.12.8
+          key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
           restore-keys: |
-            python-bundle-${{ runner.os }}-x64-
+            python-bundle-${{ runner.os }}-x64-3.12.8-
 
       - name: Build application
         run: cd apps/frontend && npm run build
