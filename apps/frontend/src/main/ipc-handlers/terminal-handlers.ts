@@ -398,6 +398,24 @@ export function registerTerminalHandlers(
     }
   );
 
+  // Get decrypted OAuth token for a profile (used when writing to .env file)
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_PROFILE_GET_DECRYPTED_TOKEN,
+    async (_, profileId: string): Promise<IPCResult<string | null>> => {
+      try {
+        const profileManager = getClaudeProfileManager();
+        const token = profileManager.getProfileToken(profileId);
+        return { success: true, data: token || null };
+      } catch (error) {
+        debugError('[IPC] Failed to get decrypted token:', error);
+        return {
+          success: false,
+          error: 'Failed to retrieve token'
+        };
+      }
+    }
+  );
+
   // Get auto-switch settings
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS,
