@@ -51,11 +51,9 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
 
   const { hasToken, isLoading: isCheckingToken, checkToken } = useClaudeTokenCheck();
 
-  // Set up IPC listeners and load ideation on mount
+  // Load ideation on mount (IPC listeners are now global, set up in App.tsx)
   useEffect(() => {
-    const cleanup = setupIdeationListeners();
     loadIdeation(projectId);
-    return cleanup;
   }, [projectId]);
 
   const handleGenerate = async () => {

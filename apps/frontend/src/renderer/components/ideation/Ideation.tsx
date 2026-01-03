@@ -15,9 +15,10 @@ import { ALL_IDEATION_TYPES } from './constants';
 interface IdeationProps {
   projectId: string;
   onGoToTask?: (taskId: string) => void;
+  isActive?: boolean;
 }
 
-export function Ideation({ projectId, onGoToTask }: IdeationProps) {
+export function Ideation({ projectId, onGoToTask, isActive = true }: IdeationProps) {
   // Get showArchived from shared context for cross-page sync
   const { showArchived } = useViewState();
 

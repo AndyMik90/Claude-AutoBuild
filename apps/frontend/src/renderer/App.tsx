@@ -57,6 +57,7 @@ import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
+import { setupIdeationListeners } from './stores/ideation-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
@@ -181,9 +182,12 @@ export function App() {
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
     const cleanupDownloadListener = initDownloadProgressListener();
+    // Initialize global Ideation IPC listeners so they persist across navigation
+    const cleanupIdeationListeners = setupIdeationListeners();
 
     return () => {
       cleanupDownloadListener();
+      cleanupIdeationListeners();
     };
   }, []);
 
@@ -766,8 +770,15 @@ export function App() {
                 {activeView === 'context' && (activeProjectId || selectedProjectId) && (
                   <Context projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
-                  <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                {/* Ideation - Always mounted but hidden when not active to preserve running state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'ideation' ? 'h-full' : 'hidden'}>
+                    <Ideation
+                      projectId={activeProjectId || selectedProjectId!}
+                      onGoToTask={handleGoToTask}
+                      isActive={activeView === 'ideation'}
+                    />
+                  </div>
                 )}
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />

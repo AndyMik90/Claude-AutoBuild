@@ -40,7 +40,14 @@
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "progress": "en cours"
+  },
+  "warnings": {
+    "concurrentRoadmap": "La génération de la feuille de route est en cours",
+    "concurrentRoadmapDesc": "Démarrer l'idéation peut ralentir les deux processus.",
+    "concurrentIdeation": "La génération d'idéation est en cours",
+    "concurrentIdeationDesc": "Démarrer la feuille de route peut ralentir les deux processus."
   },
   "time": {
     "justNow": "À l'instant",

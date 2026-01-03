@@ -40,7 +40,14 @@
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "progress": "progress"
+  },
+  "warnings": {
+    "concurrentRoadmap": "Roadmap generation is running",
+    "concurrentRoadmapDesc": "Starting Ideation may slow down both processes.",
+    "concurrentIdeation": "Ideation generation is running",
+    "concurrentIdeationDesc": "Starting Roadmap may slow down both processes."
   },
   "time": {
     "justNow": "Just now",

@@ -9,6 +9,9 @@ import type {
   IdeationSummary
 } from '../../shared/types';
 import { DEFAULT_IDEATION_CONFIG } from '../../shared/constants';
+import { toast } from '../hooks/use-toast';
+import { useRoadmapStore } from './roadmap-store';
+import i18next from 'i18next';
 
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -397,6 +400,20 @@ export async function loadIdeation(projectId: string): Promise<void> {
 export function generateIdeation(projectId: string): void {
   const store = useIdeationStore.getState();
   const config = store.config;
+
+  // Check if Roadmap is running
+  const roadmapState = useRoadmapStore.getState();
+  const roadmapRunning = roadmapState.generationStatus.phase !== 'idle' &&
+                         roadmapState.generationStatus.phase !== 'complete' &&
+                         roadmapState.generationStatus.phase !== 'error';
+
+  if (roadmapRunning) {
+    toast({
+      title: i18next.t('common:warnings.concurrentRoadmap'),
+      description: i18next.t('common:warnings.concurrentRoadmapDesc'),
+      variant: 'default',
+    });
+  }
 
   if (window.DEBUG) {
     console.log('[Ideation] Starting generation:', {

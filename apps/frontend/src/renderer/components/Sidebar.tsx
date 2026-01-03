@@ -20,7 +20,8 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
-  Wrench
+  Wrench,
+  Loader2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -46,6 +47,7 @@ import {
   initializeProject
 } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
+import { useIdeationStore } from '../stores/ideation-store';
 import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
@@ -104,6 +106,7 @@ export function Sidebar({
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
   const settings = useSettingsStore((state) => state.settings);
+  const ideationRunning = useIdeationStore((state) => state.isGenerating);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -270,6 +273,7 @@ export function Sidebar({
   const renderNavItem = (item: NavItem) => {
     const isActive = activeView === item.id;
     const Icon = item.icon;
+    const isIdeationRunning = item.id === 'ideation' && ideationRunning;
 
     return (
       <button
@@ -285,10 +289,16 @@ export function Sidebar({
       >
         <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left">{t(item.labelKey)}</span>
-        {item.shortcut && (
+        {item.shortcut && !isIdeationRunning && (
           <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
             {item.shortcut}
           </kbd>
+        )}
+        {isIdeationRunning && (
+          <div className="hidden sm:flex items-center gap-1.5">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
+            <span className="text-[10px] font-medium text-blue-400">{t('common:labels.progress')}</span>
+          </div>
         )}
       </button>
     );

@@ -7,6 +7,9 @@ import type {
   RoadmapGenerationStatus,
   FeatureSource
 } from '../../shared/types';
+import { toast } from '../hooks/use-toast';
+import { useIdeationStore } from './ideation-store';
+import i18next from 'i18next';
 
 /**
  * Migrate roadmap data to latest schema
@@ -299,6 +302,16 @@ export function generateRoadmap(
   enableCompetitorAnalysis?: boolean,
   refreshCompetitorAnalysis?: boolean
 ): void {
+  // Check if Ideation is running
+  const ideationState = useIdeationStore.getState();
+  if (ideationState.isGenerating) {
+    toast({
+      title: i18next.t('common:warnings.concurrentIdeation'),
+      description: i18next.t('common:warnings.concurrentIdeationDesc'),
+      variant: 'default',
+    });
+  }
+
   // Debug logging
   if (window.DEBUG) {
     console.log('[Roadmap] Starting generation:', { projectId, enableCompetitorAnalysis, refreshCompetitorAnalysis });
