@@ -237,25 +237,52 @@ export function registerLinearHandlers(
       }
 
       try {
+        // Query projects at the organization level with team accessibility info
+        // Projects in Linear are organization-level entities, not team-specific
         const query = `
-          query($teamId: ID!) {
-            team(id: $teamId) {
-              projects {
-                nodes {
-                  id
-                  name
-                  state
+          query {
+            projects(first: 100) {
+              nodes {
+                id
+                name
+                state
+                teams {
+                  nodes {
+                    id
+                  }
                 }
               }
             }
           }
         `;
 
-        const data = await linearGraphQL(apiKey, query, { teamId }) as {
-          team: { projects: { nodes: LinearProject[] } };
+        const data = await linearGraphQL(apiKey, query) as {
+          projects?: {
+            nodes?: Array<{
+              id: string;
+              name: string;
+              state: string;
+              teams?: { nodes?: Array<{ id: string }> };
+            }>;
+          };
         };
 
-        return { success: true, data: data.team.projects.nodes };
+        if (!data?.projects?.nodes) {
+          return { success: true, data: [] };
+        }
+
+        const filteredProjects: LinearProject[] = data.projects.nodes
+          .filter(proj => {
+            const teamIds = proj.teams?.nodes?.map(t => t.id) || [];
+            return teamIds.includes(teamId);
+          })
+          .map(proj => ({
+            id: proj.id,
+            name: proj.name,
+            state: proj.state
+          }));
+
+        return { success: true, data: filteredProjects };
       } catch (error) {
         return {
           success: false,
