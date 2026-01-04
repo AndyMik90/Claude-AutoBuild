@@ -341,7 +341,7 @@
     "noProjectSelectedDescription": "Wybierz projekt z listy rozwijanej, aby wyświetlić i skonfigurować serwery MCP.",
     "projectNotInitialized": "Projekt nie zainicjalizowany",
     "projectNotInitializedDescription": "Zainicjalizuj Auto Claude dla tego projektu, aby skonfigurować serwery MCP.",
-    "browserAutomation": "Automatyzacja przeglądarki (tylko agenta QA)",
+    "browserAutomation": "Automatyzacja przeglądarki (tylko dla agenta QA)",
     "alwaysEnabled": "zawsze włączone",
     "addServer": "Dodaj serwer",
     "addMcpTo": "Dodaj serwer MCP do {{agent}}",
