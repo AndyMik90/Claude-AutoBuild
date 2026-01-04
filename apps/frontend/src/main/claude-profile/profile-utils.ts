@@ -56,7 +56,7 @@ export async function createProfileDirectory(profileName: string): Promise<strin
 
 /**
  * Check if a profile has valid authentication
- * (checks if the config directory has credential files)
+ * (checks if the config directory has credential files or OAuth account info)
  */
 export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
   const configDir = profile.configDir;
@@ -64,7 +64,23 @@ export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
     return false;
   }
 
-  // Claude stores auth in .claude/credentials or similar files
+  // Check for .claude.json with OAuth account info (modern Claude Code CLI)
+  // This is how Claude Code CLI stores OAuth authentication since v1.0
+  const claudeJsonPath = join(configDir, '.claude.json');
+  if (existsSync(claudeJsonPath)) {
+    try {
+      const content = readFileSync(claudeJsonPath, 'utf-8');
+      const data = JSON.parse(content);
+      // Check for oauthAccount which indicates successful OAuth authentication
+      if (data.oauthAccount?.accountUuid || data.oauthAccount?.emailAddress) {
+        return true;
+      }
+    } catch {
+      // Ignore parse errors, fall through to legacy checks
+    }
+  }
+
+  // Legacy: Claude stores auth in .claude/credentials or similar files
   // Check for common auth indicators
   const possibleAuthFiles = [
     join(configDir, 'credentials'),
