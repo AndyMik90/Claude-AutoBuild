@@ -14,6 +14,7 @@ This module contains:
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 
 from .compatibility_rules import CompatibilityRule
@@ -320,9 +321,10 @@ def detect_implicit_conflicts(
             additions_b = task_additions[task_b]
 
             # Check if any removed symbol appears in other task's new code
+            # Using word boundaries to avoid false positives (e.g., 'getUser' matching 'username')
             for removed_symbol in removals_a:
                 for added_code in additions_b:
-                    if removed_symbol in added_code:
+                    if re.search(r'\b' + re.escape(removed_symbol) + r'\b', added_code):
                         # Potential conflict: Task A removes what Task B uses
                         file_path = next(iter(task_analyses.values())).file_path
                         conflicts.append(

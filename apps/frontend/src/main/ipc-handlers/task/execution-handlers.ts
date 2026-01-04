@@ -2,7 +2,8 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus } from '../../../shared/types';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, renameSync, unlinkSync } from 'fs';
+import { randomBytes } from 'crypto';
 import { spawnSync } from 'child_process';
 import { AgentManager } from '../../agent';
 import { fileWatcher } from '../../file-watcher';
@@ -15,6 +16,45 @@ import {
   persistPlanStatusSync,
   createPlanIfNotExists
 } from './plan-file-utils';
+
+/**
+ * Write file atomically by writing to a temp file first then renaming.
+ * This prevents data corruption if the process crashes during write.
+ */
+function atomicWriteFileSync(filePath: string, content: string): void {
+  const tempPath = `${filePath}.${randomBytes(6).toString('hex')}.tmp`;
+  try {
+    writeFileSync(tempPath, content, 'utf-8');
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    // Clean up temp file if rename failed
+    try {
+      if (existsSync(tempPath)) {
+        unlinkSync(tempPath);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw error;
+  }
+}
+
+/**
+ * Safely read and parse a JSON file, handling file not found and parse errors.
+ * @returns The parsed JSON object, or null if file doesn't exist or is invalid
+ */
+function safeReadJsonFileSync<T>(filePath: string): T | null {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    return JSON.parse(content) as T;
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code !== 'ENOENT') {
+      console.warn(`[execution-handlers] Failed to read/parse ${filePath}:`, error);
+    }
+    return null;
+  }
+}
 
 /**
  * Validates that a path is within a parent directory (prevents path traversal attacks)
@@ -303,9 +343,9 @@ export function registerTaskExecutionHandlers(
       const hasWorktree = existsSync(worktreePath);
 
       if (approved) {
-        // Write approval to QA report
+        // Write approval to QA report (using atomic write to prevent corruption)
         const qaReportPath = path.join(specDir, AUTO_BUILD_PATHS.QA_REPORT);
-        writeFileSync(
+        atomicWriteFileSync(
           qaReportPath,
           `# QA Review\n\nStatus: APPROVED\n\nReviewed at: ${new Date().toISOString()}\n`
         );
@@ -641,11 +681,8 @@ export function registerTaskExecutionHandlers(
 
       try {
         // Read the plan to analyze subtask progress
-        let plan: Record<string, unknown> | null = null;
-        if (existsSync(planPath)) {
-          const planContent = readFileSync(planPath, 'utf-8');
-          plan = JSON.parse(planContent);
-        }
+        // Using safeReadJsonFileSync to avoid TOCTOU race condition and handle parse errors
+        const plan = safeReadJsonFileSync<Record<string, unknown>>(planPath);
 
         // Determine the target status intelligently based on subtask progress
         // If targetStatus is explicitly provided, use it; otherwise calculate from subtasks
@@ -690,7 +727,7 @@ export function registerTaskExecutionHandlers(
             // Just update status in plan file (project store reads from file, no separate update needed)
             plan.status = 'human_review';
             plan.planStatus = 'review';
-            writeFileSync(planPath, JSON.stringify(plan, null, 2));
+            atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
 
             return {
               success: true,
@@ -735,7 +772,7 @@ export function registerTaskExecutionHandlers(
             }
           }
 
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
         }
 
         // Stop file watcher if it was watching this task
@@ -786,7 +823,7 @@ export function registerTaskExecutionHandlers(
             if (plan) {
               plan.status = 'in_progress';
               plan.planStatus = 'in_progress';
-              writeFileSync(planPath, JSON.stringify(plan, null, 2));
+              atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
             }
 
             // Start the task execution
@@ -937,7 +974,7 @@ export function registerTaskExecutionHandlers(
           plan.status = 'backlog';
           plan.planStatus = 'pending';
           plan.updated_at = new Date().toISOString();
-          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+          atomicWriteFileSync(planPath, JSON.stringify(plan, null, 2));
           console.log('[TASK_APPROVE_PLAN] Updated implementation_plan.json status to backlog/pending');
         } catch (e) {
           // File doesn't exist or other error - skip plan update
