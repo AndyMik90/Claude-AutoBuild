@@ -1,7 +1,26 @@
 {
-  "terminal": {
-    "openTerminal": "터미널 열기",
-    "openInbuilt": "내장 터미널에서 열기",
-    "openExternal": "외부 터미널에서 열기"
+  "worktree": {
+    "create": "워크트리 (작업 공간)",
+    "createNew": "+ 새 워크트리",
+    "existing": "기존 워크트리",
+    "createTitle": "터미널 워크트리 생성",
+    "createDescription": "이 터미널을 위한 격리된 작업 공간을 생성합니다. 모든 작업은 워크트리 디렉토리에서 수행됩니다.",
+    "name": "워크트리 이름",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "워크트리 이름은 필수입니다",
+    "nameInvalid": "이름은 문자 또는 숫자로 시작하고 끝나야 합니다",
+    "nameHelp": "소문자, 숫자, 대시, 밑줄만 사용 가능",
+    "associateTask": "작업에 연결",
+    "selectTask": "작업 선택...",
+    "noTask": "작업 없음 (독립 워크트리)",
+    "createBranch": "Git 브랜치 생성",
+    "branchHelp": "브랜치 생성: {{branch}}",
+    "baseBranch": "기본 브랜치",
+    "selectBaseBranch": "기본 브랜치 선택...",
+    "useProjectDefault": "프로젝트 기본값 사용 ({{branch}})",
+    "baseBranchHelp": "워크트리를 생성할 기준 브랜치",
+    "openInIDE": "IDE에서 열기",
+    "maxReached": "최대 12개의 터미널 워크트리에 도달했습니다",
+    "alreadyExists": "이 이름의 워크트리가 이미 존재합니다"
   }
 }
