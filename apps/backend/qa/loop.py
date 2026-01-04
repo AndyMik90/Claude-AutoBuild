@@ -83,6 +83,11 @@ async def run_qa_validation_loop(
     Returns:
         True if QA approved, False otherwise
     """
+    # Set environment variable for security hooks to find the correct project directory
+    # This is needed because os.getcwd() may return the wrong directory in worktree mode
+    import os
+    os.environ["AUTO_CLAUDE_PROJECT_DIR"] = str(project_dir.resolve())
+
     debug_section("qa_loop", "QA Validation Loop")
     debug(
         "qa_loop",

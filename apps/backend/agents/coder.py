@@ -90,6 +90,11 @@ async def run_autonomous_agent(
         verbose: Whether to show detailed output
         source_spec_dir: Original spec directory in main project (for syncing from worktree)
     """
+    # Set environment variable for security hooks to find the correct project directory
+    # This is needed because os.getcwd() may return the wrong directory in worktree mode
+    import os
+    os.environ["AUTO_CLAUDE_PROJECT_DIR"] = str(project_dir.resolve())
+
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)
 
