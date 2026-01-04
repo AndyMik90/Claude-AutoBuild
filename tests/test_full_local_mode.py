@@ -15,6 +15,7 @@ Requirements:
 
 import json
 import os
+import platform
 import sys
 from pathlib import Path
 from typing import List, Tuple
@@ -66,8 +67,14 @@ class FullLocalModeTester:
     def __init__(self):
         self.results: List[Tuple[str, bool, str]] = []
         # Windows: %APPDATA%\auto-claude, Linux/Mac: ~/.config/auto-claude
-        if os.name == 'nt':  # Windows
-            self.config_dir = Path(os.environ['APPDATA']) / "auto-claude"
+        if platform.system() == 'Windows' or os.name == 'nt':
+            # Try APPDATA first, fallback to LOCALAPPDATA
+            appdata = os.environ.get('APPDATA') or os.environ.get('LOCALAPPDATA')
+            if appdata:
+                self.config_dir = Path(appdata) / "auto-claude"
+            else:
+                # Fallback to user profile
+                self.config_dir = Path.home() / "AppData" / "Roaming" / "auto-claude"
         else:  # Linux/Mac
             self.config_dir = Path.home() / ".config" / "auto-claude"
         self.settings_file = self.config_dir / "settings.json"
@@ -76,7 +83,7 @@ class FullLocalModeTester:
         """Run all test scenarios"""
         print_header("Full Local Mode Test Suite")
         
-        print_info(f"Platform: {os.name} ({'Windows' if os.name == 'nt' else 'Unix'})")
+        print_info(f"Platform: {platform.system()} ({os.name})")
         print_info(f"Config directory: {self.config_dir}")
         print()
         
@@ -117,7 +124,7 @@ class FullLocalModeTester:
         except requests.exceptions.ConnectionError:
             print_error("Cannot connect to Ollama (is it running?)")
             self.results.append(("Ollama Running", False, "Connection refused"))
-            if os.name == 'nt':
+            if platform.system() == 'Windows':
                 print_info("Start Ollama on Windows: Run 'ollama serve' in a terminal")
             else:
                 print_info("Start Ollama: sudo systemctl start ollama")
