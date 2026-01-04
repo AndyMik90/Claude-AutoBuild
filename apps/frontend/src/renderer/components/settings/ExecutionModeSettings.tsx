@@ -16,28 +16,28 @@ import {
   ChevronUp,
   RefreshCw
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/renderer/components/ui/button';
-import { Switch } from '@/renderer/components/ui/switch';
-import { Slider } from '@/renderer/components/ui/slider';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
+import { Slider } from '../ui/slider';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/renderer/components/ui/select';
+} from '../ui/select';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/renderer/components/ui/tooltip';
+} from '../ui/tooltip';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/renderer/components/ui/collapsible';
+} from '../ui/collapsible';
 
 // Execution mode types
 type ExecutionMode = 'local_only' | 'hybrid' | 'cloud_only';
