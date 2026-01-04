@@ -13,6 +13,7 @@ from project_analyzer import (
     SecurityProfile,
     get_or_create_profile,
 )
+from project.structure_analyzer import StructureAnalyzer
 
 # =============================================================================
 # GLOBAL STATE
@@ -33,7 +34,7 @@ def _get_profile_path(project_dir: Path) -> Path:
 
 def _get_allowlist_path(project_dir: Path) -> Path:
     """Get the allowlist file path for a project."""
-    return project_dir / ".auto-claude-allowlist"
+    return project_dir / StructureAnalyzer.CUSTOM_ALLOWLIST_FILENAME
 
 
 def _get_profile_mtime(project_dir: Path) -> float | None:

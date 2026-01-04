@@ -67,11 +67,12 @@ async def bash_security_hook(
 
     # Get the working directory from context or use current directory
     # Priority:
-    # 1. Environment variable AUTO_CLAUDE_PROJECT_DIR (set by agent on startup)
+    # 1. Environment variable PROJECT_DIR_ENV_VAR (set by agent on startup)
     # 2. input_data cwd (passed by SDK in the tool call)
     # 3. Context cwd (should be set by ClaudeSDKClient but sometimes isn't)
     # 4. Current working directory (fallback, may be incorrect in worktree mode)
-    cwd = os.environ.get("AUTO_CLAUDE_PROJECT_DIR")
+    from .constants import PROJECT_DIR_ENV_VAR
+    cwd = os.environ.get(PROJECT_DIR_ENV_VAR)
     if not cwd:
         cwd = input_data.get("cwd")
     if not cwd and context and hasattr(context, "cwd"):

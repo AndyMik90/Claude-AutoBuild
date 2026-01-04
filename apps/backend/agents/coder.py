@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from core.client import create_client
+from security.constants import PROJECT_DIR_ENV_VAR
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -93,7 +94,7 @@ async def run_autonomous_agent(
     """
     # Set environment variable for security hooks to find the correct project directory
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
-    os.environ["AUTO_CLAUDE_PROJECT_DIR"] = str(project_dir.resolve())
+    os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
 
     # Initialize recovery manager (handles memory persistence)
     recovery_manager = RecoveryManager(spec_dir, project_dir)

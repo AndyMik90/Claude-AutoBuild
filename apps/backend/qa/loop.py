@@ -11,6 +11,7 @@ import time as time_module
 from pathlib import Path
 
 from core.client import create_client
+from security.constants import PROJECT_DIR_ENV_VAR
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
 from linear_updater import (
     LinearTaskState,
@@ -86,7 +87,7 @@ async def run_qa_validation_loop(
     """
     # Set environment variable for security hooks to find the correct project directory
     # This is needed because os.getcwd() may return the wrong directory in worktree mode
-    os.environ["AUTO_CLAUDE_PROJECT_DIR"] = str(project_dir.resolve())
+    os.environ[PROJECT_DIR_ENV_VAR] = str(project_dir.resolve())
 
     debug_section("qa_loop", "QA Validation Loop")
     debug(

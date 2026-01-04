@@ -125,7 +125,14 @@ No restart required - changes apply on the next command.
 
 ### Worktree Mode
 
-When using isolated worktrees, security files are automatically copied from your main project. Changes to allowlist in the main project will be reflected in new worktrees.
+When using isolated worktrees, security files are automatically copied from your main project on each worktree setup.
+
+**Important:** Unlike environment files (which are only copied if missing), security files **always overwrite** existing files in the worktree. This ensures the worktree uses the same security rules as the main project, preventing security bypasses through stale configurations.
+
+This means:
+- Changes to allowlist in the main project are reflected in new worktrees
+- You cannot have different security rules per worktree (by design)
+- If you need to test with different commands, modify the main project's allowlist
 
 ## Security Considerations
 

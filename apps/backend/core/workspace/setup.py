@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 
 from merge import FileTimelineTracker
+from project import ProjectAnalyzer
+from project.structure_analyzer import StructureAnalyzer
 from ui import (
     Icons,
     MenuOption,
@@ -271,7 +273,10 @@ def setup_workspace(
     # Note: Unlike env files, security files always overwrite to ensure
     # the worktree uses the same security rules as the main project.
     # This prevents security bypasses through stale worktree configs.
-    security_files = [".auto-claude-allowlist", ".auto-claude-security.json"]
+    security_files = [
+        StructureAnalyzer.CUSTOM_ALLOWLIST_FILENAME,
+        ProjectAnalyzer.PROFILE_FILENAME,
+    ]
     security_files_copied = []
 
     for filename in security_files:
