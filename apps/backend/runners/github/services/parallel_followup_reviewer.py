@@ -32,6 +32,7 @@ from claude_agent_sdk import AgentDefinition
 try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget
+    from ..gh_client import GHClient
     from ..models import (
         GitHubRunnerConfig,
         MergeVerdict,
@@ -44,6 +45,7 @@ try:
     from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
     from core.client import create_client
+    from gh_client import GHClient
     from models import (
         GitHubRunnerConfig,
         MergeVerdict,
@@ -498,6 +500,27 @@ The SDK will run invoked agents in parallel automatically.
                 ):
                     blockers.append(f"{finding.category.value}: {finding.title}")
 
+            # Get file blob SHAs for rebase-resistant follow-up reviews
+            # Blob SHAs persist across rebases - same content = same blob SHA
+            file_blobs: dict[str, str] = {}
+            try:
+                gh_client = GHClient(
+                    project_dir=self.project_dir,
+                    default_timeout=30.0,
+                    repo=self.config.repo,
+                )
+                pr_files = await gh_client.get_pr_files(context.pr_number)
+                for file in pr_files:
+                    filename = file.get("filename", "")
+                    blob_sha = file.get("sha", "")
+                    if filename and blob_sha:
+                        file_blobs[filename] = blob_sha
+                logger.info(
+                    f"Captured {len(file_blobs)} file blob SHAs for follow-up tracking"
+                )
+            except Exception as e:
+                logger.warning(f"Could not capture file blobs: {e}")
+
             result = PRReviewResult(
                 pr_number=context.pr_number,
                 repo=self.config.repo,
@@ -509,6 +532,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
                 reviewed_commit_sha=context.current_commit_sha,
+                reviewed_file_blobs=file_blobs,
                 is_followup_review=True,
                 previous_review_id=context.previous_review.review_id
                 or context.previous_review.pr_number,
@@ -614,13 +638,11 @@ The SDK will run invoked agents in parallel automatically.
                             validation = validation_map.get(rv.finding_id)
                             validation_status = None
                             validation_evidence = None
-                            validation_confidence = None
                             validation_explanation = None
 
                             if validation:
                                 validation_status = validation.validation_status
                                 validation_evidence = validation.code_evidence
-                                validation_confidence = validation.confidence
                                 validation_explanation = validation.explanation
 
                             findings.append(
@@ -636,7 +658,6 @@ The SDK will run invoked agents in parallel automatically.
                                     fixable=original.fixable,
                                     validation_status=validation_status,
                                     validation_evidence=validation_evidence,
-                                    validation_confidence=validation_confidence,
                                     validation_explanation=validation_explanation,
                                 )
                             )

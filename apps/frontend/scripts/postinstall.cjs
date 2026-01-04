@@ -43,12 +43,35 @@ To install:
 `;
 
 /**
+ * Get electron version from package.json
+ */
+function getElectronVersion() {
+  const pkgPath = path.join(__dirname, '..', 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const electronVersion = pkg.devDependencies?.electron || pkg.dependencies?.electron;
+  if (!electronVersion) {
+    return null;
+  }
+  // Strip leading ^ or ~ from version
+  return electronVersion.replace(/^[\^~]/, '');
+}
+
+/**
  * Run electron-rebuild
  */
 function runElectronRebuild() {
   return new Promise((resolve, reject) => {
     const npx = isWindows ? 'npx.cmd' : 'npx';
-    const child = spawn(npx, ['electron-rebuild'], {
+    const electronVersion = getElectronVersion();
+    const args = ['electron-rebuild'];
+
+    // Explicitly pass electron version if detected
+    if (electronVersion) {
+      args.push('-v', electronVersion);
+      console.log(`[postinstall] Using Electron version: ${electronVersion}`);
+    }
+
+    const child = spawn(npx, args, {
       stdio: 'inherit',
       shell: isWindows,
       cwd: path.join(__dirname, '..'),

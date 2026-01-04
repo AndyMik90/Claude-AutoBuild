@@ -71,10 +71,12 @@ Review the diff since the last review for NEW issues:
 - Regressions that break previously working code
 - Missing error handling in new code paths
 
-**Apply the 80% confidence threshold:**
-- Only report issues you're confident about
+**NEVER ASSUME - ALWAYS VERIFY:**
+- Actually READ the code before reporting any finding
+- Verify the issue exists at the exact line you cite
+- Check for validation/mitigation in surrounding code
 - Don't re-report issues from the previous review
-- Focus on genuinely new problems
+- Focus on genuinely new problems with code EVIDENCE
 
 ### Phase 3: Comment Review
 
@@ -137,11 +139,11 @@ Return a JSON object with this structure:
       "id": "new-finding-1",
       "severity": "medium",
       "category": "security",
-      "confidence": 0.85,
       "title": "New hardcoded API key in config",
       "description": "A new API key was added in config.ts line 45 without using environment variables.",
       "file": "src/config.ts",
       "line": 45,
+      "evidence": "const API_KEY = 'sk-prod-abc123xyz789';",
       "suggested_fix": "Move to environment variable: process.env.EXTERNAL_API_KEY"
     }
   ],
@@ -175,11 +177,11 @@ Same format as initial review findings:
 - **id**: Unique identifier for new finding
 - **severity**: `critical` | `high` | `medium` | `low`
 - **category**: `security` | `quality` | `logic` | `test` | `docs` | `pattern` | `performance`
-- **confidence**: Float 0.80-1.0
 - **title**: Short summary (max 80 chars)
 - **description**: Detailed explanation
 - **file**: Relative file path
 - **line**: Line number
+- **evidence**: **REQUIRED** - Actual code snippet proving the issue exists
 - **suggested_fix**: How to resolve
 
 ### verdict

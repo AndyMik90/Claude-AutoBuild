@@ -214,19 +214,18 @@ class PRReviewFinding:
     end_line: int | None = None
     suggested_fix: str | None = None
     fixable: bool = False
-    # NEW: Support for verification and redundancy detection
-    confidence: float = 0.85  # AI's confidence in this finding (0.0-1.0)
+    # Evidence-based validation: actual code proving the issue exists
+    evidence: str | None = None  # Actual code snippet showing the issue
     verification_note: str | None = (
         None  # What evidence is missing or couldn't be verified
     )
     redundant_with: str | None = None  # Reference to duplicate code (file:line)
 
-    # NEW: Finding validation fields (from finding-validator re-investigation)
+    # Finding validation fields (from finding-validator re-investigation)
     validation_status: str | None = (
         None  # confirmed_valid, dismissed_false_positive, needs_human_review
     )
     validation_evidence: str | None = None  # Code snippet examined during validation
-    validation_confidence: float | None = None  # Confidence of validation (0.0-1.0)
     validation_explanation: str | None = None  # Why finding was validated/dismissed
 
     def to_dict(self) -> dict:
@@ -241,14 +240,13 @@ class PRReviewFinding:
             "end_line": self.end_line,
             "suggested_fix": self.suggested_fix,
             "fixable": self.fixable,
-            # NEW fields
-            "confidence": self.confidence,
+            # Evidence-based validation fields
+            "evidence": self.evidence,
             "verification_note": self.verification_note,
             "redundant_with": self.redundant_with,
             # Validation fields
             "validation_status": self.validation_status,
             "validation_evidence": self.validation_evidence,
-            "validation_confidence": self.validation_confidence,
             "validation_explanation": self.validation_explanation,
         }
 
@@ -265,14 +263,13 @@ class PRReviewFinding:
             end_line=data.get("end_line"),
             suggested_fix=data.get("suggested_fix"),
             fixable=data.get("fixable", False),
-            # NEW fields
-            confidence=data.get("confidence", 0.85),
+            # Evidence-based validation fields
+            evidence=data.get("evidence"),
             verification_note=data.get("verification_note"),
             redundant_with=data.get("redundant_with"),
             # Validation fields
             validation_status=data.get("validation_status"),
             validation_evidence=data.get("validation_evidence"),
-            validation_confidence=data.get("validation_confidence"),
             validation_explanation=data.get("validation_explanation"),
         )
 
@@ -383,6 +380,9 @@ class PRReviewResult:
 
     # Follow-up review tracking
     reviewed_commit_sha: str | None = None  # HEAD SHA at time of review
+    reviewed_file_blobs: dict[str, str] = field(
+        default_factory=dict
+    )  # filename → blob SHA at time of review (survives rebases)
     is_followup_review: bool = False  # True if this is a follow-up review
     previous_review_id: int | None = None  # Reference to the review this follows up on
     resolved_findings: list[str] = field(default_factory=list)  # Finding IDs now fixed
@@ -421,6 +421,7 @@ class PRReviewResult:
             "quick_scan_summary": self.quick_scan_summary,
             # Follow-up review fields
             "reviewed_commit_sha": self.reviewed_commit_sha,
+            "reviewed_file_blobs": self.reviewed_file_blobs,
             "is_followup_review": self.is_followup_review,
             "previous_review_id": self.previous_review_id,
             "resolved_findings": self.resolved_findings,
@@ -465,6 +466,7 @@ class PRReviewResult:
             quick_scan_summary=data.get("quick_scan_summary", {}),
             # Follow-up review fields
             reviewed_commit_sha=data.get("reviewed_commit_sha"),
+            reviewed_file_blobs=data.get("reviewed_file_blobs", {}),
             is_followup_review=data.get("is_followup_review", False),
             previous_review_id=data.get("previous_review_id"),
             resolved_findings=data.get("resolved_findings", []),
@@ -561,6 +563,12 @@ class FollowupReviewContext:
     # PR reviews since last review (formal review submissions from Cursor, CodeRabbit, etc.)
     # These are different from comments - they're full review submissions with body text
     pr_reviews_since_review: list[dict] = field(default_factory=list)
+
+    # Merge conflict status
+    has_merge_conflicts: bool = False  # True if PR has conflicts with base branch
+    merge_state_status: str = (
+        ""  # BEHIND, BLOCKED, CLEAN, DIRTY, HAS_HOOKS, UNKNOWN, UNSTABLE
+    )
 
     # Error flag - if set, context gathering failed and data may be incomplete
     error: str | None = None

@@ -13,6 +13,7 @@ import { extractChangelog } from './parser';
 import { getCommits, getBranchDiffCommits } from './git-integration';
 import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from '../rate-limit-detector';
 import { parsePythonCommand } from '../python-detector';
+import { getAugmentedEnv } from '../env-utils';
 
 /**
  * Core changelog generation logic
@@ -246,21 +247,9 @@ export class ChangelogGenerator extends EventEmitter {
     const homeDir = os.homedir();
     const isWindows = process.platform === 'win32';
 
-    // Build PATH with platform-appropriate separator and locations
-    const pathAdditions = isWindows
-      ? [
-          path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude'),
-          path.join(homeDir, 'AppData', 'Roaming', 'npm'),
-          path.join(homeDir, '.local', 'bin'),
-          'C:\\Program Files\\Claude',
-          'C:\\Program Files (x86)\\Claude'
-        ]
-      : [
-          '/usr/local/bin',
-          '/opt/homebrew/bin',
-          path.join(homeDir, '.local', 'bin'),
-          path.join(homeDir, 'bin')
-        ];
+    // Use getAugmentedEnv() to ensure common tool paths are available
+    // even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
 
     // Get active Claude profile environment (OAuth token preferred, falls back to CLAUDE_CONFIG_DIR)
     const profileEnv = getProfileEnv();
@@ -271,15 +260,13 @@ export class ChangelogGenerator extends EventEmitter {
     });
 
     const spawnEnv: Record<string, string> = {
-      ...process.env as Record<string, string>,
+      ...augmentedEnv,
       ...this.autoBuildEnv,
       ...profileEnv, // Include active Claude profile config
       // Ensure critical env vars are set for claude CLI
       // Use USERPROFILE on Windows, HOME on Unix
       ...(isWindows ? { USERPROFILE: homeDir } : { HOME: homeDir }),
       USER: process.env.USER || process.env.USERNAME || 'user',
-      // Add common binary locations to PATH for claude CLI
-      PATH: [process.env.PATH || '', ...pathAdditions].filter(Boolean).join(path.delimiter),
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'

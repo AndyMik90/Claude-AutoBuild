@@ -37,6 +37,7 @@
     "success": "Success",
     "initializing": "Initializing...",
     "saving": "Saving...",
+    "creating": "Creating...",
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
