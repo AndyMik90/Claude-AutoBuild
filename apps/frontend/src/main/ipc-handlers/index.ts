@@ -33,7 +33,7 @@ import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
-import { registerProviderHandlers } from './provider-handlers';
+import { registerProviderHandlers, registerExecutionModeHandlers } from './provider-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -126,6 +126,9 @@ export function setupIpcHandlers(
   // AI Provider handlers (Claude/Ollama hybrid management)
   registerProviderHandlers();
 
+  // Execution mode handlers (Local/Hybrid/Cloud mode management)
+  registerExecutionModeHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -154,5 +157,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerProviderHandlers
+  registerProviderHandlers,
+  registerExecutionModeHandlers
 };

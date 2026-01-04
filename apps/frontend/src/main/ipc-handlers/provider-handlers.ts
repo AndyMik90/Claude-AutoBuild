@@ -663,3 +663,498 @@ export function registerProviderHandlers(): void {
     }
   );
 }
+
+
+// ============================================
+// Execution Mode Types and Handlers
+// ============================================
+
+type ExecutionMode = 'local_only' | 'hybrid' | 'cloud_only';
+type TaskComplexity = 'trivial' | 'simple' | 'moderate' | 'complex' | 'expert';
+
+interface ModeConfig {
+  mode: ExecutionMode;
+  local_max_complexity: TaskComplexity;
+  hybrid_prefer_local: boolean;
+  hybrid_fallback_on_error: boolean;
+  hybrid_complexity_threshold: TaskComplexity;
+  auto_select_model: boolean;
+}
+
+interface OllamaModelInfo {
+  value: string;
+  label: string;
+  sublabel?: string;
+  family: string;
+  size_gb: number;
+  supports_code: boolean;
+  estimated_vram_gb: number;
+  parameter_size?: string;
+}
+
+interface ComplexityAnalysis {
+  complexity: TaskComplexity;
+  score: number;
+  factors: string[];
+  can_run_locally: boolean;
+  recommended_provider: 'claude' | 'ollama';
+}
+
+interface ModelSelection {
+  provider: 'claude' | 'ollama';
+  model: string;
+  reason: string;
+  fallback_available: boolean;
+  fallback_provider?: 'claude' | 'ollama';
+  fallback_model?: string;
+}
+
+// Execution mode config file path
+function getModeConfigPath(): string {
+  const settingsPath = getSettingsPath();
+  return path.join(path.dirname(settingsPath), 'execution-mode.json');
+}
+
+// Load execution mode config
+function loadModeConfig(): ModeConfig {
+  const configPath = getModeConfigPath();
+  const defaultConfig: ModeConfig = {
+    mode: 'hybrid',
+    local_max_complexity: 'moderate',
+    hybrid_prefer_local: true,
+    hybrid_fallback_on_error: true,
+    hybrid_complexity_threshold: 'moderate',
+    auto_select_model: true,
+  };
+
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8');
+      return { ...defaultConfig, ...JSON.parse(data) };
+    }
+  } catch (error) {
+    console.warn('[provider-handlers] Failed to load mode config:', error);
+  }
+
+  return defaultConfig;
+}
+
+// Save execution mode config
+function saveModeConfig(config: Partial<ModeConfig>): boolean {
+  const configPath = getModeConfigPath();
+  try {
+    const currentConfig = loadModeConfig();
+    const newConfig = { ...currentConfig, ...config };
+    fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
+    return true;
+  } catch (error) {
+    console.error('[provider-handlers] Failed to save mode config:', error);
+    return false;
+  }
+}
+
+// Get installed Ollama models
+async function getOllamaModels(): Promise<OllamaModelInfo[]> {
+  const models: OllamaModelInfo[] = [];
+
+  try {
+    const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+    const response = await fetch(`${ollamaHost}/api/tags`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      return models;
+    }
+
+    const data = await response.json() as { models?: Array<{ name: string; size: number; details?: { family?: string; parameter_size?: string } }> };
+    const ollamaModels = data.models || [];
+
+    for (const model of ollamaModels) {
+      const name = model.name;
+      const sizeGb = model.size / (1024 ** 3);
+      const family = model.details?.family || 'unknown';
+      const parameterSize = model.details?.parameter_size || '';
+
+      // Determine if model supports code
+      const supportsCode = name.toLowerCase().includes('code') ||
+        name.toLowerCase().includes('coder') ||
+        name.toLowerCase().includes('qwen') ||
+        name.toLowerCase().includes('deepseek') ||
+        name.toLowerCase().includes('starcoder');
+
+      // Estimate VRAM requirement (rough estimate: model size * 1.2 for overhead)
+      const estimatedVram = sizeGb * 1.2;
+
+      models.push({
+        value: name,
+        label: name.split(':')[0],
+        sublabel: parameterSize || `${sizeGb.toFixed(1)}GB`,
+        family,
+        size_gb: Math.round(sizeGb * 100) / 100,
+        supports_code: supportsCode,
+        estimated_vram_gb: Math.round(estimatedVram * 100) / 100,
+        parameter_size: parameterSize,
+      });
+    }
+  } catch (error) {
+    console.warn('[provider-handlers] Failed to get Ollama models:', error);
+  }
+
+  return models;
+}
+
+// Analyze task complexity
+function analyzeTaskComplexity(taskDescription: string, context?: { files?: string[]; codeSize?: number }): ComplexityAnalysis {
+  let score = 0;
+  const factors: string[] = [];
+
+  // Length-based scoring
+  const wordCount = taskDescription.split(/\s+/).length;
+  if (wordCount > 200) {
+    score += 2;
+    factors.push('Long description');
+  } else if (wordCount > 100) {
+    score += 1;
+    factors.push('Medium description');
+  }
+
+  // Keyword-based scoring
+  const complexKeywords = [
+    'architecture', 'refactor', 'redesign', 'migrate', 'integrate',
+    'security', 'performance', 'optimize', 'scale', 'distributed',
+    'microservices', 'database schema', 'api design', 'authentication',
+    'authorization', 'encryption', 'caching', 'load balancing'
+  ];
+
+  const moderateKeywords = [
+    'implement', 'create', 'build', 'develop', 'add feature',
+    'multiple files', 'component', 'service', 'module', 'class'
+  ];
+
+  const simpleKeywords = [
+    'fix', 'bug', 'typo', 'update', 'change', 'modify', 'edit',
+    'rename', 'move', 'delete', 'add comment', 'format'
+  ];
+
+  const lowerDesc = taskDescription.toLowerCase();
+
+  for (const keyword of complexKeywords) {
+    if (lowerDesc.includes(keyword)) {
+      score += 2;
+      factors.push(`Complex keyword: ${keyword}`);
+    }
+  }
+
+  for (const keyword of moderateKeywords) {
+    if (lowerDesc.includes(keyword)) {
+      score += 1;
+      factors.push(`Moderate keyword: ${keyword}`);
+    }
+  }
+
+  for (const keyword of simpleKeywords) {
+    if (lowerDesc.includes(keyword)) {
+      score -= 1;
+      factors.push(`Simple keyword: ${keyword}`);
+    }
+  }
+
+  // Context-based scoring
+  if (context?.files && context.files.length > 10) {
+    score += 2;
+    factors.push(`Many files: ${context.files.length}`);
+  } else if (context?.files && context.files.length > 5) {
+    score += 1;
+    factors.push(`Multiple files: ${context.files.length}`);
+  }
+
+  if (context?.codeSize && context.codeSize > 10000) {
+    score += 2;
+    factors.push('Large codebase');
+  } else if (context?.codeSize && context.codeSize > 5000) {
+    score += 1;
+    factors.push('Medium codebase');
+  }
+
+  // Determine complexity level
+  let complexity: TaskComplexity;
+  if (score <= 0) {
+    complexity = 'trivial';
+  } else if (score <= 2) {
+    complexity = 'simple';
+  } else if (score <= 5) {
+    complexity = 'moderate';
+  } else if (score <= 8) {
+    complexity = 'complex';
+  } else {
+    complexity = 'expert';
+  }
+
+  // Load mode config to determine if can run locally
+  const modeConfig = loadModeConfig();
+  const complexityOrder: TaskComplexity[] = ['trivial', 'simple', 'moderate', 'complex', 'expert'];
+  const complexityIndex = complexityOrder.indexOf(complexity);
+  const thresholdIndex = complexityOrder.indexOf(modeConfig.hybrid_complexity_threshold);
+  const localMaxIndex = complexityOrder.indexOf(modeConfig.local_max_complexity);
+
+  const canRunLocally = complexityIndex <= localMaxIndex;
+  const recommendedProvider = complexityIndex > thresholdIndex ? 'claude' : 'ollama';
+
+  return {
+    complexity,
+    score: Math.max(0, score),
+    factors,
+    can_run_locally: canRunLocally,
+    recommended_provider: recommendedProvider,
+  };
+}
+
+// Auto-select model based on task and hardware
+async function autoSelectModel(
+  taskDescription: string,
+  taskType: string = 'coding',
+  preferredProvider?: 'claude' | 'ollama'
+): Promise<ModelSelection> {
+  const modeConfig = loadModeConfig();
+  const complexity = analyzeTaskComplexity(taskDescription);
+  const gpus = await detectGPUs();
+  const ram = getRAMInfo();
+
+  // Check provider availability
+  const settings = loadProviderSettings();
+  const ollamaHealth = await checkOllamaHealth(settings.ollama_model || 'llama3.1:8b-instruct-q4_K_M');
+  const claudeHealth = await checkClaudeHealth();
+
+  const ollamaAvailable = ollamaHealth.status !== 'unavailable';
+  const claudeAvailable = claudeHealth.status !== 'unavailable';
+
+  // Determine provider based on mode
+  let provider: 'claude' | 'ollama';
+  let model: string;
+  let reason: string;
+  let fallbackAvailable = false;
+  let fallbackProvider: 'claude' | 'ollama' | undefined;
+  let fallbackModel: string | undefined;
+
+  if (modeConfig.mode === 'cloud_only') {
+    if (!claudeAvailable) {
+      return {
+        provider: 'claude',
+        model: 'sonnet',
+        reason: 'Cloud-only mode but Claude unavailable',
+        fallback_available: false,
+      };
+    }
+    provider = 'claude';
+    model = complexity.complexity === 'expert' ? 'opus' : 'sonnet';
+    reason = 'Cloud-only mode';
+  } else if (modeConfig.mode === 'local_only') {
+    if (!ollamaAvailable) {
+      return {
+        provider: 'ollama',
+        model: 'llama3.1:8b',
+        reason: 'Local-only mode but Ollama unavailable',
+        fallback_available: false,
+      };
+    }
+    if (!complexity.can_run_locally) {
+      return {
+        provider: 'ollama',
+        model: settings.ollama_model || 'llama3.1:8b',
+        reason: `Task too complex for local mode (${complexity.complexity})`,
+        fallback_available: false,
+      };
+    }
+    provider = 'ollama';
+    model = await selectBestOllamaModel(taskType, gpus, ram);
+    reason = 'Local-only mode';
+  } else {
+    // Hybrid mode
+    if (preferredProvider) {
+      provider = preferredProvider;
+    } else if (modeConfig.hybrid_prefer_local && ollamaAvailable && complexity.can_run_locally) {
+      provider = 'ollama';
+    } else if (complexity.recommended_provider === 'claude' && claudeAvailable) {
+      provider = 'claude';
+    } else if (ollamaAvailable) {
+      provider = 'ollama';
+    } else {
+      provider = 'claude';
+    }
+
+    if (provider === 'claude') {
+      model = complexity.complexity === 'expert' ? 'opus' : 'sonnet';
+      reason = `Hybrid mode: ${complexity.complexity} complexity`;
+      if (ollamaAvailable && modeConfig.hybrid_fallback_on_error) {
+        fallbackAvailable = true;
+        fallbackProvider = 'ollama';
+        fallbackModel = await selectBestOllamaModel(taskType, gpus, ram);
+      }
+    } else {
+      model = await selectBestOllamaModel(taskType, gpus, ram);
+      reason = `Hybrid mode: local preferred for ${complexity.complexity} complexity`;
+      if (claudeAvailable && modeConfig.hybrid_fallback_on_error) {
+        fallbackAvailable = true;
+        fallbackProvider = 'claude';
+        fallbackModel = 'sonnet';
+      }
+    }
+  }
+
+  return {
+    provider,
+    model,
+    reason,
+    fallback_available: fallbackAvailable,
+    fallback_provider: fallbackProvider,
+    fallback_model: fallbackModel,
+  };
+}
+
+// Select best Ollama model based on task and hardware
+async function selectBestOllamaModel(
+  taskType: string,
+  gpus: GPUInfo[],
+  ram: { total_gb: number; available_gb: number }
+): Promise<string> {
+  const models = await getOllamaModels();
+  if (models.length === 0) {
+    return 'llama3.1:8b-instruct-q4_K_M';
+  }
+
+  // Calculate available VRAM
+  const availableVram = gpus.length > 0
+    ? gpus.reduce((sum, gpu) => sum + gpu.vram_free_gb, 0)
+    : 0;
+
+  // Filter models that fit in VRAM/RAM
+  const maxVram = availableVram > 0 ? availableVram : ram.available_gb * 0.5;
+  const fittingModels = models.filter(m => m.estimated_vram_gb <= maxVram);
+
+  if (fittingModels.length === 0) {
+    // Return smallest model
+    const smallest = models.sort((a, b) => a.size_gb - b.size_gb)[0];
+    return smallest?.value || 'llama3.2:3b';
+  }
+
+  // For coding tasks, prefer code-specialized models
+  if (taskType === 'coding' || taskType === 'code') {
+    const codeModels = fittingModels.filter(m => m.supports_code);
+    if (codeModels.length > 0) {
+      // Return largest code model that fits
+      const best = codeModels.sort((a, b) => b.size_gb - a.size_gb)[0];
+      return best.value;
+    }
+  }
+
+  // Return largest general model that fits
+  const best = fittingModels.sort((a, b) => b.size_gb - a.size_gb)[0];
+  return best.value;
+}
+
+// Register execution mode handlers
+export function registerExecutionModeHandlers(): void {
+  // Get mode info
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_GET_MODE_INFO,
+    async (): Promise<IPCResult<{ current_mode: ExecutionMode; config: ModeConfig }>> => {
+      try {
+        const config = loadModeConfig();
+        return {
+          success: true,
+          data: {
+            current_mode: config.mode,
+            config,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get mode info',
+        };
+      }
+    }
+  );
+
+  // Set mode
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_SET_MODE,
+    async (_, mode: ExecutionMode): Promise<IPCResult<{ success: boolean }>> => {
+      try {
+        const saved = saveModeConfig({ mode });
+        return { success: saved, data: { success: saved } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to set mode',
+        };
+      }
+    }
+  );
+
+  // Update mode config
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_UPDATE_MODE_CONFIG,
+    async (_, config: Partial<ModeConfig>): Promise<IPCResult<{ success: boolean }>> => {
+      try {
+        const saved = saveModeConfig(config);
+        return { success: saved, data: { success: saved } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update mode config',
+        };
+      }
+    }
+  );
+
+  // Get Ollama models
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_GET_OLLAMA_MODELS,
+    async (): Promise<IPCResult<OllamaModelInfo[]>> => {
+      try {
+        const models = await getOllamaModels();
+        return { success: true, data: models };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get Ollama models',
+        };
+      }
+    }
+  );
+
+  // Analyze task complexity
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_ANALYZE_TASK_COMPLEXITY,
+    async (_, taskDescription: string, context?: { files?: string[]; codeSize?: number }): Promise<IPCResult<ComplexityAnalysis>> => {
+      try {
+        const analysis = analyzeTaskComplexity(taskDescription, context);
+        return { success: true, data: analysis };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to analyze task complexity',
+        };
+      }
+    }
+  );
+
+  // Auto-select model
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_AUTO_SELECT_MODEL,
+    async (_, taskDescription: string, taskType?: string, preferredProvider?: 'claude' | 'ollama'): Promise<IPCResult<ModelSelection>> => {
+      try {
+        const selection = await autoSelectModel(taskDescription, taskType || 'coding', preferredProvider);
+        return { success: true, data: selection };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to auto-select model',
+        };
+      }
+    }
+  );
+}

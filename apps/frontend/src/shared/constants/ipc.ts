@@ -399,6 +399,14 @@ export const IPC_CHANNELS = {
   PROVIDER_GET_RECOMMENDED_SETTINGS: 'provider:getRecommendedSettings',
   PROVIDER_SAVE_SETTINGS: 'provider:saveSettings',
 
+  // Execution mode management
+  PROVIDER_GET_MODE_INFO: 'provider:getModeInfo',
+  PROVIDER_SET_MODE: 'provider:setMode',
+  PROVIDER_UPDATE_MODE_CONFIG: 'provider:updateModeConfig',
+  PROVIDER_GET_OLLAMA_MODELS: 'provider:getOllamaModels',
+  PROVIDER_ANALYZE_TASK_COMPLEXITY: 'provider:analyzeTaskComplexity',
+  PROVIDER_AUTO_SELECT_MODEL: 'provider:autoSelectModel',
+
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',
   OLLAMA_CHECK_INSTALLED: 'ollama:checkInstalled',

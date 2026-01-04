@@ -37,6 +37,7 @@ import {
   CardTitle,
 } from '../ui/card';
 import { toast } from '../../hooks/use-toast';
+import { ExecutionModeSettings } from './ExecutionModeSettings';
 
 // Types
 type Provider = 'claude' | 'ollama';
@@ -467,6 +468,19 @@ export function ProviderSettings() {
             </CardContent>
           </Card>
         )}
+
+        {/* Execution Mode Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Execution Mode</CardTitle>
+            <CardDescription className="text-xs">
+              Configure how tasks are routed between local and cloud providers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ExecutionModeSettings />
+          </CardContent>
+        </Card>
 
         {/* Recommended Settings */}
         {recommended && (
