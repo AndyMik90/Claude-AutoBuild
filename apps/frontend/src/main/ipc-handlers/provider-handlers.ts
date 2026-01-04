@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
+import { getClaudeProfileManager } from '../claude-profile-manager';
 
 // Types for provider management
 export type Provider = 'claude' | 'ollama';
@@ -224,20 +225,58 @@ async function checkOllamaHealth(ollamaModel: string): Promise<ProviderHealth> {
 
 /**
  * Check Claude health with proper rate limit detection
+ * Uses ClaudeProfileManager to check authentication status
  */
 async function checkClaudeHealth(): Promise<ProviderHealth> {
   const startTime = Date.now();
 
-  // Check for OAuth token
-  const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_AUTH_TOKEN;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Check for authentication via ClaudeProfileManager first
+  let hasAuth = false;
+  let authMethod = 'none';
+  
+  try {
+    // Check if any profile is authenticated
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+    if (activeProfile?.hasOAuthToken) {
+      hasAuth = true;
+      authMethod = 'oauth';
+    }
+  } catch {
+    // Profile manager not available, fall back to env vars
+  }
+  
+  // Fall back to environment variables if no profile auth
+  if (!hasAuth) {
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_AUTH_TOKEN;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    
+    if (oauthToken) {
+      hasAuth = true;
+      authMethod = 'env_oauth';
+    } else if (apiKey) {
+      hasAuth = true;
+      authMethod = 'api_key';
+    }
+  }
 
-  if (!oauthToken && !apiKey) {
+  if (!hasAuth) {
     return {
       provider: 'claude',
       status: 'unavailable',
       model_available: false,
-      error_message: 'No Claude authentication configured (OAuth token or API key required)',
+      error_message: 'No Claude authentication configured. Please sign in via Claude Profile or set API key.',
+    };
+  }
+  
+  // We have authentication - now check if the service is reachable
+  // For OAuth profiles, we trust the profile manager's validation
+  if (authMethod === 'oauth') {
+    return {
+      provider: 'claude',
+      status: 'available',
+      model_available: true,
+      response_time_ms: Date.now() - startTime,
     };
   }
 
