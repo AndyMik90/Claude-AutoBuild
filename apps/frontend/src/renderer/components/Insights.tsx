@@ -16,7 +16,7 @@ import {
   PanelLeftClose,
   PanelLeft
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -300,6 +300,7 @@ export function Insights({ projectId }: InsightsProps) {
               <MessageBubble
                 key={message.id}
                 message={message}
+                markdownComponents={markdownComponents}
                 onCreateTask={() => handleCreateTask(message)}
                 isCreatingTask={creatingTask === message.id}
                 taskCreated={taskCreated.has(message.id)}
@@ -392,6 +393,7 @@ export function Insights({ projectId }: InsightsProps) {
 
 interface MessageBubbleProps {
   message: InsightsChatMessage;
+  markdownComponents: Components;
   onCreateTask: () => void;
   isCreatingTask: boolean;
   taskCreated: boolean;
@@ -399,6 +401,7 @@ interface MessageBubbleProps {
 
 function MessageBubble({
   message,
+  markdownComponents,
   onCreateTask,
   isCreatingTask,
   taskCreated
