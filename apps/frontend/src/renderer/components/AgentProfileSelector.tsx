@@ -162,11 +162,16 @@ export function AgentProfileSelector({
   useEffect(() => {
     const checkProviders = async () => {
       try {
-        const result = await window.electronAPI?.provider?.getInfo?.();
-        if (result?.success && result.data) {
-          setOllamaAvailable(result.data.health?.ollama?.status === 'available');
-          setClaudeAvailable(result.data.health?.claude?.status === 'available' || 
-                           result.data.health?.claude?.status === 'degraded');
+        // getInfo() returns ProviderInfo | null directly, not IPCResult
+        const providerInfo = await window.electronAPI?.provider?.getInfo?.();
+        if (providerInfo) {
+          // Check both health and extended status (ollama_status) for availability
+          const ollamaStatus = providerInfo.health?.ollama?.status || providerInfo.ollama_status?.status;
+          const claudeStatus = providerInfo.health?.claude?.status || providerInfo.claude_status?.status;
+          
+          // Accept 'available' or 'degraded' as available (model exists but may have issues)
+          setOllamaAvailable(ollamaStatus === 'available' || ollamaStatus === 'degraded');
+          setClaudeAvailable(claudeStatus === 'available' || claudeStatus === 'degraded');
         }
       } catch (error) {
         console.error('Failed to check provider availability:', error);
