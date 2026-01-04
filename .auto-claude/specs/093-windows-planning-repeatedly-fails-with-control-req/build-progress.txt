@@ -246,3 +246,27 @@ Session 11 (Coder - subtask-3-3):
 - Next Steps: Windows tester runs Insights/Context test using E2E_INSIGHTS_CONTEXT_TEST.md and test-e2e-insights-context.ps1
 
 === END SESSION 11 ===
+Session 12 (Coder - subtask-3-4):
+- Verified Git/development version works correctly after Windows .exe fixes (regression testing)
+- Comprehensive testing performed:
+  1. Unit Tests: ✅ PASSED - 48 test files, 1195 tests passed, 6 skipped, 0 failures
+  2. TypeScript Type Checking: ✅ PASSED - No compilation errors
+  3. Build Process: ✅ PASSED - Main (1.23s), Preload (38ms), Renderer (3.49s)
+  4. Code Quality: ✅ PASSED - Changes follow existing patterns
+- Analyzed all changes from previous subtasks (1-1 through 3-3):
+  - package.json extraResources changes: Only affect packaged builds (dev unaffected)
+  - sitecustomize.py generation: Only used in build process (dev unaffected)
+  - agent-process.ts changes: stdio: 'pipe' + windowsHide: true + logging
+    * stdio: 'pipe' follows python-env-manager.ts pattern (safe, recommended practice)
+    * windowsHide: true only affects Windows (macOS/Linux unaffected)
+    * Logging helps debugging (no negative impact)
+  - Backend logging additions: Debug-level only (helpful for troubleshooting)
+- Created REGRESSION_TEST_REPORT.md with full test results and analysis
+- Risk Assessment: LOW - No breaking changes, all tests pass, follows established patterns
+- Conclusion: ✅ Git/development version verified working correctly
+- No regressions detected - safe to proceed with Windows .exe testing and merge
+- Committed: auto-claude: subtask-3-4 - Verify Git/development version still works
+- Status: COMPLETED ✓
+
+=== END SESSION 12 ===
+
