@@ -2,7 +2,13 @@
 # ║                                                                               ║
 # ║                        AUTO CLAUDE - CI PIPELINE                              ║
 # ║                                                                               ║
-# ║  A unified, enterprise-grade CI workflow for pull request validation.         ║
+# ║  A unified, enterprise-grade CI workflow for pull request validation          ║
+# ║  and scheduled security scanning.                                             ║
+# ║                                                                               ║
+# ║  TRIGGERS:                                                                    ║
+# ║  - Pull requests to main/develop branches                                     ║
+# ║  - Weekly scheduled security scans (Monday 00:00 UTC)                         ║
+# ║  - Manual workflow dispatch                                                   ║
 # ║                                                                               ║
 # ║  WORKFLOW STAGES:                                                             ║
 # ║  ┌─────────────────────────────────────────────────────────────────────────┐  ║
@@ -12,12 +18,17 @@
 # ║  │ Stage 4: Status Update   - Update PR with final status                 │  ║
 # ║  └─────────────────────────────────────────────────────────────────────────┘  ║
 # ║                                                                               ║
-# ║  SMART PATH FILTERING:                                                        ║
+# ║  SMART PATH FILTERING (PR mode):                                              ║
 # ║  - Backend changes (apps/backend/**, tests/**)  → Python tests + lint        ║
 # ║  - Frontend changes (apps/frontend/**)          → Frontend tests + build     ║
 # ║  - No code changes (docs, CI configs only)      → Skip tests, mark ready     ║
 # ║                                                                               ║
-# ║  LABELS APPLIED:                                                              ║
+# ║  SCHEDULED SECURITY SCANS:                                                    ║
+# ║  - Weekly CodeQL analysis for Python and JavaScript/TypeScript               ║
+# ║  - Weekly Bandit security scan for Python backend                            ║
+# ║  - Detects newly discovered CVEs in existing code                            ║
+# ║                                                                               ║
+# ║  LABELS APPLIED (PR mode only):                                               ║
 # ║  - Status: 🔄 Checking → ✅ Ready for Review / ❌ Checks Failed              ║
 # ║  - Type: feature, bug, docs, refactor, ci, chore (from PR title)             ║
 # ║  - Area: area/frontend, area/backend, area/fullstack, area/ci                ║
@@ -33,6 +44,12 @@ on:
   pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened]
+  # Weekly scheduled security scans to detect newly discovered CVEs
+  # Runs every Monday at midnight UTC
+  schedule:
+    - cron: '0 0 * * 1'
+  # Allow manual triggering for security scans
+  workflow_dispatch:
 
 # ─────────────────────────────────────────────────────────────────────────────────
 # CONCURRENCY: Cancel redundant runs when new commits are pushed to the same PR
@@ -67,8 +84,8 @@ jobs:
   stage-1-setup:
     name: "Stage 1: PR Setup"
     runs-on: ubuntu-latest
-    # Skip for fork PRs (they cannot write labels)
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Skip for fork PRs (they cannot write labels) and scheduled runs (no PR context)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 5
 
     steps:
@@ -257,6 +274,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       any_code: ${{ steps.filter.outputs.any_code }}
       skip_tests: ${{ steps.evaluate.outputs.skip_tests }}
+      scheduled_scan: ${{ steps.evaluate.outputs.scheduled_scan }}
 
     steps:
       - name: "2.1 Checkout Repository"
@@ -288,19 +306,30 @@ jobs:
           echo "  CHANGE DETECTION RESULTS"
           echo "═══════════════════════════════════════════════════════════"
           echo ""
-          echo "  Backend changes:  ${{ steps.filter.outputs.backend }}"
-          echo "  Frontend changes: ${{ steps.filter.outputs.frontend }}"
-          echo "  Any code changes: ${{ steps.filter.outputs.any_code }}"
-          echo ""
 
-          if [ "${{ steps.filter.outputs.any_code }}" = "false" ]; then
-            echo "skip_tests=true" >> $GITHUB_OUTPUT
-            echo "  → No code changes detected"
-            echo "  → Tests will be SKIPPED (docs/config only changes)"
-          else
+          # For scheduled runs, always run security scans on all code
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "  Event type: ${{ github.event_name }}"
+            echo "  → Scheduled/manual security scan - running all checks"
+            echo ""
             echo "skip_tests=false" >> $GITHUB_OUTPUT
-            echo "  → Code changes detected"
-            echo "  → Tests will be EXECUTED"
+            echo "scheduled_scan=true" >> $GITHUB_OUTPUT
+          else
+            echo "  Backend changes:  ${{ steps.filter.outputs.backend }}"
+            echo "  Frontend changes: ${{ steps.filter.outputs.frontend }}"
+            echo "  Any code changes: ${{ steps.filter.outputs.any_code }}"
+            echo ""
+            echo "scheduled_scan=false" >> $GITHUB_OUTPUT
+
+            if [ "${{ steps.filter.outputs.any_code }}" = "false" ]; then
+              echo "skip_tests=true" >> $GITHUB_OUTPUT
+              echo "  → No code changes detected"
+              echo "  → Tests will be SKIPPED (docs/config only changes)"
+            else
+              echo "skip_tests=false" >> $GITHUB_OUTPUT
+              echo "  → Code changes detected"
+              echo "  → Tests will be EXECUTED"
+            fi
           fi
 
           echo ""
@@ -460,13 +489,14 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # CODEQL: Static analysis for security vulnerabilities
-  # Triggered: When any code files change
+  # Triggered: When any code files change OR on scheduled/manual security scans
   # ─────────────────────────────────────────────────────────────────────────────
   stage-3-codeql:
     name: "Stage 3: CodeQL (${{ matrix.language }})"
     runs-on: ubuntu-latest
     needs: stage-2-changes
-    if: needs.stage-2-changes.outputs.any_code == 'true'
+    # Run on code changes OR scheduled/manual security scans
+    if: needs.stage-2-changes.outputs.any_code == 'true' || needs.stage-2-changes.outputs.scheduled_scan == 'true'
     timeout-minutes: 30
 
     strategy:
@@ -494,13 +524,14 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # PYTHON SECURITY: Bandit security scanner for Python code
-  # Triggered: When backend files change
+  # Triggered: When backend files change OR on scheduled/manual security scans
   # ─────────────────────────────────────────────────────────────────────────────
   stage-3-security-python:
     name: "Stage 3: Python Security"
     runs-on: ubuntu-latest
     needs: stage-2-changes
-    if: needs.stage-2-changes.outputs.backend == 'true'
+    # Run on backend changes OR scheduled/manual security scans
+    if: needs.stage-2-changes.outputs.backend == 'true' || needs.stage-2-changes.outputs.scheduled_scan == 'true'
     timeout-minutes: 10
 
     steps:
@@ -516,18 +547,46 @@ jobs:
         run: pip install bandit
 
       - name: "3.4 Run Bandit Security Scan"
+        id: bandit
         run: |
-          # Run Bandit and save results (exit code 1 = issues found, not an error)
-          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json || true
+          # Run Bandit and capture exit code
+          # Exit 0 = no issues, Exit 1 = issues found, Exit > 1 = real error
+          set +e
+          bandit -r apps/backend/ -ll -ii -f json -o bandit-report.json
+          BANDIT_EXIT=$?
+          set -e
+
+          if [ $BANDIT_EXIT -eq 0 ]; then
+            echo "✓ Bandit scan completed - no issues found"
+            echo "scan_status=clean" >> $GITHUB_OUTPUT
+          elif [ $BANDIT_EXIT -eq 1 ]; then
+            echo "⚠ Bandit scan completed - security issues found"
+            echo "scan_status=issues_found" >> $GITHUB_OUTPUT
+          else
+            echo "✗ Bandit scan failed with exit code $BANDIT_EXIT"
+            echo "  This indicates a configuration error or missing directory"
+            exit $BANDIT_EXIT
+          fi
 
       - name: "3.5 Analyze Security Results"
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const scanStatus = '${{ steps.bandit.outputs.scan_status }}';
 
             if (!fs.existsSync('bandit-report.json')) {
-              core.setFailed('Bandit report not found - scan may have failed');
+              core.setFailed('Bandit report not found - scan failed before producing output');
+              return;
+            }
+
+            // If scan was clean, we can skip detailed analysis
+            if (scanStatus === 'clean') {
+              console.log('\n' + '═'.repeat(60));
+              console.log('  BANDIT SECURITY SCAN RESULTS');
+              console.log('═'.repeat(60));
+              console.log('\n✓ No security issues found\n');
+              console.log('═'.repeat(60) + '\n');
               return;
             }
 
@@ -580,7 +639,8 @@ jobs:
       - stage-3-codeql
       - stage-3-security-python
     # Always run to update status, even if previous jobs failed or were skipped
-    if: always() && github.event.pull_request.head.repo.full_name == github.repository
+    # For scheduled runs, skip PR label updates (no PR context)
+    if: always() && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     timeout-minutes: 5
 
     steps:
@@ -589,7 +649,9 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
+            const eventName = '${{ github.event_name }}';
+            const isScheduledRun = eventName === 'schedule' || eventName === 'workflow_dispatch';
+            const prNumber = context.payload.pull_request?.number;
 
             // ─────────────────────────────────────────────────────────────
             // COLLECT RESULTS FROM ALL QUALITY GATE JOBS
@@ -605,10 +667,14 @@ jobs:
             const skipTests = '${{ needs.stage-2-changes.outputs.skip_tests }}' === 'true';
 
             console.log('\n' + '═'.repeat(60));
-            console.log('  CI PIPELINE RESULTS');
+            if (isScheduledRun) {
+              console.log('  SCHEDULED SECURITY SCAN RESULTS');
+            } else {
+              console.log('  CI PIPELINE RESULTS');
+            }
             console.log('═'.repeat(60) + '\n');
 
-            if (skipTests) {
+            if (skipTests && !isScheduledRun) {
               console.log('  ℹ️  No code changes detected - tests were skipped\n');
             }
 
@@ -638,28 +704,30 @@ jobs:
             };
 
             // ─────────────────────────────────────────────────────────────
-            // UPDATE PR LABELS
+            // UPDATE PR LABELS (skip for scheduled runs - no PR context)
             // ─────────────────────────────────────────────────────────────
-            // Remove all status labels first
-            for (const label of Object.values(statusLabels)) {
+            if (!isScheduledRun && prNumber) {
+              // Remove all status labels first
+              for (const label of Object.values(statusLabels)) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner, repo, issue_number: prNumber, name: label
+                  });
+                } catch (e) {
+                  // Ignore 404 (label not present)
+                }
+              }
+
+              // Add appropriate status label
+              const newLabel = failed.length > 0 ? statusLabels.failed : statusLabels.passed;
               try {
-                await github.rest.issues.removeLabel({
-                  owner, repo, issue_number: prNumber, name: label
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: prNumber, labels: [newLabel]
                 });
               } catch (e) {
-                // Ignore 404 (label not present)
-              }
-            }
-
-            // Add appropriate status label
-            const newLabel = failed.length > 0 ? statusLabels.failed : statusLabels.passed;
-            try {
-              await github.rest.issues.addLabels({
-                owner, repo, issue_number: prNumber, labels: [newLabel]
-              });
-            } catch (e) {
-              if (e.status === 404) {
-                core.warning(`Label '${newLabel}' does not exist. Please create it in Settings > Labels.`);
+                if (e.status === 404) {
+                  core.warning(`Label '${newLabel}' does not exist. Please create it in Settings > Labels.`);
+                }
               }
             }
 
@@ -667,16 +735,25 @@ jobs:
             // GENERATE SUMMARY
             // ─────────────────────────────────────────────────────────────
             if (failed.length > 0) {
-              console.log(`  ❌ RESULT: CI FAILED`);
+              const resultType = isScheduledRun ? 'SECURITY SCAN FAILED' : 'CI FAILED';
+              console.log(`  ❌ RESULT: ${resultType}`);
               console.log(`     Failed jobs: ${failed.join(', ')}`);
               console.log('\n' + '═'.repeat(60) + '\n');
 
-              core.summary.addRaw(`## ❌ CI Failed\n\n`);
+              core.summary.addRaw(`## ❌ ${resultType}\n\n`);
               core.summary.addRaw(`The following checks failed:\n`);
               for (const job of failed) {
                 core.summary.addRaw(`- ${job}\n`);
               }
-              core.setFailed(`CI failed: ${failed.join(', ')}`);
+              core.setFailed(`${resultType}: ${failed.join(', ')}`);
+
+            } else if (isScheduledRun) {
+              console.log(`  ✅ RESULT: SECURITY SCAN PASSED`);
+              console.log(`     All security checks passed`);
+              console.log('\n' + '═'.repeat(60) + '\n');
+
+              core.summary.addRaw(`## ✅ Weekly Security Scan Passed\n\n`);
+              core.summary.addRaw(`All scheduled security checks (CodeQL, Bandit) completed successfully.\n`);
 
             } else if (skipTests) {
               console.log(`  ✅ RESULT: READY FOR REVIEW`);
