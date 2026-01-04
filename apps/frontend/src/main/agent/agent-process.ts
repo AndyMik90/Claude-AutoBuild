@@ -597,6 +597,15 @@ export class AgentProcessManager {
 
     // Priority: app-wide memory -> backend .env -> project .env -> project settings
     // Later sources override earlier ones
-    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+    const combinedEnv = { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+
+    // Add Claude CLI path for SDK to find the bundled CLI (fixes Issue #529)
+    // This helps in packaged Electron apps where GUI apps don't inherit shell PATH
+    const claudeCliPath = pythonEnvManager.getClaudeCliPath();
+    if (claudeCliPath) {
+      combinedEnv.CLAUDE_CLI_PATH = claudeCliPath;
+    }
+
+    return combinedEnv;
   }
 }
