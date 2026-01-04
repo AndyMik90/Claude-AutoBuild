@@ -4,7 +4,7 @@ Workspace Management - Per-Spec Architecture
 =============================================
 
 Handles workspace isolation through Git worktrees, where each spec
-gets its own isolated worktree in .worktrees/{spec-name}/.
+gets its own isolated worktree in .auto-claude/worktrees/tasks/{spec-name}/.
 
 This module has been refactored for better maintainability:
 - Models and enums: workspace/models.py

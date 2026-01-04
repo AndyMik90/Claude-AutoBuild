@@ -55,7 +55,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="opus",
+        default="sonnet",  # Changed from "opus" (fix #433)
         help="Model to use (haiku, sonnet, opus, or full model ID)",
     )
     parser.add_argument(

@@ -246,6 +246,20 @@ const browserMockAPI: ElectronAPI = {
     data: { command: 'npm install -g @anthropic-ai/claude-code' }
   }),
 
+  // Terminal Worktree Operations
+  createTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+  listTerminalWorktrees: async () => ({
+    success: true,
+    data: []
+  }),
+  removeTerminalWorktree: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+
   // MCP Server Health Check Operations
   checkMcpHealth: async (server) => ({
     success: true,

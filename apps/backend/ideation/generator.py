@@ -56,7 +56,7 @@ class IdeationGenerator:
         self,
         project_dir: Path,
         output_dir: Path,
-        model: str = "opus",
+        model: str = "sonnet",  # Changed from "opus" (fix #433)
         thinking_level: str = "medium",
         max_ideas_per_type: int = 5,
     ):

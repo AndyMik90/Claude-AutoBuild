@@ -3,7 +3,9 @@ import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
 import { getValidatedPythonPath } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
+import { getConfiguredPythonPath, pythonEnvManager } from '../python-env-manager';
+import { getAugmentedEnv } from '../env-utils';
+import { getEffectiveSourcePath } from '../updater/path-resolver';
 
 /**
  * Configuration manager for insights service
@@ -40,24 +42,23 @@ export class InsightsConfig {
 
   /**
    * Get the auto-claude source path (detects automatically if not configured)
+   * Uses getEffectiveSourcePath() which handles userData override for user-updated backend
    */
   getAutoBuildSourcePath(): string | null {
     if (this.autoBuildSourcePath && existsSync(this.autoBuildSourcePath)) {
       return this.autoBuildSourcePath;
     }
 
-    const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
-    ];
-
-    for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
-        return p;
-      }
+    // Use shared path resolver which handles:
+    // 1. User settings (autoBuildPath)
+    // 2. userData override (backend-source) for user-updated backend
+    // 3. Bundled backend (process.resourcesPath/backend)
+    // 4. Development paths
+    const effectivePath = getEffectiveSourcePath();
+    if (existsSync(effectivePath) && existsSync(path.join(effectivePath, 'runners', 'spec_runner.py'))) {
+      return effectivePath;
     }
+
     return null;
   }
 
@@ -107,9 +108,15 @@ export class InsightsConfig {
   getProcessEnv(): Record<string, string> {
     const autoBuildEnv = this.loadAutoBuildEnv();
     const profileEnv = getProfileEnv();
+    // Get Python environment (PYTHONPATH for bundled packages like python-dotenv)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+    // Use getAugmentedEnv() to ensure common tool paths (claude, dotnet, etc.)
+    // are available even when app is launched from Finder/Dock
+    const augmentedEnv = getAugmentedEnv();
 
     return {
-      ...process.env as Record<string, string>,
+      ...augmentedEnv,
+      ...pythonEnv, // Include PYTHONPATH for bundled site-packages
       ...autoBuildEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',

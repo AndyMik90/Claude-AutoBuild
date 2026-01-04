@@ -29,7 +29,7 @@ from ui import (
 )
 
 # Configuration - uses shorthand that resolves via API Profile if configured
-DEFAULT_MODEL = "opus"
+DEFAULT_MODEL = "sonnet"  # Changed from "opus" (fix #433)
 
 
 def setup_environment() -> Path:
@@ -82,7 +82,7 @@ def find_spec(project_dir: Path, spec_identifier: str) -> Path | None:
                     return spec_folder
 
     # Check worktree specs (for merge-preview, merge, review, discard operations)
-    worktree_base = project_dir / ".worktrees"
+    worktree_base = project_dir / ".auto-claude" / "worktrees" / "tasks"
     if worktree_base.exists():
         # Try exact match in worktree
         worktree_spec = (

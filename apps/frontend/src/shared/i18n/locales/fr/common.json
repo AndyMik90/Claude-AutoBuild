@@ -37,6 +37,7 @@
     "success": "Succès",
     "initializing": "Initialisation...",
     "saving": "Enregistrement...",
+    "creating": "Creation...",
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",

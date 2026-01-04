@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
 
 interface UsePtyProcessOptions {
@@ -22,8 +22,25 @@ export function usePtyProcess({
 }: UsePtyProcessOptions) {
   const isCreatingRef = useRef(false);
   const isCreatedRef = useRef(false);
+  const currentCwdRef = useRef(cwd);
   const setTerminalStatus = useTerminalStore((state) => state.setTerminalStatus);
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
+
+  // Track cwd changes - if cwd changes while terminal exists, trigger recreate
+  useEffect(() => {
+    if (currentCwdRef.current !== cwd) {
+      // Only reset if we're not already in a controlled recreation process.
+      // prepareForRecreate() sets isCreatingRef=true to prevent auto-recreation
+      // while awaiting destroyTerminal(). Without this check, we'd reset isCreatingRef
+      // back to false before destroyTerminal completes, causing a race condition
+      // where a new PTY is created before the old one is destroyed.
+      if (isCreatedRef.current && !isCreatingRef.current) {
+        // Terminal exists and we're not in a controlled recreation, reset refs
+        isCreatedRef.current = false;
+      }
+      currentCwdRef.current = cwd;
+    }
+  }, [cwd]);
 
   // Create PTY process
   useEffect(() => {
@@ -92,7 +109,22 @@ export function usePtyProcess({
     }
   }, [terminalId, cwd, projectPath, cols, rows, setTerminalStatus, updateTerminal, onCreated, onError]);
 
+  // Function to prepare for recreation by preventing the effect from running
+  // Call this BEFORE updating the store cwd to avoid race condition
+  const prepareForRecreate = useCallback(() => {
+    isCreatingRef.current = true;
+  }, []);
+
+  // Function to reset refs and allow recreation
+  // Call this AFTER destroying the old terminal
+  const resetForRecreate = useCallback(() => {
+    isCreatedRef.current = false;
+    isCreatingRef.current = false;
+  }, []);
+
   return {
     isCreated: isCreatedRef.current,
+    prepareForRecreate,
+    resetForRecreate,
   };
 }
