@@ -133,7 +133,13 @@ from agents.tools_pkg import (
 )
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
-from core.auth import get_sdk_env_vars, require_auth_token
+from core.auth import (
+    convert_model_for_vertex,
+    get_sdk_env_vars,
+    get_vertex_ai_config,
+    is_vertex_ai_enabled,
+    require_auth_token,
+)
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
@@ -597,6 +603,16 @@ def create_client(
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     print("   - Bash commands restricted to allowlist")
+
+    # Show Vertex AI status if enabled
+    if is_vertex_ai_enabled():
+        vertex_config = get_vertex_ai_config()
+        print(
+            f"   - Vertex AI: ENABLED (project={vertex_config['project_id']}, location={vertex_config['location']})"
+        )
+    else:
+        print("   - API: Claude Code OAuth (direct Anthropic API)")
+
     if max_thinking_tokens:
         print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
     else:
@@ -726,9 +742,14 @@ def create_client(
         print("   - CLAUDE.md: disabled by project settings")
     print()
 
+    # Convert model name for Vertex AI if needed
+    # This allows using standard Anthropic model names (claude-sonnet-4-5-20250929)
+    # which get auto-converted to Vertex format (claude-sonnet-4-5@20250929)
+    converted_model = convert_model_for_vertex(model)
+
     # Build options dict, conditionally including output_format
     options_kwargs = {
-        "model": model,
+        "model": converted_model,
         "system_prompt": base_prompt,
         "allowed_tools": allowed_tools_list,
         "mcp_servers": mcp_servers,
