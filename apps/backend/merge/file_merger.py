@@ -19,6 +19,29 @@ from pathlib import Path
 from .types import ChangeType, SemanticChange, TaskSnapshot
 
 
+def detect_line_ending(content: str) -> str:
+    """
+    Detect the dominant line ending style in content.
+
+    Checks for CRLF first (Windows), then CR (old Mac), defaults to LF (Unix).
+    This preserves the original file's line ending convention when rejoining lines.
+
+    Args:
+        content: File content to analyze
+
+    Returns:
+        The detected line ending string: "\\r\\n", "\\r", or "\\n"
+    """
+    # Check for CRLF first (Windows) - must check before LF since CRLF contains LF
+    if "\r\n" in content:
+        return "\r\n"
+    # Check for CR (classic Mac, rare but possible)
+    if "\r" in content:
+        return "\r"
+    # Default to LF (Unix/modern Mac)
+    return "\n"
+
+
 def apply_single_task_changes(
     baseline: str,
     snapshot: TaskSnapshot,
@@ -45,11 +68,12 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
-                # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+                # Detect line ending style before splitting to preserve it
+                line_ending = detect_line_ending(content)
                 lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
-                content = "\n".join(lines)
+                content = line_ending.join(lines)
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
                 content += f"\n\n{change.content_after}"
@@ -97,14 +121,15 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
-        # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
+        # Detect line ending style before splitting to preserve it
+        line_ending = detect_line_ending(content)
         lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
             if imp.content_after and imp.content_after not in content:
                 lines.insert(import_end, imp.content_after)
                 import_end += 1
-        content = "\n".join(lines)
+        content = line_ending.join(lines)
 
     # Apply modifications
     for mod in modifications:

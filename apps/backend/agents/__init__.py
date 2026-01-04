@@ -33,6 +33,7 @@ __all__ = [
     "find_subtask_in_plan",
     "find_phase_for_subtask",
     "sync_plan_to_source",
+    "sync_spec_to_source",
     # Constants
     "AUTO_CONTINUE_DELAY_SECONDS",
     "HUMAN_INTERVENTION_FILE",
@@ -78,6 +79,7 @@ def __getattr__(name):
         "get_latest_commit",
         "load_implementation_plan",
         "sync_plan_to_source",
+        "sync_spec_to_source",
     ):
         from .utils import (
             find_phase_for_subtask,
@@ -86,6 +88,7 @@ def __getattr__(name):
             get_latest_commit,
             load_implementation_plan,
             sync_plan_to_source,
+            sync_spec_to_source,
         )
 
         return locals()[name]

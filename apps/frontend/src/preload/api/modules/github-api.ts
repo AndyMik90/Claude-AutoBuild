@@ -234,10 +234,10 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
 
   // PR operations
-  listPRs: (projectId: string) => Promise<PRData[]>;
+  listPRs: (projectId: string, page?: number) => Promise<PRData[]>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
-  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[]) => Promise<boolean>;
+  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
   deletePRReview: (projectId: string, prNumber: number) => Promise<boolean>;
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
   mergePR: (projectId: string, prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<boolean>;
@@ -586,8 +586,8 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR, callback),
 
   // PR operations
-  listPRs: (projectId: string): Promise<PRData[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
+  listPRs: (projectId: string, page: number = 1): Promise<PRData[]> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId, page),
 
   runPRReview: (projectId: string, prNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_PR_REVIEW, projectId, prNumber),
@@ -595,8 +595,8 @@ export const createGitHubAPI = (): GitHubAPI => ({
   cancelPRReview: (projectId: string, prNumber: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_REVIEW_CANCEL, projectId, prNumber),
 
-  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[]): Promise<boolean> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_POST_REVIEW, projectId, prNumber, selectedFindingIds),
+  postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_POST_REVIEW, projectId, prNumber, selectedFindingIds, options),
 
   deletePRReview: (projectId: string, prNumber: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_DELETE_REVIEW, projectId, prNumber),

@@ -151,8 +151,9 @@
     "postFindings_plural": "Post {{count}} Findings",
     "approve": "Approve",
     "merge": "Merge",
-    "autoApprovePR": "Auto-Approve PR",
-    "suggestions": "+{{count}} suggestions",
+    "mergeViaGitHub": "Merge via GitHub CLI. May fail if branch protection rules require additional reviews or checks.",
+    "autoApprovePR": "Approve PR",
+    "suggestions": "with {{count}} suggestions",
     "postedFindings": "Posted {{count}} finding",
     "postedFindings_plural": "Posted {{count}} findings",
     "resolved": "{{count}} resolved",
@@ -228,7 +229,10 @@
     "findingsFoundSelectPost_plural": "{{count}} findings found. Select and post to GitHub.",
     "reviewLogs": "Review Logs",
     "followup": "Follow-up",
-    "initial": "Initial"
+    "initial": "Initial",
+    "loadingMore": "Loading more PRs...",
+    "scrollForMore": "Scroll for more",
+    "allPRsLoaded": "All PRs loaded"
   },
   "downloads": {
     "toggleExpand": "Toggle download details",

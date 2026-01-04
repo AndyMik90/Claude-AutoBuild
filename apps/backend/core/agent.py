@@ -40,6 +40,7 @@ from agents import (
     save_session_memory,
     save_session_to_graphiti,
     sync_plan_to_source,
+    sync_spec_to_source,
 )
 
 # Ensure all exports are available at module level
@@ -58,6 +59,7 @@ __all__ = [
     "find_subtask_in_plan",
     "find_phase_for_subtask",
     "sync_plan_to_source",
+    "sync_spec_to_source",
     "AUTO_CONTINUE_DELAY_SECONDS",
     "HUMAN_INTERVENTION_FILE",
 ]

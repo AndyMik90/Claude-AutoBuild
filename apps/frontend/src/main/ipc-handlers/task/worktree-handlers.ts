@@ -4,6 +4,7 @@ import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, Worktre
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { minimatch } from 'minimatch';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../auto-claude-updater';
@@ -84,12 +85,77 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
 
     // Check if there are source files (indicating misconfiguration)
     // A truly bare repo would only have git internals, not source code
-    const hasSourceFiles = existsSync(path.join(projectPath, 'package.json')) ||
-                          existsSync(path.join(projectPath, 'apps')) ||
-                          existsSync(path.join(projectPath, 'src'));
+    // This covers multiple ecosystems: JS/TS, Python, Rust, Go, Java, C#, etc.
+    //
+    // Markers are separated into exact matches and glob patterns for efficiency.
+    // Exact matches use existsSync() directly, while glob patterns use minimatch
+    // against a cached directory listing.
+    const EXACT_MARKERS = [
+      // JavaScript/TypeScript ecosystem
+      'package.json', 'apps', 'src',
+      // Python ecosystem
+      'pyproject.toml', 'setup.py', 'requirements.txt', 'Pipfile',
+      // Rust ecosystem
+      'Cargo.toml',
+      // Go ecosystem
+      'go.mod', 'go.sum', 'cmd', 'main.go',
+      // Java/JVM ecosystem
+      'pom.xml', 'build.gradle', 'build.gradle.kts',
+      // Ruby ecosystem
+      'Gemfile', 'Rakefile',
+      // PHP ecosystem
+      'composer.json',
+      // General project markers
+      'Makefile', 'CMakeLists.txt', 'README.md', 'LICENSE'
+    ];
 
-    if (!hasSourceFiles) {
-      return false; // Legitimately bare repo
+    const GLOB_MARKERS = [
+      // .NET/C# ecosystem - patterns that need glob matching
+      '*.csproj', '*.sln', '*.fsproj'
+    ];
+
+    // Check exact matches first (fast path)
+    const hasExactMatch = EXACT_MARKERS.some(marker =>
+      existsSync(path.join(projectPath, marker))
+    );
+
+    if (hasExactMatch) {
+      // Found a project marker, proceed to fix
+    } else {
+      // Check glob patterns - read directory once and cache for all patterns
+      let directoryFiles: string[] | null = null;
+      const MAX_FILES_TO_CHECK = 500; // Limit to avoid reading huge directories
+
+      const hasGlobMatch = GLOB_MARKERS.some(pattern => {
+        // Validate pattern - only support simple glob patterns for security
+        if (pattern.includes('..') || pattern.includes('/')) {
+          console.warn(`[GIT] Unsupported glob pattern ignored: ${pattern}`);
+          return false;
+        }
+
+        // Lazy-load directory listing, cached across patterns
+        if (directoryFiles === null) {
+          try {
+            const allFiles = readdirSync(projectPath);
+            // Limit to first N entries to avoid performance issues
+            directoryFiles = allFiles.slice(0, MAX_FILES_TO_CHECK);
+            if (allFiles.length > MAX_FILES_TO_CHECK) {
+              console.warn(`[GIT] Directory has ${allFiles.length} entries, checking only first ${MAX_FILES_TO_CHECK}`);
+            }
+          } catch (error) {
+            // Log the error for debugging instead of silently swallowing
+            console.warn(`[GIT] Failed to read directory ${projectPath}:`, error instanceof Error ? error.message : String(error));
+            directoryFiles = [];
+          }
+        }
+
+        // Use minimatch for proper glob pattern matching
+        return directoryFiles.some(file => minimatch(file, pattern, { nocase: true }));
+      });
+
+      if (!hasGlobMatch) {
+        return false; // Legitimately bare repo
+      }
     }
 
     // Fix the misconfiguration
@@ -109,15 +175,15 @@ function fixMisconfiguredBareRepo(projectPath: string): boolean {
 /**
  * Check if a path is a valid git working tree (not a bare repository).
  * Returns true if the path is inside a git repository with a working tree.
- * Will attempt to auto-fix misconfigured bare repos first.
+ *
+ * NOTE: This is a pure check with no side-effects. If you need to fix
+ * misconfigured bare repos before an operation, call fixMisconfiguredBareRepo()
+ * explicitly before calling this function.
  *
  * @param projectPath - Path to check
  * @returns true if it's a valid working tree, false if bare or not a git repo
  */
 function isGitWorkTree(projectPath: string): boolean {
-  // First, try to fix any misconfigured bare repo
-  fixMisconfiguredBareRepo(projectPath);
-
   try {
     // Use git rev-parse --is-inside-work-tree which returns "true" for working trees
     // and fails for bare repos or non-git directories
@@ -1479,6 +1545,12 @@ export function registerWorktreeHandlers(
         }
 
         debug('Found task:', task.specId, 'project:', project.path);
+
+        // Auto-fix any misconfigured bare repo before merge operation
+        // This prevents issues where git operations fail due to incorrect bare=true config
+        if (fixMisconfiguredBareRepo(project.path)) {
+          debug('Fixed misconfigured bare repository at:', project.path);
+        }
 
         // Use run.py --merge to handle the merge
         const sourcePath = getEffectiveSourcePath();

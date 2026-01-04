@@ -151,8 +151,9 @@
     "postFindings_plural": "Publier {{count}} résultats",
     "approve": "Approuver",
     "merge": "Fusionner",
-    "autoApprovePR": "Auto-approuver PR",
-    "suggestions": "+{{count}} suggestions",
+    "mergeViaGitHub": "Fusionner via GitHub CLI. Peut échouer si les règles de protection de branche nécessitent des révisions ou vérifications supplémentaires.",
+    "autoApprovePR": "Approuver PR",
+    "suggestions": "avec {{count}} suggestions",
     "postedFindings": "{{count}} résultat publié",
     "postedFindings_plural": "{{count}} résultats publiés",
     "resolved": "{{count}} résolu",
@@ -228,7 +229,10 @@
     "findingsFoundSelectPost_plural": "{{count}} résultats trouvés. Sélectionnez et publiez sur GitHub.",
     "reviewLogs": "Journaux de révision",
     "followup": "Suivi",
-    "initial": "Initial"
+    "initial": "Initial",
+    "loadingMore": "Chargement des PRs...",
+    "scrollForMore": "Défiler pour plus",
+    "allPRsLoaded": "Tous les PRs chargés"
   },
   "downloads": {
     "toggleExpand": "Afficher/masquer les détails",

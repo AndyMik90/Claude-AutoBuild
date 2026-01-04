@@ -389,13 +389,29 @@ class GitHubOrchestrator:
                 pr_number=pr_number,
             )
 
-            # Check CI status
-            ci_status = await self.gh_client.get_pr_checks(pr_number)
+            # Check CI status (comprehensive - includes workflows awaiting approval)
+            ci_status = await self.gh_client.get_pr_checks_comprehensive(pr_number)
+
+            # Log CI status with awaiting approval info
+            awaiting = ci_status.get("awaiting_approval", 0)
+            pending_without_awaiting = ci_status.get("pending", 0) - awaiting
+            ci_log_parts = [
+                f"{ci_status.get('passing', 0)} passing",
+                f"{ci_status.get('failing', 0)} failing",
+            ]
+            if pending_without_awaiting > 0:
+                ci_log_parts.append(f"{pending_without_awaiting} pending")
+            if awaiting > 0:
+                ci_log_parts.append(f"{awaiting} awaiting approval")
             print(
-                f"[DEBUG orchestrator] CI status: {ci_status.get('passing', 0)} passing, "
-                f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending",
+                f"[orchestrator] CI status: {', '.join(ci_log_parts)}",
                 flush=True,
             )
+            if awaiting > 0:
+                print(
+                    f"[orchestrator] ⚠️ {awaiting} workflow(s) from fork need maintainer approval to run",
+                    flush=True,
+                )
 
             # Generate verdict (now includes CI status)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
@@ -691,7 +707,7 @@ class GitHubOrchestrator:
                 result = await reviewer.review_followup(followup_context)
 
             # Check CI status and override verdict if failing
-            ci_status = await self.gh_client.get_pr_checks(pr_number)
+            ci_status = await self.gh_client.get_pr_checks_comprehensive(pr_number)
             failed_checks = ci_status.get("failed_checks", [])
             if failed_checks:
                 print(

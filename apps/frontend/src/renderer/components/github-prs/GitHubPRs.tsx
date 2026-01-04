@@ -60,11 +60,13 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   const {
     prs,
     isLoading,
+    isLoadingMore,
     error,
     selectedPRNumber,
     reviewResult,
     reviewProgress,
     isReviewing,
+    hasMore,
     selectPR,
     runReview,
     runFollowupReview,
@@ -75,10 +77,11 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     mergePR,
     assignPR,
     refresh,
+    loadMore,
     isConnected,
     repoFullName,
     getReviewStateForPR,
-  } = useGitHubPRs(selectedProject?.id);
+  } = useGitHubPRs(selectedProject?.id, { isActive });
 
   const selectedPR = prs.find(pr => pr.number === selectedPRNumber);
 
@@ -126,9 +129,9 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     }
   }, [selectedPRNumber, cancelReview]);
 
-  const handlePostReview = useCallback(async (selectedFindingIds?: string[]): Promise<boolean> => {
+  const handlePostReview = useCallback(async (selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> => {
     if (selectedPRNumber && reviewResult) {
-      return await postReview(selectedPRNumber, selectedFindingIds);
+      return await postReview(selectedPRNumber, selectedFindingIds, options);
     }
     return false;
   }, [selectedPRNumber, reviewResult, postReview]);
@@ -218,9 +221,12 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               prs={filteredPRs}
               selectedPRNumber={selectedPRNumber}
               isLoading={isLoading}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
               error={error}
               getReviewStateForPR={getReviewStateForPR}
               onSelectPR={selectPR}
+              onLoadMore={loadMore}
             />
           </div>
         }
