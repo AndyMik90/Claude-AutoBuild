@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import subprocess
+from pathlib import Path
 
 # Priority order for auth token resolution
 # NOTE: We intentionally do NOT fall back to ANTHROPIC_API_KEY.
@@ -215,12 +216,100 @@ def require_auth_token() -> str:
     return token
 
 
+def get_enhanced_path() -> str:
+    """
+    Get an enhanced PATH that includes common Node.js/npm/npx locations.
+
+    Electron apps launched from GUI don't inherit shell PATH modifications
+    from .bashrc/.zshrc or Node version managers (nvm, fnm, volta, asdf).
+    This function adds common locations to ensure npx/npm are found.
+
+    Fixes Issue #523: Cannot add custom mcp servers using npx
+
+    Returns:
+        Enhanced PATH string with additional Node.js locations
+    """
+    current_path = os.environ.get("PATH", "")
+    home = Path.home()
+    additional_paths: list[str] = []
+
+    if platform.system() == "Windows":
+        # Windows common locations
+        appdata = os.environ.get("APPDATA", "")
+        programfiles = os.environ.get("PROGRAMFILES", "C:\\Program Files")
+        programfiles_x86 = os.environ.get(
+            "PROGRAMFILES(X86)", "C:\\Program Files (x86)"
+        )
+        nvm_home = os.environ.get("NVM_HOME", "")
+
+        candidates = [
+            Path(appdata) / "npm" if appdata else None,
+            Path(programfiles) / "nodejs",
+            Path(programfiles_x86) / "nodejs",
+            home / "AppData" / "Roaming" / "npm",
+            home / "AppData" / "Local" / "fnm_multishells",
+            home / ".volta" / "bin",
+        ]
+
+        # Add nvm-windows paths
+        if nvm_home:
+            nvm_path = Path(nvm_home)
+            if nvm_path.exists():
+                # Find installed node versions
+                for version_dir in nvm_path.iterdir():
+                    if version_dir.is_dir() and version_dir.name.startswith("v"):
+                        candidates.append(version_dir)
+
+    else:
+        # macOS / Linux common locations
+        candidates = [
+            Path("/usr/local/bin"),
+            Path("/usr/bin"),
+            Path("/opt/homebrew/bin"),  # Apple Silicon Homebrew
+            home / ".local" / "bin",
+            home / ".volta" / "bin",
+            home / ".fnm" / "current" / "bin",
+            home / ".asdf" / "shims",
+            home / ".npm-global" / "bin",
+            home / "node_modules" / ".bin",
+        ]
+
+        # Add nvm paths (find installed versions)
+        nvm_dir = home / ".nvm" / "versions" / "node"
+        if nvm_dir.exists():
+            for version_dir in nvm_dir.iterdir():
+                if version_dir.is_dir():
+                    candidates.append(version_dir / "bin")
+
+        # Add fnm paths
+        fnm_dir = home / ".fnm" / "node-versions"
+        if fnm_dir.exists():
+            for version_dir in fnm_dir.iterdir():
+                if version_dir.is_dir():
+                    candidates.append(version_dir / "installation" / "bin")
+
+    # Filter to existing directories not already in PATH
+    path_entries = set(current_path.split(os.pathsep))
+    for candidate in candidates:
+        if candidate and candidate.exists() and str(candidate) not in path_entries:
+            additional_paths.append(str(candidate))
+
+    # Prepend additional paths (higher priority than existing)
+    if additional_paths:
+        return os.pathsep.join(additional_paths) + os.pathsep + current_path
+
+    return current_path
+
+
 def get_sdk_env_vars() -> dict[str, str]:
     """
     Get environment variables to pass to SDK.
 
     Collects relevant env vars (ANTHROPIC_BASE_URL, etc.) that should
     be passed through to the claude-agent-sdk subprocess.
+
+    Also includes an enhanced PATH to ensure npx/npm are found when
+    Electron apps are launched from GUI (Issue #523).
 
     Returns:
         Dict of env var name -> value for non-empty vars
@@ -230,6 +319,10 @@ def get_sdk_env_vars() -> dict[str, str]:
         value = os.environ.get(var)
         if value:
             env[var] = value
+
+    # Add enhanced PATH for MCP server spawning (npx, npm commands)
+    env["PATH"] = get_enhanced_path()
+
     return env
 
 

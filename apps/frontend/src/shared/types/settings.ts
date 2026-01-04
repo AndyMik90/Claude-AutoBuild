@@ -6,6 +6,40 @@ import type { NotificationSettings, GraphitiEmbeddingProvider } from './project'
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 
+// Embedding provider types for Graphiti memory
+export type EmbeddingProvider = 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter';
+
+// Source of an environment value (for UI display)
+export type EnvValueSource = 'global' | 'project' | 'env' | 'none';
+
+// Global environment configuration (API keys and defaults)
+export interface GlobalEnvConfig {
+  // AI Provider API Keys
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  googleApiKey?: string;
+  groqApiKey?: string;
+  voyageApiKey?: string;
+  openrouterApiKey?: string;
+
+  // Azure OpenAI (note: lowercase 'openai' for consistency)
+  azureOpenaiApiKey?: string;
+  azureOpenaiBaseUrl?: string;
+  azureOpenaiEmbeddingDeployment?: string;
+
+  // Ollama (local)
+  ollamaBaseUrl?: string;
+
+  // Default embedding provider for Graphiti memory
+  defaultEmbeddingProvider?: EmbeddingProvider;
+
+  // Default database path for Graphiti
+  graphitiDbPath?: string;
+
+  // Debug mode
+  debugMode?: boolean;
+}
+
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
 
@@ -274,6 +308,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Global environment configuration (API keys for all projects)
+  globalEnv?: GlobalEnvConfig;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

@@ -47,6 +47,12 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
 
+  // Approve Plan and Recreate Task state
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRecreating, setIsRecreating] = useState(false);
+  const [showRecreateDialog, setShowRecreateDialog] = useState(false);
+  const [recreateError, setRecreateError] = useState<string | null>(null);
+
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
@@ -276,6 +282,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     mergePreview,
     isLoadingPreview,
     showConflictDialog,
+    isApproving,
+    isRecreating,
+    showRecreateDialog,
+    recreateError,
 
     // Setters
     setFeedback,
@@ -307,6 +317,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setMergePreview,
     setIsLoadingPreview,
     setShowConflictDialog,
+    setIsApproving,
+    setIsRecreating,
+    setShowRecreateDialog,
+    setRecreateError,
 
     // Handlers
     handleLogsScroll,

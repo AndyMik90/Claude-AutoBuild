@@ -29,9 +29,13 @@
       "title": "Chemins",
       "description": "Outils CLI et chemins framework"
     },
+    "environment": {
+      "title": "Environnement",
+      "description": "Clés API & variables d'environnement"
+    },
     "integrations": {
       "title": "Intégrations",
-      "description": "Clés API & comptes Claude"
+      "description": "Comptes Claude"
     },
     "api-profiles": {
       "title": "Profils API",

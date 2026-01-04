@@ -41,6 +41,8 @@ export const IPC_CHANNELS = {
   TASK_LIST_WORKTREES: 'task:listWorktrees',
   TASK_ARCHIVE: 'task:archive',
   TASK_UNARCHIVE: 'task:unarchive',
+  TASK_RECREATE: 'task:recreate',        // Delete spec and re-run spec creation
+  TASK_APPROVE_PLAN: 'task:approvePlan', // Approve plan without starting execution
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',

@@ -8,7 +8,47 @@ export interface EnvironmentVars {
 
 export interface GlobalSettings {
   autoBuildPath?: string;
+  pythonPath?: string;
   globalOpenAIApiKey?: string;
+  // New globalEnv structure from Environment settings
+  globalEnv?: {
+    openaiApiKey?: string;
+    anthropicApiKey?: string;
+    voyageApiKey?: string;
+    googleApiKey?: string;
+    azureOpenAIApiKey?: string;
+    azureOpenaiBaseUrl?: string;
+    ollamaBaseUrl?: string;
+    defaultEmbeddingProvider?: string;
+  };
+}
+
+/**
+ * Get the Python executable path
+ * Priority: settings.pythonPath > venv in autoBuildPath > 'python'
+ */
+export function getPythonPath(): string {
+  const settings = loadGlobalSettings();
+
+  // Use explicitly configured path first
+  if (settings.pythonPath) {
+    return settings.pythonPath;
+  }
+
+  // Try to use venv from autoBuildPath
+  if (settings.autoBuildPath) {
+    const venvPython = path.join(settings.autoBuildPath, '.venv', 'bin', 'python');
+    if (existsSync(venvPython)) {
+      return venvPython;
+    }
+    // Windows fallback
+    const venvPythonWin = path.join(settings.autoBuildPath, '.venv', 'Scripts', 'python.exe');
+    if (existsSync(venvPythonWin)) {
+      return venvPythonWin;
+    }
+  }
+
+  return 'python';
 }
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -109,14 +149,28 @@ export function isGraphitiEnabled(projectEnvVars: EnvironmentVars): boolean {
 
 /**
  * Check if OpenAI API key is available
- * Priority: project .env > global settings > process.env
+ * Priority: project .env > globalEnv (new) > globalOpenAIApiKey (legacy) > process.env
  */
 export function hasOpenAIKey(projectEnvVars: EnvironmentVars, globalSettings: GlobalSettings): boolean {
   return !!(
     projectEnvVars['OPENAI_API_KEY'] ||
+    globalSettings.globalEnv?.openaiApiKey ||
     globalSettings.globalOpenAIApiKey ||
     process.env.OPENAI_API_KEY
   );
+}
+
+/**
+ * Get the configured embedding provider
+ * Priority: project .env > globalEnv > process.env > default (openai)
+ */
+export function getEmbeddingProvider(projectEnvVars: EnvironmentVars, globalSettings: GlobalSettings): string {
+  return (
+    projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] ||
+    globalSettings.globalEnv?.defaultEmbeddingProvider ||
+    process.env.GRAPHITI_EMBEDDER_PROVIDER ||
+    'openai'
+  ).toLowerCase();
 }
 
 /**
@@ -131,19 +185,15 @@ export interface EmbeddingValidationResult {
 /**
  * Validate embedding configuration based on the configured provider
  * Supports: openai, ollama, google, voyage, azure_openai
- * 
+ * Priority: project .env > globalEnv settings > process.env
+ *
  * @returns validation result with provider info and reason if invalid
  */
 export function validateEmbeddingConfiguration(
   projectEnvVars: EnvironmentVars,
   globalSettings: GlobalSettings
 ): EmbeddingValidationResult {
-  // Get the configured embedding provider (default to openai for backwards compatibility)
-  const provider = (
-    projectEnvVars['GRAPHITI_EMBEDDER_PROVIDER'] ||
-    process.env.GRAPHITI_EMBEDDER_PROVIDER ||
-    'openai'
-  ).toLowerCase();
+  const provider = getEmbeddingProvider(projectEnvVars, globalSettings);
 
   switch (provider) {
     case 'openai': {
@@ -163,7 +213,9 @@ export function validateEmbeddingConfiguration(
     }
 
     case 'google': {
-      const googleKey = projectEnvVars['GOOGLE_API_KEY'] || process.env.GOOGLE_API_KEY;
+      const googleKey = projectEnvVars['GOOGLE_API_KEY'] ||
+                       globalSettings.globalEnv?.googleApiKey ||
+                       process.env.GOOGLE_API_KEY;
       if (googleKey) {
         return { valid: true, provider: 'google' };
       }
@@ -175,7 +227,9 @@ export function validateEmbeddingConfiguration(
     }
 
     case 'voyage': {
-      const voyageKey = projectEnvVars['VOYAGE_API_KEY'] || process.env.VOYAGE_API_KEY;
+      const voyageKey = projectEnvVars['VOYAGE_API_KEY'] ||
+                       globalSettings.globalEnv?.voyageApiKey ||
+                       process.env.VOYAGE_API_KEY;
       if (voyageKey) {
         return { valid: true, provider: 'voyage' };
       }
@@ -186,8 +240,11 @@ export function validateEmbeddingConfiguration(
       };
     }
 
+    case 'azure':
     case 'azure_openai': {
-      const azureKey = projectEnvVars['AZURE_OPENAI_API_KEY'] || process.env.AZURE_OPENAI_API_KEY;
+      const azureKey = projectEnvVars['AZURE_OPENAI_API_KEY'] ||
+                      globalSettings.globalEnv?.azureOpenAIApiKey ||
+                      process.env.AZURE_OPENAI_API_KEY;
       if (azureKey) {
         return { valid: true, provider: 'azure_openai' };
       }

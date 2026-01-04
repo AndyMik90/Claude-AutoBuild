@@ -29,9 +29,13 @@
       "title": "Paths",
       "description": "CLI tools and framework paths"
     },
+    "environment": {
+      "title": "Environment",
+      "description": "API keys & environment variables"
+    },
     "integrations": {
       "title": "Integrations",
-      "description": "API keys & Claude accounts"
+      "description": "Claude accounts"
     },
     "api-profiles": {
       "title": "API Profiles",

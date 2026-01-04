@@ -19,7 +19,8 @@ import {
   Globe,
   Code,
   Bug,
-  Server
+  FileCode,
+  Check
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -52,7 +53,7 @@ import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
 import { DevToolsSettings } from './DevToolsSettings';
 import { DebugSettings } from './DebugSettings';
-import { ProfileList } from './ProfileList';
+import { EnvironmentSettings } from './EnvironmentSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -67,7 +68,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'environment' | 'integrations' | 'updates' | 'notifications' | 'debug';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -81,8 +82,8 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'devtools', icon: Code },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
+  { id: 'environment', icon: FileCode },
   { id: 'integrations', icon: Key },
-  { id: 'api-profiles', icon: Server },
   { id: 'updates', icon: Package },
   { id: 'notifications', icon: Bell },
   { id: 'debug', icon: Bug }
@@ -133,6 +134,16 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const [projectSettingsHook, setProjectSettingsHook] = useState<UseProjectSettingsReturn | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
 
+  // Environment settings hook state
+  const [envHook, setEnvHook] = useState<{
+    save: () => Promise<boolean>;
+    hasChanges: boolean;
+    discard: () => void;
+  } | null>(null);
+
+  // Success feedback state
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+
   // Load app version on mount
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setVersion);
@@ -148,9 +159,22 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   }, []);
 
+  // Callback for environment settings hook
+  const handleEnvHookReady = useCallback((hook: typeof envHook) => {
+    setEnvHook(hook);
+  }, []);
+
   const handleSave = async () => {
     // Save app settings first
     const appSaveSuccess = await saveSettings();
+
+    // If on environment section with project env changes, save them
+    if (appSection === 'environment' && envHook?.hasChanges) {
+      const envSaveSuccess = await envHook.save();
+      if (!envSaveSuccess) {
+        return; // Don't close or show success on error
+      }
+    }
 
     // If on project section with a project selected, save project settings too
     if (activeTopLevel === 'project' && selectedProject && projectSettingsHook) {
@@ -165,7 +189,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     if (appSaveSuccess) {
       // Commit the theme so future cancels won't revert to old values
       commitTheme();
-      onOpenChange(false);
+
+      // Show success feedback instead of closing dialog
+      setShowSaveSuccess(true);
+      setTimeout(() => setShowSaveSuccess(false), 2000);
     }
   };
 
@@ -192,10 +219,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
+      case 'environment':
+        return <EnvironmentSettings settings={settings} onSettingsChange={setSettings} isOpen={open} onEnvHookReady={handleEnvHookReady} />;
       case 'integrations':
         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
-      case 'api-profiles':
-        return <ProfileList />;
       case 'updates':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':
@@ -387,11 +414,17 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
           <Button
             onClick={handleSave}
             disabled={isSaving || (activeTopLevel === 'project' && projectSettingsHook?.isSaving)}
+            className={showSaveSuccess ? 'bg-green-600 hover:bg-green-600' : ''}
           >
             {(isSaving || (activeTopLevel === 'project' && projectSettingsHook?.isSaving)) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t('common:buttons.saving', 'Saving...')}
+              </>
+            ) : showSaveSuccess ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Saved!
               </>
             ) : (
               <>
