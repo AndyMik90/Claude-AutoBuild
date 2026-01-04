@@ -40,7 +40,7 @@ import {
 } from '../ui/collapsible';
 
 // Execution mode types
-type ExecutionMode = 'local_only' | 'hybrid' | 'cloud_only';
+type ExecutionMode = 'local_only' | 'hybrid' | 'cloud_only' | 'automatic';
 type TaskComplexity = 'trivial' | 'simple' | 'moderate' | 'complex' | 'expert';
 
 interface ModeConfig {
@@ -113,6 +113,17 @@ const MODE_INFO = {
     description: 'All tasks run on Claude API. Best quality but requires internet.',
     pros: ['Highest quality', 'Handles any complexity', 'Fastest for complex tasks'],
     cons: ['Requires internet', 'API costs'],
+  },
+  automatic: {
+    name: 'Automatic',
+    icon: Zap,
+    color: 'green',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/30',
+    textColor: 'text-green-400',
+    description: 'Intelligently selects the best provider based on task, hardware, and availability.',
+    pros: ['Optimal performance', 'Cost-efficient', 'Adapts to conditions'],
+    cons: ['Less predictable provider choice'],
   },
 };
 

@@ -12,6 +12,9 @@ export interface Project {
   updatedAt: Date;
 }
 
+/** Execution mode for AI tasks */
+export type ProjectExecutionMode = 'local_only' | 'hybrid' | 'cloud_only' | 'automatic';
+
 export interface ProjectSettings {
   model: string;
   memoryBackend: 'graphiti' | 'file';
@@ -26,6 +29,12 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Execution mode: local_only, hybrid, cloud_only, or automatic (default: automatic) */
+  executionMode?: ProjectExecutionMode;
+  /** Prefer local execution when possible in hybrid/automatic mode (default: true) */
+  preferLocalExecution?: boolean;
+  /** Enable fallback to other provider on errors (default: true) */
+  enableFallback?: boolean;
 }
 
 export interface NotificationSettings {

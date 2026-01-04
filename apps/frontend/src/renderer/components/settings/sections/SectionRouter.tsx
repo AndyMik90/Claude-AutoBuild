@@ -3,6 +3,7 @@ import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionI
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
+import { ProjectExecutionModeSettings } from '../../project-settings/ProjectExecutionModeSettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
@@ -89,6 +90,19 @@ export function SectionRouter({
             isCheckingVersion={isCheckingVersion}
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
+          />
+        </SettingsSection>
+      );
+
+    case 'execution':
+      return (
+        <SettingsSection
+          title="Execution Mode"
+          description={`Configure how AI tasks are executed for ${project.name}`}
+        >
+          <ProjectExecutionModeSettings
+            settings={settings}
+            setSettings={setSettings}
           />
         </SettingsSection>
       );

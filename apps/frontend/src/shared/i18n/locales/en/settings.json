@@ -191,6 +191,10 @@
       "useClaudeMd": "Use CLAUDE.md",
       "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
     },
+    "execution": {
+      "title": "Execution Mode",
+      "description": "Local/Hybrid/Cloud settings"
+    },
     "claude": {
       "title": "Claude Auth",
       "description": "Claude authentication"
