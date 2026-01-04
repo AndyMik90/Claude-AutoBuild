@@ -20,7 +20,10 @@ import type {
   InfrastructureStatus,
   GraphitiValidationResult,
   GraphitiConnectionTestResult,
-  GitStatus
+  GitStatus,
+  CustomMcpServer,
+  McpHealthCheckResult,
+  McpTestConnectionResult
 } from './project';
 import type {
   Task,
@@ -47,7 +50,10 @@ import type {
   SessionDateRestoreResult,
   RateLimitInfo,
   SDKRateLimitInfo,
-  RetryWithProfileRequest
+  RetryWithProfileRequest,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from './terminal';
 import type {
   ClaudeProfileSettings,
@@ -120,6 +126,7 @@ import type {
   GitLabMRReviewProgress,
   GitLabNewCommitsCheck
 } from './integrations';
+import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
@@ -196,6 +203,11 @@ export interface ElectronAPI {
   saveTerminalBuffer: (terminalId: string, serialized: string) => Promise<void>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
 
+  // Terminal worktree operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
+
   // Terminal event listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
@@ -259,6 +271,16 @@ export interface ElectronAPI {
     gh: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
+  saveAPIProfile: (profile: Omit<APIProfile, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<APIProfile>>;
+  updateAPIProfile: (profile: APIProfile) => Promise<IPCResult<APIProfile>>;
+  deleteAPIProfile: (profileId: string) => Promise<IPCResult>;
+  setActiveAPIProfile: (profileId: string | null) => Promise<IPCResult>;
+  // Note: AbortSignal is handled in preload via separate cancel IPC channels, not passed through IPC
+  testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<TestConnectionResult>>;
+  discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<IPCResult<DiscoverModelsResult>>;
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
@@ -452,6 +474,7 @@ export interface ElectronAPI {
 
   // GitLab OAuth operations (glab CLI)
   checkGitLabCli: () => Promise<IPCResult<{ installed: boolean; version?: string }>>;
+  installGitLabCli: () => Promise<IPCResult<{ command: string }>>;
   checkGitLabAuth: (hostname?: string) => Promise<IPCResult<{ authenticated: boolean; username?: string }>>;
   startGitLabAuth: (hostname?: string) => Promise<IPCResult<{
     success: boolean;
@@ -676,6 +699,12 @@ export interface ElectronAPI {
     version?: string;
     message?: string;
   }>>;
+  checkOllamaInstalled: () => Promise<IPCResult<{
+    installed: boolean;
+    path?: string;
+    version?: string;
+  }>>;
+  installOllama: () => Promise<IPCResult<{ command: string }>>;
   listOllamaModels: (baseUrl?: string) => Promise<IPCResult<{
     models: Array<{
       name: string;
@@ -718,6 +747,10 @@ export interface ElectronAPI {
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
 
+  // Claude Code CLI operations
+  checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;
+  installClaudeCode: () => Promise<IPCResult<{ command: string }>>;
+
   // Debug operations
   getDebugInfo: () => Promise<{
     systemInfo: Record<string, string>;
@@ -734,6 +767,10 @@ export interface ElectronAPI {
     size: number;
     modified: string;
   }>>;
+
+  // MCP Server health check operations
+  checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
+  testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
 }
 
 declare global {

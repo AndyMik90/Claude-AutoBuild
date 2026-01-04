@@ -1,4 +1,4 @@
-import { Lightbulb, Eye, EyeOff, Settings2, Plus, Trash2, RefreshCw, Archive, CheckSquare, X } from 'lucide-react';
+import { Lightbulb, Eye, EyeOff, Settings2, Plus, Trash2, RefreshCw, CheckSquare, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -10,10 +10,8 @@ interface IdeationHeaderProps {
   totalIdeas: number;
   ideaCountByType: Record<string, number>;
   showDismissed: boolean;
-  showArchived: boolean;
   selectedCount: number;
   onToggleShowDismissed: () => void;
-  onToggleShowArchived: () => void;
   onOpenConfig: () => void;
   onOpenAddMore: () => void;
   onDismissAll: () => void;
@@ -29,10 +27,8 @@ export function IdeationHeader({
   totalIdeas,
   ideaCountByType,
   showDismissed,
-  showArchived,
   selectedCount,
   onToggleShowDismissed,
-  onToggleShowArchived,
   onOpenConfig,
   onOpenAddMore,
   onDismissAll,
@@ -117,20 +113,6 @@ export function IdeationHeader({
             </TooltipTrigger>
             <TooltipContent>
               {showDismissed ? 'Hide dismissed' : 'Show dismissed'}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={showArchived ? 'secondary' : 'outline'}
-                size="icon"
-                onClick={onToggleShowArchived}
-              >
-                <Archive className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {showArchived ? 'Hide archived' : 'Show archived'}
             </TooltipContent>
           </Tooltip>
           <Tooltip>

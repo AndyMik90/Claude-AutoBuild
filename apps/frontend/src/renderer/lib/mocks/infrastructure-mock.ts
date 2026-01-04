@@ -69,6 +69,22 @@ export const infrastructureMock = {
     }
   }),
 
+  checkOllamaInstalled: async () => ({
+    success: true,
+    data: {
+      installed: true,
+      path: '/usr/local/bin/ollama',
+      version: '0.1.0',
+    }
+  }),
+
+  installOllama: async () => ({
+    success: true,
+    data: {
+      command: 'curl -fsSL https://ollama.com/install.sh | sh',
+    }
+  }),
+
   listOllamaModels: async () => ({
     success: true,
     data: {

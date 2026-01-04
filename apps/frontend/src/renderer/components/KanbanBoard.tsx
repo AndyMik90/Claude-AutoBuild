@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useViewState } from '../contexts/ViewStateContext';
 import {
   DndContext,
   DragOverlay,
@@ -18,11 +19,10 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
-import { Checkbox } from './ui/checkbox';
-import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
@@ -34,6 +34,8 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -43,6 +45,61 @@ interface DroppableColumnProps {
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
+  archivedCount?: number;
+  showArchived?: boolean;
+  onToggleArchived?: () => void;
+}
+
+/**
+ * Compare two tasks arrays for meaningful changes.
+ * Returns true if tasks are equivalent (should skip re-render).
+ */
+function tasksAreEquivalent(prevTasks: Task[], nextTasks: Task[]): boolean {
+  if (prevTasks.length !== nextTasks.length) return false;
+  if (prevTasks === nextTasks) return true;
+
+  // Compare by ID and fields that affect rendering
+  for (let i = 0; i < prevTasks.length; i++) {
+    const prev = prevTasks[i];
+    const next = nextTasks[i];
+    if (
+      prev.id !== next.id ||
+      prev.status !== next.status ||
+      prev.executionProgress?.phase !== next.executionProgress?.phase ||
+      prev.updatedAt !== next.updatedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Custom comparator for DroppableColumn memo.
+ */
+function droppableColumnPropsAreEqual(
+  prevProps: DroppableColumnProps,
+  nextProps: DroppableColumnProps
+): boolean {
+  // Quick checks first
+  if (prevProps.status !== nextProps.status) return false;
+  if (prevProps.isOver !== nextProps.isOver) return false;
+  if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
+  if (prevProps.onAddClick !== nextProps.onAddClick) return false;
+  if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
+  if (prevProps.archivedCount !== nextProps.archivedCount) return false;
+  if (prevProps.showArchived !== nextProps.showArchived) return false;
+  if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+
+  // Deep compare tasks
+  const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
+
+  // Only log when re-rendering (reduces noise)
+  if (window.DEBUG && !tasksEqual) {
+    console.log(`[DroppableColumn] Re-render: ${nextProps.status} column (${nextProps.tasks.length} tasks)`);
+  }
+
+  return tasksEqual;
 }
 
 // Empty state content for each column
@@ -86,13 +143,35 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll }: DroppableColumnProps) {
-  const { t } = useTranslation('tasks');
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+  const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
   });
 
-  const taskIds = tasks.map((t) => t.id);
+  // Memoize taskIds to prevent SortableContext from re-rendering unnecessarily
+  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+
+  // Create stable onClick handlers for each task to prevent unnecessary re-renders
+  const onClickHandlers = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    tasks.forEach((task) => {
+      handlers.set(task.id, () => onTaskClick(task));
+    });
+    return handlers;
+  }, [tasks, onTaskClick]);
+
+  // Memoize task card elements to prevent recreation on every render
+  const taskCards = useMemo(() => {
+    if (tasks.length === 0) return null;
+    return tasks.map((task) => (
+      <SortableTaskCard
+        key={task.id}
+        task={task}
+        onClick={onClickHandlers.get(task.id)!}
+      />
+    ));
+  }, [tasks, onClickHandlers]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -117,7 +196,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
     <div
       ref={setNodeRef}
       className={cn(
-        'flex w-72 shrink-0 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -144,7 +223,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
               <Plus className="h-4 w-4" />
             </Button>
           )}
-          {status === 'done' && onArchiveAll && tasks.length > 0 && (
+          {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
             <Button
               variant="ghost"
               size="icon"
@@ -154,6 +233,32 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
             >
               <Archive className="h-4 w-4" />
             </Button>
+          )}
+          {status === 'done' && archivedCount !== undefined && archivedCount > 0 && onToggleArchived && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-7 w-7 transition-colors relative',
+                    showArchived
+                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                      : 'hover:bg-muted-foreground/10 hover:text-muted-foreground'
+                  )}
+                  onClick={onToggleArchived}
+                  aria-pressed={showArchived}
+                >
+                  <Archive className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                    {archivedCount}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -195,13 +300,7 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
                   )}
                 </div>
               ) : (
-                tasks.map((task) => (
-                  <SortableTaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => onTaskClick(task)}
-                  />
-                ))
+                taskCards
               )}
             </div>
           </SortableContext>
@@ -209,18 +308,19 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArc
       </div>
     </div>
   );
-}
+}, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
   const { t } = useTranslation('tasks');
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
+  const { showArchived, toggleShowArchived } = useViewState();
 
-  // Count archived tasks for display
-  const archivedCount = useMemo(() => {
-    return tasks.filter((t) => t.metadata?.archivedAt).length;
-  }, [tasks]);
+  // Calculate archived count for Done column button
+  const archivedCount = useMemo(() =>
+    tasks.filter(t => t.metadata?.archivedAt).length,
+    [tasks]
+  );
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -351,29 +451,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with filters */}
-      <div className="flex items-center justify-end px-6 py-3 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="showArchived"
-            checked={showArchived}
-            onCheckedChange={(checked) => setShowArchived(checked === true)}
-          />
-          <Label
-            htmlFor="showArchived"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer"
+      {/* Kanban header with refresh button */}
+      {onRefresh && (
+        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="gap-2 text-muted-foreground hover:text-foreground"
           >
-            <Archive className="h-3.5 w-3.5" />
-            {t('kanban.showArchived')}
-            {archivedCount > 0 && (
-              <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-muted">
-                {archivedCount}
-              </span>
-            )}
-          </Label>
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
+          </Button>
         </div>
-      </div>
-
+      )}
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
@@ -392,6 +484,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+              archivedCount={status === 'done' ? archivedCount : undefined}
+              showArchived={status === 'done' ? showArchived : undefined}
+              onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
             />
           ))}
         </div>

@@ -74,6 +74,11 @@ export const IPC_CHANNELS = {
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
 
+  // Terminal worktree operations (isolated development in worktrees)
+  TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
+  TERMINAL_WORKTREE_REMOVE: 'terminal:worktreeRemove',
+  TERMINAL_WORKTREE_LIST: 'terminal:worktreeList',
+
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_EXIT: 'terminal:exit',
@@ -110,6 +115,17 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
+
+  // API Profile management (custom Anthropic-compatible endpoints)
+  PROFILES_GET: 'profiles:get',
+  PROFILES_SAVE: 'profiles:save',
+  PROFILES_UPDATE: 'profiles:update',
+  PROFILES_DELETE: 'profiles:delete',
+  PROFILES_SET_ACTIVE: 'profiles:setActive',
+  PROFILES_TEST_CONNECTION: 'profiles:test-connection',
+  PROFILES_TEST_CONNECTION_CANCEL: 'profiles:test-connection-cancel',
+  PROFILES_DISCOVER_MODELS: 'profiles:discover-models',
+  PROFILES_DISCOVER_MODELS_CANCEL: 'profiles:discover-models-cancel',
 
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
@@ -231,6 +247,7 @@ export const IPC_CHANNELS = {
 
   // GitLab OAuth (glab CLI authentication)
   GITLAB_CHECK_CLI: 'gitlab:checkCli',
+  GITLAB_INSTALL_CLI: 'gitlab:installCli',
   GITLAB_CHECK_AUTH: 'gitlab:checkAuth',
   GITLAB_START_AUTH: 'gitlab:startAuth',
   GITLAB_GET_TOKEN: 'gitlab:getToken',
@@ -350,6 +367,9 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
 
+  // GitHub PR Logs (for viewing AI review logs)
+  GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',
   GITHUB_TRIAGE_GET_RESULTS: 'github:triage:getResults',
@@ -373,6 +393,8 @@ export const IPC_CHANNELS = {
 
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',
+  OLLAMA_CHECK_INSTALLED: 'ollama:checkInstalled',
+  OLLAMA_INSTALL: 'ollama:install',
   OLLAMA_LIST_MODELS: 'ollama:listModels',
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
@@ -464,5 +486,13 @@ export const IPC_CHANNELS = {
   DEBUG_OPEN_LOGS_FOLDER: 'debug:openLogsFolder',
   DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
   DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
-  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles'
+  DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
+
+  // Claude Code CLI operations
+  CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
+  CLAUDE_CODE_INSTALL: 'claudeCode:install',
+
+  // MCP Server health checks
+  MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
 } as const;

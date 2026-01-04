@@ -149,6 +149,27 @@ function updateBackendInit(newVersion) {
   return true;
 }
 
+// Check if CHANGELOG.md has an entry for the version
+function checkChangelogEntry(version) {
+  const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+
+  if (!fs.existsSync(changelogPath)) {
+    warning('CHANGELOG.md not found - you will need to create it before releasing');
+    return false;
+  }
+
+  const content = fs.readFileSync(changelogPath, 'utf8');
+
+  // Look for "## X.Y.Z" or "## X.Y.Z -" header
+  const versionPattern = new RegExp(`^## ${version.replace(/\./g, '\\.')}(\\s|-)`, 'm');
+
+  if (versionPattern.test(content)) {
+    return true;
+  }
+
+  return false;
+}
+
 // Main function
 function main() {
   const bumpType = process.argv[2];
@@ -198,7 +219,35 @@ function main() {
   // after the GitHub release is successfully published. This prevents version
   // mismatches where README shows a version that doesn't exist yet.
 
-  // 6. Create git commit
+  // 6. Check if CHANGELOG.md has entry for this version
+  info('Checking CHANGELOG.md...');
+  const hasChangelogEntry = checkChangelogEntry(newVersion);
+
+  if (hasChangelogEntry) {
+    success(`CHANGELOG.md already has entry for ${newVersion}`);
+  } else {
+    log('');
+    warning('═══════════════════════════════════════════════════════════════════════');
+    warning('  CHANGELOG.md does not have an entry for version ' + newVersion);
+    warning('═══════════════════════════════════════════════════════════════════════');
+    warning('');
+    warning('  The release workflow will FAIL if CHANGELOG.md is not updated!');
+    warning('');
+    warning('  Please add an entry to CHANGELOG.md before creating your PR:');
+    warning('');
+    log(`    ## ${newVersion} - Your Release Title`, colors.cyan);
+    log('', colors.cyan);
+    log('    ### ✨ New Features', colors.cyan);
+    log('    - Feature description', colors.cyan);
+    log('', colors.cyan);
+    log('    ### 🐛 Bug Fixes', colors.cyan);
+    log('    - Fix description', colors.cyan);
+    warning('');
+    warning('═══════════════════════════════════════════════════════════════════════');
+    log('');
+  }
+
+  // 7. Create git commit
   info('Creating git commit...');
   exec('git add apps/frontend/package.json package.json apps/backend/__init__.py');
   exec(`git commit -m "chore: bump version to ${newVersion}"`);
@@ -208,18 +257,28 @@ function main() {
   // when this commit is merged to main, ensuring releases only happen after
   // successful builds.
 
-  // 7. Instructions
+  // 8. Instructions
   log('\n📋 Next steps:', colors.yellow);
-  log(`   1. Review the changes: git log -1`, colors.yellow);
-  log(`   2. Push to your branch: git push origin <branch-name>`, colors.yellow);
-  log(`   3. Create PR to main (or merge develop → main)`, colors.yellow);
-  log(`   4. When merged, GitHub Actions will automatically:`, colors.yellow);
+  if (!hasChangelogEntry) {
+    log(`   1. UPDATE CHANGELOG.md with release notes for ${newVersion}`, colors.red);
+    log(`   2. Commit the changelog: git add CHANGELOG.md && git commit --amend --no-edit`, colors.yellow);
+    log(`   3. Push to your branch: git push origin <branch-name>`, colors.yellow);
+  } else {
+    log(`   1. Review the changes: git log -1`, colors.yellow);
+    log(`   2. Push to your branch: git push origin <branch-name>`, colors.yellow);
+  }
+  log(`   ${hasChangelogEntry ? '3' : '4'}. Create PR to main (or merge develop → main)`, colors.yellow);
+  log(`   ${hasChangelogEntry ? '4' : '5'}. When merged, GitHub Actions will automatically:`, colors.yellow);
+  log(`      - Validate CHANGELOG.md has entry for v${newVersion}`, colors.yellow);
   log(`      - Create tag v${newVersion}`, colors.yellow);
   log(`      - Build binaries for all platforms`, colors.yellow);
-  log(`      - Create GitHub release with changelog`, colors.yellow);
+  log(`      - Create GitHub release with changelog from CHANGELOG.md`, colors.yellow);
   log(`      - Update README with new version\n`, colors.yellow);
 
   warning('Note: The commit has been created locally but NOT pushed.');
+  if (!hasChangelogEntry) {
+    warning('IMPORTANT: Update CHANGELOG.md before pushing or the release will fail!');
+  }
   info('Tags are created automatically by GitHub Actions when merged to main.');
 
   log('\n✨ Version bump complete!\n', colors.green);

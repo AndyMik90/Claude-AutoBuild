@@ -63,10 +63,38 @@
   },
   "steps": {
     "welcome": "Bienvenue",
+    "authChoice": "Méthode d'auth",
     "auth": "Auth",
+    "claudeCode": "CLI",
     "devtools": "Outils dev",
     "memory": "Mémoire",
     "done": "Terminé"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Installez ou mettez à jour le CLI Claude Code pour activer les fonctionnalités IA",
+    "detecting": "Vérification de l'installation de Claude Code...",
+    "info": {
+      "title": "Qu'est-ce que Claude Code ?",
+      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Auto Claude. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
+    },
+    "status": {
+      "installed": "Installé",
+      "outdated": "Mise à jour disponible",
+      "notFound": "Non installé"
+    },
+    "version": {
+      "current": "Version actuelle",
+      "latest": "Dernière version"
+    },
+    "install": {
+      "button": "Installer Claude Code",
+      "updating": "Mettre à jour Claude Code",
+      "inProgress": "Installation...",
+      "success": "Commande d'installation envoyée au terminal. Veuillez terminer l'installation là-bas.",
+      "instructions": "L'installateur s'ouvrira dans votre terminal. Suivez les instructions pour terminer l'installation."
+    },
+    "learnMore": "En savoir plus sur Claude Code"
   },
   "devtools": {
     "title": "Outils de développement",
@@ -89,5 +117,23 @@
     "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)",
     "custom": "Personnalisé...",
     "saveAndContinue": "Enregistrer et continuer"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama non installé",
+      "description": "Ollama fournit des modèles d'embeddings locaux gratuits pour la recherche sémantique. Installez-le en un clic pour activer cette fonctionnalité.",
+      "installSuccess": "Installation lancée dans votre terminal. Terminez l'installation là-bas, puis cliquez sur Réessayer.",
+      "installButton": "Installer Ollama",
+      "installing": "Installation...",
+      "retry": "Réessayer",
+      "learnMore": "En savoir plus",
+      "fallbackNote": "La mémoire fonctionnera toujours avec la recherche par mots-clés même sans Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama non démarré",
+      "description": "Ollama est installé mais non démarré. Lancez Ollama pour utiliser les modèles d'embeddings locaux.",
+      "retry": "Réessayer",
+      "fallbackNote": "La mémoire fonctionnera toujours avec la recherche par mots-clés même sans embeddings."
+    }
   }
 }

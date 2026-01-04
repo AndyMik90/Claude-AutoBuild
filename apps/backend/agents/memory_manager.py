@@ -146,6 +146,12 @@ async def get_graphiti_context(
         # Get relevant context
         context_items = await memory.get_relevant_context(query, num_results=5)
 
+        # Get patterns and gotchas specifically (THE FIX for learning loop!)
+        # This retrieves PATTERN and GOTCHA episode types for cross-session learning
+        patterns, gotchas = await memory.get_patterns_and_gotchas(
+            query, num_results=3, min_score=0.5
+        )
+
         # Also get recent session history
         session_history = await memory.get_session_history(limit=3)
 
@@ -156,10 +162,12 @@ async def get_graphiti_context(
                 "memory",
                 "Graphiti context retrieval complete",
                 context_items_found=len(context_items) if context_items else 0,
+                patterns_found=len(patterns) if patterns else 0,
+                gotchas_found=len(gotchas) if gotchas else 0,
                 session_history_found=len(session_history) if session_history else 0,
             )
 
-        if not context_items and not session_history:
+        if not context_items and not session_history and not patterns and not gotchas:
             if is_debug_enabled():
                 debug("memory", "No relevant context found in Graphiti")
             return None
@@ -174,6 +182,34 @@ async def get_graphiti_context(
                 content = item.get("content", "")[:500]  # Truncate
                 item_type = item.get("type", "unknown")
                 sections.append(f"- **[{item_type}]** {content}\n")
+
+        # Add patterns section (cross-session learning)
+        if patterns:
+            sections.append("### Learned Patterns\n")
+            sections.append("_Patterns discovered in previous sessions:_\n")
+            for p in patterns:
+                pattern_text = p.get("pattern", "")
+                applies_to = p.get("applies_to", "")
+                if applies_to:
+                    sections.append(
+                        f"- **Pattern**: {pattern_text}\n  _Applies to:_ {applies_to}\n"
+                    )
+                else:
+                    sections.append(f"- **Pattern**: {pattern_text}\n")
+
+        # Add gotchas section (cross-session learning)
+        if gotchas:
+            sections.append("### Known Gotchas\n")
+            sections.append("_Pitfalls to avoid:_\n")
+            for g in gotchas:
+                gotcha_text = g.get("gotcha", "")
+                solution = g.get("solution", "")
+                if solution:
+                    sections.append(
+                        f"- **Gotcha**: {gotcha_text}\n  _Solution:_ {solution}\n"
+                    )
+                else:
+                    sections.append(f"- **Gotcha**: {gotcha_text}\n")
 
         if session_history:
             sections.append("### Recent Session Insights\n")

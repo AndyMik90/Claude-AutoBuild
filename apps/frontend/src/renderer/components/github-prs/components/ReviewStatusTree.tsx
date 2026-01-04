@@ -164,8 +164,9 @@ export function ReviewStatusTree({
       });
     }
 
-    // Step 4: Follow-up (only show when not currently reviewing)
-    if (!isReviewing && newCommitsCheck?.hasNewCommits) {
+    // Step 4: Follow-up (only show when not currently reviewing AND commits happened after posting)
+    // This prevents showing follow-up prompts for commits that were made during/before the review
+    if (!isReviewing && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
       steps.push({
         id: 'new_commits',
         label: t('prReview.newCommits', { count: newCommitsCheck.newCommitCount }),

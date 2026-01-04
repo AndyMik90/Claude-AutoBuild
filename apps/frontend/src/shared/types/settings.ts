@@ -2,7 +2,7 @@
  * Application settings types
  */
 
-import type { NotificationSettings } from './project';
+import type { NotificationSettings, GraphitiEmbeddingProvider } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 
@@ -187,6 +187,7 @@ export interface FeatureModelConfig {
   roadmap: ModelTypeShort;     // Roadmap generation
   githubIssues: ModelTypeShort; // GitHub Issues automation
   githubPrs: ModelTypeShort;    // GitHub PR review automation
+  utility: ModelTypeShort;      // Utility agents (commit message, merge resolver)
 }
 
 // Feature-specific thinking level configuration
@@ -196,6 +197,7 @@ export interface FeatureThinkingConfig {
   roadmap: ThinkingLevel;
   githubIssues: ThinkingLevel;
   githubPrs: ThinkingLevel;
+  utility: ThinkingLevel;
 }
 
 // Agent profile for preset model/thinking configurations
@@ -232,9 +234,18 @@ export interface AppSettings {
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;
   globalOpenRouterApiKey?: string;
-  // Graphiti LLM provider settings
+  // Graphiti LLM provider settings (legacy)
   graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
   ollamaBaseUrl?: string;
+  // Memory/Graphiti configuration (app-wide, set during onboarding)
+  memoryEnabled?: boolean;
+  memoryEmbeddingProvider?: GraphitiEmbeddingProvider;
+  memoryOllamaEmbeddingModel?: string;
+  memoryOllamaEmbeddingDim?: number;
+  memoryVoyageApiKey?: string;
+  memoryAzureApiKey?: string;
+  memoryAzureBaseUrl?: string;
+  memoryAzureEmbeddingDeployment?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations

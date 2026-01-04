@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { SortableProjectTab } from './SortableProjectTab';
+import { UsageIndicator } from './UsageIndicator';
 import type { Project } from '../../shared/types';
 
 interface ProjectTabBarProps {
@@ -12,6 +13,8 @@ interface ProjectTabBarProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   className?: string;
+  // Control props for active tab
+  onSettingsClick?: () => void;
 }
 
 export function ProjectTabBar({
@@ -20,7 +23,8 @@ export function ProjectTabBar({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  className
+  className,
+  onSettingsClick
 }: ProjectTabBarProps) {
   // Keyboard shortcuts for tab navigation
   useEffect(() => {
@@ -83,23 +87,29 @@ export function ProjectTabBar({
       className
     )}>
       <div className="flex items-center flex-1 min-w-0">
-        {projects.map((project, index) => (
-          <SortableProjectTab
-            key={project.id}
-            project={project}
-            isActive={activeProjectId === project.id}
-            canClose={projects.length > 1}
-            tabIndex={index}
-            onSelect={() => onProjectSelect(project.id)}
-            onClose={(e) => {
-              e.stopPropagation();
-              onProjectClose(project.id);
-            }}
-          />
-        ))}
+        {projects.map((project, index) => {
+          const isActiveTab = activeProjectId === project.id;
+          return (
+            <SortableProjectTab
+              key={project.id}
+              project={project}
+              isActive={isActiveTab}
+              canClose={projects.length > 1}
+              tabIndex={index}
+              onSelect={() => onProjectSelect(project.id)}
+              onClose={(e) => {
+                e.stopPropagation();
+                onProjectClose(project.id);
+              }}
+              // Pass control props only for active tab
+              onSettingsClick={isActiveTab ? onSettingsClick : undefined}
+            />
+          );
+        })}
       </div>
 
-      <div className="flex items-center px-2 py-1">
+      <div className="flex items-center gap-2 px-2 py-1">
+        <UsageIndicator />
         <Button
           variant="ghost"
           size="icon"

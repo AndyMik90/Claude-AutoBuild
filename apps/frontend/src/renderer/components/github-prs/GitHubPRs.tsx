@@ -9,6 +9,7 @@ import { ResizablePanels } from '../ui/resizable-panels';
 
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
+  isActive?: boolean;
 }
 
 function NotConnectedState({
@@ -50,7 +51,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
+export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) {
   const { t } = useTranslation('common');
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -150,6 +151,13 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
     }
   }, [selectedPRNumber, assignPR]);
 
+  const handleGetLogs = useCallback(async () => {
+    if (selectedProjectId && selectedPRNumber) {
+      return await window.electronAPI.github.getPRLogs(selectedProjectId, selectedPRNumber);
+    }
+    return null;
+  }, [selectedProjectId, selectedPRNumber]);
+
   // Not connected state
   if (!isConnected) {
     return <NotConnectedState error={error} onOpenSettings={onOpenSettings} t={t} />;
@@ -225,6 +233,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               reviewProgress={reviewProgress}
               isReviewing={isReviewing}
               initialNewCommitsCheck={storedNewCommitsCheck}
+              isActive={isActive}
               onRunReview={handleRunReview}
               onRunFollowupReview={handleRunFollowupReview}
               onCheckNewCommits={handleCheckNewCommits}
@@ -233,6 +242,7 @@ export function GitHubPRs({ onOpenSettings }: GitHubPRsProps) {
               onPostComment={handlePostComment}
               onMergePR={handleMergePR}
               onAssignPR={handleAssignPR}
+              onGetLogs={handleGetLogs}
             />
           ) : (
             <EmptyState message={t('prReview.selectPRToView')} />

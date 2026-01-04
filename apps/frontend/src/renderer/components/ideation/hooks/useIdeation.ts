@@ -21,10 +21,12 @@ import { ALL_IDEATION_TYPES } from '../constants';
 
 interface UseIdeationOptions {
   onGoToTask?: (taskId: string) => void;
+  /** External showArchived state from context - when provided, hook uses this instead of internal state */
+  showArchived?: boolean;
 }
 
 export function useIdeation(projectId: string, options: UseIdeationOptions = {}) {
-  const { onGoToTask } = options;
+  const { onGoToTask, showArchived: externalShowArchived } = options;
   const session = useIdeationStore((state) => state.session);
   const generationStatus = useIdeationStore((state) => state.generationStatus);
   const isGenerating = useIdeationStore((state) => state.isGenerating);
@@ -177,25 +179,29 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
   const summary = getIdeationSummary(session);
   const archivedIdeas = getArchivedIdeas(session);
 
+  // Compute effective showArchived: use external value (from context) if provided, else internal state
+  // This eliminates render lag by using the context value directly instead of syncing via useEffect
+  const effectiveShowArchived = externalShowArchived !== undefined ? externalShowArchived : showArchived;
+
   // Filter ideas based on visibility settings
   const getFilteredIdeas = useCallback(() => {
     if (!session) return [];
     let ideas = session.ideas;
 
     // Start with base filtering (exclude dismissed and archived by default)
-    if (!showDismissed && !showArchived) {
+    if (!showDismissed && !effectiveShowArchived) {
       ideas = getActiveIdeas(session);
-    } else if (showDismissed && !showArchived) {
+    } else if (showDismissed && !effectiveShowArchived) {
       // Show dismissed but not archived
       ideas = ideas.filter(idea => idea.status !== 'archived');
-    } else if (!showDismissed && showArchived) {
+    } else if (!showDismissed && effectiveShowArchived) {
       // Show archived but not dismissed
       ideas = ideas.filter(idea => idea.status !== 'dismissed');
     }
     // If both are true, show all
 
     return ideas;
-  }, [session, showDismissed, showArchived]);
+  }, [session, showDismissed, effectiveShowArchived]);
 
   const activeIdeas = getFilteredIdeas();
 
@@ -211,7 +217,8 @@ export function useIdeation(projectId: string, options: UseIdeationOptions = {})
     activeTab,
     showConfigDialog,
     showDismissed,
-    showArchived,
+    // Return the effective showArchived (external or internal) for consistent state reading
+    showArchived: effectiveShowArchived,
     showEnvConfigModal,
     showAddMoreDialog,
     typesToAdd,

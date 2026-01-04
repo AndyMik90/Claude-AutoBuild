@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Check,
   Download,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { useDownloadStore } from '../../stores/download-store';
+
+type OllamaState = 'checking' | 'not-installed' | 'not-running' | 'available';
 
 interface OllamaModel {
   name: string;
@@ -104,10 +108,16 @@ export function OllamaModelSelector({
   disabled = false,
   className,
 }: OllamaModelSelectorProps) {
+  const { t } = useTranslation('onboarding');
   const [models, setModels] = useState<OllamaModel[]>(RECOMMENDED_MODELS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ollamaAvailable, setOllamaAvailable] = useState(true);
+  const [ollamaState, setOllamaState] = useState<OllamaState>('checking');
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [installSuccess, setInstallSuccess] = useState(false);
+
+  // Track timeout for cleanup on unmount
+  const installCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use global download store for tracking downloads
   const downloads = useDownloadStore((state) => state.downloads);
@@ -116,8 +126,8 @@ export function OllamaModelSelector({
   const failDownload = useDownloadStore((state) => state.failDownload);
 
   /**
-   * Checks Ollama service status and fetches list of installed embedding models.
-   * Updates component state with installation status for each recommended model.
+   * Checks if Ollama is installed, running, and fetches installed models.
+   * Updates component state based on Ollama availability.
    *
    * @param {AbortSignal} [abortSignal] - Optional abort signal to cancel the request
    * @returns {Promise<void>}
@@ -125,19 +135,30 @@ export function OllamaModelSelector({
   const checkInstalledModels = async (abortSignal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
+    setOllamaState('checking');
 
     try {
-      // Check Ollama status first
-      const statusResult = await window.electronAPI.checkOllamaStatus();
+      // First check if Ollama is installed (binary exists)
+      const installResult = await window.electronAPI.checkOllamaInstalled();
       if (abortSignal?.aborted) return;
 
-      if (!statusResult?.success || !statusResult?.data?.running) {
-        setOllamaAvailable(false);
+      if (!installResult?.success || !installResult?.data?.installed) {
+        setOllamaState('not-installed');
         setIsLoading(false);
         return;
       }
 
-      setOllamaAvailable(true);
+      // Ollama is installed, now check if it's running
+      const statusResult = await window.electronAPI.checkOllamaStatus();
+      if (abortSignal?.aborted) return;
+
+      if (!statusResult?.success || !statusResult?.data?.running) {
+        setOllamaState('not-running');
+        setIsLoading(false);
+        return;
+      }
+
+      setOllamaState('available');
 
       // Get list of installed embedding models
       const result = await window.electronAPI.listOllamaEmbeddingModels();
@@ -186,11 +207,46 @@ export function OllamaModelSelector({
     }
   };
 
+  /**
+   * Install Ollama by opening terminal with the official install command.
+   */
+  const handleInstallOllama = async () => {
+    setIsInstalling(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.installOllama();
+      if (result?.success) {
+        setInstallSuccess(true);
+        // Clear any existing timeout before setting a new one
+        if (installCheckTimeoutRef.current) {
+          clearTimeout(installCheckTimeoutRef.current);
+        }
+        // Re-check after a delay to give user time to complete installation
+        installCheckTimeoutRef.current = setTimeout(() => {
+          checkInstalledModels();
+        }, 5000);
+      } else {
+        setError(result?.error || 'Failed to start Ollama installation');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to install Ollama');
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
   // Fetch installed models on mount with cleanup
   useEffect(() => {
     const controller = new AbortController();
     checkInstalledModels(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      // Clean up the install check timeout to prevent setState on unmounted component
+      if (installCheckTimeoutRef.current) {
+        clearTimeout(installCheckTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Progress is now handled globally by the download store listener initialized in App.tsx
@@ -245,15 +301,99 @@ export function OllamaModelSelector({
     );
   }
 
-  if (!ollamaAvailable) {
+  // Ollama not installed - show install option
+  if (ollamaState === 'not-installed') {
+    return (
+      <div className={cn('rounded-lg border border-info/30 bg-info/10 p-4', className)}>
+        <div className="flex items-start gap-3">
+          <Download className="h-5 w-5 text-info shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">
+              {t('ollama.notInstalled.title')}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t('ollama.notInstalled.description')}
+            </p>
+
+            {/* Install success message */}
+            {installSuccess && (
+              <div className="mt-3 p-2 rounded-md bg-success/10 border border-success/30">
+                <p className="text-sm text-success">
+                  {t('ollama.notInstalled.installSuccess')}
+                </p>
+              </div>
+            )}
+
+            {/* Error message */}
+            {error && (
+              <div className="mt-3 p-2 rounded-md bg-destructive/10 border border-destructive/30">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mt-3">
+              <Button
+                onClick={handleInstallOllama}
+                disabled={isInstalling}
+                size="sm"
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    {t('ollama.notInstalled.installing')}
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    {t('ollama.notInstalled.installButton')}
+                  </>
+                )}
+              </Button>
+              {/* Note: isLoading is always false when this block renders because we only show
+                  this block after setIsLoading(false) is called. However, clicking Retry calls
+                  checkInstalledModels() which immediately sets isLoading=true, triggering a
+                  re-render that shows the loading block instead. This React batching behavior
+                  naturally prevents double-clicks without needing the disabled prop. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => checkInstalledModels()}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                {t('ollama.notInstalled.retry')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.electronAPI?.openExternal?.('https://ollama.com')}
+                className="text-muted-foreground"
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                {t('ollama.notInstalled.learnMore')}
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-3">
+              {t('ollama.notInstalled.fallbackNote')}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Ollama installed but not running
+  if (ollamaState === 'not-running') {
     return (
       <div className={cn('rounded-lg border border-warning/30 bg-warning/10 p-4', className)}>
         <div className="flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-warning">Ollama not running</p>
+            <p className="text-sm font-medium text-warning">
+              {t('ollama.notRunning.title')}
+            </p>
             <p className="text-sm text-warning/80 mt-1">
-              Start Ollama to use local embedding models. Memory will still work with keyword search.
+              {t('ollama.notRunning.description')}
             </p>
             <Button
               variant="outline"
@@ -262,8 +402,11 @@ export function OllamaModelSelector({
               className="mt-3"
             >
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-              Retry
+              {t('ollama.notRunning.retry')}
             </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t('ollama.notRunning.fallbackNote')}
+            </p>
           </div>
         </div>
       </div>

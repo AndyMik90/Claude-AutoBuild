@@ -13,7 +13,7 @@ import type { BrowserWindow } from 'electron';
 import { getEffectiveVersion } from '../auto-claude-updater';
 import { setUpdateChannel } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
-import { configureTools, getToolPath, getToolInfo } from '../cli-tool-manager';
+import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform } from '../cli-tool-manager';
 
 const settingsPath = getSettingsPath();
 
@@ -122,6 +122,22 @@ export function registerSettingsHandlers(
         }
         settings._migratedDefaultModelSync = true;
         needsSave = true;
+      }
+
+      // Migration: Clear CLI tool paths that are from a different platform
+      // Fixes issue where Windows paths persisted on macOS (and vice versa)
+      // when settings were synced/transferred between platforms
+      // See: https://github.com/AndyMik90/Auto-Claude/issues/XXX
+      const pathFields = ['pythonPath', 'gitPath', 'githubCLIPath', 'claudePath', 'autoBuildPath'] as const;
+      for (const field of pathFields) {
+        const pathValue = settings[field];
+        if (pathValue && isPathFromWrongPlatform(pathValue)) {
+          console.warn(
+            `[SETTINGS_GET] Clearing ${field} - path from different platform: ${pathValue}`
+          );
+          delete settings[field];
+          needsSave = true;
+        }
       }
 
       // If no manual autoBuildPath is set, try to auto-detect
@@ -369,7 +385,22 @@ export function registerSettingsHandlers(
   ipcMain.handle(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_, url: string): Promise<void> => {
-      await shell.openExternal(url);
+      // Validate URL scheme to prevent opening dangerous protocols
+      try {
+        const parsedUrl = new URL(url);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          console.warn(`[SHELL_OPEN_EXTERNAL] Blocked URL with unsafe protocol: ${parsedUrl.protocol}`);
+          throw new Error(`Unsafe URL protocol: ${parsedUrl.protocol}`);
+        }
+        await shell.openExternal(url);
+      } catch (error) {
+        if (error instanceof TypeError) {
+          // Invalid URL format
+          console.warn(`[SHELL_OPEN_EXTERNAL] Invalid URL format: ${url}`);
+          throw new Error('Invalid URL format');
+        }
+        throw error;
+      }
     }
   );
 
@@ -427,17 +458,21 @@ export function registerSettingsHandlers(
           });
         } else {
           // Linux: Try common terminal emulators with argument arrays
-          const terminals: Array<{ cmd: string; args: string[] }> = [
+          // Note: xterm uses cwd option to avoid shell injection vulnerabilities
+          const terminals: Array<{ cmd: string; args: string[]; useCwd?: boolean }> = [
             { cmd: 'gnome-terminal', args: ['--working-directory', resolvedPath] },
             { cmd: 'konsole', args: ['--workdir', resolvedPath] },
             { cmd: 'xfce4-terminal', args: ['--working-directory', resolvedPath] },
-            { cmd: 'xterm', args: ['-e', 'bash', '-c', `cd '${resolvedPath.replace(/'/g, "'\\''")}' && exec bash`] }
+            { cmd: 'xterm', args: ['-e', 'bash'], useCwd: true }
           ];
 
           let opened = false;
-          for (const { cmd, args } of terminals) {
+          for (const { cmd, args, useCwd } of terminals) {
             try {
-              execFileSync(cmd, args, { stdio: 'ignore' });
+              execFileSync(cmd, args, {
+                stdio: 'ignore',
+                ...(useCwd ? { cwd: resolvedPath } : {})
+              });
               opened = true;
               break;
             } catch {

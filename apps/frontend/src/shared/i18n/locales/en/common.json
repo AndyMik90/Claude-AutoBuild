@@ -1,4 +1,12 @@
 {
+  "projectTab": {
+    "settings": "Project settings",
+    "showArchived": "Show archived",
+    "hideArchived": "Hide archived",
+    "showArchivedTasks": "Show archived tasks",
+    "hideArchivedTasks": "Hide archived tasks",
+    "closeTab": "Close tab"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
@@ -29,6 +37,7 @@
     "success": "Success",
     "initializing": "Initializing...",
     "saving": "Saving...",
+    "creating": "Creating...",
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
@@ -42,6 +51,7 @@
   },
   "errors": {
     "generic": "An error occurred",
+    "unknownError": "An unknown error occurred",
     "networkError": "Network error",
     "notFound": "Not found",
     "unauthorized": "Unauthorized"
@@ -161,14 +171,14 @@
     "findingsPosted": "{{count}} Posted",
     "followupInProgress": "Follow-up Analysis in Progress...",
     "severity": {
-      "critical": "Critical",
-      "high": "High",
-      "medium": "Medium",
-      "low": "Low",
-      "criticalDesc": "Must fix before merge",
-      "highDesc": "Should fix before merge",
-      "mediumDesc": "Consider fixing",
-      "lowDesc": "Nice to have"
+      "critical": "Blocker",
+      "high": "Required",
+      "medium": "Recommended",
+      "low": "Suggestion",
+      "criticalDesc": "Must fix",
+      "highDesc": "Should fix",
+      "mediumDesc": "Improve quality",
+      "lowDesc": "Consider"
     },
     "category": {
       "security": "Security",
@@ -185,10 +195,13 @@
       "closed": "Closed",
       "merged": "Merged"
     },
-    "selectCriticalHigh": "Select Critical/High ({{count}})",
+    "selectCriticalHigh": "Select Blocker/Required ({{count}})",
     "selectAll": "Select All",
     "clear": "Clear",
     "noIssuesFound": "No issues found! The code looks good.",
+    "allFindingsPosted": "All findings posted to GitHub",
+    "findingsPostedCount": "{{count}} finding posted to GitHub",
+    "findingsPostedCount_plural": "{{count}} findings posted to GitHub",
     "selectedOfTotal": "{{selected}}/{{total}} selected",
     "suggestedFix": "Suggested fix:",
     "runAIReviewDesc": "Run an AI review to analyze this PR",
@@ -212,7 +225,10 @@
     "findingsNeedPosting": "{{count}} finding need to be posted to GitHub.",
     "findingsNeedPosting_plural": "{{count}} findings need to be posted to GitHub.",
     "findingsFoundSelectPost": "{{count}} finding found. Select and post to GitHub.",
-    "findingsFoundSelectPost_plural": "{{count}} findings found. Select and post to GitHub."
+    "findingsFoundSelectPost_plural": "{{count}} findings found. Select and post to GitHub.",
+    "reviewLogs": "Review Logs",
+    "followup": "Follow-up",
+    "initial": "Initial"
   },
   "downloads": {
     "toggleExpand": "Toggle download details",

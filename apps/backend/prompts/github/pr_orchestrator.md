@@ -183,11 +183,13 @@ if (!exists) {
 
 **Deduplicate** - Remove duplicates by (file, line, title)
 
-**Generate Verdict:**
+**Generate Verdict (Strict Quality Gates):**
 - **BLOCKED** - If any CRITICAL issues or tests failing
-- **NEEDS_REVISION** - If HIGH severity issues
-- **MERGE_WITH_CHANGES** - If only MEDIUM issues
+- **NEEDS_REVISION** - If HIGH or MEDIUM severity issues (both block merge)
+- **MERGE_WITH_CHANGES** - If only LOW severity suggestions
 - **READY_TO_MERGE** - If no blocking issues + tests pass + good coverage
+
+Note: MEDIUM severity blocks merge because AI fixes quickly - be strict about quality.
 
 ---
 

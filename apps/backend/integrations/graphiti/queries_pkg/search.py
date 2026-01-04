@@ -10,6 +10,8 @@ import logging
 from pathlib import Path
 
 from .schema import (
+    EPISODE_TYPE_GOTCHA,
+    EPISODE_TYPE_PATTERN,
     EPISODE_TYPE_SESSION_INSIGHT,
     EPISODE_TYPE_TASK_OUTCOME,
     MAX_CONTEXT_RESULTS,
@@ -55,6 +57,7 @@ class GraphitiSearch:
         query: str,
         num_results: int = MAX_CONTEXT_RESULTS,
         include_project_context: bool = True,
+        min_score: float = 0.0,
     ) -> list[dict]:
         """
         Search for relevant context based on a query.
@@ -103,6 +106,12 @@ class GraphitiSearch:
                         "type": getattr(result, "type", "unknown"),
                     }
                 )
+
+            # Filter by minimum score if specified
+            if min_score > 0:
+                context_items = [
+                    item for item in context_items if item.get("score", 0) >= min_score
+                ]
 
             logger.info(
                 f"Found {len(context_items)} relevant context items for: {query[:50]}..."
@@ -153,7 +162,7 @@ class GraphitiSearch:
                             ):
                                 continue
                             sessions.append(data)
-                    except (json.JSONDecodeError, TypeError):
+                    except (json.JSONDecodeError, TypeError, AttributeError):
                         continue
 
             # Sort by session number and return latest
@@ -205,7 +214,7 @@ class GraphitiSearch:
                                     "score": getattr(result, "score", 0.0),
                                 }
                             )
-                    except (json.JSONDecodeError, TypeError):
+                    except (json.JSONDecodeError, TypeError, AttributeError):
                         continue
 
             return outcomes[:limit]
@@ -213,3 +222,107 @@ class GraphitiSearch:
         except Exception as e:
             logger.warning(f"Failed to get similar task outcomes: {e}")
             return []
+
+    async def get_patterns_and_gotchas(
+        self,
+        query: str,
+        num_results: int = 5,
+        min_score: float = 0.5,
+    ) -> tuple[list[dict], list[dict]]:
+        """
+        Retrieve patterns and gotchas relevant to the current task.
+
+        Unlike get_relevant_context(), this specifically filters for
+        EPISODE_TYPE_PATTERN and EPISODE_TYPE_GOTCHA episodes to enable
+        cross-session learning.
+
+        Args:
+            query: Search query (task description)
+            num_results: Max results per type
+            min_score: Minimum relevance score (0.0-1.0)
+
+        Returns:
+            Tuple of (patterns, gotchas) lists
+        """
+        patterns = []
+        gotchas = []
+
+        try:
+            # Search with query focused on patterns
+            pattern_results = await self.client.graphiti.search(
+                query=f"pattern: {query}",
+                group_ids=[self.group_id],
+                num_results=num_results * 2,
+            )
+
+            for result in pattern_results:
+                content = getattr(result, "content", None) or getattr(
+                    result, "fact", None
+                )
+                score = getattr(result, "score", 0.0)
+
+                if score < min_score:
+                    continue
+
+                if content and EPISODE_TYPE_PATTERN in str(content):
+                    try:
+                        data = (
+                            json.loads(content) if isinstance(content, str) else content
+                        )
+                        if data.get("type") == EPISODE_TYPE_PATTERN:
+                            patterns.append(
+                                {
+                                    "pattern": data.get("pattern", ""),
+                                    "applies_to": data.get("applies_to", ""),
+                                    "example": data.get("example", ""),
+                                    "score": score,
+                                }
+                            )
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        continue
+
+            # Search with query focused on gotchas
+            gotcha_results = await self.client.graphiti.search(
+                query=f"gotcha pitfall avoid: {query}",
+                group_ids=[self.group_id],
+                num_results=num_results * 2,
+            )
+
+            for result in gotcha_results:
+                content = getattr(result, "content", None) or getattr(
+                    result, "fact", None
+                )
+                score = getattr(result, "score", 0.0)
+
+                if score < min_score:
+                    continue
+
+                if content and EPISODE_TYPE_GOTCHA in str(content):
+                    try:
+                        data = (
+                            json.loads(content) if isinstance(content, str) else content
+                        )
+                        if data.get("type") == EPISODE_TYPE_GOTCHA:
+                            gotchas.append(
+                                {
+                                    "gotcha": data.get("gotcha", ""),
+                                    "trigger": data.get("trigger", ""),
+                                    "solution": data.get("solution", ""),
+                                    "score": score,
+                                }
+                            )
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        continue
+
+            # Sort by score and limit
+            patterns.sort(key=lambda x: x.get("score", 0), reverse=True)
+            gotchas.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+            logger.info(
+                f"Found {len(patterns)} patterns and {len(gotchas)} gotchas for: {query[:50]}..."
+            )
+            return patterns[:num_results], gotchas[:num_results]
+
+        except Exception as e:
+            logger.warning(f"Failed to get patterns/gotchas: {e}")
+            return [], []

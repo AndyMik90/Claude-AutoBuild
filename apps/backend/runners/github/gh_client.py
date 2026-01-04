@@ -810,3 +810,274 @@ class GHClient:
             # Last commit is the HEAD
             return commits[-1].get("oid")
         return None
+
+    async def get_pr_checks(self, pr_number: int) -> dict[str, Any]:
+        """
+        Get CI check runs status for a PR.
+
+        Uses `gh pr checks` to get the status of all check runs.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Dict with:
+            - checks: List of check runs with name, state
+            - passing: Number of passing checks
+            - failing: Number of failing checks
+            - pending: Number of pending checks
+            - failed_checks: List of failed check names
+        """
+        try:
+            # Note: gh pr checks --json only supports: bucket, completedAt, description,
+            # event, link, name, startedAt, state, workflow
+            # The 'state' field directly contains the result (SUCCESS, FAILURE, PENDING, etc.)
+            args = ["pr", "checks", str(pr_number), "--json", "name,state"]
+            args = self._add_repo_flag(args)
+
+            result = await self.run(args, timeout=30.0)
+            checks = json.loads(result.stdout) if result.stdout.strip() else []
+
+            passing = 0
+            failing = 0
+            pending = 0
+            failed_checks = []
+
+            for check in checks:
+                state = check.get("state", "").upper()
+                name = check.get("name", "Unknown")
+
+                # gh pr checks 'state' directly contains: SUCCESS, FAILURE, PENDING, NEUTRAL, etc.
+                if state in ("SUCCESS", "NEUTRAL", "SKIPPED"):
+                    passing += 1
+                elif state in ("FAILURE", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE"):
+                    failing += 1
+                    failed_checks.append(name)
+                else:
+                    # PENDING, QUEUED, IN_PROGRESS, etc.
+                    pending += 1
+
+            return {
+                "checks": checks,
+                "passing": passing,
+                "failing": failing,
+                "pending": pending,
+                "failed_checks": failed_checks,
+            }
+        except (GHCommandError, GHTimeoutError, json.JSONDecodeError) as e:
+            logger.warning(f"Failed to get PR checks for #{pr_number}: {e}")
+            return {
+                "checks": [],
+                "passing": 0,
+                "failing": 0,
+                "pending": 0,
+                "failed_checks": [],
+                "error": str(e),
+            }
+
+    async def get_pr_files(self, pr_number: int) -> list[dict[str, Any]]:
+        """
+        Get files changed by a PR using the PR files endpoint.
+
+        IMPORTANT: This returns only files that are part of the PR's actual changes,
+        NOT files that came in from merging another branch (e.g., develop).
+        This is crucial for follow-up reviews to avoid reviewing code from other PRs.
+
+        Uses: GET /repos/{owner}/{repo}/pulls/{pr_number}/files
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of file objects with:
+            - filename: Path to the file
+            - status: added, removed, modified, renamed, copied, changed
+            - additions: Number of lines added
+            - deletions: Number of lines deleted
+            - changes: Total number of line changes
+            - patch: The unified diff patch for this file (may be absent for large files)
+        """
+        files = []
+        page = 1
+        per_page = 100
+
+        while True:
+            endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/files?page={page}&per_page={per_page}"
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=60.0)
+            page_files = json.loads(result.stdout) if result.stdout.strip() else []
+
+            if not page_files:
+                break
+
+            files.extend(page_files)
+
+            # Check if we got a full page (more pages might exist)
+            if len(page_files) < per_page:
+                break
+
+            page += 1
+
+            # Safety limit to prevent infinite loops
+            if page > 50:
+                logger.warning(
+                    f"PR #{pr_number} has more than 5000 files, stopping pagination"
+                )
+                break
+
+        return files
+
+    async def get_pr_commits(self, pr_number: int) -> list[dict[str, Any]]:
+        """
+        Get commits that are part of a PR using the PR commits endpoint.
+
+        IMPORTANT: This returns only commits that are part of the PR's branch,
+        NOT commits that came in from merging another branch (e.g., develop).
+        This is crucial for follow-up reviews to avoid reviewing commits from other PRs.
+
+        Uses: GET /repos/{owner}/{repo}/pulls/{pr_number}/commits
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of commit objects with:
+            - sha: Commit SHA
+            - commit: Object with message, author, committer info
+            - author: GitHub user who authored the commit
+            - committer: GitHub user who committed
+            - parents: List of parent commit SHAs
+        """
+        commits = []
+        page = 1
+        per_page = 100
+
+        while True:
+            endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/commits?page={page}&per_page={per_page}"
+            args = ["api", "--method", "GET", endpoint]
+
+            result = await self.run(args, timeout=60.0)
+            page_commits = json.loads(result.stdout) if result.stdout.strip() else []
+
+            if not page_commits:
+                break
+
+            commits.extend(page_commits)
+
+            # Check if we got a full page (more pages might exist)
+            if len(page_commits) < per_page:
+                break
+
+            page += 1
+
+            # Safety limit
+            if page > 10:
+                logger.warning(
+                    f"PR #{pr_number} has more than 1000 commits, stopping pagination"
+                )
+                break
+
+        return commits
+
+    async def get_pr_files_changed_since(
+        self,
+        pr_number: int,
+        base_sha: str,
+        reviewed_file_blobs: dict[str, str] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """
+        Get files and commits that are part of the PR and changed since a specific commit.
+
+        This method solves the "merge introduced commits" problem by:
+        1. Getting the canonical list of PR files (excludes files from merged branches)
+        2. Getting the canonical list of PR commits (excludes commits from merged branches)
+        3. Filtering to only include commits after base_sha
+
+        When a rebase/force-push is detected (base_sha not found in commits), and
+        reviewed_file_blobs is provided, uses blob SHA comparison to identify which
+        files actually changed content. This prevents re-reviewing unchanged files.
+
+        Args:
+            pr_number: PR number
+            base_sha: The commit SHA to compare from (e.g., last reviewed commit)
+            reviewed_file_blobs: Optional dict mapping filename -> blob SHA from the
+                previous review. Used as fallback when base_sha is not found (rebase).
+
+        Returns:
+            Tuple of:
+            - List of file objects that are part of the PR (filtered if blob comparison used)
+            - List of commit objects that are part of the PR and after base_sha
+        """
+        # Get PR's canonical files (these are the actual PR changes)
+        pr_files = await self.get_pr_files(pr_number)
+
+        # Get PR's canonical commits
+        pr_commits = await self.get_pr_commits(pr_number)
+
+        # Find the position of base_sha in PR commits
+        # Use minimum 7-char prefix comparison (git's default short SHA length)
+        base_index = -1
+        min_prefix_len = 7
+        base_prefix = (
+            base_sha[:min_prefix_len] if len(base_sha) >= min_prefix_len else base_sha
+        )
+        for i, commit in enumerate(pr_commits):
+            commit_prefix = commit["sha"][:min_prefix_len]
+            if commit_prefix == base_prefix:
+                base_index = i
+                break
+
+        # Commits after base_sha (these are the new commits to review)
+        if base_index >= 0:
+            new_commits = pr_commits[base_index + 1 :]
+            return pr_files, new_commits
+
+        # base_sha not found in PR commits - this happens when:
+        # 1. The base_sha was from a merge commit (not a direct PR commit)
+        # 2. The PR was rebased/force-pushed
+        logger.warning(
+            f"base_sha {base_sha[:8]} not found in PR #{pr_number} commits. "
+            "PR was likely rebased or force-pushed."
+        )
+
+        # If we have blob SHAs from the previous review, use them to filter files
+        # Blob SHAs persist across rebases - same content = same blob SHA
+        if reviewed_file_blobs:  # Only use blob comparison if we have actual blob data
+            changed_files = []
+            unchanged_count = 0
+            for file in pr_files:
+                filename = file.get("filename", "")
+                current_blob_sha = file.get("sha", "")
+                file_status = file.get("status", "")
+                previous_blob_sha = reviewed_file_blobs.get(filename, "")
+
+                # Always include files that were added, removed, or renamed
+                # These are significant changes regardless of blob SHA
+                if file_status in ("added", "removed", "renamed"):
+                    changed_files.append(file)
+                elif not previous_blob_sha:
+                    # File wasn't in previous review - include it
+                    changed_files.append(file)
+                elif current_blob_sha != previous_blob_sha:
+                    # File content changed - include it
+                    changed_files.append(file)
+                else:
+                    # Same blob SHA = same content - skip it
+                    unchanged_count += 1
+
+            if unchanged_count > 0:
+                logger.info(
+                    f"Blob comparison: {len(changed_files)} files changed, "
+                    f"{unchanged_count} unchanged (skipped)"
+                )
+
+            # Return filtered files but all commits (can't filter commits after rebase)
+            return changed_files, pr_commits
+
+        # No blob data available - return all files and commits
+        logger.warning(
+            "No reviewed_file_blobs available for blob comparison. "
+            "Returning all PR files."
+        )
+        return pr_files, pr_commits

@@ -4,13 +4,20 @@ QA Reviewer Agent Session
 
 Runs QA validation sessions to review implementation against
 acceptance criteria.
+
+Memory Integration:
+- Retrieves past patterns, gotchas, and insights before QA session
+- Saves QA findings (bugs, patterns, validation outcomes) after session
 """
 
 from pathlib import Path
 
+# Memory integration for cross-session learning
+from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from prompts_pkg import get_qa_reviewer_prompt
+from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
     LogPhase,
@@ -80,6 +87,20 @@ async def run_qa_agent_session(
         prompt_length=len(prompt),
         project_dir=str(project_dir),
     )
+
+    # Retrieve memory context for QA (past patterns, gotchas, validation insights)
+    qa_memory_context = await get_graphiti_context(
+        spec_dir,
+        project_dir,
+        {
+            "description": "QA validation and acceptance criteria review",
+            "id": f"qa_reviewer_{qa_session}",
+        },
+    )
+    if qa_memory_context:
+        prompt += "\n\n" + qa_memory_context
+        print("✓ Memory context loaded for QA reviewer")
+        debug_success("qa_reviewer", "Graphiti memory context loaded for QA")
 
     # Add session context
     prompt += f"\n\n---\n\n**QA Session**: {qa_session}\n"
@@ -195,32 +216,33 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
                             )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
-                        tool_input = None
+                        tool_input_display = None
                         tool_count += 1
 
+                        # Safely extract tool input (handles None, non-dict, etc.)
+                        inp = get_safe_tool_input(block)
+
                         # Extract tool input for display
-                        if hasattr(block, "input") and block.input:
-                            inp = block.input
-                            if isinstance(inp, dict):
-                                if "file_path" in inp:
-                                    fp = inp["file_path"]
-                                    if len(fp) > 50:
-                                        fp = "..." + fp[-47:]
-                                    tool_input = fp
-                                elif "pattern" in inp:
-                                    tool_input = f"pattern: {inp['pattern']}"
+                        if inp:
+                            if "file_path" in inp:
+                                fp = inp["file_path"]
+                                if len(fp) > 50:
+                                    fp = "..." + fp[-47:]
+                                tool_input_display = fp
+                            elif "pattern" in inp:
+                                tool_input_display = f"pattern: {inp['pattern']}"
 
                         debug(
                             "qa_reviewer",
                             f"Tool call #{tool_count}: {tool_name}",
-                            tool_input=tool_input,
+                            tool_input=tool_input_display,
                         )
 
                         # Log tool start (handles printing)
                         if task_logger:
                             task_logger.tool_start(
                                 tool_name,
-                                tool_input,
+                                tool_input_display,
                                 LogPhase.VALIDATION,
                                 print_to_console=True,
                             )
@@ -305,11 +327,48 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
             response_length=len(response_text),
             qa_status=status.get("status") if status else "unknown",
         )
+
+        # Save QA session insights to memory
+        qa_discoveries = {
+            "files_understood": {},
+            "patterns_found": [],
+            "gotchas_encountered": [],
+        }
+
         if status and status.get("status") == "approved":
             debug_success("qa_reviewer", "QA APPROVED")
+            qa_discoveries["patterns_found"].append(
+                f"QA session {qa_session}: All acceptance criteria validated successfully"
+            )
+            # Save successful QA session to memory
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=f"qa_reviewer_{qa_session}",
+                session_num=qa_session,
+                success=True,
+                subtasks_completed=[f"qa_reviewer_{qa_session}"],
+                discoveries=qa_discoveries,
+            )
             return "approved", response_text
         elif status and status.get("status") == "rejected":
             debug_error("qa_reviewer", "QA REJECTED")
+            # Extract issues found for memory
+            issues = status.get("issues_found", [])
+            for issue in issues:
+                qa_discoveries["gotchas_encountered"].append(
+                    f"QA Issue ({issue.get('type', 'unknown')}): {issue.get('title', 'No title')} at {issue.get('location', 'unknown')}"
+                )
+            # Save rejected QA session to memory (learning from failures)
+            await save_session_memory(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=f"qa_reviewer_{qa_session}",
+                session_num=qa_session,
+                success=False,
+                subtasks_completed=[],
+                discoveries=qa_discoveries,
+            )
             return "rejected", response_text
         else:
             # Agent didn't update the status properly - provide detailed error
