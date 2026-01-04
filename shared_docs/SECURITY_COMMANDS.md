@@ -4,7 +4,7 @@ Auto Claude uses a dynamic security system that controls which shell commands th
 
 ## How It Works
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Command Validation                        │
 ├─────────────────────────────────────────────────────────────┤
@@ -65,7 +65,7 @@ This file is auto-generated. Don't edit it manually - it will be overwritten.
 
 For commands that aren't auto-detected, create a `.auto-claude-allowlist` file in your project root:
 
-```
+```text
 # .auto-claude-allowlist
 # One command per line, no comments on same line
 
@@ -106,6 +106,7 @@ Use `.auto-claude-allowlist` when:
    - Run in project root, not a subdirectory
 
 2. **Add to allowlist:**
+
    ```bash
    echo "your-command" >> .auto-claude-allowlist
    ```
