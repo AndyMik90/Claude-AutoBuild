@@ -20,6 +20,7 @@ import type { Project, AppSettings } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
+import { getRunnerEnv } from './utils/runner-env';
 import {
   runPythonSubprocess,
   getPythonPath,
@@ -628,10 +629,9 @@ async function runPRReview(
   const logCollector = new PRLogCollector(project, prNumber, repo, false);
 
   // Build environment with project settings
-  const subprocessEnv: Record<string, string> = {};
-  if (project.settings?.useClaudeMd !== false) {
-    subprocessEnv['USE_CLAUDE_MD'] = 'true';
-  }
+  const subprocessEnv = await getRunnerEnv(
+    project.settings?.useClaudeMd !== false ? { USE_CLAUDE_MD: 'true' } : undefined
+  );
 
   const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
     pythonPath: getPythonPath(backendPath),
@@ -1489,10 +1489,9 @@ export function registerPRHandlers(
           const logCollector = new PRLogCollector(project, prNumber, repo, true);
 
           // Build environment with project settings
-          const followupEnv: Record<string, string> = {};
-          if (project.settings?.useClaudeMd !== false) {
-            followupEnv['USE_CLAUDE_MD'] = 'true';
-          }
+          const followupEnv = await getRunnerEnv(
+            project.settings?.useClaudeMd !== false ? { USE_CLAUDE_MD: 'true' } : undefined
+          );
 
           const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
             pythonPath: getPythonPath(backendPath),
