@@ -1,0 +1,208 @@
+{
+  "title": "GitLab 問題",
+  "states": {
+    "opened": "開啟",
+    "closed": "關閉"
+  },
+  "complexity": {
+    "simple": "簡單",
+    "standard": "標準",
+    "complex": "複雜"
+  },
+  "header": {
+    "open": "開啟",
+    "searchPlaceholder": "搜尋問題..."
+  },
+  "filters": {
+    "opened": "開啟",
+    "closed": "關閉",
+    "all": "全部"
+  },
+  "empty": {
+    "noMatch": "沒有問題符合您的搜尋",
+    "selectIssue": "選擇問題以檢視詳細資料"
+  },
+  "notConnected": {
+    "title": "未連接 GitLab",
+    "description": "在專案設定中設定您的 GitLab 權杖和專案以同步問題。",
+    "openSettings": "開啟設定"
+  },
+  "detail": {
+    "notes": "備註",
+    "viewTask": "檢視工作",
+    "createTask": "建立工作",
+    "taskLinked": "工作已連接",
+    "taskId": "工作 ID",
+    "description": "說明",
+    "noDescription": "未提供說明。",
+    "assignees": "受分配者",
+    "milestone": "里程碑"
+  },
+  "investigation": {
+    "title": "從問題建立工作",
+    "issuePrefix": "問題",
+    "description": "從此 GitLab 問題建立工作。工作將新增至看板中的待做清單欄。",
+    "selectNotes": "選擇要包括的備註",
+    "deselectAll": "取消全選",
+    "selectAll": "全選",
+    "willInclude": "工作將包括：",
+    "includeTitle": "問題標題和說明",
+    "includeLink": "連結回 GitLab 問題",
+    "includeLabels": "問題中的標籤和中繼資料",
+    "noNotes": "無備註（此問題沒有備註）",
+    "failedToLoadNotes": "無法載入備註",
+    "taskCreated": "工作已建立！在您的看板中檢視它。",
+    "creating": "建立中...",
+    "cancel": "取消",
+    "done": "完成",
+    "close": "關閉"
+  },
+  "settings": {
+    "enableIssues": "啟用 GitLab 問題",
+    "enableIssuesDescription": "從 GitLab 同步問題並自動建立工作",
+    "instance": "GitLab 執行個體",
+    "instanceDescription": "使用 https://gitlab.com 或您的自主機執行個體 URL",
+    "connectedVia": "透過 GitLab CLI 連接",
+    "authenticatedAs": "驗證為",
+    "useDifferentToken": "使用其他權杖",
+    "authentication": "GitLab 驗證",
+    "useManualToken": "使用手動權杖",
+    "authenticating": "正在使用 glab CLI 驗證...",
+    "browserWindow": "應該開啟瀏覽器視窗供您登入。",
+    "personalAccessToken": "個人存取權杖",
+    "useOAuth": "改用 OAuth",
+    "tokenScope": "建立具有",
+    "scopeApi": "api",
+    "scopeFrom": "範圍從",
+    "gitlabSettings": "GitLab 設定",
+    "project": "專案",
+    "enterManually": "手動輸入",
+    "loadingProjects": "載入專案中...",
+    "selectProject": "選擇專案...",
+    "searchProjects": "搜尋專案...",
+    "noMatchingProjects": "沒有相符的專案",
+    "noProjectsFound": "未找到專案",
+    "selected": "已選擇",
+    "projectFormat": "格式：",
+    "projectFormatExample": "（例如：gitlab-org/gitlab）",
+    "connectionStatus": "連接狀態",
+    "checking": "檢查中...",
+    "connectedTo": "連接至",
+    "notConnected": "未連接",
+    "issuesAvailable": "可用問題",
+    "issuesAvailableDescription": "從側邊欄存取 GitLab 問題以檢視、調查和從問題建立工作。",
+    "defaultBranch": "預設分支",
+    "defaultBranchDescription": "用於建立工作工作區的基礎分支",
+    "loadingBranches": "載入分支中...",
+    "autoDetect": "自動偵測（主分支/主幹）",
+    "searchBranches": "搜尋分支...",
+    "noMatchingBranches": "沒有相符的分支",
+    "noBranchesFound": "未找到分支",
+    "branchFromNote": "所有新工作將從以下分支分支",
+    "autoSyncOnLoad": "載入時自動同步",
+    "autoSyncDescription": "專案載入時自動獲取問題",
+    "cli": {
+      "required": "需要 GitLab CLI",
+      "notInstalled": "OAuth 驗證需要 GitLab CLI (glab)。安裝它以使用「使用 OAuth」選項。",
+      "installButton": "安裝 glab",
+      "installing": "安裝中...",
+      "installSuccess": "安裝已在終端中開始。完成它並點擊重新整理。",
+      "refresh": "重新整理",
+      "learnMore": "深入瞭解",
+      "installed": "已安裝 GitLab CLI："
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab 合併請求",
+    "newMR": "新合併請求",
+    "selectMR": "選擇合併請求以檢視詳細資料",
+    "states": {
+      "opened": "開啟",
+      "closed": "關閉",
+      "merged": "已合併",
+      "locked": "已鎖定"
+    },
+    "filters": {
+      "opened": "開啟",
+      "closed": "關閉",
+      "merged": "已合併",
+      "all": "全部"
+    }
+  },
+  "mrReview": {
+    "runReview": "執行 AI 審查",
+    "reviewing": "審查中...",
+    "followupReview": "後續追蹤審查",
+    "newCommits": "新提交",
+    "newCommitsPlural": "新提交",
+    "cancel": "取消",
+    "postFindings": "發佈發現",
+    "posting": "發佈中...",
+    "postedTo": "已發佈至 GitLab",
+    "approve": "批准",
+    "approving": "正在批准...",
+    "merge": "合併 MR",
+    "merging": "合併中...",
+    "aiReviewResult": "AI 審查結果",
+    "followupReviewResult": "後續追蹤審查",
+    "description": "說明",
+    "noDescription": "未提供說明。",
+    "labels": "標籤",
+    "status": {
+      "notReviewed": "未審查",
+      "notReviewedDesc": "執行 AI 審查以分析此 MR",
+      "reviewComplete": "審查完成",
+      "reviewCompleteDesc": "找到發現。選擇並發佈至 GitLab。",
+      "waitingForChanges": "等待更改",
+      "waitingForChangesDesc": "發現已發佈。等待貢獻者解決問題。",
+      "readyToMerge": "準備合併",
+      "readyToMergeDesc": "未找到阻礙性問題。此 MR 可以合併。",
+      "needsAttention": "需要注意",
+      "needsAttentionDesc": "發現需要發佈至 GitLab。",
+      "readyForFollowup": "準備後續追蹤",
+      "readyForFollowupDesc": "自審查以來。執行後續追蹤以檢查是否已解決。",
+      "blockingIssues": "阻礙性問題",
+      "blockingIssuesDesc": "阻礙性問題仍未解決。"
+    },
+    "overallStatus": {
+      "approve": "批准",
+      "requestChanges": "要求更改",
+      "comment": "評論"
+    },
+    "resolution": {
+      "resolved": "已解決",
+      "stillOpen": "仍未解決",
+      "newIssue": "新問題",
+      "newIssues": "新問題"
+    }
+  },
+  "findings": {
+    "summary": "已選擇",
+    "selectCriticalHigh": "選擇阻礙性/必需",
+    "selectAll": "全選",
+    "clear": "清除",
+    "noIssues": "未找到問題！程式碼看起來不錯。",
+    "suggestedFix": "建議的修復：",
+    "posted": "已發佈",
+    "severity": {
+      "critical": "阻礙性",
+      "criticalDesc": "必須修復",
+      "high": "必需",
+      "highDesc": "應該修復",
+      "medium": "建議",
+      "mediumDesc": "改善品質",
+      "low": "提示",
+      "lowDesc": "考慮"
+    },
+    "category": {
+      "security": "安全性",
+      "quality": "品質",
+      "style": "樣式",
+      "test": "測試",
+      "docs": "文件",
+      "pattern": "模式",
+      "performance": "效能",
+      "logic": "邏輯"
+    }
+  }
+}

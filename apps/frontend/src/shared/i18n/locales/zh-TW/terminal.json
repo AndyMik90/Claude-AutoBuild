@@ -1,0 +1,26 @@
+{
+  "worktree": {
+    "create": "工作區",
+    "createNew": "+ 新工作區",
+    "existing": "現有工作區",
+    "createTitle": "建立終端工作區",
+    "createDescription": "為此終端建立隔離的工作區。所有工作將在工作區目錄中進行。",
+    "name": "工作區名稱",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "需要工作區名稱",
+    "nameInvalid": "名稱必須以字母或數字開頭和結尾",
+    "nameHelp": "僅小寫字母、數字、連字號和底線",
+    "associateTask": "連接至工作",
+    "selectTask": "選擇工作...",
+    "noTask": "無工作（獨立工作區）",
+    "createBranch": "建立 Git 分支",
+    "branchHelp": "建立分支：{{branch}}",
+    "baseBranch": "基礎分支",
+    "selectBaseBranch": "選擇基礎分支...",
+    "useProjectDefault": "使用專案預設（{{branch}}）",
+    "baseBranchHelp": "建立工作區的分支",
+    "openInIDE": "在 IDE 中開啟",
+    "maxReached": "達到最大 12 個終端工作區數",
+    "alreadyExists": "已存在具有此名稱的工作區"
+  }
+}

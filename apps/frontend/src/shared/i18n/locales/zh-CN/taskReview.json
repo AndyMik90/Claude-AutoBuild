@@ -1,0 +1,7 @@
+{
+  "terminal": {
+    "openTerminal": "打开终端",
+    "openInbuilt": "在内置终端中打开",
+    "openExternal": "在外部终端中打开"
+  }
+}

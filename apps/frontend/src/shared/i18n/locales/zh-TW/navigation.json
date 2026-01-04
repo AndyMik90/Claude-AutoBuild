@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "project": "專案",
+    "tools": "工具"
+  },
+  "items": {
+    "kanban": "看板",
+    "terminals": "代理程式終端",
+    "insights": "見解",
+    "roadmap": "路線圖",
+    "ideation": "點子構思",
+    "changelog": "變更日誌",
+    "context": "上下文",
+    "githubIssues": "GitHub 問題",
+    "githubPRs": "GitHub 提取請求",
+    "gitlabIssues": "GitLab 問題",
+    "gitlabMRs": "GitLab 合併請求",
+    "worktrees": "工作區",
+    "agentTools": "MCP 概述"
+  },
+  "actions": {
+    "settings": "設定",
+    "help": "說明與意見回饋",
+    "newTask": "新工作"
+  },
+  "tooltips": {
+    "settings": "應用程式設定",
+    "help": "說明與意見回饋"
+  },
+  "messages": {
+    "initializeToCreateTasks": "初始化 Auto Claude 以建立工作"
+  },
+  "claudeCode": {
+    "checking": "檢查 Claude Code...",
+    "upToDate": "Claude Code 已是最新版本",
+    "updateAvailable": "Claude Code 有可用更新",
+    "notInstalled": "未安裝 Claude Code",
+    "error": "檢查 Claude Code 時出錯",
+    "installed": "已安裝",
+    "outdated": "有可用更新",
+    "missing": "未安裝",
+    "current": "目前",
+    "latest": "最新",
+    "lastChecked": "上次檢查",
+    "learnMore": "深入瞭解 Claude Code",
+    "updateWarningTitle": "要更新 Claude Code 嗎？",
+    "updateWarningDescription": "更新將關閉所有執行中的 Claude Code 會話。這些會話中未儲存的工作可能會遺失。請務必在繼續前保存您的工作。",
+    "updateAnyway": "仍然更新"
+  }
+}

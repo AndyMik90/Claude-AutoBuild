@@ -1,0 +1,102 @@
+{
+  "status": {
+    "backlog": "待办事项",
+    "todo": "待做",
+    "in_progress": "进行中",
+    "review": "审查",
+    "complete": "完成",
+    "archived": "已归档"
+  },
+  "actions": {
+    "start": "开始",
+    "stop": "停止",
+    "recover": "恢复",
+    "resume": "恢复",
+    "archive": "归档",
+    "delete": "删除",
+    "view": "查看详细信息"
+  },
+  "labels": {
+    "running": "运行中",
+    "aiReview": "AI 审查",
+    "needsReview": "需要审查",
+    "pending": "待处理",
+    "stuck": "卡住",
+    "incomplete": "不完整",
+    "recovering": "恢复中...",
+    "needsRecovery": "需要恢复",
+    "needsResume": "需要恢复"
+  },
+  "reviewReason": {
+    "completed": "已完成",
+    "hasErrors": "有错误",
+    "qaIssues": "QA 问题",
+    "approvePlan": "批准计划"
+  },
+  "tooltips": {
+    "archiveTask": "归档任务",
+    "archiveAllDone": "归档所有已完成的任务"
+  },
+  "creation": {
+    "title": "创建新任务",
+    "description": "描述您想要构建的内容",
+    "placeholder": "描述您的任务..."
+  },
+  "empty": {
+    "title": "还没有任务",
+    "description": "创建您的第一个任务以开始"
+  },
+  "kanban": {
+    "emptyBacklog": "没有计划的任务",
+    "emptyBacklogHint": "添加任务以开始",
+    "emptyInProgress": "没有运行的",
+    "emptyInProgressHint": "从待办事项启动任务",
+    "emptyAiReview": "没有正在审查的任务",
+    "emptyAiReviewHint": "AI 将审查已完成的任务",
+    "emptyHumanReview": "没有要审查的内容",
+    "emptyHumanReviewHint": "任务在此等待您的批准",
+    "emptyDone": "没有已完成的任务",
+    "emptyDoneHint": "批准的任务将显示在此处",
+    "emptyDefault": "没有任务",
+    "dropHere": "在此放下",
+    "showArchived": "显示已归档"
+  },
+  "execution": {
+    "phases": {
+      "idle": "闲置",
+      "planning": "规划",
+      "coding": "编码",
+      "reviewing": "审查",
+      "fixing": "修复",
+      "complete": "完成",
+      "failed": "失败"
+    },
+    "labels": {
+      "interrupted": "已中断",
+      "progress": "进度",
+      "entry": "条目",
+      "entries": "条目"
+    },
+    "shortPhases": {
+      "plan": "计划",
+      "code": "代码",
+      "qa": "质量保证"
+    }
+  },
+  "files": {
+    "title": "文件",
+    "tab": "文件",
+    "noSpecPath": "没有可用的规范文件",
+    "noFiles": "未找到文件",
+    "loading": "加载文件中...",
+    "loadingContent": "加载内容中...",
+    "errorLoading": "加载文件失败",
+    "errorLoadingContent": "加载文件内容失败",
+    "retry": "重试",
+    "selectFile": "选择文件以查看其内容",
+    "openInIDE": "在 IDE 中打开"
+  },
+  "metadata": {
+    "severity": "严重程度"
+  }
+}

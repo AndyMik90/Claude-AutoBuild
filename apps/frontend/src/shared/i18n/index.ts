@@ -25,6 +25,30 @@ import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 
+// Import Simplified Chinese translation resources
+import zhCNCommon from './locales/zh-CN/common.json';
+import zhCNNavigation from './locales/zh-CN/navigation.json';
+import zhCNSettings from './locales/zh-CN/settings.json';
+import zhCNTasks from './locales/zh-CN/tasks.json';
+import zhCNWelcome from './locales/zh-CN/welcome.json';
+import zhCNOnboarding from './locales/zh-CN/onboarding.json';
+import zhCNDialogs from './locales/zh-CN/dialogs.json';
+import zhCNGitlab from './locales/zh-CN/gitlab.json';
+import zhCNTaskReview from './locales/zh-CN/taskReview.json';
+import zhCNTerminal from './locales/zh-CN/terminal.json';
+
+// Import Traditional Chinese translation resources
+import zhTWCommon from './locales/zh-TW/common.json';
+import zhTWNavigation from './locales/zh-TW/navigation.json';
+import zhTWSettings from './locales/zh-TW/settings.json';
+import zhTWTasks from './locales/zh-TW/tasks.json';
+import zhTWWelcome from './locales/zh-TW/welcome.json';
+import zhTWOnboarding from './locales/zh-TW/onboarding.json';
+import zhTWDialogs from './locales/zh-TW/dialogs.json';
+import zhTWGitlab from './locales/zh-TW/gitlab.json';
+import zhTWTaskReview from './locales/zh-TW/taskReview.json';
+import zhTWTerminal from './locales/zh-TW/terminal.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -51,6 +75,30 @@ export const resources = {
     gitlab: frGitlab,
     taskReview: frTaskReview,
     terminal: frTerminal
+  },
+  'zh-CN': {
+    common: zhCNCommon,
+    navigation: zhCNNavigation,
+    settings: zhCNSettings,
+    tasks: zhCNTasks,
+    welcome: zhCNWelcome,
+    onboarding: zhCNOnboarding,
+    dialogs: zhCNDialogs,
+    gitlab: zhCNGitlab,
+    taskReview: zhCNTaskReview,
+    terminal: zhCNTerminal
+  },
+  'zh-TW': {
+    common: zhTWCommon,
+    navigation: zhTWNavigation,
+    settings: zhTWSettings,
+    tasks: zhTWTasks,
+    welcome: zhTWWelcome,
+    onboarding: zhTWOnboarding,
+    dialogs: zhTWDialogs,
+    gitlab: zhTWGitlab,
+    taskReview: zhTWTaskReview,
+    terminal: zhTWTerminal
   }
 } as const;
 

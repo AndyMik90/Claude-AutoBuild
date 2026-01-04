@@ -1,0 +1,139 @@
+{
+  "wizard": {
+    "title": "設定精靈",
+    "description": "透過幾個簡單的步驟設定您的 Auto Claude 環境",
+    "helpText": "此精靈將幫助您透過幾個步驟完成設定。您可以設定 Claude OAuth 權杖、設定記憶體功能，以及建立您的第一個工作。"
+  },
+  "welcome": {
+    "title": "歡迎使用 Auto Claude",
+    "subtitle": "使用 AI 驅動的代理程式自主建立軟體",
+    "getStarted": "開始使用",
+    "skip": "略過設定",
+    "features": {
+      "aiPowered": {
+        "title": "AI 驅動的開發",
+        "description": "使用 Claude Code 代理程式產生程式碼和建立功能"
+      },
+      "specDriven": {
+        "title": "規格驅動的工作流程",
+        "description": "使用清晰的規格定義工作，讓 Auto Claude 處理實現"
+      },
+      "memory": {
+        "title": "記憶體與上下文",
+        "description": "使用 Graphiti 在會話間持久保存記憶體"
+      },
+      "parallel": {
+        "title": "並行執行",
+        "description": "並行執行多個代理程式以加快開發週期"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude 驗證",
+    "description": "連接您的 Claude 帳戶以啟用 AI 功能",
+    "keychainTitle": "安全存儲",
+    "keychainDescription": "您的權杖使用您系統的金鑰鏈加密。您可能會看到來自 macOS 的密碼提示 — 點擊「永遠允許」以避免再看到它。"
+  },
+  "memory": {
+    "title": "記憶體",
+    "description": "Auto Claude 記憶體幫助跨程式碼會話記住上下文"
+  },
+  "completion": {
+    "title": "全部設定完成！",
+    "subtitle": "Auto Claude 已準備好幫助您建立令人驚豔的軟體",
+    "setupComplete": "設定完成",
+    "setupCompleteDescription": "您的環境已配置並準備好使用。您可以立即開始建立工作，或按自己的步調探索應用程式。",
+    "whatsNext": "接下來呢？",
+    "createTask": {
+      "title": "建立工作",
+      "description": "透過建立您的第一個工作開始看 Auto Claude 的實際應用。",
+      "action": "開啟工作建立者"
+    },
+    "customizeSettings": {
+      "title": "自訂設定",
+      "description": "微調您的偏好設定、設定整合項目，或重新執行此精靈。",
+      "action": "開啟設定"
+    },
+    "exploreDocs": {
+      "title": "探索文件",
+      "description": "深入瞭解進階功能、最佳做法和故障排除。"
+    },
+    "finish": "完成並開始建立",
+    "rerunHint": "您隨時可以從設定 → 應用程式重新執行此精靈"
+  },
+  "steps": {
+    "welcome": "歡迎",
+    "authChoice": "驗證方法",
+    "auth": "驗證",
+    "claudeCode": "CLI",
+    "devtools": "開發者工具",
+    "memory": "記憶體",
+    "done": "完成"
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "安裝或更新 Claude Code CLI 以啟用 AI 驅動的功能",
+    "detecting": "檢查 Claude Code 安裝中...",
+    "info": {
+      "title": "什麼是 Claude Code？",
+      "description": "Claude Code 是 Anthropic 的官方 CLI，為 Auto Claude 的 AI 功能提供動力。它提供安全驗證和直接存取 Claude 模型。"
+    },
+    "status": {
+      "installed": "已安裝",
+      "outdated": "有可用更新",
+      "notFound": "未安裝"
+    },
+    "version": {
+      "current": "目前版本",
+      "latest": "最新版本"
+    },
+    "install": {
+      "button": "安裝 Claude Code",
+      "updating": "更新 Claude Code",
+      "inProgress": "安裝中...",
+      "success": "安裝命令已發送至終端。請在該處完成安裝。",
+      "instructions": "安裝程式將在您的終端中開啟。按照提示完成安裝。"
+    },
+    "learnMore": "深入瞭解 Claude Code"
+  },
+  "devtools": {
+    "title": "開發者工具",
+    "description": "選擇您的首選 IDE 和終端以與 Auto Claude 工作區一起使用",
+    "detecting": "檢測已安裝的工具中...",
+    "detectAgain": "重新檢測",
+    "whyConfigure": "為什麼要設定這些？",
+    "whyConfigureDescription": "當 Auto Claude 在隔離的工作區中建立功能時，您可以直接在您首選的 IDE 或終端中開啟它們以測試和審查更改。",
+    "ide": {
+      "label": "首選 IDE",
+      "description": "Auto Claude 將在此編輯器中開啟工作區",
+      "customPath": "自訂 IDE 路徑"
+    },
+    "terminal": {
+      "label": "首選終端",
+      "description": "Auto Claude 將在此處開啟終端會話",
+      "customPath": "自訂終端路徑"
+    },
+    "detectedSummary": "在您的系統上檢測到的工具：",
+    "noToolsDetected": "未檢測到其他工具（將使用 VS Code 和系統終端）",
+    "custom": "自訂...",
+    "saveAndContinue": "儲存並繼續"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "未安裝 Ollama",
+      "description": "Ollama 提供免費的本機嵌入模型用於語義搜尋。透過一次點擊安裝它以啟用此功能。",
+      "installSuccess": "安裝已在終端中開始。在該處完成安裝，然後點擊重試。",
+      "installButton": "安裝 Ollama",
+      "installing": "安裝中...",
+      "retry": "重試",
+      "learnMore": "深入瞭解",
+      "fallbackNote": "即使沒有 Ollama，記憶體仍會使用關鍵字搜尋。"
+    },
+    "notRunning": {
+      "title": "Ollama 未執行",
+      "description": "Ollama 已安裝但未執行。啟動 Ollama 以使用本機嵌入模型。",
+      "retry": "重試",
+      "fallbackNote": "即使沒有嵌入，記憶體仍會使用關鍵字搜尋。"
+    }
+  }
+}

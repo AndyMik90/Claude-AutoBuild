@@ -1,0 +1,431 @@
+{
+  "title": "設定",
+  "tabs": {
+    "app": "應用程式設定",
+    "project": "專案設定"
+  },
+  "sections": {
+    "appearance": {
+      "title": "外觀",
+      "description": "自訂 Auto Claude 的外觀"
+    },
+    "display": {
+      "title": "顯示",
+      "description": "調整 UI 元素的大小"
+    },
+    "language": {
+      "title": "語言",
+      "description": "選擇您偏好的語言"
+    },
+    "devtools": {
+      "title": "開發者工具",
+      "description": "IDE 和終端偏好設定"
+    },
+    "agent": {
+      "title": "代理程式設定",
+      "description": "預設模型和框架"
+    },
+    "paths": {
+      "title": "路徑",
+      "description": "CLI 工具和框架路徑"
+    },
+    "integrations": {
+      "title": "整合",
+      "description": "API 金鑰和 Claude 帳戶"
+    },
+    "api-profiles": {
+      "title": "API 設定檔",
+      "description": "自訂 API 端點設定檔"
+    },
+    "updates": {
+      "title": "更新",
+      "description": "Auto Claude 更新"
+    },
+    "notifications": {
+      "title": "通知",
+      "description": "警示偏好設定"
+    },
+    "debug": {
+      "title": "偵錯和日誌",
+      "description": "故障排除工具"
+    }
+  },
+  "language": {
+    "label": "介面語言",
+    "description": "選擇應用程式介面的語言"
+  },
+  "scale": {
+    "presets": "縮放預設",
+    "presetsDescription": "常見偏好設定的快速縮放選項",
+    "fineTune": "微調縮放",
+    "fineTuneDescription": "以 5% 的增量從 75% 調整到 200%",
+    "default": "預設",
+    "comfortable": "舒適",
+    "large": "大"
+  },
+  "general": {
+    "otherAgentSettings": "其他代理程式設定",
+    "otherAgentSettingsDescription": "其他代理程式配置選項",
+    "agentFramework": "代理程式框架",
+    "agentFrameworkDescription": "用於自主任務的程式碼框架",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "AI 終端命名",
+    "aiTerminalNamingDescription": "根據命令自動命名終端（使用 Haiku）",
+    "featureModelSettings": "功能模型設定",
+    "featureModelSettingsDescription": "見解、點子構思和路線圖的模型和思考級別",
+    "model": "模型",
+    "thinkingLevel": "思考級別",
+    "paths": "路徑",
+    "pathsDescription": "設定可執行檔和框架路徑",
+    "pythonPath": "Python 路徑",
+    "pythonPathDescription": "Python 可執行檔的路徑（留空以自動偵測）",
+    "pythonPathPlaceholder": "python3（預設）",
+    "gitPath": "Git 路徑",
+    "gitPathDescription": "Git 可執行檔的路徑（留空以自動偵測）",
+    "gitPathPlaceholder": "git（預設）",
+    "githubCLIPath": "GitHub CLI 路徑",
+    "githubCLIPathDescription": "GitHub CLI (gh) 可執行檔的路徑（留空以自動偵測）",
+    "githubCLIPathPlaceholder": "gh（預設）",
+    "claudePath": "Claude CLI 路徑",
+    "claudePathDescription": "Claude CLI 可執行檔的路徑（留空以自動偵測）",
+    "claudePathPlaceholder": "claude（預設）",
+    "detectedPath": "自動偵測",
+    "detectedVersion": "版本",
+    "detectedSource": "來源",
+    "sourceUserConfig": "使用者配置",
+    "sourceVenv": "虛擬環境",
+    "sourceHomebrew": "Homebrew",
+    "sourceSystemPath": "系統 PATH",
+    "sourceBundled": "已整合",
+    "sourceFallback": "備用",
+    "notDetected": "未偵測到",
+    "autoClaudePath": "Auto Claude 路徑",
+    "autoClaudePathDescription": "專案中 auto-claude 目錄的相對路徑",
+    "autoClaudePathPlaceholder": "auto-claude（預設）",
+    "autoNameTerminals": "自動命名終端",
+    "autoNameTerminalsDescription": "使用 AI 根據活動為終端分頁產生描述性名稱"
+  },
+  "theme": {
+    "title": "外觀",
+    "description": "自訂 Auto Claude 的外觀",
+    "mode": "模式",
+    "modeDescription": "在淺色和深色主題之間選擇",
+    "light": "淺色",
+    "dark": "深色",
+    "system": "系統",
+    "colorTheme": "色彩主題",
+    "colorThemeDescription": "選擇您偏好的調色盤"
+  },
+  "devtools": {
+    "title": "開發者工具",
+    "description": "設定您偏好的 IDE 和終端以與工作區一起使用",
+    "detecting": "偵測已安裝的工具中...",
+    "detectAgain": "重新偵測",
+    "ide": {
+      "label": "首選 IDE",
+      "description": "Auto Claude 將在此編輯器中開啟工作區",
+      "placeholder": "選擇 IDE...",
+      "customPath": "自訂 IDE 路徑",
+      "customPathPlaceholder": "/path/to/your/ide"
+    },
+    "terminal": {
+      "label": "首選終端",
+      "description": "Auto Claude 將在此處開啟終端會話",
+      "placeholder": "選擇終端...",
+      "customPath": "自訂終端路徑",
+      "customPathPlaceholder": "/path/to/your/terminal"
+    },
+    "detected": "已偵測",
+    "notInstalled": "未安裝",
+    "detectedSummary": "在您的系統上偵測到的工具：",
+    "noToolsDetected": "未偵測到其他工具（將使用 VS Code 和系統終端）"
+  },
+  "updates": {
+    "title": "更新",
+    "description": "管理 Auto Claude 更新",
+    "appUpdateReady": "應用程式更新已就緒",
+    "newVersion": "新版本",
+    "released": "已發佈",
+    "downloading": "下載中...",
+    "updateDownloaded": "更新已下載！點擊安裝以重新啟動並套用更新。",
+    "installAndRestart": "安裝並重新啟動",
+    "downloadUpdate": "下載更新",
+    "version": "版本",
+    "loading": "載入中...",
+    "checkingForUpdates": "檢查更新中...",
+    "newVersionAvailable": "有新版本可用：",
+    "latestVersion": "您執行的是最新版本。",
+    "viewRelease": "在 GitHub 上檢視完整版本",
+    "unableToCheck": "無法檢查更新",
+    "checkForUpdates": "檢查更新",
+    "autoUpdateProjects": "自動更新專案",
+    "autoUpdateProjectsDescription": "新版本可用時自動更新專案中的 Auto Claude",
+    "betaUpdates": "測試版更新",
+    "betaUpdatesDescription": "接收具有新功能的發行前測試版本（可能較不穩定）"
+  },
+  "notifications": {
+    "title": "通知",
+    "description": "設定預設通知偏好設定",
+    "onTaskComplete": "任務完成時",
+    "onTaskCompleteDescription": "任務成功完成時通知",
+    "onTaskFailed": "任務失敗時",
+    "onTaskFailedDescription": "任務遇到錯誤時通知",
+    "onReviewNeeded": "需要審查時",
+    "onReviewNeededDescription": "品保需要您審查時通知",
+    "sound": "音訊",
+    "soundDescription": "播放通知音訊"
+  },
+  "actions": {
+    "save": "儲存設定",
+    "rerunWizard": "重新執行精靈",
+    "rerunWizardDescription": "再次啟動設定精靈"
+  },
+  "projectSections": {
+    "general": {
+      "title": "一般",
+      "description": "自動建立和代理程式配置",
+      "useClaudeMd": "使用 CLAUDE.md",
+      "useClaudeMdDescription": "在代理程式上下文中包括 CLAUDE.md 指示"
+    },
+    "claude": {
+      "title": "Claude 驗證",
+      "description": "Claude 驗證"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Linear 整合",
+      "integrationTitle": "Linear 整合",
+      "integrationDescription": "連接至 Linear 以進行問題追蹤和工作匯入",
+      "syncDescription": "與 Linear 同步以進行問題追蹤"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "GitHub 問題同步",
+      "integrationTitle": "GitHub 整合",
+      "integrationDescription": "連接至 GitHub 以進行問題追蹤",
+      "syncDescription": "與 GitHub 問題同步"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "GitLab 問題同步",
+      "integrationTitle": "GitLab 整合",
+      "integrationDescription": "連接至 GitLab 以進行問題追蹤",
+      "syncDescription": "與 GitLab 問題同步"
+    },
+    "memory": {
+      "title": "記憶體",
+      "description": "Graphiti 記憶體後端",
+      "integrationTitle": "記憶體",
+      "integrationDescription": "為代理程式配置持久的跨會話記憶體",
+      "syncDescription": "設定持久記憶體"
+    }
+  },
+  "agentProfile": {
+    "label": "代理程式設定檔",
+    "title": "預設代理程式設定檔",
+    "sectionDescription": "選擇模型和思考級別的預設配置",
+    "profilesInfo": "代理程式設定檔為 Claude 模型和思考級別提供預設配置。建立新工作時，將使用這些設定作為預設值。您總是可以在工作建立精靈中覆蓋它們。",
+    "custom": "自訂",
+    "customConfiguration": "自訂配置",
+    "customDescription": "選擇模型和思考級別",
+    "phaseConfiguration": "階段配置",
+    "phaseConfigurationDescription": "為每個階段自訂模型和思考級別",
+    "clickToCustomize": "點擊以自訂",
+    "model": "模型",
+    "thinking": "思考",
+    "thinkingLevel": "思考級別",
+    "selectModel": "選擇模型",
+    "selectThinkingLevel": "選擇思考級別",
+    "perPhaseOptimization": "（每階段最佳化）",
+    "resetToDefaults": "重設為預設",
+    "phaseConfigNote": "建立具有自動設定檔的新工作時，將使用這些設定作為預設值。您可以在工作建立精靈中覆蓋每個工作的設定。",
+    "phases": {
+      "spec": {
+        "label": "規格建立",
+        "description": "發現、需求、上下文蒐集"
+      },
+      "planning": {
+        "label": "計劃",
+        "description": "實現計劃和架構"
+      },
+      "coding": {
+        "label": "編碼",
+        "description": "實際程式碼實現"
+      },
+      "qa": {
+        "label": "品保審查",
+        "description": "品質保證和驗證"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "後端",
+      "frontend": "前端",
+      "mobile": "行動",
+      "shared": "共用",
+      "apiGateway": "API 閘道",
+      "worker": "背景工作",
+      "other": "其他"
+    }
+  },
+  "integrations": {
+    "title": "整合",
+    "description": "管理 Claude 帳戶和 API 金鑰",
+    "claudeAccounts": "Claude 帳戶",
+    "claudeAccountsDescription": "新增多個 Claude 訂閱以在達到速率限制時自動在它們之間切換。",
+    "noAccountsYet": "尚未設定帳戶",
+    "default": "預設",
+    "active": "作用中",
+    "authenticated": "已驗證",
+    "needsAuth": "需要驗證",
+    "authenticate": "驗證",
+    "setActive": "設為作用中",
+    "manualTokenEntry": "手動權杖輸入",
+    "runSetupToken": "執行 claude setup-token 以取得您的權杖",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "電子郵件（選用，用於顯示）",
+    "saveToken": "儲存權杖",
+    "accountNamePlaceholder": "帳戶名稱（例如：工作、個人）",
+    "autoSwitching": "自動帳戶切換",
+    "autoSwitchingDescription": "自動在 Claude 帳戶之間切換以避免中斷。配置主動監視以在達到限制前進行切換。",
+    "enableAutoSwitching": "啟用自動切換",
+    "masterSwitch": "所有自動交換功能的主開關",
+    "proactiveMonitoring": "主動監視",
+    "proactiveDescription": "定期檢查使用情況並在達到限制前進行切換",
+    "checkUsageEvery": "檢查使用情況",
+    "seconds15": "15 秒",
+    "seconds30": "30 秒（建議）",
+    "minute1": "1 分鐘",
+    "disabled": "已停用",
+    "sessionThreshold": "會話使用量閾值",
+    "sessionThresholdDescription": "當會話使用量達到此級別時切換（建議：95%）",
+    "weeklyThreshold": "每週使用量閾值",
+    "weeklyThresholdDescription": "當每週使用量達到此級別時切換（建議：99%）",
+    "reactiveRecovery": "反應式恢復",
+    "reactiveDescription": "達到未預期的速率限制時自動切換",
+    "apiKeys": "API 金鑰",
+    "apiKeysInfo": "此處設定的金鑰用作預設值。個別專案可以在其設定中覆蓋這些。",
+    "openaiKey": "OpenAI API 金鑰",
+    "openaiKeyDescription": "Graphiti 記憶體後端（嵌入）所需"
+  },
+  "debug": {
+    "title": "偵錯和日誌",
+    "description": "存取日誌和偵錯資訊以進行故障排除",
+    "openLogsFolder": "開啟日誌資料夾",
+    "copyDebugInfo": "複製偵錯資訊",
+    "copied": "已複製！",
+    "loadInfo": "載入偵錯資訊",
+    "systemInfo": "系統資訊",
+    "logsLocation": "日誌位置",
+    "recentErrors": "最近的錯誤",
+    "noRecentErrors": "無最近的錯誤",
+    "helpTitle": "報告問題",
+    "helpText": "報告錯誤時，點擊「複製偵錯資訊」以取得系統資訊和最近的錯誤，幫助我們診斷問題。"
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "未選擇專案",
+      "description": "從側邊欄選擇專案以設定其設定。"
+    }
+  },
+  "mcp": {
+    "title": "MCP 伺服器概述",
+    "titleWithProject": "MCP 伺服器概述（{{projectName}}）",
+    "description": "設定此專案中的代理程式可以使用哪些 MCP 伺服器",
+    "descriptionNoProject": "選擇專案以設定 MCP 伺服器",
+    "serversEnabled": "已啟用 {{count}} 個伺服器",
+    "configuration": "MCP 伺服器配置",
+    "configurationHint": "停用的伺服器會減少上下文使用量和啟動時間",
+    "noProjectSelected": "未選擇專案",
+    "noProjectSelectedDescription": "從下拉清單選擇專案以檢視和設定 MCP 伺服器。",
+    "projectNotInitialized": "專案未初始化",
+    "projectNotInitializedDescription": "初始化此專案的 Auto Claude 以設定 MCP 伺服器。",
+    "browserAutomation": "瀏覽器自動化（僅品保代理程式）",
+    "alwaysEnabled": "一律啟用",
+    "addServer": "新增伺服器",
+    "addMcpTo": "將 MCP 伺服器新增至 {{agent}}",
+    "addMcpDescription": "選擇要新增至此代理程式的 MCP 伺服器",
+    "allMcpsAdded": "所有可用的 MCP 伺服器已新增",
+    "added": "已新增",
+    "removed": "已移除",
+    "remove": "移除",
+    "restore": "還原",
+    "noMcpServers": "無 MCP 伺服器",
+    "cannotRemove": "無法移除（必需）",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "文件庫文件查詢"
+      },
+      "graphiti": {
+        "name": "Graphiti 記憶體",
+        "description": "用於跨會話上下文的知識圖譜",
+        "notConfigured": "需要記憶體配置（請參閱記憶體設定）"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "專案管理整合",
+        "notConfigured": "需要 Linear 整合（請參閱 Linear 設定）"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "透過 Chrome DevTools 進行桌面應用程式自動化"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "用於測試的網路瀏覽器自動化"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude 工具",
+        "description": "建立進度追蹤"
+      }
+    },
+    "customServers": "自訂伺服器",
+    "addCustomServer": "新增自訂伺服器",
+    "editCustomServer": "編輯自訂伺服器",
+    "customServerDescription": "新增以命令為基礎或 HTTP 為基礎的 MCP 伺服器",
+    "serverType": "伺服器類型",
+    "typeCommand": "命令 (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "名稱",
+    "serverNamePlaceholder": "我的 MCP 伺服器",
+    "serverDescription": "說明",
+    "serverDescriptionPlaceholder": "此伺服器的用途",
+    "command": "命令",
+    "args": "引數",
+    "argsHint": "以空格分隔的引數",
+    "url": "URL",
+    "headers": "標頭",
+    "headerName": "標頭名稱",
+    "headerValue": "標頭值",
+    "noCustomServers": "未設定自訂伺服器。新增一個以與代理程式一起使用。",
+    "errorNameRequired": "需要伺服器名稱",
+    "errorIdExists": "具有此 ID 的伺服器已存在",
+    "errorCommandRequired": "以命令為基礎的伺服器需要命令",
+    "errorUrlRequired": "HTTP 為基礎的伺服器需要 URL",
+    "testConnection": "測試",
+    "testing": "測試中...",
+    "authToken": "驗證權杖",
+    "authTokenPlaceholder": "貼上您的 API 權杖或 PAT",
+    "authTokenHint": "在授權標頭中用作持有人權杖",
+    "advancedHeaders": "其他標頭",
+    "status": {
+      "healthy": "伺服器正在回應",
+      "unhealthy": "伺服器未回應",
+      "needsAuth": "需要驗證",
+      "checking": "檢查中...",
+      "unknown": "狀態未知"
+    },
+    "hints": {
+      "github": "這看起來像 GitHub MCP 伺服器。您需要具有適當範圍的個人存取權杖。",
+      "createGithubPat": "建立 GitHub PAT",
+      "google": "這看起來像 Google API。您需要 OAuth 權杖或 API 金鑰。",
+      "createGoogleToken": "建立 Google 認證",
+      "anthropic": "這看起來像 Anthropic API。您需要 API 金鑰。",
+      "createAnthropicKey": "建立 Anthropic API 金鑰",
+      "openai": "這看起來像 OpenAI API。您需要 API 金鑰。",
+      "createOpenaiKey": "建立 OpenAI API 金鑰"
+    }
+  }
+}
