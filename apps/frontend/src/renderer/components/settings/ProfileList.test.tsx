@@ -13,6 +13,7 @@ import { maskApiKey } from '../../lib/profile-utils';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { APIProfile } from '@shared/types/profile';
 import { TooltipProvider } from '../ui/tooltip';
+import i18n from '../../../shared/i18n';
 
 // Wrapper for components that need TooltipProvider
 function TestWrapper({ children }: { children: React.ReactNode }) {
@@ -204,7 +205,9 @@ describe('ProfileList - Active Profile Logic', () => {
 // Test 1: Delete confirmation dialog shows profile name correctly
 describe('ProfileList - Delete Confirmation Dialog', () => {
   beforeEach(() => {
-    vi.mocked(useSettingsStore).mockReturnValue(createSettingsStoreMock());
+    vi.mocked(useSettingsStore).mockReturnValue(
+      createSettingsStoreMock({ activeProfileId: 'profile-2' })
+    );
   });
 
   it('should show delete confirmation dialog with profile name', () => {
@@ -215,16 +218,17 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
     fireEvent.click(deleteButton);
 
     // Check dialog appears with profile name
-    expect(screen.getByText(/Delete Profile\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/Are you sure you want to delete "Production API"\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cancel/i)).toBeInTheDocument();
-    // Use getAllByText since there are multiple "Delete" elements (title + button)
-    expect(screen.getAllByText(/Delete/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(i18n.t('settings:apiProfiles.dialog.deleteTitle'))).toBeInTheDocument();
+    expect(screen.getByText(
+      i18n.t('settings:apiProfiles.dialog.deleteDescription', { name: 'Production API' })
+    )).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('settings:apiProfiles.dialog.cancel'))).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('settings:apiProfiles.dialog.delete'))).toBeInTheDocument();
   });
 
   // Test 5: Cancel delete → dialog closes, profile remains in list
-  it('should close dialog when cancel is clicked', () => {
-    const mockStore = createSettingsStoreMock();
+  it('should close dialog when cancel is clicked', async () => {
+    const mockStore = createSettingsStoreMock({ activeProfileId: 'profile-2' });
     vi.mocked(useSettingsStore).mockReturnValue(mockStore);
 
     renderWithWrapper(<ProfileList />);
@@ -234,10 +238,13 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
     fireEvent.click(deleteButton);
 
     // Click cancel
-    fireEvent.click(screen.getByText(/Cancel/i));
+    const cancelButton = await screen.findByText(i18n.t('settings:apiProfiles.dialog.cancel'));
+    fireEvent.click(cancelButton);
 
     // Dialog should be closed
-    expect(screen.queryByText(/Delete Profile\?/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(
+      i18n.t('settings:apiProfiles.dialog.deleteTitle')
+    )).not.toBeInTheDocument();
     // Profiles should still be visible
     expect(screen.getByText('Production API')).toBeInTheDocument();
     expect(mockStore.deleteProfile).not.toHaveBeenCalled();
@@ -256,8 +263,8 @@ describe('ProfileList - Delete Confirmation Dialog', () => {
     fireEvent.click(deleteButton);
 
     // Dialog should have Delete elements (title "Delete Profile?" and "Delete" button)
-    const deleteElements = screen.getAllByText(/Delete/i);
-    expect(deleteElements.length).toBeGreaterThan(1); // At least title + button
+    expect(screen.getByText(i18n.t('settings:apiProfiles.dialog.deleteTitle'))).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('settings:apiProfiles.dialog.delete'))).toBeInTheDocument();
   });
 });
 
@@ -270,7 +277,7 @@ describe('ProfileList - Switch to OAuth Button', () => {
     renderWithWrapper(<ProfileList />);
 
     // Button should be visible when activeProfileId is set
-    expect(screen.getByText(/Switch to OAuth/i)).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('settings:apiProfiles.switchToOauth.label'))).toBeInTheDocument();
   });
 
   it('should NOT show "Switch to OAuth" button when no profile is active', () => {
@@ -281,7 +288,9 @@ describe('ProfileList - Switch to OAuth Button', () => {
     renderWithWrapper(<ProfileList />);
 
     // Button should NOT be visible when activeProfileId is null
-    expect(screen.queryByText(/Switch to OAuth/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(
+      i18n.t('settings:apiProfiles.switchToOauth.label')
+    )).not.toBeInTheDocument();
   });
 
   it('should call setActiveProfile with null when "Switch to OAuth" is clicked', () => {
@@ -291,7 +300,7 @@ describe('ProfileList - Switch to OAuth Button', () => {
     renderWithWrapper(<ProfileList />);
 
     // Click the "Switch to OAuth" button
-    const switchButton = screen.getByText(/Switch to OAuth/i);
+    const switchButton = screen.getByText(i18n.t('settings:apiProfiles.switchToOauth.label'));
     fireEvent.click(switchButton);
 
     // Should call setActiveProfile with null to switch to OAuth

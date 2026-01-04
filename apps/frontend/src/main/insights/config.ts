@@ -2,8 +2,10 @@ import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
+import { getAPIProfileEnv } from '../services/profile';
+import { getOAuthModeClearVars } from '../agent/env-utils';
+import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { getValidatedPythonPath } from '../python-detector';
-import { getConfiguredPythonPath } from '../python-env-manager';
 
 /**
  * Configuration manager for insights service
@@ -104,17 +106,47 @@ export class InsightsConfig {
    * Get complete environment for process execution
    * Includes system env, auto-claude env, and active Claude profile
    */
-  getProcessEnv(): Record<string, string> {
+  async getProcessEnv(): Promise<Record<string, string>> {
     const autoBuildEnv = this.loadAutoBuildEnv();
     const profileEnv = getProfileEnv();
+    const apiProfileEnv = await getAPIProfileEnv();
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    const pythonPathParts = (pythonEnv.PYTHONPATH ?? '')
+      .split(path.delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => path.resolve(entry));
+
+    if (autoBuildSource) {
+      const normalizedAutoBuildSource = path.resolve(autoBuildSource);
+      const autoBuildComparator = process.platform === 'win32'
+        ? normalizedAutoBuildSource.toLowerCase()
+        : normalizedAutoBuildSource;
+      const hasAutoBuildSource = pythonPathParts.some((entry) => {
+        const candidate = process.platform === 'win32' ? entry.toLowerCase() : entry;
+        return candidate === autoBuildComparator;
+      });
+
+      if (!hasAutoBuildSource) {
+        pythonPathParts.push(normalizedAutoBuildSource);
+      }
+    }
+
+    const combinedPythonPath = pythonPathParts.join(path.delimiter);
 
     return {
       ...process.env as Record<string, string>,
+      ...pythonEnv,
       ...autoBuildEnv,
+      ...oauthModeClearVars,
       ...profileEnv,
+      ...apiProfileEnv,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1'
+      PYTHONUTF8: '1',
+      ...(combinedPythonPath ? { PYTHONPATH: combinedPythonPath } : {})
     };
   }
 }
