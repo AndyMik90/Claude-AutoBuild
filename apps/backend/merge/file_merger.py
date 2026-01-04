@@ -60,6 +60,9 @@ def apply_single_task_changes(
     """
     content = baseline
 
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
+
     for change in snapshot.semantic_changes:
         if change.content_before and change.content_after:
             # Modification - replace
@@ -68,15 +71,13 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
-                # Detect line ending style before splitting to preserve it
-                line_ending = detect_line_ending(content)
                 lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
                 content = line_ending.join(lines)
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
-                content += f"\n\n{change.content_after}"
+                content += f"{line_ending}{line_ending}{change.content_after}"
 
     return content
 
@@ -98,6 +99,9 @@ def combine_non_conflicting_changes(
         Combined content with all changes applied
     """
     content = baseline
+
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
 
     # Group changes by type for proper ordering
     imports: list[SemanticChange] = []
@@ -121,8 +125,6 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
-        # Detect line ending style before splitting to preserve it
-        line_ending = detect_line_ending(content)
         lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
@@ -139,12 +141,12 @@ def combine_non_conflicting_changes(
     # Add functions
     for func in functions:
         if func.content_after:
-            content += f"\n\n{func.content_after}"
+            content += f"{line_ending}{line_ending}{func.content_after}"
 
     # Apply other changes
     for change in other:
         if change.content_after and not change.content_before:
-            content += f"\n{change.content_after}"
+            content += f"{line_ending}{change.content_after}"
         elif change.content_before and change.content_after:
             content = content.replace(change.content_before, change.content_after)
 
