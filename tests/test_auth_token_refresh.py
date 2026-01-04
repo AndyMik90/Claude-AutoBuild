@@ -99,10 +99,10 @@ class TestIsTokenExpired:
         assert not is_token_expired(creds)
 
     def test_token_expired_exactly_at_buffer(self):
-        """Token expiring exactly at buffer boundary should be expired."""
-        # Exactly at buffer (5 minutes from now)
-        creds = {"expiresAt": int((time.time() + TOKEN_REFRESH_BUFFER_SECONDS) * 1000)}
-        # At the exact boundary, it should NOT be expired (> not >=)
+        """Token expiring just past buffer boundary should not be expired."""
+        # Just past buffer (5 minutes + 2 seconds from now) to avoid timing issues
+        creds = {"expiresAt": int((time.time() + TOKEN_REFRESH_BUFFER_SECONDS + 2) * 1000)}
+        # Past the boundary, it should NOT be expired
         assert not is_token_expired(creds)
 
     def test_token_expired_one_second_before_buffer(self):

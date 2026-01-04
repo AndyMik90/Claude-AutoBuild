@@ -630,29 +630,29 @@ def get_auth_token_source() -> str | None:
     """
     Get the name of the source that provided the auth token.
 
-    Priority matches get_auth_token():
+    Priority matches get_full_credentials():
     1. ANTHROPIC_AUTH_TOKEN (enterprise/CCR)
-    2. System credential store (for refresh token capability)
-    3. CLAUDE_CODE_OAUTH_TOKEN (env var override)
+    2. CLAUDE_CODE_OAUTH_TOKEN (env var - overrides store's access token)
+    3. System credential store (default source)
     """
     # Enterprise token has top priority
     if os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         return "ANTHROPIC_AUTH_TOKEN"
 
-    # Check credential store (matches get_full_credentials priority)
+    # CLAUDE_CODE_OAUTH_TOKEN overrides store's access token
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return "CLAUDE_CODE_OAUTH_TOKEN"
+
+    # Check credential store
     creds = _get_full_credentials_from_store()
     if creds and creds.get("accessToken"):
         system = platform.system()
         if system == "Darwin":
             return "macOS Keychain"
         elif system == "Windows":
-            return "Windows Credential Files"
+            return "Windows credential file"
         else:
-            return "System Credential Store"
-
-    # CLAUDE_CODE_OAUTH_TOKEN as fallback
-    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        return "CLAUDE_CODE_OAUTH_TOKEN"
+            return "Linux credential file"
 
     return None
 
