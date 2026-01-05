@@ -351,9 +351,10 @@ export function registerTerminalHandlers(
         terminalManager.write(terminalId, `${loginCommand}\r`);
 
         // Notify the renderer that a login terminal was created
+        // This allows the UI to display the terminal so users can see the OAuth flow
         const mainWindow = getMainWindow();
         if (mainWindow) {
-          mainWindow.webContents.send('claude-profile-login-terminal', {
+          mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_PROFILE_LOGIN_TERMINAL, {
             terminalId,
             profileId,
             profileName: profile.name

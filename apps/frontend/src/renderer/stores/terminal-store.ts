@@ -39,6 +39,8 @@ interface TerminalState {
   // Actions
   addTerminal: (cwd?: string, projectPath?: string) => Terminal | null;
   addRestoredTerminal: (session: TerminalSession) => Terminal;
+  // Add a terminal with a specific ID (for terminals created in main process, like OAuth login terminals)
+  addExternalTerminal: (id: string, title: string, cwd?: string, projectPath?: string) => Terminal | null;
   removeTerminal: (id: string) => void;
   updateTerminal: (id: string, updates: Partial<Terminal>) => void;
   setActiveTerminal: (id: string | null) => void;
@@ -123,6 +125,39 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
 
     return restoredTerminal;
+  },
+
+  addExternalTerminal: (id: string, title: string, cwd?: string, projectPath?: string) => {
+    const state = get();
+
+    // Check if terminal with this ID already exists
+    const existingTerminal = state.terminals.find(t => t.id === id);
+    if (existingTerminal) {
+      // Just activate it and return it
+      set({ activeTerminalId: id });
+      return existingTerminal;
+    }
+
+    if (state.terminals.length >= state.maxTerminals) {
+      return null;
+    }
+
+    const newTerminal: Terminal = {
+      id,
+      title,
+      status: 'running',  // External terminals are already running
+      cwd: cwd || process.env.HOME || '~',
+      createdAt: new Date(),
+      isClaudeMode: false,
+      projectPath,
+    };
+
+    set((state) => ({
+      terminals: [...state.terminals, newTerminal],
+      activeTerminalId: newTerminal.id,
+    }));
+
+    return newTerminal;
   },
 
   removeTerminal: (id: string) => {

@@ -86,6 +86,7 @@ export const IPC_CHANNELS = {
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
   TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+  CLAUDE_PROFILE_LOGIN_TERMINAL: 'claude:profileLoginTerminal',  // Login terminal created for OAuth flow
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',
