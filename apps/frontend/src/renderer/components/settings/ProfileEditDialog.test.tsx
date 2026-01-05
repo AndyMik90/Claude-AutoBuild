@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import '../../../shared/i18n';
 import { ProfileEditDialog } from './ProfileEditDialog';
 import type { APIProfile } from '@shared/types/profile';
 
@@ -268,6 +269,64 @@ describe('ProfileEditDialog - Create Mode', () => {
     const apiKeyInput = screen.getByLabelText(/api key/i);
     expect(apiKeyInput).toHaveAttribute('type', 'password');
     expect(apiKeyInput).not.toBeDisabled();
+  });
+
+  it('should apply preset values in create mode', async () => {
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+      />
+    );
+
+    const presetTrigger = screen.getByLabelText(/preset/i);
+    fireEvent.keyDown(presetTrigger, { key: 'ArrowDown', code: 'ArrowDown' });
+
+    const glmGlobalOption = await screen.findByRole('option', { name: 'GLM (Global)' });
+    fireEvent.click(glmGlobalOption);
+
+    expect(screen.getByLabelText(/base url/i)).toHaveValue('https://api.z.ai/api/anthropic');
+    expect(screen.getByLabelText(/name/i)).toHaveValue('GLM (Global)');
+  });
+
+  it('should not overwrite name when applying a preset', async () => {
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+      />
+    );
+
+    const nameInput = screen.getByLabelText(/name/i);
+    fireEvent.change(nameInput, { target: { value: 'My Custom Name' } });
+
+    const presetTrigger = screen.getByLabelText(/preset/i);
+    fireEvent.keyDown(presetTrigger, { key: 'ArrowDown', code: 'ArrowDown' });
+
+    const groqOption = await screen.findByRole('option', { name: 'Groq' });
+    fireEvent.click(groqOption);
+
+    expect(screen.getByLabelText(/name/i)).toHaveValue('My Custom Name');
+    expect(screen.getByLabelText(/base url/i)).toHaveValue('https://api.groq.com/openai/v1');
+  });
+
+  it('should move focus to Base URL after selecting a preset', async () => {
+    render(
+      <ProfileEditDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+      />
+    );
+
+    const presetTrigger = screen.getByLabelText(/preset/i);
+    fireEvent.keyDown(presetTrigger, { key: 'ArrowDown', code: 'ArrowDown' });
+
+    const anthropicOption = await screen.findByRole('option', { name: 'Anthropic' });
+    fireEvent.click(anthropicOption);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/base url/i)).toHaveFocus();
+    });
   });
 });
 
