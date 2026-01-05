@@ -73,7 +73,7 @@ export interface TerminalAPI {
   onTerminalOAuthToken: (
     callback: (info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }) => void
   ) => () => void;
-  onClaudeProfileLoginTerminal: (
+  onTerminalAuthCreated: (
     callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
   ) => () => void;
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
@@ -268,7 +268,7 @@ export const createTerminalAPI = (): TerminalAPI => ({
     };
   },
 
-  onClaudeProfileLoginTerminal: (
+  onTerminalAuthCreated: (
     callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
   ): (() => void) => {
     const handler = (
@@ -277,9 +277,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ): void => {
       callback(info);
     };
-    ipcRenderer.on(IPC_CHANNELS.CLAUDE_PROFILE_LOGIN_TERMINAL, handler);
+    ipcRenderer.on(IPC_CHANNELS.TERMINAL_AUTH_CREATED, handler);
     return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.CLAUDE_PROFILE_LOGIN_TERMINAL, handler);
+      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_AUTH_CREATED, handler);
     };
   },
 

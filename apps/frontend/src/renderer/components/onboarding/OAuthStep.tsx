@@ -148,7 +148,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
           await loadClaudeProfiles();
           setNewProfileName('');
 
-          // Note: The terminal is now visible in the UI via the onClaudeProfileLoginTerminal event
+          // Note: The terminal is now visible in the UI via the onTerminalAuthCreated event
           // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
@@ -226,7 +226,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
       if (!initResult.success) {
         alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
       }
-      // Note: If successful, the terminal is now visible in the UI via the onClaudeProfileLoginTerminal event
+      // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
       // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to authenticate profile');

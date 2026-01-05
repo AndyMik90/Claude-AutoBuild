@@ -130,7 +130,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
         if (initResult.success) {
           await loadClaudeProfiles();
           setNewProfileName('');
-          // Note: The terminal is now visible in the UI via the onClaudeProfileLoginTerminal event
+          // Note: The terminal is now visible in the UI via the onTerminalAuthCreated event
           // Users can see the 'claude setup-token' output directly
         } else {
           await loadClaudeProfiles();
@@ -204,7 +204,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
       if (!initResult.success) {
         alert(`Failed to start authentication: ${initResult.error || 'Please try again.'}`);
       }
-      // Note: If successful, the terminal is now visible in the UI via the onClaudeProfileLoginTerminal event
+      // Note: If successful, the terminal is now visible in the UI via the onTerminalAuthCreated event
       // Users can see the 'claude setup-token' output and complete OAuth flow directly
     } catch (err) {
       console.error('Failed to authenticate profile:', err);

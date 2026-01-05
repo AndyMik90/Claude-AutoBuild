@@ -225,8 +225,8 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
-  /** Listen for login terminal creation - allows UI to display the OAuth terminal */
-  onClaudeProfileLoginTerminal: (callback: (info: {
+  /** Listen for auth terminal creation - allows UI to display the OAuth terminal */
+  onTerminalAuthCreated: (callback: (info: {
     terminalId: string;
     profileId: string;
     profileName: string

@@ -146,7 +146,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       return existingTerminal;
     }
 
-    if (state.terminals.length >= state.maxTerminals) {
+    // Use the same logic as canAddTerminal - count only non-exited terminals
+    // This ensures consistency and doesn't block new terminals when only exited ones exist
+    const activeTerminalCount = state.terminals.filter(t => t.status !== 'exited').length;
+    if (activeTerminalCount >= state.maxTerminals) {
       return null;
     }
 
