@@ -1,0 +1,38 @@
+{
+  "title": "Insights",
+  "subtitle": "Posez des questions sur votre base de code",
+  "newChat": "Nouvelle Discussion",
+  "emptyState": {
+    "title": "Commencer une Conversation",
+    "description": "Posez des questions sur votre base de code, obtenez des suggestions d'améliorations, ou discutez des fonctionnalités que vous aimeriez implémenter.",
+    "suggestions": [
+      "Quelle est l'architecture de ce projet ?",
+      "Suggérer des améliorations pour la qualité du code",
+      "Quelles fonctionnalités pourrais-je ajouter ensuite ?",
+      "Y a-t-il des préoccupations de sécurité ?"
+    ]
+  },
+  "input": {
+    "placeholder": "Posez une question sur votre base de code...",
+    "help": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne"
+  },
+  "message": {
+    "you": "Vous",
+    "assistant": "Assistant"
+  },
+  "task": {
+    "suggested": "Tâche Suggérée",
+    "creating": "Création...",
+    "created": "Tâche Créée",
+    "create": "Créer une Tâche"
+  },
+  "status": {
+    "thinking": "Réflexion..."
+  },
+  "tools": {
+    "count": "{{count}} outil(s) utilisé(s)",
+    "readingFile": "Lecture du fichier",
+    "searchingFiles": "Recherche de fichiers",
+    "searchingCode": "Recherche dans le code"
+  }
+}

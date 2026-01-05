@@ -1,0 +1,21 @@
+{
+  "dialog": {
+    "title": "Activer l'Analyse de la Concurrence ?",
+    "description": "Enrichissez votre feuille de route avec des informations sur les produits concurrents"
+  },
+  "whatItDoes": {
+    "title": "Ce que fait l'analyse de la concurrence :",
+    "item1": "Identifie 3 à 5 principaux concurrents en fonction du type de votre projet",
+    "item2": "Recherche dans les magasins d'applications, forums et médias sociaux les commentaires des utilisateurs et les points de douleur",
+    "item3": "Suggère des fonctionnalités qui comblent les lacunes des produits concurrents"
+  },
+  "privacy": {
+    "title": "Des recherches web seront effectuées",
+    "description": "Cette fonctionnalité effectuera des recherches web pour recueillir des informations sur les concurrents. Le nom et le type de votre projet seront utilisés dans les requêtes de recherche. Aucun code ou données sensibles ne sont partagés."
+  },
+  "optional": "Vous pouvez générer une feuille de route sans analyse de la concurrence si vous préférez. La feuille de route sera toujours basée sur la structure de votre projet et les meilleures pratiques.",
+  "buttons": {
+    "decline": "Non, Ignorer l'Analyse",
+    "accept": "Oui, Activer l'Analyse"
+  }
+}

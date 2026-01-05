@@ -1,0 +1,9 @@
+{
+  "emptyState": {
+    "title": "Aucune Idée pour le Moment",
+    "description": "Générez des idées de fonctionnalités alimentées par l'IA basées sur le contexte de votre projet, les modèles existants et le public cible.",
+    "enabledTypes": "Types d'Idéation Activés",
+    "generateButton": "Générer des Idées",
+    "tokenWarning": "Jeton Claude non configuré. Vous serez invité à le saisir lors de la génération."
+  }
+}

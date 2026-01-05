@@ -33,6 +33,14 @@ import frDialogs from './locales/fr/dialogs.json';
 import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
+import frInsights from './locales/fr/insights.json';
+import frChangelog from './locales/fr/changelog.json';
+import frRateLimit from './locales/fr/rateLimit.json';
+import frCompetitorAnalysis from './locales/fr/competitorAnalysis.json';
+import frAppUpdate from './locales/fr/appUpdate.json';
+import frWorktrees from './locales/fr/worktrees.json';
+import frIdeation from './locales/fr/ideation.json';
+import frProjectIndex from './locales/fr/projectIndex.json';
 import frModels from './locales/fr/models.json';
 
 // Import Korean translation resources
@@ -91,6 +99,14 @@ export const resources = {
     gitlab: frGitlab,
     taskReview: frTaskReview,
     terminal: frTerminal,
+    insights: frInsights,
+    changelog: frChangelog,
+    rateLimit: frRateLimit,
+    competitorAnalysis: frCompetitorAnalysis,
+    appUpdate: frAppUpdate,
+    worktrees: frWorktrees,
+    ideation: frIdeation,
+    projectIndex: frProjectIndex,
     models: frModels
   },
   ko: {

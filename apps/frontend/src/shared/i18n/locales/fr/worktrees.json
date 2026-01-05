@@ -1,0 +1,60 @@
+{
+  "header": {
+    "title": "Espaces de Travail",
+    "description": "Gérer les espaces de travail isolés pour vos tâches Auto Claude",
+    "refresh": "Actualiser"
+  },
+  "errors": {
+    "title": "Erreur",
+    "loadTaskWorktrees": "Échec du chargement des espaces de travail de tâche",
+    "loadWorktrees": "Échec du chargement des espaces de travail",
+    "taskNotFound": "Tâche introuvable pour cet espace de travail",
+    "mergeFailed": "Échec de la fusion",
+    "deleteWorktree": "Échec de la suppression de l'espace de travail",
+    "deleteTerminalWorktree": "Échec de la suppression de l'espace de travail du terminal"
+  },
+  "emptyState": {
+    "selectProject": "Sélectionner un projet pour voir les espaces de travail",
+    "title": "Aucun Espace de Travail",
+    "description": "Les espaces de travail sont créés automatiquement lorsqu'Auto Claude construit des fonctionnalités. Vous pouvez également créer des espaces de travail de terminal depuis l'onglet Terminaux d'Agent."
+  },
+  "sections": {
+    "taskWorktrees": "Espaces de Travail de Tâche",
+    "terminalWorktrees": "Espaces de Travail de Terminal"
+  },
+  "stats": {
+    "filesChanged": "{{count}} fichiers modifiés",
+    "commitsAhead": "{{count}} commits d'avance"
+  },
+  "buttons": {
+    "mergeTo": "Fusionner vers {{branch}}",
+    "copyPath": "Copier le Chemin",
+    "delete": "Supprimer",
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "merge": "Fusionner",
+    "merging": "Fusion...",
+    "deleting": "Suppression..."
+  },
+  "created": "Créé le {{date}}",
+  "mergeDialog": {
+    "title": "Fusionner l'Espace de Travail",
+    "description": "Fusionner les modifications de cet espace de travail dans la branche de base.",
+    "sourceBranch": "Branche Source",
+    "targetBranch": "Branche Cible",
+    "changes": "Modifications",
+    "changesCount": "{{commits}} commits, {{files}} fichiers",
+    "success": "Fusion Réussie",
+    "failed": "Échec de la Fusion",
+    "conflictFiles": "Fichiers en conflit :"
+  },
+  "deleteDialog": {
+    "title": "Supprimer l'Espace de Travail ?",
+    "description": "Cela supprimera définitivement l'espace de travail et toutes les modifications non validées.",
+    "warning": "Cette action ne peut pas être annulée."
+  },
+  "deleteTerminalDialog": {
+    "title": "Supprimer l'Espace de Travail du Terminal ?",
+    "description": "Cela supprimera définitivement l'espace de travail et sa branche. Toutes les modifications non validées seront perdues."
+  }
+}

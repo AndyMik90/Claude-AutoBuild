@@ -1,0 +1,39 @@
+{
+  "header": {
+    "title": "Structure du Projet",
+    "description": "Connaissances découvertes par l'IA sur votre base de code",
+    "refresh": "Actualiser",
+    "refreshTooltip": "Réanalyser la structure du projet"
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement de l'index du projet"
+  },
+  "emptyState": {
+    "title": "Aucun Index de Projet Trouvé",
+    "description": "Cliquez sur le bouton Actualiser pour analyser la structure de votre projet et créer un index.",
+    "analyze": "Analyser le Projet"
+  },
+  "overview": {
+    "title": "Aperçu",
+    "services": "{{count}} service{{s}}"
+  },
+  "sections": {
+    "services": "Services",
+    "infrastructure": "Infrastructure",
+    "conventions": "Conventions"
+  },
+  "infrastructure": {
+    "dockerCompose": "Docker Compose",
+    "cicd": "CI/CD",
+    "deployment": "Déploiement",
+    "dockerServices": "Services Docker"
+  },
+  "conventions": {
+    "pythonLinting": "Linting Python",
+    "jsLinting": "Linting JS",
+    "formatting": "Formatage",
+    "gitHooks": "Git Hooks",
+    "typescript": "TypeScript",
+    "enabled": "Activé"
+  }
+}

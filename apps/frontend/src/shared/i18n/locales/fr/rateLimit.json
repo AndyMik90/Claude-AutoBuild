@@ -1,0 +1,67 @@
+{
+  "sources": {
+    "changelog": "Génération du Journal",
+    "task": "Exécution de Tâche",
+    "roadmap": "Génération de Feuille de Route",
+    "ideation": "Idéation",
+    "titleGenerator": "Génération de Titre",
+    "default": "Opération Claude"
+  },
+  "dialog": {
+    "title": "Limite d'Utilisation Claude Code",
+    "interrupted": "{{source}} a été interrompu en raison des limites d'utilisation.",
+    "profile": "(Profil : {{profile}})"
+  },
+  "swapInfo": {
+    "proactiveSwap": "✓ Changement Proactif",
+    "reactiveSwap": "⚡ Changement Réactif",
+    "proactiveMessage": "Basculement automatique de {{from}} vers {{to}} avant d'atteindre la limite.",
+    "reactiveMessage": "Limite atteinte sur {{from}}. Basculement automatique vers {{to}} et redémarrage.",
+    "continuedWork": "Votre travail s'est poursuivi sans interruption.",
+    "rateLimitReached": "Limite d'utilisation atteinte",
+    "operationStopped": "L'opération a été arrêtée car {{profile}} a atteint sa limite d'utilisation.",
+    "switchToAnother": "Basculez vers un autre compte ci-dessous pour continuer.",
+    "addAnother": "Ajoutez un autre compte Claude pour continuer à travailler."
+  },
+  "upgrade": {
+    "button": "Passer à Pro pour des Limites Plus Élevées",
+    "title": "Mise à niveau pour plus d'utilisation",
+    "description": "Mettez à niveau votre abonnement Claude pour des limites d'utilisation plus élevées.",
+    "subscriptionButton": "Mettre à Niveau l'Abonnement"
+  },
+  "resetTime": {
+    "resets": "Réinitialisation {{time}}",
+    "weekly": "Limite hebdomadaire - réinitialisation dans environ une semaine",
+    "session": "Limite de session - réinitialisation dans quelques heures"
+  },
+  "profileSwitching": {
+    "switchAndRetry": "Changer de Compte & Réessayer",
+    "useAnother": "Utiliser un Autre Compte",
+    "recommended": "Recommandé : {{profile}} a plus de capacité disponible.",
+    "switchToAnother": "Basculez vers un autre compte Claude et réessayez l'opération :",
+    "selectAccount": "Sélectionner un compte...",
+    "recommendedLabel": "Recommandé",
+    "addNewAccount": "Ajouter un nouveau compte...",
+    "retrying": "Nouvelle tentative...",
+    "retry": "Réessayer",
+    "autoSwitch": "Basculement automatique & nouvelle tentative en cas de limite",
+    "addSubscription": "Ajoutez un autre abonnement Claude pour basculer automatiquement lorsque vous atteignez les limites.",
+    "addAnother": "Ajouter un autre compte :",
+    "connectAccount": "Connecter un compte Claude :",
+    "accountPlaceholder": "Nom du compte (ex : Travail, Personnel)",
+    "add": "Ajouter",
+    "openLogin": "Cela ouvrira la connexion Claude pour authentifier le nouveau compte."
+  },
+  "whatHappened": {
+    "title": "Ce qui s'est passé :",
+    "message": "L'opération {{source}} a été arrêtée car votre compte Claude ({{profile}}) a atteint sa limite d'utilisation.",
+    "switchOrAdd": "Vous pouvez basculer vers un autre compte et réessayer, ou ajouter plus de comptes ci-dessus.",
+    "addOrWait": "Ajoutez un autre compte Claude ci-dessus pour continuer à travailler, ou attendez que la limite soit réinitialisée."
+  },
+  "alerts": {
+    "terminalOpened": "Un terminal a été ouvert pour authentifier \"{{profileName}}\".\n\nÉtapes à suivre :\n1. Vérifiez la section \"Terminaux d'Agent\" dans la barre latérale\n2. Complétez la connexion OAuth dans votre navigateur\n3. Le jeton sera enregistré automatiquement\n\nUne fois terminé, revenez ici et le compte sera disponible.",
+    "authFailed": "Échec du démarrage de l'authentification : {{error}}",
+    "addFailed": "Échec de l'ajout du profil. Veuillez réessayer."
+  },
+  "close": "Fermer"
+}

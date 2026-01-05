@@ -1,0 +1,89 @@
+{
+  "header": {
+    "title": "Générateur de Journal des Modifications",
+    "steps": {
+      "step1": "Étape 1 : Sélectionner les tâches terminées à inclure",
+      "step2": "Étape 2 : Configurer et générer le journal des modifications",
+      "step3": "Étape 3 : Publier et archiver les tâches"
+    },
+    "stepLabels": {
+      "select": "Sélectionner",
+      "generate": "Générer",
+      "release": "Publier"
+    },
+    "refresh": "Actualiser"
+  },
+  "filters": {
+    "changelogSource": "Source du Journal",
+    "sourceMode": {
+      "tasks": {
+        "label": "Tâches Terminées",
+        "description": "Générer à partir des tâches de spécification terminées"
+      },
+      "gitHistory": {
+        "label": "Historique Git",
+        "description": "Générer à partir des commits récents ou d'une plage de balises"
+      },
+      "branchDiff": {
+        "label": "Comparaison de Branches",
+        "description": "Générer à partir des commits entre deux branches"
+      }
+    },
+    "gitHistory": {
+      "title": "Options d'Historique Git",
+      "historyType": "Type d'Historique",
+      "types": {
+        "sinceVersion": "Depuis la Version",
+        "recent": "Commits Récents",
+        "sinceDate": "Depuis la Date",
+        "tagRange": "Plage de Balises"
+      },
+      "numberOfCommits": "Nombre de Commits",
+      "sinceDate": "Depuis la Date",
+      "fromTag": "Depuis la Balise",
+      "toTag": "Jusqu'à la Balise (optionnel)",
+      "head": "HEAD (dernier)",
+      "lastVersion": "Dernière Version",
+      "selectVersion": "Sélectionner une version...",
+      "versionHelp": "Tous les commits depuis cette version seront inclus",
+      "includeMergeCommits": "Inclure les commits de fusion",
+      "loading": "Chargement...",
+      "loadCommits": "Charger les Commits"
+    },
+    "branchComparison": {
+      "title": "Comparaison de Branches",
+      "baseBranch": "Branche de Base",
+      "selectBaseBranch": "Sélectionner la branche de base...",
+      "default": "par défaut",
+      "baseBranchHelp": "La branche dans laquelle vous fusionnez",
+      "compareBranch": "Branche à Comparer",
+      "selectCompareBranch": "Sélectionner la branche à comparer...",
+      "current": "actuelle",
+      "compareBranchHelp": "La branche avec vos modifications",
+      "branchesMustBeDifferent": "Les branches doivent être différentes"
+    }
+  },
+  "list": {
+    "taskMode": {
+      "selectedCount": "{{selected}} sur {{total}} tâches sélectionnées",
+      "selectAll": "Tout Sélectionner",
+      "clear": "Effacer",
+      "noTasks": "Aucune Tâche Terminée",
+      "noTasksDescription": "Terminez des tâches dans le tableau Kanban et marquez-les comme \"Terminé\" pour les inclure dans votre journal des modifications."
+    },
+    "gitMode": {
+      "commitsFound": "{{count}} commits trouvés",
+      "commitsFoundSingular": "{{count}} commit trouvé",
+      "loadingCommits": "Chargement des commits...",
+      "noCommits": "Aucun Commit Trouvé",
+      "noCommitsGitHistory": "Configurez les options d'historique et cliquez sur \"Charger les Commits\" pour prévisualiser.",
+      "noCommitsBranchDiff": "Sélectionnez les deux branches et cliquez sur \"Charger les Commits\" pour voir les modifications."
+    },
+    "continue": "Continuer",
+    "summaryLabels": {
+      "task": "tâche",
+      "commit": "commit",
+      "item": "élément"
+    }
+  }
+}
