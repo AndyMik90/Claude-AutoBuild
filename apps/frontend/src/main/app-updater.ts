@@ -289,7 +289,13 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
       // Validate HTTP status code
       const statusCode = response.statusCode;
       if (statusCode !== 200) {
-        console.error(`[app-updater] GitHub API error: HTTP ${statusCode}`);
+        // Sanitize statusCode to prevent log injection
+        // Convert to number and validate range to ensure it's a valid HTTP status code
+        const numericCode = Number(statusCode);
+        const safeStatusCode = (Number.isInteger(numericCode) && numericCode >= 100 && numericCode < 600)
+          ? String(numericCode)
+          : 'unknown';
+        console.error(`[app-updater] GitHub API error: HTTP ${safeStatusCode}`);
         if (statusCode === 403) {
           console.error('[app-updater] Rate limit may have been exceeded');
         } else if (statusCode === 404) {
@@ -333,7 +339,10 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
           }
 
           const version = latestStable.tag_name.replace(/^v/, '');
-          console.warn('[app-updater] Found latest stable release:', version);
+          // Sanitize version string for logging (remove control characters and limit length)
+          // eslint-disable-next-line no-control-regex
+          const safeVersion = String(version).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 50);
+          console.warn('[app-updater] Found latest stable release:', safeVersion);
 
           resolve({
             version,
@@ -341,14 +350,18 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
             releaseDate: latestStable.published_at
           });
         } catch (e) {
-          console.error('[app-updater] Failed to parse releases JSON:', e);
+          // Sanitize error message for logging (prevent log injection from malformed JSON)
+          const safeError = e instanceof Error ? e.message : 'Unknown parse error';
+          console.error('[app-updater] Failed to parse releases JSON:', safeError);
           resolve(null);
         }
       });
     });
 
     request.on('error', (error) => {
-      console.error('[app-updater] Failed to fetch releases:', error);
+      // Sanitize error message for logging (use only the message property)
+      const safeErrorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[app-updater] Failed to fetch releases:', safeErrorMessage);
       resolve(null);
     });
 

@@ -1,6 +1,5 @@
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { app } from 'electron';
 import { getProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { getOAuthModeClearVars } from '../agent/env-utils';

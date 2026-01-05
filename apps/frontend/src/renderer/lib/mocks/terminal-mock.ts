@@ -30,6 +30,14 @@ export const terminalMock = {
     data: 'Mock Terminal'
   }),
 
+  setTerminalTitle: () => {
+    console.warn('[Browser Mock] setTerminalTitle called');
+  },
+
+  setTerminalWorktreeConfig: () => {
+    console.warn('[Browser Mock] setTerminalWorktreeConfig called');
+  },
+
   // Terminal session management
   getTerminalSessions: async () => ({
     success: true,
@@ -83,5 +91,6 @@ export const terminalMock = {
   onTerminalClaudeSession: () => () => {},
   onTerminalRateLimit: () => () => {},
   onTerminalOAuthToken: () => () => {},
-  onClaudeProfileLoginTerminal: () => () => {}
+  onClaudeProfileLoginTerminal: () => () => {},
+  onTerminalClaudeBusy: () => () => {}
 };

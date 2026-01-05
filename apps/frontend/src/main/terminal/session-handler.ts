@@ -106,7 +106,8 @@ export function persistSession(terminal: TerminalProcess): void {
     claudeSessionId: terminal.claudeSessionId,
     outputBuffer: terminal.outputBuffer,
     createdAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString()
+    lastActiveAt: new Date().toISOString(),
+    worktreeConfig: terminal.worktreeConfig,
   };
   store.saveSession(session);
 }

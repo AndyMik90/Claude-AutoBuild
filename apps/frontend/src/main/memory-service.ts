@@ -95,6 +95,8 @@ export function getDefaultDbPath(): string {
 function getQueryScriptPath(): string | null {
   // Look for the script in backend directory - validate using spec_runner.py marker
   const possiblePaths = [
+    // Packaged app: backend is in extraResources (process.resourcesPath/backend)
+    ...(app.isPackaged ? [path.join(process.resourcesPath, 'backend', 'query_memory.py')] : []),
     // Apps structure: from dist/main -> apps/backend
     path.resolve(__dirname, '..', '..', '..', 'backend', 'query_memory.py'),
     path.resolve(app.getAppPath(), '..', 'backend', 'query_memory.py'),
@@ -113,6 +115,68 @@ function getQueryScriptPath(): string | null {
 }
 
 /**
+ * Get the backend venv Python path.
+ * The backend venv has real_ladybug installed (required for memory operations).
+ * Falls back to getConfiguredPythonPath() for packaged apps.
+ */
+function getBackendPythonPath(): string {
+  // For packaged apps, use the bundled Python which has real_ladybug in site-packages
+  if (app.isPackaged) {
+    const fallbackPython = getConfiguredPythonPath();
+    console.log(`[MemoryService] Using bundled Python for packaged app: ${fallbackPython}`);
+    return fallbackPython;
+  }
+
+  // Development mode: Find the backend venv which has real_ladybug installed
+  const possibleBackendPaths = [
+    path.resolve(__dirname, '..', '..', '..', 'backend'),
+    path.resolve(app.getAppPath(), '..', 'backend'),
+    path.resolve(process.cwd(), 'apps', 'backend')
+  ];
+
+  for (const backendPath of possibleBackendPaths) {
+    // Check for backend venv Python (has real_ladybug installed)
+    const venvPython = process.platform === 'win32'
+      ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
+      : path.join(backendPath, '.venv', 'bin', 'python');
+    
+    if (fs.existsSync(venvPython)) {
+      console.log(`[MemoryService] Using backend venv Python: ${venvPython}`);
+      return venvPython;
+    }
+  }
+
+  // Fall back to configured Python path
+  const fallbackPython = getConfiguredPythonPath();
+  console.log(`[MemoryService] Backend venv not found, falling back to: ${fallbackPython}`);
+  return fallbackPython;
+}
+
+/**
+ * Get the Python environment variables for memory queries.
+ * This ensures real_ladybug can be found in both dev and packaged modes.
+ */
+function getMemoryPythonEnv(): Record<string, string> {
+  // Start with the standard Python environment from the manager
+  const baseEnv = pythonEnvManager.getPythonEnv();
+  
+  // For packaged apps, ensure PYTHONPATH includes bundled site-packages
+  // even if the manager hasn't been fully initialized
+  if (app.isPackaged) {
+    const bundledSitePackages = path.join(process.resourcesPath, 'python-site-packages');
+    if (fs.existsSync(bundledSitePackages)) {
+      // Merge paths: bundled site-packages takes precedence
+      const existingPath = baseEnv.PYTHONPATH || '';
+      baseEnv.PYTHONPATH = existingPath
+        ? `${bundledSitePackages}${path.delimiter}${existingPath}`
+        : bundledSitePackages;
+    }
+  }
+  
+  return baseEnv;
+}
+
+/**
  * Execute a Python memory query command
  */
 async function executeQuery(
@@ -120,7 +184,10 @@ async function executeQuery(
   args: string[],
   timeout: number = 10000
 ): Promise<QueryResult> {
-  const pythonCmd = getConfiguredPythonPath();
+  // Use getBackendPythonPath() to find the correct Python:
+  // - In dev mode: uses backend venv with real_ladybug installed
+  // - In packaged app: falls back to bundled Python
+  const pythonCmd = getBackendPythonPath();
 
   const scriptPath = getQueryScriptPath();
   if (!scriptPath) {
@@ -131,11 +198,16 @@ async function executeQuery(
 
   return new Promise((resolve) => {
     const fullArgs = [...baseArgs, scriptPath, command, ...args];
+
+    // Get Python environment (includes PYTHONPATH for bundled/venv packages)
+    // This is critical for finding real_ladybug (LadybugDB)
+    const pythonEnv = getMemoryPythonEnv();
+
     const proc = spawn(pythonExe, fullArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
-      // Use sanitized Python environment to prevent PYTHONHOME contamination
-      env: pythonEnvManager.getPythonEnv(),
+      // Use pythonEnv which combines sanitized env + site-packages for real_ladybug
+      env: pythonEnv,
     });
 
     let stdout = '';
@@ -150,19 +222,29 @@ async function executeQuery(
     });
 
     proc.on('close', (code) => {
-      if (code === 0 && stdout) {
+      // The Python script outputs JSON to stdout (even for errors)
+      // Always try to parse stdout first to get the actual error message
+      if (stdout) {
         try {
           const result = JSON.parse(stdout);
           resolve(result);
+          return;
         } catch {
+          // JSON parsing failed
+          if (code !== 0) {
+            const errorMsg = stderr || stdout || `Process exited with code ${code}`;
+            console.error('[MemoryService] Python error:', errorMsg);
+            resolve({ success: false, error: errorMsg });
+            return;
+          }
           resolve({ success: false, error: `Invalid JSON response: ${stdout}` });
+          return;
         }
-      } else {
-        resolve({
-          success: false,
-          error: stderr || `Process exited with code ${code}`,
-        });
       }
+      // No stdout - use stderr or generic error
+      const errorMsg = stderr || `Process exited with code ${code}`;
+      console.error('[MemoryService] Python error (no stdout):', errorMsg);
+      resolve({ success: false, error: errorMsg });
     });
 
     proc.on('error', (err) => {
@@ -185,7 +267,10 @@ async function executeSemanticQuery(
   embedderConfig: EmbedderConfig,
   timeout: number = 30000 // Longer timeout for embedding operations
 ): Promise<QueryResult> {
-  const pythonCmd = getConfiguredPythonPath();
+  // Use getBackendPythonPath() to find the correct Python:
+  // - In dev mode: uses backend venv with real_ladybug installed
+  // - In packaged app: falls back to bundled Python
+  const pythonCmd = getBackendPythonPath();
 
   const scriptPath = getQueryScriptPath();
   if (!scriptPath) {
@@ -194,9 +279,13 @@ async function executeSemanticQuery(
 
   const [pythonExe, baseArgs] = parsePythonCommand(pythonCmd);
 
+  // Get Python environment (includes PYTHONPATH for bundled/venv packages)
+  // This is critical for finding real_ladybug (LadybugDB)
+  const pythonEnv = getMemoryPythonEnv();
+
   // Build environment with embedder configuration
-  // Start with sanitized Python env to prevent PYTHONHOME contamination
-  const env: Record<string, string> = { ...pythonEnvManager.getPythonEnv() };
+  // Use pythonEnv which combines sanitized env + site-packages for real_ladybug
+  const env: Record<string, string | undefined> = { ...pythonEnv };
 
   // Set the embedder provider
   env.GRAPHITI_EMBEDDER_PROVIDER = embedderConfig.provider;
@@ -275,19 +364,26 @@ async function executeSemanticQuery(
     });
 
     proc.on('close', (code) => {
-      if (code === 0 && stdout) {
+      // The Python script outputs JSON to stdout (even for errors)
+      if (stdout) {
         try {
           const result = JSON.parse(stdout);
           resolve(result);
+          return;
         } catch {
+          if (code !== 0) {
+            const errorMsg = stderr || stdout || `Process exited with code ${code}`;
+            console.error('[MemoryService] Semantic search error:', errorMsg);
+            resolve({ success: false, error: errorMsg });
+            return;
+          }
           resolve({ success: false, error: `Invalid JSON response: ${stdout}` });
+          return;
         }
-      } else {
-        resolve({
-          success: false,
-          error: stderr || `Process exited with code ${code}`,
-        });
       }
+      const errorMsg = stderr || `Process exited with code ${code}`;
+      console.error('[MemoryService] Semantic search error (no stdout):', errorMsg);
+      resolve({ success: false, error: errorMsg });
     });
 
     proc.on('error', (err) => {
@@ -527,6 +623,50 @@ export class MemoryService {
       success: true,
       message: `Connected to LadybugDB with ${dbCount} databases`,
     };
+  }
+
+  /**
+   * Add an episode to the memory database
+   * 
+   * This allows the Electron app to save memories (like PR review insights)
+   * directly to LadybugDB without going through the full Graphiti system.
+   * 
+   * @param name Episode name/title
+   * @param content Episode content (will be JSON stringified if object)
+   * @param episodeType Type of episode (session_insight, pattern, gotcha, task_outcome, pr_review)
+   * @param groupId Optional group ID for namespacing
+   * @returns Promise with the created episode info
+   */
+  async addEpisode(
+    name: string,
+    content: string | object,
+    episodeType: string = 'session_insight',
+    groupId?: string
+  ): Promise<{ success: boolean; id?: string; error?: string }> {
+    // Stringify content if it's an object
+    const contentStr = typeof content === 'object' ? JSON.stringify(content) : content;
+
+    const args = [
+      this.config.dbPath,
+      this.config.database,
+      '--name', name,
+      '--content', contentStr,
+      '--type', episodeType,
+    ];
+
+    if (groupId) {
+      args.push('--group-id', groupId);
+    }
+
+    const result = await executeQuery('add-episode', args);
+
+    if (!result.success) {
+      console.error('Failed to add episode:', result.error);
+      return { success: false, error: result.error };
+    }
+
+    const data = result.data as { id: string; name: string; type: string; timestamp: string };
+    return { success: true, id: data.id };
   }
 
   /**

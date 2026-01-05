@@ -19,6 +19,35 @@ from pathlib import Path
 from .types import ChangeType, SemanticChange, TaskSnapshot
 
 
+def detect_line_ending(content: str) -> str:
+    """
+    Detect line ending style in content using priority-based detection.
+
+    Uses a priority order (CRLF > CR > LF) to detect the line ending style.
+    CRLF is checked first because it contains LF, so presence of any CRLF
+    indicates Windows-style endings. This approach is fast and works well
+    for files that consistently use one style.
+
+    Note: This returns the first detected style by priority, not the most
+    frequent style. For files with mixed line endings, consider normalizing
+    to a single style before processing.
+
+    Args:
+        content: File content to analyze
+
+    Returns:
+        The detected line ending string: "\\r\\n", "\\r", or "\\n"
+    """
+    # Check for CRLF first (Windows) - must check before LF since CRLF contains LF
+    if "\r\n" in content:
+        return "\r\n"
+    # Check for CR (classic Mac, rare but possible)
+    if "\r" in content:
+        return "\r"
+    # Default to LF (Unix/modern Mac)
+    return "\n"
+
+
 def apply_single_task_changes(
     baseline: str,
     snapshot: TaskSnapshot,
@@ -37,6 +66,9 @@ def apply_single_task_changes(
     """
     content = baseline
 
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
+
     for change in snapshot.semantic_changes:
         if change.content_before and change.content_after:
             # Modification - replace
@@ -45,14 +77,13 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
-                # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
                 lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
                 lines.insert(import_end, change.content_after)
-                content = "\n".join(lines)
+                content = line_ending.join(lines)
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
-                content += f"\n\n{change.content_after}"
+                content += f"{line_ending}{line_ending}{change.content_after}"
 
     return content
 
@@ -74,6 +105,9 @@ def combine_non_conflicting_changes(
         Combined content with all changes applied
     """
     content = baseline
+
+    # Detect line ending style once at the start to use consistently
+    line_ending = detect_line_ending(content)
 
     # Group changes by type for proper ordering
     imports: list[SemanticChange] = []
@@ -97,14 +131,13 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
-        # Use splitlines() to handle all line ending styles (LF, CRLF, CR)
         lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
             if imp.content_after and imp.content_after not in content:
                 lines.insert(import_end, imp.content_after)
                 import_end += 1
-        content = "\n".join(lines)
+        content = line_ending.join(lines)
 
     # Apply modifications
     for mod in modifications:
@@ -114,12 +147,12 @@ def combine_non_conflicting_changes(
     # Add functions
     for func in functions:
         if func.content_after:
-            content += f"\n\n{func.content_after}"
+            content += f"{line_ending}{line_ending}{func.content_after}"
 
     # Apply other changes
     for change in other:
         if change.content_after and not change.content_before:
-            content += f"\n{change.content_after}"
+            content += f"{line_ending}{change.content_after}"
         elif change.content_before and change.content_after:
             content = content.replace(change.content_before, change.content_after)
 
