@@ -276,6 +276,9 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
     // Update with prUrl
     metadata.prUrl = prUrl;
 
+    // Ensure parent directory exists before writing
+    mkdirSync(path.dirname(metadataPath), { recursive: true });
+
     // Write back
     writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
     return true;
