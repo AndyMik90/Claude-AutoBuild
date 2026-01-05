@@ -97,6 +97,13 @@ from review import ReviewState
 from spec import SpecOrchestrator
 from ui import Icons, highlight, muted, print_section, print_status
 
+# Spec-kit integration
+try:
+    from integrations.speckit.cli import add_speckit_args, handle_speckit_commands
+    SPECKIT_AVAILABLE = True
+except ImportError:
+    SPECKIT_AVAILABLE = False
+
 
 def main():
     """CLI entry point."""
@@ -124,6 +131,19 @@ Examples:
 
   # Interactive mode
   python spec_runner.py --interactive
+
+Spec-Kit Integration:
+  # List all spec-kit specs in the project
+  python spec_runner.py --speckit-list
+
+  # Import a spec by ID (e.g., 101 for research domain)
+  python spec_runner.py --speckit-id 101
+
+  # Interactive spec-kit mode
+  python spec_runner.py --speckit
+
+  # Convert spec-kit format to Auto-Claude without building
+  python spec_runner.py --speckit-id 101 --speckit-convert
         """,
     )
     parser.add_argument(
@@ -199,10 +219,36 @@ Examples:
         help="Base branch for creating worktrees (default: auto-detect or current branch)",
     )
 
+    # Add spec-kit integration arguments if available
+    if SPECKIT_AVAILABLE:
+        add_speckit_args(parser)
+
     args = parser.parse_args()
 
     # Handle task from file if provided
     task_description = args.task
+
+    # Handle spec-kit commands first (they may exit early or provide a spec dir)
+    speckit_spec_dir = None
+    if SPECKIT_AVAILABLE:
+        speckit_spec_dir = handle_speckit_commands(args, args.project_dir)
+        if speckit_spec_dir:
+            # If spec-kit provided a spec dir, use it
+            args.spec_dir = speckit_spec_dir
+            # If no task was provided, try to extract from spec.md
+            if not task_description and not args.interactive:
+                spec_file = speckit_spec_dir / "spec.md"
+                if spec_file.exists():
+                    content = spec_file.read_text()
+                    # Extract first paragraph as task description
+                    import re
+                    overview_match = re.search(
+                        r"## Overview\s*\n+(.+?)(?=\n##|\Z)",
+                        content,
+                        re.DOTALL
+                    )
+                    if overview_match:
+                        task_description = overview_match.group(1).strip()[:500]
     if args.task_file:
         if not args.task_file.exists():
             print(f"Error: Task file not found: {args.task_file}")
