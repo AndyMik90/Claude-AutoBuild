@@ -65,6 +65,10 @@ const tempDirs: string[] = [];
 vi.mock('electron', () => ({
   ipcMain: mockIpcMain,
   BrowserWindow: class {},
+  app: {
+    getPath: vi.fn(() => '/tmp'),
+    on: vi.fn(),
+  },
 }));
 
 vi.mock('../../../agent/agent-manager', () => ({
