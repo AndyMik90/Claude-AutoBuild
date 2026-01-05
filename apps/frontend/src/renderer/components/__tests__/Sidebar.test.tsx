@@ -76,7 +76,11 @@ function deepMerge<T extends object>(
   return merged as T;
 }
 
-function createTestProject(overrides: Partial<Project> = {}): Project {
+type ProjectOverrides = Omit<Partial<Project>, 'settings'> & {
+  settings?: Partial<ProjectSettings>;
+};
+
+function createTestProject(overrides: ProjectOverrides = {}): Project {
   const settings = deepMerge<ProjectSettings>(
     DEFAULT_PROJECT_SETTINGS,
     (overrides.settings ?? {}) as Partial<ProjectSettings>
