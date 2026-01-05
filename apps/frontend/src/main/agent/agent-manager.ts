@@ -123,7 +123,11 @@ export class AgentManager extends EventEmitter {
     const TASK_DESCRIPTION_CHAR_LIMIT = 5000;
     let taskArg: string[];
 
-    if (taskDescription.length > TASK_DESCRIPTION_CHAR_LIMIT && specDir) {
+    if (taskDescription.length > TASK_DESCRIPTION_CHAR_LIMIT) {
+      if (!specDir) {
+        this.emit('error', taskId, `Task description too long (${taskDescription.length} chars). Spec directory required for descriptions over ${TASK_DESCRIPTION_CHAR_LIMIT} chars.`);
+        return;
+      }
       mkdirSync(specDir, { recursive: true });
       const taskFilePath = path.join(specDir, 'task_description.txt');
       writeFileSync(taskFilePath, taskDescription, 'utf-8');
