@@ -211,6 +211,8 @@ export function invokeClaude(
   debugLog('[ClaudeIntegration:invokeClaude] CWD:', cwd);
 
   terminal.isClaudeMode = true;
+  // Release any previously claimed session ID before starting new session
+  SessionHandler.releaseSessionId(terminal.id);
   terminal.claudeSessionId = undefined;
 
   const startTime = Date.now();

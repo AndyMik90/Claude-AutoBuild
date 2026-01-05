@@ -57,8 +57,16 @@ export async function createTerminal(
       debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
     }
 
+    // Validate cwd exists - if the directory doesn't exist (e.g., worktree removed),
+    // fall back to project path to prevent shell exit with code 1
+    let effectiveCwd = cwd;
+    if (cwd && !existsSync(cwd)) {
+      debugLog('[TerminalLifecycle] Terminal cwd does not exist, falling back:', cwd, '->', projectPath || os.homedir());
+      effectiveCwd = projectPath || os.homedir();
+    }
+
     const ptyProcess = PtyManager.spawnPtyProcess(
-      cwd || os.homedir(),
+      effectiveCwd || os.homedir(),
       cols,
       rows,
       profileEnv
@@ -66,7 +74,7 @@ export async function createTerminal(
 
     debugLog('[TerminalLifecycle] PTY process spawned, pid:', ptyProcess.pid);
 
-    const terminalCwd = cwd || os.homedir();
+    const terminalCwd = effectiveCwd || os.homedir();
     const terminal: TerminalProcess = {
       id,
       pty: ptyProcess,
@@ -234,6 +242,8 @@ export async function destroyTerminal(
 
   try {
     SessionHandler.removePersistedSession(terminal);
+    // Release any claimed session ID for this terminal
+    SessionHandler.releaseSessionId(id);
     onCleanup(id);
     PtyManager.killPty(terminal);
     terminals.delete(id);
