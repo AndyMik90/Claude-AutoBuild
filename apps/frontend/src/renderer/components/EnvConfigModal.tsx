@@ -619,6 +619,11 @@ export function useClaudeTokenCheck() {
 
       // Auth is valid if either OAuth token OR API profile exists
       setHasToken(hasSourceOAuthToken || hasAPIProfile);
+
+      // Set error if OAuth check failed and no API profile fallback
+      if (!result.success && !hasAPIProfile) {
+        setError(result.error || 'Failed to check token');
+      }
     } catch (err) {
       // Even if OAuth check fails, API profile is still valid auth
       const hasAPIProfile = Boolean(activeProfileId && activeProfileId !== '');
