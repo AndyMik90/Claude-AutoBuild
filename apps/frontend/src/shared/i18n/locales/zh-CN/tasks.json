@@ -11,7 +11,7 @@
     "start": "开始",
     "stop": "停止",
     "recover": "恢复",
-    "resume": "恢复",
+    "resume": "继续",
     "archive": "归档",
     "delete": "删除",
     "view": "查看详细信息"
@@ -25,7 +25,7 @@
     "incomplete": "不完整",
     "recovering": "恢复中...",
     "needsRecovery": "需要恢复",
-    "needsResume": "需要恢复"
+    "needsResume": "需要继续"
   },
   "reviewReason": {
     "completed": "已完成",

@@ -133,8 +133,8 @@
     "runReview": "執行 AI 審查",
     "reviewing": "審查中...",
     "followupReview": "後續追蹤審查",
-    "newCommits": "新提交",
-    "newCommitsPlural": "新提交",
+    "newCommits": "個新提交",
+    "newCommitsPlural": "個新提交",
     "cancel": "取消",
     "postFindings": "發佈發現",
     "posting": "發佈中...",
@@ -160,7 +160,7 @@
       "needsAttention": "需要注意",
       "needsAttentionDesc": "發現需要發佈至 GitLab。",
       "readyForFollowup": "準備後續追蹤",
-      "readyForFollowupDesc": "自審查以來。執行後續追蹤以檢查是否已解決。",
+      "readyForFollowupDesc": "自審查以來有新提交。執行後續追蹤以檢查是否已解決。",
       "blockingIssues": "阻礙性問題",
       "blockingIssuesDesc": "阻礙性問題仍未解決。"
     },
@@ -172,8 +172,8 @@
     "resolution": {
       "resolved": "已解決",
       "stillOpen": "仍未解決",
-      "newIssue": "新問題",
-      "newIssues": "新問題"
+      "newIssue": "個新問題",
+      "newIssues": "個新問題"
     }
   },
   "findings": {

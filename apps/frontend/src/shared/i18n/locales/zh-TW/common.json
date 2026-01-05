@@ -29,14 +29,14 @@
     "add": "新增",
     "gotIt": "了解",
     "continue": "繼續",
-    "saving": "保存中..."
+    "saving": "儲存中..."
   },
   "labels": {
     "loading": "載入中...",
     "error": "錯誤",
     "success": "成功",
     "initializing": "初始化中...",
-    "saving": "保存中...",
+    "saving": "儲存中...",
     "creating": "建立中...",
     "noData": "無資料",
     "optional": "選用",
@@ -114,7 +114,7 @@
     "allContributors": "所有貢獻者",
     "searchPlaceholder": "搜尋提取請求...",
     "contributors": "貢獻者",
-    "contributorsSelected": "貢獻者（{{count}}）",
+    "contributorsSelected": "貢獻者（{{count}} 位）",
     "status": "狀態",
     "filters": "篩選器",
     "clearFilters": "清除",
@@ -195,7 +195,7 @@
       "closed": "關閉",
       "merged": "已合併"
     },
-    "selectCriticalHigh": "選擇阻礙性/必需（{{count}}）",
+    "selectCriticalHigh": "選擇阻礙性/必需（{{count}} 項）",
     "selectAll": "全選",
     "clear": "清除",
     "noIssuesFound": "未找到問題！程式碼看起來不錯。",
