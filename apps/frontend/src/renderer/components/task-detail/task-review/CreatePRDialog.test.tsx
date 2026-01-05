@@ -7,7 +7,7 @@
  * Tests the Create PR dialog component functionality.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import '../../../../shared/i18n';
 import { CreatePRDialog } from './CreatePRDialog';
@@ -137,9 +137,16 @@ describe('CreatePRDialog', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('5')).toBeInTheDocument(); // commit count
-      expect(screen.getByText('+200')).toBeInTheDocument(); // additions
-      expect(screen.getByText('-50')).toBeInTheDocument(); // deletions
+      // Find the stats container by locating the "Commits:" label and getting its parent container
+      const commitsLabel = screen.getByText(/commits:/i);
+      const statsContainer = commitsLabel.closest('.bg-muted\\/50');
+      expect(statsContainer).toBeInTheDocument();
+
+      // Scope assertions to the stats container to avoid accidental matches elsewhere
+      const stats = within(statsContainer as HTMLElement);
+      expect(stats.getByText('5')).toBeInTheDocument(); // commit count
+      expect(stats.getByText('+200')).toBeInTheDocument(); // additions
+      expect(stats.getByText('-50')).toBeInTheDocument(); // deletions
     });
   });
 
