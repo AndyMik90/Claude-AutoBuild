@@ -48,6 +48,8 @@ interface DroppableColumnProps {
   archivedCount?: number;
   showArchived?: boolean;
   onToggleArchived?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 /**
@@ -90,6 +92,8 @@ function droppableColumnPropsAreEqual(
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
   if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
+  if (prevProps.onRefresh !== nextProps.onRefresh) return false;
+  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
 
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
@@ -143,7 +147,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick, onArchiveAll, archivedCount, showArchived, onToggleArchived, onRefresh, isRefreshing }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -260,6 +264,22 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                 {showArchived ? t('common:projectTab.hideArchived') : t('common:projectTab.showArchived')}
               </TooltipContent>
             </Tooltip>
+          )}
+          {status === 'done' && onRefresh && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              title={t('tooltips.refreshDone')}
+            >
+              {isRefreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
           )}
         </div>
       </div>
@@ -488,6 +508,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+              onRefresh={status === 'done' ? onRefresh : undefined}
+              isRefreshing={status === 'done' ? isRefreshing : undefined}
             />
           ))}
         </div>
