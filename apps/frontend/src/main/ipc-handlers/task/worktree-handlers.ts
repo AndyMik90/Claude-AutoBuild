@@ -1519,14 +1519,15 @@ export function registerWorktreeHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
     async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
-      // Always log merge operations for debugging
+      const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
       const debug = (...args: unknown[]) => {
-        console.warn('[MERGE DEBUG]', ...args);
+        if (isDebugMode) {
+          console.warn('[MERGE DEBUG]', ...args);
+        }
       };
 
       try {
-        console.warn('[MERGE] Handler called with taskId:', taskId, 'options:', options);
-        debug('Starting merge for taskId:', taskId, 'options:', options);
+        debug('Handler called with taskId:', taskId, 'options:', options);
 
         // Ensure Python environment is ready
         if (!pythonEnvManager.isEnvReady()) {
@@ -2533,8 +2534,11 @@ export function registerWorktreeHandlers(
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_CREATE_PR,
     async (_, taskId: string, options?: { targetBranch?: string; title?: string; draft?: boolean }): Promise<IPCResult<WorktreeCreatePRResult>> => {
+      const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
       const debug = (...args: unknown[]) => {
-        console.warn('[CREATE_PR DEBUG]', ...args);
+        if (isDebugMode) {
+          console.warn('[CREATE_PR DEBUG]', ...args);
+        }
       };
 
       try {
