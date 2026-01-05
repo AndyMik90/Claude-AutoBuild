@@ -411,6 +411,9 @@ export const IPC_CHANNELS = {
   AUTOBUILD_SOURCE_ENV_UPDATE: 'autobuild:source:env:update',
   AUTOBUILD_SOURCE_ENV_CHECK_TOKEN: 'autobuild:source:env:checkToken',
 
+  // Backend .env embedding configuration (for onboarding auto-detection)
+  BACKEND_ENV_GET_EMBEDDING_CONFIG: 'backend:env:getEmbeddingConfig',
+
   // Changelog operations
   CHANGELOG_GET_DONE_TASKS: 'changelog:getDoneTasks',
   CHANGELOG_LOAD_TASK_SPECS: 'changelog:loadTaskSpecs',

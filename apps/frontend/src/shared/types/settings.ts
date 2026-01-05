@@ -316,3 +316,16 @@ export interface AutoBuildSourceUpdateProgress {
   /** New version after successful update - used to refresh UI */
   newVersion?: string;
 }
+
+// Backend .env Embedding Configuration (for onboarding auto-detection)
+// Maps GRAPHITI_EMBEDDER_PROVIDER from backend .env to frontend embedding provider type
+export type BackendEmbeddingProvider = 'openai' | 'voyage' | 'google' | 'azure_openai' | 'ollama' | 'openrouter';
+
+export interface BackendEnvEmbeddingConfig {
+  /** Detected embedding provider from GRAPHITI_EMBEDDER_PROVIDER in backend .env */
+  embeddingProvider: BackendEmbeddingProvider;
+  /** Whether the backend .env file exists */
+  envExists: boolean;
+  /** Path to the backend source directory */
+  sourcePath?: string;
+}

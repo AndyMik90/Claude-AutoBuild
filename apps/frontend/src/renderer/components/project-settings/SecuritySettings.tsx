@@ -51,7 +51,8 @@ export function SecuritySettings({
     openai: showOpenAIKey,
     voyage: false,
     google: false,
-    azure: false
+    azure: false,
+    openrouter: false
   });
 
   // Sync parent's showOpenAIKey prop to local state
@@ -228,6 +229,63 @@ export function SecuritySettings({
             Get your key from{' '}
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
               Google AI Studio
+            </a>
+          </p>
+        </div>
+      );
+    }
+
+    // OpenRouter
+    if (embeddingProvider === 'openrouter') {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium text-foreground">
+              OpenRouter API Key {envConfig.openrouterKeyIsGlobal ? '(Override)' : ''}
+            </Label>
+            {envConfig.openrouterKeyIsGlobal && (
+              <span className="flex items-center gap-1 text-xs text-info">
+                <Globe className="h-3 w-3" />
+                Using global key
+              </span>
+            )}
+          </div>
+          {envConfig.openrouterKeyIsGlobal ? (
+            <p className="text-xs text-muted-foreground">
+              Using key from App Settings. Enter a project-specific key below to override.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Required for OpenRouter embeddings
+            </p>
+          )}
+          <div className="relative">
+            <Input
+              type={showApiKey['openrouter'] ? 'text' : 'password'}
+              placeholder={envConfig.openrouterKeyIsGlobal ? 'Enter to override global key...' : 'sk-or-...'}
+              value={envConfig.openrouterKeyIsGlobal ? '' : (envConfig.graphitiProviderConfig?.openrouterApiKey || '')}
+              onChange={(e) => updateEnvConfig({
+                graphitiProviderConfig: {
+                  ...envConfig.graphitiProviderConfig,
+                  embeddingProvider: 'openrouter',
+                  openrouterApiKey: e.target.value || undefined,
+                }
+              })}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => toggleShowApiKey('openrouter')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showApiKey['openrouter'] ? 'Hide OpenRouter API key' : 'Show OpenRouter API key'}
+            >
+              {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your key from{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+              OpenRouter
             </a>
           </p>
         </div>
@@ -424,6 +482,7 @@ export function SecuritySettings({
                     <SelectItem value="voyage">Voyage AI</SelectItem>
                     <SelectItem value="google">Google AI</SelectItem>
                     <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
