@@ -622,11 +622,12 @@ export function TaskCreationWizard({
       if (impact) metadata.impact = impact;
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
-      // Auto profile - per-phase configuration
-      if (profileId === 'auto') {
+      // All profiles now support per-phase configuration
+      // isAutoProfile indicates task uses phase-specific models/thinking
+      if (phaseModels && phaseThinking) {
         metadata.isAutoProfile = true;
-        if (phaseModels) metadata.phaseModels = phaseModels;
-        if (phaseThinking) metadata.phaseThinking = phaseThinking;
+        metadata.phaseModels = phaseModels;
+        metadata.phaseThinking = phaseThinking;
       }
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;

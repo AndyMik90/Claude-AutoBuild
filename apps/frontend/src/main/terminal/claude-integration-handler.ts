@@ -263,6 +263,21 @@ export function invokeClaude(
       const command = `clear && ${cwdCommand} HISTFILE= HISTCONTROL=ignorespace bash -c 'source "${tempFile}" && rm -f "${tempFile}" && exec claude'\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
       terminal.pty.write(command);
+
+      // Update terminal title and persist session
+      const title = `Claude (${activeProfile.name})`;
+      terminal.title = title;
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+      }
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
+      if (projectPath) {
+        onSessionCapture(terminal.id, projectPath, startTime);
+      }
+
       debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) ==========');
       return;
     } else if (activeProfile.configDir) {
@@ -274,6 +289,21 @@ export function invokeClaude(
       const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} bash -c 'exec claude'\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
       terminal.pty.write(command);
+
+      // Update terminal title and persist session
+      const title = `Claude (${activeProfile.name})`;
+      terminal.title = title;
+      const win = getWindow();
+      if (win) {
+        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
+      }
+      if (terminal.projectPath) {
+        SessionHandler.persistSession(terminal);
+      }
+      if (projectPath) {
+        onSessionCapture(terminal.id, projectPath, startTime);
+      }
+
       debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) ==========');
       return;
     } else {
@@ -293,11 +323,14 @@ export function invokeClaude(
     profileManager.markProfileUsed(activeProfile.id);
   }
 
+  // Update terminal title in main process and notify renderer
+  const title = activeProfile && !activeProfile.isDefault
+    ? `Claude (${activeProfile.name})`
+    : 'Claude';
+  terminal.title = title;
+
   const win = getWindow();
   if (win) {
-    const title = activeProfile && !activeProfile.isDefault
-      ? `Claude (${activeProfile.name})`
-      : 'Claude';
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
   }
 
@@ -333,9 +366,16 @@ export function resumeClaude(
 
   terminal.pty.write(`${command}\r`);
 
+  // Update terminal title in main process and notify renderer
+  terminal.title = 'Claude';
   const win = getWindow();
   if (win) {
     win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
+  }
+
+  // Persist session with updated title
+  if (terminal.projectPath) {
+    SessionHandler.persistSession(terminal);
   }
 }
 

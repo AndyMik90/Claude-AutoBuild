@@ -86,13 +86,21 @@ export function spawnPtyProcess(
 
   console.warn('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ')');
 
+  // Create a clean environment without DEBUG to prevent Claude Code from
+  // enabling debug mode when the Electron app is run in development mode.
+  // Also remove ANTHROPIC_API_KEY to ensure Claude Code uses OAuth tokens
+  // (CLAUDE_CODE_OAUTH_TOKEN from profileEnv) instead of API keys that may
+  // be present in the shell environment. Without this, Claude Code would
+  // show "Claude API" instead of "Claude Max" when ANTHROPIC_API_KEY is set.
+  const { DEBUG: _DEBUG, ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY, ...cleanEnv } = process.env;
+
   return pty.spawn(shell, shellArgs, {
     name: 'xterm-256color',
     cols,
     rows,
     cwd: cwd || os.homedir(),
     env: {
-      ...process.env,
+      ...cleanEnv,
       ...profileEnv,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',

@@ -191,6 +191,8 @@ export interface ElectronAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
+  setTerminalTitle: (id: string, title: string) => void;
+  setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
 
   // Terminal session management (persistence/restore)
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
@@ -223,6 +225,8 @@ export interface ElectronAPI {
     message?: string;
     detectedAt: string
   }) => void) => () => void;
+  /** Listen for Claude busy state changes (for visual indicator: red=busy, green=idle) */
+  onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
 
   // Claude profile management (multi-account support)
   getClaudeProfiles: () => Promise<IPCResult<ClaudeProfileSettings>>;

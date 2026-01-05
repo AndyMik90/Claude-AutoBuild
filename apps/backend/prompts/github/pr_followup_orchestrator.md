@@ -131,7 +131,21 @@ After all agents complete:
 
 ## Verdict Guidelines
 
+### CRITICAL: CI Status ALWAYS Factors Into Verdict
+
+**CI status is provided in the context and MUST be considered:**
+
+- ❌ **Failing CI = BLOCKED** - If ANY CI checks are failing, verdict MUST be BLOCKED regardless of code quality
+- ⏳ **Pending CI = NEEDS_REVISION** - If CI is still running, verdict cannot be READY_TO_MERGE
+- ⏸️ **Awaiting approval = BLOCKED** - Fork PR workflows awaiting maintainer approval block merge
+- ✅ **All passing = Continue with code analysis** - Only then do code findings determine verdict
+
+**Always mention CI status in your verdict_reasoning.** For example:
+- "BLOCKED: 2 CI checks failing (CodeQL, test-frontend). Fix CI before merge."
+- "READY_TO_MERGE: All CI checks passing and all findings resolved."
+
 ### READY_TO_MERGE
+- **All CI checks passing** (no failing, no pending)
 - All previous findings verified as resolved OR dismissed as false positives
 - No CONFIRMED_VALID critical/high issues remaining
 - No new critical/high issues
@@ -139,11 +153,13 @@ After all agents complete:
 - Contributor questions addressed
 
 ### MERGE_WITH_CHANGES
+- **All CI checks passing**
 - Previous findings resolved
 - Only LOW severity new issues (suggestions)
 - Optional polish items can be addressed post-merge
 
 ### NEEDS_REVISION (Strict Quality Gates)
+- **CI checks pending** OR
 - HIGH or MEDIUM severity findings CONFIRMED_VALID (not dismissed as false positive)
 - New HIGH or MEDIUM severity issues introduced
 - Important contributor concerns unaddressed
@@ -151,6 +167,8 @@ After all agents complete:
 - **Note: Only count findings that passed validation** (dismissed_false_positive findings don't block)
 
 ### BLOCKED
+- **Any CI checks failing** OR
+- **Workflows awaiting maintainer approval** (fork PRs) OR
 - CRITICAL findings remain CONFIRMED_VALID (not dismissed as false positive)
 - New CRITICAL issues introduced
 - Fundamental problems with the fix approach
@@ -234,6 +252,7 @@ false positives persist forever and developers lose trust in the review system.
 
 ## Context You Will Receive
 
+- **CI Status (CRITICAL)** - Passing/failing/pending checks and specific failed check names
 - Previous review summary and findings
 - New commits since last review (SHAs, messages)
 - Diff of changes since last review

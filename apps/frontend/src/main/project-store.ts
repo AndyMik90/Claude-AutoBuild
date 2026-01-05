@@ -563,11 +563,16 @@ export class ProjectStore {
         // planStatus: "review" indicates spec creation is complete and awaiting user approval
         const isPlanReviewStage = (plan as unknown as { planStatus?: string })?.planStatus === 'review';
 
+        // Determine if there is remaining work to do
+        // True if: no subtasks exist yet (planning in progress) OR some subtasks are incomplete
+        // This prevents 'in_progress' from overriding 'human_review' when all work is done
+        const hasRemainingWork = allSubtasks.length === 0 || allSubtasks.some((s) => s.status !== 'completed');
+
         const isStoredStatusValid =
           (storedStatus === calculatedStatus) || // Matches calculated
           (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'in_progress')) || // Human review is more advanced than ai_review or in_progress (fixes status loop bug)
           (storedStatus === 'human_review' && isPlanReviewStage) || // Plan review stage (awaiting spec approval)
-          (isActiveProcessStatus && storedStatus === 'in_progress'); // Planning/coding phases should show as in_progress
+          (isActiveProcessStatus && storedStatus === 'in_progress' && hasRemainingWork); // Planning/coding phases should show as in_progress ONLY when there's remaining work
 
         if (isStoredStatusValid) {
           // Preserve reviewReason for human_review status

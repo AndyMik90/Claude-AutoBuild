@@ -42,7 +42,7 @@ from .utils import (
     get_commit_count,
     get_latest_commit,
     load_implementation_plan,
-    sync_plan_to_source,
+    sync_spec_to_source,
 )
 
 # Auth imports for 401 error handling and token refresh
@@ -98,7 +98,7 @@ async def post_session_processing(
     print(muted("--- Post-Session Processing ---"))
 
     # Sync implementation plan back to source (for worktree mode)
-    if sync_plan_to_source(spec_dir, source_spec_dir):
+    if sync_spec_to_source(spec_dir, source_spec_dir):
         print_status("Implementation plan synced to main project", "success")
 
     # Check if implementation plan was updated

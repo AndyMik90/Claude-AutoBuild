@@ -365,7 +365,9 @@
     "selectThinkingLevel": "Sélectionner un niveau de réflexion",
     "perPhaseOptimization": "(optimisation par phase)",
     "resetToDefaults": "Réinitialiser par défaut",
-    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec le profil Auto. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
+    "customized": "Personnalisé",
+    "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
     "phases": {
       "spec": {
         "label": "Création de spec",

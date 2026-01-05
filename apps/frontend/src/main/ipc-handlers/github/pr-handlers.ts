@@ -16,6 +16,7 @@ import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THI
 import { getGitHubConfig, githubFetch } from './utils';
 import { readSettingsFile } from '../../settings-utils';
 import { getAugmentedEnv } from '../../env-utils';
+import { getMemoryService, getDefaultDbPath } from '../../memory-service';
 import type { Project, AppSettings } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
@@ -131,6 +132,159 @@ export interface NewCommitsCheck {
   currentHeadCommit?: string;
   /** Whether new commits happened AFTER findings were posted (for "Ready for Follow-up" status) */
   hasCommitsAfterPosting?: boolean;
+}
+
+/**
+ * PR review memory stored in the memory layer
+ * Represents key insights and learnings from a PR review
+ */
+export interface PRReviewMemory {
+  prNumber: number;
+  repo: string;
+  verdict: string;
+  timestamp: string;
+  summary: {
+    verdict: string;
+    verdict_reasoning?: string;
+    finding_counts?: Record<string, number>;
+    total_findings?: number;
+    blockers?: string[];
+    risk_assessment?: Record<string, string>;
+  };
+  keyFindings: Array<{
+    severity: string;
+    category: string;
+    title: string;
+    description: string;
+    file: string;
+    line: number;
+  }>;
+  patterns: string[];
+  gotchas: string[];
+  isFollowup: boolean;
+}
+
+/**
+ * Save PR review insights to the Electron memory layer (LadybugDB)
+ * 
+ * Called after a PR review completes to persist learnings for cross-session context.
+ * Extracts key findings, patterns, and gotchas from the review result.
+ * 
+ * @param result The completed PR review result
+ * @param repo Repository name (owner/repo)
+ * @param isFollowup Whether this is a follow-up review
+ */
+async function savePRReviewToMemory(
+  result: PRReviewResult,
+  repo: string,
+  isFollowup: boolean = false
+): Promise<void> {
+  const settings = readSettingsFile();
+  if (!settings?.memoryEnabled) {
+    debugLog('Memory not enabled, skipping PR review memory save');
+    return;
+  }
+
+  try {
+    const memoryService = getMemoryService({
+      dbPath: getDefaultDbPath(),
+      database: 'auto_claude_memory',
+    });
+
+    // Build the memory content with comprehensive insights
+    // We want to capture ALL meaningful findings so the AI can learn from patterns
+    
+    // Prioritize findings: critical > high > medium > low
+    // Include all critical/high, top 5 medium, top 3 low
+    const criticalFindings = result.findings.filter(f => f.severity === 'critical');
+    const highFindings = result.findings.filter(f => f.severity === 'high');
+    const mediumFindings = result.findings.filter(f => f.severity === 'medium').slice(0, 5);
+    const lowFindings = result.findings.filter(f => f.severity === 'low').slice(0, 3);
+    
+    const keyFindingsToSave = [
+      ...criticalFindings,
+      ...highFindings,
+      ...mediumFindings,
+      ...lowFindings,
+    ].map(f => ({
+      severity: f.severity,
+      category: f.category,
+      title: f.title,
+      description: f.description.substring(0, 500), // Truncate for storage
+      file: f.file,
+      line: f.line,
+    }));
+
+    // Extract gotchas: security issues, critical bugs, and common mistakes
+    const gotchaCategories = ['security', 'error_handling', 'data_validation', 'race_condition'];
+    const gotchasToSave = result.findings
+      .filter(f => 
+        f.severity === 'critical' || 
+        f.severity === 'high' ||
+        gotchaCategories.includes(f.category?.toLowerCase() || '')
+      )
+      .map(f => `[${f.category}] ${f.title}: ${f.description.substring(0, 300)}`);
+
+    // Extract patterns: group findings by category to identify recurring issues
+    const categoryGroups = result.findings.reduce((acc, f) => {
+      const cat = f.category || 'general';
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Patterns are categories that appear multiple times (indicates a systematic issue)
+    const patternsToSave = Object.entries(categoryGroups)
+      .filter(([_, count]) => count >= 2)
+      .map(([category, count]) => `${category}: ${count} occurrences`);
+
+    const memoryContent: PRReviewMemory = {
+      prNumber: result.prNumber,
+      repo,
+      verdict: result.overallStatus || 'unknown',
+      timestamp: new Date().toISOString(),
+      summary: {
+        verdict: result.overallStatus || 'unknown',
+        finding_counts: {
+          critical: criticalFindings.length,
+          high: highFindings.length,
+          medium: result.findings.filter(f => f.severity === 'medium').length,
+          low: result.findings.filter(f => f.severity === 'low').length,
+        },
+        total_findings: result.findings.length,
+      },
+      keyFindings: keyFindingsToSave,
+      patterns: patternsToSave,
+      gotchas: gotchasToSave,
+      isFollowup,
+    };
+
+    // Add follow-up specific info if applicable
+    if (isFollowup && result.resolvedFindings && result.unresolvedFindings) {
+      memoryContent.summary.verdict_reasoning = 
+        `Resolved: ${result.resolvedFindings.length}, Unresolved: ${result.unresolvedFindings.length}`;
+    }
+
+    // Save to memory as a pr_review episode
+    const episodeName = `PR #${result.prNumber} ${isFollowup ? 'Follow-up ' : ''}Review - ${repo}`;
+    const saveResult = await memoryService.addEpisode(
+      episodeName,
+      memoryContent,
+      'pr_review',
+      `pr_review_${repo.replace('/', '_')}`
+    );
+
+    if (saveResult.success) {
+      debugLog('PR review saved to memory', { prNumber: result.prNumber, episodeId: saveResult.id });
+    } else {
+      debugLog('Failed to save PR review to memory', { error: saveResult.error });
+    }
+
+  } catch (error) {
+    // Don't fail the review if memory save fails
+    debugLog('Error saving PR review to memory', { 
+      error: error instanceof Error ? error.message : error 
+    });
+  }
 }
 
 /**
@@ -690,6 +844,12 @@ async function runPRReview(
 
     // Finalize logs with success
     logCollector.finalize(true);
+
+    // Save PR review insights to memory (async, non-blocking)
+    savePRReviewToMemory(result.data!, repo, false).catch(err => {
+      debugLog('Failed to save PR review to memory', { error: err.message });
+    });
+
     return result.data!;
   } finally {
     // Clean up the registry when done (success or error)
@@ -706,11 +866,11 @@ export function registerPRHandlers(
 ): void {
   debugLog('Registering PR handlers');
 
-  // List open PRs
+  // List open PRs with pagination support
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
-    async (_, projectId: string): Promise<PRData[]> => {
-      debugLog('listPRs handler called', { projectId });
+    async (_, projectId: string, page: number = 1): Promise<PRData[]> => {
+      debugLog('listPRs handler called', { projectId, page });
       const result = await withProjectOrNull(projectId, async (project) => {
         const config = getGitHubConfig(project);
         if (!config) {
@@ -719,9 +879,10 @@ export function registerPRHandlers(
         }
 
         try {
+          // Use pagination: per_page=100 (GitHub max), page=1,2,3...
           const prs = await githubFetch(
             config.token,
-            `/repos/${config.repo}/pulls?state=open&per_page=50`
+            `/repos/${config.repo}/pulls?state=open&per_page=100&page=${page}`
           ) as Array<{
             number: number;
             title: string;
@@ -739,7 +900,7 @@ export function registerPRHandlers(
             html_url: string;
           }>;
 
-          debugLog('Fetched PRs', { count: prs.length });
+          debugLog('Fetched PRs', { count: prs.length, page });
           return prs.map(pr => ({
             number: pr.number,
             title: pr.title,
@@ -873,6 +1034,23 @@ export function registerPRHandlers(
     }
   );
 
+  // Batch get saved reviews - more efficient than individual calls
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_GET_REVIEWS_BATCH,
+    async (_, projectId: string, prNumbers: number[]): Promise<Record<number, PRReviewResult | null>> => {
+      debugLog('getReviewsBatch handler called', { projectId, count: prNumbers.length });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const reviews: Record<number, PRReviewResult | null> = {};
+        for (const prNumber of prNumbers) {
+          reviews[prNumber] = getReviewResult(project, prNumber);
+        }
+        debugLog('Batch loaded reviews', { count: Object.values(reviews).filter(r => r !== null).length });
+        return reviews;
+      });
+      return result ?? {};
+    }
+  );
+
   // Get PR review logs
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_GET_LOGS,
@@ -976,8 +1154,8 @@ export function registerPRHandlers(
   // Post review to GitHub
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_POST_REVIEW,
-    async (_, projectId: string, prNumber: number, selectedFindingIds?: string[]): Promise<boolean> => {
-      debugLog('postPRReview handler called', { projectId, prNumber, selectedCount: selectedFindingIds?.length });
+    async (_, projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> => {
+      debugLog('postPRReview handler called', { projectId, prNumber, selectedCount: selectedFindingIds?.length, forceApprove: options?.forceApprove });
       const postResult = await withProjectOrNull(projectId, async (project) => {
         const result = getReviewResult(project, prNumber);
         if (!result) {
@@ -1000,36 +1178,69 @@ export function registerPRHandlers(
 
           debugLog('Posting findings', { total: result.findings.length, selected: findings.length });
 
-          // Build review body
-          let body = `## 🤖 Auto Claude PR Review\n\n${result.summary}\n\n`;
+          // Build review body - different format for auto-approve with suggestions
+          let body: string;
 
-          if (findings.length > 0) {
-            // Show selected count vs total if filtered
-            const countText = selectedSet
-              ? `${findings.length} selected of ${result.findings.length} total`
-              : `${findings.length} total`;
-            body += `### Findings (${countText})\n\n`;
+          if (options?.forceApprove) {
+            // Auto-approve format: clean approval message with optional suggestions
+            body = `## ✅ Auto Claude Review - APPROVED\n\n`;
+            body += `**Status:** Ready to Merge\n\n`;
+            body += `**Summary:** ${result.summary}\n\n`;
 
-            for (const f of findings) {
-              const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[f.severity] || '⚪';
-              body += `#### ${emoji} [${f.severity.toUpperCase()}] ${f.title}\n`;
-              body += `📁 \`${f.file}:${f.line}\`\n\n`;
-              body += `${f.description}\n\n`;
-              // Only show suggested fix if it has actual content
-              const suggestedFix = f.suggestedFix?.trim();
-              if (suggestedFix) {
-                body += `**Suggested fix:**\n\`\`\`\n${suggestedFix}\n\`\`\`\n\n`;
+            if (findings.length > 0) {
+              body += `---\n\n`;
+              body += `### 💡 Suggestions (${findings.length})\n\n`;
+              body += `*These are non-blocking suggestions for consideration:*\n\n`;
+
+              for (const f of findings) {
+                const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[f.severity] || '⚪';
+                body += `#### ${emoji} [${f.severity.toUpperCase()}] ${f.title}\n`;
+                body += `📁 \`${f.file}:${f.line}\`\n\n`;
+                body += `${f.description}\n\n`;
+                const suggestedFix = f.suggestedFix?.trim();
+                if (suggestedFix) {
+                  body += `**Suggested fix:**\n\`\`\`\n${suggestedFix}\n\`\`\`\n\n`;
+                }
               }
             }
+
+            body += `---\n*This automated review found no blocking issues. The PR can be safely merged.*\n\n`;
+            body += `*Generated by Auto Claude*`;
           } else {
-            body += `*No findings selected for this review.*\n\n`;
+            // Standard review format
+            body = `## 🤖 Auto Claude PR Review\n\n${result.summary}\n\n`;
+
+            if (findings.length > 0) {
+              // Show selected count vs total if filtered
+              const countText = selectedSet
+                ? `${findings.length} selected of ${result.findings.length} total`
+                : `${findings.length} total`;
+              body += `### Findings (${countText})\n\n`;
+
+              for (const f of findings) {
+                const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[f.severity] || '⚪';
+                body += `#### ${emoji} [${f.severity.toUpperCase()}] ${f.title}\n`;
+                body += `📁 \`${f.file}:${f.line}\`\n\n`;
+                body += `${f.description}\n\n`;
+                // Only show suggested fix if it has actual content
+                const suggestedFix = f.suggestedFix?.trim();
+                if (suggestedFix) {
+                  body += `**Suggested fix:**\n\`\`\`\n${suggestedFix}\n\`\`\`\n\n`;
+                }
+              }
+            } else {
+              body += `*No findings selected for this review.*\n\n`;
+            }
+
+            body += `---\n*This review was generated by Auto Claude.*`;
           }
 
-          body += `---\n*This review was generated by Auto Claude.*`;
-
-          // Determine review status based on selected findings
+          // Determine review status based on selected findings (or force approve)
           let overallStatus = result.overallStatus;
-          if (selectedSet) {
+          if (options?.forceApprove) {
+            // Force approve regardless of findings
+            overallStatus = 'approve';
+          } else if (selectedSet) {
             const hasBlocker = findings.some(f => f.severity === 'critical' || f.severity === 'high');
             overallStatus = hasBlocker ? 'request_changes' : (findings.length > 0 ? 'comment' : 'approve');
           }
@@ -1549,6 +1760,11 @@ export function registerPRHandlers(
             // Finalize logs with success
             logCollector.finalize(true);
 
+            // Save follow-up PR review insights to memory (async, non-blocking)
+            savePRReviewToMemory(result.data!, repo, true).catch(err => {
+              debugLog('Failed to save follow-up PR review to memory', { error: err.message });
+            });
+
             debugLog('Follow-up review completed', { prNumber, findingsCount: result.data?.findings.length });
             sendProgress({
               phase: 'complete',
@@ -1576,6 +1792,227 @@ export function registerPRHandlers(
         );
         sendError({ prNumber, error: error instanceof Error ? error.message : 'Failed to run follow-up review' });
       }
+    }
+  );
+
+  // Get workflows awaiting approval for a PR (fork PRs)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_WORKFLOWS_AWAITING_APPROVAL,
+    async (_, projectId: string, prNumber: number): Promise<{
+      awaiting_approval: number;
+      workflow_runs: Array<{ id: number; name: string; html_url: string; workflow_name: string }>;
+      can_approve: boolean;
+      error?: string;
+    }> => {
+      debugLog('getWorkflowsAwaitingApproval handler called', { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          return { awaiting_approval: 0, workflow_runs: [], can_approve: false, error: 'No GitHub config' };
+        }
+
+        try {
+          // First get the PR's head SHA
+          const prData = await githubFetch(
+            config.token,
+            `/repos/${config.repo}/pulls/${prNumber}`
+          ) as { head?: { sha?: string } };
+
+          const headSha = prData?.head?.sha;
+          if (!headSha) {
+            return { awaiting_approval: 0, workflow_runs: [], can_approve: false };
+          }
+
+          // Query workflow runs with action_required status
+          const runsData = await githubFetch(
+            config.token,
+            `/repos/${config.repo}/actions/runs?status=action_required&per_page=100`
+          ) as { workflow_runs?: Array<{ id: number; name: string; html_url: string; head_sha: string; workflow?: { name?: string } }> };
+
+          const allRuns = runsData?.workflow_runs || [];
+
+          // Filter to only runs for this PR's head SHA
+          const prRuns = allRuns
+            .filter(run => run.head_sha === headSha)
+            .map(run => ({
+              id: run.id,
+              name: run.name,
+              html_url: run.html_url,
+              workflow_name: run.workflow?.name || 'Unknown',
+            }));
+
+          debugLog('Found workflows awaiting approval', { prNumber, count: prRuns.length });
+
+          return {
+            awaiting_approval: prRuns.length,
+            workflow_runs: prRuns,
+            can_approve: true, // Assume token has permission; will fail if not
+          };
+        } catch (error) {
+          debugLog('Failed to get workflows awaiting approval', { prNumber, error: error instanceof Error ? error.message : error });
+          return {
+            awaiting_approval: 0,
+            workflow_runs: [],
+            can_approve: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          };
+        }
+      });
+
+      return result ?? { awaiting_approval: 0, workflow_runs: [], can_approve: false };
+    }
+  );
+
+  // Approve a workflow run
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_WORKFLOW_APPROVE,
+    async (_, projectId: string, runId: number): Promise<boolean> => {
+      debugLog('approveWorkflow handler called', { projectId, runId });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog('No GitHub config found');
+          return false;
+        }
+
+        try {
+          // Approve the workflow run
+          await githubFetch(
+            config.token,
+            `/repos/${config.repo}/actions/runs/${runId}/approve`,
+            { method: 'POST' }
+          );
+
+          debugLog('Workflow approved successfully', { runId });
+          return true;
+        } catch (error) {
+          debugLog('Failed to approve workflow', { runId, error: error instanceof Error ? error.message : error });
+          return false;
+        }
+      });
+
+      return result ?? false;
+    }
+  );
+
+  // Get PR review memories from the memory layer
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MEMORY_GET,
+    async (_, projectId: string, limit: number = 10): Promise<PRReviewMemory[]> => {
+      debugLog('getPRReviewMemories handler called', { projectId, limit });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const memoryDir = path.join(getGitHubDir(project), 'memory', project.name || 'unknown');
+        const memories: PRReviewMemory[] = [];
+
+        // Try to load from file-based storage
+        try {
+          const indexPath = path.join(memoryDir, 'reviews_index.json');
+          if (!fs.existsSync(indexPath)) {
+            debugLog('No PR review memories found', { projectId });
+            return [];
+          }
+
+          const indexContent = fs.readFileSync(indexPath, 'utf-8');
+          const index = JSON.parse(sanitizeNetworkData(indexContent));
+          const reviews = index.reviews || [];
+
+          // Load individual review memories
+          for (const entry of reviews.slice(0, limit)) {
+            try {
+              const reviewPath = path.join(memoryDir, `pr_${entry.pr_number}_review.json`);
+              if (fs.existsSync(reviewPath)) {
+                const reviewContent = fs.readFileSync(reviewPath, 'utf-8');
+                const memory = JSON.parse(sanitizeNetworkData(reviewContent));
+                memories.push({
+                  prNumber: memory.pr_number,
+                  repo: memory.repo,
+                  verdict: memory.summary?.verdict || 'unknown',
+                  timestamp: memory.timestamp,
+                  summary: memory.summary,
+                  keyFindings: memory.key_findings || [],
+                  patterns: memory.patterns || [],
+                  gotchas: memory.gotchas || [],
+                  isFollowup: memory.is_followup || false,
+                });
+              }
+            } catch (err) {
+              debugLog('Failed to load PR review memory', { prNumber: entry.pr_number, error: err instanceof Error ? err.message : err });
+            }
+          }
+
+          debugLog('Loaded PR review memories', { count: memories.length });
+          return memories;
+        } catch (error) {
+          debugLog('Failed to load PR review memories', { error: error instanceof Error ? error.message : error });
+          return [];
+        }
+      });
+      return result ?? [];
+    }
+  );
+
+  // Search PR review memories
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MEMORY_SEARCH,
+    async (_, projectId: string, query: string, limit: number = 10): Promise<PRReviewMemory[]> => {
+      debugLog('searchPRReviewMemories handler called', { projectId, query, limit });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const memoryDir = path.join(getGitHubDir(project), 'memory', project.name || 'unknown');
+        const memories: PRReviewMemory[] = [];
+        const queryLower = query.toLowerCase();
+
+        // Search through file-based storage
+        try {
+          const indexPath = path.join(memoryDir, 'reviews_index.json');
+          if (!fs.existsSync(indexPath)) {
+            return [];
+          }
+
+          const indexContent = fs.readFileSync(indexPath, 'utf-8');
+          const index = JSON.parse(sanitizeNetworkData(indexContent));
+          const reviews = index.reviews || [];
+
+          // Search individual review memories
+          for (const entry of reviews) {
+            try {
+              const reviewPath = path.join(memoryDir, `pr_${entry.pr_number}_review.json`);
+              if (fs.existsSync(reviewPath)) {
+                const reviewContent = fs.readFileSync(reviewPath, 'utf-8');
+                
+                // Check if content matches query
+                if (reviewContent.toLowerCase().includes(queryLower)) {
+                  const memory = JSON.parse(sanitizeNetworkData(reviewContent));
+                  memories.push({
+                    prNumber: memory.pr_number,
+                    repo: memory.repo,
+                    verdict: memory.summary?.verdict || 'unknown',
+                    timestamp: memory.timestamp,
+                    summary: memory.summary,
+                    keyFindings: memory.key_findings || [],
+                    patterns: memory.patterns || [],
+                    gotchas: memory.gotchas || [],
+                    isFollowup: memory.is_followup || false,
+                  });
+                }
+              }
+
+              // Stop if we have enough
+              if (memories.length >= limit) {
+                break;
+              }
+            } catch (err) {
+              debugLog('Failed to search PR review memory', { prNumber: entry.pr_number, error: err instanceof Error ? err.message : err });
+            }
+          }
+
+          debugLog('Found matching PR review memories', { count: memories.length, query });
+          return memories;
+        } catch (error) {
+          debugLog('Failed to search PR review memories', { error: error instanceof Error ? error.message : error });
+          return [];
+        }
+      });
+      return result ?? [];
     }
   );
 
