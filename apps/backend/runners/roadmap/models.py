@@ -38,3 +38,5 @@ class RoadmapFeature:
     description: str
     dependencies: List[str]  # List of feature IDs this feature depends on
     status: str  # e.g., "planned", "in_progress", "completed"
+    reverseDependencies: List[str] | None = None  # List of feature IDs that depend on this feature
+    dependencyValidation: dict | None = None  # Validation metadata for dependencies
