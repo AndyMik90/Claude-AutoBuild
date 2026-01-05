@@ -20,6 +20,10 @@ import type {
   OAuthTokenEvent
 } from './types';
 
+function normalizePathForBash(envPath: string): string {
+  return process.platform === 'win32' ? envPath.replace(/;/g, ':') : envPath;
+}
+
 /**
  * Handle rate limit detection and profile switching
  */
@@ -239,7 +243,9 @@ export function invokeClaude(
   const cwdCommand = buildCdCommand(cwd);
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
   const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH ? `PATH=${escapeShellArg(claudeEnv.PATH)} ` : '';
+  const pathPrefix = claudeEnv.PATH
+    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    : '';
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
   debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
@@ -366,7 +372,9 @@ export function resumeClaude(
 
   const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
   const escapedClaudeCmd = escapeShellArg(claudeCmd);
-  const pathPrefix = claudeEnv.PATH ? `PATH=${escapeShellArg(claudeEnv.PATH)} ` : '';
+  const pathPrefix = claudeEnv.PATH
+    ? `PATH=${escapeShellArg(normalizePathForBash(claudeEnv.PATH))} `
+    : '';
 
   let command: string;
   if (sessionId) {
