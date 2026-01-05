@@ -20,6 +20,8 @@ export interface FeatureCardProps {
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
   hasCompetitorInsight?: boolean;
+  onDependencyClick?: (featureId: string) => void;
+  features: RoadmapFeature[];
 }
 
 export interface FeatureDetailPanelProps {

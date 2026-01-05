@@ -69,6 +69,7 @@ export function RoadmapTabs({
             <FeatureCard
               key={feature.id}
               feature={feature}
+              features={roadmap.features}
               onClick={() => onFeatureSelect(feature)}
               onConvertToSpec={onConvertToSpec}
               onGoToTask={onGoToTask}
