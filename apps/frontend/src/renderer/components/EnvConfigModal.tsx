@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   AlertCircle,
   Key,
@@ -606,7 +606,7 @@ export function useClaudeTokenCheck() {
   // Get active API profile from settings store
   const activeProfileId = useSettingsStore((state) => state.activeProfileId);
 
-  const checkToken = async () => {
+  const checkToken = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -629,11 +629,11 @@ export function useClaudeTokenCheck() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeProfileId]);
 
   useEffect(() => {
     checkToken();
-  }, [activeProfileId]); // Re-check when profile changes
+  }, [checkToken]); // Re-check when checkToken changes (i.e., when activeProfileId changes)
 
   return { hasToken, isLoading, error, checkToken };
 }
