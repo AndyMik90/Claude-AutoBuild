@@ -10,8 +10,7 @@ import type {
 } from '../../shared/types';
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
-import { getEffectiveVersion } from '../auto-claude-updater';
-import { setUpdateChannel } from '../app-updater';
+import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform } from '../cli-tool-manager';
 
@@ -211,8 +210,16 @@ export function registerSettingsHandlers(
 
         // Update auto-updater channel if betaUpdates setting changed
         if (settings.betaUpdates !== undefined) {
-          const channel = settings.betaUpdates ? 'beta' : 'latest';
-          setUpdateChannel(channel);
+          if (settings.betaUpdates) {
+            // Enabling beta updates - just switch channel
+            setUpdateChannel('beta');
+          } else {
+            // Disabling beta updates - switch to stable and check if downgrade is available
+            // This will notify the renderer if user is on a prerelease and stable version exists
+            setUpdateChannelWithDowngradeCheck('latest', true).catch((err) => {
+              console.error('[settings-handlers] Failed to check for stable downgrade:', err);
+            });
+          }
         }
 
         return { success: true };
@@ -372,8 +379,8 @@ export function registerSettingsHandlers(
   // ============================================
 
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async (): Promise<string> => {
-    // Use effective version which accounts for source updates
-    const version = getEffectiveVersion();
+    // Return the actual bundled version from package.json
+    const version = app.getVersion();
     console.log('[settings-handlers] APP_VERSION returning:', version);
     return version;
   });

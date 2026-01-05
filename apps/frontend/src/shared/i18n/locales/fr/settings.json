@@ -161,7 +161,11 @@
     "autoUpdateProjects": "Mise à jour automatique des projets",
     "autoUpdateProjectsDescription": "Mettre à jour automatiquement Auto Claude dans les projets quand une nouvelle version est disponible",
     "betaUpdates": "Mises à jour bêta",
-    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)"
+    "betaUpdatesDescription": "Recevoir les versions bêta pré-release avec de nouvelles fonctionnalités (peut être moins stable)",
+    "stableDowngradeAvailable": "Version stable disponible",
+    "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
+    "stableVersion": "Version stable",
+    "downloadStableVersion": "Télécharger la version stable"
   },
   "notifications": {
     "title": "Notifications",
