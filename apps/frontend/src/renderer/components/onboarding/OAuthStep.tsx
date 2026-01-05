@@ -26,7 +26,7 @@ import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import { cn } from '../../lib/utils';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
-import { useTerminalStore } from '../../stores/terminal-store';
+import { useClaudeLoginTerminal } from '../../hooks/useClaudeLoginTerminal';
 import type { ClaudeProfile } from '../../../shared/types';
 
 interface OAuthStepProps {
@@ -93,8 +93,8 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
     loadClaudeProfiles();
   }, []);
 
-  // Get terminal store action for adding external terminals
-  const addExternalTerminal = useTerminalStore((state) => state.addExternalTerminal);
+  // Listen for login terminal creation - makes the terminal visible so user can see OAuth flow
+  useClaudeLoginTerminal();
 
   // Listen for OAuth authentication completion
   useEffect(() => {
@@ -109,22 +109,6 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
 
     return unsubscribe;
   }, []);
-
-  // Listen for login terminal creation - makes the terminal visible so user can see OAuth flow
-  useEffect(() => {
-    const unsubscribe = window.electronAPI.onClaudeProfileLoginTerminal((info) => {
-      // Add the terminal to the store so it becomes visible in the UI
-      // This allows users to see the 'claude setup-token' output and complete the OAuth flow
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-      addExternalTerminal(
-        info.terminalId,
-        `Auth: ${info.profileName}`,
-        homeDir
-      );
-    });
-
-    return unsubscribe;
-  }, [addExternalTerminal]);
 
   // Profile management handlers - following patterns from IntegrationSettings.tsx
   const handleAddProfile = async () => {
