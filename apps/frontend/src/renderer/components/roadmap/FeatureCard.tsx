@@ -1,4 +1,4 @@
-import { ExternalLink, Play, TrendingUp, Package, Link, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ExternalLink, Play, TrendingUp, Package, Link, AlertTriangle, RefreshCw, ChevronRight } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -77,18 +77,28 @@ export function FeatureCard({
                         key={depId}
                         className={`
                           dependency-chip px-3 py-1 rounded-md text-sm font-medium
-                          flex items-center gap-1.5 transition-colors
+                          flex items-center gap-1.5 transition-all
                           ${isMissing
                             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-300 dark:border-red-700'
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                            : 'bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer'
                           }
                         `}
-                        onClick={() => depFeature && openDependencyDetail(depId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (depFeature) {
+                            if (onDependencyClick) {
+                              onDependencyClick(depId);
+                            } else {
+                              openDependencyDetail(depId);
+                            }
+                          }
+                        }}
                         disabled={isMissing}
                         title={isMissing ? `Dependency '${depId}' not found in roadmap` : depFeature?.title}
                       >
                         {isMissing && <AlertTriangle className="w-3.5 h-3.5" />}
                         <span>{depFeature?.title || depId}</span>
+                        {!isMissing && <ChevronRight className="w-3 h-3" />}
                       </button>
                     );
                   })}
@@ -108,11 +118,21 @@ export function FeatureCard({
                       return (
                         <button
                           key={depId}
-                          className="dependency-chip px-3 py-1 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                          onClick={() => depFeature && openDependencyDetail(depId)}
+                          className="dependency-chip px-3 py-1 rounded-md text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 hover:underline cursor-pointer transition-all flex items-center gap-1.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (depFeature) {
+                              if (onDependencyClick) {
+                                onDependencyClick(depId);
+                              } else {
+                                openDependencyDetail(depId);
+                              }
+                            }
+                          }}
                           title={depFeature?.title}
                         >
                           <span>{depFeature?.title || depId}</span>
+                          <ChevronRight className="w-3 h-3" />
                         </button>
                       );
                     })}

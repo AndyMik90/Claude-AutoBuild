@@ -60,6 +60,13 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
     }
   };
 
+  const handleDependencyClick = (depId: string) => {
+    const depFeature = roadmap?.features.find(f => f.id === depId);
+    if (depFeature) {
+      setSelectedFeature(depFeature);
+    }
+  };
+
   // Show generation progress
   if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete') {
     return (
@@ -132,6 +139,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onGoToTask={handleGoToTask}
           onDelete={deleteFeature}
           competitorInsights={getCompetitorInsightsForFeature(selectedFeature, competitorAnalysis)}
+          onDependencyClick={handleDependencyClick}
         />
       )}
 

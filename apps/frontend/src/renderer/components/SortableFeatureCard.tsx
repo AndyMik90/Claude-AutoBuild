@@ -26,6 +26,7 @@ interface SortableFeatureCardProps {
   onClick: () => void;
   onConvertToSpec?: (feature: RoadmapFeature) => void;
   onGoToTask?: (specId: string) => void;
+  onDependencyClick?: (depId: string) => void;
 }
 
 export function SortableFeatureCard({
@@ -33,7 +34,8 @@ export function SortableFeatureCard({
   roadmap,
   onClick,
   onConvertToSpec,
-  onGoToTask
+  onGoToTask,
+  onDependencyClick
 }: SortableFeatureCardProps) {
   const { t } = useTranslation(['roadmap']);
   const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
@@ -228,7 +230,11 @@ export function SortableFeatureCard({
                         e.stopPropagation();
                         // Open the first dependency
                         if (feature.dependencies && feature.dependencies.length > 0) {
-                          openDependencyDetail(feature.dependencies[0]);
+                          if (onDependencyClick) {
+                            onDependencyClick(feature.dependencies[0]);
+                          } else {
+                            openDependencyDetail(feature.dependencies[0]);
+                          }
                         }
                       }}
                     >
@@ -247,7 +253,11 @@ export function SortableFeatureCard({
                             className="text-xs text-left hover:underline w-full"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openDependencyDetail(depId);
+                              if (onDependencyClick) {
+                                onDependencyClick(depId);
+                              } else {
+                                openDependencyDetail(depId);
+                              }
                             }}
                           >
                             {dep?.title || depId}
@@ -270,7 +280,11 @@ export function SortableFeatureCard({
                         e.stopPropagation();
                         // Open the first reverse dependency
                         if (feature.reverseDependencies && feature.reverseDependencies.length > 0) {
-                          openDependencyDetail(feature.reverseDependencies[0]);
+                          if (onDependencyClick) {
+                            onDependencyClick(feature.reverseDependencies[0]);
+                          } else {
+                            openDependencyDetail(feature.reverseDependencies[0]);
+                          }
                         }
                       }}
                     >
@@ -289,7 +303,11 @@ export function SortableFeatureCard({
                             className="text-xs text-left hover:underline w-full"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openDependencyDetail(depId);
+                              if (onDependencyClick) {
+                                onDependencyClick(depId);
+                              } else {
+                                openDependencyDetail(depId);
+                              }
                             }}
                           >
                             {dep?.title || depId}

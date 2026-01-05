@@ -31,6 +31,7 @@ export interface FeatureDetailPanelProps {
   onGoToTask: (specId: string) => void;
   onDelete?: (featureId: string) => void;
   competitorInsights?: CompetitorPainPoint[];
+  onDependencyClick?: (depId: string) => void;
 }
 
 export interface RoadmapHeaderProps {
