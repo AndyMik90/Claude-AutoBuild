@@ -3,5 +3,34 @@
     "openTerminal": "Open terminal",
     "openInbuilt": "Open in Inbuilt Terminal",
     "openExternal": "Open in External Terminal"
+  },
+  "pr": {
+    "title": "Create Pull Request",
+    "description": "Push branch and create a pull request for \"{{taskTitle}}\"",
+    "errors": {
+      "unknown": "An unknown error occurred while creating the pull request"
+    },
+    "success": {
+      "created": "Pull request created successfully!",
+      "alreadyExists": "A pull request already exists for this branch"
+    },
+    "actions": {
+      "retry": "Retry",
+      "creating": "Creating PR...",
+      "create": "Create Pull Request"
+    },
+    "labels": {
+      "sourceBranch": "Source branch",
+      "targetBranch": "Target branch",
+      "commits": "Commits",
+      "changes": "Changes",
+      "prTitle": "PR Title (optional)",
+      "draftPR": "Create as draft PR",
+      "unknown": "Unknown"
+    },
+    "hints": {
+      "targetBranch": "Leave empty to use the default branch",
+      "prTitle": "Leave empty to use the task title"
+    }
   }
 }

@@ -828,3 +828,82 @@ def handle_merge_preview_command(
                 "pathMappedAIMergeCount": 0,
             },
         }
+
+
+def handle_create_pr_command(
+    project_dir: Path,
+    spec_name: str,
+    target_branch: str | None = None,
+    title: str | None = None,
+    draft: bool = False,
+) -> dict:
+    """
+    Handle the --create-pr command: push branch and create a GitHub PR.
+
+    Args:
+        project_dir: Path to the project directory
+        spec_name: Name of the spec (e.g., "001-feature-name")
+        target_branch: Target branch for PR (defaults to base branch)
+        title: Custom PR title (defaults to spec name)
+        draft: Whether to create as draft PR
+
+    Returns:
+        dict with success status, pr_url, and any errors
+    """
+    from workspace import get_existing_build_worktree
+
+    from core.worktree import WorktreeManager
+
+    print_banner("Create Pull Request")
+
+    # Check if worktree exists
+    worktree_path = get_existing_build_worktree(project_dir, spec_name)
+    if not worktree_path:
+        print(f"\n{icon(Icons.ERROR)} No build found for spec: {spec_name}")
+        print("\nA completed build worktree is required to create a PR.")
+        print("Run your build first, then use --create-pr.")
+        return {"success": False, "error": "No build found for this spec"}
+
+    # Create worktree manager
+    manager = WorktreeManager(project_dir, base_branch=target_branch)
+
+    print(f"\n{icon(Icons.BRANCH)} Pushing branch and creating PR...")
+    print(f"   Spec: {spec_name}")
+    print(f"   Target: {target_branch or manager.base_branch}")
+    if title:
+        print(f"   Title: {title}")
+    if draft:
+        print(f"   Mode: Draft PR")
+
+    # Push and create PR
+    result = manager.push_and_create_pr(
+        spec_name=spec_name,
+        target_branch=target_branch,
+        title=title,
+        draft=draft,
+    )
+
+    if result.get("success"):
+        pr_url = result.get("pr_url")
+        already_exists = result.get("already_exists", False)
+
+        if already_exists:
+            print(f"\n{icon(Icons.SUCCESS)} PR already exists!")
+        else:
+            print(f"\n{icon(Icons.SUCCESS)} PR created successfully!")
+
+        if pr_url:
+            print(f"\n{icon(Icons.LINK)} {pr_url}")
+        else:
+            print(f"\n{icon(Icons.INFO)} Check GitHub for the PR URL")
+
+        print("\nNext steps:")
+        print("  1. Review the PR on GitHub")
+        print("  2. Request reviews from your team")
+        print("  3. Merge when approved")
+
+        return result
+    else:
+        error = result.get("error", "Unknown error")
+        print(f"\n{icon(Icons.ERROR)} Failed to create PR: {error}")
+        return result

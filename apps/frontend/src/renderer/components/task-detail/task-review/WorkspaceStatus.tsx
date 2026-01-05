@@ -5,6 +5,7 @@ import {
   Minus,
   Eye,
   GitMerge,
+  GitPullRequest,
   FolderX,
   Loader2,
   RotateCcw,
@@ -28,12 +29,14 @@ interface WorkspaceStatusProps {
   isLoadingPreview: boolean;
   isMerging: boolean;
   isDiscarding: boolean;
+  isCreatingPR?: boolean;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
   onMerge: () => void;
+  onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
   onOpenInbuiltTerminal?: (id: string, cwd: string) => void;
@@ -84,12 +87,14 @@ export function WorkspaceStatus({
   isLoadingPreview,
   isMerging,
   isDiscarding,
+  isCreatingPR,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
   onLoadMergePreview,
   onStageOnlyChange,
   onMerge,
+  onShowPRDialog,
   onClose,
   onSwitchToTerminals,
   onOpenInbuiltTerminal
@@ -433,11 +438,25 @@ export function WorkspaceStatus({
             </Button>
           )}
 
+          {/* Create PR Button */}
+          {onShowPRDialog && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onShowPRDialog(true)}
+              disabled={isMerging || isDiscarding || isCreatingPR}
+              className="text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30"
+              title="Create Pull Request"
+            >
+              <GitPullRequest className="h-4 w-4" />
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="icon"
             onClick={() => onShowDiscardDialog(true)}
-            disabled={isMerging || isDiscarding}
+            disabled={isMerging || isDiscarding || isCreatingPR}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
             title="Discard build"
           >

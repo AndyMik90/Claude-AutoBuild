@@ -46,6 +46,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   } | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [showPRDialog, setShowPRDialog] = useState(false);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const isRunning = task.status === 'in_progress';
@@ -266,6 +268,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     mergePreview,
     isLoadingPreview,
     showConflictDialog,
+    showPRDialog,
+    isCreatingPR,
 
     // Setters
     setFeedback,
@@ -297,6 +301,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setMergePreview,
     setIsLoadingPreview,
     setShowConflictDialog,
+    setShowPRDialog,
+    setIsCreatingPR,
 
     // Handlers
     handleLogsScroll,

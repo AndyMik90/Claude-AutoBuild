@@ -161,6 +161,21 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     state.setIsDiscarding(false);
   };
 
+  const handleCreatePR = async (options: { targetBranch?: string; title?: string; draft?: boolean }) => {
+    state.setIsCreatingPR(true);
+    try {
+      const result = await window.electronAPI.createWorktreePR(task.id, options);
+      if (result.success && result.data) {
+        return result.data;
+      }
+      return { success: false, error: result.error || 'Failed to create PR' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } finally {
+      state.setIsCreatingPR(false);
+    }
+  };
+
   const handleClose = () => {
     onOpenChange(false);
   };
@@ -432,6 +447,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             onClose={handleClose}
                             onSwitchToTerminals={onSwitchToTerminals}
                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
+                            showPRDialog={state.showPRDialog}
+                            isCreatingPR={state.isCreatingPR}
+                            onShowPRDialog={state.setShowPRDialog}
+                            onCreatePR={handleCreatePR}
                           />
                         </>
                       )}

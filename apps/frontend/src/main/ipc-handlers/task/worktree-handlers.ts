@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, shell, app } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
@@ -2518,6 +2518,249 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to open in terminal'
+        };
+      }
+    }
+  );
+
+  /**
+   * Create a Pull Request from the worktree branch
+   * Pushes the branch to origin and creates a GitHub PR using gh CLI
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_CREATE_PR,
+    async (_, taskId: string, options?: { targetBranch?: string; title?: string; draft?: boolean }): Promise<IPCResult<WorktreeCreatePRResult>> => {
+      const debug = (...args: unknown[]) => {
+        console.warn('[CREATE_PR DEBUG]', ...args);
+      };
+
+      try {
+        debug('Handler called with taskId:', taskId, 'options:', options);
+
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          debug('Task or project not found');
+          return { success: false, error: 'Task not found' };
+        }
+
+        debug('Found task:', task.specId, 'project:', project.path);
+
+        // Use run.py --create-pr to handle the PR creation
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+
+        // Use EAFP pattern - try to read specDir and catch ENOENT
+        try {
+          statSync(specDir);
+        } catch (err) {
+          if (err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT') {
+            debug('Spec directory not found:', specDir);
+            return { success: false, error: 'Spec directory not found' };
+          }
+          throw err; // Re-throw unexpected errors
+        }
+
+        // Check worktree exists before creating PR
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        if (!worktreePath) {
+          debug('No worktree found for spec:', task.specId);
+          return { success: false, error: 'No worktree found for this task' };
+        }
+        debug('Worktree path:', worktreePath);
+
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--create-pr'
+        ];
+
+        // Add optional arguments
+        if (options?.targetBranch) {
+          args.push('--pr-target', options.targetBranch);
+        }
+        if (options?.title) {
+          args.push('--pr-title', options.title);
+        }
+        if (options?.draft) {
+          args.push('--pr-draft');
+        }
+
+        // Add --base-branch if task was created with a specific base branch
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        if (taskBaseBranch) {
+          args.push('--base-branch', taskBaseBranch);
+          debug('Using stored base branch:', taskBaseBranch);
+        }
+
+        // Use configured Python path
+        const pythonPath = getConfiguredPythonPath();
+        debug('Running command:', pythonPath, args.join(' '));
+        debug('Working directory:', sourcePath);
+
+        // Get profile environment with OAuth token
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          const CREATE_PR_TIMEOUT_MS = 120000; // 2 minutes timeout for PR creation (network operations)
+          let timeoutId: NodeJS.Timeout | null = null;
+          let resolved = false;
+
+          // Get Python environment for bundled packages
+          const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const createPRProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...process.env,
+              ...pythonEnv,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONUTF8: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          // Set up timeout to kill hung processes
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              debug('TIMEOUT: Create PR process exceeded', CREATE_PR_TIMEOUT_MS, 'ms, killing...');
+              resolved = true;
+
+              // Platform-specific process termination
+              if (process.platform === 'win32') {
+                try {
+                  createPRProcess.kill();
+                } catch {
+                  // Process may already be dead
+                }
+              } else {
+                createPRProcess.kill('SIGTERM');
+                setTimeout(() => {
+                  try {
+                    createPRProcess.kill('SIGKILL');
+                  } catch {
+                    // Process may already be dead
+                  }
+                }, 5000);
+              }
+
+              resolve({
+                success: false,
+                error: 'PR creation timed out. Check if the PR was created on GitHub.'
+              });
+            }
+          }, CREATE_PR_TIMEOUT_MS);
+
+          createPRProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            debug('STDOUT:', chunk);
+          });
+
+          createPRProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            debug('STDERR:', chunk);
+          });
+
+          createPRProcess.on('close', (code: number | null) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+
+            debug('Process exited with code:', code);
+            debug('Full stdout:', stdout);
+            debug('Full stderr:', stderr);
+
+            if (code === 0) {
+              // Try to parse JSON output from Python script
+              try {
+                // Find JSON in stdout (may have other output before/after)
+                const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  const result = JSON.parse(jsonMatch[0]);
+                  debug('Parsed result:', result);
+
+                  resolve({
+                    success: true,
+                    data: {
+                      success: result.success ?? true,
+                      prUrl: result.pr_url || result.prUrl,
+                      error: result.error,
+                      alreadyExists: result.already_exists || result.alreadyExists
+                    }
+                  });
+                } else {
+                  // No JSON found, but process succeeded
+                  debug('No JSON in output, assuming success');
+                  resolve({
+                    success: true,
+                    data: {
+                      success: true,
+                      prUrl: undefined
+                    }
+                  });
+                }
+              } catch (parseError) {
+                debug('Failed to parse JSON output:', parseError);
+                // Process succeeded but couldn't parse output
+                resolve({
+                  success: true,
+                  data: {
+                    success: true,
+                    prUrl: undefined
+                  }
+                });
+              }
+            } else {
+              debug('Process failed with code:', code);
+              resolve({
+                success: false,
+                error: stderr || stdout || 'Failed to create PR'
+              });
+            }
+          });
+
+          createPRProcess.on('error', (err: Error) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            debug('Process spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run create-pr: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[CREATE_PR] Exception in handler:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create PR'
         };
       }
     }

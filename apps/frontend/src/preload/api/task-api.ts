@@ -11,7 +11,8 @@ import type {
   TaskLogs,
   TaskLogStreamChunk,
   SupportedIDE,
-  SupportedTerminal
+  SupportedTerminal,
+  WorktreeCreatePRResult
 } from '../../shared/types';
 
 export interface TaskAPI {
@@ -57,6 +58,7 @@ export interface TaskAPI {
   worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+  createWorktreePR: (taskId: string, options?: { targetBranch?: string; title?: string; draft?: boolean }) => Promise<IPCResult<WorktreeCreatePRResult>>;
 
   // Task Event Listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
@@ -158,6 +160,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   unarchiveTasks: (projectId: string, taskIds: string[]): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UNARCHIVE, projectId, taskIds),
+
+  createWorktreePR: (taskId: string, options?: { targetBranch?: string; title?: string; draft?: boolean }): Promise<IPCResult<WorktreeCreatePRResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_CREATE_PR, taskId, options),
 
   // Task Event Listeners
   onTaskProgress: (
