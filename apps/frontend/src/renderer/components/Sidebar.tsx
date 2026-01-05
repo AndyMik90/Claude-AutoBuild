@@ -51,6 +51,7 @@ import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
+import { useToast } from '../hooks/use-toast';
 import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
@@ -113,6 +114,7 @@ export function Sidebar({
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
+  const { toast } = useToast();
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -227,8 +229,29 @@ export function Sidebar({
 
   const handleGitSetupSkip = async () => {
     if (!selectedProject) return;
-    await updateProjectSettings(selectedProject.id, { useGit: false });
-    setShowGitSetupModal(false);
+    try {
+      const success = await updateProjectSettings(selectedProject.id, { useGit: false });
+      if (!success) {
+        toast({
+          title: t('common:labels.error'),
+          description: t('dialogs:addProject.failedToSaveGitPreference'),
+          variant: 'destructive'
+        });
+        return;
+      }
+      setShowGitSetupModal(false);
+    } catch (error) {
+      console.warn('[Sidebar] Failed to persist git preference', {
+        projectId: selectedProject.id,
+        useGit: false,
+        error
+      });
+      toast({
+        title: t('common:labels.error'),
+        description: t('dialogs:addProject.failedToSaveGitPreference'),
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleInitialize = async () => {

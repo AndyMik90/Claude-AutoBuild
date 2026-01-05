@@ -134,7 +134,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
               useGit: false,
               error: err
             });
-            setError(t('addProject.failedToCreate'));
+            setError(t('addProject.failedToSaveGitPreference'));
             return;
           }
         }

@@ -116,6 +116,7 @@
     "locationRequired": "Veuillez sélectionner un emplacement",
     "failedToOpen": "Échec de l'ouverture du projet",
     "failedToCreate": "Échec de la création du projet",
+    "failedToSaveGitPreference": "Projet créé, mais impossible d'enregistrer la préférence git",
     "openExistingAriaLabel": "Ouvrir un dossier de projet existant",
     "createNewAriaLabel": "Créer un nouveau projet"
   },

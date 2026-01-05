@@ -116,6 +116,7 @@
     "locationRequired": "Please select a location",
     "failedToOpen": "Failed to open project",
     "failedToCreate": "Failed to create project",
+    "failedToSaveGitPreference": "Project created, but failed to save git preference",
     "openExistingAriaLabel": "Open existing project folder",
     "createNewAriaLabel": "Create new project"
   },

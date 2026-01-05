@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import type { Project } from '../../../shared/types';
+import type { Project, ProjectSettings } from '../../../shared/types';
 import { DEFAULT_PROJECT_SETTINGS } from '../../../shared/constants';
 import { Sidebar } from '../Sidebar';
 
@@ -54,8 +54,33 @@ vi.mock('../GitSetupModal', () => ({
   GitSetupModal: (props: { open: boolean }) => gitSetupModalSpy(props)
 }));
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function deepMerge<T extends object>(
+  base: T,
+  overrides: Partial<T> = {}
+): T {
+  const merged: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+
+  for (const [key, value] of Object.entries(overrides)) {
+    const baseValue = (base as Record<string, unknown>)[key];
+    if (isPlainObject(value) && isPlainObject(baseValue)) {
+      merged[key] = deepMerge(baseValue as Record<string, unknown>, value as Record<string, unknown>);
+    } else {
+      merged[key] = value as unknown;
+    }
+  }
+
+  return merged as T;
+}
+
 function createTestProject(overrides: Partial<Project> = {}): Project {
-  const settings = { ...DEFAULT_PROJECT_SETTINGS, ...overrides.settings };
+  const settings = deepMerge<ProjectSettings>(
+    DEFAULT_PROJECT_SETTINGS,
+    (overrides.settings ?? {}) as Partial<ProjectSettings>
+  );
   return {
     id: 'project-1',
     name: 'Test Project',
