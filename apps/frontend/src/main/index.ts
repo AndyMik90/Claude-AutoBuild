@@ -110,24 +110,25 @@ function createWindow(): void {
   const { workAreaSize } = screen.getPrimaryDisplay();
 
   // Define preferred and minimum dimensions
-  const preferredWidth = 1400;
-  const preferredHeight = 900;
+  // Define preferred and minimum dimensions
+  const PREFERRED_WIDTH = 1400;
+  const PREFERRED_HEIGHT = 900;
   // Use smaller minimums to support high DPI displays with scaling (e.g., 4K at 300%)
-  const absoluteMinWidth = 800;
-  const absoluteMinHeight = 500;
+  const ABSOLUTE_MIN_WIDTH = 800;
+  const ABSOLUTE_MIN_HEIGHT = 500;
 
   // Calculate available space with a small margin to avoid edge-to-edge windows
-  const screenMargin = 20;
-  const availableWidth = workAreaSize.width - screenMargin;
-  const availableHeight = workAreaSize.height - screenMargin;
+  const SCREEN_MARGIN = 20;
+  const availableWidth = workAreaSize.width - SCREEN_MARGIN;
+  const availableHeight = workAreaSize.height - SCREEN_MARGIN;
 
   // Ensure minimum dimensions don't exceed available screen space (without margin)
-  const minWidth = Math.min(absoluteMinWidth, workAreaSize.width);
-  const minHeight = Math.min(absoluteMinHeight, workAreaSize.height);
+  const minWidth = Math.min(ABSOLUTE_MIN_WIDTH, workAreaSize.width);
+  const minHeight = Math.min(ABSOLUTE_MIN_HEIGHT, workAreaSize.height);
 
   // Calculate actual dimensions (preferred, but capped to margin-adjusted available space)
-  const width = Math.min(preferredWidth, availableWidth);
-  const height = Math.min(preferredHeight, availableHeight);
+  const width = Math.min(PREFERRED_WIDTH, availableWidth);
+  const height = Math.min(PREFERRED_HEIGHT, availableHeight);
 
   // Create the browser window
   mainWindow = new BrowserWindow({
