@@ -123,6 +123,19 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
     [task.updatedAt]
   );
 
+  // Memoize status menu items to avoid recreating on every render
+  const statusMenuItems = useMemo(() => {
+    if (!onStatusChange) return null;
+    return TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
+      <DropdownMenuItem
+        key={status}
+        onClick={() => onStatusChange(status)}
+      >
+        {t(TASK_STATUS_LABELS[status])}
+      </DropdownMenuItem>
+    ));
+  }, [task.status, onStatusChange, t]);
+
   // Memoized stuck check function to avoid recreating on every render
   const performStuckCheck = useCallback(() => {
     // Use requestIdleCallback for non-blocking check when available
@@ -497,7 +510,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
             )}
 
             {/* Move to menu for keyboard accessibility */}
-            {onStatusChange && (
+            {statusMenuItems && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -513,14 +526,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {TASK_STATUS_COLUMNS.filter(status => status !== task.status).map((status) => (
-                    <DropdownMenuItem
-                      key={status}
-                      onClick={() => onStatusChange(status)}
-                    >
-                      {t(TASK_STATUS_LABELS[status])}
-                    </DropdownMenuItem>
-                  ))}
+                  {statusMenuItems}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
