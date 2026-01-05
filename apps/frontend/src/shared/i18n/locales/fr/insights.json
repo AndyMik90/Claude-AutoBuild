@@ -30,7 +30,8 @@
     "thinking": "Réflexion..."
   },
   "tools": {
-    "count": "{{count}} outil(s) utilisé(s)",
+    "count_one": "{{count}} outil utilisé",
+    "count_other": "{{count}} outils utilisés",
     "readingFile": "Lecture du fichier",
     "searchingFiles": "Recherche de fichiers",
     "searchingCode": "Recherche dans le code"

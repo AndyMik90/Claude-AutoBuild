@@ -23,8 +23,10 @@
     "terminalWorktrees": "터미널 워크트리"
   },
   "stats": {
-    "filesChanged": "{{count}}개 파일 변경됨",
-    "commitsAhead": "{{count}}개 커밋 앞섬"
+    "filesChanged_one": "{{count}}개 파일 변경됨",
+    "filesChanged_other": "{{count}}개 파일 변경됨",
+    "commitsAhead_one": "{{count}}개 커밋 앞섬",
+    "commitsAhead_other": "{{count}}개 커밋 앞섬"
   },
   "buttons": {
     "mergeTo": "{{branch}}로 병합",

@@ -23,8 +23,10 @@
     "terminalWorktrees": "Terminal Worktrees"
   },
   "stats": {
-    "filesChanged": "{{count}} files changed",
-    "commitsAhead": "{{count}} commits ahead"
+    "filesChanged_one": "{{count}} file changed",
+    "filesChanged_other": "{{count}} files changed",
+    "commitsAhead_one": "{{count}} commit ahead",
+    "commitsAhead_other": "{{count}} commits ahead"
   },
   "buttons": {
     "mergeTo": "Merge to {{branch}}",

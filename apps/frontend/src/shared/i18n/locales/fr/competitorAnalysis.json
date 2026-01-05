@@ -1,6 +1,6 @@
 {
   "dialog": {
-    "title": "Activer l'Analyse de la Concurrence ?",
+    "title": "Activer l'analyse de la concurrence ?",
     "description": "Enrichissez votre feuille de route avec des informations sur les produits concurrents"
   },
   "whatItDoes": {
@@ -15,7 +15,7 @@
   },
   "optional": "Vous pouvez générer une feuille de route sans analyse de la concurrence si vous préférez. La feuille de route sera toujours basée sur la structure de votre projet et les meilleures pratiques.",
   "buttons": {
-    "decline": "Non, Ignorer l'Analyse",
-    "accept": "Oui, Activer l'Analyse"
+    "decline": "Non, ignorer l'analyse",
+    "accept": "Oui, activer l'analyse"
   }
 }

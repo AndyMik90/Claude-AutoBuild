@@ -30,7 +30,8 @@
     "thinking": "생각하는 중..."
   },
   "tools": {
-    "count": "{{count}}개 도구 사용됨",
+    "count_one": "{{count}}개 도구 사용됨",
+    "count_other": "{{count}}개 도구 사용됨",
     "readingFile": "파일 읽는 중",
     "searchingFiles": "파일 검색 중",
     "searchingCode": "코드 검색 중"

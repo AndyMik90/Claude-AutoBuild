@@ -23,8 +23,10 @@
     "terminalWorktrees": "Espaces de Travail de Terminal"
   },
   "stats": {
-    "filesChanged": "{{count}} fichiers modifiés",
-    "commitsAhead": "{{count}} commits d'avance"
+    "filesChanged_one": "{{count}} fichier modifié",
+    "filesChanged_other": "{{count}} fichiers modifiés",
+    "commitsAhead_one": "{{count}} commit d'avance",
+    "commitsAhead_other": "{{count}} commits d'avance"
   },
   "buttons": {
     "mergeTo": "Fusionner vers {{branch}}",

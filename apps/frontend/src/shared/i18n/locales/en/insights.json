@@ -30,7 +30,8 @@
     "thinking": "Thinking..."
   },
   "tools": {
-    "count": "{{count}} tool(s) used",
+    "count_one": "{{count}} tool used",
+    "count_other": "{{count}} tools used",
     "readingFile": "Reading file",
     "searchingFiles": "Searching files",
     "searchingCode": "Searching code"
