@@ -270,6 +270,7 @@ export function invokeClaude(
       const command = `clear && ${cwdCommand} HISTFILE= HISTCONTROL=ignorespace ${pathPrefix}bash -c "source ${escapedTempFile} && rm -f ${escapedTempFile} && exec ${escapedClaudeCmd}"\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
       terminal.pty.write(command);
+      profileManager.markProfileUsed(activeProfile.id);
 
       // Update terminal title and persist session
       const title = `Claude (${activeProfile.name})`;
@@ -296,6 +297,7 @@ export function invokeClaude(
       const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${escapedClaudeCmd}"\r`;
       debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
       terminal.pty.write(command);
+      profileManager.markProfileUsed(activeProfile.id);
 
       // Update terminal title and persist session
       const title = `Claude (${activeProfile.name})`;

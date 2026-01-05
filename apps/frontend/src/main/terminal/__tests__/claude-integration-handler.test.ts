@@ -244,7 +244,7 @@ describe('claude-integration-handler', () => {
     expect(written).not.toContain('CLAUDE_CONFIG_DIR=');
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-both');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
-    expect(profileManager.markProfileUsed).not.toHaveBeenCalled();
+    expect(profileManager.markProfileUsed).toHaveBeenCalledWith('prof-both');
 
     nowSpy.mockRestore();
   });
@@ -305,6 +305,7 @@ describe('claude-integration-handler', () => {
     expect(written).toContain("CLAUDE_CONFIG_DIR='/tmp/claude-config'");
     expect(written).toContain(`exec '${command}'`);
     expect(profileManager.getProfile).toHaveBeenCalledWith('prof-2');
+    expect(profileManager.markProfileUsed).toHaveBeenCalledWith('prof-2');
     expect(mockPersistSession).toHaveBeenCalledWith(terminal);
   });
 
