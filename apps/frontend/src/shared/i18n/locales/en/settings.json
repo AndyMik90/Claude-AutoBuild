@@ -365,7 +365,9 @@
     "selectThinkingLevel": "Select thinking level",
     "perPhaseOptimization": "(per-phase optimization)",
     "resetToDefaults": "Reset to defaults",
-    "phaseConfigNote": "These settings will be used as defaults when creating new tasks with the Auto profile. You can override them per-task in the task creation wizard.",
+    "resetToProfileDefaults": "Reset to {{profile}} defaults",
+    "customized": "Customized",
+    "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
     "phases": {
       "spec": {
         "label": "Spec Creation",

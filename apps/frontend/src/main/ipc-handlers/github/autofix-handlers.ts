@@ -364,7 +364,15 @@ async function startAutoFix(
 
   // Create spec
   const taskDescription = buildInvestigationTask(issue.number, issue.title, issueContext);
-  const specData = await createSpecForIssue(project, issue.number, issue.title, taskDescription, issue.html_url, labels);
+  const specData = await createSpecForIssue(
+    project,
+    issue.number,
+    issue.title,
+    taskDescription,
+    issue.html_url,
+    labels,
+    project.settings?.mainBranch  // Pass project's configured main branch
+  );
 
   // Save auto-fix state
   const issuesDir = path.join(getGitHubDir(project), 'issues');

@@ -63,6 +63,8 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
+  TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
+  TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
 
   // Terminal session management
   TERMINAL_GET_SESSIONS: 'terminal:getSessions',
@@ -86,6 +88,7 @@ export const IPC_CHANNELS = {
   TERMINAL_CLAUDE_SESSION: 'terminal:claudeSession',  // Claude session ID captured
   TERMINAL_RATE_LIMIT: 'terminal:rateLimit',  // Claude Code rate limit detected
   TERMINAL_OAUTH_TOKEN: 'terminal:oauthToken',  // OAuth token captured from setup-token output
+  TERMINAL_CLAUDE_BUSY: 'terminal:claudeBusy',  // Claude Code busy state (for visual indicator)
 
   // Claude profile management (multi-account support)
   CLAUDE_PROFILES_GET: 'claude:profilesGet',
@@ -353,6 +356,7 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW: 'github:pr:review',
   GITHUB_PR_REVIEW_CANCEL: 'github:pr:reviewCancel',
   GITHUB_PR_GET_REVIEW: 'github:pr:getReview',
+  GITHUB_PR_GET_REVIEWS_BATCH: 'github:pr:getReviewsBatch',  // Batch load reviews for multiple PRs
   GITHUB_PR_POST_REVIEW: 'github:pr:postReview',
   GITHUB_PR_DELETE_REVIEW: 'github:pr:deleteReview',
   GITHUB_PR_MERGE: 'github:pr:merge',
@@ -369,6 +373,14 @@ export const IPC_CHANNELS = {
 
   // GitHub PR Logs (for viewing AI review logs)
   GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
+  // GitHub PR Memory operations (saves review insights to memory layer)
+  GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
+  GITHUB_PR_MEMORY_SEARCH: 'github:pr:memory:search',  // Search PR review memories
+
+  // GitHub Workflow Approval (for fork PRs)
+  GITHUB_WORKFLOWS_AWAITING_APPROVAL: 'github:workflows:awaitingApproval',
+  GITHUB_WORKFLOW_APPROVE: 'github:workflow:approve',
 
   // GitHub Issue Triage operations
   GITHUB_TRIAGE_RUN: 'github:triage:run',

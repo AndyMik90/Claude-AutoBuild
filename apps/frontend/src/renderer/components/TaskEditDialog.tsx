@@ -421,14 +421,12 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     if (impact) metadataUpdates.impact = impact;
     if (model) metadataUpdates.model = model as ModelType;
     if (thinkingLevel) metadataUpdates.thinkingLevel = thinkingLevel as ThinkingLevel;
-    // Auto profile - per-phase configuration
-    if (profileId === 'auto') {
+    // All profiles now support per-phase configuration
+    // isAutoProfile indicates task uses phase-specific models/thinking
+    if (phaseModels && phaseThinking) {
       metadataUpdates.isAutoProfile = true;
-      if (phaseModels) metadataUpdates.phaseModels = phaseModels;
-      if (phaseThinking) metadataUpdates.phaseThinking = phaseThinking;
-    } else {
-      // Clear auto profile fields if switching away from auto
-      metadataUpdates.isAutoProfile = false;
+      metadataUpdates.phaseModels = phaseModels;
+      metadataUpdates.phaseThinking = phaseThinking;
     }
     if (images.length > 0) metadataUpdates.attachedImages = images;
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;

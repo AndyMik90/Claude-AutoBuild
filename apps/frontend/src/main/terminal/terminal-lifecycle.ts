@@ -4,6 +4,7 @@
  */
 
 import * as os from 'os';
+import { existsSync } from 'fs';
 import type { TerminalCreateOptions } from '../../shared/types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { TerminalSession } from '../terminal-session-store';
@@ -22,6 +23,8 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
 export interface RestoreOptions {
   resumeClaudeSession: boolean;
   captureSessionId: (terminalId: string, projectPath: string, startTime: number) => void;
+  /** Callback triggered when a Claude session needs to be resumed */
+  onResumeNeeded?: (terminalId: string, sessionId: string) => void;
 }
 
 /**
@@ -111,12 +114,31 @@ export async function restoreTerminal(
   cols = 80,
   rows = 24
 ): Promise<TerminalOperationResult> {
-  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id, 'Claude mode:', session.isClaudeMode);
+  // Look up the stored session to get the correct isClaudeMode value
+  // The renderer may pass isClaudeMode: false (by design), but we need the stored value
+  // to determine whether to auto-resume Claude
+  const storedSessions = SessionHandler.getSavedSessions(session.projectPath);
+  const storedSession = storedSessions.find(s => s.id === session.id);
+  const storedIsClaudeMode = storedSession?.isClaudeMode ?? session.isClaudeMode;
+  const storedClaudeSessionId = storedSession?.claudeSessionId ?? session.claudeSessionId;
+
+  debugLog('[TerminalLifecycle] Restoring terminal session:', session.id,
+    'Passed Claude mode:', session.isClaudeMode,
+    'Stored Claude mode:', storedIsClaudeMode,
+    'Stored session ID:', storedClaudeSessionId);
+
+  // Validate cwd exists - if the directory was deleted (e.g., worktree removed),
+  // fall back to project path to prevent shell exit with code 1
+  let effectiveCwd = session.cwd;
+  if (!existsSync(session.cwd)) {
+    debugLog('[TerminalLifecycle] Session cwd does not exist, falling back to project path:', session.cwd, '->', session.projectPath);
+    effectiveCwd = session.projectPath || os.homedir();
+  }
 
   const result = await createTerminal(
     {
       id: session.id,
-      cwd: session.cwd,
+      cwd: effectiveCwd,
       cols,
       rows,
       projectPath: session.projectPath
@@ -135,19 +157,59 @@ export async function restoreTerminal(
     return { success: false, error: 'Terminal not found after creation' };
   }
 
+  // Restore title and worktree config from session
   terminal.title = session.title;
+  // Only restore worktree config if the worktree directory still exists
+  // (effectiveCwd matching session.cwd means no fallback was needed)
+  if (effectiveCwd === session.cwd) {
+    terminal.worktreeConfig = session.worktreeConfig;
+  } else {
+    // Worktree was deleted, clear the config and update terminal's cwd
+    terminal.worktreeConfig = undefined;
+    terminal.cwd = effectiveCwd;
+    debugLog('[TerminalLifecycle] Cleared worktree config for terminal with deleted worktree:', session.id);
+  }
 
-  // Restore Claude mode state without sending resume commands
-  // The PTY daemon keeps processes alive, so we just need to reconnect to the existing session
-  if (session.isClaudeMode) {
+  // Send title change event for all restored terminals so renderer updates
+  const win = getWindow();
+  if (win) {
+    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+  }
+
+  // Auto-resume Claude if session was in Claude mode with a session ID
+  // Use storedIsClaudeMode and storedClaudeSessionId which come from the persisted store,
+  // not the renderer-passed values (renderer always passes isClaudeMode: false)
+  if (options.resumeClaudeSession && storedIsClaudeMode && storedClaudeSessionId) {
     terminal.isClaudeMode = true;
-    terminal.claudeSessionId = session.claudeSessionId;
+    terminal.claudeSessionId = storedClaudeSessionId;
+    debugLog('[TerminalLifecycle] Auto-resuming Claude session:', storedClaudeSessionId);
 
-    debugLog('[TerminalLifecycle] Restored Claude mode state for session:', session.id, 'sessionId:', session.claudeSessionId);
-
-    const win = getWindow();
+    // Notify renderer of the Claude session so it can update its store
+    // This prevents the renderer from also trying to resume (duplicate command)
     if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+      win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminal.id, storedClaudeSessionId);
+    }
+
+    // Persist the restored Claude mode state immediately to avoid data loss
+    // if app closes before the 30-second periodic save
+    if (terminal.projectPath) {
+      SessionHandler.persistSession(terminal);
+    }
+
+    // Small delay to ensure PTY is ready before sending resume command
+    if (options.onResumeNeeded) {
+      setTimeout(() => {
+        options.onResumeNeeded!(terminal.id, storedClaudeSessionId);
+      }, 500);
+    }
+  } else if (storedClaudeSessionId) {
+    // Keep session ID for manual resume (no auto-resume if not in Claude mode)
+    terminal.claudeSessionId = storedClaudeSessionId;
+    debugLog('[TerminalLifecycle] Preserved Claude session ID for manual resume:', storedClaudeSessionId);
+
+    // Persist the session ID so it's available even if app closes before periodic save
+    if (terminal.projectPath) {
+      SessionHandler.persistSession(terminal);
     }
   }
 

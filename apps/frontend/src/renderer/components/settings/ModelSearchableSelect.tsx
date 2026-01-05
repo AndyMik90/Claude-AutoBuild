@@ -16,7 +16,7 @@
  * - Request cancellation: aborts pending fetch when closed
  */
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, ChevronDown, Search, Check, Info } from 'lucide-react';
+import { Loader2, ChevronDown, Search, Check, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -80,7 +80,7 @@ export function ModelSearchableSelect({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Manual input mode (when API doesn't support model listing)
-  const [isManualInput, setIsManualInput] = useState(false);
+  const [_isManualInput, setIsManualInput] = useState(false);
 
   // AbortController for cancelling fetch requests
   const abortControllerRef = useRef<AbortController | null>(null);

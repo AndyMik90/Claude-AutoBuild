@@ -76,6 +76,22 @@ export function registerTerminalHandlers(
     }
   );
 
+  // Set terminal title (user renamed terminal in renderer)
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_SET_TITLE,
+    (_, id: string, title: string) => {
+      terminalManager.setTitle(id, title);
+    }
+  );
+
+  // Set terminal worktree config (user changed worktree association in renderer)
+  ipcMain.on(
+    IPC_CHANNELS.TERMINAL_SET_WORKTREE_CONFIG,
+    (_, id: string, config: import('../../shared/types').TerminalWorktreeConfig | undefined) => {
+      terminalManager.setWorktreeConfig(id, config);
+    }
+  );
+
   // Claude profile management (multi-account support)
   ipcMain.handle(
     IPC_CHANNELS.CLAUDE_PROFILES_GET,

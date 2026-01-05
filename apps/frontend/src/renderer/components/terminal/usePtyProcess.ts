@@ -7,6 +7,7 @@ interface UsePtyProcessOptions {
   projectPath?: string;
   cols: number;
   rows: number;
+  skipCreation?: boolean; // Skip PTY creation until dimensions are ready
   onCreated?: () => void;
   onError?: (error: string) => void;
 }
@@ -17,6 +18,7 @@ export function usePtyProcess({
   projectPath,
   cols,
   rows,
+  skipCreation = false,
   onCreated,
   onError,
 }: UsePtyProcessOptions) {
@@ -44,6 +46,8 @@ export function usePtyProcess({
 
   // Create PTY process
   useEffect(() => {
+    // Skip creation if explicitly told to (waiting for dimensions)
+    if (skipCreation) return;
     if (isCreatingRef.current || isCreatedRef.current) return;
 
     const terminalState = useTerminalStore.getState().terminals.find((t) => t.id === terminalId);
@@ -107,7 +111,7 @@ export function usePtyProcess({
         isCreatingRef.current = false;
       });
     }
-  }, [terminalId, cwd, projectPath, cols, rows, setTerminalStatus, updateTerminal, onCreated, onError]);
+  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, setTerminalStatus, updateTerminal, onCreated, onError]);
 
   // Function to prepare for recreation by preventing the effect from running
   // Call this BEFORE updating the store cwd to avoid race condition

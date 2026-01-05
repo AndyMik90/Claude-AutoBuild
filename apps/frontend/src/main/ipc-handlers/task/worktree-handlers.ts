@@ -4,6 +4,7 @@ import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, Worktre
 import path from 'path';
 import { existsSync, readdirSync, statSync, readFileSync } from 'fs';
 import { execSync, execFileSync, spawn, spawnSync, exec, execFile } from 'child_process';
+import { minimatch } from 'minimatch';
 import { projectStore } from '../../project-store';
 import { getConfiguredPythonPath, PythonEnvManager, pythonEnvManager as pythonEnvManagerSingleton } from '../../python-env-manager';
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
@@ -58,6 +59,145 @@ function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: 
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
+/**
+ * Check if a repository is misconfigured as bare but has source files.
+ * If so, automatically fix the configuration by unsetting core.bare.
+ *
+ * This can happen when git worktree operations incorrectly set bare=true,
+ * or when users manually misconfigure the repository.
+ *
+ * @param projectPath - Path to check and potentially fix
+ * @returns true if fixed, false if no fix needed or not fixable
+ */
+function fixMisconfiguredBareRepo(projectPath: string): boolean {
+  try {
+    // Check if bare=true is set
+    const bareConfig = execFileSync(
+      getToolPath('git'),
+      ['config', '--get', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim().toLowerCase();
+
+    if (bareConfig !== 'true') {
+      return false; // Not marked as bare, nothing to fix
+    }
+
+    // Check if there are source files (indicating misconfiguration)
+    // A truly bare repo would only have git internals, not source code
+    // This covers multiple ecosystems: JS/TS, Python, Rust, Go, Java, C#, etc.
+    //
+    // Markers are separated into exact matches and glob patterns for efficiency.
+    // Exact matches use existsSync() directly, while glob patterns use minimatch
+    // against a cached directory listing.
+    const EXACT_MARKERS = [
+      // JavaScript/TypeScript ecosystem
+      'package.json', 'apps', 'src',
+      // Python ecosystem
+      'pyproject.toml', 'setup.py', 'requirements.txt', 'Pipfile',
+      // Rust ecosystem
+      'Cargo.toml',
+      // Go ecosystem
+      'go.mod', 'go.sum', 'cmd', 'main.go',
+      // Java/JVM ecosystem
+      'pom.xml', 'build.gradle', 'build.gradle.kts',
+      // Ruby ecosystem
+      'Gemfile', 'Rakefile',
+      // PHP ecosystem
+      'composer.json',
+      // General project markers
+      'Makefile', 'CMakeLists.txt', 'README.md', 'LICENSE'
+    ];
+
+    const GLOB_MARKERS = [
+      // .NET/C# ecosystem - patterns that need glob matching
+      '*.csproj', '*.sln', '*.fsproj'
+    ];
+
+    // Check exact matches first (fast path)
+    const hasExactMatch = EXACT_MARKERS.some(marker =>
+      existsSync(path.join(projectPath, marker))
+    );
+
+    if (hasExactMatch) {
+      // Found a project marker, proceed to fix
+    } else {
+      // Check glob patterns - read directory once and cache for all patterns
+      let directoryFiles: string[] | null = null;
+      const MAX_FILES_TO_CHECK = 500; // Limit to avoid reading huge directories
+
+      const hasGlobMatch = GLOB_MARKERS.some(pattern => {
+        // Validate pattern - only support simple glob patterns for security
+        if (pattern.includes('..') || pattern.includes('/')) {
+          console.warn(`[GIT] Unsupported glob pattern ignored: ${pattern}`);
+          return false;
+        }
+
+        // Lazy-load directory listing, cached across patterns
+        if (directoryFiles === null) {
+          try {
+            const allFiles = readdirSync(projectPath);
+            // Limit to first N entries to avoid performance issues
+            directoryFiles = allFiles.slice(0, MAX_FILES_TO_CHECK);
+            if (allFiles.length > MAX_FILES_TO_CHECK) {
+              console.warn(`[GIT] Directory has ${allFiles.length} entries, checking only first ${MAX_FILES_TO_CHECK}`);
+            }
+          } catch (error) {
+            // Log the error for debugging instead of silently swallowing
+            console.warn(`[GIT] Failed to read directory ${projectPath}:`, error instanceof Error ? error.message : String(error));
+            directoryFiles = [];
+          }
+        }
+
+        // Use minimatch for proper glob pattern matching
+        return directoryFiles.some(file => minimatch(file, pattern, { nocase: true }));
+      });
+
+      if (!hasGlobMatch) {
+        return false; // Legitimately bare repo
+      }
+    }
+
+    // Fix the misconfiguration
+    console.warn('[GIT] Detected misconfigured bare repository with source files. Auto-fixing by unsetting core.bare...');
+    execFileSync(
+      getToolPath('git'),
+      ['config', '--unset', 'core.bare'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    console.warn('[GIT] Fixed: core.bare has been unset. Git operations should now work correctly.');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a path is a valid git working tree (not a bare repository).
+ * Returns true if the path is inside a git repository with a working tree.
+ *
+ * NOTE: This is a pure check with no side-effects. If you need to fix
+ * misconfigured bare repos before an operation, call fixMisconfiguredBareRepo()
+ * explicitly before calling this function.
+ *
+ * @param projectPath - Path to check
+ * @returns true if it's a valid working tree, false if bare or not a git repo
+ */
+function isGitWorkTree(projectPath: string): boolean {
+  try {
+    // Use git rev-parse --is-inside-work-tree which returns "true" for working trees
+    // and fails for bare repos or non-git directories
+    const result = execFileSync(
+      getToolPath('git'),
+      ['rev-parse', '--is-inside-work-tree'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    return result.trim() === 'true';
+  } catch {
+    // Not a working tree (could be bare repo or not a git repo at all)
+    return false;
+  }
+}
 
 /**
  * IDE and Terminal detection and launching utilities
@@ -1406,6 +1546,12 @@ export function registerWorktreeHandlers(
 
         debug('Found task:', task.specId, 'project:', project.path);
 
+        // Auto-fix any misconfigured bare repo before merge operation
+        // This prevents issues where git operations fail due to incorrect bare=true config
+        if (fixMisconfiguredBareRepo(project.path)) {
+          debug('Fixed misconfigured bare repository at:', project.path);
+        }
+
         // Use run.py --merge to handle the merge
         const sourcePath = getEffectiveSourcePath();
         if (!sourcePath) {
@@ -1449,14 +1595,18 @@ export function registerWorktreeHandlers(
           }
         }
 
-        // Get git status before merge
-        try {
-          const gitStatusBefore = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
-          debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
-          const gitBranch = execFileSync(getToolPath('git'), ['branch', '--show-current'], { cwd: project.path, encoding: 'utf-8' }).trim();
-          debug('Current branch:', gitBranch);
-        } catch (e) {
-          debug('Failed to get git status before:', e);
+        // Get git status before merge (only if project is a working tree, not a bare repo)
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatusBefore = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
+            debug('Git status BEFORE merge in main project:\n', gitStatusBefore || '(clean)');
+            const gitBranch = execFileSync(getToolPath('git'), ['branch', '--show-current'], { cwd: project.path, encoding: 'utf-8' }).trim();
+            debug('Current branch:', gitBranch);
+          } catch (e) {
+            debug('Failed to get git status before:', e);
+          }
+        } else {
+          debug('Project is a bare repository - skipping pre-merge git status check');
         }
 
         const args = [
@@ -1600,14 +1750,18 @@ export function registerWorktreeHandlers(
             debug('Full stdout:', stdout);
             debug('Full stderr:', stderr);
 
-            // Get git status after merge
-            try {
-              const gitStatusAfter = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
-              debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
-              const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
-              debug('Staged changes:\n', gitDiffStaged || '(none)');
-            } catch (e) {
-              debug('Failed to get git status after:', e);
+            // Get git status after merge (only if project is a working tree, not a bare repo)
+            if (isGitWorkTree(project.path)) {
+              try {
+                const gitStatusAfter = execFileSync(getToolPath('git'), ['status', '--short'], { cwd: project.path, encoding: 'utf-8' });
+                debug('Git status AFTER merge in main project:\n', gitStatusAfter || '(clean)');
+                const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
+                debug('Staged changes:\n', gitDiffStaged || '(none)');
+              } catch (e) {
+                debug('Failed to get git status after:', e);
+              }
+            } else {
+              debug('Project is a bare repository - skipping git status check (this is normal for worktree-based projects)');
             }
 
             if (code === 0) {
@@ -1619,33 +1773,39 @@ export function registerWorktreeHandlers(
               let mergeAlreadyCommitted = false;
 
               if (isStageOnly) {
-                try {
-                  const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
-                  hasActualStagedChanges = gitDiffStaged.trim().length > 0;
-                  debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
+                // Only check staged changes if project is a working tree (not bare repo)
+                if (isGitWorkTree(project.path)) {
+                  try {
+                    const gitDiffStaged = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' });
+                    hasActualStagedChanges = gitDiffStaged.trim().length > 0;
+                    debug('Stage-only verification: hasActualStagedChanges:', hasActualStagedChanges);
 
-                  if (!hasActualStagedChanges) {
-                    // Check if worktree branch was already merged (merge commit exists)
-                    const specBranch = `auto-claude/${task.specId}`;
-                    try {
-                      // Check if current branch contains all commits from spec branch
-                      // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
-                      execFileSync(
-                        'git',
-                        ['merge-base', '--is-ancestor', specBranch, 'HEAD'],
-                        { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
-                      );
-                      // If we reach here, the command succeeded (exit code 0) - branch is merged
-                      mergeAlreadyCommitted = true;
-                      debug('Merge already committed check:', mergeAlreadyCommitted);
-                    } catch {
-                      // Exit code 1 means not merged, or branch may not exist
-                      mergeAlreadyCommitted = false;
-                      debug('Could not check merge status, assuming not merged');
+                    if (!hasActualStagedChanges) {
+                      // Check if worktree branch was already merged (merge commit exists)
+                      const specBranch = `auto-claude/${task.specId}`;
+                      try {
+                        // Check if current branch contains all commits from spec branch
+                        // git merge-base --is-ancestor returns exit code 0 if true, 1 if false
+                        execFileSync(
+                          getToolPath('git'),
+                          ['merge-base', '--is-ancestor', specBranch, 'HEAD'],
+                          { cwd: project.path, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        );
+                        // If we reach here, the command succeeded (exit code 0) - branch is merged
+                        mergeAlreadyCommitted = true;
+                        debug('Merge already committed check:', mergeAlreadyCommitted);
+                      } catch {
+                        // Exit code 1 means not merged, or branch may not exist
+                        mergeAlreadyCommitted = false;
+                        debug('Could not check merge status, assuming not merged');
+                      }
                     }
+                  } catch (e) {
+                    debug('Failed to verify staged changes:', e);
                   }
-                } catch (e) {
-                  debug('Failed to verify staged changes:', e);
+                } else {
+                  // For bare repos, skip staging verification - merge happens in worktree
+                  debug('Project is a bare repository - skipping staged changes verification');
                 }
               }
 
@@ -1857,8 +2017,17 @@ export function registerWorktreeHandlers(
                 }
               });
             } else {
-              // Check if there were conflicts
-              const hasConflicts = stdout.includes('conflict') || stderr.includes('conflict');
+              // Check if there were actual merge conflicts
+              // More specific patterns to avoid false positives from debug output like "files_with_conflicts: 0"
+              const conflictPatterns = [
+                /CONFLICT \(/i,                         // Git merge conflict marker
+                /merge conflict/i,                      // Explicit merge conflict message
+                /\bconflict detected\b/i,               // Our own conflict detection message
+                /\bconflicts? found\b/i,                // "conflicts found" or "conflict found"
+                /Automatic merge failed/i,             // Git's automatic merge failure message
+              ];
+              const combinedOutput = stdout + stderr;
+              const hasConflicts = conflictPatterns.some(pattern => pattern.test(combinedOutput));
               debug('Merge failed. hasConflicts:', hasConflicts);
 
               resolve({
@@ -1935,27 +2104,31 @@ export function registerWorktreeHandlers(
         }
         console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
 
-        // Check for uncommitted changes in the main project
+        // Check for uncommitted changes in the main project (only if not a bare repo)
         let hasUncommittedChanges = false;
         let uncommittedFiles: string[] = [];
-        try {
-          const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
 
-          if (gitStatus && gitStatus.trim()) {
-            // Parse the status output to get file names
-            // Format: XY filename (where X and Y are status chars, then space, then filename)
-            uncommittedFiles = gitStatus
-              .split('\n')
-              .filter(line => line.trim())
-              .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
+            if (gitStatus && gitStatus.trim()) {
+              // Parse the status output to get file names
+              // Format: XY filename (where X and Y are status chars, then space, then filename)
+              uncommittedFiles = gitStatus
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
 
-            hasUncommittedChanges = uncommittedFiles.length > 0;
+              hasUncommittedChanges = uncommittedFiles.length > 0;
+            }
+          } catch (e) {
+            console.error('[IPC] Failed to check git status:', e);
           }
-        } catch (e) {
-          console.error('[IPC] Failed to check git status:', e);
+        } else {
+          console.warn('[IPC] Project is a bare repository - skipping uncommitted changes check');
         }
 
         const sourcePath = getEffectiveSourcePath();
