@@ -47,7 +47,7 @@ const CategoryIcon: Record<TaskCategory, typeof Zap> = {
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
-  onStatusChange?: (newStatus: TaskStatus) => void;
+  onStatusChange?: (newStatus: TaskStatus) => unknown;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes

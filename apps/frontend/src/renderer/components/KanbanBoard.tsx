@@ -42,7 +42,7 @@ interface DroppableColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
-  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
   isOver: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
@@ -165,7 +165,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 
   // Create stable onStatusChange handlers for each task
   const onStatusChangeHandlers = useMemo(() => {
-    const handlers = new Map<string, (newStatus: TaskStatus) => void>();
+    const handlers = new Map<string, (newStatus: TaskStatus) => unknown>();
     tasks.forEach((task) => {
       handlers.set(task.id, (newStatus: TaskStatus) => onStatusChange(task.id, newStatus));
     });

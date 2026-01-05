@@ -8,7 +8,7 @@ import type { Task, TaskStatus } from '../../shared/types';
 interface SortableTaskCardProps {
   task: Task;
   onClick: () => void;
-  onStatusChange?: (newStatus: TaskStatus) => void;
+  onStatusChange?: (newStatus: TaskStatus) => unknown;
 }
 
 // Custom comparator - only re-render when task or onClick actually changed
