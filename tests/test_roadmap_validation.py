@@ -194,6 +194,7 @@ if __name__ == "__main__":
     test_target_audience_validation_logic()
     test_roadmap_file_validation_simulation()
     test_original_bug_scenario()
+    test_full_validation_workflow()
     print("All validation tests passed!")
 
 

@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from client import create_client
-from debug import debug, debug_error, debug_section, debug_success
+from debug import debug, debug_detailed, debug_error, debug_section, debug_success, debug_warning
 from init import init_auto_claude_dir
 from phase_config import get_thinking_budget
 from ui import Icons, box, icon, muted, print_section, print_status
@@ -243,6 +243,9 @@ class RoadmapOrchestrator:
                 circular_paths_count=len(validation_result.circular_paths),
             )
 
+            # Pre-compute all dependent IDs for efficient lookup
+            all_dependent_ids = {dep for f in features for dep in f.dependencies}
+
             # Enrich each feature
             enriched_features = []
             for feature in features:
@@ -257,11 +260,7 @@ class RoadmapOrchestrator:
                 )
 
                 # Add validation metadata for features with dependencies
-                if (
-                    feature.id
-                    in [dep for f in features for dep in f.dependencies]
-                    or len(feature.dependencies) > 0
-                ):
+                if feature.id in all_dependent_ids or len(feature.dependencies) > 0:
                     feat_dict["dependencyValidation"] = {
                         "hasMissing": validation_result.has_missing,
                         "hasCircular": validation_result.has_circular,
