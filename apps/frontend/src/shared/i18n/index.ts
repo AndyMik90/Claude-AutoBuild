@@ -33,6 +33,7 @@ import frDialogs from './locales/fr/dialogs.json';
 import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
+import frModels from './locales/fr/models.json';
 
 // Import Korean translation resources
 import koCommon from './locales/ko/common.json';
@@ -89,7 +90,8 @@ export const resources = {
     dialogs: frDialogs,
     gitlab: frGitlab,
     taskReview: frTaskReview,
-    terminal: frTerminal
+    terminal: frTerminal,
+    models: frModels
   },
   ko: {
     common: koCommon,

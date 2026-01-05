@@ -1,0 +1,68 @@
+{
+  "agentProfiles": {
+    "auto": {
+      "name": "Auto (Optimisé)",
+      "description": "Utilise Opus pour toutes les phases avec des niveaux de réflexion optimisés"
+    },
+    "complex": {
+      "name": "Tâches Complexes",
+      "description": "Pour les implémentations complexes nécessitant une analyse approfondie"
+    },
+    "balanced": {
+      "name": "Équilibré",
+      "description": "Bon équilibre entre vitesse et qualité pour la plupart des tâches"
+    },
+    "quick": {
+      "name": "Modifications Rapides",
+      "description": "Itérations rapides pour les changements simples et les corrections rapides"
+    }
+  },
+  "thinkingLevels": {
+    "none": {
+      "label": "Aucun",
+      "description": "Pas de réflexion étendue"
+    },
+    "low": {
+      "label": "Faible",
+      "description": "Considération brève"
+    },
+    "medium": {
+      "label": "Moyen",
+      "description": "Analyse modérée"
+    },
+    "high": {
+      "label": "Élevé",
+      "description": "Réflexion approfondie"
+    },
+    "ultrathink": {
+      "label": "Ultra Réflexion",
+      "description": "Profondeur de raisonnement maximale"
+    }
+  },
+  "features": {
+    "insights": {
+      "label": "Discussion Insights",
+      "description": "Posez des questions sur votre code"
+    },
+    "ideation": {
+      "label": "Idéation",
+      "description": "Générez des idées de fonctionnalités et d'améliorations"
+    },
+    "roadmap": {
+      "label": "Feuille de route",
+      "description": "Créez des feuilles de route de fonctionnalités stratégiques"
+    },
+    "githubIssues": {
+      "label": "Problèmes GitHub",
+      "description": "Triage et étiquetage automatisés des problèmes"
+    },
+    "githubPrs": {
+      "label": "Revue de PR GitHub",
+      "description": "Revues de pull request alimentées par l'IA"
+    },
+    "utility": {
+      "label": "Utilitaire",
+      "description": "Messages de commit et résolution de conflits de fusion"
+    }
+  }
+}
