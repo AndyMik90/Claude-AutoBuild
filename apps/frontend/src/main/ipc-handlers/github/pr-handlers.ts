@@ -72,6 +72,13 @@ function getReviewKey(projectId: string, prNumber: number): string {
 }
 
 /**
+ * Returns env vars for Claude.md usage; enabled unless explicitly opted out.
+ */
+function getClaudeMdEnv(project: Project): Record<string, string> | undefined {
+  return project.settings?.useClaudeMd !== false ? { USE_CLAUDE_MD: 'true' } : undefined;
+}
+
+/**
  * PR review finding from AI analysis
  */
 export interface PRReviewFinding {
@@ -632,7 +639,7 @@ async function runPRReview(
 
   // Build environment with project settings
   const subprocessEnv = await getRunnerEnv(
-    project.settings?.useClaudeMd !== false ? { USE_CLAUDE_MD: 'true' } : undefined
+    getClaudeMdEnv(project)
   );
 
   const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
@@ -1492,7 +1499,7 @@ export function registerPRHandlers(
 
           // Build environment with project settings
           const followupEnv = await getRunnerEnv(
-            project.settings?.useClaudeMd !== false ? { USE_CLAUDE_MD: 'true' } : undefined
+            getClaudeMdEnv(project)
           );
 
           const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
