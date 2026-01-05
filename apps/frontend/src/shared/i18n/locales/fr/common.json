@@ -5,7 +5,23 @@
     "hideArchived": "Masquer archivés",
     "showArchivedTasks": "Afficher les tâches archivées",
     "hideArchivedTasks": "Masquer les tâches archivées",
-    "closeTab": "Fermer l'onglet"
+    "closeTab": "Fermer l'onglet",
+    "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
+    "addProjectAriaLabel": "Ajouter un projet"
+  },
+  "accessibility": {
+    "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
+    "closeFeatureDetailsAriaLabel": "Fermer les détails de la fonctionnalité",
+    "regenerateRoadmapAriaLabel": "Régénérer la feuille de route",
+    "repositoryOwnerAriaLabel": "Propriétaire du dépôt",
+    "repositoryVisibilityAriaLabel": "Visibilité du dépôt",
+    "opensInNewWindow": "s'ouvre dans une nouvelle fenêtre",
+    "visitExternalLink": "Visiter {{name}} (s'ouvre dans une nouvelle fenêtre)",
+    "upgradeSubscriptionAriaLabel": "Mettre à niveau l'abonnement (s'ouvre dans une nouvelle fenêtre)",
+    "learnMoreAriaLabel": "En savoir plus (s'ouvre dans une nouvelle fenêtre)",
+    "toggleFolder": "Basculer le dossier {{name}}",
+    "expandFolder": "Déplier le dossier {{name}}",
+    "collapseFolder": "Replier le dossier {{name}}"
   },
   "buttons": {
     "save": "Enregistrer",

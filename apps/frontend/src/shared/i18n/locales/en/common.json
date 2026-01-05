@@ -5,7 +5,23 @@
     "hideArchived": "Hide archived",
     "showArchivedTasks": "Show archived tasks",
     "hideArchivedTasks": "Hide archived tasks",
-    "closeTab": "Close tab"
+    "closeTab": "Close tab",
+    "closeTabAriaLabel": "Close tab (removes project from app)",
+    "addProjectAriaLabel": "Add project"
+  },
+  "accessibility": {
+    "deleteFeatureAriaLabel": "Delete feature",
+    "closeFeatureDetailsAriaLabel": "Close feature details",
+    "regenerateRoadmapAriaLabel": "Regenerate Roadmap",
+    "repositoryOwnerAriaLabel": "Repository owner",
+    "repositoryVisibilityAriaLabel": "Repository visibility",
+    "opensInNewWindow": "opens in new window",
+    "visitExternalLink": "Visit {{name}} (opens in new window)",
+    "upgradeSubscriptionAriaLabel": "Upgrade subscription (opens in new window)",
+    "learnMoreAriaLabel": "Learn more (opens in new window)",
+    "toggleFolder": "Toggle {{name}} folder",
+    "expandFolder": "Expand {{name}} folder",
+    "collapseFolder": "Collapse {{name}} folder"
   },
   "buttons": {
     "save": "Save",
