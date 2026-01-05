@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -119,8 +119,22 @@ export class AgentManager extends EventEmitter {
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
 
+    // Handle long task descriptions (Windows command-line limit is ~8192 chars)
+    const TASK_DESCRIPTION_CHAR_LIMIT = 5000;
+    let taskArg: string[];
+
+    if (taskDescription.length > TASK_DESCRIPTION_CHAR_LIMIT && specDir) {
+      mkdirSync(specDir, { recursive: true });
+      const taskFilePath = path.join(specDir, 'task_description.txt');
+      writeFileSync(taskFilePath, taskDescription, 'utf-8');
+      console.log(`[AgentManager] Task description too long (${taskDescription.length} chars), using --task-file`);
+      taskArg = ['--task-file', taskFilePath];
+    } else {
+      taskArg = ['--task', taskDescription];
+    }
+
     // spec_runner.py will auto-start run.py after spec creation completes
-    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+    const args = [specRunnerPath, ...taskArg, '--project-dir', projectPath];
 
     // Pass spec directory if provided (for UI-created tasks that already have a directory)
     if (specDir) {
