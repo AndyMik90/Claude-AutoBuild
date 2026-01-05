@@ -268,6 +268,8 @@ export interface ElectronAPI {
 
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
+  getSentryDsn: () => Promise<string>;
+
   getCliToolsInfo: () => Promise<IPCResult<{
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;

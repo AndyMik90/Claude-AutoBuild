@@ -17,6 +17,7 @@ export const settingsMock = {
   notifySentryStateChanged: (_enabled: boolean) => {
     console.warn('[browser-mock] notifySentryStateChanged called');
   },
+  getSentryDsn: async () => '',  // No DSN in browser mode
 
   getCliToolsInfo: async () => ({
     success: true,

@@ -31,6 +31,7 @@ export interface SettingsAPI {
 
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
+  getSentryDsn: () => Promise<string>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -66,5 +67,9 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Sentry error reporting - notify main process when setting changes
   notifySentryStateChanged: (enabled: boolean): void =>
-    ipcRenderer.send(IPC_CHANNELS.SENTRY_STATE_CHANGED, enabled)
+    ipcRenderer.send(IPC_CHANNELS.SENTRY_STATE_CHANGED, enabled),
+
+  // Get Sentry DSN from main process (loaded from environment variable)
+  getSentryDsn: (): Promise<string> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_DSN)
 });

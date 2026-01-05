@@ -205,9 +205,3 @@ export function processEvent<T extends SentryErrorEvent>(event: T): T {
  * 10% of transactions are sampled for performance monitoring
  */
 export const PRODUCTION_TRACE_SAMPLE_RATE = 0.1;
-
-/**
- * Sentry DSN for Auto Claude
- * This is a public key designed to be visible in client code
- */
-export const SENTRY_DSN = 'https://ba00257a04b1de51c6c0cf3d30d58707@o4506368058720256.ingest.us.sentry.io/4510646798712832';

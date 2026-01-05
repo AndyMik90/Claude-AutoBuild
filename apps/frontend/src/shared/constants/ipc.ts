@@ -497,5 +497,6 @@ export const IPC_CHANNELS = {
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
 
   // Sentry error reporting
-  SENTRY_STATE_CHANGED: 'sentry:state-changed'   // Notify main process when setting changes
+  SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
+  GET_SENTRY_DSN: 'sentry:get-dsn'               // Get DSN from main process (env var)
 } as const;
