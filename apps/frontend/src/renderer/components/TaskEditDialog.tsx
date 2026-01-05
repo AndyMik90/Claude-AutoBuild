@@ -25,6 +25,7 @@
  * ```
  */
 import { useState, useEffect, useCallback, useRef, type ClipboardEvent, type DragEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Image as ImageIcon, ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   Dialog,
@@ -87,6 +88,7 @@ interface TaskEditDialogProps {
 }
 
 export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDialogProps) {
+  const { t } = useTranslation('tasks');
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
@@ -485,12 +487,14 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               onDrop={handleTextareaDrop}
               rows={5}
               disabled={isSaving}
+              aria-required="true"
+              aria-describedby="edit-description-help"
               className={cn(
                 isDragOverTextarea && !isSaving && "border-primary bg-primary/5 ring-2 ring-primary/20"
               )}
             />
-            <p className="text-xs text-muted-foreground">
-              Tip: Paste screenshots directly with {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'} to add reference images.
+            <p id="edit-description-help" className="text-xs text-muted-foreground">
+              {t('images.pasteHint', { shortcut: navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V' })}
             </p>
           </div>
 
@@ -547,6 +551,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
             )}
             disabled={isSaving}
+            aria-expanded={showAdvanced}
+            aria-controls="edit-advanced-options"
           >
             <span>Classification (optional)</span>
             {showAdvanced ? (
@@ -558,7 +564,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
           {/* Advanced Options */}
           {showAdvanced && (
-            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+            <div id="edit-advanced-options" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
               <div className="grid grid-cols-2 gap-4">
                 {/* Category */}
                 <div className="space-y-2">
@@ -668,6 +674,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
               'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
             )}
             disabled={isSaving}
+            aria-expanded={showImages}
+            aria-controls="edit-images-section"
           >
             <span className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4" />
@@ -687,7 +695,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
           {/* Image Upload Section */}
           {showImages && (
-            <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+            <div id="edit-images-section" className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
               <p className="text-xs text-muted-foreground">
                 Attach screenshots, mockups, or diagrams to provide visual context for the AI.
               </p>
@@ -723,7 +731,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive" role="alert">
               <X className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
