@@ -15,7 +15,8 @@
   },
   "overview": {
     "title": "개요",
-    "services": "{{count}}개 서비스"
+    "services_one": "{{count}}개 서비스",
+    "services_other": "{{count}}개 서비스"
   },
   "sections": {
     "services": "서비스",

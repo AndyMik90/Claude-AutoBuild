@@ -101,8 +101,7 @@ export function ProjectIndexTab({
                   {Object.keys(projectIndex.services).length > 0 && (
                     <Badge variant="secondary">
                       {t('overview.services', {
-                        count: Object.keys(projectIndex.services).length,
-                        s: Object.keys(projectIndex.services).length !== 1 ? 's' : ''
+                        count: Object.keys(projectIndex.services).length
                       })}
                     </Badge>
                   )}

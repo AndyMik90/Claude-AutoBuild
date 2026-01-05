@@ -39,7 +39,7 @@ export function AgentProfiles() {
    * Get human-readable thinking level label (now uses i18n)
    */
   const getThinkingLabel = (thinkingValue: string): string => {
-    return t(`thinkingLevels.${thinkingValue}.label`, { defaultValue: thinkingValue });
+    return t(`thinkingLevels.${thinkingValue}.displayLabel`, { defaultValue: thinkingValue });
   };
 
   /**
@@ -96,7 +96,7 @@ export function AgentProfiles() {
                 {getModelLabel(profile.model)}
               </span>
               <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                {getThinkingLabel(profile.thinkingLevel)} Thinking
+                {getThinkingLabel(profile.thinkingLevel)}
               </span>
             </div>
           </div>

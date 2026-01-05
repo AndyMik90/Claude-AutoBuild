@@ -20,22 +20,27 @@
   "thinkingLevels": {
     "none": {
       "label": "Aucun",
+      "displayLabel": "Aucune Réflexion",
       "description": "Pas de réflexion étendue"
     },
     "low": {
       "label": "Faible",
+      "displayLabel": "Réflexion Faible",
       "description": "Considération brève"
     },
     "medium": {
       "label": "Moyen",
+      "displayLabel": "Réflexion Moyenne",
       "description": "Analyse modérée"
     },
     "high": {
       "label": "Élevé",
+      "displayLabel": "Réflexion Élevée",
       "description": "Réflexion approfondie"
     },
     "ultrathink": {
       "label": "Ultra Réflexion",
+      "displayLabel": "Ultra Réflexion",
       "description": "Profondeur de raisonnement maximale"
     }
   },

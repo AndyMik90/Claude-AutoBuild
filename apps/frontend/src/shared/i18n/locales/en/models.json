@@ -20,22 +20,27 @@
   "thinkingLevels": {
     "none": {
       "label": "None",
+      "displayLabel": "No Thinking",
       "description": "No extended thinking"
     },
     "low": {
       "label": "Low",
+      "displayLabel": "Low Thinking",
       "description": "Brief consideration"
     },
     "medium": {
       "label": "Medium",
+      "displayLabel": "Medium Thinking",
       "description": "Moderate analysis"
     },
     "high": {
       "label": "High",
+      "displayLabel": "High Thinking",
       "description": "Deep thinking"
     },
     "ultrathink": {
       "label": "Ultra Think",
+      "displayLabel": "Ultra Think",
       "description": "Maximum reasoning depth"
     }
   },

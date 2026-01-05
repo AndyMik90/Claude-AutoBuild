@@ -49,15 +49,15 @@ export function ChangelogList({
     }
   };
 
-  const getSummaryLabel = () => {
+  const getSummaryLabelKey = () => {
     switch (sourceMode) {
       case 'tasks':
-        return t('list.summaryLabels.task');
+        return 'list.summaryLabels.task';
       case 'git-history':
       case 'branch-diff':
-        return t('list.summaryLabels.commit');
+        return 'list.summaryLabels.commit';
       default:
-        return t('list.summaryLabels.item');
+        return 'list.summaryLabels.item';
     }
   };
 
@@ -177,7 +177,7 @@ export function ChangelogList({
           <ArrowRight className="ml-2 h-4 w-4" />
           {canContinue && (
             <Badge variant="secondary" className="ml-2">
-              {getSummaryCount()} {getSummaryLabel()}{getSummaryCount() !== 1 ? 's' : ''}
+              {t(getSummaryLabelKey(), { count: getSummaryCount() })}
             </Badge>
           )}
         </Button>

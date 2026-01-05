@@ -81,9 +81,12 @@
     },
     "continue": "Continuer",
     "summaryLabels": {
-      "task": "tâche",
-      "commit": "commit",
-      "item": "élément"
+      "task_one": "{{count}} tâche",
+      "task_other": "{{count}} tâches",
+      "commit_one": "{{count}} commit",
+      "commit_other": "{{count}} commits",
+      "item_one": "{{count}} élément",
+      "item_other": "{{count}} éléments"
     }
   }
 }

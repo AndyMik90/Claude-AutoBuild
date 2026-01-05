@@ -15,7 +15,8 @@
   },
   "overview": {
     "title": "Aperçu",
-    "services": "{{count}} service{{s}}"
+    "services_one": "{{count}} service",
+    "services_other": "{{count}} services"
   },
   "sections": {
     "services": "Services",

@@ -20,22 +20,27 @@
   "thinkingLevels": {
     "none": {
       "label": "없음",
+      "displayLabel": "사고 없음",
       "description": "확장 사고 없음"
     },
     "low": {
       "label": "낮음",
+      "displayLabel": "낮은 사고",
       "description": "간단한 고려"
     },
     "medium": {
       "label": "중간",
+      "displayLabel": "중간 사고",
       "description": "중간 수준 분석"
     },
     "high": {
       "label": "높음",
+      "displayLabel": "높은 사고",
       "description": "깊은 사고"
     },
     "ultrathink": {
       "label": "울트라 씽크",
+      "displayLabel": "울트라 씽크",
       "description": "최대 추론 깊이"
     }
   },

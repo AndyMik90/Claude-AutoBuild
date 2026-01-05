@@ -81,9 +81,12 @@
     },
     "continue": "계속",
     "summaryLabels": {
-      "task": "작업",
-      "commit": "커밋",
-      "item": "항목"
+      "task_one": "{{count}}개 작업",
+      "task_other": "{{count}}개 작업",
+      "commit_one": "{{count}}개 커밋",
+      "commit_other": "{{count}}개 커밋",
+      "item_one": "{{count}}개 항목",
+      "item_other": "{{count}}개 항목"
     }
   }
 }
