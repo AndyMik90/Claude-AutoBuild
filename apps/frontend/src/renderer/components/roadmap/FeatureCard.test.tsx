@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FeatureCard } from './FeatureCard';
-import type { RoadmapFeature } from '../../../../shared/types/roadmap';
+import type { RoadmapFeature } from '../../../shared/types/roadmap';
 import { TooltipProvider } from '../ui/tooltip';
 
 // Wrapper for components that need TooltipProvider
