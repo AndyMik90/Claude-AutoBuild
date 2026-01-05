@@ -41,7 +41,7 @@ function getIconPath(): string {
   } else if (process.platform === 'win32') {
     iconName = 'icon.ico';
   } else {
-    iconName = 'icon.png';
+    iconName = 'icon-256.png';
   }
 
   const iconPath = join(resourcesPath, iconName);
