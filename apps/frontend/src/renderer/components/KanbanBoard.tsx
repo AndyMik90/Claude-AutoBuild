@@ -472,21 +472,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Tasks'}
-          </Button>
-        </div>
-      )}
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
