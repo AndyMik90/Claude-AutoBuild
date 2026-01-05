@@ -15,5 +15,8 @@
     "convertToSpec": "Convertir en spécification",
     "viewInRoadmap": "Voir dans la feuille de route",
     "closePanel": "Fermer le panneau"
+  },
+  "validation": {
+    "circularDependency": "Dépendance circulaire"
   }
 }

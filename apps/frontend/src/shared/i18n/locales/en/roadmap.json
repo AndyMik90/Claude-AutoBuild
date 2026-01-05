@@ -15,5 +15,8 @@
     "convertToSpec": "Convert to Spec",
     "viewInRoadmap": "View in Roadmap",
     "closePanel": "Close panel"
+  },
+  "validation": {
+    "circularDependency": "Circular dependency"
   }
 }

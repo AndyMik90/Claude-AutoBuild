@@ -11,6 +11,7 @@ import {
 } from './ui/tooltip';
 import { Play, ExternalLink, TrendingUp, Layers, ThumbsUp, Package, Link, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useRoadmapStore } from '../stores/roadmap-store';
+import { useTranslation } from 'react-i18next';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
@@ -34,6 +35,7 @@ export function SortableFeatureCard({
   onConvertToSpec,
   onGoToTask
 }: SortableFeatureCardProps) {
+  const { t } = useTranslation(['roadmap']);
   const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
 
   const {
@@ -224,6 +226,10 @@ export function SortableFeatureCard({
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Open the first dependency
+                        if (feature.dependencies && feature.dependencies.length > 0) {
+                          openDependencyDetail(feature.dependencies[0]);
+                        }
                       }}
                     >
                       <Package className="h-2.5 w-2.5" />
@@ -236,7 +242,16 @@ export function SortableFeatureCard({
                       {feature.dependencies.slice(0, 3).map(depId => {
                         const dep = getFeatureById(depId);
                         return (
-                          <p key={depId} className="text-xs">{dep?.title || depId}</p>
+                          <button
+                            key={depId}
+                            className="text-xs text-left hover:underline w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDependencyDetail(depId);
+                            }}
+                          >
+                            {dep?.title || depId}
+                          </button>
                         );
                       })}
                       {feature.dependencies.length > 3 && (
@@ -253,6 +268,10 @@ export function SortableFeatureCard({
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Open the first reverse dependency
+                        if (feature.reverseDependencies && feature.reverseDependencies.length > 0) {
+                          openDependencyDetail(feature.reverseDependencies[0]);
+                        }
                       }}
                     >
                       <Link className="h-2.5 w-2.5" />
@@ -265,7 +284,16 @@ export function SortableFeatureCard({
                       {feature.reverseDependencies.slice(0, 3).map(depId => {
                         const dep = getFeatureById(depId);
                         return (
-                          <p key={depId} className="text-xs">{dep?.title || depId}</p>
+                          <button
+                            key={depId}
+                            className="text-xs text-left hover:underline w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDependencyDetail(depId);
+                            }}
+                          >
+                            {dep?.title || depId}
+                          </button>
                         );
                       })}
                       {feature.reverseDependencies.length > 3 && (
@@ -281,7 +309,7 @@ export function SortableFeatureCard({
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1 text-purple-500">
                       <RefreshCw className="h-2.5 w-2.5" />
-                      <span>circular</span>
+                      <span>{t('roadmap:validation.circularDependency')}</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>Circular dependency detected</TooltipContent>
