@@ -289,8 +289,12 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
       // Validate HTTP status code
       const statusCode = response.statusCode;
       if (statusCode !== 200) {
-        // Sanitize statusCode to prevent log injection (ensure it's a safe number)
-        const safeStatusCode = typeof statusCode === 'number' ? statusCode : 'unknown';
+        // Sanitize statusCode to prevent log injection
+        // Convert to number and validate range to ensure it's a valid HTTP status code
+        const numericCode = Number(statusCode);
+        const safeStatusCode = (Number.isInteger(numericCode) && numericCode >= 100 && numericCode < 600)
+          ? String(numericCode)
+          : 'unknown';
         console.error(`[app-updater] GitHub API error: HTTP ${safeStatusCode}`);
         if (statusCode === 403) {
           console.error('[app-updater] Rate limit may have been exceeded');
@@ -346,7 +350,9 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
             releaseDate: latestStable.published_at
           });
         } catch (e) {
-          console.error('[app-updater] Failed to parse releases JSON:', e);
+          // Sanitize error message for logging (prevent log injection from malformed JSON)
+          const safeError = e instanceof Error ? e.message : 'Unknown parse error';
+          console.error('[app-updater] Failed to parse releases JSON:', safeError);
           resolve(null);
         }
       });
