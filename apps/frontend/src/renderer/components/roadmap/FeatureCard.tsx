@@ -3,6 +3,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { useRoadmapStore } from '../../stores/roadmap-store';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
@@ -20,6 +21,8 @@ export function FeatureCard({
   onDependencyClick,
   features,
 }: FeatureCardProps) {
+  const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
+
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
       <div className="flex items-start justify-between">
@@ -80,8 +83,8 @@ export function FeatureCard({
                             : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                           }
                         `}
-                        onClick={() => depFeature && onDependencyClick && onDependencyClick(depId)}
-                        disabled={isMissing || !onDependencyClick}
+                        onClick={() => depFeature && openDependencyDetail(depId)}
+                        disabled={isMissing}
                         title={isMissing ? `Dependency '${depId}' not found in roadmap` : depFeature?.title}
                       >
                         {isMissing && <AlertTriangle className="w-3.5 h-3.5" />}
@@ -106,8 +109,7 @@ export function FeatureCard({
                         <button
                           key={depId}
                           className="dependency-chip px-3 py-1 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                          onClick={() => depFeature && onDependencyClick && onDependencyClick(depId)}
-                          disabled={!onDependencyClick}
+                          onClick={() => depFeature && openDependencyDetail(depId)}
                           title={depFeature?.title}
                         >
                           <span>{depFeature?.title || depId}</span>

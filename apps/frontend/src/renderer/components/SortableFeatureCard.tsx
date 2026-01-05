@@ -9,7 +9,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from './ui/tooltip';
-import { Play, ExternalLink, TrendingUp, Layers, ThumbsUp } from 'lucide-react';
+import { Play, ExternalLink, TrendingUp, Layers, ThumbsUp, Package, Link, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useRoadmapStore } from '../stores/roadmap-store';
 import {
   ROADMAP_PRIORITY_COLORS,
   ROADMAP_PRIORITY_LABELS,
@@ -33,6 +34,8 @@ export function SortableFeatureCard({
   onConvertToSpec,
   onGoToTask
 }: SortableFeatureCardProps) {
+  const openDependencyDetail = useRoadmapStore(s => s.openDependencyDetail);
+
   const {
     attributes,
     listeners,
@@ -58,6 +61,9 @@ export function SortableFeatureCard({
 
   // Check if feature has external source (e.g., Canny)
   const isExternal = feature.source?.provider && feature.source.provider !== 'internal';
+
+  // Helper function to get a feature by ID
+  const getFeatureById = (featureId: string) => roadmap?.features.find(f => f.id === featureId);
 
   return (
     <div
@@ -206,6 +212,84 @@ export function SortableFeatureCard({
             </Tooltip>
           )}
         </div>
+
+        {/* Dependencies - compact indicator */}
+        {(feature.dependencies?.length > 0 || feature.reverseDependencies && feature.reverseDependencies.length > 0) && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              {feature.dependencies?.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <Package className="h-2.5 w-2.5" />
+                      <span>{feature.dependencies.length} deps</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium">Dependencies:</p>
+                      {feature.dependencies.slice(0, 3).map(depId => {
+                        const dep = getFeatureById(depId);
+                        return (
+                          <p key={depId} className="text-xs">{dep?.title || depId}</p>
+                        );
+                      })}
+                      {feature.dependencies.length > 3 && (
+                        <p className="text-xs text-muted-foreground">+{feature.dependencies.length - 3} more</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {feature.reverseDependencies && feature.reverseDependencies.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <Link className="h-2.5 w-2.5" />
+                      <span>{feature.reverseDependencies.length} required by</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium">Required by:</p>
+                      {feature.reverseDependencies.slice(0, 3).map(depId => {
+                        const dep = getFeatureById(depId);
+                        return (
+                          <p key={depId} className="text-xs">{dep?.title || depId}</p>
+                        );
+                      })}
+                      {feature.reverseDependencies.length > 3 && (
+                        <p className="text-xs text-muted-foreground">+{feature.reverseDependencies.length - 3} more</p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {/* Validation warning */}
+              {feature.dependencyValidation?.hasCircular && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-purple-500">
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      <span>circular</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Circular dependency detected</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

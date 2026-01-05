@@ -8,7 +8,9 @@ import { RoadmapHeader } from './roadmap/RoadmapHeader';
 import { RoadmapEmptyState } from './roadmap/RoadmapEmptyState';
 import { RoadmapTabs } from './roadmap/RoadmapTabs';
 import { FeatureDetailPanel } from './roadmap/FeatureDetailPanel';
+import { DependencyDetailSidePanel } from './roadmap/DependencyDetailSidePanel';
 import { useRoadmapData, useFeatureActions, useRoadmapGeneration, useRoadmapSave, useFeatureDelete } from './roadmap/hooks';
+import { useRoadmapStore } from '../stores/roadmap-store';
 import { getCompetitorInsightsForFeature } from './roadmap/utils';
 import type { RoadmapFeature } from '../../shared/types';
 import type { RoadmapProps } from './roadmap/types';
@@ -19,6 +21,10 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
   const [activeTab, setActiveTab] = useState('kanban');
   const [showAddFeatureDialog, setShowAddFeatureDialog] = useState(false);
   const [showCompetitorViewer, setShowCompetitorViewer] = useState(false);
+
+  // Dependency detail panel state from store
+  const dependencyDetailFeatureId = useRoadmapStore(s => s.dependencyDetailFeatureId);
+  const closeDependencyDetail = useRoadmapStore(s => s.closeDependencyDetail);
 
   // Custom hooks
   const { roadmap, competitorAnalysis, generationStatus } = useRoadmapData(projectId);
@@ -126,6 +132,22 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
           onGoToTask={handleGoToTask}
           onDelete={deleteFeature}
           competitorInsights={getCompetitorInsightsForFeature(selectedFeature, competitorAnalysis)}
+        />
+      )}
+
+      {/* Dependency Detail Side Panel */}
+      {dependencyDetailFeatureId && (
+        <DependencyDetailSidePanel
+          feature={roadmap.features.find(f => f.id === dependencyDetailFeatureId) || null}
+          isOpen={dependencyDetailFeatureId !== null}
+          onClose={closeDependencyDetail}
+          onGoToFeature={(featureId) => {
+            const feature = roadmap.features.find(f => f.id === featureId);
+            if (feature) {
+              setSelectedFeature(feature);
+              closeDependencyDetail();
+            }
+          }}
         />
       )}
 
