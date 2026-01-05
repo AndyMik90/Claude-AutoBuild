@@ -1,11 +1,43 @@
 import { writeFileSync } from 'fs';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type * as pty from '@lydell/node-pty';
 import type { TerminalProcess } from '../types';
 
 const mockGetClaudeCliInvocation = vi.fn();
 const mockGetClaudeProfileManager = vi.fn();
 const mockPersistSession = vi.fn();
 const mockReleaseSessionId = vi.fn();
+
+const createMockDisposable = (): pty.IDisposable => ({ dispose: vi.fn() });
+
+const createMockPty = (): pty.IPty => ({
+  pid: 123,
+  cols: 80,
+  rows: 24,
+  process: 'bash',
+  handleFlowControl: false,
+  onData: vi.fn(() => createMockDisposable()),
+  onExit: vi.fn(() => createMockDisposable()),
+  write: vi.fn(),
+  resize: vi.fn(),
+  pause: vi.fn(),
+  resume: vi.fn(),
+  kill: vi.fn(),
+  clear: vi.fn(),
+});
+
+const createMockTerminal = (overrides: Partial<TerminalProcess> = {}): TerminalProcess => ({
+  id: 'term-1',
+  pty: createMockPty(),
+  outputBuffer: '',
+  isClaudeMode: false,
+  claudeSessionId: undefined,
+  claudeProfileId: undefined,
+  title: 'Claude',
+  cwd: '/tmp/project',
+  projectPath: '/tmp/project',
+  ...overrides,
+});
 
 vi.mock('../../claude-cli-utils', () => ({
   getClaudeCliInvocation: mockGetClaudeCliInvocation,
@@ -34,6 +66,7 @@ describe('claude-integration-handler', () => {
     mockGetClaudeProfileManager.mockClear();
     mockPersistSession.mockClear();
     mockReleaseSessionId.mockClear();
+    vi.mocked(writeFileSync).mockClear();
   });
 
   it('uses the resolved CLI path and PATH prefix when invoking Claude', async () => {
@@ -49,16 +82,7 @@ describe('claude-integration-handler', () => {
     };
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
-    const terminal = {
-      id: 'term-1',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal();
 
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
@@ -85,16 +109,7 @@ describe('claude-integration-handler', () => {
     };
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
-    const terminal = {
-      id: 'term-err',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-err' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     expect(() => invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn())).toThrow('boom');
@@ -107,15 +122,11 @@ describe('claude-integration-handler', () => {
       throw new Error('boom');
     });
 
-    const terminal = {
+    const terminal = createMockTerminal({
       id: 'term-err-2',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
+      cwd: undefined,
       projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    });
 
     const { resumeClaude } = await import('../claude-integration-handler');
     expect(() => resumeClaude(terminal, 'abc123', () => null)).toThrow('boom');
@@ -143,16 +154,7 @@ describe('claude-integration-handler', () => {
       throw new Error('disk full');
     });
 
-    const terminal = {
-      id: 'term-err-3',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-err-3' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     expect(() => invokeClaude(terminal, '/tmp/project', 'prof-err', () => null, vi.fn())).toThrow('disk full');
@@ -181,16 +183,7 @@ describe('claude-integration-handler', () => {
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234);
 
-    const terminal = {
-      id: 'term-3',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-3' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', 'prof-1', () => null, vi.fn());
@@ -211,6 +204,51 @@ describe('claude-integration-handler', () => {
     nowSpy.mockRestore();
   });
 
+  it('prefers the temp token flow when profile has both oauth token and config dir', async () => {
+    const command = '/opt/claude/bin/claude';
+    const expectedTokenPath = "/tmp/.claude-token-5678";
+    const profileManager = {
+      getActiveProfile: vi.fn(),
+      getProfile: vi.fn(() => ({
+        id: 'prof-both',
+        name: 'Work',
+        isDefault: false,
+        oauthToken: 'token-value',
+        configDir: '/tmp/claude-config',
+      })),
+      getProfileToken: vi.fn(() => 'token-value'),
+      markProfileUsed: vi.fn(),
+    };
+
+    mockGetClaudeCliInvocation.mockReturnValue({
+      command,
+      env: { PATH: '/opt/claude/bin:/usr/bin' },
+    });
+    mockGetClaudeProfileManager.mockReturnValue(profileManager);
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(5678);
+
+    const terminal = createMockTerminal({ id: 'term-both' });
+
+    const { invokeClaude } = await import('../claude-integration-handler');
+    invokeClaude(terminal, '/tmp/project', 'prof-both', () => null, vi.fn());
+
+    expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
+      expectedTokenPath,
+      'export CLAUDE_CODE_OAUTH_TOKEN="token-value"\n',
+      { mode: 0o600 }
+    );
+    const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
+    expect(written).toContain(`source '${expectedTokenPath}'`);
+    expect(written).toContain(`rm -f '${expectedTokenPath}'`);
+    expect(written).toContain(`exec '${command}'`);
+    expect(written).not.toContain('CLAUDE_CONFIG_DIR=');
+    expect(profileManager.getProfile).toHaveBeenCalledWith('prof-both');
+    expect(mockPersistSession).toHaveBeenCalledWith(terminal);
+    expect(profileManager.markProfileUsed).not.toHaveBeenCalled();
+
+    nowSpy.mockRestore();
+  });
+
   it('handles missing profiles by falling back to the default command', async () => {
     const command = '/opt/claude/bin/claude';
     const profileManager = {
@@ -226,16 +264,7 @@ describe('claude-integration-handler', () => {
     });
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
-    const terminal = {
-      id: 'term-6',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-6' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', 'missing', () => null, vi.fn());
@@ -266,16 +295,7 @@ describe('claude-integration-handler', () => {
     });
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
-    const terminal = {
-      id: 'term-4',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-4' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', 'prof-2', () => null, vi.fn());
@@ -307,16 +327,7 @@ describe('claude-integration-handler', () => {
     });
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
-    const terminal = {
-      id: 'term-5',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
-      cwd: '/tmp/project',
-      projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    const terminal = createMockTerminal({ id: 'term-5' });
 
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', 'prof-3', () => null, vi.fn());
@@ -335,15 +346,11 @@ describe('claude-integration-handler', () => {
       env: { PATH: '/opt/claude/bin:/usr/bin' },
     });
 
-    const terminal = {
+    const terminal = createMockTerminal({
       id: 'term-2',
-      pty: { write: vi.fn() },
-      outputBuffer: '',
-      isClaudeMode: false,
-      claudeSessionId: undefined,
-      claudeProfileId: undefined,
+      cwd: undefined,
       projectPath: '/tmp/project',
-    } as unknown as TerminalProcess;
+    });
 
     const { resumeClaude } = await import('../claude-integration-handler');
     resumeClaude(terminal, 'abc123', () => null);
