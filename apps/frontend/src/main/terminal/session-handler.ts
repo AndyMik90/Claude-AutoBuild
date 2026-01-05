@@ -12,6 +12,48 @@ import { IPC_CHANNELS } from '../../shared/constants';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 /**
+ * Track session IDs that have been claimed by terminals to prevent race conditions.
+ * When multiple terminals invoke Claude simultaneously, this prevents them from
+ * all capturing the same session ID.
+ *
+ * Key: sessionId, Value: terminalId that claimed it
+ */
+const claimedSessionIds: Map<string, string> = new Map();
+
+/**
+ * Claim a session ID for a terminal. Returns true if successful, false if already claimed.
+ */
+export function claimSessionId(sessionId: string, terminalId: string): boolean {
+  const existingClaim = claimedSessionIds.get(sessionId);
+  if (existingClaim && existingClaim !== terminalId) {
+    debugLog('[SessionHandler] Session ID already claimed:', sessionId, 'by terminal:', existingClaim);
+    return false;
+  }
+  claimedSessionIds.set(sessionId, terminalId);
+  debugLog('[SessionHandler] Claimed session ID:', sessionId, 'for terminal:', terminalId);
+  return true;
+}
+
+/**
+ * Release a session ID claim when a terminal is destroyed or session changes.
+ */
+export function releaseSessionId(terminalId: string): void {
+  for (const [sessionId, claimedBy] of claimedSessionIds.entries()) {
+    if (claimedBy === terminalId) {
+      claimedSessionIds.delete(sessionId);
+      debugLog('[SessionHandler] Released session ID:', sessionId, 'from terminal:', terminalId);
+    }
+  }
+}
+
+/**
+ * Get all currently claimed session IDs (for exclusion during search).
+ */
+export function getClaimedSessionIds(): Set<string> {
+  return new Set(claimedSessionIds.keys());
+}
+
+/**
  * Get the Claude project slug from a project path.
  * Claude uses the full path with forward slashes replaced by dashes.
  */
@@ -56,9 +98,19 @@ export function findMostRecentClaudeSession(projectPath: string): string | null 
 }
 
 /**
- * Find a Claude session created/modified after a given timestamp
+ * Find a Claude session created/modified after a given timestamp.
+ * Excludes session IDs that have already been claimed by other terminals
+ * to prevent race conditions when multiple terminals invoke Claude simultaneously.
+ *
+ * @param projectPath - The project path to search sessions for
+ * @param afterTimestamp - Only consider sessions modified after this timestamp
+ * @param excludeSessionIds - Optional set of session IDs to exclude (already claimed)
  */
-export function findClaudeSessionAfter(projectPath: string, afterTimestamp: number): string | null {
+export function findClaudeSessionAfter(
+  projectPath: string,
+  afterTimestamp: number,
+  excludeSessionIds?: Set<string>
+): string | null {
   const slug = getClaudeProjectSlug(projectPath);
   const claudeProjectDir = path.join(os.homedir(), '.claude', 'projects', slug);
 
@@ -71,17 +123,22 @@ export function findClaudeSessionAfter(projectPath: string, afterTimestamp: numb
       .filter(f => f.endsWith('.jsonl'))
       .map(f => ({
         name: f,
+        sessionId: f.replace('.jsonl', ''),
         path: path.join(claudeProjectDir, f),
         mtime: fs.statSync(path.join(claudeProjectDir, f)).mtime.getTime()
       }))
       .filter(f => f.mtime > afterTimestamp)
+      // Exclude already-claimed session IDs to prevent race conditions
+      .filter(f => !excludeSessionIds || !excludeSessionIds.has(f.sessionId))
       .sort((a, b) => b.mtime - a.mtime);
 
     if (files.length === 0) {
       return null;
     }
 
-    return files[0].name.replace('.jsonl', '');
+    const sessionId = files[0].sessionId;
+    debugLog('[SessionHandler] Found unclaimed session after timestamp:', sessionId, 'excluded:', excludeSessionIds?.size ?? 0);
+    return sessionId;
   } catch (error) {
     debugError('[SessionHandler] Error finding Claude session:', error);
     return null;
@@ -184,7 +241,9 @@ export function getSessionsForDate(date: string, projectPath: string): TerminalS
 }
 
 /**
- * Attempt to capture Claude session ID by polling the session directory
+ * Attempt to capture Claude session ID by polling the session directory.
+ * Uses the claim mechanism to prevent race conditions when multiple terminals
+ * invoke Claude simultaneously - each terminal will get a unique session ID.
  */
 export function captureClaudeSessionId(
   terminalId: string,
@@ -201,31 +260,44 @@ export function captureClaudeSessionId(
 
     const terminal = terminals.get(terminalId);
     if (!terminal || !terminal.isClaudeMode) {
+      debugLog('[SessionHandler] Terminal no longer in Claude mode, stopping session capture:', terminalId);
       return;
     }
 
     if (terminal.claudeSessionId) {
+      debugLog('[SessionHandler] Terminal already has session ID, stopping capture:', terminalId);
       return;
     }
 
-    const sessionId = findClaudeSessionAfter(projectPath, startTime);
+    // Get currently claimed session IDs to exclude from search
+    const claimedIds = getClaimedSessionIds();
+    const sessionId = findClaudeSessionAfter(projectPath, startTime, claimedIds);
 
     if (sessionId) {
-      terminal.claudeSessionId = sessionId;
-      debugLog('[SessionHandler] Captured Claude session ID from directory:', sessionId);
+      // Try to claim this session ID - if another terminal beat us to it, keep searching
+      if (claimSessionId(sessionId, terminalId)) {
+        terminal.claudeSessionId = sessionId;
+        debugLog('[SessionHandler] Captured and claimed Claude session ID:', sessionId, 'for terminal:', terminalId);
 
-      if (terminal.projectPath) {
-        updateClaudeSessionId(terminal.projectPath, terminalId, sessionId);
-      }
+        if (terminal.projectPath) {
+          updateClaudeSessionId(terminal.projectPath, terminalId, sessionId);
+        }
 
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminalId, sessionId);
+        const win = getWindow();
+        if (win) {
+          win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminalId, sessionId);
+        }
+      } else {
+        // Session was claimed by another terminal, keep polling for a different one
+        debugLog('[SessionHandler] Session ID was claimed by another terminal, continuing to poll:', sessionId);
+        if (attempts < maxAttempts) {
+          setTimeout(checkForSession, 1000);
+        }
       }
     } else if (attempts < maxAttempts) {
       setTimeout(checkForSession, 1000);
     } else {
-      debugLog('[SessionHandler] Could not capture Claude session ID after', maxAttempts, 'attempts');
+      debugLog('[SessionHandler] Could not capture Claude session ID after', maxAttempts, 'attempts for terminal:', terminalId);
     }
   };
 
