@@ -8,7 +8,13 @@ import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
+import {
+  escapeShellArg,
+  escapeShellArgWindows,
+  escapeShellArgPowerShell,
+  detectShellType,
+  type ShellType
+} from '../../shared/utils/shell-escape';
 
 
 /**
@@ -327,19 +333,49 @@ export function registerTerminalHandlers(
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Build the login command with the profile's config dir
-        // Use platform-specific syntax and escaping for environment variables
+        // Detect the shell type to use appropriate escaping and syntax
+        const shell = process.platform === 'win32'
+          ? process.env.COMSPEC || 'cmd.exe'
+          : process.env.SHELL || '/bin/zsh';
+        const shellType: ShellType = detectShellType(shell);
+
+        debugLog('[IPC] Detected shell for login command:', { shell, shellType });
+
         let loginCommand: string;
         if (!profile.isDefault && profile.configDir) {
-          if (process.platform === 'win32') {
-            // SECURITY: Use Windows-specific escaping for cmd.exe
-            const escapedConfigDir = escapeShellArgWindows(profile.configDir);
-            // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
-          } else {
-            // SECURITY: Use POSIX escaping for bash/zsh
-            const escapedConfigDir = escapeShellArg(profile.configDir);
-            // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+          // Build shell-appropriate command based on detected shell type
+          switch (shellType) {
+            case 'powershell': {
+              // SECURITY: Use PowerShell-specific escaping
+              const escapedConfigDir = escapeShellArgPowerShell(profile.configDir);
+              // PowerShell syntax: $env:VAR = 'value'; command
+              loginCommand = `$env:CLAUDE_CONFIG_DIR = ${escapedConfigDir}; Write-Host "Config dir: $env:CLAUDE_CONFIG_DIR"; claude setup-token`;
+              break;
+            }
+            case 'cmd': {
+              // SECURITY: Use Windows cmd.exe escaping
+              const escapedConfigDir = escapeShellArgWindows(profile.configDir);
+              // cmd.exe syntax: set "VAR=value" && command
+              loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+              break;
+            }
+            case 'fish': {
+              // SECURITY: Use POSIX escaping (fish uses similar single-quote escaping)
+              const escapedConfigDir = escapeShellArg(profile.configDir);
+              // fish syntax: set -x VAR value; command
+              loginCommand = `set -x CLAUDE_CONFIG_DIR ${escapedConfigDir}; echo "Config dir: $CLAUDE_CONFIG_DIR"; and claude setup-token`;
+              break;
+            }
+            case 'bash':
+            case 'zsh':
+            case 'sh':
+            default: {
+              // SECURITY: Use POSIX escaping for bash/zsh/sh
+              const escapedConfigDir = escapeShellArg(profile.configDir);
+              // POSIX syntax: export VAR=value && command
+              loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+              break;
+            }
           }
         } else {
           loginCommand = 'claude setup-token';

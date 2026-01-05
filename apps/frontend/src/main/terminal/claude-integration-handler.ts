@@ -11,7 +11,14 @@ import { getClaudeProfileManager } from '../claude-profile-manager';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
-import { escapeShellArg, buildCdCommand } from '../../shared/utils/shell-escape';
+import {
+  escapeShellArg,
+  escapeShellArgPowerShell,
+  escapeShellArgWindows,
+  buildCdCommand,
+  buildCdCommandForShell,
+  type ShellType
+} from '../../shared/utils/shell-escape';
 import type {
   TerminalProcess,
   WindowGetter,
@@ -196,19 +203,127 @@ export function handleClaudeSessionId(
 }
 
 /**
+ * Build a shell-appropriate clear screen command.
+ *
+ * @param shell - The shell type
+ * @returns The clear screen command for the specified shell
+ */
+function buildClearCommand(shell: ShellType): string {
+  switch (shell) {
+    case 'powershell':
+      return 'Clear-Host; ';
+    case 'cmd':
+      return 'cls & ';
+    case 'bash':
+    case 'zsh':
+    case 'fish':
+    case 'sh':
+    default:
+      return 'clear && ';
+  }
+}
+
+/**
+ * Build a shell-appropriate command for setting an environment variable and running claude.
+ * Used for profile-based invocation with configDir.
+ *
+ * @param configDir - The config directory path
+ * @param shell - The shell type
+ * @param cwdCommand - Pre-built cd command for the shell
+ * @returns The complete command string for the specified shell
+ */
+function buildConfigDirCommand(configDir: string, shell: ShellType, cwdCommand: string): string {
+  const clearCmd = buildClearCommand(shell);
+
+  switch (shell) {
+    case 'powershell': {
+      // PowerShell: Set environment variable using $env: syntax
+      // Single quotes prevent variable expansion, escape single quotes by doubling
+      const escapedDir = escapeShellArgPowerShell(configDir);
+      return `${clearCmd}${cwdCommand}$env:CLAUDE_CONFIG_DIR = ${escapedDir}; claude\r`;
+    }
+    case 'cmd': {
+      // cmd.exe: Use set command with double quotes
+      const escapedDir = escapeShellArgWindows(configDir);
+      return `${clearCmd}${cwdCommand}set "CLAUDE_CONFIG_DIR=${escapedDir}" & claude\r`;
+    }
+    case 'bash':
+    case 'zsh':
+    case 'fish':
+    case 'sh':
+    default: {
+      // POSIX shells: Use HISTFILE= HISTCONTROL=ignorespace to avoid history
+      // bash -c ensures isolated environment
+      const escapedDir = escapeShellArg(configDir);
+      return `${clearCmd}${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedDir} bash -c 'exec claude'\r`;
+    }
+  }
+}
+
+/**
+ * Build a shell-appropriate command for setting OAuth token from temp file and running claude.
+ * Used for profile-based invocation with OAuth token.
+ *
+ * Note: For PowerShell and cmd.exe, we write the token directly as an environment variable
+ * instead of sourcing a file, since those shells don't have a direct equivalent to bash's source.
+ *
+ * @param token - The OAuth token
+ * @param tempFile - Path to temp file (used for bash/zsh)
+ * @param shell - The shell type
+ * @param cwdCommand - Pre-built cd command for the shell
+ * @returns The complete command string for the specified shell
+ */
+function buildTokenCommand(token: string, tempFile: string, shell: ShellType, cwdCommand: string): string {
+  const clearCmd = buildClearCommand(shell);
+
+  switch (shell) {
+    case 'powershell': {
+      // PowerShell: Set environment variable directly
+      // Using single quotes prevents variable expansion
+      const escapedToken = escapeShellArgPowerShell(token);
+      return `${clearCmd}${cwdCommand}$env:CLAUDE_CODE_OAUTH_TOKEN = ${escapedToken}; claude\r`;
+    }
+    case 'cmd': {
+      // cmd.exe: Set environment variable using set command
+      const escapedToken = escapeShellArgWindows(token);
+      return `${clearCmd}${cwdCommand}set "CLAUDE_CODE_OAUTH_TOKEN=${escapedToken}" & claude\r`;
+    }
+    case 'bash':
+    case 'zsh':
+    case 'fish':
+    case 'sh':
+    default:
+      // POSIX shells: Use temp file method with history protection
+      // The tempFile is created by the caller with the export command
+      return `${clearCmd}${cwdCommand}HISTFILE= HISTCONTROL=ignorespace bash -c 'source "${tempFile}" && rm -f "${tempFile}" && exec claude'\r`;
+  }
+}
+
+/**
  * Invoke Claude with optional profile override
+ *
+ * @param terminal - The terminal process to invoke Claude in
+ * @param cwd - Working directory to change to before invoking Claude
+ * @param profileId - Optional profile ID to use for Claude invocation
+ * @param getWindow - Function to get the current window
+ * @param onSessionCapture - Callback for session capture events
+ * @param shellType - Optional shell type for generating shell-appropriate commands.
+ *                    If provided, uses shell-specific command syntax (e.g., PowerShell, cmd).
+ *                    Defaults to POSIX-style commands if not specified.
  */
 export function invokeClaude(
   terminal: TerminalProcess,
   cwd: string | undefined,
   profileId: string | undefined,
   getWindow: WindowGetter,
-  onSessionCapture: (terminalId: string, projectPath: string, startTime: number) => void
+  onSessionCapture: (terminalId: string, projectPath: string, startTime: number) => void,
+  shellType?: ShellType
 ): void {
   debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE START ==========');
   debugLog('[ClaudeIntegration:invokeClaude] Terminal ID:', terminal.id);
   debugLog('[ClaudeIntegration:invokeClaude] Requested profile ID:', profileId);
   debugLog('[ClaudeIntegration:invokeClaude] CWD:', cwd);
+  debugLog('[ClaudeIntegration:invokeClaude] Shell type:', shellType || 'default (POSIX)');
 
   terminal.isClaudeMode = true;
   terminal.claudeSessionId = undefined;
@@ -233,7 +348,10 @@ export function invokeClaude(
   });
 
   // Use safe shell escaping to prevent command injection
-  const cwdCommand = buildCdCommand(cwd);
+  // If shellType is provided, use shell-appropriate command syntax
+  const cwdCommand = shellType
+    ? buildCdCommandForShell(cwd, shellType)
+    : buildCdCommand(cwd);
   const needsEnvOverride = profileId && profileId !== previousProfileId;
 
   debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
@@ -250,29 +368,42 @@ export function invokeClaude(
     });
 
     if (token) {
-      const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}`);
-      debugLog('[ClaudeIntegration:invokeClaude] Writing token to temp file:', tempFile);
-      fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN="${token}"\n`, { mode: 0o600 });
+      // Determine effective shell type (default to bash if not specified)
+      const effectiveShell: ShellType = shellType || 'bash';
+      debugLog('[ClaudeIntegration:invokeClaude] Using shell type for token method:', effectiveShell);
 
-      // Clear terminal and run command without adding to shell history:
-      // - HISTFILE= disables history file writing for the current command
-      // - HISTCONTROL=ignorespace causes commands starting with space to be ignored
-      // - Leading space ensures the command is ignored even if HISTCONTROL was already set
-      // - Uses subshell (...) to isolate environment changes
-      // This prevents temp file paths from appearing in shell history
-      const command = `clear && ${cwdCommand} HISTFILE= HISTCONTROL=ignorespace bash -c 'source "${tempFile}" && rm -f "${tempFile}" && exec claude'\r`;
-      debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
-      terminal.pty.write(command);
-      debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (temp file) ==========');
+      // For POSIX shells, we use a temp file to avoid putting the token in the command line
+      // For PowerShell/cmd, we set the env var directly (more secure than temp file for those shells)
+      if (effectiveShell === 'bash' || effectiveShell === 'zsh' || effectiveShell === 'fish' || effectiveShell === 'sh') {
+        const tempFile = path.join(os.tmpdir(), `.claude-token-${Date.now()}`);
+        debugLog('[ClaudeIntegration:invokeClaude] Writing token to temp file:', tempFile);
+        // SECURITY: Use single quotes to prevent any variable expansion or command substitution
+        // Escape any single quotes in the token using POSIX escaping: ' → '\''
+        const escapedTokenForExport = token.replace(/'/g, "'\\''");
+        fs.writeFileSync(tempFile, `export CLAUDE_CODE_OAUTH_TOKEN='${escapedTokenForExport}'\n`, { mode: 0o600 });
+
+        // Build shell-appropriate command using helper function
+        const command = buildTokenCommand(token, tempFile, effectiveShell, cwdCommand);
+        debugLog('[ClaudeIntegration:invokeClaude] Executing command (temp file method, history-safe)');
+        terminal.pty.write(command);
+      } else {
+        // PowerShell/cmd: Set token directly as environment variable
+        // These shells don't have a direct equivalent to bash's source command
+        const command = buildTokenCommand(token, '', effectiveShell, cwdCommand);
+        debugLog('[ClaudeIntegration:invokeClaude] Executing command (direct env method for', effectiveShell + ')');
+        terminal.pty.write(command);
+      }
+
+      debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (token method) ==========');
       return;
     } else if (activeProfile.configDir) {
-      // Clear terminal and run command without adding to shell history:
-      // Same history-disabling technique as temp file method above
-      // SECURITY: Use escapeShellArg for configDir to prevent command injection
-      // Set CLAUDE_CONFIG_DIR as env var before bash -c to avoid embedding user input in the command string
-      const escapedConfigDir = escapeShellArg(activeProfile.configDir);
-      const command = `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} bash -c 'exec claude'\r`;
-      debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method, history-safe)');
+      // Determine effective shell type (default to bash if not specified)
+      const effectiveShell: ShellType = shellType || 'bash';
+      debugLog('[ClaudeIntegration:invokeClaude] Using shell type for configDir method:', effectiveShell);
+
+      // Build shell-appropriate command using helper function
+      const command = buildConfigDirCommand(activeProfile.configDir, effectiveShell, cwdCommand);
+      debugLog('[ClaudeIntegration:invokeClaude] Executing command (configDir method for', effectiveShell + ')');
       terminal.pty.write(command);
       debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (configDir) ==========');
       return;

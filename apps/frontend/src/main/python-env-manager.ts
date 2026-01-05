@@ -1,9 +1,9 @@
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execSync, execFileSync, ChildProcess } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
-import { findPythonCommand, getBundledPythonPath } from './python-detector';
+import { findPythonCommand, getBundledPythonPath, parsePythonCommand } from './python-detector';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -201,9 +201,12 @@ if sys.version_info >= (3, 12):
     try {
       // Get the actual executable path from the command
       // For commands like "py -3", we need to resolve to the actual executable
-      const pythonPath = execSync(`${pythonCmd} -c "import sys; print(sys.executable)"`, {
+      // Use execFileSync to avoid shell interpretation issues with paths containing spaces
+      const [cmd, cmdArgs] = parsePythonCommand(pythonCmd);
+      const pythonPath = execFileSync(cmd, [...cmdArgs, '-c', 'import sys; print(sys.executable)'], {
         stdio: 'pipe',
-        timeout: 5000
+        timeout: 5000,
+        shell: false
       }).toString().trim();
 
       console.log(`[PythonEnvManager] Found Python at: ${pythonPath}`);
