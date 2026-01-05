@@ -25,6 +25,18 @@ import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 
+// Import Korean translation resources
+import koCommon from './locales/ko/common.json';
+import koNavigation from './locales/ko/navigation.json';
+import koSettings from './locales/ko/settings.json';
+import koTasks from './locales/ko/tasks.json';
+import koWelcome from './locales/ko/welcome.json';
+import koOnboarding from './locales/ko/onboarding.json';
+import koDialogs from './locales/ko/dialogs.json';
+import koGitlab from './locales/ko/gitlab.json';
+import koTaskReview from './locales/ko/taskReview.json';
+import koTerminal from './locales/ko/terminal.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -51,6 +63,18 @@ export const resources = {
     gitlab: frGitlab,
     taskReview: frTaskReview,
     terminal: frTerminal
+  },
+  ko: {
+    common: koCommon,
+    navigation: koNavigation,
+    settings: koSettings,
+    tasks: koTasks,
+    welcome: koWelcome,
+    onboarding: koOnboarding,
+    dialogs: koDialogs,
+    gitlab: koGitlab,
+    taskReview: koTaskReview,
+    terminal: koTerminal
   }
 } as const;
 

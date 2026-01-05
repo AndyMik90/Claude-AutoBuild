@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "project": "프로젝트",
+    "tools": "도구"
+  },
+  "items": {
+    "kanban": "칸반 보드 (작업 현황판)",
+    "terminals": "에이전트 터미널",
+    "insights": "인사이트 (분석)",
+    "roadmap": "로드맵 (계획)",
+    "ideation": "아이디어 (구상)",
+    "changelog": "변경 로그",
+    "context": "컨텍스트 (문맥)",
+    "githubIssues": "GitHub 이슈",
+    "githubPRs": "GitHub PR",
+    "gitlabIssues": "GitLab 이슈",
+    "gitlabMRs": "GitLab MR",
+    "worktrees": "워크트리 (작업 공간)",
+    "agentTools": "MCP 개요 (도구 목록)"
+  },
+  "actions": {
+    "settings": "설정",
+    "help": "도움말 및 피드백",
+    "newTask": "새 작업"
+  },
+  "tooltips": {
+    "settings": "애플리케이션 설정",
+    "help": "도움말 및 피드백"
+  },
+  "messages": {
+    "initializeToCreateTasks": "작업을 생성하려면 Auto Claude를 초기화하세요"
+  },
+  "claudeCode": {
+    "checking": "Claude Code 확인 중...",
+    "upToDate": "Claude Code가 최신 상태입니다",
+    "updateAvailable": "Claude Code 업데이트 사용 가능",
+    "notInstalled": "Claude Code가 설치되지 않음",
+    "error": "Claude Code 확인 오류",
+    "installed": "설치됨",
+    "outdated": "업데이트 가능",
+    "missing": "설치되지 않음",
+    "current": "현재",
+    "latest": "최신",
+    "lastChecked": "마지막 확인",
+    "learnMore": "Claude Code에 대해 자세히 알아보기",
+    "updateWarningTitle": "Claude Code를 업데이트하시겠습니까?",
+    "updateWarningDescription": "업데이트하면 실행 중인 모든 Claude Code 세션이 닫힙니다. 해당 세션의 저장되지 않은 작업이 손실될 수 있습니다. 계속하기 전에 작업을 저장했는지 확인하세요.",
+    "updateAnyway": "업데이트 진행"
+  }
+}
