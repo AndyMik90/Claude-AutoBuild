@@ -518,7 +518,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onStatusChange }
                       key={status}
                       onClick={() => onStatusChange(status)}
                     >
-                      {TASK_STATUS_LABELS[status]}
+                      {t(TASK_STATUS_LABELS[status])}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>

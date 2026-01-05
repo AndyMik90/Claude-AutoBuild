@@ -48,6 +48,13 @@
     "title": "Aucune tâche",
     "description": "Créez votre première tâche pour commencer"
   },
+  "columns": {
+    "backlog": "Planification",
+    "in_progress": "En cours",
+    "ai_review": "Révision IA",
+    "human_review": "Révision humaine",
+    "done": "Terminé"
+  },
   "kanban": {
     "emptyBacklog": "Aucune tâche planifiée",
     "emptyBacklogHint": "Ajoutez une tâche pour commencer",

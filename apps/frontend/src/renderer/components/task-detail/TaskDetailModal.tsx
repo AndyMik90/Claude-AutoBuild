@@ -289,7 +289,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             variant={task.status === 'done' ? 'success' : task.status === 'human_review' ? 'purple' : task.status === 'in_progress' ? 'info' : 'secondary'}
                             className={cn('text-xs', (task.status === 'in_progress' && !state.isStuck) && 'status-running')}
                           >
-                            {TASK_STATUS_LABELS[task.status]}
+                            {t(TASK_STATUS_LABELS[task.status])}
                           </Badge>
                           {task.status === 'human_review' && task.reviewReason && (
                             <Badge

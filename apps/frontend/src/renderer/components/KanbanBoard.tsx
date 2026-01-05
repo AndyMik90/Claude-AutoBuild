@@ -218,7 +218,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <h2 className="font-semibold text-sm text-foreground">
-            {TASK_STATUS_LABELS[status]}
+            {t(TASK_STATUS_LABELS[status])}
           </h2>
           <span className="column-count-badge">
             {tasks.length}
