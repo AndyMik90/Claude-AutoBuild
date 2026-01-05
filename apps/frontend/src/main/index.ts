@@ -37,6 +37,23 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import type { AppSettings } from '../shared/types';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Window sizing constants
+// ─────────────────────────────────────────────────────────────────────────────
+/** Preferred window width on startup */
+const WINDOW_PREFERRED_WIDTH: number = 1400;
+/** Preferred window height on startup */
+const WINDOW_PREFERRED_HEIGHT: number = 900;
+/** Absolute minimum window width (supports high DPI displays with scaling) */
+const WINDOW_MIN_WIDTH: number = 800;
+/** Absolute minimum window height (supports high DPI displays with scaling) */
+const WINDOW_MIN_HEIGHT: number = 500;
+/** Margin from screen edges to avoid edge-to-edge windows */
+const WINDOW_SCREEN_MARGIN: number = 20;
+/** Default screen dimensions used as fallback when screen.getPrimaryDisplay() fails */
+const DEFAULT_SCREEN_WIDTH: number = 1920;
+const DEFAULT_SCREEN_HEIGHT: number = 1080;
+
 // Setup error logging early (captures uncaught exceptions)
 setupErrorLogging();
 
@@ -107,28 +124,44 @@ let terminalManager: TerminalManager | null = null;
 
 function createWindow(): void {
   // Get the primary display's work area (accounts for taskbar, dock, etc.)
-  const { workAreaSize } = screen.getPrimaryDisplay();
-
-  // Define preferred and minimum dimensions
-  // Define preferred and minimum dimensions
-  const PREFERRED_WIDTH = 1400;
-  const PREFERRED_HEIGHT = 900;
-  // Use smaller minimums to support high DPI displays with scaling (e.g., 4K at 300%)
-  const ABSOLUTE_MIN_WIDTH = 800;
-  const ABSOLUTE_MIN_HEIGHT = 500;
+  // Wrapped in try/catch to handle potential failures with fallback to safe defaults
+  let workAreaSize: { width: number; height: number };
+  try {
+    const display = screen.getPrimaryDisplay();
+    // Validate the returned object has expected structure with valid dimensions
+    if (
+      display &&
+      display.workAreaSize &&
+      typeof display.workAreaSize.width === 'number' &&
+      typeof display.workAreaSize.height === 'number' &&
+      display.workAreaSize.width > 0 &&
+      display.workAreaSize.height > 0
+    ) {
+      workAreaSize = display.workAreaSize;
+    } else {
+      console.error(
+        '[main] screen.getPrimaryDisplay() returned unexpected structure:',
+        JSON.stringify(display)
+      );
+      workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+    }
+  } catch (error: unknown) {
+    console.error('[main] Failed to get primary display, using fallback dimensions:', error);
+    workAreaSize = { width: DEFAULT_SCREEN_WIDTH, height: DEFAULT_SCREEN_HEIGHT };
+  }
 
   // Calculate available space with a small margin to avoid edge-to-edge windows
-  const SCREEN_MARGIN = 20;
-  const availableWidth = workAreaSize.width - SCREEN_MARGIN;
-  const availableHeight = workAreaSize.height - SCREEN_MARGIN;
+  const availableWidth: number = workAreaSize.width - WINDOW_SCREEN_MARGIN;
+  const availableHeight: number = workAreaSize.height - WINDOW_SCREEN_MARGIN;
 
   // Calculate actual dimensions (preferred, but capped to margin-adjusted available space)
-  const width = Math.min(preferredWidth, availableWidth);
-  const height = Math.min(preferredHeight, availableHeight);
+  const width: number = Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
+  const height: number = Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
 
   // Ensure minimum dimensions don't exceed the actual initial window size
-  const minWidth = Math.min(absoluteMinWidth, width);
-  const minHeight = Math.min(absoluteMinHeight, height);
+  const minWidth: number = Math.min(WINDOW_MIN_WIDTH, width);
+  const minHeight: number = Math.min(WINDOW_MIN_HEIGHT, height);
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width,
