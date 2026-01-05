@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
 import { findPythonCommand, parsePythonCommand } from './python-detector';
-import { getConfiguredPythonPath } from './python-env-manager';
+import { getConfiguredPythonPath, pythonEnvManager } from './python-env-manager';
 import { getMemoriesDir } from './config-paths';
 import type { MemoryEpisode } from '../shared/types';
 
@@ -134,6 +134,8 @@ async function executeQuery(
     const proc = spawn(pythonExe, fullArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
+      // Use sanitized Python environment to prevent PYTHONHOME contamination
+      env: pythonEnvManager.getPythonEnv(),
     });
 
     let stdout = '';
@@ -193,7 +195,8 @@ async function executeSemanticQuery(
   const [pythonExe, baseArgs] = parsePythonCommand(pythonCmd);
 
   // Build environment with embedder configuration
-  const env: Record<string, string | undefined> = { ...process.env };
+  // Start with sanitized Python env to prevent PYTHONHOME contamination
+  const env: Record<string, string> = { ...pythonEnvManager.getPythonEnv() };
 
   // Set the embedder provider
   env.GRAPHITI_EMBEDDER_PROVIDER = embedderConfig.provider;

@@ -274,6 +274,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  // Anonymous error reporting (Sentry) - enabled by default to help improve the app
+  sentryEnabled?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
@@ -291,28 +293,4 @@ export interface SourceEnvCheckResult {
   hasToken: boolean;
   sourcePath?: string;
   error?: string;
-}
-
-// Auto Claude Source Update Types
-export interface AutoBuildSourceUpdateCheck {
-  updateAvailable: boolean;
-  currentVersion: string;
-  latestVersion?: string;
-  releaseNotes?: string;
-  releaseUrl?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateResult {
-  success: boolean;
-  version?: string;
-  error?: string;
-}
-
-export interface AutoBuildSourceUpdateProgress {
-  stage: 'checking' | 'downloading' | 'extracting' | 'complete' | 'error';
-  percent?: number;
-  message: string;
-  /** New version after successful update - used to refresh UI */
-  newVersion?: string;
 }
