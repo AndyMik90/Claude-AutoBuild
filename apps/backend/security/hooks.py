@@ -4,17 +4,23 @@ Security Hooks
 
 Pre-tool-use hooks that validate bash commands for security.
 Main enforcement point for the security system.
+
+Security Modes:
+- Normal mode: All BASE_COMMANDS allowed, basic validators
+- Strict mode: Dangerous commands blocked, network commands validated
+  Enable with: SECURITY_STRICT_MODE=true
 """
 
 import os
 from pathlib import Path
 from typing import Any
 
-from project_analyzer import BASE_COMMANDS, SecurityProfile, is_command_allowed
+from project.command_registry.base import get_base_commands
+from project_analyzer import SecurityProfile, is_command_allowed
 
 from .parser import extract_commands, get_command_for_validation, split_command_segments
 from .profile import get_security_profile
-from .validator import VALIDATORS
+from .validator import get_validators
 
 
 async def bash_security_hook(
@@ -76,7 +82,7 @@ async def bash_security_hook(
         # If profile creation fails, fall back to base commands only
         print(f"Warning: Could not load security profile: {e}")
         profile = SecurityProfile()
-        profile.base_commands = BASE_COMMANDS.copy()
+        profile.base_commands = get_base_commands()
 
     # Extract all commands from the command string
     commands = extract_commands(command)
@@ -91,8 +97,8 @@ async def bash_security_hook(
     # Split into segments for per-command validation
     segments = split_command_segments(command)
 
-    # Get all allowed commands
-    allowed = profile.get_all_allowed_commands()
+    # Get validators based on security mode
+    validators = get_validators()
 
     # Check each command against the allowlist
     for cmd in commands:
@@ -106,12 +112,12 @@ async def bash_security_hook(
             }
 
         # Additional validation for sensitive commands
-        if cmd in VALIDATORS:
+        if cmd in validators:
             cmd_segment = get_command_for_validation(cmd, segments)
             if not cmd_segment:
                 cmd_segment = command
 
-            validator = VALIDATORS[cmd]
+            validator = validators[cmd]
             allowed, reason = validator(cmd_segment)
             if not allowed:
                 return {"decision": "block", "reason": reason}
@@ -143,18 +149,19 @@ def validate_command(
         return False, "Could not parse command"
 
     segments = split_command_segments(command)
+    validators = get_validators()
 
     for cmd in commands:
         is_allowed_result, reason = is_command_allowed(cmd, profile)
         if not is_allowed_result:
             return False, reason
 
-        if cmd in VALIDATORS:
+        if cmd in validators:
             cmd_segment = get_command_for_validation(cmd, segments)
             if not cmd_segment:
                 cmd_segment = command
 
-            validator = VALIDATORS[cmd]
+            validator = validators[cmd]
             allowed, reason = validator(cmd_segment)
             if not allowed:
                 return False, reason
