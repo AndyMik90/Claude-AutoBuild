@@ -227,16 +227,20 @@ export function Sidebar({
     }
   };
 
+  const showSaveGitPreferenceError = () => {
+    toast({
+      title: t('common:labels.error'),
+      description: t('dialogs:addProject.failedToSaveGitPreference'),
+      variant: 'destructive'
+    });
+  };
+
   const handleGitSetupSkip = async () => {
     if (!selectedProject) return;
     try {
       const success = await updateProjectSettings(selectedProject.id, { useGit: false });
       if (!success) {
-        toast({
-          title: t('common:labels.error'),
-          description: t('dialogs:addProject.failedToSaveGitPreference'),
-          variant: 'destructive'
-        });
+        showSaveGitPreferenceError();
         return;
       }
       setShowGitSetupModal(false);
@@ -246,11 +250,7 @@ export function Sidebar({
         useGit: false,
         error
       });
-      toast({
-        title: t('common:labels.error'),
-        description: t('dialogs:addProject.failedToSaveGitPreference'),
-        variant: 'destructive'
-      });
+      showSaveGitPreferenceError();
     }
   };
 

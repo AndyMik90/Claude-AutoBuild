@@ -135,7 +135,6 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
               error: err
             });
             setError(t('addProject.failedToSaveGitPreference'));
-            return;
           }
         }
         // For new projects with git init, set main branch

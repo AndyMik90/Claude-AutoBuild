@@ -110,19 +110,7 @@ describe('Sidebar', () => {
 
   it('skips git setup checks when project useGit is false', async () => {
     const project = createTestProject({
-      settings: {
-        model: 'opus',
-        memoryBackend: 'file',
-        linearSync: false,
-        notifications: {
-          onTaskComplete: true,
-          onTaskFailed: true,
-          onReviewNeeded: true,
-          sound: false
-        },
-        graphitiMcpEnabled: true,
-        useGit: false
-      }
+      settings: { useGit: false }
     });
 
     const projectState = {
@@ -152,19 +140,7 @@ describe('Sidebar', () => {
 
   it('checks git status when project useGit is undefined', async () => {
     const project = createTestProject({
-      settings: {
-        model: 'opus',
-        memoryBackend: 'file',
-        linearSync: false,
-        notifications: {
-          onTaskComplete: true,
-          onTaskFailed: true,
-          onReviewNeeded: true,
-          sound: false
-        },
-        graphitiMcpEnabled: true,
-        useGit: undefined
-      }
+      settings: { useGit: undefined }
     });
 
     const projectState = {
