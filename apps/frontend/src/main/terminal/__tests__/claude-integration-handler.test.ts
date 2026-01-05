@@ -1,3 +1,4 @@
+import { writeFileSync } from 'fs';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { TerminalProcess } from '../types';
 
@@ -108,6 +109,11 @@ describe('claude-integration-handler', () => {
     const { invokeClaude } = await import('../claude-integration-handler');
     invokeClaude(terminal, '/tmp/project', 'prof-1', () => null, vi.fn());
 
+    expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
+      expectedTokenPath,
+      'export CLAUDE_CODE_OAUTH_TOKEN="token-value"\n',
+      { mode: 0o600 }
+    );
     const written = vi.mocked(terminal.pty.write).mock.calls[0][0] as string;
     expect(written).toContain("HISTFILE= HISTCONTROL=ignorespace ");
     expect(written).toContain(`source '${expectedTokenPath}'`);
