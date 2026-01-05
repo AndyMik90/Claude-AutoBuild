@@ -32,6 +32,7 @@ export interface SettingsAPI {
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
+  getSentryConfig: () => Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -71,5 +72,9 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Get Sentry DSN from main process (loaded from environment variable)
   getSentryDsn: (): Promise<string> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_DSN)
+    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_DSN),
+
+  // Get full Sentry config from main process (DSN + sample rates)
+  getSentryConfig: (): Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_CONFIG)
 });

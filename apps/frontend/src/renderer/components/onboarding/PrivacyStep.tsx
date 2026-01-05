@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Shield, Info, Check } from 'lucide-react';
+import { Shield, Info, Check, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Switch } from '../ui/switch';
@@ -23,20 +23,27 @@ export function PrivacyStep({ onNext, onBack }: PrivacyStepProps) {
   const { settings, updateSettings } = useSettingsStore();
   const [sentryEnabled, setSentryEnabled] = useState(settings.sentryEnabled ?? true);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleToggle = (checked: boolean) => {
     setSentryEnabled(checked);
+    setError(null); // Clear error when user interacts
   };
 
   const handleSave = async () => {
     setIsSaving(true);
+    setError(null);
     try {
       const result = await window.electronAPI.saveSettings({ sentryEnabled });
       if (result?.success) {
         updateSettings({ sentryEnabled });
         notifySentryStateChanged(sentryEnabled);
         onNext();
+      } else {
+        setError(t('onboarding:privacy.saveFailed', 'Failed to save privacy settings. Please try again.'));
       }
+    } catch (err) {
+      setError(t('onboarding:privacy.saveFailed', 'Failed to save privacy settings. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -124,6 +131,14 @@ export function PrivacyStep({ onNext, onBack }: PrivacyStepProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="flex items-start gap-2 p-3 mt-6 rounded-md bg-destructive/10 text-destructive text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            {error}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center mt-10 pt-6 border-t border-border">

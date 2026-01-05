@@ -56,17 +56,20 @@ export interface SentryErrorEvent {
 export function maskUserPaths(text: string): string {
   if (!text) return text;
 
-  // macOS: /Users/username/...
-  text = text.replace(/\/Users\/[^/]+\//g, '/Users/***/');
+  // macOS: /Users/username/... or /Users/username (at end of string)
+  // Uses lookahead to match with or without trailing slash
+  text = text.replace(/\/Users\/[^/]+(?=\/|$)/g, '/Users/***');
 
-  // Windows: C:\Users\username\...
-  text = text.replace(/[A-Z]:\\Users\\[^\\]+\\/gi, (match: string) => {
+  // Windows: C:\Users\username\... or C:\Users\username (at end of string)
+  // Uses lookahead to match with or without trailing backslash
+  text = text.replace(/[A-Z]:\\Users\\[^\\]+(?=\\|$)/gi, (match: string) => {
     const drive = match[0];
-    return `${drive}:\\Users\\***\\`;
+    return `${drive}:\\Users\\***`;
   });
 
-  // Linux: /home/username/...
-  text = text.replace(/\/home\/[^/]+\//g, '/home/***/');
+  // Linux: /home/username/... or /home/username (at end of string)
+  // Uses lookahead to match with or without trailing slash
+  text = text.replace(/\/home\/[^/]+(?=\/|$)/g, '/home/***');
 
   return text;
 }

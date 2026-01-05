@@ -28,14 +28,17 @@ export function DebugSettings() {
 
   // Handle Sentry toggle
   const handleSentryToggle = async (checked: boolean) => {
+    setError(null);
     try {
       const result = await window.electronAPI.saveSettings({ sentryEnabled: checked });
       if (result.success) {
         updateSettings({ sentryEnabled: checked });
         notifySentryStateChanged(checked);
+      } else {
+        setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
       }
     } catch (err) {
-      console.error('Failed to save Sentry setting:', err);
+      setError(t('debug.errorReporting.saveFailed', 'Failed to save error reporting setting'));
     }
   };
 

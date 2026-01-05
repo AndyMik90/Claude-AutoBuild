@@ -43,16 +43,54 @@ function getSentryDsn(): string {
   return process.env.SENTRY_DSN || '';
 }
 
-// Cache the DSN so renderer can access it via IPC
+/**
+ * Get trace sample rate from environment variable
+ * Controls performance monitoring sampling (0.0 to 1.0)
+ * Default: 0.1 (10%) in production, 0 in development
+ */
+function getTracesSampleRate(): number {
+  const envValue = process.env.SENTRY_TRACES_SAMPLE_RATE;
+  if (envValue !== undefined) {
+    const parsed = parseFloat(envValue);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+      return parsed;
+    }
+  }
+  // Default: 10% in production, 0 in dev
+  return app.isPackaged ? PRODUCTION_TRACE_SAMPLE_RATE : 0;
+}
+
+/**
+ * Get profile sample rate from environment variable
+ * Controls profiling sampling relative to traces (0.0 to 1.0)
+ * Default: 0.1 (10%) in production, 0 in development
+ */
+function getProfilesSampleRate(): number {
+  const envValue = process.env.SENTRY_PROFILES_SAMPLE_RATE;
+  if (envValue !== undefined) {
+    const parsed = parseFloat(envValue);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+      return parsed;
+    }
+  }
+  // Default: 10% in production, 0 in dev
+  return app.isPackaged ? PRODUCTION_TRACE_SAMPLE_RATE : 0;
+}
+
+// Cache config so renderer can access it via IPC
 let cachedDsn: string = '';
+let cachedTracesSampleRate: number = 0;
+let cachedProfilesSampleRate: number = 0;
 
 /**
  * Initialize Sentry for the main process
  * Called early in app startup, before window creation
  */
 export function initSentryMain(): void {
-  // Get DSN from environment variable
+  // Get configuration from environment variables
   cachedDsn = getSentryDsn();
+  cachedTracesSampleRate = getTracesSampleRate();
+  cachedProfilesSampleRate = getProfilesSampleRate();
 
   // Read initial setting from disk synchronously
   const savedSettings = readSettingsFile();
@@ -81,8 +119,9 @@ export function initSentryMain(): void {
       return processEvent(event as SentryErrorEvent) as Sentry.ErrorEvent;
     },
 
-    // Sample rate for performance monitoring (10% in production)
-    tracesSampleRate: app.isPackaged ? PRODUCTION_TRACE_SAMPLE_RATE : 0,
+    // Sample rates from environment variables (default: 10% in production, 0 in dev)
+    tracesSampleRate: cachedTracesSampleRate,
+    profilesSampleRate: cachedProfilesSampleRate,
 
     // Only enable if we have a DSN and are in production (or SENTRY_DEV is set)
     enabled: shouldEnable,
@@ -94,13 +133,21 @@ export function initSentryMain(): void {
     console.log(`[Sentry] Error reporting ${enabled ? 'enabled' : 'disabled'} (via IPC)`);
   });
 
-  // IPC handler for renderer to get the DSN
+  // IPC handler for renderer to get Sentry config
   ipcMain.handle(IPC_CHANNELS.GET_SENTRY_DSN, () => {
     return cachedDsn;
   });
 
+  ipcMain.handle(IPC_CHANNELS.GET_SENTRY_CONFIG, () => {
+    return {
+      dsn: cachedDsn,
+      tracesSampleRate: cachedTracesSampleRate,
+      profilesSampleRate: cachedProfilesSampleRate,
+    };
+  });
+
   if (hasDsn) {
-    console.log(`[Sentry] Main process initialized (enabled: ${sentryEnabledState}, packaged: ${app.isPackaged})`);
+    console.log(`[Sentry] Main process initialized (enabled: ${sentryEnabledState}, traces: ${cachedTracesSampleRate}, profiles: ${cachedProfilesSampleRate})`);
   }
 }
 

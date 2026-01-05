@@ -66,22 +66,22 @@ export async function initSentryRenderer(): Promise<void> {
     return;
   }
 
-  // Get DSN from main process (it reads from environment variable)
-  let dsn = '';
+  // Get full Sentry config from main process (DSN + sample rates from env vars)
+  let config = { dsn: '', tracesSampleRate: 0, profilesSampleRate: 0 };
   try {
-    dsn = await window.electronAPI.getSentryDsn();
+    config = await window.electronAPI.getSentryConfig();
   } catch (error) {
-    console.warn('[Sentry] Failed to get DSN from main process:', error);
+    console.warn('[Sentry] Failed to get config from main process:', error);
   }
 
-  const hasDsn = dsn.length > 0;
+  const hasDsn = config.dsn.length > 0;
   if (!hasDsn) {
     console.log('[Sentry] No DSN configured - error reporting disabled in renderer');
     return;
   }
 
   Sentry.init({
-    dsn,
+    dsn: config.dsn,
 
     beforeSend(event: Sentry.ErrorEvent) {
       // Don't send events until settings are loaded
@@ -109,15 +109,16 @@ export async function initSentryRenderer(): Promise<void> {
       return processEvent(event as SentryErrorEvent) as Sentry.ErrorEvent;
     },
 
-    // Performance (lightweight)
-    tracesSampleRate: 0.1,
+    // Sample rates from main process (configured via environment variables)
+    tracesSampleRate: config.tracesSampleRate,
+    profilesSampleRate: config.profilesSampleRate,
 
     // Enable in Electron environment when we have a DSN
     enabled: true,
   });
 
   sentryInitialized = true;
-  console.log('[Sentry] Renderer initialized (awaiting settings load)');
+  console.log(`[Sentry] Renderer initialized (traces: ${config.tracesSampleRate}, profiles: ${config.profilesSampleRate})`);
 }
 
 /**
