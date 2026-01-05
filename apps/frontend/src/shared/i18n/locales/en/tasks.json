@@ -35,7 +35,8 @@
   },
   "tooltips": {
     "archiveTask": "Archive task",
-    "archiveAllDone": "Archive all done tasks"
+    "archiveAllDone": "Archive all done tasks",
+    "refreshDone": "Refresh Tasks"
   },
   "creation": {
     "title": "Create New Task",

@@ -35,7 +35,8 @@
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
-    "archiveAllDone": "Archiver toutes les tâches terminées"
+    "archiveAllDone": "Archiver toutes les tâches terminées",
+    "refreshDone": "Actualiser les tâches"
   },
   "creation": {
     "title": "Créer une nouvelle tâche",
