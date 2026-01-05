@@ -32,6 +32,7 @@ try:
     from ...core.client import create_client
     from ...phase_config import get_thinking_budget
     from ..context_gatherer import PRContext, _validate_git_ref
+    from ..gh_client import GHClient
     from ..models import (
         GitHubRunnerConfig,
         MergeVerdict,
@@ -45,6 +46,7 @@ try:
 except (ImportError, ValueError, SystemError):
     from context_gatherer import PRContext, _validate_git_ref
     from core.client import create_client
+    from gh_client import GHClient
     from models import (
         GitHubRunnerConfig,
         MergeVerdict,
@@ -584,7 +586,7 @@ The SDK will run invoked agents in parallel automatically.
             category=category,
             severity=severity,
             suggested_fix=finding_data.suggested_fix or "",
-            confidence=self._normalize_confidence(finding_data.confidence),
+            evidence=finding_data.evidence,
         )
 
     async def review(self, context: PRContext) -> PRReviewResult:
@@ -799,6 +801,27 @@ The SDK will run invoked agents in parallel automatically.
                 latest_commit = context.commits[-1]
                 head_sha = latest_commit.get("oid") or latest_commit.get("sha")
 
+            # Get file blob SHAs for rebase-resistant follow-up reviews
+            # Blob SHAs persist across rebases - same content = same blob SHA
+            file_blobs: dict[str, str] = {}
+            try:
+                gh_client = GHClient(
+                    project_dir=self.project_dir,
+                    default_timeout=30.0,
+                    repo=self.config.repo,
+                )
+                pr_files = await gh_client.get_pr_files(context.pr_number)
+                for file in pr_files:
+                    filename = file.get("filename", "")
+                    blob_sha = file.get("sha", "")
+                    if filename and blob_sha:
+                        file_blobs[filename] = blob_sha
+                logger.info(
+                    f"Captured {len(file_blobs)} file blob SHAs for follow-up tracking"
+                )
+            except Exception as e:
+                logger.warning(f"Could not capture file blobs: {e}")
+
             result = PRReviewResult(
                 pr_number=context.pr_number,
                 repo=self.config.repo,
@@ -810,6 +833,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
                 reviewed_commit_sha=head_sha,
+                reviewed_file_blobs=file_blobs,
             )
 
             self._report_progress(
@@ -945,7 +969,7 @@ The SDK will run invoked agents in parallel automatically.
             category=category,
             severity=severity,
             suggested_fix=f_data.get("suggested_fix", ""),
-            confidence=self._normalize_confidence(f_data.get("confidence", 85)),
+            evidence=f_data.get("evidence"),
         )
 
     def _parse_text_output(self, output: str) -> list[PRReviewFinding]:

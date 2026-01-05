@@ -6,7 +6,10 @@ import type {
   RateLimitInfo,
   ClaudeProfile,
   ClaudeProfileSettings,
-  ClaudeUsageSnapshot
+  ClaudeUsageSnapshot,
+  CreateTerminalWorktreeRequest,
+  TerminalWorktreeConfig,
+  TerminalWorktreeResult,
 } from '../../shared/types';
 
 /** Type for proactive swap notification events */
@@ -47,6 +50,11 @@ export interface TerminalAPI {
     rows?: number
   ) => Promise<IPCResult<import('../../shared/types').SessionDateRestoreResult>>;
   checkTerminalPtyAlive: (terminalId: string) => Promise<IPCResult<{ alive: boolean }>>;
+
+  // Terminal Worktree Operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
+  listTerminalWorktrees: (projectPath: string) => Promise<IPCResult<TerminalWorktreeConfig[]>>;
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch?: boolean) => Promise<IPCResult>;
 
   // Terminal Event Listeners
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void;
@@ -136,6 +144,16 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   checkTerminalPtyAlive: (terminalId: string): Promise<IPCResult<{ alive: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CHECK_PTY_ALIVE, terminalId),
+
+  // Terminal Worktree Operations (isolated development)
+  createTerminalWorktree: (request: CreateTerminalWorktreeRequest): Promise<TerminalWorktreeResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_CREATE, request),
+
+  listTerminalWorktrees: (projectPath: string): Promise<IPCResult<TerminalWorktreeConfig[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_LIST, projectPath),
+
+  removeTerminalWorktree: (projectPath: string, name: string, deleteBranch: boolean = false): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_WORKTREE_REMOVE, projectPath, name, deleteBranch),
 
   // Terminal Event Listeners
   onTerminalOutput: (

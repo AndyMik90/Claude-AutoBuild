@@ -434,6 +434,10 @@
   "debug": {
     "title": "Debug & Logs",
     "description": "Accédez aux logs et informations de débogage pour le dépannage",
+    "errorReporting": {
+      "label": "Rapports d'erreurs anonymes",
+      "description": "Envoyer des rapports de crash pour améliorer Auto Claude. Aucune donnée personnelle ni code n'est collecté."
+    },
     "openLogsFolder": "Ouvrir le dossier des logs",
     "copyDebugInfo": "Copier les infos de débogage",
     "copied": "Copié !",

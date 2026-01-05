@@ -67,8 +67,30 @@
     "auth": "Auth",
     "claudeCode": "CLI",
     "devtools": "Outils dev",
+    "privacy": "Confidentialité",
     "memory": "Mémoire",
     "done": "Terminé"
+  },
+  "privacy": {
+    "title": "Aidez à améliorer Auto Claude",
+    "subtitle": "Les rapports d'erreurs anonymes nous aident à corriger les bugs plus rapidement",
+    "whatWeCollect": {
+      "title": "Ce que nous collectons",
+      "crashReports": "Rapports de crash et traces d'erreurs",
+      "errorMessages": "Messages d'erreur (avec chemins de fichiers anonymisés)",
+      "appVersion": "Version de l'app et informations système"
+    },
+    "whatWeNeverCollect": {
+      "title": "Ce que nous ne collectons jamais",
+      "code": "Votre code ou fichiers de projet",
+      "filenames": "Chemins de fichiers complets (noms d'utilisateur masqués)",
+      "apiKeys": "Clés API ou jetons",
+      "personalData": "Informations personnelles ou données d'utilisation"
+    },
+    "toggle": {
+      "label": "Envoyer des rapports d'erreurs anonymes",
+      "description": "Aidez-nous à identifier et corriger les problèmes"
+    }
   },
   "claudeCode": {
     "title": "Claude Code CLI",

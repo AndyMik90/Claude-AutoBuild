@@ -25,7 +25,7 @@ class IdeationConfigManager:
         include_roadmap_context: bool = True,
         include_kanban_context: bool = True,
         max_ideas_per_type: int = 5,
-        model: str = "opus",
+        model: str = "sonnet",  # Changed from "opus" (fix #433)
         thinking_level: str = "medium",
         refresh: bool = False,
         append: bool = False,

@@ -63,10 +63,9 @@ import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../s
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
-import { ViewStateProvider, useViewState } from './contexts/ViewStateContext';
+import { ViewStateProvider } from './contexts/ViewStateContext';
 
-// Wrapper component that connects ProjectTabBar to ViewStateContext
-// (needed because App renders the Provider and can't use useViewState directly)
+// Wrapper component for ProjectTabBar
 interface ProjectTabBarWithContextProps {
   projects: Project[];
   activeProjectId: string | null;
@@ -74,7 +73,6 @@ interface ProjectTabBarWithContextProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   onSettingsClick: () => void;
-  tasks: Task[];
 }
 
 function ProjectTabBarWithContext({
@@ -83,12 +81,8 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick,
-  tasks
+  onSettingsClick
 }: ProjectTabBarWithContextProps) {
-  const { showArchived, toggleShowArchived } = useViewState();
-  const archivedCount = tasks.filter(t => t.metadata?.archivedAt).length;
-
   return (
     <ProjectTabBar
       projects={projects}
@@ -97,9 +91,6 @@ function ProjectTabBarWithContext({
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
       onSettingsClick={onSettingsClick}
-      showArchived={showArchived}
-      archivedCount={archivedCount}
-      onToggleArchived={toggleShowArchived}
     />
   );
 }
@@ -721,7 +712,6 @@ export function App() {
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
                   onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                  tasks={tasks}
                 />
               </SortableContext>
 

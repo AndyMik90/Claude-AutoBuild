@@ -435,6 +435,25 @@ class GitHubOrchestrator:
             # Get HEAD SHA for follow-up review tracking
             head_sha = self.bot_detector.get_last_commit_sha(pr_context.commits)
 
+            # Get file blob SHAs for rebase-resistant follow-up reviews
+            # Blob SHAs persist across rebases - same content = same blob SHA
+            file_blobs: dict[str, str] = {}
+            try:
+                pr_files = await self.gh_client.get_pr_files(pr_number)
+                for file in pr_files:
+                    filename = file.get("filename", "")
+                    blob_sha = file.get("sha", "")
+                    if filename and blob_sha:
+                        file_blobs[filename] = blob_sha
+                print(
+                    f"[Review] Captured {len(file_blobs)} file blob SHAs for follow-up tracking",
+                    flush=True,
+                )
+            except Exception as e:
+                print(
+                    f"[Review] Warning: Could not capture file blobs: {e}", flush=True
+                )
+
             # Create result
             result = PRReviewResult(
                 pr_number=pr_number,
@@ -452,6 +471,8 @@ class GitHubOrchestrator:
                 quick_scan_summary=quick_scan,
                 # Track the commit SHA for follow-up reviews
                 reviewed_commit_sha=head_sha,
+                # Track file blobs for rebase-resistant follow-up reviews
+                reviewed_file_blobs=file_blobs,
             )
 
             # Post review if configured

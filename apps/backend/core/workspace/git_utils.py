@@ -222,10 +222,16 @@ def get_existing_build_worktree(project_dir: Path, spec_name: str) -> Path | Non
     Returns:
         Path to the worktree if it exists for this spec, None otherwise
     """
-    # Per-spec worktree path: .worktrees/{spec-name}/
-    worktree_path = project_dir / ".worktrees" / spec_name
-    if worktree_path.exists():
-        return worktree_path
+    # New path first
+    new_path = project_dir / ".auto-claude" / "worktrees" / "tasks" / spec_name
+    if new_path.exists():
+        return new_path
+
+    # Legacy fallback
+    legacy_path = project_dir / ".worktrees" / spec_name
+    if legacy_path.exists():
+        return legacy_path
+
     return None
 
 

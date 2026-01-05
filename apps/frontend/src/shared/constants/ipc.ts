@@ -74,6 +74,11 @@ export const IPC_CHANNELS = {
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
 
+  // Terminal worktree operations (isolated development in worktrees)
+  TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',
+  TERMINAL_WORKTREE_REMOVE: 'terminal:worktreeRemove',
+  TERMINAL_WORKTREE_LIST: 'terminal:worktreeList',
+
   // Terminal events (main -> renderer)
   TERMINAL_OUTPUT: 'terminal:output',
   TERMINAL_EXIT: 'terminal:exit',
@@ -489,5 +494,10 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
-  MCP_TEST_CONNECTION: 'mcp:testConnection'      // Full MCP protocol test
+  MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Sentry error reporting
+  SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
+  GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
+  GET_SENTRY_CONFIG: 'sentry:get-config'         // Get full Sentry config (DSN + sample rates)
 } as const;
