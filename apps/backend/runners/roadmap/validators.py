@@ -62,16 +62,33 @@ class DependencyValidator:
 
     def _detect_circular_deps(self, features: List[RoadmapFeature]) -> List[List[str]]:
         """Detect circular dependencies using DFS."""
-        # Build adjacency list
         graph = {f.id: f.dependencies for f in features}
         circular_paths = []
+        seen_cycles = set()  # Track normalized cycles
+
+        def normalize_cycle(cycle: List[str]) -> str:
+            """Rotate cycle to start from smallest ID for deduplication."""
+            if not cycle:
+                return ""
+            # Find rotation that starts with minimal element (exclude last duplicate)
+            cycle_without_dup = cycle[:-1]  # Remove last element (duplicate of first)
+            if not cycle_without_dup:
+                return ""
+            min_idx = cycle_without_dup.index(min(cycle_without_dup))
+            # Rotate to start from minimal element
+            rotated = cycle_without_dup[min_idx:] + cycle_without_dup[:min_idx]
+            return ",".join(rotated)
 
         def dfs(node: str, path: List[str], visited: Set[str]) -> bool:
             if node in path:
                 # Found a cycle
                 cycle_start = path.index(node)
                 cycle = path[cycle_start:] + [node]
-                circular_paths.append(cycle)
+                # Normalize and check if we've seen this cycle
+                normalized = normalize_cycle(cycle)
+                if normalized not in seen_cycles:
+                    seen_cycles.add(normalized)
+                    circular_paths.append(cycle)
                 return True
 
             if node in visited:
