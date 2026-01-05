@@ -234,6 +234,7 @@
     "followup": "Suivi",
     "initial": "Initial",
     "rerunFollowup": "Relancer la revue de suivi",
+    "rerunReview": "Relancer la revue",
     "loadingMore": "Chargement des PRs...",
     "scrollForMore": "Défiler pour plus",
     "allPRsLoaded": "Tous les PRs chargés",

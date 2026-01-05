@@ -234,6 +234,7 @@
     "followup": "Follow-up",
     "initial": "Initial",
     "rerunFollowup": "Re-run follow-up review",
+    "rerunReview": "Re-run review",
     "loadingMore": "Loading more PRs...",
     "scrollForMore": "Scroll for more",
     "allPRsLoaded": "All PRs loaded",
