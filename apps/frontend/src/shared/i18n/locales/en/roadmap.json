@@ -1,0 +1,19 @@
+{
+  "dependencyDetailPanel": {
+    "title": "Dependency Details",
+    "description": "Description",
+    "details": "Details",
+    "priority": "Priority",
+    "complexity": "Complexity",
+    "impact": "Impact",
+    "status": "Status",
+    "dependencies": "Dependencies",
+    "dependenciesCount": "Dependencies ({{count}})",
+    "requiredBy": "Required By",
+    "requiredByCount": "Required By ({{count}})",
+    "goToTask": "Go to Task",
+    "convertToSpec": "Convert to Spec",
+    "viewInRoadmap": "View in Roadmap",
+    "closePanel": "Close panel"
+  }
+}

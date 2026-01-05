@@ -1,0 +1,19 @@
+{
+  "dependencyDetailPanel": {
+    "title": "Détails de la dépendance",
+    "description": "Description",
+    "details": "Détails",
+    "priority": "Priorité",
+    "complexity": "Complexité",
+    "impact": "Impact",
+    "status": "Statut",
+    "dependencies": "Dépendances",
+    "dependenciesCount": "Dépendances ({{count}})",
+    "requiredBy": "Requis par",
+    "requiredByCount": "Requis par ({{count}})",
+    "goToTask": "Aller à la tâche",
+    "convertToSpec": "Convertir en spécification",
+    "viewInRoadmap": "Voir dans la feuille de route",
+    "closePanel": "Fermer le panneau"
+  }
+}
