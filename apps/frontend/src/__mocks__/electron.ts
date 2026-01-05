@@ -126,6 +126,13 @@ export const nativeTheme = {
   on: vi.fn()
 };
 
+// Mock screen
+export const screen = {
+  getPrimaryDisplay: vi.fn(() => ({
+    workAreaSize: { width: 1920, height: 1080 }
+  }))
+};
+
 export default {
   app,
   ipcMain,
@@ -134,5 +141,6 @@ export default {
   dialog,
   contextBridge,
   shell,
-  nativeTheme
+  nativeTheme,
+  screen
 };

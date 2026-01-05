@@ -9,6 +9,7 @@ import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeShellArgWindows } from '../../shared/utils/shell-escape';
+import { getClaudeCliInvocation } from '../claude-cli-utils';
 
 
 /**
@@ -345,20 +346,30 @@ export function registerTerminalHandlers(
         // Build the login command with the profile's config dir
         // Use platform-specific syntax and escaping for environment variables
         let loginCommand: string;
+        const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
+        const pathPrefix = claudeEnv.PATH
+          ? (process.platform === 'win32'
+              ? `set "PATH=${escapeShellArgWindows(claudeEnv.PATH)}" && `
+              : `export PATH=${escapeShellArg(claudeEnv.PATH)} && `)
+          : '';
+        const shellClaudeCmd = process.platform === 'win32'
+          ? `"${escapeShellArgWindows(claudeCmd)}"`
+          : escapeShellArg(claudeCmd);
+
         if (!profile.isDefault && profile.configDir) {
           if (process.platform === 'win32') {
             // SECURITY: Use Windows-specific escaping for cmd.exe
             const escapedConfigDir = escapeShellArgWindows(profile.configDir);
             // Windows cmd.exe syntax: set "VAR=value" with %VAR% for expansion
-            loginCommand = `set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && claude setup-token`;
+            loginCommand = `${pathPrefix}set "CLAUDE_CONFIG_DIR=${escapedConfigDir}" && echo Config dir: %CLAUDE_CONFIG_DIR% && ${shellClaudeCmd} setup-token`;
           } else {
             // SECURITY: Use POSIX escaping for bash/zsh
             const escapedConfigDir = escapeShellArg(profile.configDir);
             // Unix/Mac bash/zsh syntax: export VAR=value with $VAR for expansion
-            loginCommand = `export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && claude setup-token`;
+            loginCommand = `${pathPrefix}export CLAUDE_CONFIG_DIR=${escapedConfigDir} && echo "Config dir: $CLAUDE_CONFIG_DIR" && ${shellClaudeCmd} setup-token`;
           }
         } else {
-          loginCommand = 'claude setup-token';
+          loginCommand = `${pathPrefix}${shellClaudeCmd} setup-token`;
         }
 
         debugLog('[IPC] Sending login command to terminal:', loginCommand);

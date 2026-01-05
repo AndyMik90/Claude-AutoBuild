@@ -294,9 +294,10 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
             size="sm"
             className="w-full text-xs text-muted-foreground gap-1"
             onClick={() => window.electronAPI?.openExternal?.('https://claude.ai/code')}
+            aria-label={t('navigation:claudeCode.learnMoreAriaLabel', 'Learn more about Claude Code (opens in new window)')}
           >
             {t('navigation:claudeCode.learnMore', 'Learn more about Claude Code')}
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink className="h-3 w-3" aria-hidden="true" />
           </Button>
         </div>
       </PopoverContent>

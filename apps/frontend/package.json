@@ -214,7 +214,7 @@
       ]
     },
     "linux": {
-      "icon": "resources/icon.png",
+      "icon": "resources/icons",
       "target": [
         "AppImage",
         "deb",
