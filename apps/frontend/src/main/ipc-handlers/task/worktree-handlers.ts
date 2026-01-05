@@ -2694,7 +2694,7 @@ export function registerWorktreeHandlers(
             debug('STDERR:', chunk);
           });
 
-          createPRProcess.on('close', (code: number | null) => {
+          createPRProcess.on('close', async (code: number | null) => {
             if (resolved) return;
             resolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -2706,11 +2706,28 @@ export function registerWorktreeHandlers(
             if (code === 0) {
               // Try to parse JSON output from Python script
               try {
-                // Find JSON in stdout (may have other output before/after)
-                const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+                // Find the last complete JSON object in stdout (non-greedy, handles multiple objects)
+                // Use a pattern that finds balanced braces for the last JSON object
+                const jsonMatches = stdout.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+                const jsonMatch = jsonMatches && jsonMatches.length > 0 ? jsonMatches[jsonMatches.length - 1] : null;
                 if (jsonMatch) {
-                  const result = JSON.parse(jsonMatch[0]);
-                  debug('Parsed result:', result);
+                  const parsed = JSON.parse(jsonMatch);
+                  debug('Parsed result:', parsed);
+
+                  // Validate parsed JSON has expected shape
+                  if (typeof parsed !== 'object' || parsed === null) {
+                    throw new Error('Parsed JSON is not an object');
+                  }
+
+                  // Extract and validate fields with proper type checking
+                  const result = {
+                    success: typeof parsed.success === 'boolean' ? parsed.success : true,
+                    pr_url: typeof parsed.pr_url === 'string' ? parsed.pr_url : undefined,
+                    prUrl: typeof parsed.prUrl === 'string' ? parsed.prUrl : undefined,
+                    already_exists: typeof parsed.already_exists === 'boolean' ? parsed.already_exists : undefined,
+                    alreadyExists: typeof parsed.alreadyExists === 'boolean' ? parsed.alreadyExists : undefined,
+                    error: typeof parsed.error === 'string' ? parsed.error : undefined
+                  };
 
                   const prUrl = result.pr_url || result.prUrl;
                   const alreadyExists = result.already_exists || result.alreadyExists;
@@ -2720,12 +2737,13 @@ export function registerWorktreeHandlers(
                     const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
                     const metadataPath = path.join(specDir, 'task_metadata.json');
 
-                    // Persist status and metadata to MAIN project (don't await - fire and forget)
-                    persistPlanStatus(planPath, 'pr_created').then((persisted) => {
+                    // Await status persistence to ensure completion before resolving
+                    try {
+                      const persisted = await persistPlanStatus(planPath, 'pr_created');
                       debug('Main project status persisted to pr_created:', persisted);
-                    }).catch((err) => {
+                    } catch (err) {
                       debug('Failed to persist main project status:', err);
-                    });
+                    }
 
                     // Update metadata with prUrl in main project
                     const metadataUpdated = updateTaskMetadataPrUrl(metadataPath, prUrl);
@@ -2738,11 +2756,12 @@ export function registerWorktreeHandlers(
                       const worktreePlanPath = path.join(worktreePath, specsBaseDir, task.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
                       const worktreeMetadataPath = path.join(worktreePath, specsBaseDir, task.specId, 'task_metadata.json');
 
-                      persistPlanStatus(worktreePlanPath, 'pr_created').then((persisted) => {
+                      try {
+                        const persisted = await persistPlanStatus(worktreePlanPath, 'pr_created');
                         debug('Worktree status persisted to pr_created:', persisted);
-                      }).catch((err) => {
+                      } catch (err) {
                         debug('Failed to persist worktree status:', err);
-                      });
+                      }
 
                       const worktreeMetadataUpdated = updateTaskMetadataPrUrl(worktreeMetadataPath, prUrl);
                       debug('Worktree metadata updated with prUrl:', worktreeMetadataUpdated);
@@ -2754,7 +2773,7 @@ export function registerWorktreeHandlers(
                   resolve({
                     success: true,
                     data: {
-                      success: result.success ?? true,
+                      success: result.success,
                       prUrl,
                       error: result.error,
                       alreadyExists
