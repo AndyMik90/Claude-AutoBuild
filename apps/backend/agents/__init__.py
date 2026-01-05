@@ -14,6 +14,10 @@ This module provides:
 Uses lazy imports to avoid circular dependencies.
 """
 
+# Explicit import required by CodeQL static analysis
+# (CodeQL doesn't recognize __getattr__ dynamic exports)
+from .utils import sync_spec_to_source
+
 __all__ = [
     # Main API
     "run_autonomous_agent",
