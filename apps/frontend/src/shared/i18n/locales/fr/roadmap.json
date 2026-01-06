@@ -20,7 +20,9 @@
   },
   "featureDetailPanel": {
     "dependencies": "Dépendances",
-    "requiredBy": "Requis par ({{count}})"
+    "requiredBy": "Requis par ({{count}})",
+    "goToTask": "Aller à la tâche",
+    "convertToAutoBuildTask": "Convertir en tâche de construction automatique"
   },
   "featureCard": {
     "deps": "{{count}} dép.",
