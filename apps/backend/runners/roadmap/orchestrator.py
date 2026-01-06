@@ -216,7 +216,7 @@ class RoadmapOrchestrator:
             debug_warning(
                 "roadmap_orchestrator", "Roadmap file not found for enrichment"
             )
-            return
+            return None
 
         try:
             with open(roadmap_file) as f:
@@ -225,7 +225,7 @@ class RoadmapOrchestrator:
             features_data = roadmap_data.get("features", [])
             if not features_data:
                 debug_warning("roadmap_orchestrator", "No features found in roadmap")
-                return
+                return None
 
             # Convert dict features to RoadmapFeature objects
             features = []
