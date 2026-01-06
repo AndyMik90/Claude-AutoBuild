@@ -22,6 +22,7 @@ import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
 import { getRunnerEnv } from './utils/runner-env';
+import { loadProjectEnvVars, getGraphitiDatabaseDetails } from '../context/utils';
 import {
   runPythonSubprocess,
   getPythonPath,
@@ -181,18 +182,20 @@ export interface PRReviewMemory {
 
 /**
  * Save PR review insights to the Electron memory layer (LadybugDB)
- * 
+ *
  * Called after a PR review completes to persist learnings for cross-session context.
  * Extracts key findings, patterns, and gotchas from the review result.
- * 
+ *
  * @param result The completed PR review result
  * @param repo Repository name (owner/repo)
  * @param isFollowup Whether this is a follow-up review
+ * @param database Database name to save to (defaults to auto_claude_memory)
  */
 async function savePRReviewToMemory(
   result: PRReviewResult,
   repo: string,
-  isFollowup: boolean = false
+  isFollowup: boolean = false,
+  database: string = 'auto_claude_memory'
 ): Promise<void> {
   const settings = readSettingsFile();
   if (!settings?.memoryEnabled) {
@@ -203,8 +206,9 @@ async function savePRReviewToMemory(
   try {
     const memoryService = getMemoryService({
       dbPath: getDefaultDbPath(),
-      database: 'auto_claude_memory',
+      database,
     });
+    debugLog('Saving PR review to memory', { prNumber: result.prNumber, database });
 
     // Build the memory content with comprehensive insights
     // We want to capture ALL meaningful findings so the AI can learn from patterns
@@ -906,8 +910,12 @@ async function runPRReview(
     // Finalize logs with success
     logCollector.finalize(true);
 
+    // Get project's configured database for memory storage
+    const projectEnvVars = loadProjectEnvVars(project.path, project.autoBuildPath);
+    const { database } = getGraphitiDatabaseDetails(projectEnvVars);
+
     // Save PR review insights to memory (async, non-blocking)
-    savePRReviewToMemory(result.data!, repo, false).catch(err => {
+    savePRReviewToMemory(result.data!, repo, false, database).catch(err => {
       debugLog('Failed to save PR review to memory', { error: err.message });
     });
 
@@ -1952,8 +1960,12 @@ export function registerPRHandlers(
             // Finalize logs with success
             logCollector.finalize(true);
 
+            // Get project's configured database for memory storage
+            const followupEnvVars = loadProjectEnvVars(project.path, project.autoBuildPath);
+            const { database: followupDatabase } = getGraphitiDatabaseDetails(followupEnvVars);
+
             // Save follow-up PR review insights to memory (async, non-blocking)
-            savePRReviewToMemory(result.data!, repo, true).catch(err => {
+            savePRReviewToMemory(result.data!, repo, true, followupDatabase).catch(err => {
               debugLog('Failed to save follow-up PR review to memory', { error: err.message });
             });
 
