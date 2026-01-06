@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
@@ -18,6 +18,7 @@ import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo } from '../cli-tool-manager';
+import { killProcessTree } from '../utils/process-utils';
 
 
 function deriveGitBashPath(gitExePath: string): string | null {
@@ -71,31 +72,6 @@ function deriveGitBashPath(gitExePath: string): string | null {
   } catch (error) {
     console.error('[AgentProcess] Error deriving git-bash path:', error);
     return null;
-  }
-}
-
-/**
- * Kill a process and all its children (process tree).
- * On Windows, uses taskkill /T to kill the entire process tree.
- * On Unix, uses standard signal-based killing.
- */
-function killProcessTree(pid: number, signal: 'SIGTERM' | 'SIGKILL' = 'SIGTERM'): void {
-  if (process.platform === 'win32') {
-    // taskkill /T kills the process tree, /F forces termination
-    try {
-      spawnSync('taskkill', ['/PID', pid.toString(), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
-    } catch {
-      // Process may already be dead
-    }
-  } else {
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // Process may already be dead
-    }
   }
 }
 
@@ -644,7 +620,13 @@ export class AgentProcessManager {
         // Mark this specific spawn as killed so its exit handler knows to ignore
         this.state.markSpawnAsKilled(agentProcess.spawnId);
 
-        const pid = agentProcess.process.pid;
+        // Capture process reference before deleting from state
+        const child = agentProcess.process;
+        const pid = child.pid;
+
+        // Delete from state early so we don't reference stale agentProcess
+        this.state.deleteProcess(taskId);
+
         if (pid) {
           if (process.platform === 'win32') {
             // On Windows, kill entire process tree immediately
@@ -654,16 +636,20 @@ export class AgentProcessManager {
             // On Unix, try graceful shutdown first
             killProcessTree(pid, 'SIGTERM');
 
-            // Force kill after timeout
-            setTimeout(() => {
-              if (!agentProcess.process.killed) {
+            // Schedule force kill after timeout, but cancel if process exits gracefully
+            const forceKillTimer = setTimeout(() => {
+              if (!child.killed) {
                 killProcessTree(pid, 'SIGKILL');
               }
             }, 5000);
+
+            // Clear the timer if process exits gracefully before timeout
+            child.once('exit', () => {
+              clearTimeout(forceKillTimer);
+            });
           }
         }
 
-        this.state.deleteProcess(taskId);
         return true;
       } catch {
         return false;
