@@ -18,9 +18,9 @@ import {
 	ROADMAP_PRIORITY_LABELS,
 } from "../../shared/constants";
 import type { Roadmap, RoadmapFeature } from "../../shared/types";
-import { getFeatureById } from "./roadmap/utils";
 import { cn } from "../lib/utils";
 import { useRoadmapStore } from "../stores/roadmap-store";
+import { getFeatureById } from "./roadmap/utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -263,12 +263,18 @@ export function SortableFeatureCard({
 											}}
 										>
 											<Package className="h-2.5 w-2.5" />
-											<span>{feature.dependencies.length} deps</span>
+											<span>
+												{t("roadmap:featureCard.deps", {
+													count: feature.dependencies.length,
+												})}
+											</span>
 										</button>
 									</TooltipTrigger>
 									<TooltipContent>
 										<div className="space-y-1">
-											<p className="text-xs font-medium">Dependencies:</p>
+											<p className="text-xs font-medium">
+												{t("roadmap:featureCard.dependencies")}:
+											</p>
 											{feature.dependencies.slice(0, 3).map((depId) => {
 												const dep = getFeatureById(roadmap, depId);
 												return (
@@ -291,7 +297,9 @@ export function SortableFeatureCard({
 											})}
 											{feature.dependencies.length > 3 && (
 												<p className="text-xs text-muted-foreground">
-													+{feature.dependencies.length - 3} more
+													{t("roadmap:featureCard.more", {
+														count: feature.dependencies.length - 3,
+													})}
 												</p>
 											)}
 										</div>
@@ -325,12 +333,18 @@ export function SortableFeatureCard({
 													}}
 												>
 													<Link className="h-2.5 w-2.5" />
-													<span>{reverseDeps.length} required by</span>
+													<span>
+														{t("roadmap:featureCard.requiredBy", {
+															count: reverseDeps.length,
+														})}
+													</span>
 												</button>
 											</TooltipTrigger>
 											<TooltipContent>
 												<div className="space-y-1">
-													<p className="text-xs font-medium">Required by:</p>
+													<p className="text-xs font-medium">
+														{t("roadmap:featureCard.requiredByLabel")}
+													</p>
 													{reverseDeps.slice(0, 3).map((depId) => {
 														const dep = getFeatureById(roadmap, depId);
 														return (
@@ -353,7 +367,9 @@ export function SortableFeatureCard({
 													})}
 													{reverseDeps.length > 3 && (
 														<p className="text-xs text-muted-foreground">
-															+{reverseDeps.length - 3} more
+															{t("roadmap:featureCard.more", {
+																count: reverseDeps.length - 3,
+															})}
 														</p>
 													)}
 												</div>

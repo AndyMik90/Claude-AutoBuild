@@ -16,6 +16,17 @@
     "viewInRoadmap": "View in Roadmap",
     "closePanel": "Close panel"
   },
+  "featureCard": {
+    "deps": "{{count}} deps",
+    "deps_one": "{{count}} dep",
+    "deps_other": "{{count}} deps",
+    "dependencies": "Dependencies",
+    "more": "+{{count}} more",
+    "requiredBy": "{{count}} required by",
+    "requiredBy_one": "1 required by",
+    "requiredBy_other": "{{count}} required by",
+    "requiredByLabel": "Required by:"
+  },
   "validation": {
     "circularDependency": "Circular dependency"
   }

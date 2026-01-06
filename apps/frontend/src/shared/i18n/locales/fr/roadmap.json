@@ -16,6 +16,17 @@
     "viewInRoadmap": "Voir dans la feuille de route",
     "closePanel": "Fermer le panneau"
   },
+  "featureCard": {
+    "deps": "{{count}} dép.",
+    "deps_one": "{{count}} dép.",
+    "deps_other": "{{count}} dép.",
+    "dependencies": "Dépendances",
+    "more": "+{{count}} plus",
+    "requiredBy": "{{count}} requis par",
+    "requiredBy_one": "1 requis par",
+    "requiredBy_other": "{{count}} requis par",
+    "requiredByLabel": "Requis par :"
+  },
   "validation": {
     "circularDependency": "Dépendance circulaire"
   }
