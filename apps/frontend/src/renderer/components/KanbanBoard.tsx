@@ -219,6 +219,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               size="icon"
               className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={onAddClick}
+              aria-label={t('kanban.addTaskAriaLabel')}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -229,7 +230,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               size="icon"
               className="h-7 w-7 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
               onClick={onArchiveAll}
-              title={t('tooltips.archiveAllDone')}
+              aria-label={t('tooltips.archiveAllDone')}
             >
               <Archive className="h-4 w-4" />
             </Button>

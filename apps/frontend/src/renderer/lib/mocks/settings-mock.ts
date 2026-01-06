@@ -36,10 +36,12 @@ export const settingsMock = {
   // App Update Operations (mock - no updates in browser mode)
   checkAppUpdate: async () => ({ success: true, data: null }),
   downloadAppUpdate: async () => ({ success: true }),
+  downloadStableUpdate: async () => ({ success: true }),
   installAppUpdate: () => { console.warn('[browser-mock] installAppUpdate called'); },
 
   // App Update Event Listeners (no-op in browser mode)
   onAppUpdateAvailable: () => () => {},
   onAppUpdateDownloaded: () => () => {},
-  onAppUpdateProgress: () => () => {}
+  onAppUpdateProgress: () => () => {},
+  onAppUpdateStableDowngrade: () => () => {}
 };
