@@ -576,7 +576,7 @@ export function registerCreateGitLabProject(): void {
     async (
       _event,
       projectName: string,
-      options: { description?: string; visibility?: string; projectPath: string; namespace?: string; instanceUrl?: string }
+      options: { description?: string; visibility?: string; projectPath: string; namespaceId?: number; hostname?: string }
     ): Promise<IPCResult<{ pathWithNamespace: string; webUrl: string }>> => {
       debugLog('createGitLabProject handler called', { projectName, options });
 
@@ -587,7 +587,7 @@ export function registerCreateGitLabProject(): void {
         };
       }
 
-      const hostname = options.instanceUrl ? getHostnameFromUrl(options.instanceUrl) : 'gitlab.com';
+      const hostname = options.hostname ? getHostnameFromUrl(options.hostname) : 'gitlab.com';
 
       try {
         const args = ['repo', 'create', projectName, '--source', options.projectPath];
@@ -602,8 +602,8 @@ export function registerCreateGitLabProject(): void {
           args.push('--description', options.description);
         }
 
-        if (options.namespace) {
-          args.push('--group', options.namespace);
+        if (options.namespaceId) {
+          args.push('--group', String(options.namespaceId));
         }
 
         if (hostname !== 'gitlab.com') {
@@ -622,8 +622,8 @@ export function registerCreateGitLabProject(): void {
 
         // Parse output to get project info
         const urlMatch = output.match(/https?:\/\/[^\s]+/);
-        const webUrl = urlMatch ? urlMatch[0] : `https://${hostname}/${options.namespace || ''}/${projectName}`;
-        const pathWithNamespace = options.namespace ? `${options.namespace}/${projectName}` : projectName;
+        const webUrl = urlMatch ? urlMatch[0] : `https://${hostname}/${projectName}`;
+        const pathWithNamespace = projectName;
 
         return {
           success: true,

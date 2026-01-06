@@ -16,6 +16,14 @@ import { cn } from '../lib/utils';
 import { addProject } from '../stores/project-store';
 import type { Project } from '../../shared/types';
 
+type GitLabVisibility = 'private' | 'internal' | 'public';
+
+interface GitLabRemoteOptions {
+  enabled: boolean;
+  instanceUrl: string;
+  visibility: GitLabVisibility;
+}
+
 type ModalStep = 'choose' | 'create-form';
 
 interface AddProjectModalProps {
@@ -32,6 +40,12 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
   const [initGit, setInitGit] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gitlabOptions, setGitlabOptions] = useState<GitLabRemoteOptions>({
+    enabled: false,
+    instanceUrl: '',
+    visibility: 'private'
+  });
+  const [isCreatingGitLabRemote, setIsCreatingGitLabRemote] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -41,6 +55,11 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       setProjectLocation('');
       setInitGit(true);
       setError(null);
+      setGitlabOptions({
+        enabled: false,
+        instanceUrl: '',
+        visibility: 'private'
+      });
     }
   }, [open]);
 
@@ -107,6 +126,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
     }
 
     setIsCreating(true);
+    setIsCreatingGitLabRemote(true);
     setError(null);
 
     try {
@@ -139,6 +159,44 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
             // Non-fatal - main branch can be set later in settings
           }
         }
+
+        // Create GitLab remote if enabled and git was initialized
+        if (initGit && gitlabOptions.enabled) {
+          try {
+            const sanitizedProjectName = projectName.trim()
+              .toLowerCase()
+              .replace(/\s+/g, '-')
+              .replace(/[^a-z0-9-_]/g, '')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '');
+
+            const createResult = await window.electronAPI.createGitLabProject(
+              sanitizedProjectName,
+              {
+                description: `Created with Auto Claude`,
+                visibility: gitlabOptions.visibility,
+                projectPath: result.data.path,
+                hostname: gitlabOptions.instanceUrl || undefined
+              }
+            );
+
+            if (createResult.success && createResult.data) {
+              // Add remote to local git repository
+              await window.electronAPI.addGitLabRemote(
+                result.data.path,
+                createResult.data.pathWithNamespace,
+                gitlabOptions.instanceUrl || undefined
+              );
+            } else {
+              // GitLab creation failed, but project was created - show warning
+              console.warn('Failed to create GitLab remote:', createResult.error);
+            }
+          } catch (err) {
+            // GitLab remote creation failed, but project was created - show warning
+            console.warn('Failed to create GitLab remote:', err);
+          }
+        }
+
         onProjectAdded?.(project, true); // New projects always need init
         onOpenChange(false);
       }
@@ -146,6 +204,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       setError(err instanceof Error ? err.message : t('addProject.failedToCreate'));
     } finally {
       setIsCreating(false);
+      setIsCreatingGitLabRemote(false);
     }
   };
 
@@ -273,6 +332,60 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
           </Label>
         </div>
 
+        {/* GitLab Remote Options (only when git init is enabled) */}
+        {initGit && (
+          <div className="space-y-3 pl-6 border-l-2 border-border">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="init-gitlab-remote"
+                checked={gitlabOptions.enabled}
+                onChange={(e) => setGitlabOptions({ ...gitlabOptions, enabled: e.target.checked })}
+                className="h-4 w-4 rounded border-border bg-background"
+              />
+              <Label htmlFor="init-gitlab-remote" className="text-sm font-normal cursor-pointer">
+                {t('addProject.initGitLabRemote')}
+              </Label>
+            </div>
+
+            {gitlabOptions.enabled && (
+              <>
+                {/* GitLab Instance URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="gitlab-instance-url">{t('addProject.gitLabInstanceUrl')}</Label>
+                  <Input
+                    id="gitlab-instance-url"
+                    placeholder={t('addProject.gitLabInstanceUrlPlaceholder')}
+                    value={gitlabOptions.instanceUrl}
+                    onChange={(e) => setGitlabOptions({ ...gitlabOptions, instanceUrl: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('addProject.gitLabInstanceUrlHelp')}
+                  </p>
+                </div>
+
+                {/* Visibility */}
+                <div className="space-y-2">
+                  <Label htmlFor="gitlab-visibility">{t('addProject.gitLabVisibility')}</Label>
+                  <select
+                    id="gitlab-visibility"
+                    value={gitlabOptions.visibility}
+                    onChange={(e) => setGitlabOptions({ ...gitlabOptions, visibility: e.target.value as GitLabVisibility })}
+                    className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="private">{t('addProject.gitLabVisibilityPrivate')}</option>
+                    <option value="internal">{t('addProject.gitLabVisibilityInternal')}</option>
+                    <option value="public">{t('addProject.gitLabVisibilityPublic')}</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('addProject.gitLabVisibilityHelp')}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3" role="alert">
             {error}
@@ -281,11 +394,12 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={() => setStep('choose')} disabled={isCreating}>
+        <Button variant="outline" onClick={() => setStep('choose')} disabled={isCreating || isCreatingGitLabRemote}>
           {t('addProject.back')}
         </Button>
-        <Button onClick={handleCreateProject} disabled={isCreating}>
-          {isCreating ? t('addProject.creating') : t('addProject.createProject')}
+        <Button onClick={handleCreateProject} disabled={isCreating || isCreatingGitLabRemote}>
+          {isCreatingGitLabRemote ? t('addProject.creatingGitLabRemote') :
+           isCreating ? t('addProject.creating') : t('addProject.createProject')}
         </Button>
       </DialogFooter>
     </>
