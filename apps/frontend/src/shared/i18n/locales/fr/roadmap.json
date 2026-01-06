@@ -25,6 +25,7 @@
     "impact": "Impact",
     "dependencies": "Dépendances",
     "userStories": "Récits utilisateurs",
+    "acceptanceCriteria": "Critères d'acceptation",
     "requiredBy": "Requis par ({{count}})",
     "goToTask": "Aller à la tâche",
     "convertToAutoBuildTask": "Convertir en tâche de construction automatique"

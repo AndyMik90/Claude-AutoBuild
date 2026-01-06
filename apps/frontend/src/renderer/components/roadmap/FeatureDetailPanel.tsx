@@ -181,7 +181,7 @@ export function FeatureDetailPanel({
 						<div>
 							<h3 className="text-sm font-medium mb-2 flex items-center gap-2">
 								<CheckCircle2 className="h-4 w-4" />
-								Acceptance Criteria
+								{t('roadmap:featureDetailPanel.acceptanceCriteria')}
 							</h3>
 							<ul className="space-y-1">
 								{feature.acceptanceCriteria.map((criterion) => (
