@@ -20,6 +20,9 @@ class CreatePRResult(TypedDict, total=False):
     already_exists: bool
     error: str
     message: str
+    pushed: bool
+    remote: str
+    branch: str
 
 
 # Ensure parent directory is in path for imports (before other imports)
@@ -920,6 +923,9 @@ def handle_create_pr_command(
         "already_exists": raw_result.get("already_exists", False),
         "error": raw_result.get("error"),
         "message": raw_result.get("message"),
+        "pushed": raw_result.get("pushed", False),
+        "remote": raw_result.get("remote", ""),
+        "branch": raw_result.get("branch", ""),
     }
 
     if result.get("success"):
