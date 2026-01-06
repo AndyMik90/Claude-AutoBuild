@@ -25,7 +25,7 @@ import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { app } from 'electron';
-import { findExecutable } from './env-utils';
+import { findExecutable, getAugmentedEnv } from './env-utils';
 import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 import {
@@ -841,6 +841,7 @@ class CLIToolManager {
         timeout: 5000,
         windowsHide: true,
         shell: needsShell,
+        env: getAugmentedEnv(),
       }).trim();
 
       // Claude CLI version output format: "claude-code version X.Y.Z" or similar
